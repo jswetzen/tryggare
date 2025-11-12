@@ -2,5 +2,6 @@ The Conference Child Management System has a detailed specification in the file 
 
 To understand library usage and get up-to-date examples, you can use context7.
 
-Commit changes to git as you go along, so that each major step has a working git commit.
+Commit changes to git as you go along, so that each major step has a working git commit. Always ensure passing tests before a commit, and keep your code tested as you go along to ensure correctness.
+
 You can update IMPLEMENTATION_PLAN.md to check off items that are done. Also keep CURRENT_TASKS.md up-to-date as you complete items.
