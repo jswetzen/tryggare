@@ -95,6 +95,54 @@ Reset database and re-seed:
 docker-compose exec app pnpm prisma migrate reset
 ```
 
+## Database Migration Strategy
+
+### Development Workflow
+
+1. **Create migrations** when you change the Prisma schema:
+   ```bash
+   # In Docker
+   docker-compose exec app pnpm prisma migrate dev --name descriptive_name
+
+   # Or locally
+   pnpm prisma migrate dev --name descriptive_name
+   ```
+
+2. **Commit migration files** to version control:
+   - Migration files are in `prisma/migrations/`
+   - Always commit these files alongside schema changes
+
+3. **Automatic application**: Migrations run automatically when the Docker container starts via the entrypoint script
+
+### Production Deployment
+
+**Migrations are automatically applied** when the application starts:
+
+1. The Docker entrypoint script runs `prisma migrate deploy`
+2. This applies any pending migrations from `prisma/migrations/`
+3. Only after successful migration, the application starts
+
+**Important**: Never run `prisma migrate dev` in production. Only `prisma migrate deploy` is used, which:
+- Applies pending migrations
+- Does not create new migrations
+- Does not prompt for input
+- Fails safely if there are issues
+
+### Migration Files
+
+- **Location**: `prisma/migrations/`
+- **Version control**: Always commit migration files
+- **Created by**: `prisma migrate dev` (development only)
+- **Applied by**: Automatic on container startup (`prisma migrate deploy`)
+
+### Rollback Strategy
+
+If you need to rollback a migration:
+
+1. **Development**: Use `prisma migrate reset` (⚠️ destroys all data)
+2. **Production**: Create a new migration that reverses the changes
+3. **Emergency**: Restore from database backup
+
 ## Local Development (Without Docker)
 
 If you prefer to develop without Docker:
