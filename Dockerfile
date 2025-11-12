@@ -14,10 +14,13 @@ FROM base AS dependencies
 COPY package.json pnpm-lock.yaml ./
 COPY prisma ./prisma
 
+# Add Alpine Linux binary target to Prisma schema for compatibility
+RUN sed -i '/provider.*=.*"prisma-client-js"/a\    binaryTargets = ["native", "linux-musl-openssl-3.0.x"]' prisma/schema.prisma
+
 # Install dependencies
 RUN pnpm install --frozen-lockfile
 
-# Generate Prisma client
+# Generate Prisma client with Alpine Linux support
 RUN pnpm prisma generate
 
 # Development stage
