@@ -23,6 +23,7 @@
     "@trpc/client": "^11.0.0",
     "@trpc/react-query": "^11.0.0",
     "@trpc/server": "^11.0.0",
+    "bcryptjs": "^3.0.3",
     "date-fns": "^4.1.0",
     "next": "^15.2.3",
     "next-intl": "^4.5.1",
@@ -35,6 +36,7 @@
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4.0.15",
+    "@types/bcryptjs": "^3.0.0",
     "@types/node": "^20.14.10",
     "@types/qrcode": "^1.5.6",
     "@types/react": "^19.0.0",
@@ -42,10 +44,14 @@
     "postcss": "^8.5.3",
     "prisma": "^6.6.0",
     "tailwindcss": "^4.0.15",
+    "tsx": "^4.20.6",
     "typescript": "^5.8.2"
   },
   "ct3aMetadata": {
     "initVersion": "7.40.0"
   },
-  "packageManager": "pnpm@10.21.0"
+  "packageManager": "pnpm@10.21.0",
+  "prisma": {
+    "seed": "tsx prisma/seed.ts"
+  }
 }
