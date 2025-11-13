@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getToken } from "next-auth/jwt";
 
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
@@ -15,21 +14,20 @@ export async function middleware(req: NextRequest) {
     return NextResponse.next();
   }
 
-  // Check if user is authenticated by checking JWT token
-  const token = await getToken({
-    req,
-    secret: process.env.NEXTAUTH_SECRET
-  });
+  // Check if session cookie exists (simple check without decoding)
+  // NextAuth v5 uses this cookie name by default
+  const sessionToken = req.cookies.get("next-auth.session-token") ||
+                       req.cookies.get("__Secure-next-auth.session-token");
 
   // If not authenticated and trying to access protected route, redirect to login
-  if (!token && !isPublicRoute) {
+  if (!sessionToken && !isPublicRoute) {
     const loginUrl = new URL("/login", req.url);
     loginUrl.searchParams.set("callbackUrl", pathname);
     return NextResponse.redirect(loginUrl);
   }
 
   // If authenticated and trying to access login page, redirect to home
-  if (token && pathname === "/login") {
+  if (sessionToken && pathname === "/login") {
     return NextResponse.redirect(new URL("/", req.url));
   }
 
