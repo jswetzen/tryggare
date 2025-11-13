@@ -72,25 +72,38 @@ describe("Validation Helper Functions", () => {
   });
 
   afterEach(async () => {
-    // Clean up
+    // Clean up - order matters due to foreign key constraints
+    // Delete check-in records first (references child, session, admin)
     await db.checkInRecord.deleteMany({
       where: { childId: testChildId },
     });
+
+    // Delete tickets (references child and session)
     await db.ticket.deleteMany({
       where: { childId: testChildId },
     });
+
+    // Delete children (references family)
     await db.child.deleteMany({
       where: { familyId: testFamilyId },
     });
+
+    // Delete family
     await db.family.deleteMany({
       where: { id: testFamilyId },
     });
+
+    // Delete sessions (references event)
     await db.session.deleteMany({
       where: { eventId: testEventId },
     });
+
+    // Delete event
     await db.event.deleteMany({
       where: { id: testEventId },
     });
+
+    // Delete admin user last
     await db.adminUser.deleteMany({
       where: { id: testAdminId },
     });

@@ -10,6 +10,7 @@ export default defineConfig({
     setupFiles: ["./src/test/setup.ts"],
     include: ["**/*.{test,spec}.{ts,tsx}"],
     exclude: ["node_modules", ".next", "dist"],
+    fileParallelism: false, // Run tests sequentially to avoid database conflicts
     coverage: {
       provider: "v8",
       reporter: ["text", "json", "html"],

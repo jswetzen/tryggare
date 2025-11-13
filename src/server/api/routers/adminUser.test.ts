@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, beforeAll, beforeEach, afterEach } from "vitest";
 import { db } from "~/server/db";
 import { appRouter } from "~/server/api/root";
 import { createTRPCContext } from "~/server/api/trpc";
@@ -7,6 +7,27 @@ import type { Session } from "next-auth";
 describe("Admin User Router", () => {
   let testAdminId: string;
   let testSession: Session;
+
+  beforeAll(async () => {
+    // Clean up any leftover test data from previous runs
+    await db.checkInRecord.deleteMany({
+      where: {
+        checkInStaff: {
+          username: {
+            startsWith: "test-",
+          },
+        },
+      },
+    });
+
+    await db.adminUser.deleteMany({
+      where: {
+        username: {
+          startsWith: "test-",
+        },
+      },
+    });
+  });
 
   beforeEach(async () => {
     // Create a test admin user for authentication
@@ -34,7 +55,17 @@ describe("Admin User Router", () => {
   });
 
   afterEach(async () => {
-    // Clean up test data
+    // Clean up test data - need to delete check-in records first due to foreign key constraints
+    await db.checkInRecord.deleteMany({
+      where: {
+        checkInStaff: {
+          username: {
+            startsWith: "test-",
+          },
+        },
+      },
+    });
+
     await db.adminUser.deleteMany({
       where: {
         username: {

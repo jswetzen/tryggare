@@ -1,0 +1,119 @@
+{
+  "common": {
+    "appName": "Gestión de Niños en Conferencias",
+    "loading": "Cargando...",
+    "error": "Error",
+    "success": "Éxito",
+    "cancel": "Cancelar",
+    "save": "Guardar",
+    "delete": "Eliminar",
+    "edit": "Editar",
+    "close": "Cerrar",
+    "confirm": "Confirmar",
+    "back": "Atrás",
+    "next": "Siguiente",
+    "search": "Buscar",
+    "noResults": "No se encontraron resultados",
+    "required": "Este campo es obligatorio"
+  },
+  "nav": {
+    "dashboard": "Tablero",
+    "checkIn": "Registro de Entrada",
+    "checkOut": "Registro de Salida",
+    "admin": "Administración",
+    "logout": "Cerrar Sesión"
+  },
+  "auth": {
+    "login": "Iniciar Sesión",
+    "username": "Nombre de Usuario",
+    "password": "Contraseña",
+    "loginTitle": "Gestión de Niños en Conferencias",
+    "loginDescription": "Ingrese sus credenciales para acceder al sistema",
+    "loginButton": "Iniciar Sesión",
+    "loggingIn": "Iniciando sesión...",
+    "invalidCredentials": "Nombre de usuario o contraseña inválidos",
+    "loginError": "Ocurrió un error. Por favor intente nuevamente.",
+    "versionFooter": "Sistema de Gestión de Niños en Conferencias v1.0"
+  },
+  "dashboard": {
+    "title": "Tablero",
+    "welcome": "Bienvenido de nuevo, {name}",
+    "checkInCard": {
+      "title": "Estación de Entrada",
+      "description": "Registrar entrada de niños a sesiones",
+      "button": "Iniciar Registro de Entrada"
+    },
+    "checkOutCard": {
+      "title": "Estación de Salida",
+      "description": "Registrar salida de niños de sesiones",
+      "button": "Iniciar Registro de Salida"
+    },
+    "adminCard": {
+      "title": "Gestión Administrativa",
+      "description": "Administrar familias, sesiones y usuarios",
+      "button": "Panel de Administración"
+    },
+    "stats": {
+      "title": "Estadísticas Rápidas",
+      "description": "Vista general del sistema (Fase 2: mostrará datos reales)",
+      "checkedIn": "Niños Registrados",
+      "activeSessions": "Sesiones Activas",
+      "totalFamilies": "Total de Familias"
+    }
+  },
+  "checkIn": {
+    "title": "Estación de Registro de Entrada",
+    "searchPlaceholder": "Buscar por apellido, nombre o teléfono...",
+    "selectSession": "Seleccionar Sesión",
+    "selectChildren": "Seleccionar Niños",
+    "checkInButton": "Registrar Entrada de Seleccionados",
+    "noActiveSession": "No hay sesiones activas disponibles",
+    "childAlreadyCheckedIn": "{name} ya está registrado en {session}",
+    "successMessage": "Se registraron exitosamente {count} {count, plural, =1 {niño} other {niños}}"
+  },
+  "checkOut": {
+    "title": "Estación de Registro de Salida",
+    "pickedUpBy": "Recogido Por",
+    "pickedUpByPlaceholder": "Ingrese el nombre de quien recoge (opcional)",
+    "checkOutButton": "Registrar Salida de Seleccionados",
+    "undoButton": "Deshacer Registro de Salida",
+    "noChildrenCheckedIn": "No hay niños registrados actualmente",
+    "successMessage": "Se registraron exitosamente la salida de {count} {count, plural, =1 {niño} other {niños}}"
+  },
+  "family": {
+    "addFamily": "Agregar Nueva Familia",
+    "editFamily": "Editar Familia",
+    "familyDetails": "Detalles de la Familia",
+    "parents": "Padres",
+    "children": "Niños",
+    "addParent": "Agregar Padre/Madre",
+    "addChild": "Agregar Niño",
+    "parentName": "Nombre del Padre/Madre",
+    "phone": "Teléfono",
+    "email": "Correo Electrónico",
+    "relationship": "Relación",
+    "childFirstName": "Nombre",
+    "childLastName": "Apellido",
+    "birthdate": "Fecha de Nacimiento",
+    "age": "Edad",
+    "allergies": "Alergias",
+    "medicalNotes": "Notas Médicas",
+    "noAllergies": "Sin alergias conocidas"
+  },
+  "session": {
+    "active": "Activa",
+    "inactive": "Inactiva",
+    "requiresTicket": "Requiere Boleto",
+    "openSession": "Sesión Abierta",
+    "startSession": "Iniciar Sesión",
+    "endSession": "Finalizar Sesión",
+    "sessionDetails": "Detalles de la Sesión"
+  },
+  "errors": {
+    "somethingWentWrong": "Algo salió mal",
+    "pleaseTryAgain": "Por favor intente nuevamente",
+    "notFound": "No encontrado",
+    "unauthorized": "Debe iniciar sesión para acceder a este recurso",
+    "forbidden": "No tiene permiso para acceder a este recurso"
+  }
+}
