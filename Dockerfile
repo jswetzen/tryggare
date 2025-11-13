@@ -15,7 +15,9 @@ COPY package.json pnpm-lock.yaml ./
 COPY prisma ./prisma
 
 # Install dependencies
+RUN pnpm install @prisma/client
 RUN pnpm install --frozen-lockfile
+
 
 # Generate Prisma client with Alpine Linux support
 RUN pnpm prisma generate
