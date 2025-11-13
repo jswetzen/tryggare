@@ -1,5 +1,4 @@
 import NextAuth, { type DefaultSession } from "next-auth";
-import { PrismaAdapter } from "@auth/prisma-adapter";
 import Credentials from "next-auth/providers/credentials";
 import { compare } from "bcryptjs";
 import { db } from "~/server/db";
@@ -22,16 +21,7 @@ declare module "next-auth" {
   }
 }
 
-declare module "@auth/core/jwt" {
-  interface JWT {
-    id: string;
-    username: string;
-    name: string;
-  }
-}
-
 export const { handlers, signIn, signOut, auth } = NextAuth({
-  adapter: PrismaAdapter(db),
   session: {
     strategy: "jwt",
     maxAge: 8 * 60 * 60, // 8 hours in seconds
@@ -101,9 +91,9 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     async session({ session, token }) {
       // Add user data from token to session
       if (token && session.user) {
-        session.user.id = token.id;
-        session.user.username = token.username;
-        session.user.name = token.name;
+        session.user.id = token.id as string;
+        session.user.username = token.username as string;
+        session.user.name = token.name as string;
       }
       return session;
     },

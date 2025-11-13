@@ -6,6 +6,7 @@ import { LogOut, Menu } from "lucide-react";
 import { signOut, useSession } from "next-auth/react";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "~/components/theme-toggle";
+import { LocaleSwitcher } from "~/components/locale-switcher";
 import { cn } from "~/lib/utils";
 
 const navigation = [
@@ -55,6 +56,7 @@ export function Header() {
               {session.user.name}
             </span>
           )}
+          <LocaleSwitcher />
           <ThemeToggle />
           <Button
             variant="ghost"

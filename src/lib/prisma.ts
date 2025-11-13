@@ -97,10 +97,12 @@ function createPrismaClient() {
                   action,
                   entityType: model,
                   entityId,
-                  details: {
-                    args,
-                    timestamp: new Date().toISOString(),
-                  },
+                  details: JSON.parse(
+                    JSON.stringify({
+                      args,
+                      timestamp: new Date().toISOString(),
+                    })
+                  ),
                 },
               });
             } catch (error) {
@@ -124,10 +126,12 @@ function createPrismaClient() {
                   action,
                   entityType: model,
                   entityId,
-                  details: {
-                    args,
-                    timestamp: new Date().toISOString(),
-                  },
+                  details: JSON.parse(
+                    JSON.stringify({
+                      args,
+                      timestamp: new Date().toISOString(),
+                    })
+                  ),
                 },
               });
             } catch (error) {
@@ -150,10 +154,12 @@ function createPrismaClient() {
                   action,
                   entityType: model,
                   entityId: "multiple",
-                  details: {
-                    args,
-                    timestamp: new Date().toISOString(),
-                  },
+                  details: JSON.parse(
+                    JSON.stringify({
+                      args,
+                      timestamp: new Date().toISOString(),
+                    })
+                  ),
                 },
               });
             } catch (error) {
@@ -177,10 +183,12 @@ function createPrismaClient() {
                   action,
                   entityType: model,
                   entityId,
-                  details: {
-                    args,
-                    timestamp: new Date().toISOString(),
-                  },
+                  details: JSON.parse(
+                    JSON.stringify({
+                      args,
+                      timestamp: new Date().toISOString(),
+                    })
+                  ),
                 },
               });
             } catch (error) {
@@ -203,10 +211,12 @@ function createPrismaClient() {
                   action,
                   entityType: model,
                   entityId: "multiple",
-                  details: {
-                    args,
-                    timestamp: new Date().toISOString(),
-                  },
+                  details: JSON.parse(
+                    JSON.stringify({
+                      args,
+                      timestamp: new Date().toISOString(),
+                    })
+                  ),
                 },
               });
             } catch (error) {

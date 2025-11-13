@@ -1,0 +1,119 @@
+{
+  "common": {
+    "appName": "Conference Child Management",
+    "loading": "Loading...",
+    "error": "Error",
+    "success": "Success",
+    "cancel": "Cancel",
+    "save": "Save",
+    "delete": "Delete",
+    "edit": "Edit",
+    "close": "Close",
+    "confirm": "Confirm",
+    "back": "Back",
+    "next": "Next",
+    "search": "Search",
+    "noResults": "No results found",
+    "required": "This field is required"
+  },
+  "nav": {
+    "dashboard": "Dashboard",
+    "checkIn": "Check-In",
+    "checkOut": "Check-Out",
+    "admin": "Admin",
+    "logout": "Logout"
+  },
+  "auth": {
+    "login": "Sign In",
+    "username": "Username",
+    "password": "Password",
+    "loginTitle": "Conference Child Management",
+    "loginDescription": "Enter your credentials to access the system",
+    "loginButton": "Sign In",
+    "loggingIn": "Signing in...",
+    "invalidCredentials": "Invalid username or password",
+    "loginError": "An error occurred. Please try again.",
+    "versionFooter": "Conference Child Management System v1.0"
+  },
+  "dashboard": {
+    "title": "Dashboard",
+    "welcome": "Welcome back, {name}",
+    "checkInCard": {
+      "title": "Check-In Station",
+      "description": "Check children into sessions",
+      "button": "Start Check-In"
+    },
+    "checkOutCard": {
+      "title": "Check-Out Station",
+      "description": "Check children out of sessions",
+      "button": "Start Check-Out"
+    },
+    "adminCard": {
+      "title": "Admin Management",
+      "description": "Manage families, sessions, and users",
+      "button": "Admin Panel"
+    },
+    "stats": {
+      "title": "Quick Stats",
+      "description": "System overview (Phase 2: will display real data)",
+      "checkedIn": "Children Checked In",
+      "activeSessions": "Active Sessions",
+      "totalFamilies": "Total Families"
+    }
+  },
+  "checkIn": {
+    "title": "Check-In Station",
+    "searchPlaceholder": "Search by last name, first name, or phone...",
+    "selectSession": "Select Session",
+    "selectChildren": "Select Children",
+    "checkInButton": "Check In Selected",
+    "noActiveSession": "No active sessions available",
+    "childAlreadyCheckedIn": "{name} is already checked into {session}",
+    "successMessage": "Successfully checked in {count} {count, plural, =1 {child} other {children}}"
+  },
+  "checkOut": {
+    "title": "Check-Out Station",
+    "pickedUpBy": "Picked Up By",
+    "pickedUpByPlaceholder": "Enter name of person picking up (optional)",
+    "checkOutButton": "Check Out Selected",
+    "undoButton": "Undo Check-Out",
+    "noChildrenCheckedIn": "No children currently checked in",
+    "successMessage": "Successfully checked out {count} {count, plural, =1 {child} other {children}}"
+  },
+  "family": {
+    "addFamily": "Add New Family",
+    "editFamily": "Edit Family",
+    "familyDetails": "Family Details",
+    "parents": "Parents",
+    "children": "Children",
+    "addParent": "Add Parent",
+    "addChild": "Add Child",
+    "parentName": "Parent Name",
+    "phone": "Phone",
+    "email": "Email",
+    "relationship": "Relationship",
+    "childFirstName": "First Name",
+    "childLastName": "Last Name",
+    "birthdate": "Birthdate",
+    "age": "Age",
+    "allergies": "Allergies",
+    "medicalNotes": "Medical Notes",
+    "noAllergies": "No known allergies"
+  },
+  "session": {
+    "active": "Active",
+    "inactive": "Inactive",
+    "requiresTicket": "Requires Ticket",
+    "openSession": "Open Session",
+    "startSession": "Start Session",
+    "endSession": "End Session",
+    "sessionDetails": "Session Details"
+  },
+  "errors": {
+    "somethingWentWrong": "Something went wrong",
+    "pleaseT ryAgain": "Please try again",
+    "notFound": "Not found",
+    "unauthorized": "You must be logged in to access this resource",
+    "forbidden": "You don't have permission to access this resource"
+  }
+}
