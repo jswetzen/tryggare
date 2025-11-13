@@ -1,6 +1,15 @@
 import "@testing-library/jest-dom/vitest";
-import { beforeAll, afterEach, afterAll } from "vitest";
+import { beforeAll, afterEach, afterAll, vi } from "vitest";
 import { cleanup } from "@testing-library/react";
+
+// Mock next-auth to avoid server module import issues
+vi.mock("~/lib/auth", () => ({
+  auth: vi.fn().mockResolvedValue(null),
+  signIn: vi.fn(),
+  signOut: vi.fn(),
+  getCurrentUser: vi.fn().mockResolvedValue(null),
+  requireAuth: vi.fn().mockRejectedValue(new Error("Unauthorized")),
+}));
 
 // Cleanup after each test case (e.g. clearing jsdom)
 afterEach(() => {
