@@ -1,7 +1,7 @@
-import { auth } from "~/lib/auth";
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
+import { getToken } from "next-auth/jwt";
 
-export default auth((req) => {
+export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
   // Public routes that don't require authentication
@@ -15,20 +15,26 @@ export default auth((req) => {
     return NextResponse.next();
   }
 
+  // Check if user is authenticated by checking JWT token
+  const token = await getToken({
+    req,
+    secret: process.env.NEXTAUTH_SECRET
+  });
+
   // If not authenticated and trying to access protected route, redirect to login
-  if (!req.auth && !isPublicRoute) {
+  if (!token && !isPublicRoute) {
     const loginUrl = new URL("/login", req.url);
     loginUrl.searchParams.set("callbackUrl", pathname);
     return NextResponse.redirect(loginUrl);
   }
 
   // If authenticated and trying to access login page, redirect to home
-  if (req.auth && pathname === "/login") {
+  if (token && pathname === "/login") {
     return NextResponse.redirect(new URL("/", req.url));
   }
 
   return NextResponse.next();
-});
+}
 
 // Configure which routes the middleware should run on
 export const config = {
