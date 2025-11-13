@@ -1,6 +1,5 @@
 import NextAuth, { type DefaultSession } from "next-auth";
 import Credentials from "next-auth/providers/credentials";
-import { compare } from "bcryptjs";
 import { db } from "~/server/db";
 
 // Extend the built-in session types
@@ -53,6 +52,8 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           return null;
         }
 
+        // Import bcrypt only when needed (keeps it out of Edge middleware bundle)
+        const { compare } = await import("bcryptjs");
         const passwordMatch = await compare(
           credentials.password as string,
           user.passwordHash
