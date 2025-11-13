@@ -18,7 +18,7 @@ import { ThemeToggle } from "~/components/theme-toggle";
 export default function LoginPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const callbackUrl = searchParams.get("callbackUrl") ?? "/";
+  const callbackUrl = searchParams.get("callbackUrl") ?? "/dashboard";
 
   const [username, setUsername] = React.useState("");
   const [password, setPassword] = React.useState("");
