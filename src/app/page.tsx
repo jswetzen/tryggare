@@ -1,10 +1,26 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { cookies } from "next/headers";
 import { auth } from "~/lib/auth";
 
 export default async function Home() {
   // Check if user is authenticated
-  const session = await auth();
+  let session = null;
+
+  try {
+    session = await auth();
+  } catch (error) {
+    // If there's a JWT error (e.g., invalid secret, corrupted token),
+    // clear the session cookies to prevent redirect loops
+    console.error("Auth error on home page:", error);
+
+    const cookieStore = await cookies();
+    cookieStore.delete("next-auth.session-token");
+    cookieStore.delete("__Secure-next-auth.session-token");
+
+    // Continue to show landing page
+    session = null;
+  }
 
   // If authenticated, redirect to dashboard
   if (session) {
