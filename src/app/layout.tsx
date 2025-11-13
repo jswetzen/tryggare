@@ -7,7 +7,6 @@ import { getLocale, getMessages } from "next-intl/server";
 
 import { TRPCReactProvider } from "~/trpc/react";
 import { ThemeProvider } from "~/components/theme-provider";
-import { AuthProvider } from "~/components/providers";
 
 export const metadata: Metadata = {
   title: "Conference Child Management System",
@@ -29,18 +28,16 @@ export default async function RootLayout({
   return (
     <html lang={locale} className={`${geist.variable}`} suppressHydrationWarning>
       <body>
-        <AuthProvider>
-          <NextIntlClientProvider messages={messages}>
-            <ThemeProvider
-              attribute="class"
-              defaultTheme="system"
-              enableSystem
-              disableTransitionOnChange
-            >
-              <TRPCReactProvider>{children}</TRPCReactProvider>
-            </ThemeProvider>
-          </NextIntlClientProvider>
-        </AuthProvider>
+        <NextIntlClientProvider messages={messages}>
+          <ThemeProvider
+            attribute="class"
+            defaultTheme="system"
+            enableSystem
+            disableTransitionOnChange
+          >
+            <TRPCReactProvider>{children}</TRPCReactProvider>
+          </ThemeProvider>
+        </NextIntlClientProvider>
       </body>
     </html>
   );
