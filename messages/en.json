@@ -125,9 +125,56 @@
     "sessionDetails": "Session Details",
     "loading": "Loading..."
   },
+  "admin": {
+    "title": "Admin Management",
+    "sessions": {
+      "title": "Session Management",
+      "description": "Manage conference sessions and events",
+      "createSession": "Create Session",
+      "allSessions": "All Sessions",
+      "active": "Active",
+      "inactive": "Inactive",
+      "noSessions": "No sessions found",
+      "activate": "Activate",
+      "endSession": "End Session",
+      "deleteSession": "Delete",
+      "editSession": "Edit",
+      "currentAttendance": "Current Attendance",
+      "checkedIn": "{count} checked in",
+      "requiresTicket": "Requires Ticket"
+    },
+    "users": {
+      "title": "User Management",
+      "description": "Manage admin users and their access",
+      "createUser": "Create User",
+      "allUsers": "All Users",
+      "active": "Active",
+      "inactive": "Inactive",
+      "noUsers": "No users found",
+      "deactivate": "Deactivate",
+      "reactivate": "Reactivate",
+      "currentUser": "You",
+      "lastLogin": "Last login",
+      "cannotDeactivateSelf": "You cannot modify your own account status"
+    },
+    "families": {
+      "title": "Family Management",
+      "description": "Search, view, and manage family records",
+      "searchTitle": "Search Families",
+      "searchDescription": "Search by family name, parent name, phone number, or email",
+      "searchPlaceholder": "Search families...",
+      "noFamilies": "No families found matching your search",
+      "viewDetails": "View Details",
+      "delete": "Delete",
+      "parents": "{count} parent{count, plural, =1 {} other {s}}",
+      "children": "{count} child{count, plural, =1 {} other {ren}}",
+      "lastVisit": "Last visit",
+      "showingCount": "Showing {count} of {total} families"
+    }
+  },
   "errors": {
     "somethingWentWrong": "Something went wrong",
-    "pleaseT ryAgain": "Please try again",
+    "pleaseTryAgain": "Please try again",
     "notFound": "Not found",
     "unauthorized": "You must be logged in to access this resource",
     "forbidden": "You don't have permission to access this resource"
