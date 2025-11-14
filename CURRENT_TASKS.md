@@ -1,133 +1,24 @@
-# Phase 3 Implementation Checklist: UI Components & Workflows
-**Duration:** 6-8 days
-**Goal:** Build complete user interfaces for all workflows with proper error handling
+# Future Tasks & Enhancements
+
+This document contains deferred features from Phase 3 and planned work for Phase 4 and beyond.
 
 ---
 
-## Day 1: Layout & Navigation ✅ COMPLETED
+## Phase 3 Deferred Items
 
-### 1.1 Main Layout Component
-- [x] Create `src/components/layout/main-layout.tsx`
-  - [x] Header component with admin name from session
-  - [x] Logout button (calls NextAuth signOut)
-  - [x] Theme toggle (already exists, integrate)
-  - [x] Language selector (already exists, integrate)
-  - [x] Navigation menu with active state
-    - [x] Dashboard (/)
-    - [x] Check-In (/check-in)
-    - [x] Check-Out (/check-out)
-    - [x] Admin (/admin)
+These items were marked as optional or deferred during Phase 3 implementation. They can be added as enhancements when needed.
 
-### 1.2 Navigation Component
-- [x] Create `src/components/navigation/nav-menu.tsx`
-  - [x] Desktop navigation (horizontal menu)
-  - [x] Mobile navigation (hamburger menu)
-  - [x] Active route highlighting
-  - [x] Responsive design
-  - [x] Accessibility (keyboard navigation)
+### Check-In Station Enhancements
 
-### 1.3 Login Page Improvements
-- [x] Enhance `src/app/login/page.tsx`
-  - [x] Username/password form (already exists)
-  - [x] Add loading state during authentication
-  - [x] Better error messages (invalid credentials, deactivated user)
-  - [x] Remember me checkbox (optional - not implemented, not critical)
-  - [x] Redirect to `callbackUrl` on success
-
-### 1.4 Admin Dashboard Enhancement
-- [x] Enhance `src/app/(authenticated)/dashboard/page.tsx`
-  - [x] Current active sessions display
-    - [x] Use `session.getActive` tRPC endpoint
-    - [x] Show session name, time, event
-    - [x] Start/Stop session buttons
-  - [x] Quick stats cards
-    - [x] Total currently checked in (all sessions)
-    - [x] By session breakdown
-    - [x] Total families in system
-  - [x] Recent activity log (implemented via components)
-  - [x] Quick action buttons
-    - [x] "Start Check-In" → /check-in
-    - [x] "Start Check-Out" → /check-out
-    - [x] "Manage Sessions" → /admin/sessions
-
----
-
-## Day 2-3: Check-In Station UI ✅ COMPLETED
-
-### 2.1 Search Interface
-- [x] Create `src/app/(authenticated)/check-in/page.tsx`
-  - [x] Search bar component (`family-search.tsx`)
-    - [x] Real-time search using `family.search` tRPC endpoint
-    - [x] Search by last name, first name, phone
-    - [x] Debounced input (300ms)
-    - [x] Loading indicator
-    - [x] Case-insensitive
-  - [x] Search results list
-    - [x] Family cards with parent names
-    - [x] Number of children indicator
-    - [x] Last participation date
-    - [x] Click to select family
-  - [ ] "Not found? Add new family" button (optional - can be added later)
-
-### 2.2 Family View Component
-- [x] Create `src/components/check-in/family-view.tsx`
-  - [x] Display family information
-    - [x] Family name (from first parent)
-    - [x] All parent contacts (name, phone, email)
-    - [x] "Edit Family" button → /admin/families/[id]/edit
-  - [x] Children list with checkboxes
-    - [x] Child name and age (calculated from birthdate)
-    - [x] Allergies badge (highlighted if present)
-    - [x] Status badge:
-      - [x] "Available" (green) if not checked in
-      - [x] "Checked in to [Session]" (blue) with time
-    - [x] Checkbox (disabled if already checked in)
-  - [x] "Select All" checkbox (only available children)
-  - [x] Real-time status updates
-    - [x] Use `child.getCurrentCheckIn` to check status
-
-### 2.3 Session Selector Component
-- [x] Create `src/components/check-in/session-selector.tsx`
-  - [x] Fetch active sessions using `session.getActive`
-  - [x] Auto-select if only one active session
-  - [x] Display dropdown/radio buttons if multiple
-    - [x] Session name
-    - [x] Event name
-    - [x] Time range
-    - [x] Current count checked in
-  - [x] Warning if no active sessions
-    - [x] "No active sessions. Please start a session first."
-    - [x] Link to session management
-
-### 2.4 Check-In Form Flow
-- [x] Check-in logic implemented in `check-in/page.tsx`
-  - [x] Selected children display
-    - [x] Show selected count
-    - [x] List selected children (implicit via UI)
-  - [x] Session selection (if multiple active)
-  - [x] "Check In" button
-    - [x] Disabled if no children selected
-    - [x] Disabled if no session selected
-    - [x] Loading state during submission
-  - [x] Validation and error handling
-    - [x] Toast notification on error
-  - [x] Success state
-    - [x] Show success message
-    - [x] Display QR codes for printing
-    - [x] "Check In More" button
-
-### 2.5 QR Code Display Component
-- [x] Create `src/components/check-in/qr-labels.tsx`
-  - [x] Generate QR codes for checked-in children
-    - [x] Use QR code library (qrcode.react)
-    - [x] QR contains URL: `/qr/[token]`
-    - [x] Child name below QR code
-    - [x] Print-friendly styling
-  - [x] "Print All Labels" button
-    - [x] Opens print dialog
-
-### 2.6 Add Family Modal
-- [ ] Create `src/components/check-in/add-family-modal.tsx` (DEFERRED - can be added later if needed)
+#### Add Family Modal (from Day 2-3, Section 2.6)
+- [ ] Create `src/components/check-in/add-family-modal.tsx`
+  - [ ] Quick add form with minimal fields:
+    - [ ] Parent name (required)
+    - [ ] Phone number (required)
+    - [ ] Child first/last name (required)
+    - [ ] Child birthdate (required)
+    - [ ] Allergies (optional)
+  - [ ] Form validation
     - [ ] Required field indicators
     - [ ] Inline validation messages
     - [ ] Submit disabled until valid
@@ -135,379 +26,441 @@
     - [ ] Loading state
     - [ ] Error handling with toast
     - [ ] Success: close modal, auto-select new family
+- [ ] Add "Not found? Add new family" button to check-in search page
 
----
+### QR Code Page Enhancements (from Day 4, Sections 3.4-3.5)
 
-## Day 4: QR Code Info Page ✅ COMPLETED
+#### Check-Out from QR Page
+- [ ] Add check-out button to QR page
+  - [ ] Only show if child is currently checked in
+  - [ ] Confirm dialog before check-out
+  - [ ] Use `checkOut.perform` tRPC endpoint
+  - [ ] Show success/error toast
+  - [ ] Update page state after check-out
 
-### 3.1 Public QR Route Setup
-- [x] Create `src/app/qr/[token]/page.tsx`
-  - [x] Public route (no auth required for GET)
-  - [x] Fetch child by QR token using `child.getByQrTokenPublic`
-  - [x] 404 page if token invalid
-    - [x] Friendly message: "QR code not found or invalid"
+#### Additional QR Page Actions
+- [ ] Undo button (if recently checked out)
+  - [ ] Only show if within undo window
+  - [ ] Use `checkOut.undo` endpoint
+- [ ] Edit child info button (admin only)
+  - [ ] Link to family edit page
+- [ ] Reprint label button
+  - [ ] Regenerate and print QR code
 
-### 3.2-3.3 Child Info Display (Integrated in QR page)
-- [x] All child info display implemented directly in `qr/[token]/page.tsx`
-  - [x] Child information card
-    - [x] Child name (large, prominent)
-    - [x] Age (calculated from birthdate)
-  - [x] Allergies section
-    - [x] Highlighted warning style if allergies exist
-  - [x] Medical notes section
-    - [x] Display if present
-  - [x] Current status badge
-    - [x] "Checked in to [Session]" (blue) + time
-    - [x] "Not currently checked in" (gray)
-  - [x] Parent Contact Information
-    - [x] List all parents
-    - [x] Parent name and relationship type
-    - [x] Phone number (clickable tel: link)
-    - [x] Emergency contact styling
-    - [x] Responsive card layout
+### Check-Out Station Enhancements (from Day 5, Section 4.2)
 
-### 3.4-3.5 Action Buttons (DEFERRED)
-- [ ] Check-out from QR page functionality (can be added later as enhancement)
-- [ ] Undo button (can be added later)
-- [ ] Edit/Reprint buttons (can be added later)
+#### Bulk Check-Out Features
+- [ ] "Pick Up All" quick button in family view
+  - [ ] Selects all checked-in children for a family
+  - [ ] One-click check-out for entire family
+- [ ] Show parent contact display in check-out view
+  - [ ] Reuse component from check-in flow
+  - [ ] Display all parent phones/emails
 
----
+### Admin Panel Enhancements (from Day 6-7)
 
-## Day 5: Check-Out Station UI ✅ COMPLETED
+#### Session Management Modal (Section 5.2)
+- [ ] Create `src/components/admin/session-modal.tsx`
+  - [ ] Form fields:
+    - [ ] Session name (required)
+    - [ ] Event name (required)
+    - [ ] Start time (required, datetime picker)
+    - [ ] End time (required, datetime picker)
+    - [ ] Requires ticket (checkbox)
+  - [ ] Validation
+    - [ ] End time after start time
+    - [ ] Required fields
+  - [ ] Submit using `session.create` or `session.update`
+  - [ ] Success/error handling
+- [ ] Wire up "Create Session" button on sessions page
+- [ ] Wire up "Edit" button on session cards
 
-### 4.1 Search Interface (Reuse)
-- [x] Create `src/app/(authenticated)/check-out/page.tsx`
-  - [x] Reuse search component from check-in
-  - [x] Shows families (filtering handled by component)
+#### Admin User Management Modal (Section 5.4)
+- [ ] Create `src/components/admin/create-admin-modal.tsx`
+  - [ ] Form fields:
+    - [ ] Username (required, unique validation)
+    - [ ] Password (required, min length 8)
+    - [ ] Confirm password (must match)
+    - [ ] Name (required)
+  - [ ] Validation
+    - [ ] Username availability check
+    - [ ] Password strength indicator
+    - [ ] Password match validation
+  - [ ] Submit using `adminUser.create` endpoint
+  - [ ] Success/error handling with toast
+- [ ] Wire up "Create User" button on users page
 
-### 4.2 Family View for Check-Out
-- [x] Create `src/components/check-out/checked-in-children-view.tsx`
-  - [x] Show only checked-in children
-    - [x] Child name and age
-    - [x] Current session name
-    - [x] Check-in time
-    - [x] Checkbox for selection
-  - [ ] "Pick Up All" quick button
-    - [ ] Selects all checked-in children
-  - [ ] Parent contact display (same as check-in)
-
-### 4.3 Check-Out Form
-- [x] Check-out logic implemented in `check-out/page.tsx`
-  - [x] Selected children summary
-    - [x] Count and names
-  - [x] "Picked up by" text field (optional)
-  - [x] Submit button using `checkOut.perform`
-    - [x] Batch check-out for selected children
-    - [x] Loading state
-    - [x] Disabled if no children selected
-  - [x] Success confirmation
-    - [x] Show success message via toast
-
-### 4.4 Recent Check-Outs Display
-- [x] Create `src/components/check-out/recent-checkouts.tsx`
-  - [x] Use `checkOut.getRecent` tRPC endpoint
-  - [x] Display recent check-outs
-    - [x] Child name
-    - [x] Session name
-    - [x] Check-out time
-    - [x] Picked up by (if recorded)
-    - [x] Undo button (if canUndo is true)
-
----
-
-## Day 6-7: Admin Management UI ✅ COMPLETED
-
-### 5.1 Session Management Page
-- [x] Create `src/app/(authenticated)/admin/sessions/page.tsx`
-  - [x] Session list with filtering
-    - [x] Filter by active status (all/active/inactive tabs)
-    - [x] Use `session.list` tRPC endpoint
-  - [x] Session cards
-    - [x] Session name and event
-    - [x] Start/end time
-    - [x] Active status badge
-    - [x] Current check-in count
-    - [x] Action buttons:
-      - [x] Activate (if inactive) → `session.activate`
-      - [x] End Session (if active) → `session.deactivate`
-      - [x] Edit → UI ready (modal can be added)
-      - [x] Delete → `session.delete` with confirmation
-  - [x] "Create Session" button (UI ready, modal can be added)
-  - [x] Empty state handling
-
-### 5.2 Session Create/Edit Modal (DEFERRED - can be added as enhancement)
-- [ ] Create modal component for session creation/editing
-
-### 5.3 Admin User Management Page
-- [x] Create `src/app/(authenticated)/admin/users/page.tsx`
-  - [x] Admin user list
-    - [x] Use `adminUser.list` tRPC endpoint
-    - [x] Filter: active/inactive toggle
-  - [x] User cards
-    - [x] Username and name
-    - [x] Last login time
-    - [x] Active status badge
-    - [x] Action buttons:
-      - [x] Deactivate (if active) → `adminUser.deactivate`
-      - [x] Reactivate (if inactive) → `adminUser.reactivate`
-  - [x] "Create User" button (UI ready)
-  - [x] Current user indicator
-    - [x] Cannot deactivate yourself (enforced with clear message)
-  - [x] Grid layout for better UX
-
-### 5.4 Create Admin Modal (DEFERRED - can be added as enhancement)
-- [ ] Create modal component for admin user creation
-
-### 5.5 Family Search & Edit Page
-- [x] Create `src/app/(authenticated)/admin/families/page.tsx`
-  - [x] Advanced search
-    - [x] Search by name, phone
-    - [x] Debounced search (300ms)
-    - [x] Use `family.search` endpoint
-  - [x] Family list with details
-    - [x] Family name (from parents)
-    - [x] Number of children
-    - [x] Last participation date badge
-    - [x] Parent and child information display
-    - [x] Action buttons:
-      - [x] View Details → /admin/families/[id] link
-      - [x] Delete (with confirmation)
-  - [x] Pagination info
-  - [x] Empty states
-
-### 5.6 Family Detail/Edit Page (DEFERRED - can be added as enhancement)
+#### Family Detail & Edit Page (Section 5.6)
 - [ ] Create `src/app/(authenticated)/admin/families/[id]/page.tsx`
-  - [ ] Family overview
-    - [ ] Parents list (editable)
-    - [ ] Children list (editable)
-    - [ ] Last participation date
-  - [ ] Edit parent section
-    - [ ] Inline editing or modal
-    - [ ] Add/remove parents
+  - [ ] Family overview section
+    - [ ] Parents list with edit buttons
+    - [ ] Children list with edit buttons
+    - [ ] Last participation date display
+  - [ ] Edit parent functionality
+    - [ ] Inline editing or modal approach
+    - [ ] Add new parent button
+    - [ ] Remove parent button (with confirmation)
     - [ ] Use `parent.update`, `parent.create`, `parent.delete`
-  - [ ] Edit children section
-    - [ ] Inline editing or modal
-    - [ ] Add/remove children
-    - [ ] Regenerate QR code
-    - [ ] Use `child.update`
-  - [ ] Check-in history
+  - [ ] Edit children functionality
+    - [ ] Inline editing or modal approach
+    - [ ] Add new child button
+    - [ ] Remove child button (with confirmation)
+    - [ ] Regenerate QR code option
+    - [ ] Use `child.update` endpoint
+  - [ ] Check-in history section
     - [ ] Use `child.getCheckInHistory` for each child
-    - [ ] Display in table/timeline
-  - [ ] Danger zone
-    - [ ] Delete family button
-    - [ ] Confirmation dialog
-    - [ ] Use `family.delete`
+    - [ ] Display in table/timeline format
+    - [ ] Show session name, times, picked up by
+  - [ ] Danger zone section
+    - [ ] Delete family button (red, warning style)
+    - [ ] Confirmation dialog with family name verification
+    - [ ] Use `family.delete` endpoint
 
-### 5.7 GDPR Data Review Page
+#### GDPR Data Review Page (Section 5.7)
 - [ ] Create `src/app/(authenticated)/admin/gdpr/page.tsx`
-  - [ ] List families by last participation
-    - [ ] Use `family.getByLastParticipation`
-    - [ ] Date filter (e.g., "not active in 2+ years")
-    - [ ] Sort by oldest first
-  - [ ] Family table
-    - [ ] Family name
-    - [ ] Last participation date (or "Never")
-    - [ ] Number of children
-    - [ ] Checkbox for selection
-  - [ ] Bulk actions
-    - [ ] Select all checkbox
-    - [ ] Export selected as CSV
-    - [ ] Export selected as JSON
-    - [ ] Delete selected (with confirmation)
+  - [ ] Family listing by last participation
+    - [ ] Use `family.getByLastParticipation` endpoint
+    - [ ] Date filter dropdown (e.g., "2+ years", "1+ year", "6+ months")
+    - [ ] Sort by oldest participation first
+  - [ ] Family data table
+    - [ ] Columns: Family name, Last participation, Children count, Checkbox
+    - [ ] Pagination support
+    - [ ] Select all checkbox in header
+  - [ ] Bulk actions toolbar
+    - [ ] Export selected as CSV button
+    - [ ] Export selected as JSON button
+    - [ ] Delete selected button (with confirmation)
+    - [ ] Show count of selected families
   - [ ] Export functionality
-    - [ ] Generate CSV/JSON file
-    - [ ] Include all family data
-    - [ ] Download to user's machine
+    - [ ] Generate CSV file with all family data
+    - [ ] Generate JSON file with all family data
+    - [ ] Include parents, children, participation history
+    - [ ] Trigger browser download
+  - [ ] GDPR compliance notes
+    - [ ] Documentation about data retention policies
+    - [ ] Link to privacy policy
+    - [ ] Audit log of deletions (future enhancement)
 
 ---
 
-## Day 8: Error Handling & Polish ✅ IN PROGRESS
+## Phase 4: Testing, Optimization & Deployment
 
-### 6.1 Error UI Components ✅ COMPLETED
-- [x] Create `src/components/ui/toast.tsx` (or use existing)
-  - [x] Using Sonner library (already integrated)
-  - [x] Success toast (green)
-  - [x] Error toast (red)
-  - [x] Warning toast (yellow)
-  - [x] Info toast (blue)
-  - [x] Auto-dismiss configured
-  - [x] Manual dismiss button
+**Duration:** 3-5 days
+**Goal:** Comprehensive testing, performance optimization, and production deployment
 
-- [x] Create custom error pages
-  - [x] `src/app/not-found.tsx` (404)
-    - [x] Friendly message
-    - [x] Link to dashboard
-  - [x] `src/app/error.tsx` (500)
-    - [x] Error boundary
-    - [x] "Something went wrong" message
-    - [x] Retry button
-    - [x] Link to dashboard
+### Day 1: End-to-End Testing
 
-- [x] Inline validation messages
-  - [x] Using form validation throughout pages
-  - [x] Toast notifications for errors
-  - [x] Accessible (ARIA via shadcn components)
+#### 4.1 E2E Test Setup
+- [ ] Install Playwright for E2E testing
+  - [ ] Configure Playwright with Next.js
+  - [ ] Set up test database for E2E tests
+  - [ ] Create test fixtures and helpers
+  - [ ] Add CI/CD integration for E2E tests
 
-### 6.2 Loading States ✅ COMPLETED
-- [x] Create loading components
-  - [x] `src/components/ui/skeleton.tsx` (already exists)
-    - [x] List skeleton
-    - [x] Card skeleton
-    - [x] Form skeleton
-  - [x] `src/components/ui/spinner.tsx` (newly created)
-    - [x] Small spinner (buttons)
-    - [x] Medium spinner
-    - [x] Large spinner (full page)
-  - [x] Button loading states
-    - [x] Disabled during loading
-    - [x] Loading indicators in buttons
-    - [x] Text change throughout app
+#### 4.2 Core Workflow E2E Tests
+- [ ] Check-in workflow test
+  - [ ] Login as admin
+  - [ ] Search for family
+  - [ ] Select children
+  - [ ] Complete check-in
+  - [ ] Verify QR codes generated
+  - [ ] Verify database records created
+- [ ] Check-out workflow test
+  - [ ] Search for checked-in family
+  - [ ] Select children
+  - [ ] Complete check-out
+  - [ ] Verify undo functionality
+  - [ ] Verify database records updated
+- [ ] QR code workflow test
+  - [ ] Access public QR page
+  - [ ] Verify child information displayed
+  - [ ] Test with invalid token (404)
 
-- [x] Apply loading states throughout
-  - [x] Search results loading (skeletons used)
-  - [x] Form submission loading (disabled buttons)
-  - [x] Page transitions loading
-  - [x] tRPC queries loading states (isLoading checks)
+#### 4.3 Admin Panel E2E Tests
+- [ ] Session management workflow
+  - [ ] Create new session
+  - [ ] Activate session
+  - [ ] Verify session in check-in flow
+  - [ ] End session
+  - [ ] Delete session
+- [ ] User management workflow
+  - [ ] Create new admin user
+  - [ ] Login as new user
+  - [ ] Deactivate user
+  - [ ] Verify login fails
+  - [ ] Reactivate user
+- [ ] Family management workflow
+  - [ ] Search for family
+  - [ ] View family details
+  - [ ] Edit family information
+  - [ ] Delete family
+  - [ ] Verify cascade deletion
 
-### 6.3 Mobile Responsiveness ✅ VERIFIED
-- [x] Test all pages on mobile viewports
-  - [x] Login page - responsive
-  - [x] Dashboard - responsive with Tailwind breakpoints
-  - [x] Check-in station - mobile-optimized
-  - [x] Check-out station - mobile-optimized
-  - [x] QR code page - mobile-optimized
-  - [x] Admin pages - responsive card layouts
+#### 4.4 Edge Case Testing
+- [ ] Multiple concurrent check-ins
+  - [ ] Same child to different sessions (should fail)
+  - [ ] Different children to same session (should succeed)
+- [ ] Session state transitions
+  - [ ] Activate multiple sessions
+  - [ ] End all sessions
+  - [ ] Try to check in with no active sessions
+- [ ] QR code expiration/reuse
+  - [ ] Check-out and check-in again (QR should work)
+  - [ ] Invalid/tampered QR tokens
+- [ ] User permissions
+  - [ ] Inactive admin cannot login
+  - [ ] Protected routes redirect to login
+  - [ ] Session expiration handling
 
-- [x] Adjust layouts for small screens
-  - [x] Stack columns on mobile (Tailwind responsive classes)
-  - [x] Collapsible navigation (implemented via shadcn)
-  - [x] Touch-friendly spacing (Tailwind defaults)
-  - [x] Card-based layouts for mobile
-  - [x] Responsive tables via shadcn
+### Day 2: Performance Optimization
 
-- [x] Touch-friendly interactions
-  - [x] Button sizing via shadcn defaults (44px min)
-  - [x] Checkbox/radio sizing via shadcn
-  - [x] Proper tap target spacing
-  - [x] All pages tested with responsive design
+#### 4.5 Database Query Optimization
+- [ ] Review Prisma query patterns
+  - [ ] Check for N+1 query problems
+  - [ ] Add necessary `include` statements
+  - [ ] Optimize family search queries
+  - [ ] Add database indexes where needed
+- [ ] Implement query result caching
+  - [ ] Configure tRPC cache settings
+  - [ ] Add Redis for session caching (optional)
+  - [ ] Review invalidation patterns
 
-### 6.4 Accessibility (A11y) ✅ VERIFIED
-- [x] Keyboard navigation
-  - [x] All interactive elements focusable (shadcn/Radix UI)
-  - [x] Logical tab order throughout
-  - [x] Focus visible indicators (Tailwind focus states)
-  - [x] Modals handle escape key (shadcn Dialog)
+#### 4.6 Frontend Performance
+- [ ] Bundle analysis
+  - [ ] Run Next.js bundle analyzer
+  - [ ] Identify large dependencies
+  - [ ] Consider code splitting for heavy components
+- [ ] Image optimization
+  - [ ] Use Next.js Image component
+  - [ ] Optimize QR code generation
+  - [ ] Lazy load images where appropriate
+- [ ] React performance audit
+  - [ ] Profile with React DevTools
+  - [ ] Add React.memo where beneficial
+  - [ ] Optimize useEffect dependencies
+  - [ ] Review re-render patterns
 
-- [x] ARIA labels and roles
-  - [x] aria-label for icon buttons where needed
-  - [x] Proper roles via shadcn components (Radix UI primitives)
-  - [x] Toast notifications use role="alert" (Sonner)
-  - [x] Form fields properly labeled
-  - [x] Semantic HTML throughout
+#### 4.7 Lighthouse & Accessibility Audit
+- [ ] Run Lighthouse on all pages
+  - [ ] Fix performance issues (target 90+)
+  - [ ] Fix accessibility issues (target 100)
+  - [ ] Fix best practices issues
+  - [ ] Optimize SEO (add meta tags)
+- [ ] Manual accessibility testing
+  - [ ] Keyboard-only navigation test
+  - [ ] Screen reader testing (NVDA/JAWS)
+  - [ ] Color contrast validation
+  - [ ] Touch target size validation
 
-- [x] Screen reader support
-  - [x] shadcn components built with accessibility (Radix UI)
-  - [x] Meaningful link text throughout
-  - [x] Form labels properly associated
-  - [x] sr-only classes for screen reader text
+### Day 3: Security & Production Readiness
 
-- [x] Color contrast validation
-  - [x] Using shadcn theme system
-  - [x] WCAG AA compliant colors
-  - [x] Both light/dark themes supported
-  - [x] Not relying on color alone for information
+#### 4.8 Security Audit
+- [ ] Review authentication flow
+  - [ ] Session security (httpOnly cookies)
+  - [ ] CSRF protection
+  - [ ] Password hashing (bcrypt rounds)
+  - [ ] Rate limiting on login
+- [ ] Input validation audit
+  - [ ] All tRPC inputs validated with Zod
+  - [ ] SQL injection prevention (Prisma ORM)
+  - [ ] XSS prevention (React escaping)
+  - [ ] File upload validation (if added)
+- [ ] Authorization checks
+  - [ ] All tRPC procedures require auth
+  - [ ] Public routes properly configured
+  - [ ] No sensitive data in client bundles
+- [ ] Environment variable security
+  - [ ] No secrets in client-side code
+  - [ ] Proper .env file handling
+  - [ ] Secure key generation for JWT
 
-### 6.5 Performance Optimization ✅ VERIFIED
-- [x] React Query optimizations
-  - [x] Proper cache time settings (tRPC defaults)
-  - [x] Efficient query invalidation patterns
-  - [x] Loading states prevent unnecessary fetches
-  - [x] Debounced search inputs (300ms)
+#### 4.9 Production Configuration
+- [ ] Environment setup
+  - [ ] Production .env.production file
+  - [ ] Database connection pooling
+  - [ ] Configure CORS if needed
+  - [ ] Set up error tracking (Sentry)
+  - [ ] Configure logging (Winston/Pino)
+- [ ] Build configuration
+  - [ ] Optimize Next.js config
+  - [ ] Configure CSP headers
+  - [ ] Set up gzip/brotli compression
+  - [ ] Configure CDN for static assets
+- [ ] Docker setup (optional)
+  - [ ] Create Dockerfile
+  - [ ] Create docker-compose.yml
+  - [ ] Multi-stage build optimization
+  - [ ] Health check endpoints
 
-- [x] Component optimization
-  - [x] Server components where possible (Next.js 16)
-  - [x] Client components only when needed
-  - [x] Proper use of useCallback/useMemo where needed
-  - [x] Code splitting via Next.js automatic code splitting
+#### 4.10 Monitoring & Observability
+- [ ] Application monitoring
+  - [ ] Set up error tracking (Sentry/Bugsnag)
+  - [ ] Configure performance monitoring
+  - [ ] Add custom metrics/events
+  - [ ] Dashboard for key metrics
+- [ ] Database monitoring
+  - [ ] Query performance tracking
+  - [ ] Slow query logging
+  - [ ] Connection pool monitoring
+- [ ] User analytics (privacy-friendly)
+  - [ ] Page view tracking
+  - [ ] Feature usage metrics
+  - [ ] User flow analysis
 
-- [x] Bundle optimization
-  - [x] Next.js 16 with Turbopack for fast builds
-  - [x] Tree-shaking enabled by default
-  - [x] Route-based code splitting
-  - [x] Optimized production builds
+### Day 4-5: Deployment & Documentation
+
+#### 4.11 Database Migration Strategy
+- [ ] Create production migration plan
+  - [ ] Backup strategy
+  - [ ] Migration rollback plan
+  - [ ] Data seeding for initial admin user
+  - [ ] Test migration on staging
+
+#### 4.12 Deployment
+- [ ] Choose hosting platform
+  - [ ] Vercel (recommended for Next.js)
+  - [ ] Railway
+  - [ ] AWS/GCP/Azure
+  - [ ] Self-hosted option
+- [ ] Database hosting
+  - [ ] PostgreSQL hosting (Railway/Supabase/AWS RDS)
+  - [ ] Connection pooling setup
+  - [ ] Backup configuration
+  - [ ] Point-in-time recovery
+- [ ] Deploy to staging
+  - [ ] Run full E2E test suite
+  - [ ] Manual QA testing
+  - [ ] Performance testing
+  - [ ] Fix any issues
+- [ ] Deploy to production
+  - [ ] Run migrations
+  - [ ] Seed initial admin user
+  - [ ] Verify all features work
+  - [ ] Test from multiple devices
+
+#### 4.13 User Documentation
+- [ ] Create user guide
+  - [ ] Check-in station workflow
+  - [ ] Check-out station workflow
+  - [ ] Admin panel usage
+  - [ ] QR code system explanation
+  - [ ] Troubleshooting section
+- [ ] Create admin documentation
+  - [ ] Session management guide
+  - [ ] User management guide
+  - [ ] Family management guide
+  - [ ] GDPR compliance procedures
+  - [ ] Backup and recovery procedures
+- [ ] Create deployment documentation
+  - [ ] Environment setup guide
+  - [ ] Database setup guide
+  - [ ] Deployment steps
+  - [ ] Rollback procedures
+  - [ ] Monitoring and maintenance
+
+#### 4.14 Training Materials (Optional)
+- [ ] Video tutorials
+  - [ ] Check-in workflow demo
+  - [ ] Check-out workflow demo
+  - [ ] Admin panel tour
+- [ ] Quick reference cards
+  - [ ] Laminated cards for stations
+  - [ ] Common troubleshooting steps
+  - [ ] Contact information
 
 ---
 
-## Phase 3 Completion Criteria ✅ ALL COMPLETE
+## Phase 5: Post-Launch Enhancements (Optional)
 
-### Core Functionality ✅
-- [x] All workflows implemented and functional
-- [x] Check-in flow: search → select → check in → QR display
-- [x] Check-out flow: search → select → check out → confirmation
-- [x] QR page: public access with child info display
-- [x] Admin pages: session, user, family management
-- [x] Authentication: login, logout, protected routes
+These are potential future enhancements based on user feedback and additional requirements.
 
-### User Experience ✅
-- [x] Intuitive navigation and layout
-- [x] Clear visual feedback (loading, success, errors via Sonner)
-- [x] Real-time updates (check-in status via tRPC)
-- [x] Responsive design (desktop, tablet, mobile via Tailwind)
-- [x] Accessible (keyboard, screen readers via shadcn/Radix UI)
+### Analytics & Reporting
+- [ ] Dashboard analytics
+  - [ ] Check-in/check-out trends over time
+  - [ ] Popular session attendance
+  - [ ] Family participation metrics
+  - [ ] Volunteer hour tracking
+- [ ] Export reports
+  - [ ] CSV export of attendance by session
+  - [ ] Family participation reports
+  - [ ] Session summary reports
 
-### Error Handling ✅
-- [x] All tRPC errors caught and displayed
-- [x] User-friendly error messages via toast notifications
-- [x] Validation before submission
-- [x] Network error handling
-- [x] 404 and 500 error pages
+### Advanced Features
+- [ ] Email notifications
+  - [ ] Send check-in confirmation emails
+  - [ ] Send QR codes via email
+  - [ ] Session reminders
+- [ ] SMS notifications (optional)
+  - [ ] Check-in confirmations
+  - [ ] Session reminders
+  - [ ] Emergency alerts
+- [ ] Multi-language support enhancements
+  - [ ] Add more languages beyond English/Swedish
+  - [ ] User preference storage
+  - [ ] RTL language support
+- [ ] Advanced session management
+  - [ ] Recurring sessions
+  - [ ] Session templates
+  - [ ] Capacity limits per session
+  - [ ] Waitlist functionality
 
-### Code Quality ✅
-- [x] TypeScript compilation clean
-- [x] No console errors in browser
-- [x] Proper loading states (Skeleton, disabled states)
-- [x] Efficient query patterns with tRPC
-- [x] Code split via Next.js routing
+### Mobile App (Future Consideration)
+- [ ] React Native mobile app
+  - [ ] QR code scanner built-in
+  - [ ] Offline mode support
+  - [ ] Push notifications
+  - [ ] Faster check-in/check-out
 
-### Testing Readiness ✅
-- [x] All components integration tested (216 tests passing)
-- [x] Edge cases handled in UI
-- [x] Comprehensive check-in/check-out workflow tests
-- [x] Ready for Phase 4 end-to-end testing
-
----
-
-## Phase 3 Milestone: 🎉 PHASE 3 COMPLETE!
-
-**Status:** Phase 3 UI Components & Workflows - COMPLETED (Days 1-8)
-
-**All Phases Complete:**
-- ✅ Phase 1: Project Setup & Core Infrastructure (113 tests passing)
-- ✅ Phase 2: Core API & Business Logic (210 tests passing, all 27 endpoints)
-- ✅ Phase 3: Complete UI & Workflows (216 tests passing)
-  - ✅ Days 1-7: All core UI workflows (check-in, check-out, admin, QR pages)
-  - ✅ Day 8: Error handling, loading states, accessibility, responsiveness
-
-**Phase 3 Final Deliverables:**
-- ✅ Complete check-in workflow with QR code generation
-- ✅ Complete check-out workflow with undo functionality
-- ✅ Public QR code info pages for child lookup
-- ✅ Admin management for sessions, users, and families
-- ✅ Custom 404 and 500 error pages
-- ✅ Spinner component for loading states
-- ✅ Skeleton components for data loading
-- ✅ Toast notifications (Sonner integration)
-- ✅ Comprehensive integration tests (3 workflow scenarios)
-- ✅ Mobile responsive design (Tailwind)
-- ✅ Full accessibility support (shadcn/Radix UI)
-- ✅ Locale translations for all admin features
-
-**Ready for:**
-- ✅ User acceptance testing
-- ✅ Production deployment preparation
-- ✅ Phase 4: Testing, Optimization & Deployment
+### Integration Features
+- [ ] Calendar integration
+  - [ ] Export sessions to Google Calendar
+  - [ ] iCal feed for sessions
+- [ ] Badge printing integration
+  - [ ] Direct printer integration
+  - [ ] Custom badge templates
+- [ ] Third-party authentication
+  - [ ] OAuth integration (Google, Microsoft)
+  - [ ] SSO support
 
 ---
 
-*Phase 3 Checklist Created: November 14, 2025*
-*Based on: IMPLEMENTATION_PLAN.md Phase 3*
+## Technical Debt & Maintenance
+
+### Code Quality Improvements
+- [ ] Increase test coverage
+  - [ ] Target 80%+ coverage
+  - [ ] Add more unit tests
+  - [ ] Add integration tests for edge cases
+- [ ] Code documentation
+  - [ ] JSDoc comments for complex functions
+  - [ ] Component documentation
+  - [ ] API endpoint documentation
+- [ ] Refactoring opportunities
+  - [ ] Extract common patterns into hooks
+  - [ ] Consolidate duplicate code
+  - [ ] Improve type safety
+
+### Dependency Management
+- [ ] Regular dependency updates
+  - [ ] Security patches
+  - [ ] Version upgrades
+  - [ ] Breaking change migrations
+- [ ] Monitor bundle size
+  - [ ] Keep track of bundle growth
+  - [ ] Remove unused dependencies
+  - [ ] Optimize large dependencies
+
+### Performance Monitoring
+- [ ] Set up performance budgets
+  - [ ] Bundle size limits
+  - [ ] Lighthouse score thresholds
+  - [ ] Response time targets
+- [ ] Regular performance audits
+  - [ ] Quarterly Lighthouse audits
+  - [ ] Database query performance review
+  - [ ] Frontend performance profiling
+
+---
+
+*Future Tasks Created: November 14, 2025*
+*Compiled from: Phase 3 deferred items + IMPLEMENTATION_PLAN.md Phase 4*
