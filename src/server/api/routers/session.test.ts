@@ -39,6 +39,7 @@ describe("Session Router", () => {
         name: "Test Session Admin",
         email: null,
         image: null,
+        isActive: true,
       },
       expires: new Date(Date.now() + 8 * 60 * 60 * 1000).toISOString(),
     };

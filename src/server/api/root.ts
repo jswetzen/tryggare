@@ -1,6 +1,11 @@
 import { createCallerFactory, createTRPCRouter } from "~/server/api/trpc";
 import { adminUserRouter } from "~/server/api/routers/adminUser";
 import { sessionRouter } from "~/server/api/routers/session";
+import { familyRouter } from "~/server/api/routers/family";
+import { childRouter } from "~/server/api/routers/child";
+import { parentRouter } from "~/server/api/routers/parent";
+import { checkInRouter } from "~/server/api/routers/checkIn";
+import { checkOutRouter } from "~/server/api/routers/checkOut";
 
 /**
  * This is the primary router for your server.
@@ -10,6 +15,11 @@ import { sessionRouter } from "~/server/api/routers/session";
 export const appRouter = createTRPCRouter({
   adminUser: adminUserRouter,
   session: sessionRouter,
+  family: familyRouter,
+  child: childRouter,
+  parent: parentRouter,
+  checkIn: checkInRouter,
+  checkOut: checkOutRouter,
 });
 
 // export type definition of API
