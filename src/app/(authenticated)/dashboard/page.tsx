@@ -14,7 +14,7 @@ export default async function DashboardPage() {
       <div>
         <h1 className="text-3xl font-bold tracking-tight">{t("title")}</h1>
         <p className="text-muted-foreground">
-          {t("welcome", { name: session?.user?.name })}
+          {t("welcome", { name: session?.user?.name || "User" })}
         </p>
       </div>
 
