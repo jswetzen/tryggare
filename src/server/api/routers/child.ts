@@ -1,10 +1,59 @@
 import { z } from "zod";
-import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
+import { createTRPCRouter, protectedProcedure, publicProcedure } from "~/server/api/trpc";
 import { TRPCError } from "@trpc/server";
 
 export const childRouter = createTRPCRouter({
   /**
-   * Get child by QR token (for QR code page lookups)
+   * Get child by QR token (for QR code page lookups) - PUBLIC endpoint
+   */
+  getByQrTokenPublic: publicProcedure
+    .input(z.object({ qrToken: z.string() }))
+    .query(async ({ ctx, input }) => {
+      const child = await ctx.db.child.findUnique({
+        where: { qrToken: input.qrToken },
+        include: {
+          family: {
+            include: {
+              parents: {
+                select: {
+                  id: true,
+                  name: true,
+                  phone: true,
+                  relationshipType: true,
+                },
+              },
+            },
+          },
+          checkInRecords: {
+            where: {
+              checkOutTime: null, // Currently checked in
+            },
+            include: {
+              session: {
+                select: {
+                  id: true,
+                  name: true,
+                  startTime: true,
+                  endTime: true,
+                },
+              },
+            },
+          },
+        },
+      });
+
+      if (!child) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Child not found",
+        });
+      }
+
+      return child;
+    }),
+
+  /**
+   * Get child by QR token (for QR code page lookups) - PROTECTED endpoint
    */
   getByQrToken: protectedProcedure
     .input(z.object({ qrToken: z.string() }))

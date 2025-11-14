@@ -23,7 +23,8 @@
     "admin": "Administration",
     "logout": "Logga ut",
     "toggleTheme": "Växla tema",
-    "changeLanguage": "Byt språk"
+    "changeLanguage": "Byt språk",
+    "loggedInAs": "Inloggad som"
   },
   "auth": {
     "login": "Logga in",

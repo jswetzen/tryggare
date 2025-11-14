@@ -3,6 +3,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { getTranslations } from "next-intl/server";
+import { DashboardStats } from "~/components/dashboard/dashboard-stats";
+import { ActiveSessions } from "~/components/dashboard/active-sessions";
 
 // Dashboard page with i18n support
 export default async function DashboardPage() {
@@ -18,6 +20,10 @@ export default async function DashboardPage() {
         </p>
       </div>
 
+      {/* Active Sessions */}
+      <ActiveSessions />
+
+      {/* Quick Actions */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         <Card>
           <CardHeader>
@@ -62,30 +68,8 @@ export default async function DashboardPage() {
         </Card>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>{t("stats.title")}</CardTitle>
-          <CardDescription>
-            {t("stats.description")}
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="grid gap-4 md:grid-cols-3">
-            <div>
-              <div className="text-2xl font-bold">--</div>
-              <p className="text-xs text-muted-foreground">{t("stats.checkedIn")}</p>
-            </div>
-            <div>
-              <div className="text-2xl font-bold">--</div>
-              <p className="text-xs text-muted-foreground">{t("stats.activeSessions")}</p>
-            </div>
-            <div>
-              <div className="text-2xl font-bold">--</div>
-              <p className="text-xs text-muted-foreground">{t("stats.totalFamilies")}</p>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+      {/* Stats */}
+      <DashboardStats />
     </div>
   );
 }

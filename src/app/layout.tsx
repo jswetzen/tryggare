@@ -7,6 +7,7 @@ import { getLocale, getMessages } from "next-intl/server";
 
 import { TRPCReactProvider } from "~/trpc/react";
 import { ThemeProvider } from "~/components/theme-provider";
+import { Toaster } from "sonner";
 
 export const metadata: Metadata = {
   title: "Conference Child Management System",
@@ -36,6 +37,7 @@ export default async function RootLayout({
             disableTransitionOnChange
           >
             <TRPCReactProvider>{children}</TRPCReactProvider>
+            <Toaster />
           </ThemeProvider>
         </NextIntlClientProvider>
       </body>

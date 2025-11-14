@@ -23,7 +23,8 @@
     "admin": "Admin",
     "logout": "Logout",
     "toggleTheme": "Toggle theme",
-    "changeLanguage": "Change language"
+    "changeLanguage": "Change language",
+    "loggedInAs": "Logged in as"
   },
   "auth": {
     "login": "Sign In",
@@ -40,6 +41,11 @@
   "dashboard": {
     "title": "Dashboard",
     "welcome": "Welcome back, {name}",
+    "activeSessions": {
+      "title": "Active Sessions",
+      "description": "Currently running sessions",
+      "noSessions": "No active sessions. Start a session from the Admin panel."
+    },
     "checkInCard": {
       "title": "Check-In Station",
       "description": "Check children into sessions",
@@ -57,7 +63,7 @@
     },
     "stats": {
       "title": "Quick Stats",
-      "description": "System overview (Phase 2: will display real data)",
+      "description": "Real-time system overview",
       "checkedIn": "Children Checked In",
       "activeSessions": "Active Sessions",
       "totalFamilies": "Total Families"
@@ -71,7 +77,14 @@
     "checkInButton": "Check In Selected",
     "noActiveSession": "No active sessions available",
     "childAlreadyCheckedIn": "{name} is already checked into {session}",
-    "successMessage": "Successfully checked in {count} {count, plural, =1 {child} other {children}}"
+    "successMessage": "Successfully checked in {count} {count, plural, =1 {child} other {children}}",
+    "searching": "Searching...",
+    "noResults": "No families found",
+    "checkedIn": "Checked In",
+    "currentSession": "Current session",
+    "printLabels": "Print Labels",
+    "checkInComplete": "Check-In Complete!",
+    "addNewFamily": "Add New Family"
   },
   "checkOut": {
     "title": "Check-Out Station",
@@ -109,7 +122,8 @@
     "openSession": "Open Session",
     "startSession": "Start Session",
     "endSession": "End Session",
-    "sessionDetails": "Session Details"
+    "sessionDetails": "Session Details",
+    "loading": "Loading..."
   },
   "errors": {
     "somethingWentWrong": "Something went wrong",
