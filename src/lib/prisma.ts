@@ -24,7 +24,7 @@ export function clearAuditUserId() {
 // ============================================================================
 
 const globalForPrisma = globalThis as unknown as {
-  prisma: PrismaClient | undefined;
+  prisma: ReturnType<typeof createPrismaClient> | undefined;
 };
 
 function createPrismaClient() {
@@ -228,7 +228,7 @@ function createPrismaClient() {
         },
       },
     },
-  }) as unknown as PrismaClient;
+  });
 
   return extendedClient;
 }
