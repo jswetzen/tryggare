@@ -17,10 +17,7 @@ export default function SessionsPage() {
 
   const [filter, setFilter] = useState<"all" | "active" | "inactive">("all");
 
-  const { data: sessions, isLoading } = api.session.list.useQuery({
-    limit: 100,
-    offset: 0,
-  });
+  const { data: sessions, isLoading } = api.session.list.useQuery();
 
   const utils = api.useUtils();
 
@@ -70,7 +67,7 @@ export default function SessionsPage() {
     }
   };
 
-  const filteredSessions = sessions?.sessions.filter((session) => {
+  const filteredSessions = sessions?.filter((session) => {
     if (filter === "active") return session.isActive;
     if (filter === "inactive") return !session.isActive;
     return true;
