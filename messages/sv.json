@@ -1,0 +1,121 @@
+{
+  "common": {
+    "appName": "Konferens Barnhantering",
+    "loading": "Laddar...",
+    "error": "Fel",
+    "success": "Lyckades",
+    "cancel": "Avbryt",
+    "save": "Spara",
+    "delete": "Ta bort",
+    "edit": "Redigera",
+    "close": "Stäng",
+    "confirm": "Bekräfta",
+    "back": "Tillbaka",
+    "next": "Nästa",
+    "search": "Sök",
+    "noResults": "Inga resultat hittades",
+    "required": "Detta fält är obligatoriskt"
+  },
+  "nav": {
+    "dashboard": "Instrumentpanel",
+    "checkIn": "Incheckning",
+    "checkOut": "Utcheckning",
+    "admin": "Administration",
+    "logout": "Logga ut",
+    "toggleTheme": "Växla tema",
+    "changeLanguage": "Byt språk"
+  },
+  "auth": {
+    "login": "Logga in",
+    "username": "Användarnamn",
+    "password": "Lösenord",
+    "loginTitle": "Konferens Barnhantering",
+    "loginDescription": "Ange dina inloggningsuppgifter för att komma åt systemet",
+    "loginButton": "Logga in",
+    "loggingIn": "Loggar in...",
+    "invalidCredentials": "Ogiltigt användarnamn eller lösenord",
+    "loginError": "Ett fel uppstod. Försök igen.",
+    "versionFooter": "Konferens Barnhanteringssystem v1.0"
+  },
+  "dashboard": {
+    "title": "Instrumentpanel",
+    "welcome": "Välkommen tillbaka, {name}",
+    "checkInCard": {
+      "title": "Incheckningsstation",
+      "description": "Checka in barn till sessioner",
+      "button": "Starta incheckning"
+    },
+    "checkOutCard": {
+      "title": "Utcheckningsstation",
+      "description": "Checka ut barn från sessioner",
+      "button": "Starta utcheckning"
+    },
+    "adminCard": {
+      "title": "Administrationshantering",
+      "description": "Hantera familjer, sessioner och användare",
+      "button": "Administrationspanel"
+    },
+    "stats": {
+      "title": "Snabbstatistik",
+      "description": "Systemöversikt (Fas 2: kommer visa riktig data)",
+      "checkedIn": "Barn incheckade",
+      "activeSessions": "Aktiva sessioner",
+      "totalFamilies": "Totalt antal familjer"
+    }
+  },
+  "checkIn": {
+    "title": "Incheckningsstation",
+    "searchPlaceholder": "Sök efter efternamn, förnamn eller telefon...",
+    "selectSession": "Välj session",
+    "selectChildren": "Välj barn",
+    "checkInButton": "Checka in valda",
+    "noActiveSession": "Inga aktiva sessioner tillgängliga",
+    "childAlreadyCheckedIn": "{name} är redan incheckad till {session}",
+    "successMessage": "Lyckades checka in {count} {count, plural, =1 {barn} other {barn}}"
+  },
+  "checkOut": {
+    "title": "Utcheckningsstation",
+    "pickedUpBy": "Hämtas av",
+    "pickedUpByPlaceholder": "Ange namn på person som hämtar (valfritt)",
+    "checkOutButton": "Checka ut valda",
+    "undoButton": "Ångra utcheckning",
+    "noChildrenCheckedIn": "Inga barn är för närvarande incheckade",
+    "successMessage": "Lyckades checka ut {count} {count, plural, =1 {barn} other {barn}}"
+  },
+  "family": {
+    "addFamily": "Lägg till ny familj",
+    "editFamily": "Redigera familj",
+    "familyDetails": "Familjedetaljer",
+    "parents": "Föräldrar",
+    "children": "Barn",
+    "addParent": "Lägg till förälder",
+    "addChild": "Lägg till barn",
+    "parentName": "Förälderns namn",
+    "phone": "Telefon",
+    "email": "E-post",
+    "relationship": "Relation",
+    "childFirstName": "Förnamn",
+    "childLastName": "Efternamn",
+    "birthdate": "Födelsedatum",
+    "age": "Ålder",
+    "allergies": "Allergier",
+    "medicalNotes": "Medicinska anteckningar",
+    "noAllergies": "Inga kända allergier"
+  },
+  "session": {
+    "active": "Aktiv",
+    "inactive": "Inaktiv",
+    "requiresTicket": "Kräver biljett",
+    "openSession": "Öppen session",
+    "startSession": "Starta session",
+    "endSession": "Avsluta session",
+    "sessionDetails": "Sessionsdetaljer"
+  },
+  "errors": {
+    "somethingWentWrong": "Något gick fel",
+    "pleaseTryAgain": "Försök igen",
+    "notFound": "Hittades inte",
+    "unauthorized": "Du måste vara inloggad för att komma åt denna resurs",
+    "forbidden": "Du har inte behörighet att komma åt denna resurs"
+  }
+}

@@ -4,21 +4,24 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { LogOut, Menu } from "lucide-react";
 import { signOut, useSession } from "next-auth/react";
+import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "~/components/theme-toggle";
 import { LocaleSwitcher } from "~/components/locale-switcher";
 import { cn } from "~/lib/utils";
 
-const navigation = [
-  { name: "Dashboard", href: "/" },
-  { name: "Check-In", href: "/check-in" },
-  { name: "Check-Out", href: "/check-out" },
-  { name: "Admin", href: "/admin" },
-];
-
 export function Header() {
   const pathname = usePathname();
   const { data: session } = useSession();
+  const t = useTranslations("nav");
+  const tCommon = useTranslations("common");
+
+  const navigation = [
+    { name: t("dashboard"), href: "/" },
+    { name: t("checkIn"), href: "/check-in" },
+    { name: t("checkOut"), href: "/check-out" },
+    { name: t("admin"), href: "/admin" },
+  ];
 
   const handleLogout = () => {
     void signOut({ callbackUrl: "/login" });
@@ -29,7 +32,7 @@ export function Header() {
       <div className="container flex h-16 items-center justify-between">
         <div className="flex items-center gap-6">
           <Link href="/" className="flex items-center space-x-2">
-            <span className="font-bold">Conference Child Mgmt</span>
+            <span className="font-bold">{tCommon("appName")}</span>
           </Link>
 
           <nav className="hidden items-center gap-4 md:flex">
@@ -62,10 +65,10 @@ export function Header() {
             variant="ghost"
             size="icon"
             onClick={handleLogout}
-            title="Logout"
+            title={t("logout")}
           >
             <LogOut className="h-[1.2rem] w-[1.2rem]" />
-            <span className="sr-only">Logout</span>
+            <span className="sr-only">{t("logout")}</span>
           </Button>
         </div>
       </div>
