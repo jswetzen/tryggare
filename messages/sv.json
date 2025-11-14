@@ -41,6 +41,11 @@
   "dashboard": {
     "title": "Instrumentpanel",
     "welcome": "Välkommen tillbaka, {name}",
+    "activeSessions": {
+      "title": "Aktiva sessioner",
+      "description": "Pågående sessioner",
+      "noSessions": "Inga aktiva sessioner. Starta en session från administrationspanelen."
+    },
     "checkInCard": {
       "title": "Incheckningsstation",
       "description": "Checka in barn till sessioner",
@@ -58,7 +63,7 @@
     },
     "stats": {
       "title": "Snabbstatistik",
-      "description": "Systemöversikt (Fas 2: kommer visa riktig data)",
+      "description": "Systemöversikt i realtid",
       "checkedIn": "Barn incheckade",
       "activeSessions": "Aktiva sessioner",
       "totalFamilies": "Totalt antal familjer"
@@ -72,7 +77,14 @@
     "checkInButton": "Checka in valda",
     "noActiveSession": "Inga aktiva sessioner tillgängliga",
     "childAlreadyCheckedIn": "{name} är redan incheckad till {session}",
-    "successMessage": "Lyckades checka in {count} {count, plural, =1 {barn} other {barn}}"
+    "successMessage": "Lyckades checka in {count} {count, plural, =1 {barn} other {barn}}",
+    "searching": "Söker...",
+    "noResults": "Inga familjer hittades",
+    "checkedIn": "Incheckad",
+    "currentSession": "Nuvarande session",
+    "printLabels": "Skriv ut etiketter",
+    "checkInComplete": "Incheckning klar!",
+    "addNewFamily": "Lägg till ny familj"
   },
   "checkOut": {
     "title": "Utcheckningsstation",
@@ -110,7 +122,55 @@
     "openSession": "Öppen session",
     "startSession": "Starta session",
     "endSession": "Avsluta session",
-    "sessionDetails": "Sessionsdetaljer"
+    "sessionDetails": "Sessionsdetaljer",
+    "loading": "Laddar..."
+  },
+  "admin": {
+    "title": "Administrationshantering",
+    "sessions": {
+      "title": "Sessionshantering",
+      "description": "Hantera konferenssessioner och evenemang",
+      "createSession": "Skapa session",
+      "allSessions": "Alla sessioner",
+      "active": "Aktiv",
+      "inactive": "Inaktiv",
+      "noSessions": "Inga sessioner hittades",
+      "activate": "Aktivera",
+      "endSession": "Avsluta session",
+      "deleteSession": "Ta bort",
+      "editSession": "Redigera",
+      "currentAttendance": "Nuvarande närvaro",
+      "checkedIn": "{count} incheckade",
+      "requiresTicket": "Kräver biljett"
+    },
+    "users": {
+      "title": "Användarhantering",
+      "description": "Hantera adminanvändare och deras åtkomst",
+      "createUser": "Skapa användare",
+      "allUsers": "Alla användare",
+      "active": "Aktiv",
+      "inactive": "Inaktiv",
+      "noUsers": "Inga användare hittades",
+      "deactivate": "Inaktivera",
+      "reactivate": "Återaktivera",
+      "currentUser": "Du",
+      "lastLogin": "Senaste inloggning",
+      "cannotDeactivateSelf": "Du kan inte ändra din egen kontostatus"
+    },
+    "families": {
+      "title": "Familjehantering",
+      "description": "Sök, visa och hantera familjeposter",
+      "searchTitle": "Sök familjer",
+      "searchDescription": "Sök efter familjenamn, föräldrarnamn, telefonnummer eller e-post",
+      "searchPlaceholder": "Sök familjer...",
+      "noFamilies": "Inga familjer hittades som matchar din sökning",
+      "viewDetails": "Visa detaljer",
+      "delete": "Ta bort",
+      "parents": "{count} förälder{count, plural, =1 {} other {ar}}",
+      "children": "{count} barn",
+      "lastVisit": "Senaste besök",
+      "showingCount": "Visar {count} av {total} familjer"
+    }
   },
   "errors": {
     "somethingWentWrong": "Något gick fel",
