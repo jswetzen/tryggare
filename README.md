@@ -209,3 +209,5 @@ src/
 ## License
 
 Private project - All rights reserved
+
+<!-- Permission check test -->

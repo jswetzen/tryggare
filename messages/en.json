@@ -21,7 +21,9 @@
     "checkIn": "Check-In",
     "checkOut": "Check-Out",
     "admin": "Admin",
-    "logout": "Logout"
+    "logout": "Logout",
+    "toggleTheme": "Toggle theme",
+    "changeLanguage": "Change language"
   },
   "auth": {
     "login": "Sign In",

@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { Languages } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -12,7 +13,8 @@ import {
 import { locales, localeNames, type Locale } from "~/i18n/config";
 
 export function LocaleSwitcher() {
-  const [currentLocale, setCurrentLocale] = React.useState<Locale>("en");
+  const [currentLocale, setCurrentLocale] = React.useState<Locale>("sv");
+  const t = useTranslations("nav");
 
   React.useEffect(() => {
     // Get current locale from cookie
@@ -40,9 +42,9 @@ export function LocaleSwitcher() {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" size="icon" title="Change Language">
+        <Button variant="ghost" size="icon" title={t("changeLanguage")}>
           <Languages className="h-[1.2rem] w-[1.2rem]" />
-          <span className="sr-only">Switch language</span>
+          <span className="sr-only">{t("changeLanguage")}</span>
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
