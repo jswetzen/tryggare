@@ -45,7 +45,7 @@ export default function FamiliesPage() {
         `Are you sure you want to delete the ${familyName} family? This will delete all associated parents and children. This action cannot be undone.`
       )
     ) {
-      await deleteMutation.mutateAsync({ familyId });
+      await deleteMutation.mutateAsync({ id: familyId });
     }
   };
 
