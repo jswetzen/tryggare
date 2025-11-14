@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { cookies } from "next/headers";
 import { auth } from "~/lib/auth";
-import { Header } from "~/components/header";
+import { MainLayout } from "~/components/layout/main-layout";
 import { SessionProvider } from "~/components/session-provider";
 
 export default async function AuthenticatedLayout({
@@ -32,12 +32,7 @@ export default async function AuthenticatedLayout({
 
   return (
     <SessionProvider session={session}>
-      <div className="flex min-h-screen flex-col">
-        <Header />
-        <main className="flex-1">
-          <div className="container py-6">{children}</div>
-        </main>
-      </div>
+      <MainLayout>{children}</MainLayout>
     </SessionProvider>
   );
 }
