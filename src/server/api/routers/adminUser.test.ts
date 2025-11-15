@@ -236,7 +236,7 @@ describe("Admin User Router", () => {
         },
       });
 
-      const result = await caller.adminUser.deactivate({ id: targetUser.id });
+      const result = await caller.adminUser.deactivate({ userId: targetUser.id });
 
       expect(result.isActive).toBe(false);
 
@@ -252,7 +252,7 @@ describe("Admin User Router", () => {
       const caller = appRouter.createCaller({ ...ctx, session: testSession });
 
       await expect(
-        caller.adminUser.deactivate({ id: testAdminId })
+        caller.adminUser.deactivate({ userId: testAdminId })
       ).rejects.toThrow("cannot deactivate your own account");
     });
   });
@@ -272,7 +272,7 @@ describe("Admin User Router", () => {
         },
       });
 
-      const result = await caller.adminUser.reactivate({ id: targetUser.id });
+      const result = await caller.adminUser.reactivate({ userId: targetUser.id });
 
       expect(result.isActive).toBe(true);
 

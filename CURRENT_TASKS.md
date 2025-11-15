@@ -29,34 +29,35 @@ These items were marked as optional or deferred during Phase 3 implementation. T
 - [x] Add "Not found? Add new family" button to check-in search page
 - [x] Added English and Swedish translations for all modal fields
 
-### QR Code Page Enhancements (from Day 4, Sections 3.4-3.5)
+### QR Code Page Enhancements (from Day 4, Sections 3.4-3.5) ✅ COMPLETED
 
-#### Check-Out from QR Page
-- [ ] Add check-out button to QR page
-  - [ ] Only show if child is currently checked in
-  - [ ] Confirm dialog before check-out
-  - [ ] Use `checkOut.perform` tRPC endpoint
-  - [ ] Show success/error toast
-  - [ ] Update page state after check-out
+#### Check-Out from QR Page ✅ COMPLETED
+- [x] Add check-out button to QR page
+  - [x] Only show if child is currently checked in (authenticated staff only)
+  - [x] Confirm dialog before check-out
+  - [x] Use `checkOut.perform` tRPC endpoint
+  - [x] Show success/error toast
+  - [x] Update page state after check-out
 
-#### Additional QR Page Actions
-- [ ] Undo button (if recently checked out)
-  - [ ] Only show if within undo window
-  - [ ] Use `checkOut.undo` endpoint
-- [ ] Edit child info button (admin only)
+#### Additional QR Page Actions ✅ COMPLETED
+- [x] Undo button (if recently checked out)
+  - [x] Only show if within undo window (5 minutes)
+  - [x] Use `checkOut.undo` endpoint
+- [ ] Edit child info button (admin only) - DEFERRED
   - [ ] Link to family edit page
-- [ ] Reprint label button
+- [ ] Reprint label button - DEFERRED
   - [ ] Regenerate and print QR code
 
-### Check-Out Station Enhancements (from Day 5, Section 4.2)
+### Check-Out Station Enhancements (from Day 5, Section 4.2) ✅ COMPLETED
 
-#### Bulk Check-Out Features
-- [ ] "Pick Up All" quick button in family view
-  - [ ] Selects all checked-in children for a family
-  - [ ] One-click check-out for entire family
-- [ ] Show parent contact display in check-out view
-  - [ ] Reuse component from check-in flow
-  - [ ] Display all parent phones/emails
+#### Bulk Check-Out Features ✅ COMPLETED
+- [x] "Pick Up All" quick button in family view
+  - [x] Selects all checked-in children for a family
+  - [x] Shows in header when 2+ children checked in
+  - [x] Disabled when all children already selected
+- [x] Show parent contact display in check-out view
+  - [x] Parent names, phones, and emails displayed
+  - [x] Already integrated in CheckedInChildrenView component
 
 ### Admin Panel Enhancements (from Day 6-7)
 
@@ -79,20 +80,22 @@ These items were marked as optional or deferred during Phase 3 implementation. T
 - [x] Integrated event creation with session creation
 - [x] Added English and Swedish translations for all modal fields
 
-#### Admin User Management Modal (Section 5.4)
-- [ ] Create `src/components/admin/create-admin-modal.tsx`
-  - [ ] Form fields:
-    - [ ] Username (required, unique validation)
-    - [ ] Password (required, min length 8)
-    - [ ] Confirm password (must match)
-    - [ ] Name (required)
-  - [ ] Validation
-    - [ ] Username availability check
-    - [ ] Password strength indicator
-    - [ ] Password match validation
-  - [ ] Submit using `adminUser.create` endpoint
-  - [ ] Success/error handling with toast
-- [ ] Wire up "Create User" button on users page
+#### Admin User Management Modal (Section 5.4) ✅ COMPLETED
+- [x] Create `src/components/admin/create-admin-modal.tsx`
+  - [x] Form fields:
+    - [x] Username (required, unique validation, 3-50 chars)
+    - [x] Password (required, min length 8, complexity requirements)
+    - [x] Confirm password (must match)
+    - [x] Name (required, max 100 chars)
+  - [x] Validation
+    - [x] Username format validation (alphanumeric, underscore, hyphen only)
+    - [x] Password strength indicator (uppercase, lowercase, number)
+    - [x] Password match validation
+    - [x] Real-time password requirements display
+  - [x] Submit using `adminUser.create` endpoint
+  - [x] Success/error handling with toast
+  - [x] Show/hide password toggle buttons
+- [x] Wire up "Create User" button on users page
 
 #### Family Detail & Edit Page (Section 5.6)
 - [ ] Create `src/app/(authenticated)/admin/families/[id]/page.tsx`

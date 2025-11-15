@@ -119,10 +119,10 @@ export const adminUserRouter = createTRPCRouter({
    * Requires authentication
    */
   deactivate: protectedProcedure
-    .input(z.object({ id: z.string() }))
+    .input(z.object({ userId: z.string() }))
     .mutation(async ({ ctx, input }) => {
       // Prevent deactivating yourself
-      if (input.id === ctx.session.user.id) {
+      if (input.userId === ctx.session.user.id) {
         throw new TRPCError({
           code: "BAD_REQUEST",
           message: "You cannot deactivate your own account",
@@ -130,7 +130,7 @@ export const adminUserRouter = createTRPCRouter({
       }
 
       const adminUser = await ctx.db.adminUser.update({
-        where: { id: input.id },
+        where: { id: input.userId },
         data: { isActive: false },
         select: {
           id: true,
@@ -148,10 +148,10 @@ export const adminUserRouter = createTRPCRouter({
    * Requires authentication
    */
   reactivate: protectedProcedure
-    .input(z.object({ id: z.string() }))
+    .input(z.object({ userId: z.string() }))
     .mutation(async ({ ctx, input }) => {
       const adminUser = await ctx.db.adminUser.update({
-        where: { id: input.id },
+        where: { id: input.userId },
         data: { isActive: true },
         select: {
           id: true,

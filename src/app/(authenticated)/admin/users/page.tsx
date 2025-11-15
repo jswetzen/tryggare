@@ -10,12 +10,14 @@ import { api } from "~/trpc/react";
 import { format } from "date-fns";
 import { UserX, UserCheck, Plus } from "lucide-react";
 import { toast } from "sonner";
+import { CreateAdminModal } from "~/components/admin/create-admin-modal";
 
 export default function UsersPage() {
   const { data: sessionData } = useSession();
   const currentUserId = sessionData?.user?.id;
 
   const [filter, setFilter] = useState<"all" | "active" | "inactive">("active");
+  const [showCreateModal, setShowCreateModal] = useState(false);
 
   const { data: users, isLoading } = api.adminUser.list.useQuery();
 
@@ -71,11 +73,13 @@ export default function UsersPage() {
             Manage admin users and their access
           </p>
         </div>
-        <Button>
+        <Button onClick={() => setShowCreateModal(true)}>
           <Plus className="mr-2 h-4 w-4" />
           Create User
         </Button>
       </div>
+
+      <CreateAdminModal open={showCreateModal} onOpenChange={setShowCreateModal} />
 
       {/* Filter Tabs */}
       <div className="flex gap-2">
