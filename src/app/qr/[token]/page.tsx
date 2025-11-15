@@ -4,9 +4,23 @@ import { useParams } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Button } from "@/components/ui/button";
 import { api } from "~/trpc/react";
 import { format } from "date-fns";
-import { Phone, Mail, User, Calendar, AlertCircle } from "lucide-react";
+import { Phone, Mail, User, Calendar, AlertCircle, LogOut, RotateCcw } from "lucide-react";
+import { useSession } from "next-auth/react";
+import { useState } from "react";
+import { useToast } from "@/hooks/use-toast";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 function calculateAge(birthdate: Date): number {
   const today = new Date();
@@ -22,11 +36,62 @@ function calculateAge(birthdate: Date): number {
 export default function QRCodePage() {
   const params = useParams();
   const token = params.token as string;
+  const { data: session } = useSession();
+  const { toast } = useToast();
+  const [showCheckOutDialog, setShowCheckOutDialog] = useState(false);
+  const [showUndoDialog, setShowUndoDialog] = useState(false);
+  const utils = api.useUtils();
 
   const { data: child, isLoading, error } = api.child.getByQrTokenPublic.useQuery(
     { qrToken: token },
     { enabled: !!token }
   );
+
+  const checkOutMutation = api.checkOut.perform.useMutation({
+    onSuccess: (data) => {
+      toast({
+        title: "Check-out successful",
+        description: `${data.checkOuts[0]?.childName} has been checked out.`,
+      });
+      void utils.child.getByQrTokenPublic.invalidate({ qrToken: token });
+      setShowCheckOutDialog(false);
+    },
+    onError: (error) => {
+      toast({
+        title: "Check-out failed",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const undoMutation = api.checkOut.undo.useMutation({
+    onSuccess: (data) => {
+      toast({
+        title: "Check-out undone",
+        description: data.message,
+      });
+      void utils.child.getByQrTokenPublic.invalidate({ qrToken: token });
+      setShowUndoDialog(false);
+    },
+    onError: (error) => {
+      toast({
+        title: "Undo failed",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleCheckOut = () => {
+    if (!child) return;
+    checkOutMutation.mutate({ childIds: [child.id] });
+  };
+
+  const handleUndo = () => {
+    if (!currentCheckIn) return;
+    undoMutation.mutate({ checkInRecordId: currentCheckIn.id });
+  };
 
   if (isLoading) {
     return (
@@ -67,7 +132,12 @@ export default function QRCodePage() {
   }
 
   const currentCheckIn = child.checkInRecords[0];
-  const isCheckedIn = !!currentCheckIn;
+  const isCheckedIn = !!currentCheckIn && !currentCheckIn.checkOutTime;
+  const isAuthenticated = !!session;
+
+  // Check if undo is available (within 5 minutes of check-out)
+  const canUndo = currentCheckIn?.checkOutTime &&
+    new Date(currentCheckIn.checkOutTime).getTime() > Date.now() - 5 * 60 * 1000;
 
   return (
     <div className="container mx-auto max-w-2xl space-y-6 p-4">
@@ -78,15 +148,17 @@ export default function QRCodePage() {
             <CardTitle className="text-2xl">
               {child.firstName} {child.lastName}
             </CardTitle>
-            {isCheckedIn ? (
-              <Badge variant="default" className="text-lg">
-                Checked In
-              </Badge>
-            ) : (
-              <Badge variant="secondary" className="text-lg">
-                Not Checked In
-              </Badge>
-            )}
+            <div className="flex items-center gap-2">
+              {isCheckedIn ? (
+                <Badge variant="default" className="text-lg">
+                  Checked In
+                </Badge>
+              ) : (
+                <Badge variant="secondary" className="text-lg">
+                  Not Checked In
+                </Badge>
+              )}
+            </div>
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -137,6 +209,36 @@ export default function QRCodePage() {
               </div>
             </div>
           )}
+
+          {/* Action Buttons - Only for authenticated staff */}
+          {isAuthenticated && (
+            <div className="space-y-2 border-t pt-4">
+              {isCheckedIn && (
+                <Button
+                  onClick={() => setShowCheckOutDialog(true)}
+                  className="w-full"
+                  variant="default"
+                  size="lg"
+                  disabled={checkOutMutation.isPending}
+                >
+                  <LogOut className="mr-2 h-5 w-5" />
+                  Check Out Child
+                </Button>
+              )}
+              {!isCheckedIn && canUndo && (
+                <Button
+                  onClick={() => setShowUndoDialog(true)}
+                  className="w-full"
+                  variant="outline"
+                  size="lg"
+                  disabled={undoMutation.isPending}
+                >
+                  <RotateCcw className="mr-2 h-5 w-5" />
+                  Undo Check-Out
+                </Button>
+              )}
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -175,6 +277,54 @@ export default function QRCodePage() {
         <p>This is a secure QR code for {child.firstName} {child.lastName}</p>
         <p className="mt-1">For staff use only • Do not share</p>
       </div>
+
+      {/* Check-out Confirmation Dialog */}
+      <AlertDialog open={showCheckOutDialog} onOpenChange={setShowCheckOutDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirm Check-Out</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to check out {child.firstName} {child.lastName} from{" "}
+              {currentCheckIn?.session.name}?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={checkOutMutation.isPending}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleCheckOut}
+              disabled={checkOutMutation.isPending}
+            >
+              {checkOutMutation.isPending ? "Checking out..." : "Check Out"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Undo Check-out Confirmation Dialog */}
+      <AlertDialog open={showUndoDialog} onOpenChange={setShowUndoDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Undo Check-Out</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to undo the check-out for {child.firstName} {child.lastName}?
+              This will mark the child as checked in again.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={undoMutation.isPending}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleUndo}
+              disabled={undoMutation.isPending}
+            >
+              {undoMutation.isPending ? "Undoing..." : "Undo Check-Out"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

@@ -25,9 +25,10 @@ export const childRouter = createTRPCRouter({
             },
           },
           checkInRecords: {
-            where: {
-              checkOutTime: null, // Currently checked in
+            orderBy: {
+              checkInTime: "desc",
             },
+            take: 1, // Get most recent check-in (whether checked in or recently checked out)
             include: {
               session: {
                 select: {

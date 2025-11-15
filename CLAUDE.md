@@ -3,7 +3,7 @@ The Conference Child Management System has a detailed specification in the file 
 Update IMPLEMENTATION_PLAN.md to check off items that are done. Also keep CURRENT_TASKS.md up-to-date as you complete items.
 
 The app database is running on localhost, you only need to start the dev server.
-Never stop a process without asking for permission first, you've closed the root process before, stopping claude code by accident.
+IMPORTANT: *Never* kill a process without asking permission first, you risk stopping the root process, stopping claude code by accident.
 
 Task completion checklist, before considering an implementation phase complete, make sure to:
 - Write tests that cover your new functionality

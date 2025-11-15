@@ -2,11 +2,13 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useTranslations } from "next-intl";
 import { api } from "~/trpc/react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { format } from "date-fns";
+import { Users } from "lucide-react";
 
 interface CheckedInChildrenViewProps {
   familyId: string;
@@ -76,10 +78,35 @@ export function CheckedInChildrenView({
     );
   }
 
+  const handlePickUpAll = () => {
+    // Select all checked-in children
+    const allChildIds = checkedInChildren.map(child => child.id);
+    allChildIds.forEach(childId => {
+      if (!selectedChildren.includes(childId)) {
+        onToggleChild(childId);
+      }
+    });
+  };
+
+  const allSelected = checkedInChildren.every(child => selectedChildren.includes(child.id));
+
   return (
     <Card>
       <CardHeader>
-        <CardTitle>{tFamily("familyDetails")}</CardTitle>
+        <div className="flex items-center justify-between">
+          <CardTitle>{tFamily("familyDetails")}</CardTitle>
+          {checkedInChildren.length > 1 && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handlePickUpAll}
+              disabled={allSelected}
+            >
+              <Users className="mr-2 h-4 w-4" />
+              Pick Up All
+            </Button>
+          )}
+        </div>
       </CardHeader>
       <CardContent className="space-y-6">
         {/* Parents */}
