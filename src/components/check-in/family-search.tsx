@@ -2,16 +2,18 @@
 
 import { useState } from "react";
 import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 import { useTranslations } from "next-intl";
-import { Search } from "lucide-react";
+import { Search, Plus } from "lucide-react";
 import { api } from "~/trpc/react";
 
 interface FamilySearchProps {
   onSelectFamily: (familyId: string) => void;
   selectedFamilyId?: string;
+  onAddFamily?: () => void;
 }
 
-export function FamilySearch({ onSelectFamily, selectedFamilyId }: FamilySearchProps) {
+export function FamilySearch({ onSelectFamily, selectedFamilyId, onAddFamily }: FamilySearchProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const t = useTranslations("checkIn");
 
@@ -64,8 +66,21 @@ export function FamilySearch({ onSelectFamily, selectedFamilyId }: FamilySearchP
               ))}
             </div>
           ) : (
-            <div className="p-4 text-sm text-muted-foreground">
-              {t("noResults")}
+            <div className="space-y-3 p-4">
+              <div className="text-sm text-muted-foreground">
+                {t("noResults")}
+              </div>
+              {onAddFamily && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={onAddFamily}
+                  className="w-full"
+                >
+                  <Plus className="mr-2 h-4 w-4" />
+                  {t("addNewFamily")}
+                </Button>
+              )}
             </div>
           )}
         </div>

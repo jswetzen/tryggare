@@ -10,23 +10,24 @@ These items were marked as optional or deferred during Phase 3 implementation. T
 
 ### Check-In Station Enhancements
 
-#### Add Family Modal (from Day 2-3, Section 2.6)
-- [ ] Create `src/components/check-in/add-family-modal.tsx`
-  - [ ] Quick add form with minimal fields:
-    - [ ] Parent name (required)
-    - [ ] Phone number (required)
-    - [ ] Child first/last name (required)
-    - [ ] Child birthdate (required)
-    - [ ] Allergies (optional)
-  - [ ] Form validation
-    - [ ] Required field indicators
-    - [ ] Inline validation messages
-    - [ ] Submit disabled until valid
-  - [ ] Submit using `family.create` tRPC endpoint
-    - [ ] Loading state
-    - [ ] Error handling with toast
-    - [ ] Success: close modal, auto-select new family
-- [ ] Add "Not found? Add new family" button to check-in search page
+#### Add Family Modal (from Day 2-3, Section 2.6) ✅ COMPLETED
+- [x] Create `src/components/check-in/add-family-modal.tsx`
+  - [x] Quick add form with minimal fields:
+    - [x] Parent name (required)
+    - [x] Phone number (required)
+    - [x] Child first/last name (required)
+    - [x] Child birthdate (required)
+    - [x] Allergies (optional)
+  - [x] Form validation
+    - [x] Required field indicators
+    - [x] Inline validation messages
+    - [x] Submit disabled until valid
+  - [x] Submit using `family.create` tRPC endpoint
+    - [x] Loading state
+    - [x] Error handling with toast
+    - [x] Success: close modal, auto-select new family
+- [x] Add "Not found? Add new family" button to check-in search page
+- [x] Added English and Swedish translations for all modal fields
 
 ### QR Code Page Enhancements (from Day 4, Sections 3.4-3.5)
 
@@ -59,21 +60,24 @@ These items were marked as optional or deferred during Phase 3 implementation. T
 
 ### Admin Panel Enhancements (from Day 6-7)
 
-#### Session Management Modal (Section 5.2)
-- [ ] Create `src/components/admin/session-modal.tsx`
-  - [ ] Form fields:
-    - [ ] Session name (required)
-    - [ ] Event name (required)
-    - [ ] Start time (required, datetime picker)
-    - [ ] End time (required, datetime picker)
-    - [ ] Requires ticket (checkbox)
-  - [ ] Validation
-    - [ ] End time after start time
-    - [ ] Required fields
-  - [ ] Submit using `session.create` or `session.update`
-  - [ ] Success/error handling
-- [ ] Wire up "Create Session" button on sessions page
-- [ ] Wire up "Edit" button on session cards
+#### Session Management Modal (Section 5.2) ✅ COMPLETED
+- [x] Create `src/components/admin/session-modal.tsx`
+  - [x] Form fields:
+    - [x] Session name (required)
+    - [x] Event name (required)
+    - [x] Start time (required, datetime picker)
+    - [x] End time (required, datetime picker)
+    - [x] Requires ticket (checkbox)
+  - [x] Validation
+    - [x] End time after start time
+    - [x] Required fields
+  - [x] Submit using `session.create` or `session.update`
+  - [x] Success/error handling
+- [x] Wire up "Create Session" button on sessions page
+- [x] Wire up "Edit" button on session cards
+- [x] Created `src/server/api/routers/event.ts` for event management
+- [x] Integrated event creation with session creation
+- [x] Added English and Swedish translations for all modal fields
 
 #### Admin User Management Modal (Section 5.4)
 - [ ] Create `src/components/admin/create-admin-modal.tsx`

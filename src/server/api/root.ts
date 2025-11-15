@@ -1,5 +1,6 @@
 import { createCallerFactory, createTRPCRouter } from "~/server/api/trpc";
 import { adminUserRouter } from "~/server/api/routers/adminUser";
+import { eventRouter } from "~/server/api/routers/event";
 import { sessionRouter } from "~/server/api/routers/session";
 import { familyRouter } from "~/server/api/routers/family";
 import { childRouter } from "~/server/api/routers/child";
@@ -14,6 +15,7 @@ import { checkOutRouter } from "~/server/api/routers/checkOut";
  */
 export const appRouter = createTRPCRouter({
   adminUser: adminUserRouter,
+  event: eventRouter,
   session: sessionRouter,
   family: familyRouter,
   child: childRouter,

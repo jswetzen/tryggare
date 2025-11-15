@@ -6,6 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { SessionModal } from "~/components/admin/session-modal";
 import { api } from "~/trpc/react";
 import { format } from "date-fns";
 import { Play, Square, Pencil, Trash2, Plus } from "lucide-react";
@@ -16,6 +17,8 @@ export default function SessionsPage() {
   const tCommon = useTranslations("common");
 
   const [filter, setFilter] = useState<"all" | "active" | "inactive">("all");
+  const [showSessionModal, setShowSessionModal] = useState(false);
+  const [editingSessionId, setEditingSessionId] = useState<string | undefined>();
 
   const { data: sessions, isLoading } = api.session.list.useQuery();
 
@@ -67,6 +70,16 @@ export default function SessionsPage() {
     }
   };
 
+  const handleCreateSession = () => {
+    setEditingSessionId(undefined);
+    setShowSessionModal(true);
+  };
+
+  const handleEditSession = (sessionId: string) => {
+    setEditingSessionId(sessionId);
+    setShowSessionModal(true);
+  };
+
   const filteredSessions = sessions?.filter((session) => {
     if (filter === "active") return session.isActive;
     if (filter === "inactive") return !session.isActive;
@@ -82,7 +95,7 @@ export default function SessionsPage() {
             Manage conference sessions and events
           </p>
         </div>
-        <Button>
+        <Button onClick={handleCreateSession}>
           <Plus className="mr-2 h-4 w-4" />
           Create Session
         </Button>
@@ -129,7 +142,7 @@ export default function SessionsPage() {
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-12">
             <p className="text-muted-foreground">No sessions found.</p>
-            <Button className="mt-4">
+            <Button className="mt-4" onClick={handleCreateSession}>
               <Plus className="mr-2 h-4 w-4" />
               Create Your First Session
             </Button>
@@ -195,7 +208,11 @@ export default function SessionsPage() {
                       Activate
                     </Button>
                   )}
-                  <Button variant="outline" size="sm">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleEditSession(session.id)}
+                  >
                     <Pencil className="mr-2 h-4 w-4" />
                     Edit
                   </Button>
@@ -214,6 +231,12 @@ export default function SessionsPage() {
           ))}
         </div>
       )}
+
+      <SessionModal
+        open={showSessionModal}
+        onOpenChange={setShowSessionModal}
+        sessionId={editingSessionId}
+      />
     </div>
   );
 }
