@@ -5,6 +5,7 @@ import { useTranslations } from "next-intl";
 import { FamilySearch } from "~/components/check-in/family-search";
 import { FamilyView } from "~/components/check-in/family-view";
 import { SessionSelector } from "~/components/check-in/session-selector";
+import { AddFamilyModal } from "~/components/check-in/add-family-modal";
 import { Button } from "@/components/ui/button";
 import { api } from "~/trpc/react";
 import { toast } from "sonner";
@@ -21,6 +22,7 @@ export default function CheckInPage() {
   const [selectedChildren, setSelectedChildren] = useState<string[]>([]);
   const [showSuccess, setShowSuccess] = useState(false);
   const [checkInResults, setCheckInResults] = useState<any>(null);
+  const [showAddFamilyModal, setShowAddFamilyModal] = useState(false);
 
   const checkInMutation = api.checkIn.perform.useMutation({
     onSuccess: (data) => {
@@ -71,6 +73,11 @@ export default function CheckInPage() {
     setSelectedFamilyId(undefined);
     setSelectedChildren([]);
     setShowQRLabels(false);
+  };
+
+  const handleFamilyCreated = (familyId: string) => {
+    setSelectedFamilyId(familyId);
+    setShowAddFamilyModal(false);
   };
 
   if (showSuccess && checkInResults) {
@@ -141,9 +148,16 @@ export default function CheckInPage() {
               <FamilySearch
                 onSelectFamily={setSelectedFamilyId}
                 selectedFamilyId={selectedFamilyId}
+                onAddFamily={() => setShowAddFamilyModal(true)}
               />
             </CardContent>
           </Card>
+
+          <AddFamilyModal
+            open={showAddFamilyModal}
+            onOpenChange={setShowAddFamilyModal}
+            onFamilyCreated={handleFamilyCreated}
+          />
 
           {selectedFamilyId && (
             <FamilyView
