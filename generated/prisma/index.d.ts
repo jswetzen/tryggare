@@ -1710,10 +1710,12 @@ export namespace Prisma {
 
   export type EventCountOutputType = {
     sessions: number
+    tickets: number
   }
 
   export type EventCountOutputTypeSelect<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     sessions?: boolean | EventCountOutputTypeCountSessionsArgs
+    tickets?: boolean | EventCountOutputTypeCountTicketsArgs
   }
 
   // Custom InputTypes
@@ -1732,6 +1734,13 @@ export namespace Prisma {
    */
   export type EventCountOutputTypeCountSessionsArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     where?: SessionWhereInput
+  }
+
+  /**
+   * EventCountOutputType without action
+   */
+  export type EventCountOutputTypeCountTicketsArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    where?: TicketWhereInput
   }
 
 
@@ -6371,6 +6380,7 @@ export namespace Prisma {
     startDate?: boolean
     endDate?: boolean
     sessions?: boolean | Event$sessionsArgs<ExtArgs>
+    tickets?: boolean | Event$ticketsArgs<ExtArgs>
     _count?: boolean | EventCountOutputTypeDefaultArgs<ExtArgs>
   }, ExtArgs["result"]["event"]>
 
@@ -6398,6 +6408,7 @@ export namespace Prisma {
   export type EventOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "name" | "startDate" | "endDate", ExtArgs["result"]["event"]>
   export type EventInclude<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     sessions?: boolean | Event$sessionsArgs<ExtArgs>
+    tickets?: boolean | Event$ticketsArgs<ExtArgs>
     _count?: boolean | EventCountOutputTypeDefaultArgs<ExtArgs>
   }
   export type EventIncludeCreateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {}
@@ -6407,6 +6418,7 @@ export namespace Prisma {
     name: "Event"
     objects: {
       sessions: Prisma.$SessionPayload<ExtArgs>[]
+      tickets: Prisma.$TicketPayload<ExtArgs>[]
     }
     scalars: $Extensions.GetPayloadResult<{
       id: string
@@ -6808,6 +6820,7 @@ export namespace Prisma {
   export interface Prisma__EventClient<T, Null = never, ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs, GlobalOmitOptions = {}> extends Prisma.PrismaPromise<T> {
     readonly [Symbol.toStringTag]: "PrismaPromise"
     sessions<T extends Event$sessionsArgs<ExtArgs> = {}>(args?: Subset<T, Event$sessionsArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$SessionPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+    tickets<T extends Event$ticketsArgs<ExtArgs> = {}>(args?: Subset<T, Event$ticketsArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$TicketPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
     /**
      * Attaches callbacks for the resolution and/or rejection of the Promise.
      * @param onfulfilled The callback to execute when the Promise is resolved.
@@ -7250,6 +7263,30 @@ export namespace Prisma {
     take?: number
     skip?: number
     distinct?: SessionScalarFieldEnum | SessionScalarFieldEnum[]
+  }
+
+  /**
+   * Event.tickets
+   */
+  export type Event$ticketsArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the Ticket
+     */
+    select?: TicketSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the Ticket
+     */
+    omit?: TicketOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: TicketInclude<ExtArgs> | null
+    where?: TicketWhereInput
+    orderBy?: TicketOrderByWithRelationInput | TicketOrderByWithRelationInput[]
+    cursor?: TicketWhereUniqueInput
+    take?: number
+    skip?: number
+    distinct?: TicketScalarFieldEnum | TicketScalarFieldEnum[]
   }
 
   /**
@@ -8428,6 +8465,7 @@ export namespace Prisma {
     type: string | null
     childId: string | null
     sessionId: string | null
+    eventId: string | null
   }
 
   export type TicketMaxAggregateOutputType = {
@@ -8435,6 +8473,7 @@ export namespace Prisma {
     type: string | null
     childId: string | null
     sessionId: string | null
+    eventId: string | null
   }
 
   export type TicketCountAggregateOutputType = {
@@ -8442,6 +8481,7 @@ export namespace Prisma {
     type: number
     childId: number
     sessionId: number
+    eventId: number
     _all: number
   }
 
@@ -8451,6 +8491,7 @@ export namespace Prisma {
     type?: true
     childId?: true
     sessionId?: true
+    eventId?: true
   }
 
   export type TicketMaxAggregateInputType = {
@@ -8458,6 +8499,7 @@ export namespace Prisma {
     type?: true
     childId?: true
     sessionId?: true
+    eventId?: true
   }
 
   export type TicketCountAggregateInputType = {
@@ -8465,6 +8507,7 @@ export namespace Prisma {
     type?: true
     childId?: true
     sessionId?: true
+    eventId?: true
     _all?: true
   }
 
@@ -8545,6 +8588,7 @@ export namespace Prisma {
     type: string
     childId: string
     sessionId: string | null
+    eventId: string | null
     _count: TicketCountAggregateOutputType | null
     _min: TicketMinAggregateOutputType | null
     _max: TicketMaxAggregateOutputType | null
@@ -8569,8 +8613,10 @@ export namespace Prisma {
     type?: boolean
     childId?: boolean
     sessionId?: boolean
+    eventId?: boolean
     child?: boolean | ChildDefaultArgs<ExtArgs>
     session?: boolean | Ticket$sessionArgs<ExtArgs>
+    event?: boolean | Ticket$eventArgs<ExtArgs>
   }, ExtArgs["result"]["ticket"]>
 
   export type TicketSelectCreateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetSelect<{
@@ -8578,8 +8624,10 @@ export namespace Prisma {
     type?: boolean
     childId?: boolean
     sessionId?: boolean
+    eventId?: boolean
     child?: boolean | ChildDefaultArgs<ExtArgs>
     session?: boolean | Ticket$sessionArgs<ExtArgs>
+    event?: boolean | Ticket$eventArgs<ExtArgs>
   }, ExtArgs["result"]["ticket"]>
 
   export type TicketSelectUpdateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetSelect<{
@@ -8587,8 +8635,10 @@ export namespace Prisma {
     type?: boolean
     childId?: boolean
     sessionId?: boolean
+    eventId?: boolean
     child?: boolean | ChildDefaultArgs<ExtArgs>
     session?: boolean | Ticket$sessionArgs<ExtArgs>
+    event?: boolean | Ticket$eventArgs<ExtArgs>
   }, ExtArgs["result"]["ticket"]>
 
   export type TicketSelectScalar = {
@@ -8596,20 +8646,24 @@ export namespace Prisma {
     type?: boolean
     childId?: boolean
     sessionId?: boolean
+    eventId?: boolean
   }
 
-  export type TicketOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "type" | "childId" | "sessionId", ExtArgs["result"]["ticket"]>
+  export type TicketOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "type" | "childId" | "sessionId" | "eventId", ExtArgs["result"]["ticket"]>
   export type TicketInclude<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     child?: boolean | ChildDefaultArgs<ExtArgs>
     session?: boolean | Ticket$sessionArgs<ExtArgs>
+    event?: boolean | Ticket$eventArgs<ExtArgs>
   }
   export type TicketIncludeCreateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     child?: boolean | ChildDefaultArgs<ExtArgs>
     session?: boolean | Ticket$sessionArgs<ExtArgs>
+    event?: boolean | Ticket$eventArgs<ExtArgs>
   }
   export type TicketIncludeUpdateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     child?: boolean | ChildDefaultArgs<ExtArgs>
     session?: boolean | Ticket$sessionArgs<ExtArgs>
+    event?: boolean | Ticket$eventArgs<ExtArgs>
   }
 
   export type $TicketPayload<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
@@ -8617,12 +8671,14 @@ export namespace Prisma {
     objects: {
       child: Prisma.$ChildPayload<ExtArgs>
       session: Prisma.$SessionPayload<ExtArgs> | null
+      event: Prisma.$EventPayload<ExtArgs> | null
     }
     scalars: $Extensions.GetPayloadResult<{
       id: string
       type: string
       childId: string
       sessionId: string | null
+      eventId: string | null
     }, ExtArgs["result"]["ticket"]>
     composites: {}
   }
@@ -9019,6 +9075,7 @@ export namespace Prisma {
     readonly [Symbol.toStringTag]: "PrismaPromise"
     child<T extends ChildDefaultArgs<ExtArgs> = {}>(args?: Subset<T, ChildDefaultArgs<ExtArgs>>): Prisma__ChildClient<$Result.GetResult<Prisma.$ChildPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>
     session<T extends Ticket$sessionArgs<ExtArgs> = {}>(args?: Subset<T, Ticket$sessionArgs<ExtArgs>>): Prisma__SessionClient<$Result.GetResult<Prisma.$SessionPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
+    event<T extends Ticket$eventArgs<ExtArgs> = {}>(args?: Subset<T, Ticket$eventArgs<ExtArgs>>): Prisma__EventClient<$Result.GetResult<Prisma.$EventPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
     /**
      * Attaches callbacks for the resolution and/or rejection of the Promise.
      * @param onfulfilled The callback to execute when the Promise is resolved.
@@ -9052,6 +9109,7 @@ export namespace Prisma {
     readonly type: FieldRef<"Ticket", 'String'>
     readonly childId: FieldRef<"Ticket", 'String'>
     readonly sessionId: FieldRef<"Ticket", 'String'>
+    readonly eventId: FieldRef<"Ticket", 'String'>
   }
     
 
@@ -9464,6 +9522,25 @@ export namespace Prisma {
      */
     include?: SessionInclude<ExtArgs> | null
     where?: SessionWhereInput
+  }
+
+  /**
+   * Ticket.event
+   */
+  export type Ticket$eventArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the Event
+     */
+    select?: EventSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the Event
+     */
+    omit?: EventOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: EventInclude<ExtArgs> | null
+    where?: EventWhereInput
   }
 
   /**
@@ -11732,7 +11809,8 @@ export namespace Prisma {
     id: 'id',
     type: 'type',
     childId: 'childId',
-    sessionId: 'sessionId'
+    sessionId: 'sessionId',
+    eventId: 'eventId'
   };
 
   export type TicketScalarFieldEnum = (typeof TicketScalarFieldEnum)[keyof typeof TicketScalarFieldEnum]
@@ -12143,6 +12221,7 @@ export namespace Prisma {
     startDate?: DateTimeFilter<"Event"> | Date | string
     endDate?: DateTimeFilter<"Event"> | Date | string
     sessions?: SessionListRelationFilter
+    tickets?: TicketListRelationFilter
   }
 
   export type EventOrderByWithRelationInput = {
@@ -12151,6 +12230,7 @@ export namespace Prisma {
     startDate?: SortOrder
     endDate?: SortOrder
     sessions?: SessionOrderByRelationAggregateInput
+    tickets?: TicketOrderByRelationAggregateInput
   }
 
   export type EventWhereUniqueInput = Prisma.AtLeast<{
@@ -12162,6 +12242,7 @@ export namespace Prisma {
     startDate?: DateTimeFilter<"Event"> | Date | string
     endDate?: DateTimeFilter<"Event"> | Date | string
     sessions?: SessionListRelationFilter
+    tickets?: TicketListRelationFilter
   }, "id">
 
   export type EventOrderByWithAggregationInput = {
@@ -12263,8 +12344,10 @@ export namespace Prisma {
     type?: StringFilter<"Ticket"> | string
     childId?: StringFilter<"Ticket"> | string
     sessionId?: StringNullableFilter<"Ticket"> | string | null
+    eventId?: StringNullableFilter<"Ticket"> | string | null
     child?: XOR<ChildScalarRelationFilter, ChildWhereInput>
     session?: XOR<SessionNullableScalarRelationFilter, SessionWhereInput> | null
+    event?: XOR<EventNullableScalarRelationFilter, EventWhereInput> | null
   }
 
   export type TicketOrderByWithRelationInput = {
@@ -12272,8 +12355,10 @@ export namespace Prisma {
     type?: SortOrder
     childId?: SortOrder
     sessionId?: SortOrderInput | SortOrder
+    eventId?: SortOrderInput | SortOrder
     child?: ChildOrderByWithRelationInput
     session?: SessionOrderByWithRelationInput
+    event?: EventOrderByWithRelationInput
   }
 
   export type TicketWhereUniqueInput = Prisma.AtLeast<{
@@ -12284,8 +12369,10 @@ export namespace Prisma {
     type?: StringFilter<"Ticket"> | string
     childId?: StringFilter<"Ticket"> | string
     sessionId?: StringNullableFilter<"Ticket"> | string | null
+    eventId?: StringNullableFilter<"Ticket"> | string | null
     child?: XOR<ChildScalarRelationFilter, ChildWhereInput>
     session?: XOR<SessionNullableScalarRelationFilter, SessionWhereInput> | null
+    event?: XOR<EventNullableScalarRelationFilter, EventWhereInput> | null
   }, "id">
 
   export type TicketOrderByWithAggregationInput = {
@@ -12293,6 +12380,7 @@ export namespace Prisma {
     type?: SortOrder
     childId?: SortOrder
     sessionId?: SortOrderInput | SortOrder
+    eventId?: SortOrderInput | SortOrder
     _count?: TicketCountOrderByAggregateInput
     _max?: TicketMaxOrderByAggregateInput
     _min?: TicketMinOrderByAggregateInput
@@ -12306,6 +12394,7 @@ export namespace Prisma {
     type?: StringWithAggregatesFilter<"Ticket"> | string
     childId?: StringWithAggregatesFilter<"Ticket"> | string
     sessionId?: StringNullableWithAggregatesFilter<"Ticket"> | string | null
+    eventId?: StringNullableWithAggregatesFilter<"Ticket"> | string | null
   }
 
   export type CheckInRecordWhereInput = {
@@ -12737,6 +12826,7 @@ export namespace Prisma {
     startDate: Date | string
     endDate: Date | string
     sessions?: SessionCreateNestedManyWithoutEventInput
+    tickets?: TicketCreateNestedManyWithoutEventInput
   }
 
   export type EventUncheckedCreateInput = {
@@ -12745,6 +12835,7 @@ export namespace Prisma {
     startDate: Date | string
     endDate: Date | string
     sessions?: SessionUncheckedCreateNestedManyWithoutEventInput
+    tickets?: TicketUncheckedCreateNestedManyWithoutEventInput
   }
 
   export type EventUpdateInput = {
@@ -12753,6 +12844,7 @@ export namespace Prisma {
     startDate?: DateTimeFieldUpdateOperationsInput | Date | string
     endDate?: DateTimeFieldUpdateOperationsInput | Date | string
     sessions?: SessionUpdateManyWithoutEventNestedInput
+    tickets?: TicketUpdateManyWithoutEventNestedInput
   }
 
   export type EventUncheckedUpdateInput = {
@@ -12761,6 +12853,7 @@ export namespace Prisma {
     startDate?: DateTimeFieldUpdateOperationsInput | Date | string
     endDate?: DateTimeFieldUpdateOperationsInput | Date | string
     sessions?: SessionUncheckedUpdateManyWithoutEventNestedInput
+    tickets?: TicketUncheckedUpdateManyWithoutEventNestedInput
   }
 
   export type EventCreateManyInput = {
@@ -12866,6 +12959,7 @@ export namespace Prisma {
     type: string
     child: ChildCreateNestedOneWithoutTicketsInput
     session?: SessionCreateNestedOneWithoutTicketsInput
+    event?: EventCreateNestedOneWithoutTicketsInput
   }
 
   export type TicketUncheckedCreateInput = {
@@ -12873,6 +12967,7 @@ export namespace Prisma {
     type: string
     childId: string
     sessionId?: string | null
+    eventId?: string | null
   }
 
   export type TicketUpdateInput = {
@@ -12880,6 +12975,7 @@ export namespace Prisma {
     type?: StringFieldUpdateOperationsInput | string
     child?: ChildUpdateOneRequiredWithoutTicketsNestedInput
     session?: SessionUpdateOneWithoutTicketsNestedInput
+    event?: EventUpdateOneWithoutTicketsNestedInput
   }
 
   export type TicketUncheckedUpdateInput = {
@@ -12887,6 +12983,7 @@ export namespace Prisma {
     type?: StringFieldUpdateOperationsInput | string
     childId?: StringFieldUpdateOperationsInput | string
     sessionId?: NullableStringFieldUpdateOperationsInput | string | null
+    eventId?: NullableStringFieldUpdateOperationsInput | string | null
   }
 
   export type TicketCreateManyInput = {
@@ -12894,6 +12991,7 @@ export namespace Prisma {
     type: string
     childId: string
     sessionId?: string | null
+    eventId?: string | null
   }
 
   export type TicketUpdateManyMutationInput = {
@@ -12906,6 +13004,7 @@ export namespace Prisma {
     type?: StringFieldUpdateOperationsInput | string
     childId?: StringFieldUpdateOperationsInput | string
     sessionId?: NullableStringFieldUpdateOperationsInput | string | null
+    eventId?: NullableStringFieldUpdateOperationsInput | string | null
   }
 
   export type CheckInRecordCreateInput = {
@@ -13417,11 +13516,17 @@ export namespace Prisma {
     isNot?: SessionWhereInput | null
   }
 
+  export type EventNullableScalarRelationFilter = {
+    is?: EventWhereInput | null
+    isNot?: EventWhereInput | null
+  }
+
   export type TicketCountOrderByAggregateInput = {
     id?: SortOrder
     type?: SortOrder
     childId?: SortOrder
     sessionId?: SortOrder
+    eventId?: SortOrder
   }
 
   export type TicketMaxOrderByAggregateInput = {
@@ -13429,6 +13534,7 @@ export namespace Prisma {
     type?: SortOrder
     childId?: SortOrder
     sessionId?: SortOrder
+    eventId?: SortOrder
   }
 
   export type TicketMinOrderByAggregateInput = {
@@ -13436,6 +13542,7 @@ export namespace Prisma {
     type?: SortOrder
     childId?: SortOrder
     sessionId?: SortOrder
+    eventId?: SortOrder
   }
 
   export type SessionScalarRelationFilter = {
@@ -13876,11 +13983,25 @@ export namespace Prisma {
     connect?: SessionWhereUniqueInput | SessionWhereUniqueInput[]
   }
 
+  export type TicketCreateNestedManyWithoutEventInput = {
+    create?: XOR<TicketCreateWithoutEventInput, TicketUncheckedCreateWithoutEventInput> | TicketCreateWithoutEventInput[] | TicketUncheckedCreateWithoutEventInput[]
+    connectOrCreate?: TicketCreateOrConnectWithoutEventInput | TicketCreateOrConnectWithoutEventInput[]
+    createMany?: TicketCreateManyEventInputEnvelope
+    connect?: TicketWhereUniqueInput | TicketWhereUniqueInput[]
+  }
+
   export type SessionUncheckedCreateNestedManyWithoutEventInput = {
     create?: XOR<SessionCreateWithoutEventInput, SessionUncheckedCreateWithoutEventInput> | SessionCreateWithoutEventInput[] | SessionUncheckedCreateWithoutEventInput[]
     connectOrCreate?: SessionCreateOrConnectWithoutEventInput | SessionCreateOrConnectWithoutEventInput[]
     createMany?: SessionCreateManyEventInputEnvelope
     connect?: SessionWhereUniqueInput | SessionWhereUniqueInput[]
+  }
+
+  export type TicketUncheckedCreateNestedManyWithoutEventInput = {
+    create?: XOR<TicketCreateWithoutEventInput, TicketUncheckedCreateWithoutEventInput> | TicketCreateWithoutEventInput[] | TicketUncheckedCreateWithoutEventInput[]
+    connectOrCreate?: TicketCreateOrConnectWithoutEventInput | TicketCreateOrConnectWithoutEventInput[]
+    createMany?: TicketCreateManyEventInputEnvelope
+    connect?: TicketWhereUniqueInput | TicketWhereUniqueInput[]
   }
 
   export type SessionUpdateManyWithoutEventNestedInput = {
@@ -13897,6 +14018,20 @@ export namespace Prisma {
     deleteMany?: SessionScalarWhereInput | SessionScalarWhereInput[]
   }
 
+  export type TicketUpdateManyWithoutEventNestedInput = {
+    create?: XOR<TicketCreateWithoutEventInput, TicketUncheckedCreateWithoutEventInput> | TicketCreateWithoutEventInput[] | TicketUncheckedCreateWithoutEventInput[]
+    connectOrCreate?: TicketCreateOrConnectWithoutEventInput | TicketCreateOrConnectWithoutEventInput[]
+    upsert?: TicketUpsertWithWhereUniqueWithoutEventInput | TicketUpsertWithWhereUniqueWithoutEventInput[]
+    createMany?: TicketCreateManyEventInputEnvelope
+    set?: TicketWhereUniqueInput | TicketWhereUniqueInput[]
+    disconnect?: TicketWhereUniqueInput | TicketWhereUniqueInput[]
+    delete?: TicketWhereUniqueInput | TicketWhereUniqueInput[]
+    connect?: TicketWhereUniqueInput | TicketWhereUniqueInput[]
+    update?: TicketUpdateWithWhereUniqueWithoutEventInput | TicketUpdateWithWhereUniqueWithoutEventInput[]
+    updateMany?: TicketUpdateManyWithWhereWithoutEventInput | TicketUpdateManyWithWhereWithoutEventInput[]
+    deleteMany?: TicketScalarWhereInput | TicketScalarWhereInput[]
+  }
+
   export type SessionUncheckedUpdateManyWithoutEventNestedInput = {
     create?: XOR<SessionCreateWithoutEventInput, SessionUncheckedCreateWithoutEventInput> | SessionCreateWithoutEventInput[] | SessionUncheckedCreateWithoutEventInput[]
     connectOrCreate?: SessionCreateOrConnectWithoutEventInput | SessionCreateOrConnectWithoutEventInput[]
@@ -13909,6 +14044,20 @@ export namespace Prisma {
     update?: SessionUpdateWithWhereUniqueWithoutEventInput | SessionUpdateWithWhereUniqueWithoutEventInput[]
     updateMany?: SessionUpdateManyWithWhereWithoutEventInput | SessionUpdateManyWithWhereWithoutEventInput[]
     deleteMany?: SessionScalarWhereInput | SessionScalarWhereInput[]
+  }
+
+  export type TicketUncheckedUpdateManyWithoutEventNestedInput = {
+    create?: XOR<TicketCreateWithoutEventInput, TicketUncheckedCreateWithoutEventInput> | TicketCreateWithoutEventInput[] | TicketUncheckedCreateWithoutEventInput[]
+    connectOrCreate?: TicketCreateOrConnectWithoutEventInput | TicketCreateOrConnectWithoutEventInput[]
+    upsert?: TicketUpsertWithWhereUniqueWithoutEventInput | TicketUpsertWithWhereUniqueWithoutEventInput[]
+    createMany?: TicketCreateManyEventInputEnvelope
+    set?: TicketWhereUniqueInput | TicketWhereUniqueInput[]
+    disconnect?: TicketWhereUniqueInput | TicketWhereUniqueInput[]
+    delete?: TicketWhereUniqueInput | TicketWhereUniqueInput[]
+    connect?: TicketWhereUniqueInput | TicketWhereUniqueInput[]
+    update?: TicketUpdateWithWhereUniqueWithoutEventInput | TicketUpdateWithWhereUniqueWithoutEventInput[]
+    updateMany?: TicketUpdateManyWithWhereWithoutEventInput | TicketUpdateManyWithWhereWithoutEventInput[]
+    deleteMany?: TicketScalarWhereInput | TicketScalarWhereInput[]
   }
 
   export type EventCreateNestedOneWithoutSessionsInput = {
@@ -14021,6 +14170,12 @@ export namespace Prisma {
     connect?: SessionWhereUniqueInput
   }
 
+  export type EventCreateNestedOneWithoutTicketsInput = {
+    create?: XOR<EventCreateWithoutTicketsInput, EventUncheckedCreateWithoutTicketsInput>
+    connectOrCreate?: EventCreateOrConnectWithoutTicketsInput
+    connect?: EventWhereUniqueInput
+  }
+
   export type ChildUpdateOneRequiredWithoutTicketsNestedInput = {
     create?: XOR<ChildCreateWithoutTicketsInput, ChildUncheckedCreateWithoutTicketsInput>
     connectOrCreate?: ChildCreateOrConnectWithoutTicketsInput
@@ -14037,6 +14192,16 @@ export namespace Prisma {
     delete?: SessionWhereInput | boolean
     connect?: SessionWhereUniqueInput
     update?: XOR<XOR<SessionUpdateToOneWithWhereWithoutTicketsInput, SessionUpdateWithoutTicketsInput>, SessionUncheckedUpdateWithoutTicketsInput>
+  }
+
+  export type EventUpdateOneWithoutTicketsNestedInput = {
+    create?: XOR<EventCreateWithoutTicketsInput, EventUncheckedCreateWithoutTicketsInput>
+    connectOrCreate?: EventCreateOrConnectWithoutTicketsInput
+    upsert?: EventUpsertWithoutTicketsInput
+    disconnect?: EventWhereInput | boolean
+    delete?: EventWhereInput | boolean
+    connect?: EventWhereUniqueInput
+    update?: XOR<XOR<EventUpdateToOneWithWhereWithoutTicketsInput, EventUpdateWithoutTicketsInput>, EventUncheckedUpdateWithoutTicketsInput>
   }
 
   export type ChildCreateNestedOneWithoutCheckInRecordsInput = {
@@ -14588,12 +14753,14 @@ export namespace Prisma {
     id?: string
     type: string
     session?: SessionCreateNestedOneWithoutTicketsInput
+    event?: EventCreateNestedOneWithoutTicketsInput
   }
 
   export type TicketUncheckedCreateWithoutChildInput = {
     id?: string
     type: string
     sessionId?: string | null
+    eventId?: string | null
   }
 
   export type TicketCreateOrConnectWithoutChildInput = {
@@ -14669,6 +14836,7 @@ export namespace Prisma {
     type?: StringFilter<"Ticket"> | string
     childId?: StringFilter<"Ticket"> | string
     sessionId?: StringNullableFilter<"Ticket"> | string | null
+    eventId?: StringNullableFilter<"Ticket"> | string | null
   }
 
   export type SessionCreateWithoutEventInput = {
@@ -14703,6 +14871,30 @@ export namespace Prisma {
     skipDuplicates?: boolean
   }
 
+  export type TicketCreateWithoutEventInput = {
+    id?: string
+    type: string
+    child: ChildCreateNestedOneWithoutTicketsInput
+    session?: SessionCreateNestedOneWithoutTicketsInput
+  }
+
+  export type TicketUncheckedCreateWithoutEventInput = {
+    id?: string
+    type: string
+    childId: string
+    sessionId?: string | null
+  }
+
+  export type TicketCreateOrConnectWithoutEventInput = {
+    where: TicketWhereUniqueInput
+    create: XOR<TicketCreateWithoutEventInput, TicketUncheckedCreateWithoutEventInput>
+  }
+
+  export type TicketCreateManyEventInputEnvelope = {
+    data: TicketCreateManyEventInput | TicketCreateManyEventInput[]
+    skipDuplicates?: boolean
+  }
+
   export type SessionUpsertWithWhereUniqueWithoutEventInput = {
     where: SessionWhereUniqueInput
     update: XOR<SessionUpdateWithoutEventInput, SessionUncheckedUpdateWithoutEventInput>
@@ -14732,11 +14924,28 @@ export namespace Prisma {
     eventId?: StringFilter<"Session"> | string
   }
 
+  export type TicketUpsertWithWhereUniqueWithoutEventInput = {
+    where: TicketWhereUniqueInput
+    update: XOR<TicketUpdateWithoutEventInput, TicketUncheckedUpdateWithoutEventInput>
+    create: XOR<TicketCreateWithoutEventInput, TicketUncheckedCreateWithoutEventInput>
+  }
+
+  export type TicketUpdateWithWhereUniqueWithoutEventInput = {
+    where: TicketWhereUniqueInput
+    data: XOR<TicketUpdateWithoutEventInput, TicketUncheckedUpdateWithoutEventInput>
+  }
+
+  export type TicketUpdateManyWithWhereWithoutEventInput = {
+    where: TicketScalarWhereInput
+    data: XOR<TicketUpdateManyMutationInput, TicketUncheckedUpdateManyWithoutEventInput>
+  }
+
   export type EventCreateWithoutSessionsInput = {
     id?: string
     name: string
     startDate: Date | string
     endDate: Date | string
+    tickets?: TicketCreateNestedManyWithoutEventInput
   }
 
   export type EventUncheckedCreateWithoutSessionsInput = {
@@ -14744,6 +14953,7 @@ export namespace Prisma {
     name: string
     startDate: Date | string
     endDate: Date | string
+    tickets?: TicketUncheckedCreateNestedManyWithoutEventInput
   }
 
   export type EventCreateOrConnectWithoutSessionsInput = {
@@ -14785,12 +14995,14 @@ export namespace Prisma {
     id?: string
     type: string
     child: ChildCreateNestedOneWithoutTicketsInput
+    event?: EventCreateNestedOneWithoutTicketsInput
   }
 
   export type TicketUncheckedCreateWithoutSessionInput = {
     id?: string
     type: string
     childId: string
+    eventId?: string | null
   }
 
   export type TicketCreateOrConnectWithoutSessionInput = {
@@ -14819,6 +15031,7 @@ export namespace Prisma {
     name?: StringFieldUpdateOperationsInput | string
     startDate?: DateTimeFieldUpdateOperationsInput | Date | string
     endDate?: DateTimeFieldUpdateOperationsInput | Date | string
+    tickets?: TicketUpdateManyWithoutEventNestedInput
   }
 
   export type EventUncheckedUpdateWithoutSessionsInput = {
@@ -14826,6 +15039,7 @@ export namespace Prisma {
     name?: StringFieldUpdateOperationsInput | string
     startDate?: DateTimeFieldUpdateOperationsInput | Date | string
     endDate?: DateTimeFieldUpdateOperationsInput | Date | string
+    tickets?: TicketUncheckedUpdateManyWithoutEventNestedInput
   }
 
   export type CheckInRecordUpsertWithWhereUniqueWithoutSessionInput = {
@@ -14918,6 +15132,27 @@ export namespace Prisma {
     create: XOR<SessionCreateWithoutTicketsInput, SessionUncheckedCreateWithoutTicketsInput>
   }
 
+  export type EventCreateWithoutTicketsInput = {
+    id?: string
+    name: string
+    startDate: Date | string
+    endDate: Date | string
+    sessions?: SessionCreateNestedManyWithoutEventInput
+  }
+
+  export type EventUncheckedCreateWithoutTicketsInput = {
+    id?: string
+    name: string
+    startDate: Date | string
+    endDate: Date | string
+    sessions?: SessionUncheckedCreateNestedManyWithoutEventInput
+  }
+
+  export type EventCreateOrConnectWithoutTicketsInput = {
+    where: EventWhereUniqueInput
+    create: XOR<EventCreateWithoutTicketsInput, EventUncheckedCreateWithoutTicketsInput>
+  }
+
   export type ChildUpsertWithoutTicketsInput = {
     update: XOR<ChildUpdateWithoutTicketsInput, ChildUncheckedUpdateWithoutTicketsInput>
     create: XOR<ChildCreateWithoutTicketsInput, ChildUncheckedCreateWithoutTicketsInput>
@@ -14986,6 +15221,33 @@ export namespace Prisma {
     requiresTicket?: BoolFieldUpdateOperationsInput | boolean
     eventId?: StringFieldUpdateOperationsInput | string
     checkInRecords?: CheckInRecordUncheckedUpdateManyWithoutSessionNestedInput
+  }
+
+  export type EventUpsertWithoutTicketsInput = {
+    update: XOR<EventUpdateWithoutTicketsInput, EventUncheckedUpdateWithoutTicketsInput>
+    create: XOR<EventCreateWithoutTicketsInput, EventUncheckedCreateWithoutTicketsInput>
+    where?: EventWhereInput
+  }
+
+  export type EventUpdateToOneWithWhereWithoutTicketsInput = {
+    where?: EventWhereInput
+    data: XOR<EventUpdateWithoutTicketsInput, EventUncheckedUpdateWithoutTicketsInput>
+  }
+
+  export type EventUpdateWithoutTicketsInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    name?: StringFieldUpdateOperationsInput | string
+    startDate?: DateTimeFieldUpdateOperationsInput | Date | string
+    endDate?: DateTimeFieldUpdateOperationsInput | Date | string
+    sessions?: SessionUpdateManyWithoutEventNestedInput
+  }
+
+  export type EventUncheckedUpdateWithoutTicketsInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    name?: StringFieldUpdateOperationsInput | string
+    startDate?: DateTimeFieldUpdateOperationsInput | Date | string
+    endDate?: DateTimeFieldUpdateOperationsInput | Date | string
+    sessions?: SessionUncheckedUpdateManyWithoutEventNestedInput
   }
 
   export type ChildCreateWithoutCheckInRecordsInput = {
@@ -15414,6 +15676,7 @@ export namespace Prisma {
     id?: string
     type: string
     sessionId?: string | null
+    eventId?: string | null
   }
 
   export type CheckInRecordUpdateWithoutChildInput = {
@@ -15450,18 +15713,21 @@ export namespace Prisma {
     id?: StringFieldUpdateOperationsInput | string
     type?: StringFieldUpdateOperationsInput | string
     session?: SessionUpdateOneWithoutTicketsNestedInput
+    event?: EventUpdateOneWithoutTicketsNestedInput
   }
 
   export type TicketUncheckedUpdateWithoutChildInput = {
     id?: StringFieldUpdateOperationsInput | string
     type?: StringFieldUpdateOperationsInput | string
     sessionId?: NullableStringFieldUpdateOperationsInput | string | null
+    eventId?: NullableStringFieldUpdateOperationsInput | string | null
   }
 
   export type TicketUncheckedUpdateManyWithoutChildInput = {
     id?: StringFieldUpdateOperationsInput | string
     type?: StringFieldUpdateOperationsInput | string
     sessionId?: NullableStringFieldUpdateOperationsInput | string | null
+    eventId?: NullableStringFieldUpdateOperationsInput | string | null
   }
 
   export type SessionCreateManyEventInput = {
@@ -15471,6 +15737,13 @@ export namespace Prisma {
     endTime: Date | string
     isActive?: boolean
     requiresTicket?: boolean
+  }
+
+  export type TicketCreateManyEventInput = {
+    id?: string
+    type: string
+    childId: string
+    sessionId?: string | null
   }
 
   export type SessionUpdateWithoutEventInput = {
@@ -15504,6 +15777,27 @@ export namespace Prisma {
     requiresTicket?: BoolFieldUpdateOperationsInput | boolean
   }
 
+  export type TicketUpdateWithoutEventInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    type?: StringFieldUpdateOperationsInput | string
+    child?: ChildUpdateOneRequiredWithoutTicketsNestedInput
+    session?: SessionUpdateOneWithoutTicketsNestedInput
+  }
+
+  export type TicketUncheckedUpdateWithoutEventInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    type?: StringFieldUpdateOperationsInput | string
+    childId?: StringFieldUpdateOperationsInput | string
+    sessionId?: NullableStringFieldUpdateOperationsInput | string | null
+  }
+
+  export type TicketUncheckedUpdateManyWithoutEventInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    type?: StringFieldUpdateOperationsInput | string
+    childId?: StringFieldUpdateOperationsInput | string
+    sessionId?: NullableStringFieldUpdateOperationsInput | string | null
+  }
+
   export type CheckInRecordCreateManySessionInput = {
     id?: string
     checkInTime?: Date | string
@@ -15518,6 +15812,7 @@ export namespace Prisma {
     id?: string
     type: string
     childId: string
+    eventId?: string | null
   }
 
   export type CheckInRecordUpdateWithoutSessionInput = {
@@ -15554,18 +15849,21 @@ export namespace Prisma {
     id?: StringFieldUpdateOperationsInput | string
     type?: StringFieldUpdateOperationsInput | string
     child?: ChildUpdateOneRequiredWithoutTicketsNestedInput
+    event?: EventUpdateOneWithoutTicketsNestedInput
   }
 
   export type TicketUncheckedUpdateWithoutSessionInput = {
     id?: StringFieldUpdateOperationsInput | string
     type?: StringFieldUpdateOperationsInput | string
     childId?: StringFieldUpdateOperationsInput | string
+    eventId?: NullableStringFieldUpdateOperationsInput | string | null
   }
 
   export type TicketUncheckedUpdateManyWithoutSessionInput = {
     id?: StringFieldUpdateOperationsInput | string
     type?: StringFieldUpdateOperationsInput | string
     childId?: StringFieldUpdateOperationsInput | string
+    eventId?: NullableStringFieldUpdateOperationsInput | string | null
   }
 
 

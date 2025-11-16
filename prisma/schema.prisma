@@ -101,6 +101,7 @@ model Event {
 
     // Relations
     sessions Session[]
+    tickets  Ticket[]
 
     @@map("events")
 }
@@ -132,14 +133,20 @@ model Ticket {
     id        String  @id @default(cuid())
     type      String  // "EVENT_PASS", "SESSION_TICKET", "NONE"
     childId   String
-    sessionId String? // null for event pass
+    sessionId String?
+    eventId   String?
 
     // Relations
     child   Child    @relation(fields: [childId], references: [id], onDelete: Cascade)
     session Session? @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+    event   Event?   @relation(fields: [eventId], references: [id], onDelete: Cascade)
 
     @@index([childId])
     @@index([sessionId])
+    @@index([eventId])
+    // Prisma 6.19 does not yet support @@check, but the migration adds the
+    // "tickets_require_event_or_session" database constraint to enforce that
+    // exactly one of event_id or session_id is populated.
     @@map("tickets")
 }
 

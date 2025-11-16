@@ -333,6 +333,7 @@ async function main() {
           type: "EVENT_PASS",
           childId: child.id,
           sessionId: null,
+          eventId: summerConf.id,
         },
       })
     )
@@ -361,6 +362,7 @@ async function main() {
       type: "EVENT_PASS",
       childId: garciaFamily.children[0]!.id,
       sessionId: null,
+      eventId: summerConf.id,
     },
   });
 

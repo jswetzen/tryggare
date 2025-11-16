@@ -179,7 +179,8 @@ exports.Prisma.TicketScalarFieldEnum = {
   id: 'id',
   type: 'type',
   childId: 'childId',
-  sessionId: 'sessionId'
+  sessionId: 'sessionId',
+  eventId: 'eventId'
 };
 
 exports.Prisma.CheckInRecordScalarFieldEnum = {

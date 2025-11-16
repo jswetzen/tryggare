@@ -223,12 +223,52 @@ describe("Validation Helper Functions", () => {
           type: "EVENT_PASS",
           childId: testChildId,
           sessionId: null,
+          eventId: testEventId,
         },
       });
 
       const result = await validateTicket(testChildId, ticketedSession.id);
 
       expect(result.valid).toBe(true);
+    });
+
+    it("should return invalid when child has event pass for different event", async () => {
+      const otherEvent = await db.event.create({
+        data: {
+          name: "Other Event",
+          startDate: new Date("2025-08-01"),
+          endDate: new Date("2025-08-02"),
+        },
+      });
+
+      try {
+        const ticketedSession = await db.session.create({
+          data: {
+            name: "Ticketed Session 4",
+            startTime: new Date("2025-07-02T10:00:00"),
+            endTime: new Date("2025-07-02T12:00:00"),
+            requiresTicket: true,
+            isActive: true,
+            eventId: testEventId,
+          },
+        });
+
+        await db.ticket.create({
+          data: {
+            type: "EVENT_PASS",
+            childId: testChildId,
+            sessionId: null,
+            eventId: otherEvent.id,
+          },
+        });
+
+        const result = await validateTicket(testChildId, ticketedSession.id);
+
+        expect(result.valid).toBe(false);
+        expect(result.reason).toContain("different event");
+      } finally {
+        await db.event.delete({ where: { id: otherEvent.id } });
+      }
     });
 
     it("should return valid when child has specific session ticket", async () => {
@@ -256,6 +296,43 @@ describe("Validation Helper Functions", () => {
       const result = await validateTicket(testChildId, ticketedSession.id);
 
       expect(result.valid).toBe(true);
+    });
+
+    it("should return invalid when child has session ticket for a different session", async () => {
+      const ticketedSession = await db.session.create({
+        data: {
+          name: "Ticketed Session 5",
+          startTime: new Date("2025-07-03T10:00:00"),
+          endTime: new Date("2025-07-03T12:00:00"),
+          requiresTicket: true,
+          isActive: true,
+          eventId: testEventId,
+        },
+      });
+
+      const otherSession = await db.session.create({
+        data: {
+          name: "Ticketed Session 6",
+          startTime: new Date("2025-07-03T13:00:00"),
+          endTime: new Date("2025-07-03T15:00:00"),
+          requiresTicket: true,
+          isActive: true,
+          eventId: testEventId,
+        },
+      });
+
+      await db.ticket.create({
+        data: {
+          type: "SESSION_TICKET",
+          childId: testChildId,
+          sessionId: otherSession.id,
+        },
+      });
+
+      const result = await validateTicket(testChildId, ticketedSession.id);
+
+      expect(result.valid).toBe(false);
+      expect(result.reason).toContain("session ticket");
     });
   });
 

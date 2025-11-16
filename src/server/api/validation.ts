@@ -67,11 +67,7 @@ export async function validateTicket(
     where: { id: sessionId },
     select: {
       requiresTicket: true,
-      event: {
-        select: {
-          id: true,
-        },
-      },
+      eventId: true,
     },
   });
 
@@ -89,6 +85,11 @@ export async function validateTicket(
     where: {
       childId,
     },
+    select: {
+      id: true,
+      eventId: true,
+      sessionId: true,
+    },
   });
 
   if (tickets.length === 0) {
@@ -98,18 +99,35 @@ export async function validateTicket(
     };
   }
 
-  // Check for event pass (sessionId is null)
-  const hasEventPass = tickets.some((ticket) => ticket.sessionId === null);
-  if (hasEventPass) {
+  const eventPasses = tickets.filter((ticket) => ticket.eventId !== null);
+  const sessionTickets = tickets.filter((ticket) => ticket.sessionId !== null);
+
+  const hasMatchingEventPass = eventPasses.some(
+    (ticket) => ticket.eventId === session.eventId
+  );
+  if (hasMatchingEventPass) {
     return { valid: true };
   }
 
-  // Check for specific session ticket
-  const hasSessionTicket = tickets.some(
+  const hasMatchingSessionTicket = sessionTickets.some(
     (ticket) => ticket.sessionId === sessionId
   );
-  if (hasSessionTicket) {
+  if (hasMatchingSessionTicket) {
     return { valid: true };
+  }
+
+  if (eventPasses.length > 0) {
+    return {
+      valid: false,
+      reason: "Child has event pass(es), but they are for a different event",
+    };
+  }
+
+  if (sessionTickets.length > 0) {
+    return {
+      valid: false,
+      reason: "Child has session ticket(s), but not for this session",
+    };
   }
 
   return {
