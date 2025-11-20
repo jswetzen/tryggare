@@ -1,0 +1,56 @@
+# Current Tasks
+
+## Docker Configuration Optimization
+
+### Phase 1: Preparation and Analysis
+- [x] Analyze current Dockerfile structure
+- [x] Analyze current docker-compose.yml
+- [x] Identify redundant COPY statements
+- [x] Review .containerignore effectiveness
+- [x] Create comprehensive .dockerignore file
+
+### Phase 2: Configuration Updates
+- [x] Update next.config.js to add standalone output
+- [x] Optimize Dockerfile development stage (remove redundant COPY)
+- [x] Add clarifying comments to Dockerfile stages
+
+### Phase 3: Create Development Compose File
+- [x] Create docker-compose.dev.yml with:
+  - Development target
+  - Volume mounts for hot reload
+  - Development environment variables
+  - Database service configuration
+  - Proper health checks
+
+### Phase 4: Create Production Compose File
+- [x] Create docker-compose.prod.yml with:
+  - Production (runner) target
+  - No volume mounts
+  - Production environment variables
+  - Database service configuration
+  - Security hardening
+  - Health checks and resource limits
+
+### Phase 5: Testing and Validation
+- [x] Validate configuration files syntactically
+- [x] Verify standalone output is configured
+- [x] Create validation script (scripts/validate-docker-setup.sh)
+- [ ] Manual testing required (Docker not available in this environment):
+  - Test development setup: `docker-compose -f docker-compose.dev.yml up --build`
+  - Verify hot reload works
+  - Test production build: `docker-compose -f docker-compose.prod.yml up --build`
+  - Verify image size reduction (~200MB vs ~800MB)
+
+### Phase 6: Documentation and Cleanup
+- [x] Create comprehensive Docker documentation (DOCKER.md)
+- [x] Document usage patterns for dev vs prod
+- [x] Create .env.production.example template
+- [x] Create validation script
+- [ ] Backup old docker-compose.yml as docker-compose.yml.backup
+- [ ] Commit all changes with clear message
+
+### Phase 7: Deferred/Optional
+- [ ] Consider adding docker-compose.override.yml for local customization
+- [ ] Add resource limits to production compose
+- [ ] Consider adding docker-compose.test.yml for CI/CD
+- [ ] Add Makefile for common Docker commands

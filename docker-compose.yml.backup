@@ -1,0 +1,70 @@
+version: '3.9'
+
+services:
+  # PostgreSQL Database Service
+  db:
+    image: docker.io/postgres:16-alpine
+    container_name: conference-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: conference-child-mgmt
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - conference-network
+
+  # Next.js Application Service
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: development
+    container_name: conference-app
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: "postgresql://postgres:password@db:5432/conference-child-mgmt"
+      NEXTAUTH_URL: "http://localhost:3000"
+      # NextAuth v5 uses AUTH_SECRET, keep both for compatibility
+      AUTH_SECRET: "your-secret-key-here-replace-with-random-string"
+      NEXTAUTH_SECRET: "your-secret-key-here-replace-with-random-string"
+      INITIAL_ADMIN_USERNAME: "admin"
+      INITIAL_ADMIN_PASSWORD: "changeme123"
+      NODE_ENV: development
+    ports:
+      - "3000:3000"
+    volumes:
+      # Mount source code for hot reload in development
+      - .:/app
+      # - /app/node_modules
+      # - /app/.next
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - conference-network
+    command: pnpm dev
+
+# Named volumes for data persistence
+volumes:
+  postgres_data:
+    driver: local
+
+# Network for service communication
+networks:
+  conference-network:
+    driver: bridge

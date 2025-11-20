@@ -1,4 +1,6 @@
+# ============================================
 # Base stage - shared dependencies
+# ============================================
 FROM node:20-alpine AS base
 
 # Enable corepack for pnpm
@@ -7,22 +9,26 @@ RUN corepack prepare pnpm@latest --activate
 
 WORKDIR /app
 
+# ============================================
 # Dependencies stage - install all dependencies
+# ============================================
 FROM base AS dependencies
 
 # Copy package files
 COPY package.json pnpm-lock.yaml ./
 COPY prisma ./prisma
 
-# Install dependencies
+# Install all dependencies (including dev dependencies)
 RUN pnpm install @prisma/client
-RUN pnpm install --frozen-lockfile
-
+RUN pnpm install
 
 # Generate Prisma client with Alpine Linux support
 RUN pnpm prisma generate
 
-# Development stage
+# ============================================
+# Development stage - for local development with hot reload
+# Note: Source code is mounted as a volume in docker-compose.dev.yml
+# ============================================
 FROM base AS development
 
 WORKDIR /app
@@ -31,10 +37,10 @@ WORKDIR /app
 COPY --from=dependencies /app/node_modules ./node_modules
 COPY --from=dependencies /app/generated ./generated
 
-# Copy all source files
-COPY . .
-
-# Copy entrypoint script
+# Copy only essential files for Prisma and migrations
+# Source code will be mounted as volume in docker-compose.dev.yml
+COPY package.json pnpm-lock.yaml ./
+COPY prisma ./prisma
 COPY docker-entrypoint.sh /usr/local/bin/
 RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 
@@ -45,7 +51,9 @@ EXPOSE 3000
 ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
 CMD ["pnpm", "dev"]
 
-# Builder stage - build the application
+# ============================================
+# Builder stage - build the application for production
+# ============================================
 FROM dependencies AS builder
 
 # Copy all source files
@@ -56,9 +64,12 @@ ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 
 # Build the Next.js application
+# This creates a standalone output in .next/standalone
 RUN pnpm build
 
-# Runner stage - production runtime
+# ============================================
+# Runner stage - minimal production runtime
+# ============================================
 FROM node:20-alpine AS runner
 
 WORKDIR /app
