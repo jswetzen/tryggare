@@ -37,10 +37,11 @@ WORKDIR /app
 COPY --from=dependencies /app/node_modules ./node_modules
 COPY --from=dependencies /app/generated ./generated
 
-# Copy only essential files for Prisma and migrations
-# Source code will be mounted as volume in docker-compose.dev.yml
-COPY package.json pnpm-lock.yaml ./
-COPY prisma ./prisma
+# Copy all files initially (will be overridden by volume mount in docker-compose.dev.yml)
+# This ensures the image can run standalone if needed and provides a base
+COPY . .
+
+# Copy entrypoint script
 COPY docker-entrypoint.sh /usr/local/bin/
 RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 
