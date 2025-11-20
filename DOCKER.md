@@ -38,11 +38,11 @@ The Dockerfile uses multi-stage builds to optimize for different use cases:
 
 1. **base**: Node.js 20 Alpine with pnpm enabled
 2. **dependencies**: Installs all dependencies and generates Prisma client
-3. **development**: For local development with hot reload (copies all files, overridden by volume mount)
+3. **development**: For local development with hot reload (minimal copies, source from volume)
 4. **builder**: Builds the Next.js application for production
 5. **runner**: Minimal production runtime with standalone Next.js output
 
-**Note on Development Stage**: The development stage copies all source files (`COPY . .`) to ensure the image can run standalone. When using docker-compose.dev.yml, the volume mount (`.:/app`) overrides these files, providing hot reload functionality while preserving the container's `node_modules`.
+**Note on Development Stage**: The development stage only copies essential runtime files (package.json, prisma/, entrypoint). All source code is provided by the volume mount (`.:/app`) in docker-compose.dev.yml. Named volumes preserve `node_modules` and `.next` cache across restarts. The entrypoint ensures dependencies are installed on first run.
 
 ### docker-compose.dev.yml (Development)
 
