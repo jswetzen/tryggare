@@ -147,7 +147,7 @@ export default function FamiliesPage() {
                     <div className="space-y-1 text-sm text-muted-foreground">
                       {family.parents.map((parent) => (
                         <div key={parent.id}>
-                          {parent.name} ({parent.relationshipType})
+                          {parent.name}
                           {parent.phone && ` • ${parent.phone}`}
                         </div>
                       ))}

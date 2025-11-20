@@ -20,7 +20,7 @@ export default function SessionsPage() {
   const [showSessionModal, setShowSessionModal] = useState(false);
   const [editingSessionId, setEditingSessionId] = useState<string | undefined>();
 
-  const { data: sessions, isLoading } = api.session.list.useQuery();
+  const { data: sessions, isLoading } = api.session.list.useQuery({ includeEvent: true });
 
   const utils = api.useUtils();
 
@@ -57,16 +57,16 @@ export default function SessionsPage() {
   });
 
   const handleActivate = async (sessionId: string) => {
-    await activateMutation.mutateAsync({ sessionId });
+    await activateMutation.mutateAsync({ id: sessionId });
   };
 
   const handleDeactivate = async (sessionId: string) => {
-    await deactivateMutation.mutateAsync({ sessionId });
+    await deactivateMutation.mutateAsync({ id: sessionId });
   };
 
   const handleDelete = async (sessionId: string) => {
     if (confirm("Are you sure you want to delete this session? This action cannot be undone.")) {
-      await deleteMutation.mutateAsync({ sessionId });
+      await deleteMutation.mutateAsync({ id: sessionId });
     }
   };
 
@@ -164,9 +164,7 @@ export default function SessionsPage() {
                         <Badge variant="outline">Requires Ticket</Badge>
                       )}
                     </div>
-                    <CardDescription className="mt-1">
-                      Event: {session.eventName}
-                    </CardDescription>
+                    {/* Event details can be added if needed */}
                   </div>
                 </div>
               </CardHeader>
@@ -180,10 +178,7 @@ export default function SessionsPage() {
                     <strong>End:</strong>{" "}
                     {format(new Date(session.endTime), "PPp")}
                   </div>
-                  <div>
-                    <strong>Current Attendance:</strong>{" "}
-                    {session._count?.checkInRecords ?? 0} checked in
-                  </div>
+                  {/* Attendance count available via separate query if needed */}
                 </div>
 
                 <div className="flex gap-2">
