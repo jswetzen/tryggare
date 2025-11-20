@@ -148,9 +148,9 @@ export default function UsersPage() {
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  {user.lastLoginAt && (
+                  {user.lastLogin && (
                     <div className="text-sm text-muted-foreground">
-                      Last login: {format(new Date(user.lastLoginAt), "PPp")}
+                      Last login: {format(new Date(user.lastLogin), "PPp")}
                     </div>
                   )}
 
