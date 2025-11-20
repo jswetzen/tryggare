@@ -78,10 +78,6 @@ WORKDIR /app
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 
-# Install Prisma CLI for running migrations
-RUN corepack enable && corepack prepare pnpm@latest --activate
-RUN pnpm add -g prisma@6.19.0
-
 # Create a non-root user
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nextjs
@@ -93,6 +89,11 @@ COPY --from=builder /app/.next/static ./.next/static
 COPY --from=builder /app/generated ./generated
 COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/package.json ./package.json
+
+# Copy Prisma CLI from builder (already installed there)
+COPY --from=builder /app/node_modules/.bin/prisma /usr/local/bin/prisma
+COPY --from=builder /app/node_modules/prisma /usr/local/lib/node_modules/prisma
+COPY --from=builder /app/node_modules/@prisma /usr/local/lib/node_modules/@prisma
 
 # Copy production entrypoint script
 COPY docker-entrypoint-prod.sh /usr/local/bin/docker-entrypoint.sh
