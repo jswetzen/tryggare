@@ -39,11 +39,32 @@ coverage
 # Prisma generated files (will be regenerated in container)
 generated
 
+# Test files
+**/*.test.ts
+**/*.test.tsx
+**/*.spec.ts
+**/*.spec.tsx
+__tests__
+__mocks__
+
+# Build cache
+.turbo
+.vercel
+*.tsbuildinfo
+next-env.d.ts
+.pnpm-store
+
+# CI/CD
+.github
+.gitlab-ci.yml
+.travis.yml
+
 # Documentation
 *.md
 !README.md
+!DOCKER.md
 
 # Docker files (don't need these in the image)
-Dockerfile
+Dockerfile*
 .dockerignore
-docker-compose.yml
+docker-compose*.yml
