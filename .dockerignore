@@ -10,9 +10,10 @@ out
 .gitignore
 
 # Environment files
-.env
+# .env included for build-time configuration
 .env.local
 .env.*.local
+!.env
 
 # Logs
 *.log
