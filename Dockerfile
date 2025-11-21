@@ -65,7 +65,8 @@ ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 
 # Build arguments - DATABASE_URL passed from docker-compose for build-time access
-ARG DATABASE_URL
+# Default to dummy value for standalone builds (docker-compose will override)
+ARG DATABASE_URL="postgresql://user:pass@localhost:5432/db"
 ENV DATABASE_URL=$DATABASE_URL
 
 # Set dummy AUTH_SECRET for build (actual secret will be provided at runtime)
