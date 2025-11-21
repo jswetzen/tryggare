@@ -57,8 +57,11 @@ CMD ["pnpm", "dev"]
 # ============================================
 FROM dependencies AS builder
 
-# Copy all source files
-COPY . .
+# Copy only necessary source files for build (not COPY . . - too bloated)
+COPY src ./src
+COPY public ./public
+COPY next.config.js tsconfig.json postcss.config.js components.json ./
+COPY .env* ./
 
 # Set production environment
 ENV NODE_ENV=production
