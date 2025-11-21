@@ -134,15 +134,15 @@ RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nextjs
 
 # Copy necessary files from builder with proper ownership
+# .next/standalone contains the server and all runtime dependencies including Prisma client
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 COPY --from=builder --chown=nextjs:nodejs /app/public ./public
 
-# Copy Prisma files and generated client from builder
-COPY --from=builder --chown=nextjs:nodejs /app/node_modules/.prisma ./node_modules/.prisma
-COPY --from=builder --chown=nextjs:nodejs /app/node_modules/@prisma ./node_modules/@prisma
+# Copy Prisma schema (needed for runtime)
 COPY --from=builder --chown=nextjs:nodejs /app/prisma ./prisma
 
+# Note: Prisma client is already included in .next/standalone
 # No Prisma CLI needed in runner - migrations handled by init container
 
 # Copy production entrypoint script with proper ownership
