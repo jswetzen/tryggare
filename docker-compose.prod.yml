@@ -7,20 +7,41 @@ services:
     container_name: conference-db-prod
     restart: always
     environment:
-      POSTGRES_DB: ${POSTGRES_DB:-conference-child-mgmt}
-      POSTGRES_USER: ${POSTGRES_USER:-postgres}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-password}
+      POSTGRES_DB: conference-child-mgmt
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
     ports:
       - "${DB_PORT:-5432}:5432"
     volumes:
       - postgres_data_prod:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres}"]
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 10s
       timeout: 5s
       retries: 5
     networks:
       - conference-network
+
+  # Init container - runs migrations and seeding once
+  init:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: init
+    container_name: conference-init-prod
+    environment:
+      # Database connection
+      DATABASE_URL: "postgresql://postgres:password@db:5432/conference-child-mgmt"
+
+      # Initial admin credentials
+      INITIAL_ADMIN_USERNAME: "${INITIAL_ADMIN_USERNAME:-admin}"
+      INITIAL_ADMIN_PASSWORD: "${INITIAL_ADMIN_PASSWORD:-changeme123}"
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - conference-network
+    restart: "no"  # Only run once
 
   # Next.js Application Service - Production Mode
   app:
@@ -29,22 +50,25 @@ services:
       dockerfile: Dockerfile
       target: runner
       args:
-        # Build-time arguments if needed
+        # Build-time arguments - allow pre-rendering with database access
         NODE_ENV: production
+        DATABASE_URL: "postgresql://postgres:password@db:5432/conference-child-mgmt"
+        AUTH_SECRET: "${AUTH_SECRET:-build-time-dummy-secret}"
     container_name: conference-app-prod
     restart: always
     environment:
       # Database connection
-      DATABASE_URL: "postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-password}@db:5432/${POSTGRES_DB:-conference-child-mgmt}"
+      DATABASE_URL: "postgresql://postgres:password@db:5432/conference-child-mgmt"
 
       # Authentication - MUST be set in production
       NEXTAUTH_URL: "${NEXTAUTH_URL:-http://localhost:3000}"
-      AUTH_SECRET: "${AUTH_SECRET:?AUTH_SECRET environment variable is required}"
-      NEXTAUTH_SECRET: "${NEXTAUTH_SECRET:?NEXTAUTH_SECRET environment variable is required}"
+      AUTH_SECRET: "${AUTH_SECRET:-your-secret-key-here-replace-with-random-string}"
+      NEXTAUTH_SECRET: "${NEXTAUTH_SECRET:-your-secret-key-here-replace-with-random-string}"
+      AUTH_TRUST_HOST: "true"
 
       # Initial admin credentials
       INITIAL_ADMIN_USERNAME: "${INITIAL_ADMIN_USERNAME:-admin}"
-      INITIAL_ADMIN_PASSWORD: "${INITIAL_ADMIN_PASSWORD:?INITIAL_ADMIN_PASSWORD environment variable is required}"
+      INITIAL_ADMIN_PASSWORD: "${INITIAL_ADMIN_PASSWORD:-changeme123}"
 
       # Production environment
       NODE_ENV: production
@@ -58,6 +82,8 @@ services:
     depends_on:
       db:
         condition: service_healthy
+      init:
+        condition: service_completed_successfully
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/api/health"]
       interval: 30s
