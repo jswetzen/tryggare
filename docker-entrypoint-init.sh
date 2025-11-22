@@ -34,6 +34,10 @@ echo "Running database migrations..."
 npx prisma migrate deploy
 
 echo ""
+echo "Regenerating Prisma client as current user..."
+npx prisma generate --schema=./prisma/schema.prisma
+
+echo ""
 echo "Seeding database with initial admin user..."
 node seed-admin.cjs
 
