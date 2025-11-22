@@ -60,6 +60,7 @@ FROM dependencies AS builder
 # Copy only necessary source files for build (not COPY . . - too bloated)
 COPY src ./src
 COPY public ./public
+COPY messages ./messages
 COPY next.config.js tsconfig.json postcss.config.js components.json ./
 COPY .env* ./
 
