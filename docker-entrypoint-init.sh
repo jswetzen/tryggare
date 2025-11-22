@@ -12,7 +12,7 @@ TRY=0
 until [ $TRY -ge $MAX_TRIES ]
 do
   echo "Attempting database connection (try $((TRY+1))/$MAX_TRIES)..."
-  if pnpm exec prisma db execute --stdin <<EOF
+  if pnpm exec prisma db execute --schema=./prisma/schema.prisma --stdin <<EOF
 SELECT 1;
 EOF
   then
