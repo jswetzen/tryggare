@@ -3,17 +3,31 @@ set -e
 
 echo "=== Database Migration Init Container ==="
 echo "Waiting for database to be ready..."
+echo "DATABASE_URL: ${DATABASE_URL}"
 
 # Wait for database to be ready
-until pnpm exec prisma db execute --stdin <<EOF 2>/dev/null
+# Using a simpler approach that works reliably
+MAX_TRIES=30
+TRY=0
+until [ $TRY -ge $MAX_TRIES ]
+do
+  echo "Attempting database connection (try $((TRY+1))/$MAX_TRIES)..."
+  if pnpm exec prisma db execute --stdin <<EOF
 SELECT 1;
 EOF
-do
-  echo "Database is unavailable - sleeping"
+  then
+    echo "Database is ready!"
+    break
+  fi
+  TRY=$((TRY+1))
+  if [ $TRY -ge $MAX_TRIES ]; then
+    echo "Failed to connect to database after $MAX_TRIES attempts"
+    exit 1
+  fi
+  echo "Database not ready, waiting..."
   sleep 2
 done
 
-echo "Database is ready!"
 echo ""
 
 echo "Running database migrations..."
