@@ -92,19 +92,20 @@ WORKDIR /app
 # Copy prisma schema and migrations
 COPY --from=builder /app/prisma ./prisma
 
-# Install Prisma CLI with exact version matching the client
-# This ensures version compatibility
-COPY --from=builder /app/node_modules/@prisma/client/package.json /tmp/prisma-version.json
-RUN PRISMA_VERSION=$(node --print 'require("/tmp/prisma-version.json").version') && \
-    npm install --global --save-exact "prisma@${PRISMA_VERSION}" && \
-    rm /tmp/prisma-version.json
+# Copy package.json for Prisma client installation
+COPY --from=builder /app/package.json ./package.json
+
+# Install Prisma client and CLI (matching versions)
+# We install @prisma/client locally and prisma CLI globally
+RUN npm install @prisma/client && \
+    PRISMA_VERSION=$(node --print 'require("./node_modules/@prisma/client/package.json").version') && \
+    npm install --global --save-exact "prisma@${PRISMA_VERSION}"
+
+# Generate Prisma client
+RUN npx prisma generate
 
 # Install bcryptjs for seeding
 RUN npm install --global bcryptjs@2.4.3
-
-# Copy Prisma client from builder (needed for seeding script)
-COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
-COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
 
 # Copy init entrypoint (before switching to non-root user for chmod)
 COPY docker-entrypoint-init.sh /usr/local/bin/docker-entrypoint.sh
