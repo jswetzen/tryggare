@@ -108,8 +108,8 @@ COPY seed-admin.cjs ./seed-admin.cjs
 # Install prisma CLI locally to avoid global installation issues
 RUN pnpm add @prisma/client prisma bcryptjs
 
-# Generate Prisma client
-RUN pnpm exec prisma generate
+# Generate Prisma client with explicit schema path
+RUN pnpm exec prisma generate --schema=./prisma/schema.prisma
 
 # Copy init entrypoint (before switching to non-root user for chmod)
 COPY docker-entrypoint-init.sh /usr/local/bin/docker-entrypoint.sh
