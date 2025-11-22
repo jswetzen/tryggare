@@ -6,7 +6,9 @@ FROM node:20-alpine AS base
 # Install OpenSSL - required by Prisma on Alpine
 RUN apk add --no-cache libc6-compat openssl
 
-# Enable corepack for pnpm
+# Setup pnpm following https://pnpm.io/docker best practices
+ENV PNPM_HOME="/pnpm"
+ENV PATH="$PNPM_HOME:$PATH"
 RUN corepack enable
 RUN corepack prepare pnpm@latest --activate
 
@@ -100,9 +102,8 @@ COPY --from=builder /app/package.json ./package.json
 COPY --from=builder /app/pnpm-lock.yaml ./pnpm-lock.yaml
 
 # Install only Prisma client and bcryptjs (needed for seeding)
-RUN pnpm add @prisma/client bcryptjs && \
-    PRISMA_VERSION=$(node --print 'require("./node_modules/@prisma/client/package.json").version') && \
-    pnpm add --global "prisma@${PRISMA_VERSION}"
+# Install prisma CLI locally to avoid global installation issues
+RUN pnpm add @prisma/client prisma bcryptjs
 
 # Generate Prisma client
 RUN pnpm exec prisma generate
