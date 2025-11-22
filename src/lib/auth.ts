@@ -55,26 +55,14 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
 
         // Import bcrypt only when needed (keeps it out of Edge middleware bundle)
         const { compare } = await import("bcryptjs");
-
-        // DEBUG: Log password comparison details
-        console.log('[AUTH] Login attempt for user:', credentials.username);
-        console.log('[AUTH] Password length:', (credentials.password as string).length);
-        console.log('[AUTH] Stored hash:', user.passwordHash);
-        console.log('[AUTH] Hash length:', user.passwordHash.length);
-
         const passwordMatch = await compare(
           credentials.password as string,
           user.passwordHash
         );
 
-        console.log('[AUTH] Password match result:', passwordMatch);
-
         if (!passwordMatch) {
-          console.log('[AUTH] Login failed: password mismatch');
           return null;
         }
-
-        console.log('[AUTH] Login successful for user:', credentials.username);
 
         // Update last login timestamp
         await db.adminUser.update({
