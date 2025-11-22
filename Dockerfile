@@ -87,25 +87,25 @@ RUN pnpm build
 # ============================================
 FROM base AS init
 
+# Install tini for proper signal handling
+RUN apk add --no-cache tini
+
 WORKDIR /app
 
 # Copy prisma schema and migrations
 COPY --from=builder /app/prisma ./prisma
 
-# Copy package.json for Prisma client installation
+# Copy package.json and pnpm-lock.yaml for Prisma client installation
 COPY --from=builder /app/package.json ./package.json
+COPY --from=builder /app/pnpm-lock.yaml ./pnpm-lock.yaml
 
-# Install Prisma client and CLI (matching versions)
-# We install @prisma/client locally and prisma CLI globally
-RUN npm install @prisma/client && \
+# Install only Prisma client and bcryptjs (needed for seeding)
+RUN pnpm add @prisma/client bcryptjs && \
     PRISMA_VERSION=$(node --print 'require("./node_modules/@prisma/client/package.json").version') && \
-    npm install --global --save-exact "prisma@${PRISMA_VERSION}"
+    pnpm add --global "prisma@${PRISMA_VERSION}"
 
 # Generate Prisma client
-RUN npx prisma generate
-
-# Install bcryptjs for seeding
-RUN npm install --global bcryptjs@2.4.3
+RUN pnpm exec prisma generate
 
 # Copy init entrypoint (before switching to non-root user for chmod)
 COPY docker-entrypoint-init.sh /usr/local/bin/docker-entrypoint.sh
@@ -118,15 +118,15 @@ RUN addgroup --system --gid 1001 nodejs && \
 
 USER nextjs
 
-ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
+ENTRYPOINT ["/sbin/tini", "--", "/usr/local/bin/docker-entrypoint.sh"]
 
 # ============================================
 # Runner stage - minimal production runtime
 # ============================================
 FROM node:20-alpine AS runner
 
-# Install OpenSSL - required by Prisma on Alpine
-RUN apk add --no-cache libc6-compat openssl
+# Install OpenSSL and tini - required by Prisma on Alpine and for proper signal handling
+RUN apk add --no-cache libc6-compat openssl tini
 
 WORKDIR /app
 
@@ -168,6 +168,6 @@ ENV PORT=3000
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
   CMD node -e "require('http').get('http://localhost:3000/api/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"
 
-# Use entrypoint to run migrations before starting
-ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
+# Use tini as PID 1 for proper signal handling
+ENTRYPOINT ["/sbin/tini", "--", "/usr/local/bin/docker-entrypoint.sh"]
 CMD ["node", "server.js"]
