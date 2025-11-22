@@ -5,7 +5,7 @@ echo "=== Database Migration Init Container ==="
 echo "Waiting for database to be ready..."
 
 # Wait for database to be ready
-until prisma db execute --stdin <<EOF 2>/dev/null
+until pnpm exec prisma db execute --stdin <<EOF 2>/dev/null
 SELECT 1;
 EOF
 do
@@ -17,7 +17,7 @@ echo "Database is ready!"
 echo ""
 
 echo "Running database migrations..."
-prisma migrate deploy
+pnpm exec prisma migrate deploy
 
 echo ""
 echo "Seeding database with initial admin user..."
