@@ -35,6 +35,11 @@ pnpm exec prisma migrate deploy
 
 echo ""
 echo "Seeding database with initial admin user..."
+echo "Current directory: $(pwd)"
+echo "Checking for node_modules..."
+ls -la node_modules/@prisma/ 2>/dev/null || echo "No @prisma in node_modules"
+ls -la node_modules/bcryptjs/ 2>/dev/null || echo "No bcryptjs in node_modules"
+echo "Running seed script..."
 node seed-admin.js
 
 echo ""
