@@ -102,7 +102,8 @@ COPY seed-admin.cjs ./seed-admin.cjs
 
 # Install only Prisma client and bcryptjs (needed for seeding)
 # Use npm instead of pnpm to avoid complex symlink/peer dependency issues
-RUN npm install @prisma/client prisma bcryptjs
+# Pin to Prisma 6.x to match main project (Prisma 7 has breaking changes)
+RUN npm install @prisma/client@^6.6.0 prisma@^6.6.0 bcryptjs
 
 # Generate Prisma client with explicit schema path
 RUN npx prisma generate --schema=./prisma/schema.prisma
