@@ -97,19 +97,15 @@ WORKDIR /app
 # Copy prisma schema and migrations
 COPY --from=builder /app/prisma ./prisma
 
-# Copy package.json and pnpm-lock.yaml for Prisma client installation
-COPY --from=builder /app/package.json ./package.json
-COPY --from=builder /app/pnpm-lock.yaml ./pnpm-lock.yaml
-
 # Copy seed script (use .cjs extension for CommonJS in ESM project)
 COPY seed-admin.cjs ./seed-admin.cjs
 
 # Install only Prisma client and bcryptjs (needed for seeding)
-# Install prisma CLI locally to avoid global installation issues
-RUN pnpm add @prisma/client prisma bcryptjs
+# Use npm instead of pnpm to avoid complex symlink/peer dependency issues
+RUN npm install @prisma/client prisma bcryptjs
 
 # Generate Prisma client with explicit schema path
-RUN pnpm exec prisma generate --schema=./prisma/schema.prisma
+RUN npx prisma generate --schema=./prisma/schema.prisma
 
 # Copy init entrypoint (before switching to non-root user for chmod)
 COPY docker-entrypoint-init.sh /usr/local/bin/docker-entrypoint.sh

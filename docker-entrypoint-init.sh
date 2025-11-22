@@ -12,7 +12,7 @@ TRY=0
 until [ $TRY -ge $MAX_TRIES ]
 do
   echo "Attempting database connection (try $((TRY+1))/$MAX_TRIES)..."
-  if pnpm exec prisma db execute --schema=./prisma/schema.prisma --stdin <<EOF
+  if npx prisma db execute --schema=./prisma/schema.prisma --stdin <<EOF
 SELECT 1;
 EOF
   then
@@ -31,7 +31,7 @@ done
 echo ""
 
 echo "Running database migrations..."
-pnpm exec prisma migrate deploy
+npx prisma migrate deploy
 
 echo ""
 echo "Seeding database with initial admin user..."
