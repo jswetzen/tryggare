@@ -1,4 +1,5 @@
-const { PrismaClient } = require('@prisma/client');
+// Import from custom output location (see prisma/schema.prisma generator config)
+const { PrismaClient } = require('./generated/prisma');
 const bcrypt = require('bcryptjs');
 
 async function seed() {
