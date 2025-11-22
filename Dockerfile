@@ -101,8 +101,8 @@ COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/package.json ./package.json
 COPY --from=builder /app/pnpm-lock.yaml ./pnpm-lock.yaml
 
-# Copy seed script
-COPY seed-admin.js ./seed-admin.js
+# Copy seed script (use .cjs extension for CommonJS in ESM project)
+COPY seed-admin.cjs ./seed-admin.cjs
 
 # Install only Prisma client and bcryptjs (needed for seeding)
 # Install prisma CLI locally to avoid global installation issues
