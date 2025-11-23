@@ -1,5 +1,4 @@
 import { t as text_decoder, b as base64_encode, c as base64_decode } from "./utils.js";
-const BROWSER = false;
 const escaped = {
   "<": "\\u003C",
   "\\": "\\\\",
@@ -994,21 +993,20 @@ export {
   is_plain_object as a,
   stringify_string as b,
   escaped as c,
-  BROWSER as d,
+  stringify$1 as d,
   enumerable_symbols as e,
-  stringify$1 as f,
+  create_remote_key as f,
   get_type as g,
-  create_remote_key as h,
+  stringify as h,
   is_primitive as i,
-  stringify as j,
-  deserialize_binary_form as k,
-  stringify_remote_arg as l,
-  parse as m,
-  flatten_issues as n,
-  create_field_proxy as o,
+  deserialize_binary_form as j,
+  stringify_remote_arg as k,
+  parse as l,
+  flatten_issues as m,
+  create_field_proxy as n,
+  normalize_issue as o,
   parse_remote_arg as p,
-  normalize_issue as q,
-  set_nested_value as r,
-  stringify_key as s,
-  deep_set as t
+  set_nested_value as q,
+  deep_set as r,
+  stringify_key as s
 };
