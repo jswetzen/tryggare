@@ -15,6 +15,11 @@ else:
 SECRET_KEY = os.getenv("SECRET_KEY", "insecure-change-me")
 DEBUG = os.getenv("DEBUG", "false").lower() == "true"
 ALLOWED_HOSTS = [host for host in os.getenv("ALLOWED_HOSTS", "*").split(",") if host]
+# Add testserver for Django test client
+if not ALLOWED_HOSTS or ALLOWED_HOSTS == ['*']:
+    ALLOWED_HOSTS = ['*']
+else:
+    ALLOWED_HOSTS.append('testserver')
 
 INSTALLED_APPS = [
     "django.contrib.admin",
