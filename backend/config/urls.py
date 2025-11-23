@@ -1,23 +1,36 @@
 """
 URL configuration for config project.
-
-The `urlpatterns` list routes URLs to views. For more information please see:
-    https://docs.djangoproject.com/en/5.2/topics/http/urls/
-Examples:
-Function views
-    1. Add an import:  from my_app import views
-    2. Add a URL to urlpatterns:  path('', views.home, name='home')
-Class-based views
-    1. Add an import:  from other_app.views import Home
-    2. Add a URL to urlpatterns:  path('', Home.as_view(), name='home')
-Including another URLconf
-    1. Import the include() function: from django.urls import include, path
-    2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
 
 from django.contrib import admin
-from django.urls import path
+from django.urls import include, path
+from rest_framework.routers import DefaultRouter
+
+from families.views import ChildViewSet, FamilyViewSet, ParentViewSet
+from families.qr_views import qr_info
+from events.views import EventViewSet, SessionViewSet, TicketViewSet
+from checkins.views import AuditLogViewSet, CheckInRecordViewSet
+
+# Create API router
+router = DefaultRouter()
+
+# Family management
+router.register(r"families", FamilyViewSet, basename="family")
+router.register(r"parents", ParentViewSet, basename="parent")
+router.register(r"children", ChildViewSet, basename="child")
+
+# Event management
+router.register(r"events", EventViewSet, basename="event")
+router.register(r"sessions", SessionViewSet, basename="session")
+router.register(r"tickets", TicketViewSet, basename="ticket")
+
+# Check-in management
+router.register(r"checkins", CheckInRecordViewSet, basename="checkin")
+router.register(r"audit-logs", AuditLogViewSet, basename="audit-log")
 
 urlpatterns = [
     path("admin/", admin.site.urls),
+    path("api/", include(router.urls)),
+    path("api/auth/", include("rest_framework.urls")),  # Login/logout endpoints
+    path("qr/<str:token>/", qr_info, name="qr-info"),  # Public QR code endpoint
 ]

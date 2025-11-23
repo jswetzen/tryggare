@@ -1,5 +1,72 @@
 # Current Tasks
 
+## Django + SvelteKit Migration (In Progress)
+
+### Phase 1: Repository Reboot and Environments ✅ COMPLETE
+- [x] Create Django 5 project with apps (accounts, families, events, checkins, printing)
+- [x] Add Django REST Framework, Channels, CORS headers
+- [x] Configure settings modules (local, dev, prod)
+- [x] Initialize SvelteKit frontend with TypeScript + Tailwind
+- [x] Create docker-compose.yml with web, frontend, db, valkey services
+- [x] Create .env.example files
+
+### Phase 2: Data Model Migration ✅ COMPLETE
+- [x] Create Django models for all entities:
+  - [x] AdminUser (accounts app)
+  - [x] Family, Parent, Child (families app)
+  - [x] Event, Session, Ticket (events app)
+  - [x] CheckInRecord, AuditLog (checkins app)
+- [x] Generate initial migrations for all apps
+- [x] Preserve all constraints (unique QR tokens, active sessions, etc.)
+
+### Phase 3: Database Setup and Admin ✅ COMPLETE (except runtime tasks)
+- [x] Register all models in Django admin
+- [ ] Start database with docker-compose (requires Docker environment)
+- [ ] Run Django migrations to create schema (requires Python environment)
+- [ ] Create Django superuser (requires Python environment)
+- [ ] Test Django admin interface (requires running server)
+- [ ] Seed database with sample data (requires Python environment)
+
+### Phase 4: Authentication and Authorization ✅ COMPLETE
+- [x] Configure session-based auth for REST/Channels (in settings)
+- [x] Set up CSRF middleware and CORS (in settings)
+- [x] Add DRF permission classes (IsAuthenticated on all viewsets, AllowAny on QR endpoint)
+- [ ] Test authentication flows (requires running server)
+
+### Phase 5: API + Realtime Layer ✅ PARTIALLY COMPLETE
+- [x] Implement DRF serializers for all models
+- [x] Implement DRF viewsets for families, children, events/sessions
+- [x] Create check-in/check-out API endpoints with proper business logic
+- [x] Add validation for "one child in one session" rule
+- [x] Implement AuditLog for all check-in/check-out actions
+- [x] Wire up all API routes in urls.py
+- [ ] Create Channels consumers for real-time updates
+- [ ] Configure Valkey as channel layer
+- [ ] Test WebSocket connections
+
+### Phase 6: Printing and QR Codes ✅ PARTIALLY COMPLETE
+- [x] Generate UUID QR tokens on first check-in (in CheckInRecordViewSet)
+- [x] Create public QR info endpoint (/qr/<token>/)
+- [ ] Add printing service module (qrcode + Pillow)
+- [ ] Create DRF endpoints for printing/reprints
+- [ ] Configure printer settings via environment variables
+
+### Phase 7: Frontend Feature Parity
+- [ ] Build SvelteKit routes (check-in, check-out, QR info, admin views)
+- [ ] Implement REST API client
+- [ ] Add WebSocket connection for live updates
+- [ ] Port Tailwind styles and components
+- [ ] Implement i18n with svelte-i18n
+
+### Phase 8: Testing and Cutover
+- [ ] Add Django TestCase suites
+- [ ] Add Playwright tests for frontend
+- [ ] Set up logging and health endpoints
+- [ ] Run smoke tests
+- [ ] Plan cutover strategy
+
+---
+
 ## Docker Configuration Optimization
 
 ### Phase 1: Preparation and Analysis
