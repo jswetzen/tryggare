@@ -1,13 +1,14 @@
 <script lang="ts">
   import { page } from '$app/stores';
+  import { goto } from '$app/navigation';
   import SessionIndicator from './SessionIndicator.svelte';
+  import LanguageSwitcher from './LanguageSwitcher.svelte';
 
   interface Props {
     userName?: string;
     currentEvent?: string;
     currentSession?: string;
     sessionTime?: string;
-    onLogout?: () => void;
     onChangeSession?: () => void;
   }
 
@@ -16,7 +17,6 @@
     currentEvent,
     currentSession,
     sessionTime,
-    onLogout,
     onChangeSession
   }: Props = $props();
 
@@ -33,6 +33,10 @@
 
   function isActive(path: string): boolean {
     return currentPath === path;
+  }
+
+  function handleLogout() {
+    goto('/logout');
   }
 </script>
 
@@ -65,17 +69,16 @@
         </a>
 
         <div class="border-l border-slate-300 pl-6 ml-2 flex items-center space-x-4">
+          <LanguageSwitcher />
           <span class="text-sm text-slate-600">
             Welcome, <span class="font-semibold text-blue-900">{userName}</span>
           </span>
-          {#if onLogout}
-            <button
-              onclick={onLogout}
-              class="text-sm text-red-600 font-semibold hover:underline"
-            >
-              Logout
-            </button>
-          {/if}
+          <button
+            onclick={handleLogout}
+            class="text-sm text-red-600 font-semibold hover:underline"
+          >
+            Logout
+          </button>
         </div>
       </div>
 
@@ -140,20 +143,21 @@
       </div>
       <div class="pt-4 pb-3 border-t border-slate-200">
         <div class="px-5">
+          <div class="mb-3">
+            <LanguageSwitcher />
+          </div>
           <div class="text-sm text-slate-600 mb-2">
             Logged in as <span class="font-semibold text-blue-900">{userName}</span>
           </div>
-          {#if onLogout}
-            <button
-              onclick={() => {
-                closeMobileMenu();
-                if (onLogout) onLogout();
-              }}
-              class="w-full text-left px-3 py-2 rounded-md text-red-600 font-semibold hover:bg-red-50"
-            >
-              Logout
-            </button>
-          {/if}
+          <button
+            onclick={() => {
+              closeMobileMenu();
+              handleLogout();
+            }}
+            class="w-full text-left px-3 py-2 rounded-md text-red-600 font-semibold hover:bg-red-50"
+          >
+            Logout
+          </button>
         </div>
       </div>
     </div>

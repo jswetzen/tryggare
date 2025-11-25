@@ -53,8 +53,8 @@
   <title>{$t('login.pageTitle')}</title>
 </svelte:head>
 
-<div class="min-h-screen flex items-center justify-center bg-gray-100">
-  <div class="bg-white p-8 rounded-lg shadow-md w-full max-w-md">
+<div class="fixed inset-0 flex items-center justify-center bg-gray-100">
+  <div class="bg-white p-8 rounded-lg shadow-md w-full max-w-md z-10">
     <h1 class="text-2xl font-bold mb-6 text-center">{$t('login.title')}</h1>
 
     {#if form?.success}

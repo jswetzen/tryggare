@@ -19,16 +19,6 @@
       "_index2.js"
     ]
   },
-  "_client.js": {
-    "file": "chunks/client.js",
-    "name": "client",
-    "imports": [
-      "_exports.js",
-      "_utils.js",
-      "_index.js",
-      "_state.svelte.js"
-    ]
-  },
   "_context.js": {
     "file": "chunks/context.js",
     "name": "context",
@@ -133,7 +123,9 @@
     "imports": [
       "_context.js",
       "_state.svelte.js",
-      "_client.js"
+      "_exports.js",
+      "_utils.js",
+      "_index.js"
     ]
   },
   "node_modules/.pnpm/@sveltejs+kit@2.49.0_@sveltejs+vite-plugin-svelte@4.0.4_svelte@5.43.14_vite@5.4.21__svelte@5.43.14_vite@5.4.21/node_modules/@sveltejs/kit/src/runtime/server/index.js": {
@@ -188,15 +180,17 @@
       "_runtime.js",
       "_index2.js",
       "_stores.js",
-      "_context.js",
-      "_client.js"
+      "_exports.js",
+      "_utils.js",
+      "_state.svelte.js",
+      "_context.js"
     ],
     "dynamicImports": [
       "src/lib/i18n/locales/en.json",
       "src/lib/i18n/locales/sv.json"
     ],
     "css": [
-      "_app/immutable/assets/_layout.DJAJNnHR.css"
+      "_app/immutable/assets/_layout.CRMT7zp_.css"
     ]
   },
   "src/routes/+page.svelte": {
