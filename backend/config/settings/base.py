@@ -40,6 +40,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
+    "whitenoise.middleware.WhiteNoiseMiddleware",  # Serve static files
     "django.contrib.sessions.middleware.SessionMiddleware",
     "corsheaders.middleware.CorsMiddleware",
     "django.middleware.common.CommonMiddleware",
@@ -110,10 +111,21 @@ USE_TZ = True
 STATIC_URL = "static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
 
+# WhiteNoise configuration for static files
+STORAGES = {
+    "default": {
+        "BACKEND": "django.core.files.storage.FileSystemStorage",
+    },
+    "staticfiles": {
+        "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
+    },
+}
+
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 AUTH_USER_MODEL = "accounts.AdminUser"
 
 CORS_ALLOWED_ORIGINS = [host for host in os.getenv("CORS_ALLOWED_ORIGINS", "").split(",") if host]
+CORS_ALLOW_CREDENTIALS = True  # Allow cookies in cross-origin requests
 CSRF_TRUSTED_ORIGINS = [host for host in os.getenv("CSRF_TRUSTED_ORIGINS", "").split(",") if host]
 
 REST_FRAMEWORK = {
@@ -135,5 +147,11 @@ CHANNEL_LAYERS = {
     }
 }
 
+# Session and CSRF cookie settings
 SESSION_COOKIE_SECURE = os.getenv("SESSION_COOKIE_SECURE", "false").lower() == "true"
+SESSION_COOKIE_SAMESITE = os.getenv("SESSION_COOKIE_SAMESITE", "Lax")
+SESSION_COOKIE_HTTPONLY = True  # Prevent JavaScript access to session cookie
+
 CSRF_COOKIE_SECURE = os.getenv("CSRF_COOKIE_SECURE", "false").lower() == "true"
+CSRF_COOKIE_SAMESITE = os.getenv("CSRF_COOKIE_SAMESITE", "Lax")
+CSRF_COOKIE_HTTPONLY = False  # Allow JavaScript to read CSRF token
