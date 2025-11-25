@@ -3793,3 +3793,49 @@
 2025-11-25T23:03:19.855836038+00:00 stdout F 11:03:19 PM [vite] page reload .svelte-kit/generated/client/matchers.js
 2025-11-25T23:03:19.856769243+00:00 stdout F 11:03:19 PM [vite] page reload .svelte-kit/generated/server/internal.js
 2025-11-25T23:03:19.857406786+00:00 stdout F 11:03:19 PM [vite] page reload .svelte-kit/generated/root.js
+2025-11-25T23:05:16.920789985+00:00 stderr F 
+2025-11-25T23:05:16.920789985+00:00 stderr F [1;31m[405] POST /logout[0m
+2025-11-25T23:05:16.920789985+00:00 stderr F Error: POST method not allowed. No form actions exist for the page at /logout
+2025-11-25T23:05:16.920789985+00:00 stderr F     at Module.handle_action_json_request (/app/node_modules/.pnpm/@sveltejs+kit@2.49.0_@sveltejs+vite-plugin-svelte@4.0.4_svelte@5.43.14_vite@5.4.21__svelte@5.43.14_vite@5.4.21/node_modules/@sveltejs/kit/src/runtime/server/page/actions.js:33:28)
+2025-11-25T23:05:16.920789985+00:00 stderr F     at Module.render_page (/app/node_modules/.pnpm/@sveltejs+kit@2.49.0_@sveltejs+vite-plugin-svelte@4.0.4_svelte@5.43.14_vite@5.4.21__svelte@5.43.14_vite@5.4.21/node_modules/@sveltejs/kit/src/runtime/server/page/index.js:56:10)
+2025-11-25T23:05:16.920789985+00:00 stderr F     at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+2025-11-25T23:05:16.920789985+00:00 stderr F     at async resolve (/app/node_modules/.pnpm/@sveltejs+kit@2.49.0_@sveltejs+vite-plugin-svelte@4.0.4_svelte@5.43.14_vite@5.4.21__svelte@5.43.14_vite@5.4.21/node_modules/@sveltejs/kit/src/runtime/server/respond.js:585:18)
+2025-11-25T23:05:16.920789985+00:00 stderr F     at async fn (/app/node_modules/.pnpm/@sveltejs+kit@2.49.0_@sveltejs+vite-plugin-svelte@4.0.4_svelte@5.43.14_vite@5.4.21__svelte@5.43.14_vite@5.4.21/node_modules/@sveltejs/kit/src/runtime/server/respond.js:422:12)
+2025-11-25T23:05:16.920789985+00:00 stderr F     at async internal_respond (/app/node_modules/.pnpm/@sveltejs+kit@2.49.0_@sveltejs+vite-plugin-svelte@4.0.4_svelte@5.43.14_vite@5.4.21__svelte@5.43.14_vite@5.4.21/node_modules/@sveltejs/kit/src/runtime/server/respond.js:404:20)
+2025-11-25T23:05:16.920789985+00:00 stderr F     at async file:///app/node_modules/.pnpm/@sveltejs+kit@2.49.0_@sveltejs+vite-plugin-svelte@4.0.4_svelte@5.43.14_vite@5.4.21__svelte@5.43.14_vite@5.4.21/node_modules/@sveltejs/kit/src/exports/vite/dev/index.js:562:22
+2025-11-25T23:05:27.509519638+00:00 stderr F 
+2025-11-25T23:05:27.509519638+00:00 stderr F [1;31m[405] POST /logout[0m
+2025-11-25T23:05:27.509519638+00:00 stderr F Error: POST method not allowed. No form actions exist for the page at /logout
+2025-11-25T23:05:27.509519638+00:00 stderr F     at Module.handle_action_json_request (/app/node_modules/.pnpm/@sveltejs+kit@2.49.0_@sveltejs+vite-plugin-svelte@4.0.4_svelte@5.43.14_vite@5.4.21__svelte@5.43.14_vite@5.4.21/node_modules/@sveltejs/kit/src/runtime/server/page/actions.js:33:28)
+2025-11-25T23:05:27.509519638+00:00 stderr F     at Module.render_page (/app/node_modules/.pnpm/@sveltejs+kit@2.49.0_@sveltejs+vite-plugin-svelte@4.0.4_svelte@5.43.14_vite@5.4.21__svelte@5.43.14_vite@5.4.21/node_modules/@sveltejs/kit/src/runtime/server/page/index.js:56:10)
+2025-11-25T23:05:27.509519638+00:00 stderr F     at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+2025-11-25T23:05:27.509519638+00:00 stderr F     at async resolve (/app/node_modules/.pnpm/@sveltejs+kit@2.49.0_@sveltejs+vite-plugin-svelte@4.0.4_svelte@5.43.14_vite@5.4.21__svelte@5.43.14_vite@5.4.21/node_modules/@sveltejs/kit/src/runtime/server/respond.js:585:18)
+2025-11-25T23:05:27.509519638+00:00 stderr F     at async fn (/app/node_modules/.pnpm/@sveltejs+kit@2.49.0_@sveltejs+vite-plugin-svelte@4.0.4_svelte@5.43.14_vite@5.4.21__svelte@5.43.14_vite@5.4.21/node_modules/@sveltejs/kit/src/runtime/server/respond.js:422:12)
+2025-11-25T23:05:27.509519638+00:00 stderr F     at async internal_respond (/app/node_modules/.pnpm/@sveltejs+kit@2.49.0_@sveltejs+vite-plugin-svelte@4.0.4_svelte@5.43.14_vite@5.4.21__svelte@5.43.14_vite@5.4.21/node_modules/@sveltejs/kit/src/runtime/server/respond.js:404:20)
+2025-11-25T23:05:27.509519638+00:00 stderr F     at async file:///app/node_modules/.pnpm/@sveltejs+kit@2.49.0_@sveltejs+vite-plugin-svelte@4.0.4_svelte@5.43.14_vite@5.4.21__svelte@5.43.14_vite@5.4.21/node_modules/@sveltejs/kit/src/exports/vite/dev/index.js:562:22
+2025-11-25T23:05:31.845759993+00:00 stderr F 
+2025-11-25T23:05:31.845759993+00:00 stderr F [1;31m[405] POST /logout[0m
+2025-11-25T23:05:31.845759993+00:00 stderr F Error: POST method not allowed. No form actions exist for the page at /logout
+2025-11-25T23:05:31.845759993+00:00 stderr F     at Module.handle_action_json_request (/app/node_modules/.pnpm/@sveltejs+kit@2.49.0_@sveltejs+vite-plugin-svelte@4.0.4_svelte@5.43.14_vite@5.4.21__svelte@5.43.14_vite@5.4.21/node_modules/@sveltejs/kit/src/runtime/server/page/actions.js:33:28)
+2025-11-25T23:05:31.845759993+00:00 stderr F     at Module.render_page (/app/node_modules/.pnpm/@sveltejs+kit@2.49.0_@sveltejs+vite-plugin-svelte@4.0.4_svelte@5.43.14_vite@5.4.21__svelte@5.43.14_vite@5.4.21/node_modules/@sveltejs/kit/src/runtime/server/page/index.js:56:10)
+2025-11-25T23:05:31.845759993+00:00 stderr F     at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+2025-11-25T23:05:31.845759993+00:00 stderr F     at async resolve (/app/node_modules/.pnpm/@sveltejs+kit@2.49.0_@sveltejs+vite-plugin-svelte@4.0.4_svelte@5.43.14_vite@5.4.21__svelte@5.43.14_vite@5.4.21/node_modules/@sveltejs/kit/src/runtime/server/respond.js:585:18)
+2025-11-25T23:05:31.845759993+00:00 stderr F     at async fn (/app/node_modules/.pnpm/@sveltejs+kit@2.49.0_@sveltejs+vite-plugin-svelte@4.0.4_svelte@5.43.14_vite@5.4.21__svelte@5.43.14_vite@5.4.21/node_modules/@sveltejs/kit/src/runtime/server/respond.js:422:12)
+2025-11-25T23:05:31.845759993+00:00 stderr F     at async internal_respond (/app/node_modules/.pnpm/@sveltejs+kit@2.49.0_@sveltejs+vite-plugin-svelte@4.0.4_svelte@5.43.14_vite@5.4.21__svelte@5.43.14_vite@5.4.21/node_modules/@sveltejs/kit/src/runtime/server/respond.js:404:20)
+2025-11-25T23:05:31.845759993+00:00 stderr F     at async file:///app/node_modules/.pnpm/@sveltejs+kit@2.49.0_@sveltejs+vite-plugin-svelte@4.0.4_svelte@5.43.14_vite@5.4.21__svelte@5.43.14_vite@5.4.21/node_modules/@sveltejs/kit/src/exports/vite/dev/index.js:562:22
+2025-11-25T23:09:24.203877607+00:00 stdout F 11:09:24 PM [vite] hmr update /src/lib/components/TopNav.svelte, /src/app.css
+2025-11-25T23:09:25.132346997+00:00 stdout F 11:09:25 PM [vite] hmr update /src/lib/components/TopNav.svelte, /src/app.css
+2025-11-25T23:09:25.514950866+00:00 stdout F 11:09:25 PM [vite] hmr update /src/lib/components/TopNav.svelte, /src/app.css
+2025-11-25T23:09:38.666642847+00:00 stdout F 11:09:38 PM [vite] hmr update /src/routes/+layout.svelte, /src/app.css
+2025-11-25T23:09:50.694242246+00:00 stdout F 11:09:50 PM [vite] hmr update /src/routes/login/+page.svelte, /src/app.css
+2025-11-25T23:10:30.056802886+00:00 stdout F 11:10:30 PM [vite] page reload .svelte-kit/generated/client/nodes/0.js
+2025-11-25T23:10:30.057110352+00:00 stdout F 11:10:30 PM [vite] page reload .svelte-kit/generated/client/nodes/1.js
+2025-11-25T23:10:30.057285818+00:00 stdout F 11:10:30 PM [vite] page reload .svelte-kit/generated/client/nodes/2.js
+2025-11-25T23:10:30.057448567+00:00 stdout F 11:10:30 PM [vite] page reload .svelte-kit/generated/client/nodes/3.js
+2025-11-25T23:10:30.058527092+00:00 stdout F 11:10:30 PM [vite] page reload .svelte-kit/generated/client/nodes/4.js
+2025-11-25T23:10:30.058782370+00:00 stdout F 11:10:30 PM [vite] page reload .svelte-kit/generated/client/nodes/6.js
+2025-11-25T23:10:30.058976799+00:00 stdout F 11:10:30 PM [vite] page reload .svelte-kit/generated/client/nodes/7.js
+2025-11-25T23:10:30.059292174+00:00 stdout F 11:10:30 PM [vite] page reload .svelte-kit/generated/client/app.js
+2025-11-25T23:10:30.059410019+00:00 stdout F 11:10:30 PM [vite] page reload .svelte-kit/generated/client/matchers.js
+2025-11-25T23:10:30.060392941+00:00 stdout F 11:10:30 PM [vite] page reload .svelte-kit/generated/server/internal.js
+2025-11-25T23:10:30.061331467+00:00 stdout F 11:10:30 PM [vite] page reload .svelte-kit/generated/root.js
