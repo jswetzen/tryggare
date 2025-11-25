@@ -10,7 +10,7 @@ return {
 	assets: new Set([]),
 	mimeTypes: {},
 	_: {
-		client: {start:"_app/immutable/entry/start.Nv_R1JFD.js",app:"_app/immutable/entry/app.udqLta7I.js",imports:["_app/immutable/entry/start.Nv_R1JFD.js","_app/immutable/chunks/CVyR8yVi.js","_app/immutable/chunks/CV5LEhtk.js","_app/immutable/chunks/0C_mT4e3.js","_app/immutable/chunks/Dd6hwy8F.js","_app/immutable/entry/app.udqLta7I.js","_app/immutable/chunks/0C_mT4e3.js","_app/immutable/chunks/CWj6FrbW.js","_app/immutable/chunks/CV5LEhtk.js","_app/immutable/chunks/Dd6hwy8F.js","_app/immutable/chunks/HLA8ReXw.js","_app/immutable/chunks/2FxEyW_h.js"],stylesheets:[],fonts:[],uses_env_dynamic_public:false},
+		client: {start:"_app/immutable/entry/start.Bb_YHVap.js",app:"_app/immutable/entry/app.DYvEzu_8.js",imports:["_app/immutable/entry/start.Bb_YHVap.js","_app/immutable/chunks/DTYrHwOH.js","_app/immutable/chunks/CHAnh0Qe.js","_app/immutable/chunks/DeQ8RDkx.js","_app/immutable/chunks/oPsnH_Ep.js","_app/immutable/chunks/Dx9Yy79m.js","_app/immutable/entry/app.DYvEzu_8.js","_app/immutable/chunks/jKjWACjA.js","_app/immutable/chunks/CHAnh0Qe.js","_app/immutable/chunks/ClEK_bS3.js","_app/immutable/chunks/Dx9Yy79m.js","_app/immutable/chunks/BahgTxaX.js","_app/immutable/chunks/DeQ8RDkx.js","_app/immutable/chunks/oYpBe7jk.js"],stylesheets:[],fonts:[],uses_env_dynamic_public:false},
 		nodes: [
 			__memo(() => import('./nodes/0.js')),
 			__memo(() => import('./nodes/1.js')),
@@ -19,7 +19,8 @@ return {
 			__memo(() => import('./nodes/4.js')),
 			__memo(() => import('./nodes/5.js')),
 			__memo(() => import('./nodes/6.js')),
-			__memo(() => import('./nodes/7.js'))
+			__memo(() => import('./nodes/7.js')),
+			__memo(() => import('./nodes/8.js'))
 		],
 		remotes: {
 			
@@ -47,24 +48,31 @@ return {
 				endpoint: null
 			},
 			{
+				id: "/debug-cookies",
+				pattern: /^\/debug-cookies\/?$/,
+				params: [],
+				page: { layouts: [0,], errors: [1,], leaf: 5 },
+				endpoint: null
+			},
+			{
 				id: "/login",
 				pattern: /^\/login\/?$/,
 				params: [],
-				page: { layouts: [0,], errors: [1,], leaf: 5 },
+				page: { layouts: [0,], errors: [1,], leaf: 6 },
 				endpoint: null
 			},
 			{
 				id: "/logout",
 				pattern: /^\/logout\/?$/,
 				params: [],
-				page: { layouts: [0,], errors: [1,], leaf: 6 },
+				page: { layouts: [0,], errors: [1,], leaf: 7 },
 				endpoint: null
 			},
 			{
 				id: "/qr/[token]",
 				pattern: /^\/qr\/([^/]+?)\/?$/,
 				params: [{"name":"token","optional":false,"rest":false,"chained":false}],
-				page: { layouts: [0,], errors: [1,], leaf: 7 },
+				page: { layouts: [0,], errors: [1,], leaf: 8 },
 				endpoint: null
 			}
 		],

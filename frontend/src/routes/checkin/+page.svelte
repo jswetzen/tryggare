@@ -1,12 +1,19 @@
 <script lang="ts">
   import { onMount, onDestroy } from 'svelte';
+  import { t } from 'svelte-i18n';
   import { websocketStore } from '$lib/stores/websocket';
   import { familyApi, childApi, sessionApi, checkInApi } from '$lib/api/services';
   import type { Family, Child, Session, WebSocketMessage } from '$lib/api/types';
 
+  // Import new components
+  import PageHeader from '$lib/components/PageHeader.svelte';
+  import SearchBox from '$lib/components/SearchBox.svelte';
+  import TableHeader from '$lib/components/TableHeader.svelte';
+  import TicketBadge from '$lib/components/TicketBadge.svelte';
+  import IconButton from '$lib/components/IconButton.svelte';
+
   let searchQuery = $state('');
   let families = $state<Family[]>([]);
-  let selectedFamily = $state<Family | null>(null);
   let children = $state<Child[]>([]);
   let selectedChildren = $state<string[]>([]);
   let sessions = $state<Session[]>([]);
@@ -39,14 +46,21 @@
 
   function handleWebSocketMessage(message: WebSocketMessage) {
     if (message.type === 'child_checked_in') {
-      // Show notification or update UI
       console.log('Child checked in:', message.data);
+      // Refresh the data
+      if (families.length > 0) {
+        searchFamilies();
+      }
     }
   }
 
   async function loadSessions() {
     try {
       sessions = await sessionApi.active();
+      // Auto-select first session if only one
+      if (sessions.length === 1) {
+        selectedSession = sessions[0].id;
+      }
     } catch (err) {
       console.error('Failed to load sessions:', err);
       error = 'Failed to load sessions';
@@ -63,28 +77,18 @@
     error = null;
 
     try {
-      families = await familyApi.search(searchQuery);
+      const results = await familyApi.search(searchQuery);
+      families = results;
+
+      // Load children for all families
+      for (const family of families) {
+        const familyChildren = await childApi.list(family.id);
+        family.children = familyChildren;
+      }
     } catch (err) {
       console.error('Search failed:', err);
       error = 'Search failed';
       families = [];
-    } finally {
-      loading = false;
-    }
-  }
-
-  async function selectFamily(family: Family) {
-    selectedFamily = family;
-    selectedChildren = [];
-    loading = true;
-    error = null;
-
-    try {
-      children = await childApi.list(family.id);
-    } catch (err) {
-      console.error('Failed to load children:', err);
-      error = 'Failed to load children';
-      children = [];
     } finally {
       loading = false;
     }
@@ -95,6 +99,20 @@
       selectedChildren = selectedChildren.filter((id) => id !== childId);
     } else {
       selectedChildren = [...selectedChildren, childId];
+    }
+  }
+
+  function toggleFamily(family: Family) {
+    const familyChildIds = (family.children || []).map((c: Child) => c.id);
+    const allSelected = familyChildIds.every((id: string) => selectedChildren.includes(id));
+
+    if (allSelected) {
+      // Deselect all
+      selectedChildren = selectedChildren.filter((id) => !familyChildIds.includes(id));
+    } else {
+      // Select all unchecked children
+      const toAdd = familyChildIds.filter((id: string) => !selectedChildren.includes(id));
+      selectedChildren = [...selectedChildren, ...toAdd];
     }
   }
 
@@ -116,25 +134,35 @@
         });
       }
 
-      successMessage = `Successfully checked in ${selectedChildren.length} child(ren)`;
+      successMessage = `Successfully checked in ${selectedChildren.length} ${selectedChildren.length === 1 ? 'child' : 'children'}`;
 
       // Reset selection
       selectedChildren = [];
-      selectedFamily = null;
-      children = [];
       searchQuery = '';
       families = [];
 
-      // Clear success message after 3 seconds
+      // Clear success message after 5 seconds
       setTimeout(() => {
         successMessage = null;
-      }, 3000);
-    } catch (err) {
+      }, 5000);
+    } catch (err: any) {
       console.error('Check-in failed:', err);
-      error = 'Check-in failed';
+      error = err.message || 'Check-in failed';
     } finally {
       loading = false;
     }
+  }
+
+  // Get ticket type for a child (placeholder - you'll need to implement based on your data model)
+  function getTicketType(child: Child): 'event' | 'session' | 'none' {
+    // This is a placeholder - adjust based on your actual data structure
+    return 'event'; // or 'session' or 'none'
+  }
+
+  // Check if child is already checked in
+  function isCheckedIn(child: Child): boolean {
+    // This is a placeholder - adjust based on your actual data structure
+    return false;
   }
 </script>
 
@@ -142,133 +170,152 @@
   <title>Check-In Station</title>
 </svelte:head>
 
-<main class="container mx-auto p-6">
-  <h1 class="text-3xl font-bold mb-6">Check-In Station</h1>
+<div class="max-w-4xl mx-auto">
+  <div class="max-w-3xl mx-auto bg-white border-2 border-slate-300 rounded-lg p-5 shadow-lg">
+    <PageHeader title="Check-In Station" />
 
-  <div class="card mb-6">
-    <h2 class="text-xl font-semibold mb-4">WebSocket Status</h2>
-    <div class="flex items-center gap-2">
-      <div
-        class="w-3 h-3 rounded-full {$wsStateStore.connected
-          ? 'bg-green-500'
-          : 'bg-red-500'}"
-      ></div>
-      <span>
-        {$wsStateStore.connected ? 'Connected' : 'Disconnected'}
-      </span>
-    </div>
-  </div>
+    <!-- Alerts -->
+    {#if error}
+      <div class="alert alert-error mb-5">
+        {error}
+      </div>
+    {/if}
 
-  {#if error}
-    <div class="alert alert-error mb-6">
-      {error}
-    </div>
-  {/if}
+    {#if successMessage}
+      <div class="alert alert-success mb-5">
+        {successMessage}
+      </div>
+    {/if}
 
-  {#if successMessage}
-    <div class="alert alert-success mb-6">
-      {successMessage}
-    </div>
-  {/if}
+    <!-- Session Selection (only show if multiple sessions) -->
+    {#if sessions.length > 1}
+      <div class="border-2 border-blue-500 rounded-md p-3 mb-5 bg-blue-50">
+        <label class="block font-semibold text-blue-900 mb-2 text-sm">
+          Select Session
+        </label>
+        <select
+          bind:value={selectedSession}
+          class="w-full px-3 py-2 border border-slate-300 rounded bg-white text-sm"
+          disabled={loading}
+        >
+          <option value={null}>Choose a session...</option>
+          {#each sessions as session}
+            <option value={session.id}>{session.name}</option>
+          {/each}
+        </select>
+      </div>
+    {/if}
 
-  <!-- Session Selection -->
-  <div class="card mb-6">
-    <h2 class="text-xl font-semibold mb-4">Select Session</h2>
-    <select
-      bind:value={selectedSession}
-      class="form-select w-full"
-      disabled={loading}
-    >
-      <option value={null}>-- Select a session --</option>
-      {#each sessions as session}
-        <option value={session.id}>{session.name}</option>
-      {/each}
-    </select>
-  </div>
+    <SearchBox
+      bind:value={searchQuery}
+      placeholder="Search by last name or first name..."
+      label="Search Families"
+    />
 
-  <!-- Family Search -->
-  <div class="card mb-6">
-    <h2 class="text-xl font-semibold mb-4">Search Family</h2>
-    <div class="flex gap-2">
-      <input
-        type="text"
-        bind:value={searchQuery}
-        onkeydown={(e) => e.key === 'Enter' && searchFamilies()}
-        placeholder="Search by family name, email, or phone..."
-        class="form-input flex-1"
-        disabled={loading}
-      />
+    <div class="flex justify-end mb-4">
       <button
         onclick={searchFamilies}
         class="btn btn-primary"
-        disabled={loading}
+        disabled={loading || !searchQuery.trim()}
       >
-        Search
+        {loading ? 'Searching...' : 'Search'}
       </button>
     </div>
 
-    {#if families.length > 0}
-      <div class="mt-4 space-y-2">
-        {#each families as family}
+    {#if loading && families.length === 0}
+      <div class="text-center p-8 bg-slate-50 border-2 border-dashed border-slate-300 rounded-md">
+        <p class="text-slate-500">Searching...</p>
+      </div>
+    {:else if families.length === 0 && searchQuery}
+      <div class="text-center p-8 bg-slate-50 border-2 border-dashed border-slate-300 rounded-md">
+        <p class="text-slate-500 mb-3">No families found matching "{searchQuery}"</p>
+        <button class="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-5 py-2 rounded">
+          + Add New Family
+        </button>
+      </div>
+    {:else if families.length > 0}
+      <TableHeader title="Registered Families" count={families.length} />
+
+      <table class="w-full border-collapse mb-5">
+        <thead class="bg-slate-100">
+          <tr>
+            <th class="text-left p-2 font-semibold text-slate-600 text-sm border-b-2 border-slate-300">
+              Family / Child
+            </th>
+            <th class="text-left p-2 font-semibold text-slate-600 text-sm border-b-2 border-slate-300">
+              Ticket
+            </th>
+            <th class="text-center p-2 font-semibold text-slate-600 text-sm border-b-2 border-slate-300 w-20">
+              Check In
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          {#each families as family, idx}
+            {@const bgColor = idx % 2 === 0 ? 'bg-slate-50' : 'bg-slate-100/50'}
+            {@const familyChildren = family.children || []}
+            {@const uncheckedCount = familyChildren.filter((c: Child) => !isCheckedIn(c) && !selectedChildren.includes(c.id)).length}
+
+            <!-- Family Name Row -->
+            <tr class={bgColor}>
+              <td class="p-2 font-bold text-blue-900 border-b border-slate-200">
+                {family.family_name || `${family.primary_contact_name}'s Family`}
+              </td>
+              <td class="p-2 border-b border-slate-200"></td>
+              <td class="p-2 text-center border-b border-slate-200">
+                {#if uncheckedCount > 0}
+                  <IconButton
+                    variant="family-checkin"
+                    tooltip="Check in {family.family_name || 'family'} ({uncheckedCount})"
+                    onclick={() => toggleFamily(family)}
+                  />
+                {/if}
+              </td>
+            </tr>
+
+            <!-- Children Rows -->
+            {#each familyChildren as child, childIdx}
+              {@const isLastChild = childIdx === familyChildren.length - 1}
+              {@const checkedIn = isCheckedIn(child)}
+              {@const isSelected = selectedChildren.includes(child.id)}
+
+              <tr class={bgColor}>
+                <td class="p-2 pl-5 font-medium text-slate-700 text-sm {isLastChild ? 'border-b-2 border-slate-300' : 'border-b border-slate-200'}">
+                  {child.first_name} {child.last_name}
+                </td>
+                <td class="p-2 {isLastChild ? 'border-b-2 border-slate-300' : 'border-b border-slate-200'}">
+                  <TicketBadge type={getTicketType(child)} />
+                </td>
+                <td class="p-2 text-center {isLastChild ? 'border-b-2 border-slate-300' : 'border-b border-slate-200'}">
+                  <IconButton
+                    variant={checkedIn ? 'checked-in' : (isSelected ? 'checked-in' : 'checkin')}
+                    tooltip={checkedIn ? 'Already Checked In' : (isSelected ? 'Selected' : 'Check In')}
+                    onclick={() => !checkedIn && toggleChild(child.id)}
+                    disabled={checkedIn}
+                  />
+                </td>
+              </tr>
+            {/each}
+          {/each}
+        </tbody>
+      </table>
+
+      <!-- Check-In Button -->
+      {#if selectedChildren.length > 0}
+        <div class="flex justify-end">
           <button
-            onclick={() => selectFamily(family)}
-            class="w-full text-left p-4 border rounded hover:bg-gray-50 {selectedFamily?.id ===
-            family.id
-              ? 'border-blue-500 bg-blue-50'
-              : 'border-gray-300'}"
+            onclick={performCheckIn}
+            class="bg-green-600 hover:bg-green-700 text-white font-semibold px-6 py-3 rounded-md disabled:opacity-50 disabled:cursor-not-allowed"
+            disabled={loading || !selectedSession}
           >
-            <div class="font-semibold">{family.family_name}</div>
-            <div class="text-sm text-gray-600">
-              {family.primary_contact_name} - {family.primary_contact_phone}
-            </div>
+            {loading ? 'Checking In...' : `Check In ${selectedChildren.length} ${selectedChildren.length === 1 ? 'Child' : 'Children'}`}
           </button>
-        {/each}
+        </div>
+      {/if}
+    {:else}
+      <div class="text-center p-8 bg-slate-50 border-2 border-dashed border-slate-300 rounded-md">
+        <p class="text-slate-500 mb-3">Search for a family to get started</p>
       </div>
     {/if}
   </div>
-
-  <!-- Child Selection -->
-  {#if selectedFamily}
-    <div class="card mb-6">
-      <h2 class="text-xl font-semibold mb-4">Select Children</h2>
-      {#if children.length === 0}
-        <p class="text-gray-600">No children found for this family.</p>
-      {:else}
-        <div class="space-y-2">
-          {#each children as child}
-            <label class="flex items-center gap-3 p-3 border rounded cursor-pointer hover:bg-gray-50">
-              <input
-                type="checkbox"
-                checked={selectedChildren.includes(child.id)}
-                onchange={() => toggleChild(child.id)}
-                class="form-checkbox"
-              />
-              <div class="flex-1">
-                <div class="font-semibold">
-                  {child.first_name}
-                  {child.last_name}
-                </div>
-                {#if child.date_of_birth}
-                  <div class="text-sm text-gray-600">
-                    DOB: {child.date_of_birth}
-                  </div>
-                {/if}
-              </div>
-            </label>
-          {/each}
-        </div>
-      {/if}
-    </div>
-
-    <!-- Check-In Button -->
-    <div class="flex justify-end">
-      <button
-        onclick={performCheckIn}
-        disabled={loading || !selectedSession || selectedChildren.length === 0}
-        class="btn btn-primary btn-lg"
-      >
-        {loading ? 'Checking in...' : `Check In ${selectedChildren.length} Child(ren)`}
-      </button>
-    </div>
-  {/if}
-</main>
+</div>

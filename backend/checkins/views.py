@@ -2,6 +2,7 @@ import uuid
 from asgiref.sync import async_to_sync
 from channels.layers import get_channel_layer
 from django.utils import timezone
+from django.utils.translation import gettext as _
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
@@ -39,7 +40,7 @@ class CheckInRecordViewSet(viewsets.ModelViewSet):
 
         if not child_id or not session_id:
             return Response(
-                {"error": "Both child and session are required"},
+                {"error": _("Both child and session are required")},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
@@ -48,7 +49,7 @@ class CheckInRecordViewSet(viewsets.ModelViewSet):
             session = Session.objects.get(id=session_id)
         except (Child.DoesNotExist, Session.DoesNotExist):
             return Response(
-                {"error": "Child or session not found"},
+                {"error": _("Child or session not found")},
                 status=status.HTTP_404_NOT_FOUND,
             )
 
@@ -59,7 +60,7 @@ class CheckInRecordViewSet(viewsets.ModelViewSet):
 
         if existing:
             return Response(
-                {"error": "Child is already checked in to this session"},
+                {"error": _("Child is already checked in to this session")},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
@@ -122,7 +123,7 @@ class CheckInRecordViewSet(viewsets.ModelViewSet):
 
         if record.check_out_time:
             return Response(
-                {"error": "Child is already checked out"},
+                {"error": _("Child is already checked out")},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 

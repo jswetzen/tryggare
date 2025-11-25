@@ -1,16 +1,19 @@
 import uuid
 
 from django.db import models
+from django.utils.translation import gettext_lazy as _
 
 
 class Event(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    name = models.CharField(max_length=255)
-    start_date = models.DateField()
-    end_date = models.DateField()
+    name = models.CharField(max_length=255, verbose_name=_("Event Name"))
+    start_date = models.DateField(verbose_name=_("Start Date"))
+    end_date = models.DateField(verbose_name=_("End Date"))
 
     class Meta:
         db_table = "events"
+        verbose_name = _("Event")
+        verbose_name_plural = _("Events")
 
     def __str__(self) -> str:
         return self.name
@@ -18,15 +21,17 @@ class Event(models.Model):
 
 class Session(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    name = models.CharField(max_length=255)
-    start_time = models.DateTimeField()
-    end_time = models.DateTimeField()
-    is_active = models.BooleanField(default=False)
-    requires_ticket = models.BooleanField(default=False)
-    event = models.ForeignKey(Event, related_name="sessions", on_delete=models.CASCADE)
+    name = models.CharField(max_length=255, verbose_name=_("Session Name"))
+    start_time = models.DateTimeField(verbose_name=_("Start Time"))
+    end_time = models.DateTimeField(verbose_name=_("End Time"))
+    is_active = models.BooleanField(default=False, verbose_name=_("Is Active"))
+    requires_ticket = models.BooleanField(default=False, verbose_name=_("Requires Ticket"))
+    event = models.ForeignKey(Event, related_name="sessions", on_delete=models.CASCADE, verbose_name=_("Event"))
 
     class Meta:
         db_table = "sessions"
+        verbose_name = _("Session")
+        verbose_name_plural = _("Sessions")
         indexes = [
             models.Index(fields=["event"]),
             models.Index(fields=["is_active"]),
@@ -42,9 +47,9 @@ class Ticket(models.Model):
     NONE = "NONE"
 
     TICKET_TYPES = [
-        (EVENT_PASS, "Event Pass"),
-        (SESSION_TICKET, "Session Ticket"),
-        (NONE, "None"),
+        (EVENT_PASS, _("Event Pass")),
+        (SESSION_TICKET, _("Session Ticket")),
+        (NONE, _("None")),
     ]
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)

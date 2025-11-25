@@ -1,25 +1,7 @@
-import { e as escape_html } from "../../chunks/escaping.js";
+import { W as getContext, V as escape_html } from "../../chunks/context.js";
 import "clsx";
 import "../../chunks/state.svelte.js";
-import "@sveltejs/kit/internal";
-import "../../chunks/exports.js";
-import "../../chunks/utils.js";
-import { w as writable } from "../../chunks/index.js";
-import "@sveltejs/kit/internal/server";
-import { g as getContext } from "../../chunks/context.js";
-function create_updated_store() {
-  const { set, subscribe } = writable(false);
-  {
-    return {
-      subscribe,
-      // eslint-disable-next-line @typescript-eslint/require-await
-      check: async () => false
-    };
-  }
-}
-const stores = {
-  updated: /* @__PURE__ */ create_updated_store()
-};
+import { s as stores } from "../../chunks/client.js";
 ({
   check: stores.updated.check
 });

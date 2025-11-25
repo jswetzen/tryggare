@@ -1,29 +1,29 @@
 <script lang="ts">
   import '../app.css';
+  import '$lib/i18n/i18n';
+  import { t } from 'svelte-i18n';
+  import TopNav from '$lib/components/TopNav.svelte';
+  import { goto } from '$app/navigation';
 
   interface LayoutData {
     user: App.Locals['user'];
   }
 
   let { data, children }: { data: LayoutData; children: any } = $props();
+
+  async function handleLogout() {
+    await fetch('/logout', { method: 'POST' });
+    goto('/login');
+  }
 </script>
 
 {#if data.user}
-  <nav class="bg-gray-800 text-white p-4">
-    <div class="container mx-auto flex justify-between items-center">
-      <div>
-        <a href="/" class="text-xl font-bold">Check-In System</a>
-      </div>
-      <div class="flex items-center gap-4">
-        <span>Welcome, {data.user.username}</span>
-        <a href="/checkin" class="hover:text-gray-300">Check-In</a>
-        <a href="/checkout" class="hover:text-gray-300">Check-Out</a>
-        <a href="/logout" class="hover:text-gray-300">Logout</a>
-      </div>
-    </div>
-  </nav>
+  <TopNav
+    userName={data.user.username}
+    onLogout={handleLogout}
+  />
 {/if}
 
-<main class="container mx-auto p-4">
+<main class="min-h-screen bg-slate-100 p-5">
   {@render children()}
 </main>

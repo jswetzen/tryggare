@@ -1,3 +1,4 @@
+from django.utils.translation import gettext as _
 from rest_framework import serializers
 
 from .models import AuditLog, CheckInRecord
@@ -45,7 +46,7 @@ class CheckInRecordSerializer(serializers.ModelSerializer):
 
             if active_checkin.exists():
                 raise serializers.ValidationError(
-                    "This child is already checked in to this session."
+                    _("This child is already checked in to this session.")
                 )
 
         return data
