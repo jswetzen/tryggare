@@ -3774,3 +3774,22 @@
 2025-11-25T22:08:35.738163249+00:00 stdout F 
 2025-11-25T22:08:35.738525143+00:00 stdout F   ➜  Local:   http://localhost:5173/
 2025-11-25T22:08:35.738537635+00:00 stdout F   ➜  Network: http://10.89.0.5:5173/
+2025-11-25T23:01:16.683985079+00:00 stderr F 
+2025-11-25T23:01:16.683985079+00:00 stderr F [1;31m[404] GET /favicon.png[0m
+2025-11-25T23:01:24.052113665+00:00 stdout F 11:01:24 PM [vite-plugin-svelte] src/lib/components/SearchBox.svelte:26:2 A form label must be associated with a control
+2025-11-25T23:01:24.052113665+00:00 stdout F https://svelte.dev/e/a11y_label_has_associated_control
+2025-11-25T23:01:24.639157363+00:00 stdout F 11:01:24 PM [vite-plugin-svelte] src/lib/components/SearchBox.svelte:26:2 A form label must be associated with a control
+2025-11-25T23:01:24.639157363+00:00 stdout F https://svelte.dev/e/a11y_label_has_associated_control
+2025-11-25T23:01:34.343616384+00:00 stdout F 11:01:34 PM [vite-plugin-svelte] src/routes/checkin/+page.svelte:193:8 A form label must be associated with a control
+2025-11-25T23:01:34.343616384+00:00 stdout F https://svelte.dev/e/a11y_label_has_associated_control
+2025-11-25T23:02:55.103734824+00:00 stdout F 11:02:55 PM [vite-plugin-svelte] src/routes/checkin/+page.svelte:193:8 A form label must be associated with a control
+2025-11-25T23:02:55.103734824+00:00 stdout F https://svelte.dev/e/a11y_label_has_associated_control
+2025-11-25T23:03:14.203964510+00:00 stdout F 11:03:14 PM [vite] page reload src/lib/api/client.ts
+2025-11-25T23:03:19.853489661+00:00 stdout F 11:03:19 PM [vite] page reload .svelte-kit/generated/client/nodes/0.js
+2025-11-25T23:03:19.853891104+00:00 stdout F 11:03:19 PM [vite] page reload .svelte-kit/generated/client/nodes/1.js
+2025-11-25T23:03:19.854809149+00:00 stdout F 11:03:19 PM [vite] page reload .svelte-kit/generated/client/nodes/3.js
+2025-11-25T23:03:19.855141846+00:00 stdout F 11:03:19 PM [vite] page reload .svelte-kit/generated/client/nodes/4.js
+2025-11-25T23:03:19.855649731+00:00 stdout F 11:03:19 PM [vite] page reload .svelte-kit/generated/client/app.js
+2025-11-25T23:03:19.855836038+00:00 stdout F 11:03:19 PM [vite] page reload .svelte-kit/generated/client/matchers.js
+2025-11-25T23:03:19.856769243+00:00 stdout F 11:03:19 PM [vite] page reload .svelte-kit/generated/server/internal.js
+2025-11-25T23:03:19.857406786+00:00 stdout F 11:03:19 PM [vite] page reload .svelte-kit/generated/root.js
