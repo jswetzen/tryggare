@@ -10,6 +10,7 @@ from families.views import ChildViewSet, FamilyViewSet, ParentViewSet
 from families.qr_views import qr_info
 from events.views import EventViewSet, SessionViewSet, TicketViewSet
 from checkins.views import AuditLogViewSet, CheckInRecordViewSet
+from accounts.views import csrf_token, check_auth, login_view, logout_view
 
 # Create API router
 router = DefaultRouter()
@@ -31,6 +32,10 @@ router.register(r"audit-logs", AuditLogViewSet, basename="audit-log")
 urlpatterns = [
     path("admin/", admin.site.urls),
     path("api/", include(router.urls)),
-    path("api/auth/", include("rest_framework.urls")),  # Login/logout endpoints
+    # Session-based authentication endpoints
+    path("api/csrf/", csrf_token, name="csrf-token"),
+    path("api/auth/check/", check_auth, name="auth-check"),
+    path("api/auth/login/", login_view, name="auth-login"),
+    path("api/auth/logout/", logout_view, name="auth-logout"),
     path("qr/<str:token>/", qr_info, name="qr-info"),  # Public QR code endpoint
 ]

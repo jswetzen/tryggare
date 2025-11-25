@@ -1,4 +1,6 @@
 import uuid
+from asgiref.sync import async_to_sync
+from channels.layers import get_channel_layer
 from django.utils import timezone
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
@@ -92,6 +94,24 @@ class CheckInRecordViewSet(viewsets.ModelViewSet):
             },
         )
 
+        # Broadcast check-in event via WebSocket
+        channel_layer = get_channel_layer()
+        async_to_sync(channel_layer.group_send)(
+            "checkins_broadcast",
+            {
+                "type": "child_checked_in",
+                "data": {
+                    "record_id": str(record.id),
+                    "child_id": str(child.id),
+                    "child_name": f"{child.first_name} {child.last_name}",
+                    "session_id": str(session.id),
+                    "session_name": session.name,
+                    "check_in_time": record.check_in_time.isoformat(),
+                    "qr_token": child.qr_token,
+                }
+            }
+        )
+
         serializer = self.get_serializer(record)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 
@@ -126,6 +146,24 @@ class CheckInRecordViewSet(viewsets.ModelViewSet):
                 "session_name": record.session.name,
                 "picked_up_by": picked_up_by,
             },
+        )
+
+        # Broadcast check-out event via WebSocket
+        channel_layer = get_channel_layer()
+        async_to_sync(channel_layer.group_send)(
+            "checkins_broadcast",
+            {
+                "type": "child_checked_out",
+                "data": {
+                    "record_id": str(record.id),
+                    "child_id": str(record.child.id),
+                    "child_name": f"{record.child.first_name} {record.child.last_name}",
+                    "session_id": str(record.session.id),
+                    "session_name": record.session.name,
+                    "check_out_time": record.check_out_time.isoformat(),
+                    "picked_up_by": picked_up_by,
+                }
+            }
         )
 
         serializer = self.get_serializer(record)
