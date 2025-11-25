@@ -1,6 +1,7 @@
 """
 Public QR code endpoint - does not require authentication
 """
+from django.utils.translation import gettext as _
 from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny
@@ -26,7 +27,7 @@ def qr_info(request, token):
         ).get(qr_token=token)
     except Child.DoesNotExist:
         return Response(
-            {"error": "Invalid QR code"},
+            {"error": _("Invalid QR code")},
             status=status.HTTP_404_NOT_FOUND,
         )
 

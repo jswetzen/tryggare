@@ -4,14 +4,12 @@ Update IMPLEMENTATION_PLAN.md to check off items that are done. Also keep CURREN
 
 ## Development Environment
 
-The PostgreSQL database is running on localhost. Start services as needed:
-- **Backend**: `cd backend && uv run python manage.py runserver`
-- **Frontend**: `cd frontend && npm run dev`
+The docker compose file is running on the host, you're connected to a podman container, but with host networking so you can access the running servers. The server is also set up so you can execute /workspace/restart.sh to rebuild and restart it! It can take 30 seconds or more, but this way you can test out any changes directly. Furthermore, web.log and frontend.log has the live container logs from podman.
 
-IMPORTANT: *Never* kill a process without asking permission first. This includes:
-- Django runserver processes
-- PostgreSQL database
-- Valkey/Redis
+- **Backend**: backend directory with Djanga, 'web' container.
+- **Frontend**: frontend directorp with svelte.
+
+IMPORTANT: *Never* kill a process without asking permission first.
 You risk stopping critical services or Claude Code by accident.
 
 ## Django Backend Verification Workflow
@@ -41,8 +39,6 @@ See VERIFICATION.md for detailed testing patterns and best practices.
 2. **Direct Model Testing** - Fastest for business logic
    - Import models directly after django.setup()
    - ~50ms per test
-
-3. **Avoid curl + running server** unless testing actual HTTP/CORS behavior
 
 ## Task Completion Checklist
 

@@ -1,5 +1,6 @@
 from django.contrib.auth import authenticate, login, logout
 from django.middleware.csrf import get_token
+from django.utils.translation import gettext as _
 from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.http import require_http_methods
 from rest_framework.decorators import api_view, permission_classes
@@ -55,7 +56,7 @@ def login_view(request):
 
     if not username or not password:
         return Response(
-            {"error": "Username and password are required"},
+            {"error": _("Username and password are required")},
             status=status.HTTP_400_BAD_REQUEST
         )
 
@@ -73,7 +74,7 @@ def login_view(request):
         })
 
     return Response(
-        {"error": "Invalid credentials"},
+        {"error": _("Invalid credentials")},
         status=status.HTTP_401_UNAUTHORIZED
     )
 

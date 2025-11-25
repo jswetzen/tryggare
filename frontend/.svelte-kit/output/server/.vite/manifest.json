@@ -6,20 +6,39 @@
     "isEntry": true,
     "imports": [
       "_internal.js",
-      "_environment.js"
+      "_environment.js",
+      "_shared-server.js"
+    ]
+  },
+  "_IconButton.js": {
+    "file": "chunks/IconButton.js",
+    "name": "IconButton",
+    "imports": [
+      "_context.js",
+      "_index.js",
+      "_index2.js"
+    ]
+  },
+  "_client.js": {
+    "file": "chunks/client.js",
+    "name": "client",
+    "imports": [
+      "_exports.js",
+      "_utils.js",
+      "_index.js",
+      "_state.svelte.js"
     ]
   },
   "_context.js": {
     "file": "chunks/context.js",
-    "name": "context"
+    "name": "context",
+    "imports": [
+      "_false.js"
+    ]
   },
   "_environment.js": {
     "file": "chunks/environment.js",
     "name": "environment"
-  },
-  "_escaping.js": {
-    "file": "chunks/escaping.js",
-    "name": "escaping"
   },
   "_exports.js": {
     "file": "chunks/exports.js",
@@ -40,8 +59,6 @@
     "file": "chunks/index2.js",
     "name": "index",
     "imports": [
-      "_escaping.js",
-      "_false.js",
       "_context.js"
     ]
   },
@@ -49,13 +66,25 @@
     "file": "chunks/internal.js",
     "name": "internal",
     "imports": [
-      "_index2.js",
       "_context.js",
-      "_environment.js"
+      "_index2.js",
+      "_environment.js",
+      "_shared-server.js"
     ],
     "dynamicImports": [
       "src/hooks.server.ts"
     ]
+  },
+  "_runtime.js": {
+    "file": "chunks/runtime.js",
+    "name": "runtime",
+    "imports": [
+      "_index.js"
+    ]
+  },
+  "_shared-server.js": {
+    "file": "chunks/shared-server.js",
+    "name": "shared-server"
   },
   "_shared.js": {
     "file": "chunks/shared.js",
@@ -71,17 +100,19 @@
       "_context.js"
     ]
   },
+  "_stores.js": {
+    "file": "chunks/stores.js",
+    "name": "stores",
+    "imports": [
+      "_context.js",
+      "_exports.js",
+      "_utils.js",
+      "_state.svelte.js"
+    ]
+  },
   "_utils.js": {
     "file": "chunks/utils.js",
     "name": "utils"
-  },
-  "_websocket.js": {
-    "file": "chunks/websocket.js",
-    "name": "websocket",
-    "imports": [
-      "_context.js",
-      "_index.js"
-    ]
   },
   "node_modules/.pnpm/@sveltejs+kit@2.49.0_@sveltejs+vite-plugin-svelte@4.0.4_svelte@5.43.14_vite@5.4.21__svelte@5.43.14_vite@5.4.21/node_modules/@sveltejs/kit/src/runtime/app/server/remote/index.js": {
     "file": "remote-entry.js",
@@ -100,12 +131,9 @@
     "src": "node_modules/.pnpm/@sveltejs+kit@2.49.0_@sveltejs+vite-plugin-svelte@4.0.4_svelte@5.43.14_vite@5.4.21__svelte@5.43.14_vite@5.4.21/node_modules/@sveltejs/kit/src/runtime/components/svelte-5/error.svelte",
     "isEntry": true,
     "imports": [
-      "_escaping.js",
+      "_context.js",
       "_state.svelte.js",
-      "_exports.js",
-      "_utils.js",
-      "_index.js",
-      "_context.js"
+      "_client.js"
     ]
   },
   "node_modules/.pnpm/@sveltejs+kit@2.49.0_@sveltejs+vite-plugin-svelte@4.0.4_svelte@5.43.14_vite@5.4.21__svelte@5.43.14_vite@5.4.21/node_modules/@sveltejs/kit/src/runtime/server/index.js": {
@@ -120,6 +148,7 @@
       "_exports.js",
       "_utils.js",
       "_index.js",
+      "_shared-server.js",
       "_internal.js"
     ]
   },
@@ -127,6 +156,21 @@
     "file": "chunks/hooks.server.js",
     "name": "hooks.server",
     "src": "src/hooks.server.ts",
+    "isDynamicEntry": true,
+    "imports": [
+      "_shared-server.js"
+    ]
+  },
+  "src/lib/i18n/locales/en.json": {
+    "file": "chunks/en.js",
+    "name": "en",
+    "src": "src/lib/i18n/locales/en.json",
+    "isDynamicEntry": true
+  },
+  "src/lib/i18n/locales/sv.json": {
+    "file": "chunks/sv.js",
+    "name": "sv",
+    "src": "src/lib/i18n/locales/sv.json",
     "isDynamicEntry": true
   },
   "src/routes/+layout.server.ts": {
@@ -141,10 +185,18 @@
     "src": "src/routes/+layout.svelte",
     "isEntry": true,
     "imports": [
-      "_escaping.js"
+      "_runtime.js",
+      "_index2.js",
+      "_stores.js",
+      "_context.js",
+      "_client.js"
+    ],
+    "dynamicImports": [
+      "src/lib/i18n/locales/en.json",
+      "src/lib/i18n/locales/sv.json"
     ],
     "css": [
-      "_app/immutable/assets/_layout.D_TFVojf.css"
+      "_app/immutable/assets/_layout.DJAJNnHR.css"
     ]
   },
   "src/routes/+page.svelte": {
@@ -154,7 +206,7 @@
     "isEntry": true,
     "imports": [
       "_index2.js",
-      "_escaping.js"
+      "_context.js"
     ]
   },
   "src/routes/checkin/+page.svelte": {
@@ -164,8 +216,9 @@
     "isEntry": true,
     "imports": [
       "_index2.js",
-      "_websocket.js",
-      "_escaping.js"
+      "_IconButton.js",
+      "_runtime.js",
+      "_context.js"
     ]
   },
   "src/routes/checkout/+page.svelte": {
@@ -175,15 +228,29 @@
     "isEntry": true,
     "imports": [
       "_index2.js",
-      "_websocket.js",
-      "_escaping.js"
+      "_IconButton.js",
+      "_runtime.js",
+      "_context.js"
+    ]
+  },
+  "src/routes/debug-cookies/+page.svelte": {
+    "file": "entries/pages/debug-cookies/_page.svelte.js",
+    "name": "entries/pages/debug-cookies/_page.svelte",
+    "src": "src/routes/debug-cookies/+page.svelte",
+    "isEntry": true,
+    "imports": [
+      "_index2.js",
+      "_context.js"
     ]
   },
   "src/routes/login/+page.server.ts": {
     "file": "entries/pages/login/_page.server.ts.js",
     "name": "entries/pages/login/_page.server.ts",
     "src": "src/routes/login/+page.server.ts",
-    "isEntry": true
+    "isEntry": true,
+    "imports": [
+      "_shared-server.js"
+    ]
   },
   "src/routes/login/+page.svelte": {
     "file": "entries/pages/login/_page.svelte.js",
@@ -194,15 +261,19 @@
       "_index2.js",
       "_exports.js",
       "_utils.js",
-      "_escaping.js",
-      "_state.svelte.js"
+      "_state.svelte.js",
+      "_runtime.js",
+      "_context.js"
     ]
   },
   "src/routes/logout/+page.server.ts": {
     "file": "entries/pages/logout/_page.server.ts.js",
     "name": "entries/pages/logout/_page.server.ts",
     "src": "src/routes/logout/+page.server.ts",
-    "isEntry": true
+    "isEntry": true,
+    "imports": [
+      "_shared-server.js"
+    ]
   },
   "src/routes/qr/[token]/+page.svelte": {
     "file": "entries/pages/qr/_token_/_page.svelte.js",
@@ -211,10 +282,9 @@
     "isEntry": true,
     "imports": [
       "_index2.js",
-      "_context.js",
-      "_exports.js",
-      "_utils.js",
-      "_state.svelte.js"
+      "_runtime.js",
+      "_stores.js",
+      "_context.js"
     ]
   }
 }

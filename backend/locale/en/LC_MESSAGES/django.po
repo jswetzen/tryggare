@@ -1,0 +1,166 @@
+# English translation for Conference Child Management System
+# Copyright (C) 2025
+# This file is distributed under the same license as the project.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: 1.0\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2025-11-25 12:00+0000\n"
+"PO-Revision-Date: 2025-11-25 12:00+0000\n"
+"Last-Translator: \n"
+"Language-Team: English\n"
+"Language: en\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+
+# Error messages - checkins/views.py
+msgid "Both child and session are required"
+msgstr "Both child and session are required"
+
+msgid "Child or session not found"
+msgstr "Child or session not found"
+
+msgid "Child is already checked in to this session"
+msgstr "Child is already checked in to this session"
+
+msgid "Child is already checked out"
+msgstr "Child is already checked out"
+
+# Error messages - accounts/views.py
+msgid "Username and password are required"
+msgstr "Username and password are required"
+
+msgid "Invalid credentials"
+msgstr "Invalid credentials"
+
+# Error messages - families/qr_views.py
+msgid "Invalid QR code"
+msgstr "Invalid QR code"
+
+# Error messages - checkins/serializers.py
+msgid "This child is already checked in to this session."
+msgstr "This child is already checked in to this session."
+
+# Ticket types - events/models.py
+msgid "Event Pass"
+msgstr "Event Pass"
+
+msgid "Session Ticket"
+msgstr "Session Ticket"
+
+msgid "None"
+msgstr "None"
+
+# Model field labels - families/models.py
+msgid "Name"
+msgstr "Name"
+
+msgid "Phone"
+msgstr "Phone"
+
+msgid "Email"
+msgstr "Email"
+
+msgid "Relationship Type"
+msgstr "Relationship Type"
+
+msgid "Last Participation Date"
+msgstr "Last Participation Date"
+
+msgid "Parent"
+msgstr "Parent"
+
+msgid "Parents"
+msgstr "Parents"
+
+msgid "First Name"
+msgstr "First Name"
+
+msgid "Last Name"
+msgstr "Last Name"
+
+msgid "Birthdate"
+msgstr "Birthdate"
+
+msgid "Allergies"
+msgstr "Allergies"
+
+msgid "Notes"
+msgstr "Notes"
+
+msgid "QR Token"
+msgstr "QR Token"
+
+msgid "Child"
+msgstr "Child"
+
+msgid "Children"
+msgstr "Children"
+
+msgid "Family"
+msgstr "Family"
+
+msgid "Families"
+msgstr "Families"
+
+# Model field labels - events/models.py
+msgid "Event Name"
+msgstr "Event Name"
+
+msgid "Start Date"
+msgstr "Start Date"
+
+msgid "End Date"
+msgstr "End Date"
+
+msgid "Event"
+msgstr "Event"
+
+msgid "Events"
+msgstr "Events"
+
+msgid "Session Name"
+msgstr "Session Name"
+
+msgid "Start Time"
+msgstr "Start Time"
+
+msgid "End Time"
+msgstr "End Time"
+
+msgid "Is Active"
+msgstr "Is Active"
+
+msgid "Requires Ticket"
+msgstr "Requires Ticket"
+
+msgid "Session"
+msgstr "Session"
+
+msgid "Sessions"
+msgstr "Sessions"
+
+# Model field labels - checkins/models.py
+msgid "Check-In Time"
+msgstr "Check-In Time"
+
+msgid "Check-Out Time"
+msgstr "Check-Out Time"
+
+msgid "Picked Up By"
+msgstr "Picked Up By"
+
+msgid "Check-In Staff"
+msgstr "Check-In Staff"
+
+msgid "Check-Out Staff"
+msgstr "Check-Out Staff"
+
+msgid "Check-In Record"
+msgstr "Check-In Record"
+
+msgid "Check-In Records"
+msgstr "Check-In Records"
