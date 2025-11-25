@@ -1,5 +1,5 @@
-import { w as head, x as ensure_array_like } from "../../chunks/index.js";
-import { e as escape_html } from "../../chunks/context.js";
+import { U as head, V as ensure_array_like } from "../../chunks/index2.js";
+import { e as escape_html } from "../../chunks/escaping.js";
 function _page($$renderer) {
   const checklist = [
     "Django backend served by Daphne",

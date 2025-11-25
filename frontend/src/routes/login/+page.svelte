@@ -22,17 +22,11 @@
   // Handle successful login - set cookies client-side and redirect
   $effect(() => {
     if (form?.success && form?.cookies) {
-      console.log('Login successful, setting cookies client-side:', Object.keys(form.cookies));
-
       // First, clear any existing auth cookies to prevent conflicts
-      // Try multiple variations to ensure deletion
-      console.log('Clearing old cookies first...');
       document.cookie = 'csrftoken=; path=/; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 UTC';
       document.cookie = 'sessionid=; path=/; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 UTC';
       document.cookie = 'csrftoken=; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 UTC';
       document.cookie = 'sessionid=; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 UTC';
-
-      console.log('Cookies after clearing:', document.cookie);
 
       // Set each cookie
       Object.entries(form.cookies).forEach(([name, data]) => {
@@ -43,15 +37,11 @@
         if (options.maxAge) cookieString += `; max-age=${options.maxAge}`;
         if (options.sameSite) cookieString += `; samesite=${options.sameSite}`;
 
-        console.log('Setting cookie:', cookieString.substring(0, 60) + '...');
         document.cookie = cookieString;
       });
 
       // Wait a moment for cookies to be set, then do full page reload
       setTimeout(() => {
-        console.log('Cookies set, redirecting to /checkin');
-        console.log('Current document.cookie:', document.cookie.substring(0, 100));
-        // Use full page reload to ensure auth state is fresh
         window.location.href = '/checkin';
       }, 100);
     }
