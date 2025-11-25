@@ -28,10 +28,6 @@ export const handle: Handle = async ({ event, resolve }) => {
   if (sessionid) cookieParts.push(`sessionid=${sessionid}`);
   const cookies = cookieParts.join('; ');
 
-  console.log('Cookies from SvelteKit cookies API:');
-  console.log('  csrftoken:', csrftoken ? 'present' : 'missing');
-  console.log('  sessionid:', sessionid ? 'present' : 'missing');
-
   let data;
   try {
     // Check authentication with Django
@@ -45,7 +41,6 @@ export const handle: Handle = async ({ event, resolve }) => {
     data = await response.json();
   } catch (error) {
     // Network error or auth check failed
-    console.error('Auth check error:', error);
     event.locals.user = null;
 
     // Redirect to login if trying to access protected route
@@ -56,13 +51,9 @@ export const handle: Handle = async ({ event, resolve }) => {
     return resolve(event);
   }
 
-  console.log('Auth check result for', path, ':', data);
-  console.log('Cookie header sent to Django:', cookies || 'empty');
-
   if (data.authenticated) {
     // User is authenticated
     event.locals.user = data.user;
-    console.log('User authenticated:', data.user);
 
     // Redirect away from login page if already authenticated
     if (path === '/login') {
@@ -71,7 +62,6 @@ export const handle: Handle = async ({ event, resolve }) => {
   } else {
     // User is not authenticated
     event.locals.user = null;
-    console.log('User not authenticated, path:', path, 'isPublic:', isPublicPath);
 
     // Redirect to login if trying to access protected route
     if (!isPublicPath) {

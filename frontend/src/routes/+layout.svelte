@@ -6,12 +6,6 @@
   }
 
   let { data, children }: { data: LayoutData; children: any } = $props();
-
-  // Debug logging
-  $effect(() => {
-    console.log('Layout data:', data);
-    console.log('User:', data.user);
-  });
 </script>
 
 {#if data.user}

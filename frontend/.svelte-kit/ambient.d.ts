@@ -26,12 +26,12 @@
  * ```
  */
 declare module '$env/static/private' {
-	export const CLAUDE_CODE_ENTRYPOINT: string;
+	export const VITE_API_BASE_URL: string;
+	export const VITE_PUBLIC_WS_BASE_URL: string;
 	export const npm_config_user_agent: string;
-	export const GIT_EDITOR: string;
 	export const NODE_VERSION: string;
-	export const HOSTNAME: string;
 	export const YARN_VERSION: string;
+	export const HOSTNAME: string;
 	export const npm_node_execpath: string;
 	export const SHLVL: string;
 	export const HOME: string;
@@ -40,32 +40,25 @@ declare module '$env/static/private' {
 	export const container: string;
 	export const COREPACK_ENABLE_DOWNLOAD_PROMPT: string;
 	export const pnpm_config_verify_deps_before_run: string;
-	export const _: string;
 	export const npm_config_registry: string;
-	export const TERM: string;
-	export const OTEL_EXPORTER_OTLP_METRICS_TEMPORALITY_PREFERENCE: string;
 	export const npm_config_node_gyp: string;
 	export const PATH: string;
 	export const npm_package_name: string;
 	export const NODE: string;
-	export const COREPACK_ENABLE_AUTO_PIN: string;
+	export const VITE_PUBLIC_API_BASE_URL: string;
 	export const npm_config_frozen_lockfile: string;
-	export const NoDefaultCurrentDirectoryInExePath: string;
 	export const npm_lifecycle_script: string;
-	export const SHELL: string;
-	export const NODE_PATH: string;
 	export const npm_package_version: string;
 	export const npm_lifecycle_event: string;
 	export const npm_config_verify_deps_before_run: string;
+	export const NODE_PATH: string;
 	export const npm_config_npm_globalconfig: string;
-	export const CLAUDECODE: string;
 	export const npm_config_globalconfig: string;
 	export const PWD: string;
 	export const npm_execpath: string;
 	export const npm_config__jsr_registry: string;
 	export const npm_command: string;
 	export const PNPM_SCRIPT_SRC_DIR: string;
-	export const PNPM_HOME: string;
 	export const INIT_CWD: string;
 	export const NODE_ENV: string;
 }
@@ -97,12 +90,12 @@ declare module '$env/static/public' {
  */
 declare module '$env/dynamic/private' {
 	export const env: {
-		CLAUDE_CODE_ENTRYPOINT: string;
+		VITE_API_BASE_URL: string;
+		VITE_PUBLIC_WS_BASE_URL: string;
 		npm_config_user_agent: string;
-		GIT_EDITOR: string;
 		NODE_VERSION: string;
-		HOSTNAME: string;
 		YARN_VERSION: string;
+		HOSTNAME: string;
 		npm_node_execpath: string;
 		SHLVL: string;
 		HOME: string;
@@ -111,32 +104,25 @@ declare module '$env/dynamic/private' {
 		container: string;
 		COREPACK_ENABLE_DOWNLOAD_PROMPT: string;
 		pnpm_config_verify_deps_before_run: string;
-		_: string;
 		npm_config_registry: string;
-		TERM: string;
-		OTEL_EXPORTER_OTLP_METRICS_TEMPORALITY_PREFERENCE: string;
 		npm_config_node_gyp: string;
 		PATH: string;
 		npm_package_name: string;
 		NODE: string;
-		COREPACK_ENABLE_AUTO_PIN: string;
+		VITE_PUBLIC_API_BASE_URL: string;
 		npm_config_frozen_lockfile: string;
-		NoDefaultCurrentDirectoryInExePath: string;
 		npm_lifecycle_script: string;
-		SHELL: string;
-		NODE_PATH: string;
 		npm_package_version: string;
 		npm_lifecycle_event: string;
 		npm_config_verify_deps_before_run: string;
+		NODE_PATH: string;
 		npm_config_npm_globalconfig: string;
-		CLAUDECODE: string;
 		npm_config_globalconfig: string;
 		PWD: string;
 		npm_execpath: string;
 		npm_config__jsr_registry: string;
 		npm_command: string;
 		PNPM_SCRIPT_SRC_DIR: string;
-		PNPM_HOME: string;
 		INIT_CWD: string;
 		NODE_ENV: string;
 		[key: `PUBLIC_${string}`]: undefined;

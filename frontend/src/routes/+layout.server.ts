@@ -4,8 +4,6 @@
  */
 
 export const load = async ({ locals }: { locals: App.Locals }) => {
-  console.log('Layout server load, locals.user:', locals.user);
-
   return {
     user: locals.user,
   };

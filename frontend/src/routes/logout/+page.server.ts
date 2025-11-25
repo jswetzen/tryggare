@@ -28,16 +28,13 @@ export const load = async ({ cookies, request }: { cookies: any; request: Reques
         'Cookie': request.headers.get('cookie') || '',
       },
     });
-
-    console.log('Logout successful, clearing cookies');
   } catch (error) {
-    console.error('Logout error:', error);
+    // Ignore logout errors, proceed with cookie deletion
   }
 
   // Delete cookies from browser
   cookies.delete('csrftoken', { path: '/' });
   cookies.delete('sessionid', { path: '/' });
-  console.log('Cookies deleted');
 
   // Redirect to login regardless of success/failure
   throw redirect(302, '/login');

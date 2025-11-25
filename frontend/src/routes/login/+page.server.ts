@@ -11,9 +11,6 @@ const API_BASE_URL = env.VITE_API_BASE_URL || 'http://localhost:8000';
 
 export const actions: Actions = {
   default: async ({ request, cookies }) => {
-    console.log('=== LOGIN ACTION START ===');
-    console.log('Cookies in login request:', cookies.getAll());
-
     const data = await request.formData();
     const username = data.get('username');
     const password = data.get('password');
@@ -66,9 +63,6 @@ export const actions: Actions = {
       if (!result.success) {
         return fail(401, { error: 'Login failed' });
       }
-
-      console.log('Login successful, processing cookies...');
-      console.log('All response headers:', Array.from(loginResponse.headers.entries()));
 
       // Extract ALL cookies from BOTH csrf and login responses
       // We need both the CSRF cookie and the session cookie
@@ -129,7 +123,6 @@ export const actions: Actions = {
               value: parsed.cookieValue,
               options: parsed.options
             });
-            console.log(`Captured CSRF cookie: ${parsed.cookieName}`);
           }
         }
       });
@@ -143,16 +136,12 @@ export const actions: Actions = {
               value: parsed.cookieValue,
               options: parsed.options
             });
-            console.log(`Captured login cookie: ${parsed.cookieName}`);
           }
         }
       });
 
-      console.log('All cookies to set:', Array.from(allCookies.keys()));
-
       // Prepare cookie data to send to client
       allCookies.forEach((cookie, cookieName) => {
-        console.log(`Preparing cookie for client: ${cookieName} = ${cookie.value.substring(0, 20)}...`);
         cookieData[cookieName] = {
           value: cookie.value,
           options: cookie.options
@@ -160,16 +149,11 @@ export const actions: Actions = {
         // Also set on server side
         cookies.set(cookieName, cookie.value, cookie.options);
       });
-
-      console.log('Cookies set successfully');
-      console.log('Cookies after setting:', cookies.getAll());
     } catch (error) {
-      console.error('Login error:', error);
       return fail(500, { error: 'Network error' });
     }
 
     // Return success with cookie data for client-side setting
-    console.log('=== LOGIN ACTION END - SUCCESS ===');
     return { success: true, cookies: cookieData };
   },
 };
