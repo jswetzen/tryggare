@@ -22,9 +22,17 @@ export class ApiClient {
   }
 
   /**
-   * Get CSRF token from Django
+   * Get CSRF token from cookie or Django
    */
   async getCsrfToken(): Promise<string> {
+    // First try to get from cookie
+    const cookieToken = this.getCsrfTokenFromCookie();
+    if (cookieToken) {
+      this.csrfToken = cookieToken;
+      return cookieToken;
+    }
+
+    // If not in cookie, fetch from API
     if (this.csrfToken) {
       return this.csrfToken;
     }
@@ -35,6 +43,21 @@ export class ApiClient {
     const data = await response.json();
     this.csrfToken = data.csrfToken;
     return this.csrfToken;
+  }
+
+  /**
+   * Get CSRF token from cookie
+   */
+  private getCsrfTokenFromCookie(): string | null {
+    const name = 'csrftoken';
+    const cookies = document.cookie.split(';');
+    for (const cookie of cookies) {
+      const trimmed = cookie.trim();
+      if (trimmed.startsWith(name + '=')) {
+        return decodeURIComponent(trimmed.substring(name.length + 1));
+      }
+    }
+    return null;
   }
 
   /**
