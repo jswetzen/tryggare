@@ -150,7 +150,11 @@ print('Test admin user created: admin/admin123')
         echo '' &&
         echo '📋 Test Suite 2: Comprehensive E2E Tests' &&
         echo '=======================================' &&
-        uv run python test_selenium_comprehensive.py
+        uv run python test_selenium_comprehensive.py &&
+        echo '' &&
+        echo '📋 Test Suite 3: Full Workflow Tests' &&
+        echo '=====================================' &&
+        uv run python test_selenium_full_flows.py
       "
     networks:
       - test-network
