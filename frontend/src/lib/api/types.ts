@@ -24,6 +24,7 @@ export interface Family {
   last_participation_date?: string;
   created_at: string;
   updated_at: string;
+  children?: Child[]; // Optional, populated when needed
 }
 
 export interface Child {

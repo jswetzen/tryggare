@@ -13,6 +13,9 @@
     onInput
   }: Props = $props();
 
+  // Generate unique ID for label association
+  const inputId = `search-input-${Math.random().toString(36).substr(2, 9)}`;
+
   function handleInput(e: Event) {
     const target = e.target as HTMLInputElement;
     value = target.value;
@@ -23,10 +26,11 @@
 </script>
 
 <div class="border-2 border-blue-500 rounded-md p-3 mb-5 bg-blue-50">
-  <label class="block font-semibold text-blue-900 mb-2 text-sm">
+  <label for={inputId} class="block font-semibold text-blue-900 mb-2 text-sm">
     {label}
   </label>
   <input
+    id={inputId}
     type="text"
     {value}
     oninput={handleInput}

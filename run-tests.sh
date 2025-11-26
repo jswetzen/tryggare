@@ -21,7 +21,7 @@ cd "$(dirname "$0")"
 
 # Build and run tests
 echo "Starting test environment..."
-docker-compose -f docker-compose.test.yml up \
+podman compose -f docker-compose.test.yml up \
   --build \
   --abort-on-container-exit \
   --exit-code-from test-runner \
@@ -32,7 +32,7 @@ EXIT_CODE=$?
 
 echo ""
 echo "Cleaning up test containers..."
-docker-compose -f docker-compose.test.yml down -v
+podman compose -f docker-compose.test.yml down -v
 
 echo ""
 if [ $EXIT_CODE -eq 0 ]; then

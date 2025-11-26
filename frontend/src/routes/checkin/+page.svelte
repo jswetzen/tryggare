@@ -190,10 +190,11 @@
     <!-- Session Selection (only show if multiple sessions) -->
     {#if sessions.length > 1}
       <div class="border-2 border-blue-500 rounded-md p-3 mb-5 bg-blue-50">
-        <label class="block font-semibold text-blue-900 mb-2 text-sm">
+        <label for="session-select" class="block font-semibold text-blue-900 mb-2 text-sm">
           Select Session
         </label>
         <select
+          id="session-select"
           bind:value={selectedSession}
           class="w-full px-3 py-2 border border-slate-300 rounded bg-white text-sm"
           disabled={loading}
