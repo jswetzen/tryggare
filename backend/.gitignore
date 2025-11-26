@@ -1,0 +1,35 @@
+# Test databases
+test_db.sqlite3
+test_db.sqlite3-*
+
+# Screenshots and debug files
+*.png
+test_selenium_simple.py
+test_selenium_debug.py
+test_selenium_nocache.py
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+dist/
+build/
+
+# Virtual environments
+.venv/
+venv/
+ENV/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db

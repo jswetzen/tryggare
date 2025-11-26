@@ -23,27 +23,34 @@ from webdriver_manager.chrome import ChromeDriverManager
 import django
 from django.conf import settings
 
-# Setup Django
-os.environ.setdefault("DJANGO_SETTINGS_MODULE", "config.settings.local")
+# Setup Django with test settings to avoid affecting development database
+os.environ.setdefault("DJANGO_SETTINGS_MODULE", "config.settings.test")
 django.setup()
 
-from channels.testing import ChannelsLiveServerTestCase
+from django.test import TestCase
 from accounts.models import AdminUser
 
 
-class LoginFlowSeleniumTest(ChannelsLiveServerTestCase):
+class LoginFlowSeleniumTest(TestCase):
     """
     End-to-end tests for the login flow using Selenium.
 
-    Extends ChannelsLiveServerTestCase to ensure WebSocket URLs work correctly.
-    """
+    This test suite runs against the live development servers:
+    - Backend: http://localhost:8000
+    - Frontend: http://localhost:5173
 
-    serve_static = True  # Serve static files during tests
+    It uses a separate test database (test_db.sqlite3) to avoid affecting
+    development data while still testing against the running servers.
+
+    Note: For CI/CD, use docker-compose.test.yml which spins up isolated
+    test servers with ChannelsLiveServerTestCase.
+    """
 
     @classmethod
     def setUpClass(cls):
         """Set up the Selenium WebDriver before running tests"""
-        super().setUpClass()
+        # Note: We don't call super().setUpClass() because we're testing against
+        # external servers, not starting our own test server
 
         # Configure Chrome options for headless testing
         chrome_options = Options()
@@ -73,7 +80,7 @@ class LoginFlowSeleniumTest(ChannelsLiveServerTestCase):
     def tearDownClass(cls):
         """Clean up the WebDriver after tests"""
         cls.driver.quit()
-        super().tearDownClass()
+        # Note: We don't call super().tearDownClass() because we didn't start a test server
 
     def setUp(self):
         """Set up test data before each test"""

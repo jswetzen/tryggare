@@ -75,15 +75,11 @@ WSGI_APPLICATION = "config.wsgi.application"
 def _database_config():
     database_url = os.getenv("DATABASE_URL")
     if not database_url:
-        # For SQLite, use file-based database for testing compatibility
-        # This ensures Selenium/ChannelsLiveServerTestCase can access the same DB
-        # See: https://channels.readthedocs.io/en/latest/tutorial/part_4.html
+        # Default to SQLite if no DATABASE_URL is set
+        # Tests should use config.settings.test which overrides this
         return {
             "ENGINE": "django.db.backends.sqlite3",
             "NAME": BASE_DIR / "db.sqlite3",
-            "TEST": {
-                "NAME": BASE_DIR / "db.sqlite3",
-            },
         }
 
     parsed = urlparse(database_url)
