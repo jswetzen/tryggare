@@ -24,3 +24,7 @@ dev = [
     "djangorestframework-stubs>=3.15",
     "ruff>=0.6.9",
 ]
+test = [
+    "selenium>=4.15,<5.0",
+    "webdriver-manager>=4.0,<5.0",
+]
