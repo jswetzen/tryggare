@@ -1,0 +1,157 @@
+version: '3.8'
+
+# Docker Compose configuration for E2E testing with Selenium
+# This spins up a complete isolated test environment with fresh databases
+
+services:
+  # Test database (PostgreSQL in tmpfs for speed)
+  db-test:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_DB: checkins_test
+      POSTGRES_USER: test_user
+      POSTGRES_PASSWORD: test_pass
+    tmpfs:
+      - /var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -d checkins_test -U test_user"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    networks:
+      - test-network
+
+  # Test Redis/Valkey for channels
+  valkey-test:
+    image: docker.io/valkey/valkey:7-alpine
+    tmpfs:
+      - /data
+    healthcheck:
+      test: ["CMD", "valkey-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    networks:
+      - test-network
+
+  # Backend test server
+  backend-test:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    environment:
+      DATABASE_URL: postgresql://test_user:test_pass@db-test:5432/checkins_test
+      REDIS_URL: redis://valkey-test:6379/0
+      DJANGO_SETTINGS_MODULE: config.settings.test
+      SECRET_KEY: test-secret-key-not-for-production
+      DEBUG: "true"
+      ALLOWED_HOSTS: "*"
+    depends_on:
+      db-test:
+        condition: service_healthy
+      valkey-test:
+        condition: service_healthy
+    command: >
+      sh -c "
+        echo 'Running migrations...' &&
+        uv run python manage.py migrate --noinput &&
+        echo 'Creating test superuser...' &&
+        uv run python manage.py shell -c \"
+from accounts.models import AdminUser;
+AdminUser.objects.filter(username='admin').delete();
+AdminUser.objects.create_superuser(username='admin', password='admin123', name='Test Admin');
+print('Test admin user created: admin/admin123')
+        \" &&
+        echo 'Starting Daphne server...' &&
+        uv run daphne -b 0.0.0.0 -p 8000 config.asgi:application
+      "
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/csrf/"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+      - test-network
+
+  # Frontend test server
+  frontend-test:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    environment:
+      PUBLIC_API_URL: http://backend-test:8000
+      NODE_ENV: development
+    depends_on:
+      backend-test:
+        condition: service_healthy
+    command: npm run dev -- --host 0.0.0.0 --port 5173
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5173"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+      - test-network
+
+  # Selenium Chrome for running tests
+  selenium-chrome:
+    image: selenium/standalone-chrome:latest
+    shm_size: 2gb
+    environment:
+      SE_NODE_MAX_SESSIONS: 4
+      SE_NODE_SESSION_TIMEOUT: 300
+    ports:
+      - "4444:4444"  # Selenium hub
+      - "7900:7900"  # VNC server (for debugging)
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:4444/status"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - test-network
+
+  # Test runner (runs the actual Selenium tests)
+  test-runner:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    environment:
+      DJANGO_SETTINGS_MODULE: config.settings.test
+      DATABASE_URL: postgresql://test_user:test_pass@db-test:5432/checkins_test
+      SELENIUM_HUB_URL: http://selenium-chrome:4444
+      FRONTEND_URL: http://frontend-test:5173
+      BACKEND_URL: http://backend-test:8000
+    depends_on:
+      db-test:
+        condition: service_healthy
+      backend-test:
+        condition: service_healthy
+      frontend-test:
+        condition: service_healthy
+      selenium-chrome:
+        condition: service_healthy
+    volumes:
+      - ./backend:/app
+      - test-results:/app/test-results
+    command: >
+      sh -c "
+        echo '================================' &&
+        echo '🧪 Running Selenium E2E Tests' &&
+        echo '================================' &&
+        echo '' &&
+        echo 'Backend: http://backend-test:8000' &&
+        echo 'Frontend: http://frontend-test:5173' &&
+        echo 'Selenium: http://selenium-chrome:4444' &&
+        echo '' &&
+        uv run python test_selenium_docker.py
+      "
+    networks:
+      - test-network
+
+volumes:
+  test-results:
+
+networks:
+  test-network:
+    driver: bridge
