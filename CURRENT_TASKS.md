@@ -178,6 +178,10 @@ Implementing a modern, responsive UI design based on the react-design.js mockups
   - [x] Check-in search functionality tests
   - [x] Responsive hamburger menu tests
   - [x] Logout flow tests
+- [x] `test_selenium_full_flows.py` - Complete workflow tests ⭐ NEW
+  - [x] Full check-in flow (search → select → check in → verify)
+  - [x] Full check-out flow (find child → check out → verify)
+  - [x] i18n language switching (English ↔ Swedish)
 
 ### 6.2 Test Infrastructure
 - [x] Docker Compose test environment setup
@@ -251,14 +255,29 @@ Implementing a modern, responsive UI design based on the react-design.js mockups
 
 ### Files Created
 - `backend/test_selenium_comprehensive.py` - Comprehensive E2E test suite
+- `backend/test_selenium_full_flows.py` - Complete workflow tests (check-in, check-out, i18n)
 - `run-all-selenium-tests.sh` - Test runner script
+- `TESTING_GUIDE.md` - Comprehensive testing documentation
 
 ### Next Steps
 The following items remain for full completion:
-1. Run the full test suite to verify all tests pass
-2. Manual testing on Firefox, Safari, and mobile browsers
-3. Optional: Add screenshots to README
-4. Optional: Screen reader accessibility testing
+1. **Run full test suite** to identify any check-in/check-out issues
+   ```bash
+   ./run-tests.sh
+   ```
+2. **Fix any CSRF or API issues** identified by tests
+3. Manual testing on Firefox, Safari, and mobile browsers
+4. Optional: Add screenshots to README
+5. Optional: Screen reader accessibility testing
+
+### Test Improvements (2025-11-26)
+- Created comprehensive workflow tests covering:
+  - Complete check-in flow with database verification
+  - Complete check-out flow with database verification
+  - i18n language switching detection
+- Tests save screenshots on failure for debugging
+- Added TESTING_GUIDE.md with full documentation
+- Tests identify specific UI elements and verify database state
 
 ### Ready for Production
 - ✅ All automated tests pass
