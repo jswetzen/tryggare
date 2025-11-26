@@ -3839,3 +3839,64 @@
 2025-11-25T23:10:30.059410019+00:00 stdout F 11:10:30 PM [vite] page reload .svelte-kit/generated/client/matchers.js
 2025-11-25T23:10:30.060392941+00:00 stdout F 11:10:30 PM [vite] page reload .svelte-kit/generated/server/internal.js
 2025-11-25T23:10:30.061331467+00:00 stdout F 11:10:30 PM [vite] page reload .svelte-kit/generated/root.js
+2025-11-25T23:11:50.394943986+00:00 stderr F 
+2025-11-25T23:11:50.394943986+00:00 stderr F [1;31m[404] GET /favicon.png[0m
+2025-11-25T23:12:04.461209039+00:00 stdout F Lockfile is up to date, resolution step is skipped
+2025-11-25T23:12:04.498717664+00:00 stdout F Already up to date
+2025-11-25T23:12:04.653504799+00:00 stdout F 
+2025-11-25T23:12:04.653504799+00:00 stdout F ╭ Warning ─────────────────────────────────────────────────────────────────────╮
+2025-11-25T23:12:04.653504799+00:00 stdout F │                                                                              │
+2025-11-25T23:12:04.653504799+00:00 stdout F │   Ignored build scripts: es5-ext, esbuild, svelte-preprocess.                │
+2025-11-25T23:12:04.653504799+00:00 stdout F │   Run "pnpm approve-builds" to pick which dependencies should be allowed     │
+2025-11-25T23:12:04.653504799+00:00 stdout F │   to run scripts.                                                            │
+2025-11-25T23:12:04.653504799+00:00 stdout F │                                                                              │
+2025-11-25T23:12:04.653504799+00:00 stdout F ╰──────────────────────────────────────────────────────────────────────────────╯
+2025-11-25T23:12:04.653504799+00:00 stdout F 
+2025-11-25T23:12:04.663544052+00:00 stdout F Done in 596ms using pnpm v10.23.0
+2025-11-25T23:12:05.043985695+00:00 stdout F 
+2025-11-25T23:12:05.043985695+00:00 stdout F > check-ins-frontend@0.0.1 dev /app
+2025-11-25T23:12:05.043985695+00:00 stdout F > vite dev --host --host 0.0.0.0 --port 5173
+2025-11-25T23:12:05.043985695+00:00 stdout F 
+2025-11-25T23:12:05.973841493+00:00 stdout F 
+2025-11-25T23:12:05.973841493+00:00 stdout F   VITE v5.4.21  ready in 900 ms
+2025-11-25T23:12:05.973841493+00:00 stdout F 
+2025-11-25T23:12:05.974070646+00:00 stdout F   ➜  Local:   http://localhost:5173/
+2025-11-25T23:12:05.974163746+00:00 stdout F   ➜  Network: http://10.89.0.5:5173/
+2025-11-25T23:12:13.358080502+00:00 stdout F 11:12:13 PM [vite-plugin-svelte] src/lib/components/SearchBox.svelte:26:2 A form label must be associated with a control
+2025-11-25T23:12:13.358080502+00:00 stdout F https://svelte.dev/e/a11y_label_has_associated_control
+2025-11-25T23:12:14.448734280+00:00 stdout F 11:12:14 PM [vite-plugin-svelte] src/lib/components/SearchBox.svelte:26:2 A form label must be associated with a control
+2025-11-25T23:12:14.448734280+00:00 stdout F https://svelte.dev/e/a11y_label_has_associated_control
+2025-11-25T23:12:27.118730359+00:00 stdout F 11:12:27 PM [vite-plugin-svelte] src/routes/checkin/+page.svelte:193:8 A form label must be associated with a control
+2025-11-25T23:12:27.118730359+00:00 stdout F https://svelte.dev/e/a11y_label_has_associated_control
+2025-11-26T07:55:10.902109549+00:00 stdout F 7:55:10 AM [vite] hmr update /src/routes/+layout.svelte, /src/app.css
+2025-11-26T07:56:53.298364527+00:00 stdout F 7:56:53 AM [vite] hmr update /src/routes/+layout.svelte, /src/app.css
+2025-11-26T07:57:54.557237415+00:00 stdout F 7:57:54 AM [vite] hmr update /src/routes/+layout.svelte, /src/app.css
+2025-11-26T07:59:16.818833639+00:00 stderr F 
+2025-11-26T07:59:16.818833639+00:00 stderr F [1;31m[404] GET /favicon.png[0m
+2025-11-26T07:59:16.981951596+00:00 stdout F 7:59:16 AM [vite-plugin-svelte] src/routes/checkin/+page.svelte:193:8 A form label must be associated with a control
+2025-11-26T07:59:16.981951596+00:00 stdout F https://svelte.dev/e/a11y_label_has_associated_control
+2025-11-26T08:00:44.177010489+00:00 stderr F 
+2025-11-26T08:00:44.177010489+00:00 stderr F [1;31m[404] GET /favicon.png[0m
+2025-11-26T08:01:12.877618439+00:00 stderr F 
+2025-11-26T08:01:12.877618439+00:00 stderr F [1;31m[404] GET /favicon.png[0m
+2025-11-26T14:14:28.886192863+00:00 stdout F Lockfile is up to date, resolution step is skipped
+2025-11-26T14:14:28.929480936+00:00 stdout F Already up to date
+2025-11-26T14:14:29.087699820+00:00 stdout F 
+2025-11-26T14:14:29.087699820+00:00 stdout F ╭ Warning ─────────────────────────────────────────────────────────────────────╮
+2025-11-26T14:14:29.087699820+00:00 stdout F │                                                                              │
+2025-11-26T14:14:29.087699820+00:00 stdout F │   Ignored build scripts: es5-ext, esbuild, svelte-preprocess.                │
+2025-11-26T14:14:29.087699820+00:00 stdout F │   Run "pnpm approve-builds" to pick which dependencies should be allowed     │
+2025-11-26T14:14:29.087699820+00:00 stdout F │   to run scripts.                                                            │
+2025-11-26T14:14:29.087699820+00:00 stdout F │                                                                              │
+2025-11-26T14:14:29.087699820+00:00 stdout F ╰──────────────────────────────────────────────────────────────────────────────╯
+2025-11-26T14:14:29.087699820+00:00 stdout F 
+2025-11-26T14:14:29.097127461+00:00 stdout F Done in 546ms using pnpm v10.23.0
+2025-11-26T14:14:29.463765292+00:00 stdout F 
+2025-11-26T14:14:29.463765292+00:00 stdout F > check-ins-frontend@0.0.1 dev /app
+2025-11-26T14:14:29.463765292+00:00 stdout F > vite dev --host --host 0.0.0.0 --port 5173
+2025-11-26T14:14:29.463765292+00:00 stdout F 
+2025-11-26T14:14:30.394435058+00:00 stdout F 
+2025-11-26T14:14:30.394435058+00:00 stdout F   VITE v5.4.21  ready in 890 ms
+2025-11-26T14:14:30.394435058+00:00 stdout F 
+2025-11-26T14:14:30.394721912+00:00 stdout F   ➜  Local:   http://localhost:5173/
+2025-11-26T14:14:30.394776152+00:00 stdout F   ➜  Network: http://10.89.0.5:5173/

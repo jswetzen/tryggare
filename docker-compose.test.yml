@@ -144,7 +144,13 @@ print('Test admin user created: admin/admin123')
         echo 'Frontend: http://frontend-test:5173' &&
         echo 'Selenium: http://selenium-chrome:4444' &&
         echo '' &&
-        uv run python test_selenium_docker.py
+        echo '📋 Test Suite 1: Login Flow Tests' &&
+        echo '================================' &&
+        uv run python test_selenium_docker.py &&
+        echo '' &&
+        echo '📋 Test Suite 2: Comprehensive E2E Tests' &&
+        echo '=======================================' &&
+        uv run python test_selenium_comprehensive.py
       "
     networks:
       - test-network

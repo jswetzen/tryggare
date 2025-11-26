@@ -12,33 +12,27 @@ The docker compose file is running on the host, you're connected to a podman con
 IMPORTANT: *Never* kill a process without asking permission first.
 You risk stopping critical services or Claude Code by accident.
 
-## Django Backend Verification Workflow
-
-After making backend changes, use the quick verification pattern:
-
-```bash
-cd /workspace/check-ins/backend
-
-# If models changed
-uv run python manage.py makemigrations
-uv run python manage.py migrate
-
-# Run verification script (combines model + API tests, ~500ms)
-uv run python verify.py
-```
-
-See VERIFICATION.md for detailed testing patterns and best practices.
-
-## Testing Methods (Priority Order)
-
-1. **Django Test Client** (RECOMMENDED) - Fast, no server needed
-   - Use `Client()` for API testing
-   - Use `force_login()` for authentication
-   - ~200ms per test
-
-2. **Direct Model Testing** - Fastest for business logic
-   - Import models directly after django.setup()
-   - ~50ms per test
+## Quick Development Testing Workflow
+  After adding new functionality, follow these steps to keep everything working:
+  1. Backend Changes
+  cd /workspace/check-ins/backend
+### If models changed
+  uv run python manage.py makemigrations
+  uv run python manage.py migrate
+### Run quick verification
+  uv run python verify.py
+  2. Frontend Changes
+  - Manually test the changed UI flows
+  - Verify i18n works (check both English and Swedish if applicab
+le)
+  3. Selenium E2E Tests (After login/auth/UI changes)
+  cd /workspace/check-ins/backend
+  uv run python test_selenium_login.py
+  - also add new E2E tests if relevant and run all selenium test files.
+  4. Fix Any Errors
+  - Backend: Check /workspace/check-ins/web.log
+  - Frontend: Check /workspace/check-ins/frontend.log
+  - Selenium: Check test output for specific failures
 
 ## Task Completion Checklist
 

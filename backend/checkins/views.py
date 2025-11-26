@@ -35,6 +35,13 @@ class CheckInRecordViewSet(viewsets.ModelViewSet):
         Check in a child to a session.
         Generates QR token if not already present.
         """
+        # Debug CSRF
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.warning(f"CSRF Debug - Headers: {dict(request.headers)}")
+        logger.warning(f"CSRF Debug - Cookies: {request.COOKIES}")
+        logger.warning(f"CSRF Debug - User: {request.user}, Authenticated: {request.user.is_authenticated}")
+
         child_id = request.data.get("child")
         session_id = request.data.get("session")
 
