@@ -7,6 +7,7 @@ This test suite covers:
 - Full check-out workflow (search checked-in child, check out)
 - Language switching (English/Swedish)
 - CSRF token handling
+- API endpoint verification
 """
 
 import os
@@ -21,13 +22,16 @@ from selenium.common.exceptions import StaleElementReferenceException, TimeoutEx
 
 import django
 
-# Setup Django with test settings
-os.environ.setdefault("DJANGO_SETTINGS_MODULE", "config.settings.test")
+# IMPORTANT: Use local settings (same as running server) for password hash compatibility!
+# Tests will share the same database as the running server
+os.environ.setdefault("DJANGO_SETTINGS_MODULE", "config.settings.local")
 django.setup()
 
 from django.test import TestCase
 from accounts.models import AdminUser
-from checkins.models import Family, Child, Event, Session, CheckInRecord
+from families.models import Family, Child
+from events.models import Event, Session
+from checkins.models import CheckInRecord
 
 
 class FullFlowSeleniumTests(TestCase):
@@ -49,37 +53,60 @@ class FullFlowSeleniumTests(TestCase):
         print(f"   Backend: {cls.backend_url}")
         print()
 
-        # Configure Chrome options
+        # Configure Chrome options for optimal performance
         chrome_options = Options()
+        chrome_options.add_argument("--headless=new")  # Use new headless mode (Chrome 109+)
         chrome_options.add_argument("--no-sandbox")
-        chrome_options.add_argument("--disable-dev-shm-usage")
-        chrome_options.add_argument("--disable-gpu")
+        chrome_options.add_argument("--disable-dev-shm-usage")  # Slower but prevents crashes
+        chrome_options.add_argument("--disable-gpu")  # Reduces memory usage
         chrome_options.add_argument("--window-size=1920,1080")
         chrome_options.add_argument("--lang=en-US")
-        chrome_options.add_argument("--enable-javascript")
         chrome_options.add_argument("--disable-blink-features=AutomationControlled")
+
+        # Disable images for faster page loads (we're not taking visual screenshots)
+        prefs = {
+            "profile.managed_default_content_settings.images": 2,
+            "intl.accept_languages": "en-US,en"
+        }
+        chrome_options.add_experimental_option("prefs", prefs)
         chrome_options.add_experimental_option("excludeSwitches", ["enable-automation"])
         chrome_options.add_experimental_option('useAutomationExtension', False)
-        chrome_options.add_experimental_option("prefs", {
-            "intl.accept_languages": "en-US,en"
-        })
 
-        # Connect to remote Selenium Grid
-        print("Connecting to Selenium Grid...")
-        cls.driver = webdriver.Remote(
-            command_executor=f"{cls.selenium_hub}/wd/hub",
-            options=chrome_options
-        )
-        cls.driver.implicitly_wait(10)
-        print("✓ Connected to Selenium Grid\n")
+        # Enable browser logging
+        chrome_options.set_capability('goog:loggingPrefs', {'browser': 'ALL'})
+
+        # Detect if we should use local ChromeDriver or remote Selenium Grid
+        use_remote = os.getenv("SELENIUM_HUB_URL") is not None
+
+        if use_remote:
+            # Connect to remote Selenium Grid (Docker)
+            print("Connecting to Selenium Grid...")
+            cls.driver = webdriver.Remote(
+                command_executor=f"{cls.selenium_hub}/wd/hub",
+                options=chrome_options
+            )
+            print("✓ Connected to Selenium Grid\n")
+        else:
+            # Use local ChromeDriver
+            print("Using local ChromeDriver...")
+            from selenium.webdriver.chrome.service import Service
+            from webdriver_manager.chrome import ChromeDriverManager
+
+            service = Service(ChromeDriverManager().install())
+            cls.driver = webdriver.Chrome(service=service, options=chrome_options)
+            print("✓ Local ChromeDriver initialized\n")
+
+        # Use shorter implicit wait - explicit waits are better for performance
+        cls.driver.implicitly_wait(3)
 
     @classmethod
     def tearDownClass(cls):
         """Clean up the WebDriver"""
         # Take a screenshot before closing
         try:
-            cls.driver.save_screenshot('/app/test-results/final_state.png')
-            print("📸 Saved final screenshot to /app/test-results/final_state.png")
+            screenshot_path = '/tmp/final_state.png'
+            cls.driver.save_screenshot(screenshot_path)
+            print(f"📸 Saved final screenshot to {screenshot_path}")
         except:
             pass
         cls.driver.quit()
@@ -111,27 +138,31 @@ class FullFlowSeleniumTests(TestCase):
         self.test_session = Session.objects.create(
             event=self.test_event,
             name="Morning Childcare",
-            session_type="CHILDCARE",
             start_time="2025-11-26T09:00:00Z",
             end_time="2025-11-26T12:00:00Z",
-            is_active=True  # Make sure it's active!
+            is_active=True,  # Make sure it's active!
+            requires_ticket=False
         )
 
-        # Create test family and child
-        self.test_family = Family.objects.create(
-            family_name="Smith",
-            primary_contact_name="John Smith",
-            primary_contact_phone="555-1234",
-            primary_contact_email="john@example.com"
+        # Create test family, parent, and child
+        self.test_family = Family.objects.create()
+
+        from families.models import Parent
+        self.test_parent = Parent.objects.create(
+            family=self.test_family,
+            name="John Smith",
+            phone="555-1234",
+            email="john@example.com",
+            relationship_type="Father"
         )
 
         self.test_child = Child.objects.create(
             family=self.test_family,
             first_name="Emma",
             last_name="Smith",
-            date_of_birth="2020-05-15",
+            birthdate="2020-05-15",
             allergies="Peanuts",
-            medical_conditions="None",
+            notes="None",
             qr_token=None  # Will be generated on check-in
         )
 
@@ -139,7 +170,8 @@ class FullFlowSeleniumTests(TestCase):
         print(f"   User: {self.test_username}")
         print(f"   Event: {self.test_event.name}")
         print(f"   Session: {self.test_session.name} (Active: {self.test_session.is_active})")
-        print(f"   Family: {self.test_family.family_name}")
+        print(f"   Family ID: {self.test_family.id}")
+        print(f"   Parent: {self.test_parent.name}")
         print(f"   Child: {self.test_child.first_name} {self.test_child.last_name}")
 
     def tearDown(self):
@@ -149,8 +181,9 @@ class FullFlowSeleniumTests(TestCase):
             result = self._outcome.result
             if result.errors or result.failures:
                 test_name = self._testMethodName
-                self.driver.save_screenshot(f'/app/test-results/{test_name}_failure.png')
-                print(f"📸 Saved failure screenshot for {test_name}")
+                screenshot_path = f'/tmp/{test_name}_failure.png'
+                self.driver.save_screenshot(screenshot_path)
+                print(f"📸 Saved failure screenshot to {screenshot_path}")
 
         # Clean up in reverse order of dependencies
         CheckInRecord.objects.filter(child=self.test_child).delete()
@@ -177,6 +210,36 @@ class FullFlowSeleniumTests(TestCase):
         element.click()
         return element
 
+    def check_console_for_errors(self, context=""):
+        """Check browser console for API errors and return them"""
+        try:
+            logs = self.driver.get_log('browser')
+            errors = []
+            for log in logs:
+                if log['level'] == 'SEVERE':
+                    message = log['message']
+                    # Skip favicon errors (not critical)
+                    if 'favicon' in message.lower():
+                        continue
+                    # Check for 403 errors
+                    if '403' in message or 'Forbidden' in message:
+                        errors.append(f"403 Forbidden: {message}")
+                    # Check for other HTTP errors
+                    elif any(code in message for code in ['400', '401', '404', '500']):
+                        errors.append(f"HTTP Error: {message}")
+            return errors
+        except:
+            return []
+
+    def assert_no_api_errors(self, context=""):
+        """Assert that there are no API errors in console"""
+        errors = self.check_console_for_errors(context)
+        if errors:
+            print(f"\n❌ API Errors found{' in ' + context if context else ''}:")
+            for error in errors:
+                print(f"   - {error}")
+            self.fail(f"API errors detected{' in ' + context if context else ''}: {len(errors)} error(s)")
+
     def perform_login(self):
         """Helper method to perform login"""
         print("   Logging in...")
@@ -196,13 +259,20 @@ class FullFlowSeleniumTests(TestCase):
         submit_button.click()
 
         # Wait for redirect to check-in page
-        WebDriverWait(self.driver, 10).until(
-            EC.url_contains("/checkin")
-        )
-        print("   ✓ Login successful")
+        try:
+            WebDriverWait(self.driver, 10).until(
+                EC.url_contains("/checkin")
+            )
+            print("   ✓ Login successful")
+        except:
+            print(f"   ❌ Login redirect failed. Current URL: {self.driver.current_url}")
+            print(f"   Page title: {self.driver.title}")
+            # Check for API errors
+            self.assert_no_api_errors("login")
+            raise
 
     def test_01_complete_checkin_flow(self):
-        """Test the complete check-in flow"""
+        """Test the complete check-in flow with API verification"""
         print("\n🔍 Testing Complete Check-In Flow")
         print("=" * 60)
 
@@ -211,131 +281,76 @@ class FullFlowSeleniumTests(TestCase):
         self.perform_login()
         self.assertIn("/checkin", self.driver.current_url)
 
-        # Step 2: Verify active session is loaded
-        print("\n2. Checking for active session...")
-        time.sleep(2)  # Wait for sessions to load
+        # Step 2: Wait for page to load and verify no API errors
+        print("\n2. Verifying page loaded without API errors...")
+        time.sleep(1.5)  # Brief wait for API calls to complete
+        self.assert_no_api_errors("checkin page load")
+        print("   ✓ No API errors on page load")
 
+        # Step 3: Verify active session is loaded
+        print("\n3. Checking for active session...")
         page_source = self.driver.page_source
-        if "Morning Childcare" in page_source or self.test_session.name in page_source:
-            print(f"   ✓ Active session '{self.test_session.name}' found on page")
-        else:
-            print(f"   ⚠️  Active session not visible. Page source length: {len(page_source)}")
-            print(f"   Session ID: {self.test_session.id}")
-            print(f"   Session Active: {self.test_session.is_active}")
 
-        # Step 3: Search for family
-        print(f"\n3. Searching for family '{self.test_family.family_name}'...")
-        try:
-            search_input = self.wait_and_find(By.CSS_SELECTOR, "input[type='text']")
-            search_input.clear()
-            search_input.send_keys("Smith")
-            time.sleep(2)  # Wait for search results
+        # Session should be visible on the page
+        self.assertIn("Morning Childcare", page_source, "Active session not found on page")
+        print(f"   ✓ Active session '{self.test_session.name}' found on page")
 
-            page_source = self.driver.page_source
-            if "Smith" in page_source and "Emma" in page_source:
-                print("   ✓ Family found in search results")
-            else:
-                print("   ⚠️  Family not found in search results")
-                print(f"   'Smith' in page: {'Smith' in page_source}")
-                print(f"   'Emma' in page: {'Emma' in page_source}")
+        # Step 4: Search for family
+        print(f"\n4. Searching for family 'Smith'...")
+        search_input = self.wait_and_find(By.CSS_SELECTOR, "input[type='text']", timeout=5)
+        search_input.clear()
+        search_input.send_keys("Smith")
+        time.sleep(1)  # Brief wait for search results
 
-        except TimeoutException:
-            print("   ❌ Search input not found")
-            self.fail("Search input not found")
+        # Verify no API errors from search
+        self.assert_no_api_errors("family search")
 
-        # Step 4: Select child for check-in
-        print("\n4. Selecting child for check-in...")
-        try:
-            # Look for checkbox or select button for the child
-            # This depends on the UI implementation
-            checkbox_found = False
+        # Verify family appears in results
+        page_source = self.driver.page_source
+        self.assertIn("Smith", page_source, "Family name not found in search results")
+        self.assertIn("Emma", page_source, "Child name not found in search results")
+        print("   ✓ Family found in search results")
 
-            # Try to find checkbox by various methods
-            possible_selectors = [
-                "input[type='checkbox']",
-                "input[type='radio']",
-                f"//input[@type='checkbox']",
-            ]
+        # Step 5: Select child for check-in
+        print("\n5. Selecting child for check-in...")
+        # Find and click the checkbox for the child
+        checkboxes = self.driver.find_elements(By.CSS_SELECTOR, "input[type='checkbox']")
+        self.assertGreater(len(checkboxes), 0, "No checkboxes found for child selection")
+        checkboxes[0].click()
+        print(f"   ✓ Child selected ({len(checkboxes)} checkbox(es) found)")
 
-            for selector in possible_selectors:
-                try:
-                    if selector.startswith("//"):
-                        checkboxes = self.driver.find_elements(By.XPATH, selector)
-                    else:
-                        checkboxes = self.driver.find_elements(By.CSS_SELECTOR, selector)
+        # Step 6: Click check-in button
+        print("\n6. Performing check-in...")
+        # Look for the check-in button
+        checkin_button = self.wait_and_find(By.XPATH, "//button[contains(text(), 'Check In') or contains(text(), 'Check-In')]", timeout=5)
+        checkin_button.click()
+        time.sleep(1.5)  # Brief wait for check-in to process
 
-                    if checkboxes:
-                        print(f"   Found {len(checkboxes)} checkbox(es)")
-                        checkboxes[0].click()
-                        checkbox_found = True
-                        print("   ✓ Child selected")
-                        break
-                except:
-                    continue
+        # Verify no API errors from check-in
+        self.assert_no_api_errors("check-in operation")
+        print("   ✓ Check-in button clicked, no API errors")
 
-            if not checkbox_found:
-                print("   ⚠️  Could not find checkbox to select child")
-                print("   This might indicate a UI structure issue")
-
-        except Exception as e:
-            print(f"   ❌ Error selecting child: {e}")
-
-        # Step 5: Click check-in button
-        print("\n5. Performing check-in...")
-        try:
-            # Look for check-in button
-            checkin_button_found = False
-            button_selectors = [
-                "//button[contains(text(), 'Check In')]",
-                "//button[contains(text(), 'Check-In')]",
-                "button.btn-primary",
-                "button[type='submit']",
-            ]
-
-            for selector in button_selectors:
-                try:
-                    if selector.startswith("//"):
-                        button = self.driver.find_element(By.XPATH, selector)
-                    else:
-                        button = self.driver.find_element(By.CSS_SELECTOR, selector)
-
-                    button.click()
-                    checkin_button_found = True
-                    print("   ✓ Check-in button clicked")
-                    time.sleep(2)  # Wait for check-in to process
-                    break
-                except:
-                    continue
-
-            if not checkin_button_found:
-                print("   ⚠️  Could not find check-in button")
-
-        except Exception as e:
-            print(f"   ❌ Error clicking check-in button: {e}")
-
-        # Step 6: Verify check-in success
-        print("\n6. Verifying check-in...")
-        time.sleep(2)
-
-        # Check database for check-in record
+        # Step 7: Verify check-in success in database
+        print("\n7. Verifying check-in in database...")
         checkin_record = CheckInRecord.objects.filter(
             child=self.test_child,
             session=self.test_session
         ).first()
 
-        if checkin_record:
-            print(f"   ✅ Check-in successful! Record ID: {checkin_record.id}")
-            print(f"   Check-in time: {checkin_record.check_in_time}")
-            print(f"   QR token: {checkin_record.child.qr_token}")
-        else:
-            print("   ❌ No check-in record found in database")
-            print("   This indicates the check-in operation failed")
+        self.assertIsNotNone(checkin_record, "Check-in record not found in database")
+        self.assertIsNotNone(checkin_record.check_in_time, "Check-in time not set")
+        self.assertEqual(checkin_record.check_in_staff, self.test_user, "Check-in staff incorrect")
+
+        print(f"   ✅ Check-in successful!")
+        print(f"   - Record ID: {checkin_record.id}")
+        print(f"   - Check-in time: {checkin_record.check_in_time}")
+        print(f"   - QR token: {checkin_record.child.qr_token}")
 
         print("\n" + "=" * 60)
-        print("✅ Check-in flow test completed")
+        print("✅ Check-in flow test PASSED")
 
     def test_02_complete_checkout_flow(self):
-        """Test the complete check-out flow"""
+        """Test the complete check-out flow with API verification"""
         print("\n🔍 Testing Complete Check-Out Flow")
         print("=" * 60)
 
@@ -358,95 +373,52 @@ class FullFlowSeleniumTests(TestCase):
 
         # Step 3: Navigate to check-out page
         print("\n3. Navigating to check-out page...")
-        try:
-            # Try to find check-out link/button
-            checkout_selectors = [
-                "//a[contains(text(), 'Check-Out')]",
-                "//button[contains(text(), 'Check-Out')]",
-                "//a[@href='/checkout']",
-            ]
+        # Find and click the check-out link/button in navigation
+        checkout_link = self.wait_and_find(By.XPATH, "//a[contains(text(), 'Check-Out') or contains(@href, '/checkout')]", timeout=5)
+        checkout_link.click()
 
-            for selector in checkout_selectors:
-                try:
-                    element = self.driver.find_element(By.XPATH, selector)
-                    element.click()
-                    break
-                except:
-                    continue
+        WebDriverWait(self.driver, 10).until(
+            EC.url_contains("/checkout")
+        )
+        print("   ✓ Navigated to check-out page")
 
-            WebDriverWait(self.driver, 10).until(
-                EC.url_contains("/checkout")
-            )
-            print("   ✓ Navigated to check-out page")
+        # Step 4: Wait for page to load and verify no API errors
+        print("\n4. Verifying page loaded without API errors...")
+        time.sleep(1.5)  # Brief wait for API calls to complete
+        self.assert_no_api_errors("checkout page load")
+        print("   ✓ No API errors on page load")
 
-        except TimeoutException:
-            print("   ⚠️  Could not navigate to check-out page")
-            print(f"   Current URL: {self.driver.current_url}")
-
-        # Step 4: Verify child appears in checked-in list
-        print("\n4. Looking for checked-in child...")
-        time.sleep(2)
-
+        # Step 5: Verify child appears in checked-in list
+        print("\n5. Looking for checked-in child...")
         page_source = self.driver.page_source
-        if "Emma" in page_source and "Smith" in page_source:
-            print("   ✓ Child found in checked-in list")
-        else:
-            print("   ⚠️  Child not visible in checked-in list")
+        self.assertIn("Emma", page_source, "Child first name not found on checkout page")
+        self.assertIn("Smith", page_source, "Child last name not found on checkout page")
+        print("   ✓ Child found in checked-in list")
 
-        # Step 5: Perform check-out
-        print("\n5. Performing check-out...")
-        try:
-            # Look for check-out button
-            checkout_button_selectors = [
-                "//button[contains(text(), 'Check Out')]",
-                "//button[contains(text(), 'Check-Out')]",
-                "button.btn-danger",
-            ]
+        # Step 6: Perform check-out
+        print("\n6. Performing check-out...")
+        # Find and click the check-out button for this child
+        checkout_button = self.wait_and_find(By.XPATH, "//button[contains(text(), 'Check Out') or contains(text(), 'Check-Out')]", timeout=5)
+        checkout_button.click()
+        time.sleep(1.5)  # Brief wait for check-out to process
 
-            button_found = False
-            for selector in checkout_button_selectors:
-                try:
-                    buttons = self.driver.find_elements(By.XPATH, selector)
-                    if buttons:
-                        buttons[0].click()
-                        button_found = True
-                        print("   ✓ Check-out button clicked")
-                        time.sleep(2)
-                        break
-                except:
-                    continue
+        # Verify no API errors from check-out
+        self.assert_no_api_errors("check-out operation")
+        print("   ✓ Check-out button clicked, no API errors")
 
-            if not button_found:
-                print("   ⚠️  Could not find check-out button")
-
-        except Exception as e:
-            print(f"   ❌ Error clicking check-out button: {e}")
-
-        # Step 6: Verify check-out success
-        print("\n6. Verifying check-out...")
-
-        # Refresh record from database
+        # Step 7: Verify check-out success in database
+        print("\n7. Verifying check-out in database...")
         checkin_record.refresh_from_db()
 
-        if checkin_record.check_out_time:
-            print(f"   ✅ Check-out successful!")
-            print(f"   Check-out time: {checkin_record.check_out_time}")
-        else:
-            print("   ❌ Check-out time not set in database")
-            print("   This indicates the check-out operation failed")
+        self.assertIsNotNone(checkin_record.check_out_time, "Check-out time not set in database")
+        self.assertEqual(checkin_record.check_out_staff, self.test_user, "Check-out staff incorrect")
 
-            # Print browser console logs if available
-            try:
-                logs = self.driver.get_log('browser')
-                if logs:
-                    print("\n   Browser console logs:")
-                    for log in logs[-10:]:  # Last 10 logs
-                        print(f"   {log}")
-            except:
-                pass
+        print(f"   ✅ Check-out successful!")
+        print(f"   - Check-out time: {checkin_record.check_out_time}")
+        print(f"   - Staff: {checkin_record.check_out_staff.name}")
 
         print("\n" + "=" * 60)
-        print("✅ Check-out flow test completed")
+        print("✅ Check-out flow test PASSED")
 
     def test_03_language_switching(self):
         """Test i18n language switching"""
@@ -456,6 +428,7 @@ class FullFlowSeleniumTests(TestCase):
         # Step 1: Login
         print("\n1. Logging in...")
         self.perform_login()
+        time.sleep(1)  # Brief wait for page load
 
         # Step 2: Check current language
         print("\n2. Checking current language...")
@@ -465,78 +438,48 @@ class FullFlowSeleniumTests(TestCase):
         english_indicators = ["Check-In", "Search", "Logout"]
         english_found = any(indicator in page_source for indicator in english_indicators)
 
-        if english_found:
-            print("   ✓ Page is in English")
+        self.assertTrue(english_found, "English text not found on page")
+        print("   ✓ Page is in English")
 
         # Step 3: Look for language switcher
         print("\n3. Looking for language switcher...")
         try:
-            # Try to find language switcher
-            switcher_selectors = [
-                "//select[@id='language']",
-                "//button[contains(@class, 'language')]",
-                "//a[contains(text(), 'Svenska')]",
-                "//a[contains(text(), 'English')]",
-                "select",  # Generic select dropdown
-            ]
+            # Try to find language switcher - look for select dropdown
+            language_select = self.driver.find_elements(By.CSS_SELECTOR, "select")
 
-            switcher_found = False
-            for selector in switcher_selectors:
-                try:
-                    if selector.startswith("//"):
-                        elements = self.driver.find_elements(By.XPATH, selector)
-                    else:
-                        elements = self.driver.find_elements(By.CSS_SELECTOR, selector)
+            if language_select:
+                from selenium.webdriver.support.ui import Select
+                select = Select(language_select[0])
+                options = [opt.text for opt in select.options]
+                print(f"   ✓ Found language switcher with options: {options}")
 
-                    if elements:
-                        print(f"   ✓ Found potential language switcher: {selector}")
-                        switcher_found = True
+                # Try to select Swedish if available
+                for option in select.options:
+                    if 'sv' in option.get_attribute('value').lower() or 'swedish' in option.text.lower():
+                        option.click()
+                        time.sleep(2)
+                        print("   ✓ Switched to Swedish")
 
-                        # Try to click/change it
-                        element = elements[0]
+                        # Step 4: Verify language changed
+                        print("\n4. Verifying language change...")
+                        page_source = self.driver.page_source
 
-                        # If it's a select dropdown
-                        if element.tag_name == 'select':
-                            from selenium.webdriver.support.ui import Select
-                            select = Select(element)
-                            options = select.options
-                            print(f"   Options available: {[opt.text for opt in options]}")
+                        # Look for Swedish text
+                        swedish_indicators = ["Logga ut", "Sök"]
+                        swedish_found = any(indicator in page_source for indicator in swedish_indicators)
 
-                            # Try to select Swedish if available
-                            for option in options:
-                                if 'sv' in option.get_attribute('value').lower() or 'swedish' in option.text.lower():
-                                    option.click()
-                                    time.sleep(1)
-                                    print("   ✓ Switched to Swedish")
-                                    break
+                        if swedish_found:
+                            print("   ✅ Language successfully switched to Swedish!")
                         else:
-                            element.click()
-                            time.sleep(1)
-
+                            print("   ⚠️  Swedish text not found (i18n translations may need more work)")
                         break
-                except Exception as e:
-                    continue
-
-            if not switcher_found:
+            else:
                 print("   ⚠️  Language switcher not found")
-                print("   i18n switching may not be fully implemented yet")
+                print("   This feature may not be implemented yet")
 
         except Exception as e:
-            print(f"   ❌ Error with language switcher: {e}")
-
-        # Step 4: Verify language changed (if switcher was found)
-        print("\n4. Verifying language change...")
-        time.sleep(1)
-        page_source = self.driver.page_source
-
-        # Look for Swedish text if we tried to switch
-        swedish_indicators = ["Logga ut", "Sök", "Incheckning"]
-        swedish_found = any(indicator in page_source for indicator in swedish_indicators)
-
-        if swedish_found:
-            print("   ✅ Language successfully switched to Swedish!")
-        else:
-            print("   ⚠️  Swedish text not found (i18n may need more work)")
+            print(f"   ⚠️  Error with language switcher: {e}")
+            print("   This feature may not be fully implemented")
 
         print("\n" + "=" * 60)
         print("✅ Language switching test completed")
@@ -568,7 +511,7 @@ if __name__ == "__main__":
         if exit_code == 0:
             print("✅ ALL TESTS PASSED!")
         else:
-            print("⚠️  SOME TESTS HAD ISSUES (check output above)")
+            print("❌ SOME TESTS FAILED (check output above)")
         print("=" * 60)
         sys.exit(exit_code)
     except Exception as e:
