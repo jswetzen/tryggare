@@ -7,9 +7,13 @@ Update IMPLEMENTATION_PLAN.md to check off items that are done. Also keep CURREN
 The docker compose file is running on the host, you're connected to a podman container, but with host networking so you can access the running servers. The server is set up to watch for changes to `restart.txt` - execute `./restart.sh` to trigger a rebuild and restart. It can take 30 seconds or more, but this way you can test out changes directly. The live container logs from podman are available in `web.log` and `frontend.log`.
 
 **Restart Mechanism**:
-- `./restart.sh` touches `restart.txt`
+- **Recommended**: Use `./verification.sh` for automated restart and verification
+  - Touches `restart.txt` to trigger restart
+  - Waits for restart completion (monitors web.log)
+  - Verifies server health
+  - Optionally runs Selenium tests with `--test` flag
+- **Legacy**: `./restart.sh` touches `restart.txt` (manual verification needed)
 - Podman containers detect the file change and restart
-- Check `web.log` for "Listening at" to verify restart completed
 - **Production containers** (`docker-compose.prod.yml`) do NOT use this mechanism - they require manual rebuild
 
 - **Backend**: backend directory with Django, 'web' container
@@ -31,25 +35,28 @@ After adding new functionality, follow these steps to keep everything working:
    uv run python manage.py migrate
    # Run quick verification
    uv run python verify.py
-   # Restart and verify
+   # Restart and verify (recommended)
    cd /workspace/check-ins
-   ./restart.sh
-   sleep 30
-   tail -n 20 web.log | grep "Listening"
+   ./verification.sh
+   # Or restart and run tests
+   ./verification.sh --test
    ```
 
 2. **Frontend Changes**
    ```bash
-   # Restart server
-   ./restart.sh
-   sleep 30
-   tail -n 20 frontend.log | grep "built"
+   # Restart and verify server (recommended)
+   ./verification.sh
+   # Or restart and run tests
+   ./verification.sh --test
    # Manually test the changed UI flows
    # Verify i18n works (check both English and Swedish if applicable)
    ```
 
 3. **Selenium E2E Tests** (After login/auth/UI changes)
    ```bash
+   # Run tests without restarting
+   ./verification.sh --no-restart --test
+   # Or run specific test file
    cd /workspace/check-ins/backend
    uv run python test_selenium_full_flows.py
    # Also run test_auth.py if auth-related

@@ -61,7 +61,38 @@ This guide provides a foolproof process for testing and verifying changes to the
 3. **When `restart.txt` is modified** (touched), containers detect the change and restart
 4. **Container logs** stream to `web.log` and `frontend.log`
 
-### Using restart.sh
+### Using verification.sh (Recommended)
+
+The `verification.sh` script replaces `restart.sh` with a comprehensive verification workflow:
+
+```bash
+# Just restart and verify (replaces restart.sh)
+./verification.sh
+
+# Restart and run all Selenium tests
+./verification.sh --test
+
+# Restart and run specific test
+./verification.sh --test test_selenium_full_flows.py
+
+# Run tests without restarting
+./verification.sh --no-restart --test
+
+# Custom timeout (default: 60s)
+./verification.sh --timeout 90
+```
+
+**What verification.sh does:**
+1. ✅ Touches restart.txt to trigger container restart
+2. ✅ Monitors web.log for restart completion (with timeout)
+3. ✅ Verifies server health (checks for errors in logs)
+4. ✅ Shows recent log summary
+5. ✅ Optionally runs Selenium tests
+6. ✅ Provides clear visual feedback with colors and progress
+
+### Manual Restart (Legacy)
+
+If you prefer to restart manually without verification.sh:
 
 ```bash
 # From project root
@@ -73,7 +104,7 @@ This guide provides a foolproof process for testing and verifying changes to the
 # 3. Wait 30-60 seconds for restart to complete
 ```
 
-### Verifying Restart Completed
+### Verifying Restart Completed (Manual Method)
 
 **Method 1: Check logs for rebuild indicators**
 ```bash
@@ -101,6 +132,8 @@ podman ps | grep -E "web|frontend"
 
 # Check "STATUS" column - should show "Up X seconds" after restart
 ```
+
+**Recommendation**: Use `verification.sh` instead of manual verification for a more reliable and automated workflow.
 
 ### Production-Style Restart
 
@@ -132,15 +165,12 @@ uv run python manage.py migrate
 # 2. Run quick verification
 uv run python verify.py
 
-# 3. Restart development server
+# 3. Restart and verify development server
 cd /workspace/check-ins
-./restart.sh
+./verification.sh
 
-# 4. Verify restart completed
-tail -n 20 web.log | grep -i "starting\|listening"
-
-# 5. Check for errors
-tail -n 50 web.log | grep -i "error\|exception"
+# Alternative: Restart and run tests
+./verification.sh --test
 ```
 
 ### After Frontend Changes
@@ -148,22 +178,16 @@ tail -n 50 web.log | grep -i "error\|exception"
 ```bash
 cd /workspace/check-ins
 
-# 1. Restart development server (frontend has HMR, but restart ensures clean state)
-./restart.sh
+# 1. Restart and verify development server
+./verification.sh
 
-# 2. Wait for rebuild
-sleep 30
-
-# 3. Check frontend logs
-tail -n 20 frontend.log | grep -i "ready\|built"
-
-# 4. Check for errors
-tail -n 50 frontend.log | grep -i "error\|failed"
-
-# 5. Manually test UI changes in browser
+# 2. Manually test UI changes in browser
 # - Navigate to http://localhost:5173 (dev) or http://localhost:8000 (if backend serves static)
 # - Test the changed flows
 # - Verify i18n works (toggle English/Swedish)
+
+# Alternative: Restart and run all tests
+./verification.sh --test
 ```
 
 ### After Adding data-testid Attributes
@@ -175,20 +199,16 @@ This is critical for Selenium tests. Follow the UPDATE_GUIDE.md workflow:
 # Example: frontend/src/routes/checkin/+page.svelte
 # <button data-testid="main-checkin-button" onclick={performCheckIn}>
 
-# 2. Restart to apply changes
-./restart.sh && sleep 30
+# 2. Restart and run tests to verify
+./verification.sh --test
 
-# 3. Verify test IDs are in the rendered JavaScript bundle
+# 3. (Optional) Verify test IDs are in the rendered JavaScript bundle
 # (They won't be in static HTML due to ssr=false)
 curl -s http://localhost:8000 | grep -o "data-testid" | wc -l
 # Should return 0 (test IDs not in static HTML)
 
 curl -s http://localhost:8000/_app/immutable/chunks/*.js | grep "data-testid"
 # Should return matches (test IDs in JS bundles)
-
-# 4. Run Selenium tests to verify selectors work
-cd backend
-uv run python test_selenium_full_flows.py
 ```
 
 ---
@@ -609,53 +629,39 @@ vim frontend/src/routes/checkin/+page.svelte
 vim frontend/src/lib/i18n/locales/en.json
 vim frontend/src/lib/i18n/locales/sv.json
 
-# 5. Restart development server
-./restart.sh
+# 5. Update Selenium test
+vim backend/test_selenium_full_flows.py
+# Add test case for session selector
 
-# 6. Wait for restart
-sleep 30
+# 6. Restart and run tests (one command!)
+./verification.sh --test
 
-# 7. Verify restart completed
-tail -n 20 web.log | grep "Listening at"
-tail -n 20 frontend.log | grep "built"
+# 7. Fix any test failures
+# View screenshots in /tmp/
+# Adjust test or fix bugs
+# Re-run: ./verification.sh --test
 
-# 8. Check for errors
-tail -n 50 web.log | grep -i "error"
-tail -n 50 frontend.log | grep -i "error"
-
-# 9. Manual testing in browser
+# 8. Manual testing in browser
 # Navigate to http://localhost:5173
 # Test the new session selector
 # Toggle language to verify i18n
 
-# 10. Update Selenium test
-vim backend/test_selenium_full_flows.py
-# Add test case for session selector
-
-# 11. Run Selenium tests
-cd backend
-uv run python test_selenium_full_flows.py
-
-# 12. Fix any test failures
-# View screenshots in /tmp/
-# Adjust test or fix bugs
-
-# 13. Test in production-style environment
+# 9. Test in production-style environment
 cd /workspace/check-ins
 podman compose -f docker-compose.prod.yml --env-file .env.prod up -d --build
 
 # Wait for build
 sleep 120
 
-# 14. Run Selenium tests against production
+# 10. Run Selenium tests against production
 cd backend
 ./test_production.sh
 
-# 15. Commit changes
+# 11. Commit changes
 git add .
 git commit -m "Add session selector to check-in page with i18n support"
 
-# 16. Push and create PR (if applicable)
+# 12. Push and create PR (if applicable)
 git push origin feature-session-selector
 ```
 
@@ -689,10 +695,22 @@ git push origin feature-session-selector
 ## Quick Reference Commands
 
 ```bash
-# Restart development server
+# Restart development server (NEW - recommended)
+./verification.sh
+
+# Restart and run all tests (NEW - recommended)
+./verification.sh --test
+
+# Restart and run specific test (NEW)
+./verification.sh --test test_selenium_full_flows.py
+
+# Run tests without restarting (NEW)
+./verification.sh --no-restart --test
+
+# Legacy restart (manual verification needed)
 ./restart.sh && sleep 30
 
-# Check restart completed
+# Check restart completed (manual)
 tail -n 20 web.log | grep "Listening"
 
 # Run Selenium tests (dev)
