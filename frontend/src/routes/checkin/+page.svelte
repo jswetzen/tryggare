@@ -221,7 +221,7 @@
         class="btn btn-primary"
         disabled={loading || !searchQuery.trim()}
       >
-        {loading ? 'Searching...' : 'Search'}
+        {loading ? $t('checkin.searchButton') + '...' : $t('checkin.searchButton')}
       </button>
     </div>
 

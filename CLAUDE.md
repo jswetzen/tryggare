@@ -19,6 +19,22 @@ The docker compose file is running on the host, you're connected to a podman con
 - **Backend**: backend directory with Django, 'web' container
 - **Frontend**: frontend directory with SvelteKit
 
+## Production Deployment
+
+The production deployment uses `docker-compose.prod.yml` (see PRODUCTION_DEPLOYMENT.md for full details):
+
+- **Single container**: Django serves both the API and the built frontend static files
+- **Port mapping**: Container port 8000 is exposed as host port 8080
+- **Access**: Both frontend and backend are accessible at `http://localhost:8080`
+- **Settings**: Uses `config.settings.prod` instead of `config.settings.local`
+- **Database**: Separate production PostgreSQL database on port 5433
+- **Restart**: Production containers do NOT use `restart.txt` - require manual rebuild/restart
+
+**Testing against production**:
+- The verification script automatically detects port 8080 and configures tests appropriately
+- Tests will use production settings and production database when `BACKEND_URL` or `FRONTEND_URL` contains `:8080`
+- Example: `./verification.sh --no-restart --test` (works with production deployment)
+
 IMPORTANT: *Never* kill a process you have started.
 You risk stopping critical services or Claude Code by accident.
 Instead, if there's a risk a process won't finish you should execute it with a timeout.
