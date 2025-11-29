@@ -232,8 +232,15 @@ def test_complete_checkin_flow():
 
         # Step 3: Wait for page to fully load
         print("\n3. Waiting for check-in page to load...")
-        time.sleep(2)  # Allow time for React/Svelte to render and API calls
+        time.sleep(5)  # Allow time for Svelte to render and API calls (load sessions)
         print("   ✓ Page loaded")
+
+        # Verify session was auto-selected (since we only have one session)
+        page_source = helper.driver.page_source
+        print(f"   ✓ Session auto-selected: {test_session.name in page_source}")
+
+        # Wait a bit more to ensure session state is updated in Svelte
+        time.sleep(2)
 
         # Step 4: Search for family
         print("\n4. Searching for family 'Smith'...")
@@ -282,11 +289,11 @@ def test_complete_checkin_flow():
         # Step 7: Click main check-in button
         print("\n7. Performing check-in...")
         # The main button should now appear with text like "Check In 1 Child"
-        # It has specific styling: bg-green-600 class
+        # Use stable data-testid selector
         try:
             checkin_main_button = helper.wait_and_find(
-                By.XPATH,
-                "//button[contains(@class, 'bg-green-600') and contains(text(), 'Check In')]",
+                By.CSS_SELECTOR,
+                "[data-testid='main-checkin-button']",
                 timeout=5
             )
         except:
@@ -298,9 +305,32 @@ def test_complete_checkin_flow():
                 timeout=5
             )
 
+        # Check if button is disabled before clicking
+        is_disabled = checkin_main_button.get_attribute('disabled')
+        print(f"   Button disabled state: {is_disabled}")
+
         checkin_main_button.click()
-        time.sleep(2)  # Wait for check-in to process
         print("   ✓ Main check-in button clicked")
+        time.sleep(5)  # Wait for check-in API call to complete and success message
+
+        # Check browser console for errors
+        logs = helper.driver.get_log('browser')
+        if logs:
+            print("   📋 Browser console logs:")
+            for log in logs:
+                if log['level'] in ['SEVERE', 'WARNING']:
+                    print(f"      [{log['level']}] {log['message']}")
+
+        # Check for success or error message
+        try:
+            success_alert = helper.driver.find_element(By.CSS_SELECTOR, "[data-testid='success-alert']")
+            print(f"   ✓ Success message: {success_alert.text}")
+        except:
+            try:
+                error_alert = helper.driver.find_element(By.CSS_SELECTOR, "[data-testid='error-alert']")
+                print(f"   ❌ Error message: {error_alert.text}")
+            except:
+                print("   ⚠️  No success or error message found - check-in may have failed silently")
 
         # Step 8: Verify check-in success in database
         print("\n8. Verifying check-in in database...")
@@ -619,30 +649,28 @@ def test_i18n_language_switching():
         test_session = Session.objects.create(
             event=test_event,
             name="Morning Childcare",
-            start_time="09:00",
-            end_time="11:00",
-            status="active",
+            start_time="2025-11-29T09:00:00Z",
+            end_time="2025-11-29T12:00:00Z",
+            is_active=True,
         )
         print(f"   ✓ Session: {test_session.name}")
 
         # Create test family and child
-        test_family = Family.objects.create(
-            family_name="i18n Test Family",
-            primary_contact_name="Test Parent",
-            email="i18n@test.com",
-        )
+        test_family = Family.objects.create()
         test_parent = Parent.objects.create(
             family=test_family,
-            first_name="Test",
-            last_name="Parent",
+            name="Test Parent",
+            phone="555-9999",
+            email="i18n@test.com",
+            relationship_type="Parent"
         )
         test_child = Child.objects.create(
             family=test_family,
             first_name="Test",
             last_name="Child",
-            date_of_birth="2020-01-01",
+            birthdate="2020-01-01",
         )
-        print(f"   ✓ Family: {test_family.family_name}")
+        print(f"   ✓ Family: Created")
         print(f"   ✓ Child: {test_child.first_name} {test_child.last_name}")
 
         # Step 2: Login
