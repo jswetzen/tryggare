@@ -1,6 +1,7 @@
 <script lang="ts">
   import { page } from '$app/stores';
   import { goto } from '$app/navigation';
+  import { t } from 'svelte-i18n';
   import SessionIndicator from './SessionIndicator.svelte';
   import LanguageSwitcher from './LanguageSwitcher.svelte';
 
@@ -57,7 +58,7 @@
             ? 'bg-blue-600 text-white'
             : 'text-slate-700 hover:bg-slate-100'}"
         >
-          Check-In
+          {$t('nav.checkin')}
         </a>
         <a
           href="/checkout"
@@ -65,7 +66,7 @@
             ? 'bg-blue-600 text-white'
             : 'text-slate-700 hover:bg-slate-100'}"
         >
-          Check-Out
+          {$t('nav.checkout')}
         </a>
 
         <div class="border-l border-slate-300 pl-6 ml-2 flex items-center space-x-4">
@@ -77,7 +78,7 @@
             onclick={handleLogout}
             class="text-sm text-red-600 font-semibold hover:underline"
           >
-            Logout
+            {$t('nav.logout')}
           </button>
         </div>
       </div>
@@ -129,7 +130,7 @@
             ? 'bg-blue-600 text-white'
             : 'text-slate-700 hover:bg-slate-100'}"
         >
-          Check-In
+          {$t('nav.checkin')}
         </a>
         <a
           href="/checkout"
@@ -138,7 +139,7 @@
             ? 'bg-blue-600 text-white'
             : 'text-slate-700 hover:bg-slate-100'}"
         >
-          Check-Out
+          {$t('nav.checkout')}
         </a>
       </div>
       <div class="pt-4 pb-3 border-t border-slate-200">
@@ -156,7 +157,7 @@
             }}
             class="w-full text-left px-3 py-2 rounded-md text-red-600 font-semibold hover:bg-red-50"
           >
-            Logout
+            {$t('nav.logout')}
           </button>
         </div>
       </div>

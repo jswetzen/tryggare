@@ -258,6 +258,16 @@ run_tests() {
   print_step "Executing tests..."
   echo ""
 
+  # Set default URLs for tests if not already set
+  # Use port 8080 as the reverse proxy default (both backend and frontend accessible there)
+  export FRONTEND_URL="${FRONTEND_URL:-http://localhost:8080}"
+  export BACKEND_URL="${BACKEND_URL:-http://localhost:8080}"
+
+  print_info "Test URLs:"
+  echo -e "${CYAN}   Frontend: $FRONTEND_URL${NC}"
+  echo -e "${CYAN}   Backend:  $BACKEND_URL${NC}"
+  echo ""
+
   # Run tests and capture exit code
   set +e
   eval $TEST_CMD

@@ -22,8 +22,22 @@ from selenium.common.exceptions import TimeoutException
 
 import django
 
-# Use local settings for password hash compatibility
-os.environ.setdefault("DJANGO_SETTINGS_MODULE", "config.settings.local")
+# Detect if we're testing against production deployment
+# If BACKEND_URL or FRONTEND_URL is set to port 8080, assume production mode
+backend_url = os.getenv("BACKEND_URL", "http://localhost:8000")
+frontend_url = os.getenv("FRONTEND_URL", "http://localhost:5173")
+is_production = ":8080" in backend_url or ":8080" in frontend_url
+
+if is_production:
+    # Use production settings and database for user creation
+    os.environ.setdefault("DJANGO_SETTINGS_MODULE", "config.settings.prod")
+    # Set production database URL if not already set
+    if "DATABASE_URL" not in os.environ:
+        os.environ["DATABASE_URL"] = "postgresql://postgres:postgres@localhost:5433/checkins"
+else:
+    # Use local settings for development testing
+    os.environ.setdefault("DJANGO_SETTINGS_MODULE", "config.settings.local")
+
 django.setup()
 
 from accounts.models import AdminUser
