@@ -578,6 +578,189 @@ def test_complete_checkout_flow():
         helper.teardown_driver()
 
 
+def test_i18n_language_switching():
+    """Test internationalization language switching functionality"""
+    print("\n🔍 Testing i18n Language Switching")
+    print("=" * 60)
+
+    helper = SeleniumTestHelper()
+    helper.setup_driver()
+
+    # Setup test data
+    print("\n1. Setting up test data...")
+
+    try:
+        # Create test user
+        test_username = "i18ntest"
+        test_password = "testpass123"
+
+        # Clean up any existing test user
+        existing_user = AdminUser.objects.filter(username=test_username).first()
+        if existing_user:
+            AuditLog.objects.filter(user=existing_user).delete()
+            existing_user.delete()
+
+        # Create test user
+        test_user = AdminUser.objects.create_user(
+            username=test_username,
+            password=test_password,
+            name="i18n Test User"
+        )
+        print(f"   ✓ User: {test_username}")
+
+        # Create test event and session
+        test_event = Event.objects.create(
+            name="Sunday Service",
+            start_date="2025-11-29",
+            end_date="2025-11-29",
+        )
+        print(f"   ✓ Event: {test_event.name}")
+
+        test_session = Session.objects.create(
+            event=test_event,
+            name="Morning Childcare",
+            start_time="09:00",
+            end_time="11:00",
+            status="active",
+        )
+        print(f"   ✓ Session: {test_session.name}")
+
+        # Create test family and child
+        test_family = Family.objects.create(
+            family_name="i18n Test Family",
+            primary_contact_name="Test Parent",
+            email="i18n@test.com",
+        )
+        test_parent = Parent.objects.create(
+            family=test_family,
+            first_name="Test",
+            last_name="Parent",
+        )
+        test_child = Child.objects.create(
+            family=test_family,
+            first_name="Test",
+            last_name="Child",
+            date_of_birth="2020-01-01",
+        )
+        print(f"   ✓ Family: {test_family.family_name}")
+        print(f"   ✓ Child: {test_child.first_name} {test_child.last_name}")
+
+        # Step 2: Login
+        print("\n2. Logging in...")
+        helper.perform_login(test_username, test_password)
+
+        # Step 3: Verify page loaded with default language (English)
+        print("\n3. Verifying default language (English)...")
+        time.sleep(2)  # Wait for page to fully load
+
+        # Check for English text in navigation
+        page_source = helper.driver.page_source
+        assert "Check-In" in page_source or "Logout" in page_source, "Expected English navigation text"
+        print("   ✓ Page loaded in English")
+
+        # Step 4: Switch to Swedish
+        print("\n4. Switching to Swedish...")
+        swedish_button = helper.wait_and_find(By.CSS_SELECTOR, "[data-testid='language-sv']")
+        swedish_button.click()
+        time.sleep(2)  # Wait for language change and page updates
+
+        # Verify Swedish language is active
+        page_source = helper.driver.page_source
+
+        # Check for Swedish navigation text
+        assert "Incheckning" in page_source or "Logga ut" in page_source, "Expected Swedish navigation text"
+        print("   ✓ Language switched to Swedish")
+        print("   ✓ Navigation shows Swedish text")
+
+        # Step 5: Navigate to check-in page and verify Swedish
+        print("\n5. Verifying check-in page in Swedish...")
+        checkin_link = helper.wait_and_find(By.CSS_SELECTOR, "a[href='/checkin']")
+        checkin_link.click()
+        time.sleep(2)
+
+        # Verify check-in page content is in Swedish
+        page_source = helper.driver.page_source
+
+        # The Search button should show "Sök" in Swedish
+        search_button = helper.wait_and_find(By.CSS_SELECTOR, "[data-testid='search-button']")
+        assert "Sök" in search_button.text or "Search" in search_button.text, f"Search button text: {search_button.text}"
+        print(f"   ✓ Search button text: {search_button.text}")
+
+        # Step 6: Switch back to English
+        print("\n6. Switching back to English...")
+        english_button = helper.wait_and_find(By.CSS_SELECTOR, "[data-testid='language-en']")
+        english_button.click()
+        time.sleep(2)  # Wait for language change
+
+        # Verify English is restored
+        page_source = helper.driver.page_source
+        assert "Check-In" in page_source or "Logout" in page_source, "Expected English navigation text"
+        print("   ✓ Language switched back to English")
+
+        # Verify button text is in English
+        search_button = helper.wait_and_find(By.CSS_SELECTOR, "[data-testid='search-button']")
+        assert "Search" in search_button.text, f"Expected 'Search', got: {search_button.text}"
+        print(f"   ✓ Search button text: {search_button.text}")
+
+        # Step 7: Test that i18n persists after navigation
+        print("\n7. Verifying language persists after navigation...")
+
+        # Switch to Swedish again
+        swedish_button = helper.wait_and_find(By.CSS_SELECTOR, "[data-testid='language-sv']")
+        swedish_button.click()
+        time.sleep(1)
+
+        # Navigate to check-out page
+        checkout_link = helper.wait_and_find(By.CSS_SELECTOR, "a[href='/checkout']")
+        checkout_link.click()
+        time.sleep(2)
+
+        # Verify still in Swedish on checkout page
+        page_source = helper.driver.page_source
+        assert "Utcheckning" in page_source or "Uppdatera" in page_source, "Expected Swedish text on checkout page"
+        print("   ✓ Language persisted across navigation")
+
+        print("\n" + "=" * 60)
+        print("✅ i18n language switching test PASSED")
+
+    except AssertionError as e:
+        print(f"\n❌ Test failed: {e}")
+        screenshot_path = '/tmp/i18n_test_failure.png'
+        helper.driver.save_screenshot(screenshot_path)
+        print(f"📸 Saved failure screenshot to {screenshot_path}")
+        raise
+    except Exception as e:
+        print(f"\n❌ Error: {e}")
+        import traceback
+        traceback.print_exc()
+        screenshot_path = '/tmp/i18n_test_error.png'
+        helper.driver.save_screenshot(screenshot_path)
+        print(f"📸 Saved error screenshot to {screenshot_path}")
+        raise
+    finally:
+        # Cleanup
+        print("\n8. Cleaning up test data...")
+        try:
+            CheckInRecord.objects.filter(child=test_child).delete()
+            AuditLog.objects.filter(user=test_user).delete()
+            test_child.delete()
+            test_parent.delete()
+            test_family.delete()
+            test_session.delete()
+            test_event.delete()
+            test_user.delete()
+            print("   ✓ Test data cleaned up")
+        except Exception as e:
+            print(f"   ⚠️  Cleanup error: {e}")
+
+        # Save final screenshot
+        screenshot_path = '/tmp/i18n_final_state.png'
+        helper.driver.save_screenshot(screenshot_path)
+        print(f"📸 Saved final screenshot to {screenshot_path}")
+
+        helper.teardown_driver()
+
+
 if __name__ == "__main__":
     print("\n" + "=" * 60)
     print("🚀 Running Full Flow Selenium E2E Tests")
@@ -591,6 +774,11 @@ if __name__ == "__main__":
 
         # Run check-out test
         test_complete_checkout_flow()
+
+        print("\n")
+
+        # Run i18n test
+        test_i18n_language_switching()
 
         print("\n" + "=" * 60)
         print("✅ ALL TESTS PASSED!")

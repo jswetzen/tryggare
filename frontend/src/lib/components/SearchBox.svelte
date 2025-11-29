@@ -31,6 +31,7 @@
   </label>
   <input
     id={inputId}
+    data-testid="family-search"
     type="text"
     {value}
     oninput={handleInput}

@@ -16,6 +16,7 @@
 <div class="flex gap-2">
   {#each languages as lang}
     <button
+      data-testid="language-{lang.code}"
       onclick={() => setLanguage(lang.code)}
       class="px-3 py-1 rounded text-sm transition-colors {$locale === lang.code ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}"
     >

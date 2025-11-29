@@ -176,13 +176,13 @@
 
     <!-- Alerts -->
     {#if error}
-      <div class="alert alert-error mb-5">
+      <div data-testid="error-alert" class="alert alert-error mb-5">
         {error}
       </div>
     {/if}
 
     {#if successMessage}
-      <div class="alert alert-success mb-5">
+      <div data-testid="success-alert" class="alert alert-success mb-5">
         {successMessage}
       </div>
     {/if}
@@ -195,6 +195,7 @@
         </label>
         <select
           id="session-select"
+          data-testid="session-select"
           bind:value={selectedSession}
           class="w-full px-3 py-2 border border-slate-300 rounded bg-white text-sm"
           disabled={loading}
@@ -215,6 +216,7 @@
 
     <div class="flex justify-end mb-4">
       <button
+        data-testid="search-button"
         onclick={searchFamilies}
         class="btn btn-primary"
         disabled={loading || !searchQuery.trim()}
@@ -305,6 +307,7 @@
       {#if selectedChildren.length > 0}
         <div class="flex justify-end">
           <button
+            data-testid="main-checkin-button"
             onclick={performCheckIn}
             class="bg-green-600 hover:bg-green-700 text-white font-semibold px-6 py-3 rounded-md disabled:opacity-50 disabled:cursor-not-allowed"
             disabled={loading || !selectedSession}
