@@ -656,6 +656,7 @@ git commit -m "Redesign check-in page with card-based layout"
 
 - **Test File:** `../backend/test_selenium_full_flows.py`
 - **Working Test Example:** `../backend/test_auth.py`
+- **Verification Guide:** `../VERIFICATION_GUIDE.md` - Comprehensive testing workflows
 - **Selenium Docs:** https://selenium-python.readthedocs.io/
 - **Page Object Pattern:** https://selenium-python.readthedocs.io/page-objects.html
 
@@ -669,5 +670,6 @@ If tests are failing after UI changes and you're not sure why:
 2. Verify `data-testid` attributes are present in the rendered HTML
 3. Check that the flow still works manually in the browser
 4. Add debug output to see what the test is seeing: `print(helper.driver.page_source)`
+5. **See [VERIFICATION_GUIDE.md](../VERIFICATION_GUIDE.md)** for complete troubleshooting workflows
 
 Happy redesigning! 🎨

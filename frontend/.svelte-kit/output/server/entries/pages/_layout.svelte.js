@@ -1,5 +1,5 @@
 import "clsx";
-import { r as registerLocaleLoader, i as init, g as getLocaleFromNavigator, $ as $locale } from "../../chunks/runtime.js";
+import { r as registerLocaleLoader, i as init, $ as $locale } from "../../chunks/runtime.js";
 import { e as ensure_array_like, a as attr_class, s as stringify, b as store_get, u as unsubscribe_stores, c as attr } from "../../chunks/index2.js";
 import { p as page } from "../../chunks/stores.js";
 import "@sveltejs/kit/internal";
@@ -12,8 +12,9 @@ registerLocaleLoader("en", () => import("../../chunks/en.js"));
 registerLocaleLoader("sv", () => import("../../chunks/sv.js"));
 init({
   fallbackLocale: "en",
-  initialLocale: getLocaleFromNavigator()
+  initialLocale: "en"
 });
+$locale.set("en");
 function SessionIndicator($$renderer, $$props) {
   let { eventName, sessionName, sessionTime, onChangeSession } = $$props;
   $$renderer.push(`<div class="bg-slate-50 border border-slate-300 rounded px-3 py-2 mb-4 flex flex-wrap justify-between items-center gap-2 text-sm"><div class="text-slate-600"><span class="font-semibold text-blue-900">Event:</span> ${escape_html(eventName)} • <span class="font-semibold text-blue-900 ml-1">Session:</span> ${escape_html(sessionName)} (${escape_html(sessionTime)})</div> `);

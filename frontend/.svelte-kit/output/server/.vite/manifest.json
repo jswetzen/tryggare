@@ -203,6 +203,18 @@
       "_context.js"
     ]
   },
+  "src/routes/__fallback/+page.server.ts": {
+    "file": "entries/pages/__fallback/_page.server.ts.js",
+    "name": "entries/pages/__fallback/_page.server.ts",
+    "src": "src/routes/__fallback/+page.server.ts",
+    "isEntry": true
+  },
+  "src/routes/__fallback/+page.svelte": {
+    "file": "entries/pages/__fallback/_page.svelte.js",
+    "name": "entries/pages/__fallback/_page.svelte",
+    "src": "src/routes/__fallback/+page.svelte",
+    "isEntry": true
+  },
   "src/routes/checkin/+page.svelte": {
     "file": "entries/pages/checkin/_page.svelte.js",
     "name": "entries/pages/checkin/_page.svelte",

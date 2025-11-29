@@ -27,7 +27,7 @@
  */
 declare module '$env/static/private' {
 	export const VITE_API_BASE_URL: string;
-	export const VITE_PUBLIC_WS_BASE_URL: string;
+	export const VITE_WS_BASE_URL: string;
 	export const npm_config_user_agent: string;
 	export const NODE_VERSION: string;
 	export const YARN_VERSION: string;
@@ -38,6 +38,7 @@ declare module '$env/static/private' {
 	export const npm_package_json: string;
 	export const COREPACK_ROOT: string;
 	export const container: string;
+	export const VITE_PUBLIC_WS_BASE_URL: string;
 	export const COREPACK_ENABLE_DOWNLOAD_PROMPT: string;
 	export const pnpm_config_verify_deps_before_run: string;
 	export const npm_config_registry: string;
@@ -91,7 +92,7 @@ declare module '$env/static/public' {
 declare module '$env/dynamic/private' {
 	export const env: {
 		VITE_API_BASE_URL: string;
-		VITE_PUBLIC_WS_BASE_URL: string;
+		VITE_WS_BASE_URL: string;
 		npm_config_user_agent: string;
 		NODE_VERSION: string;
 		YARN_VERSION: string;
@@ -102,6 +103,7 @@ declare module '$env/dynamic/private' {
 		npm_package_json: string;
 		COREPACK_ROOT: string;
 		container: string;
+		VITE_PUBLIC_WS_BASE_URL: string;
 		COREPACK_ENABLE_DOWNLOAD_PROMPT: string;
 		pnpm_config_verify_deps_before_run: string;
 		npm_config_registry: string;
