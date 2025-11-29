@@ -4,8 +4,11 @@
  */
 
 // Use PUBLIC_API_BASE_URL for browser (client-side) requests
-// Falls back to localhost for development
-const API_BASE_URL = import.meta.env.VITE_PUBLIC_API_BASE_URL || 'http://localhost:8000/api';
+// In production (same origin), use relative URL
+// In development, use full URL to separate backend
+const API_BASE_URL = import.meta.env.VITE_PUBLIC_API_BASE_URL || (
+  import.meta.env.DEV ? 'http://localhost:8000/api' : '/api'
+);
 
 export interface ApiError {
   message: string;

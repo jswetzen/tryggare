@@ -7,13 +7,23 @@ import type { Handle } from '@sveltejs/kit';
 import { redirect } from '@sveltejs/kit';
 import { env } from '$env/dynamic/private';
 
+// For server-side rendering: use full URL in dev, relative URL in production
+// In production build, this file runs on the server (Node.js) so it needs the actual URL
+// But since production SPA is served by Django, we can use localhost
 const API_BASE_URL = env.VITE_API_BASE_URL || 'http://localhost:8000';
 
 // Public paths that don't require authentication
-const PUBLIC_PATHS = ['/login', '/qr', '/debug-cookies'];
+const PUBLIC_PATHS = ['/login', '/qr', '/debug-cookies', '/__fallback'];
 
 export const handle: Handle = async ({ event, resolve }) => {
   const path = event.url.pathname;
+
+  // During build (adapter-static prerendering), skip authentication entirely
+  // This allows the fallback page to be generated successfully
+  if (env.BUILDING === 'true' || process.env.BUILDING === 'true') {
+    event.locals.user = null;
+    return resolve(event);
+  }
 
   // Check if path is public (starts with any public path)
   const isPublicPath = PUBLIC_PATHS.some(publicPath => path.startsWith(publicPath));

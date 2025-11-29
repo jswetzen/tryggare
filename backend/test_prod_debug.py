@@ -123,6 +123,20 @@ class SeleniumTestHelper:
         login_url = f"{self.frontend_url}/login"
         self.driver.get(login_url)
 
+        # DEBUG: Check what we got
+        time.sleep(3)
+        print(f"   DEBUG: Current URL: {self.driver.current_url}")
+        print(f"   DEBUG: Page title: {self.driver.title}")
+        print(f"   DEBUG: Page source length: {len(self.driver.page_source)}")
+        print(f"   DEBUG: First 500 chars: {self.driver.page_source[:500]}")
+
+        # Check browser console for errors
+        logs = self.driver.get_log('browser')
+        if logs:
+            print(f"   DEBUG: Browser console errors:")
+            for log in logs:
+                print(f"     {log}")
+
         # Wait for login form
         username_field = self.wait_and_find(By.ID, "username")
         password_field = self.wait_and_find(By.ID, "password")
@@ -145,6 +159,26 @@ class SeleniumTestHelper:
         except:
             print(f"   ❌ Login redirect failed. Current URL: {self.driver.current_url}")
             print(f"   Page title: {self.driver.title}")
+
+            # Check for console errors after login attempt
+            logs = self.driver.get_log('browser')
+            if logs:
+                print(f"   DEBUG: Browser console errors after login:")
+                for log in logs:
+                    print(f"     {log}")
+
+            # Check page source for error messages
+            page_source = self.driver.page_source
+            if "error" in page_source.lower() or "failed" in page_source.lower():
+                print(f"   DEBUG: Page contains error message")
+                # Find error divs
+                try:
+                    error_divs = self.driver.find_elements(By.CSS_SELECTOR, ".bg-red-100")
+                    for div in error_divs:
+                        print(f"     Error: {div.text}")
+                except:
+                    pass
+
             return False
 
 

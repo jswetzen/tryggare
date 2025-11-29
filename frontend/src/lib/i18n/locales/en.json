@@ -14,7 +14,8 @@
     "usernamePlaceholder": "Enter your username",
     "password": "Password",
     "passwordPlaceholder": "Enter your password",
-    "submit": "Login"
+    "submit": "Login",
+    "loggingIn": "Logging in..."
   },
   "checkin": {
     "pageTitle": "Check-In Station",
