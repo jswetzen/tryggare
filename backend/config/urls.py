@@ -3,7 +3,8 @@ URL configuration for config project.
 """
 
 from django.contrib import admin
-from django.urls import include, path
+from django.urls import include, path, re_path
+from django.views.generic import TemplateView
 from rest_framework.routers import DefaultRouter
 
 from families.views import ChildViewSet, FamilyViewSet, ParentViewSet
@@ -38,4 +39,8 @@ urlpatterns = [
     path("api/auth/login/", login_view, name="auth-login"),
     path("api/auth/logout/", logout_view, name="auth-logout"),
     path("qr/<str:token>/", qr_info, name="qr-info"),  # Public QR code endpoint
+    # Serve frontend SPA - catch-all for client-side routing (must be last)
+    # Exclude SvelteKit's __data.json endpoints from catch-all
+    # WhiteNoise middleware serves static files (_app/*) before this is reached
+    re_path(r"^(?!.*__data\.json).*$", TemplateView.as_view(template_name="index.html"), name="frontend"),
 ]

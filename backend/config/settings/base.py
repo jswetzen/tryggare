@@ -56,7 +56,10 @@ ROOT_URLCONF = "config.urls"
 TEMPLATES = [
     {
         "BACKEND": "django.template.backends.django.DjangoTemplates",
-        "DIRS": [BASE_DIR / "templates"],
+        "DIRS": [
+            BASE_DIR / "templates",
+            BASE_DIR / "staticfiles",  # For SPA index.html
+        ],
         "APP_DIRS": True,
         "OPTIONS": {
             "context_processors": [
@@ -117,8 +120,9 @@ USE_I18N = True
 USE_L10N = True
 USE_TZ = True
 
-STATIC_URL = "static/"
+STATIC_URL = "/"  # Serve static files from root (/_app/, /admin/, etc.)
 STATIC_ROOT = BASE_DIR / "staticfiles"
+MEDIA_URL = "/media/"  # User-uploaded files (different from static)
 
 # WhiteNoise configuration for static files
 STORAGES = {

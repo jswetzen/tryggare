@@ -8,7 +8,11 @@ import type { WebSocketMessage } from '$lib/api/types';
 
 // WebSocket URL for browser connections (not server-side)
 // Must use VITE_ prefix to be available in browser
-const WS_BASE_URL = import.meta.env.VITE_PUBLIC_WS_BASE_URL || 'ws://localhost:8000';
+// If empty, construct from current location (for production same-origin)
+const WS_BASE_URL = import.meta.env.VITE_PUBLIC_WS_BASE_URL ||
+  (typeof window !== 'undefined'
+    ? `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}`
+    : 'ws://localhost:8000');
 
 interface WebSocketState {
   connected: boolean;

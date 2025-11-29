@@ -14,7 +14,8 @@
     "usernamePlaceholder": "Ange ditt användarnamn",
     "password": "Lösenord",
     "passwordPlaceholder": "Ange ditt lösenord",
-    "submit": "Logga in"
+    "submit": "Logga in",
+    "loggingIn": "Loggar in..."
   },
   "checkin": {
     "pageTitle": "Incheckningsstation",

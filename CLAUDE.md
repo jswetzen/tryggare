@@ -4,13 +4,14 @@ Update IMPLEMENTATION_PLAN.md to check off items that are done. Also keep CURREN
 
 ## Development Environment
 
-The docker compose file is running on the host, you're connected to a podman container, but with host networking so you can access the running servers. The server is also set up so you can execute /workspace/restart.sh to rebuild and restart it! It can take 30 seconds or more, but this way you can test out any changes directly. Furthermore, web.log and frontend.log has the live container logs from podman.
+The docker compose file is running on the host, you're connected to a podman container, but with host networking so you can access the running servers. The server is also set up so you can execute ./restart.sh to rebuild and restart it! It can take 30 seconds or more, but this way you can test out any changes directly. Furthermore, web.log and frontend.log has the live container logs from podman.
 
 - **Backend**: backend directory with Djanga, 'web' container.
 - **Frontend**: frontend directorp with svelte.
 
-IMPORTANT: *Never* kill a process without asking permission first.
+IMPORTANT: *Never* kill a process you have started.
 You risk stopping critical services or Claude Code by accident.
+Instead, if there's a risk a process won't finish you should execute it with a timeout.
 
 ## Quick Development Testing Workflow
   After adding new functionality, follow these steps to keep everything working:
@@ -27,7 +28,7 @@ You risk stopping critical services or Claude Code by accident.
 le)
   3. Selenium E2E Tests (After login/auth/UI changes)
   cd /workspace/check-ins/backend
-  uv run python test_selenium_login.py
+  uv run python test_auth.py
   - also add new E2E tests if relevant and run all selenium test files.
   4. Fix Any Errors
   - Backend: Check /workspace/check-ins/web.log

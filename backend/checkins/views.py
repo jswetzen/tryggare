@@ -126,6 +126,14 @@ class CheckInRecordViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=["post"])
     def check_out(self, request, pk=None):
         """Check out a child from a session"""
+        # Debug logging
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.warning(f"CHECK_OUT DEBUG - User: {request.user}, Authenticated: {request.user.is_authenticated}")
+        logger.warning(f"CHECK_OUT DEBUG - Method: {request.method}, PK: {pk}")
+        logger.warning(f"CHECK_OUT DEBUG - Headers: {dict(request.headers)}")
+        logger.warning(f"CHECK_OUT DEBUG - Cookies: {request.COOKIES}")
+
         record = self.get_object()
 
         if record.check_out_time:
