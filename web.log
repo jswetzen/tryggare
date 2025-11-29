@@ -17333,3 +17333,47 @@
 2025-11-29T16:26:52.484808717+00:00 stdout F 10.89.1.4:41576 - - [29/Nov/2025:16:26:52] "GET /api/sessions/active/" 200 262
 2025-11-29T16:26:54.629674317+00:00 stdout F 10.89.1.4:41576 - - [29/Nov/2025:16:26:54] "GET /_app/immutable/chunks/bCDIs5a5.js" 200 2513
 2025-11-29T16:26:56.844245009+00:00 stdout F 10.89.1.4:41608 - - [29/Nov/2025:16:26:56] "WSDISCONNECT /ws/checkins/" - -
+2025-11-29T18:23:41.545778941+00:00 stderr F 2025-11-29 18:23:41,545 INFO     Killed 1 pending application instances
+2025-11-29T18:23:41.546449708+00:00 stdout F 10.89.1.4:56196 - - [29/Nov/2025:18:23:41] "WSDISCONNECT /ws/checkins/" - -
+2025-11-29T18:23:44.800843615+00:00 stdout F Collecting static files...
+2025-11-29T18:23:45.110264064+00:00 stderr F Downloading ruff (13.3MiB)
+2025-11-29T18:23:45.567261211+00:00 stderr F  Downloaded ruff
+2025-11-29T18:23:45.607794453+00:00 stderr F Installed 10 packages in 40ms
+2025-11-29T18:23:47.631288005+00:00 stdout F 
+2025-11-29T18:23:47.631288005+00:00 stdout F 163 static files copied to '/app/staticfiles', 469 post-processed.
+2025-11-29T18:23:47.700055041+00:00 stdout F Running migrations...
+2025-11-29T18:23:48.503614254+00:00 stdout F Operations to perform:
+2025-11-29T18:23:48.503614254+00:00 stdout F   Apply all migrations: accounts, admin, auth, checkins, contenttypes, events, families, sessions
+2025-11-29T18:23:48.511562080+00:00 stdout F Running migrations:
+2025-11-29T18:23:48.511562080+00:00 stdout F   No migrations to apply.
+2025-11-29T18:23:48.517384565+00:00 stdout F   Your models in app(s): 'checkins', 'events', 'families' have changes that are not yet reflected in a migration, and so won't be applied.
+2025-11-29T18:23:48.517384565+00:00 stdout F   Run 'manage.py makemigrations' to make new migrations, and then re-run 'manage.py migrate' to apply them.
+2025-11-29T18:23:48.616850156+00:00 stdout F Starting daphne...
+2025-11-29T18:23:49.874415672+00:00 stderr F 2025-11-29 18:23:49,874 INFO     Starting server at tcp:port=8000:interface=0.0.0.0
+2025-11-29T18:23:49.874625051+00:00 stderr F 2025-11-29 18:23:49,874 INFO     HTTP/2 support not enabled (install the http2 and tls Twisted extras)
+2025-11-29T18:23:49.874740507+00:00 stderr F 2025-11-29 18:23:49,874 INFO     Configuring endpoint tcp:port=8000:interface=0.0.0.0
+2025-11-29T18:23:49.875014541+00:00 stderr F 2025-11-29 18:23:49,874 INFO     Listening on TCP address 0.0.0.0:8000
+2025-11-29T18:23:49.895693396+00:00 stdout F 10.89.1.4:33420 - - [29/Nov/2025:18:23:49] "WSCONNECTING /ws/checkins/" - -
+2025-11-29T18:23:50.119411181+00:00 stdout F 10.89.1.4:33420 - - [29/Nov/2025:18:23:50] "WSCONNECT /ws/checkins/" - -
+2025-11-29T18:24:15.903809628+00:00 stderr F 2025-11-29 18:24:15,903 INFO     Killed 1 pending application instances
+2025-11-29T18:24:15.904370657+00:00 stdout F 10.89.1.4:33420 - - [29/Nov/2025:18:24:15] "WSDISCONNECT /ws/checkins/" - -
+2025-11-29T18:24:18.831415015+00:00 stdout F Collecting static files...
+2025-11-29T18:24:19.115579935+00:00 stderr F Downloading ruff (13.3MiB)
+2025-11-29T18:24:19.578810454+00:00 stderr F  Downloaded ruff
+2025-11-29T18:24:19.630804674+00:00 stderr F Installed 10 packages in 51ms
+2025-11-29T18:24:21.706787590+00:00 stdout F 
+2025-11-29T18:24:21.706787590+00:00 stdout F 163 static files copied to '/app/staticfiles', 469 post-processed.
+2025-11-29T18:24:21.769310779+00:00 stdout F Running migrations...
+2025-11-29T18:24:22.559935235+00:00 stdout F Operations to perform:
+2025-11-29T18:24:22.559935235+00:00 stdout F   Apply all migrations: accounts, admin, auth, checkins, contenttypes, events, families, sessions
+2025-11-29T18:24:22.567410696+00:00 stdout F Running migrations:
+2025-11-29T18:24:22.567410696+00:00 stdout F   No migrations to apply.
+2025-11-29T18:24:22.573325175+00:00 stdout F   Your models in app(s): 'checkins', 'events', 'families' have changes that are not yet reflected in a migration, and so won't be applied.
+2025-11-29T18:24:22.573325175+00:00 stdout F   Run 'manage.py makemigrations' to make new migrations, and then re-run 'manage.py migrate' to apply them.
+2025-11-29T18:24:22.662440742+00:00 stdout F Starting daphne...
+2025-11-29T18:24:23.927382126+00:00 stderr F 2025-11-29 18:24:23,927 INFO     Starting server at tcp:port=8000:interface=0.0.0.0
+2025-11-29T18:24:23.927622975+00:00 stderr F 2025-11-29 18:24:23,927 INFO     HTTP/2 support not enabled (install the http2 and tls Twisted extras)
+2025-11-29T18:24:23.927764574+00:00 stderr F 2025-11-29 18:24:23,927 INFO     Configuring endpoint tcp:port=8000:interface=0.0.0.0
+2025-11-29T18:24:23.928133727+00:00 stderr F 2025-11-29 18:24:23,928 INFO     Listening on TCP address 0.0.0.0:8000
+2025-11-29T18:24:25.449411929+00:00 stdout F 10.89.1.4:38378 - - [29/Nov/2025:18:24:25] "WSCONNECTING /ws/checkins/" - -
+2025-11-29T18:24:25.680414951+00:00 stdout F 10.89.1.4:38378 - - [29/Nov/2025:18:24:25] "WSCONNECT /ws/checkins/" - -
