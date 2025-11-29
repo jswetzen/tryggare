@@ -4,36 +4,64 @@ Update IMPLEMENTATION_PLAN.md to check off items that are done. Also keep CURREN
 
 ## Development Environment
 
-The docker compose file is running on the host, you're connected to a podman container, but with host networking so you can access the running servers. The server is also set up so you can execute ./restart.sh to rebuild and restart it! It can take 30 seconds or more, but this way you can test out any changes directly. Furthermore, web.log and frontend.log has the live container logs from podman.
+The docker compose file is running on the host, you're connected to a podman container, but with host networking so you can access the running servers. The server is set up to watch for changes to `restart.txt` - execute `./restart.sh` to trigger a rebuild and restart. It can take 30 seconds or more, but this way you can test out changes directly. The live container logs from podman are available in `web.log` and `frontend.log`.
 
-- **Backend**: backend directory with Djanga, 'web' container.
-- **Frontend**: frontend directorp with svelte.
+**Restart Mechanism**:
+- `./restart.sh` touches `restart.txt`
+- Podman containers detect the file change and restart
+- Check `web.log` for "Listening at" to verify restart completed
+- **Production containers** (`docker-compose.prod.yml`) do NOT use this mechanism - they require manual rebuild
+
+- **Backend**: backend directory with Django, 'web' container
+- **Frontend**: frontend directory with SvelteKit
 
 IMPORTANT: *Never* kill a process you have started.
 You risk stopping critical services or Claude Code by accident.
 Instead, if there's a risk a process won't finish you should execute it with a timeout.
 
 ## Quick Development Testing Workflow
-  After adding new functionality, follow these steps to keep everything working:
-  1. Backend Changes
-  cd /workspace/check-ins/backend
-### If models changed
-  uv run python manage.py makemigrations
-  uv run python manage.py migrate
-### Run quick verification
-  uv run python verify.py
-  2. Frontend Changes
-  - Manually test the changed UI flows
-  - Verify i18n works (check both English and Swedish if applicab
-le)
-  3. Selenium E2E Tests (After login/auth/UI changes)
-  cd /workspace/check-ins/backend
-  uv run python test_auth.py
-  - also add new E2E tests if relevant and run all selenium test files.
-  4. Fix Any Errors
-  - Backend: Check /workspace/check-ins/web.log
-  - Frontend: Check /workspace/check-ins/frontend.log
-  - Selenium: Check test output for specific failures
+
+After adding new functionality, follow these steps to keep everything working:
+
+1. **Backend Changes**
+   ```bash
+   cd /workspace/check-ins/backend
+   # If models changed
+   uv run python manage.py makemigrations
+   uv run python manage.py migrate
+   # Run quick verification
+   uv run python verify.py
+   # Restart and verify
+   cd /workspace/check-ins
+   ./restart.sh
+   sleep 30
+   tail -n 20 web.log | grep "Listening"
+   ```
+
+2. **Frontend Changes**
+   ```bash
+   # Restart server
+   ./restart.sh
+   sleep 30
+   tail -n 20 frontend.log | grep "built"
+   # Manually test the changed UI flows
+   # Verify i18n works (check both English and Swedish if applicable)
+   ```
+
+3. **Selenium E2E Tests** (After login/auth/UI changes)
+   ```bash
+   cd /workspace/check-ins/backend
+   uv run python test_selenium_full_flows.py
+   # Also run test_auth.py if auth-related
+   uv run python test_auth.py
+   ```
+
+4. **Fix Any Errors**
+   - Backend: Check `/workspace/check-ins/web.log`
+   - Frontend: Check `/workspace/check-ins/frontend.log`
+   - Selenium: Check test output and screenshots in `/tmp/`
+
+**For comprehensive testing workflows, see [VERIFICATION_GUIDE.md](./VERIFICATION_GUIDE.md)**
 
 ## Task Completion Checklist
 

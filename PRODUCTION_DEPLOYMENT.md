@@ -2,6 +2,8 @@
 
 This guide covers deploying the Conference Child Management System using **Static Build Served by Django** - where Django serves both the API and the built SvelteKit frontend as static files from a single port (8000).
 
+**Note**: This guide is also used for **local "production-style" testing** - running the production configuration locally in Podman containers (not on a remote server). The setup at `docker-compose.prod.yml` runs on `localhost:8080` for testing purposes.
+
 ## Quick Start
 
 ```bash
@@ -21,6 +23,8 @@ docker-compose -f docker-compose.prod.yml exec web uv run python manage.py creat
 ```
 
 **Note**: Production setup runs on port **8080** (not 8000) so you can run dev servers alongside it.
+
+**Local Testing**: This production configuration is often run locally for testing. See [VERIFICATION_GUIDE.md](./VERIFICATION_GUIDE.md) for comprehensive testing workflows.
 
 For detailed instructions including reverse proxy setup, see sections below.
 

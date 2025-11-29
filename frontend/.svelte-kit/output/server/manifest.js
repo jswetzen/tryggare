@@ -10,17 +10,17 @@ return {
 	assets: new Set([]),
 	mimeTypes: {},
 	_: {
-		client: {start:"_app/immutable/entry/start.CukmqLAI.js",app:"_app/immutable/entry/app.D22Ig4bH.js",imports:["_app/immutable/entry/start.CukmqLAI.js","_app/immutable/chunks/J08drevD.js","_app/immutable/chunks/CNMrB2ks.js","_app/immutable/chunks/B7s-rZmo.js","_app/immutable/chunks/Ba3sptyn.js","_app/immutable/chunks/CfLHk2GV.js","_app/immutable/entry/app.D22Ig4bH.js","_app/immutable/chunks/jKjWACjA.js","_app/immutable/chunks/CNMrB2ks.js","_app/immutable/chunks/BrR-DdPc.js","_app/immutable/chunks/CfLHk2GV.js","_app/immutable/chunks/BaRHjNmB.js","_app/immutable/chunks/B7s-rZmo.js","_app/immutable/chunks/CuE6rR82.js"],stylesheets:[],fonts:[],uses_env_dynamic_public:false},
+		client: {start:"_app/immutable/entry/start.muNzoEOq.js",app:"_app/immutable/entry/app.BVOhBJfc.js",imports:["_app/immutable/entry/start.muNzoEOq.js","_app/immutable/chunks/CgIQ9ZAD.js","_app/immutable/chunks/BNFVY8TM.js","_app/immutable/chunks/DIeogL5L.js","_app/immutable/chunks/DqQmuhIe.js","_app/immutable/chunks/BXecR4_q.js","_app/immutable/chunks/DF1AgNLx.js","_app/immutable/entry/app.BVOhBJfc.js","_app/immutable/chunks/jKjWACjA.js","_app/immutable/chunks/BNFVY8TM.js","_app/immutable/chunks/DIeogL5L.js","_app/immutable/chunks/DgW1FCZf.js","_app/immutable/chunks/CWj6FrbW.js","_app/immutable/chunks/DF1AgNLx.js","_app/immutable/chunks/CrQ9bFLf.js","_app/immutable/chunks/DqQmuhIe.js","_app/immutable/chunks/C6yParRf.js"],stylesheets:[],fonts:[],uses_env_dynamic_public:false},
 		nodes: [
 			__memo(() => import('./nodes/0.js')),
 			__memo(() => import('./nodes/1.js')),
 			__memo(() => import('./nodes/2.js')),
-			__memo(() => import('./nodes/3.js')),
 			__memo(() => import('./nodes/4.js')),
 			__memo(() => import('./nodes/5.js')),
 			__memo(() => import('./nodes/6.js')),
 			__memo(() => import('./nodes/7.js')),
-			__memo(() => import('./nodes/8.js'))
+			__memo(() => import('./nodes/8.js')),
+			__memo(() => import('./nodes/9.js'))
 		],
 		remotes: {
 			
@@ -76,7 +76,7 @@ return {
 				endpoint: null
 			}
 		],
-		prerendered_routes: new Set([]),
+		prerendered_routes: new Set(["/__fallback","/__fallback/__data.json"]),
 		matchers: async () => {
 			
 			return {  };
