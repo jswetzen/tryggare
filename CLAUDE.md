@@ -2,89 +2,71 @@ The Conference Child Management System has a detailed specification in the file 
 
 Update IMPLEMENTATION_PLAN.md to check off items that are done. Also keep CURRENT_TASKS.md up-to-date as you complete items.
 
-## Development Environment
+## Deployment Environments
 
-The docker compose file is running on the host, you're connected to a podman container, but with host networking so you can access the running servers. The server is set up to watch for changes to `restart.txt` - execute `./restart.sh` to trigger a rebuild and restart. It can take 30 seconds or more, but this way you can test out changes directly. The live container logs from podman are available in `web.log` and `frontend.log`.
+**Two deployment modes exist. Determine which is running:**
 
-**Restart Mechanism**:
-- **Recommended**: Use `./verification.sh` for automated restart and verification
-  - Touches `restart.txt` to trigger restart
-  - Waits for restart completion (monitors web.log)
-  - Verifies server health
-  - Optionally runs Selenium tests with `--test` flag
-- **Legacy**: `./restart.sh` touches `restart.txt` (manual verification needed)
-- Podman containers detect the file change and restart
-- **Production containers** (`docker-compose.prod.yml`) do NOT use this mechanism - they require manual rebuild
+### Production Deployment (docker-compose.prod.yml) - **LIKELY CURRENT**
+- **Single container**: Django serves both API and built frontend static files
+- **Access**: `http://localhost:8080` (both frontend and backend)
+- **Database**: PostgreSQL on port 5433
+- **Settings**: `config.settings.prod`
+- **Restart**: Requires manual rebuild: `podman compose -f docker-compose.prod.yml --env-file .env.prod up -d --build`
+- **Testing**: `./verification.sh --no-restart --test` (auto-detects production mode)
 
-- **Backend**: backend directory with Django, 'web' container
-- **Frontend**: frontend directory with SvelteKit
+### Development Environment (docker-compose.yml)
+- **Separate containers**: Frontend (SvelteKit dev server) and Backend (Django)
+- **Access**: Frontend `http://localhost:5173`, Backend `http://localhost:8000`
+- **Database**: PostgreSQL on port 5432
+- **Settings**: `config.settings.local`
+- **Restart**: `./verification.sh` (touches `restart.txt`, waits for reload)
+- **Testing**: `./verification.sh --test`
 
-## Production Deployment
+**How to tell which you're running:**
+```bash
+# Check if production is accessible
+curl -s http://localhost:8080 >/dev/null && echo "✓ Production (8080)" || echo "✗ Not running"
 
-The production deployment uses `docker-compose.prod.yml` (see PRODUCTION_DEPLOYMENT.md for full details):
+# Check if development is accessible
+curl -s http://localhost:5173 >/dev/null && echo "✓ Development (5173)" || echo "✗ Not running"
+```
 
-- **Single container**: Django serves both the API and the built frontend static files
-- **Port mapping**: Container port 8000 is exposed as host port 8080
-- **Access**: Both frontend and backend are accessible at `http://localhost:8080`
-- **Settings**: Uses `config.settings.prod` instead of `config.settings.local`
-- **Database**: Separate production PostgreSQL database on port 5433
-- **Restart**: Production containers do NOT use `restart.txt` - require manual rebuild/restart
-
-**Testing against production**:
-- The verification script automatically detects port 8080 and configures tests appropriately
-- Tests will use production settings and production database when `BACKEND_URL` or `FRONTEND_URL` contains `:8080`
-- Example: `./verification.sh --no-restart --test` (works with production deployment)
+**Backend & Frontend:**
+- **Backend**: `backend/` directory with Django
+- **Frontend**: `frontend/` directory with SvelteKit
+- **Logs**: Available in `web.log` and `frontend.log`
 
 IMPORTANT: *Never* kill a process you have started.
 You risk stopping critical services or Claude Code by accident.
 Instead, if there's a risk a process won't finish you should execute it with a timeout.
 
-## Quick Development Testing Workflow
+## Quick Testing Workflow
 
-After adding new functionality, follow these steps to keep everything working:
+**After making changes:**
 
-1. **Backend Changes**
-   ```bash
-   cd /workspace/check-ins/backend
-   # If models changed
-   uv run python manage.py makemigrations
-   uv run python manage.py migrate
-   # Run quick verification
-   uv run python verify.py
-   # Restart and verify (recommended)
-   cd /workspace/check-ins
-   ./verification.sh
-   # Or restart and run tests
-   ./verification.sh --test
-   ```
+```bash
+# Production deployment (most common)
+./verification.sh --no-restart --test    # Tests only, no restart
+# If you need to rebuild: podman compose -f docker-compose.prod.yml --env-file .env.prod up -d --build
 
-2. **Frontend Changes**
-   ```bash
-   # Restart and verify server (recommended)
-   ./verification.sh
-   # Or restart and run tests
-   ./verification.sh --test
-   # Manually test the changed UI flows
-   # Verify i18n works (check both English and Swedish if applicable)
-   ```
+# Development deployment (if using docker-compose.yml)
+./verification.sh --test                 # Restart + tests
+```
 
-3. **Selenium E2E Tests** (After login/auth/UI changes)
-   ```bash
-   # Run tests without restarting
-   ./verification.sh --no-restart --test
-   # Or run specific test file
-   cd /workspace/check-ins/backend
-   uv run python test_selenium_full_flows.py
-   # Also run test_auth.py if auth-related
-   uv run python test_auth.py
-   ```
+**Backend model changes:**
+```bash
+cd /workspace/check-ins/backend
+uv run python manage.py makemigrations
+uv run python manage.py migrate
+uv run python verify.py  # Quick verification
+```
 
-4. **Fix Any Errors**
-   - Backend: Check `/workspace/check-ins/web.log`
-   - Frontend: Check `/workspace/check-ins/frontend.log`
-   - Selenium: Check test output and screenshots in `/tmp/`
+**Debugging failures:**
+- Backend: Check `/workspace/check-ins/web.log`
+- Frontend: Check `/workspace/check-ins/frontend.log`
+- Selenium: Check screenshots in `/tmp/`
 
-**For comprehensive testing workflows, see [VERIFICATION_GUIDE.md](./VERIFICATION_GUIDE.md)**
+**For detailed testing workflows, see [VERIFICATION_GUIDE.md](./VERIFICATION_GUIDE.md)**
 
 ## Task Completion Checklist
 
