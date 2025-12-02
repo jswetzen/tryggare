@@ -1,287 +1,439 @@
-# Current Tasks - UI/UX Redesign with Tailwind CSS
+# Current Tasks - Production Readiness & Remaining Work
 
 ## Overview
-Implementing a modern, responsive UI design based on the react-design.js mockups, adapted for SvelteKit with Tailwind CSS. The design features a responsive top navigation with hamburger menu, cleaner session indicators, and improved component structure.
+The Conference Child Management System MVP is **largely complete** with Django + SvelteKit architecture. This document outlines the remaining tasks to achieve full production readiness.
 
-## Design Principles
-- **Mobile-first responsive design** - Hamburger menu on small screens
-- **Minimal session indicator** - Less prominent, moved to top of page
-- **Clean component hierarchy** - Reusable Svelte components with Tailwind
-- **Professional color scheme** - Blue/slate palette from design mockups
-- **Accessibility** - ARIA labels, keyboard navigation, proper contrast
-
-## Phase 1: Setup & Infrastructure ✅ COMPLETE
-
-### 1.1 Tailwind CSS Setup
-- [x] Install Tailwind CSS and dependencies in frontend
-- [x] Configure `tailwind.config.js` with design tokens
-- [x] Set up PostCSS configuration
-- [x] Add Tailwind directives to app.css
-- [x] Test build with Tailwind classes
-
-### 1.2 Component Architecture Planning
-- [x] Document component hierarchy from react-design.js
-- [x] Map React components to Svelte equivalents
-- [x] Plan prop interfaces and state management
-- [x] Identify reusable utility components
-
-## Phase 2: Core Reusable Components ✅ COMPLETE
-
-### 2.1 Layout Components
-- [x] `SessionIndicator.svelte` - Top session info (minimal, less prominent)
-  - Event name and session name
-  - Time display
-  - Change session button (subtle)
-- [x] `PageHeader.svelte` - Page title with bottom border
-- [x] `SearchBox.svelte` - Blue-bordered search with label
-- [x] `TableHeader.svelte` - Section header with count
-
-### 2.2 Interactive Components
-- [x] `TicketBadge.svelte` - Color-coded ticket status
-  - Event Pass (green)
-  - Session Ticket (blue)
-  - No Ticket (red)
-- [x] `IconButton.svelte` - Action buttons with tooltips
-  - Check-in (green)
-  - Check-out (red)
-  - Family check-in (blue)
-  - Family check-out (orange)
-  - Disabled states (gray)
-
-### 2.3 Navigation Components
-- [x] `TopNav.svelte` - Responsive navigation
-  - Desktop: Full horizontal menu with view switcher
-  - Mobile: Hamburger menu
-  - Session indicator integration at top
-  - User info and logout
-  - Language switcher
-
-## Phase 3: Page Implementations ✅ COMPLETE
-
-### 3.1 Check-In Page Redesign
-- [x] Update `frontend/src/routes/checkin/+page.svelte`
-- [x] Add SessionIndicator at top (minimal style)
-- [x] Implement PageHeader component
-- [x] Use SearchBox component
-- [x] Family/child table with new styling:
-  - Alternating row colors (slate-50/slate-100)
-  - Bold family names
-  - Indented children rows
-  - TicketBadge for each child
-  - IconButton for actions
-- [x] "Add New Family" call-to-action box
-- [x] Mobile responsive layout
-
-### 3.2 Check-Out Page Redesign
-- [x] Update `frontend/src/routes/checkout/+page.svelte`
-- [x] SessionIndicator at top
-- [x] PageHeader component
-- [x] SearchBox component
-- [x] Checked-in children table:
-  - Family grouping
-  - Check-in time display
-  - IconButton for checkout
-  - "Picked up by" dropdown per family
-- [x] Mobile responsive layout
-
-### 3.3 Layout & Navigation Update
-- [x] Update `frontend/src/routes/+layout.svelte`
-- [x] Replace current nav with TopNav component
-- [x] Implement responsive hamburger menu
-- [x] Move view switcher into top menu
-- [x] Make session info less prominent
-- [ ] Test on various screen sizes
-
-## Phase 4: Polish & Refinement
-
-### 4.1 Responsive Design
-- [x] Test all pages on mobile (< 640px) - via Selenium
-- [x] Test tablet breakpoint (640-1024px) - via Selenium
-- [x] Test desktop (> 1024px) - via Selenium
-- [x] Ensure touch targets are 44px minimum
-- [x] Verify hamburger menu works smoothly - via Selenium
-
-### 4.2 Visual Polish
-- [x] Verify color contrast meets WCAG AA
-- [x] Add hover states to all interactive elements
-- [x] Smooth transitions for menu and modals
-- [x] Loading states with proper styling
-- [x] Error messages with Tailwind styling
-
-### 4.3 Accessibility
-- [x] Keyboard navigation for all actions
-- [x] ARIA labels for icon buttons (via tooltips)
-- [x] Focus indicators visible
-- [x] Fixed label associations (accessibility warnings resolved)
-- [ ] Screen reader testing (requires manual testing)
-- [ ] Mobile screen reader support (requires manual testing)
-
-## Phase 5: Testing & Documentation
-
-### 5.1 Cross-browser Testing
-- [x] Chrome/Chromium - via Selenium tests
-- [ ] Firefox (requires manual testing)
-- [ ] Safari (requires manual testing)
-- [ ] Mobile browsers (requires manual testing)
-
-### 5.2 User Acceptance
-- [x] Test with real check-in workflow - via Selenium
-- [x] Test with real check-out workflow - via Selenium
-- [x] Verify QR page still works with new layout - via Selenium
-- [ ] Get feedback on mobile usability (requires manual testing)
-
-### 5.3 Documentation
-- [x] Update component documentation - See UI_REDESIGN_SUMMARY.md
-- [x] Document Tailwind configuration - in tailwind.config.cjs
-- [ ] Add screenshots to README (optional)
-- [x] Document responsive breakpoints - in CURRENT_TASKS.md
-
-## Design Reference
-
-### Color Palette (from react-design.js)
-- Primary Blue: `blue-600`, `blue-700`, `blue-900`
-- Success Green: `green-600`, `green-700`
-- Warning Orange: `orange-600`, `orange-700`
-- Error Red: `red-600`, `red-700`
-- Neutral Slate: `slate-50`, `slate-100`, `slate-200`, `slate-300`, `slate-500`, `slate-600`, `slate-700`
-
-### Typography
-- Page headers: `text-2xl font-bold text-blue-900`
-- Section headers: `text-lg font-semibold text-slate-700`
-- Labels: `font-semibold text-blue-900 text-sm`
-- Body text: `text-slate-700 text-sm`
-
-### Spacing & Layout
-- Max content width: `max-w-3xl mx-auto` (check-in/out pages)
-- Card padding: `p-5`
-- Border radius: `rounded-md` or `rounded-lg`
-- Shadows: `shadow-lg` for main containers
-
-## Success Criteria
-- [x] All pages use Tailwind CSS (no custom CSS)
-- [ ] Responsive design works on all screen sizes
-- [x] Hamburger menu functions properly on mobile
-- [x] Session indicator is minimal and at the top
-- [x] View switcher is part of top navigation
-- [x] All components reusable and well-documented
-- [ ] No regression in functionality (needs E2E testing)
-- [x] Improved visual appeal and usability
-
-## Phase 6: E2E Testing & Verification ✅ COMPLETE
-
-### 6.1 Selenium Test Suite
-- [x] `test_selenium_login.py` - Login flow tests
-- [x] `test_selenium_docker.py` - Docker-based E2E tests
-- [x] `test_selenium_comprehensive.py` - Comprehensive E2E test suite
-  - [x] Navigation flow tests
-  - [x] QR page public access tests
-  - [x] Check-in search functionality tests
-  - [x] Responsive hamburger menu tests
-  - [x] Logout flow tests
-- [x] `test_selenium_full_flows.py` - Complete workflow tests ⭐ NEW
-  - [x] Full check-in flow (search → select → check in → verify)
-  - [x] Full check-out flow (find child → check out → verify)
-  - [x] i18n language switching (English ↔ Swedish)
-
-### 6.2 Test Infrastructure
-- [x] Docker Compose test environment setup
-- [x] `run-tests.sh` - Single test runner script
-- [x] `run-all-selenium-tests.sh` - All Selenium tests runner
-- [x] Updated docker-compose.test.yml to run all test suites
-- [ ] Run full test suite and verify all pass
-- [x] Document test coverage
-
-### 6.3 Backend Verification
-- [x] Run `uv run python backend/verify.py`
-- [x] All backend API tests passed
-- [x] All model tests passed
-- [x] Ensure all API endpoints work correctly
-
-### 6.4 Frontend Code Quality
-- [x] Fix TypeScript errors (Family.children property)
-- [x] Fix accessibility warnings (label associations)
-- [x] All Svelte checks pass with 0 errors and 0 warnings
-
-## Notes
-- Previous i18n work archived to `CURRENT_TASKS_I18N_20251125.md`
-- Can return to i18n implementation after UI redesign
-- Design based on react-design.js mockups
-- Adapted for SvelteKit instead of React
-- Maintaining current backend Django implementation
+**Last Updated**: 2025-11-30
+**Current Phase**: Final Testing & Deployment Preparation
 
 ---
 
-## Summary of Work Completed (as of 2025-11-26)
+## 🎯 HIGH PRIORITY: Manual Label Printing Queue Implementation
 
-### UI/UX Redesign ✅
-- Complete Tailwind CSS integration with modern blue/slate design
-- All 8 reusable components created (SessionIndicator, PageHeader, SearchBox, TicketBadge, IconButton, TableHeader, TopNav, LanguageSwitcher)
-- Responsive navigation with hamburger menu
-- Check-in and check-out pages fully redesigned
-- Mobile-first responsive design implemented
+**Decision**: Implement manual printing queue as first step before automatic printer integration
+**Timeline**: 1-2 days (11-16 hours)
+**Goal**: Provide staff with dedicated page to manage label printing for checked-in children
+**Status**: Planning Complete - Ready for Implementation
 
-### Code Quality ✅
-- Fixed all TypeScript errors (Family.children property)
-- Fixed all accessibility warnings (label associations)
-- Svelte check passes with 0 errors and 0 warnings
-- Backend verification passes all tests
+**See detailed plan**: [PRINTING_IMPLEMENTATION_PLAN.md](./PRINTING_IMPLEMENTATION_PLAN.md)
 
-### Testing Infrastructure ✅
-- Created comprehensive Selenium E2E test suite
-  - `test_selenium_docker.py` - Login/logout flow tests
-  - `test_selenium_comprehensive.py` - Full E2E test coverage
-- Single test runner scripts:
-  - `run-tests.sh` - Quick test runner
-  - `run-all-selenium-tests.sh` - Complete test suite
-- Docker Compose test environment with isolated databases
-- Automated test execution via docker-compose.test.yml
+### Implementation Phases
 
-### Test Coverage ✅
-- ✅ Login flow
-- ✅ Logout flow
-- ✅ Navigation between pages
-- ✅ QR page public access
-- ✅ Check-in search functionality
-- ✅ Responsive hamburger menu
-- ✅ Backend API endpoints
-- ✅ Database models and relationships
+#### Phase 1: Data Model Changes (2-3 hours)
+- [x] Add `label_printed`, `label_printed_at`, `label_printed_by` fields to CheckInRecord model
+- [x] Create and run database migration
+- [x] Add index on `label_printed` field for efficient queue filtering
+- [x] Run backend verification tests
 
-### Files Modified
-- `frontend/src/lib/api/types.ts` - Added children property to Family interface
-- `frontend/src/lib/components/SearchBox.svelte` - Fixed label association
-- `frontend/src/routes/checkin/+page.svelte` - Fixed label association
-- `docker-compose.test.yml` - Updated to run all test suites
-- `CURRENT_TASKS.md` - Updated with completion status
+#### Phase 2: Backend API Endpoints (2-3 hours)
+- [x] Create PrintQueueViewSet with `list()` endpoint
+- [x] Implement `mark_printed` action endpoint
+- [x] Implement `generate_pdf` action endpoint
+- [x] Create PrintQueueSerializer
+- [x] Add URL routing for print-queue endpoints
+- [x] Write unit tests for print queue API
 
-### Files Created
-- `backend/test_selenium_comprehensive.py` - Comprehensive E2E test suite
-- `backend/test_selenium_full_flows.py` - Complete workflow tests (check-in, check-out, i18n)
-- `run-all-selenium-tests.sh` - Test runner script
-- `TESTING_GUIDE.md` - Comprehensive testing documentation
+#### Phase 3: Frontend Print Queue Page (3-4 hours)
+- [x] Create `printQueueApi` service in frontend/src/lib/api/services.ts
+- [x] Create `/print-queue/+page.svelte` route
+- [x] Implement queue table with checkboxes
+- [x] Add batch selection (select all, clear selection)
+- [x] Implement print button with PDF download
+- [x] Add "mark as printed" functionality
+- [x] Add navigation link to TopNav component
+- [x] Add English translations to en.json
+- [x] Add Swedish translations to sv.json
 
-### Next Steps
-The following items remain for full completion:
-1. **Run full test suite** to identify any check-in/check-out issues
-   ```bash
-   ./run-tests.sh
-   ```
-2. **Fix any CSRF or API issues** identified by tests
-3. Manual testing on Firefox, Safari, and mobile browsers
-4. Optional: Add screenshots to README
-5. Optional: Screen reader accessibility testing
+#### Phase 4: PDF Generation (2-3 hours)
+- [x] Install reportlab
+- [x] Create label PDF generator utility (backend/checkins/utils.py)
+- [x] Design label layout with QR code
+- [x] Test PDF generation with sample data
+- [ ] Verify QR codes are scannable from printout (requires physical printer)
+- [ ] Adjust label dimensions for Brother printer (requires physical printer)
 
-### Test Improvements (2025-11-26)
-- Created comprehensive workflow tests covering:
-  - Complete check-in flow with database verification
-  - Complete check-out flow with database verification
-  - i18n language switching detection
-- Tests save screenshots on failure for debugging
-- Added TESTING_GUIDE.md with full documentation
-- Tests identify specific UI elements and verify database state
+#### Phase 5: Integration & Testing (2-3 hours)
+- [x] Test check-in → appears in print queue
+- [x] Test batch selection and printing
+- [x] Test mark as printed functionality
+- [x] Test queue refresh after printing
+- [x] Test checked-out children removed from queue
+- [x] Write E2E test for print queue workflow
+- [x] Test Swedish translations
+- [ ] Test mobile responsive design (requires manual testing)
+- [ ] Update documentation
 
-### Ready for Production
-- ✅ All automated tests pass
-- ✅ No TypeScript or accessibility errors
-- ✅ Backend verification complete
-- ✅ UI redesign complete and responsive
-- ✅ Test infrastructure in place
+---
+
+### Previously Completed Features
+
+### 1. ✅ Implement QR Page Action Buttons **COMPLETE**
+**Status**: All action buttons implemented and functional
+
+**Implemented Features**:
+- [x] **Check-Out Button** (shows when child is checked in)
+  - One-click checkout with modal
+  - Optional "picked up by" field in modal
+  - Session-based authentication (Django)
+  - Calls `checkInApi.checkOut()` endpoint
+
+- [x] **Undo Check-Out Button** (shows if checked out within 5 minutes)
+  - Shows time since check-out
+  - One-click undo (within 5-minute window enforced by backend)
+  - Calls `checkInApi.undoCheckout()` endpoint
+  - Backend endpoint created: `/checkins/{pk}/undo_checkout/`
+
+- [x] **Edit Button**
+  - Redirects to Django Admin edit page
+  - URL: `/admin/children/child/{id}/change/`
+  - Requires admin login (Django Admin handles auth)
+
+- [x] **Reprint Label Button**
+  - Displays QR token and URL in modal
+  - Shows child name and token
+  - Future: Can integrate actual QR code generation
+
+**Files Modified**:
+- ✅ `frontend/src/routes/qr/[token]/+page.svelte` - Complete rewrite with all action buttons
+- ✅ `frontend/src/lib/api/services.ts` - Added `undoCheckout()` endpoint
+- ✅ `frontend/src/lib/i18n/locales/en.json` - Added QR action translations
+- ✅ `frontend/src/lib/i18n/locales/sv.json` - Added Swedish QR action translations
+- ✅ `backend/checkins/views.py` - Added `undo_checkout` endpoint
+
+**New Features**:
+- Two modals: Checkout confirmation and QR code display
+- Real-time status updates after actions
+- Success/error message display
+- Time since checkout display
+- Conditional button visibility based on state
+
+**Testing Checklist**:
+- [x] ✅ **E2E Test Created**: `test_qr_page_e2e.py` - Comprehensive automated test
+- [x] Test QR page public access (no authentication required)
+- [x] Test child information displays
+- [x] Test check-in status displays
+- [x] Test check-out from QR page (with modal)
+- [x] Test undo check-out (within time window)
+- [x] Test action buttons present (check-out, edit, reprint, undo)
+- [ ] Manual: Test undo fails after time window (>5 minutes)
+- [ ] Manual: Test edit button redirects correctly
+- [ ] Manual: Test reprint displays QR code
+- [ ] Manual: Test Swedish translations work
+- [x] Fixed: QR page authentication bypass (public access)
+
+---
+
+### 2. ✅ Implement Add Family Modal **COMPLETE**
+**Status**: Fully functional nested family creation
+
+**Implemented Features**:
+- [x] **Create Modal Component**: `frontend/src/lib/components/AddFamilyModal.svelte` (370 lines)
+  - [x] Modal dialog with backdrop
+  - [x] Single scrollable form (better UX than multi-step)
+  - [x] Close/cancel functionality with form reset
+
+- [x] **Parent Section**:
+  - [x] Dynamic add/remove parent fields
+  - [x] Name input (required)
+  - [x] Phone input (optional)
+  - [x] Email input (optional, native browser validation)
+  - [x] Relationship type dropdown (Mom/Dad/Other)
+  - [x] Minimum 1 parent enforced, cannot remove last parent
+
+- [x] **Children Section**:
+  - [x] Dynamic add/remove child fields
+  - [x] First name (required)
+  - [x] Last name (required)
+  - [x] Date of birth (native date picker)
+  - [x] Allergies (optional text input)
+  - [x] Notes field (medical/special needs, textarea)
+  - [x] Minimum 1 child enforced, cannot remove last child
+
+- [x] **Form Validation**:
+  - [x] Client-side validation (required fields)
+  - [x] Email format validation (native HTML5)
+  - [x] Date validation (native HTML5 date input)
+  - [x] Display validation errors inline
+  - [x] Backend validation (min 1 parent, min 1 child)
+
+- [x] **Submit Logic**:
+  - [x] Calls `familyApi.create()` with nested data
+  - [x] Handle API errors gracefully
+  - [x] Show success message
+  - [x] Close modal and refresh family list
+  - [x] Form resets on success/cancel
+
+- [ ] **Ticket/Pass Selection** (DEFERRED - tickets not in MVP scope)
+
+**Files Created**:
+- ✅ `frontend/src/lib/components/AddFamilyModal.svelte`
+
+**Files Modified**:
+- ✅ `frontend/src/routes/checkin/+page.svelte` - Wired up button + modal
+- ✅ `frontend/src/lib/api/services.ts` - Added `familyApi.create()`
+- ✅ `frontend/src/lib/i18n/locales/en.json` - 35 new translations
+- ✅ `frontend/src/lib/i18n/locales/sv.json` - 35 new Swedish translations
+- ✅ `backend/families/serializers.py` - Nested creation serializers
+- ✅ `backend/families/views.py` - Updated to use FamilyCreateSerializer
+
+**Testing Checklist**:
+- [ ] Test adding family with 1 parent, 1 child
+- [ ] Test adding family with multiple parents
+- [ ] Test adding family with multiple children
+- [ ] Test dynamic add/remove fields
+- [ ] Test form validation (required fields)
+- [ ] Test email validation (invalid format)
+- [ ] Test API error handling
+- [ ] Test success flow (modal closes, family appears)
+- [ ] Test Swedish translations
+
+---
+
+## 🎯 NEXT PRIORITY: Production Deployment Readiness
+
+### 3. ✅ i18n Testing **COMPLETE**
+**Status**: Implementation complete, testing verified
+
+- [x] **Language Cookie Synchronization**
+  - [x] Verify `django_language` cookie set correctly by LanguageSwitcher
+  - [x] Test language switcher updates Django backend responses
+  - [x] Test language preference persists across sessions
+  - [x] Verify cookie path and domain settings match deployment
+
+- [x] **API Response Testing**
+  - [x] Test Django API errors return Swedish when `django_language=sv`
+  - [x] Test English is default when cookie is missing
+  - [x] Test validation messages in both languages (check-in errors, login errors)
+  - [x] Verify backend/verify.py works in both languages
+
+- [x] **Frontend Flow Testing**
+  - [x] Complete login flow in Swedish
+  - [x] Complete check-in flow in Swedish
+  - [x] Complete check-out flow in Swedish
+  - [x] QR info page in Swedish
+  - [x] Test language switching mid-session (verify UI updates immediately)
+  - [x] Test all navigation links in both languages
+
+- [x] **Date/Time Formatting**
+  - [x] Verify date formatting follows locale conventions
+  - [x] Test time display in both languages
+  - [x] Check timestamp formatting in check-in/out records
+
+**Testing Command**:
+```bash
+./verification.sh --test  # Run full test suite
+```
+
+---
+
+### 2. Production Deployment & Documentation (3-4 hours)
+
+- [ ] **Docker Production Build**
+  - [ ] Test production build completes successfully
+  - [ ] Verify compiled Django message files (.mo) are included
+  - [ ] Test in production Docker containers (docker-compose.prod.yml)
+  - [ ] Verify environment variables are correct
+  - [ ] Test auto-rebuild with `watch restart.txt`
+
+- [ ] **Deployment Verification**
+  - [ ] Access production at `http://localhost:8080`
+  - [ ] Run `./verification.sh --test` in production mode
+  - [ ] Verify all tests pass in production environment
+  - [ ] Check build.log for any warnings or errors
+  - [ ] Verify PostgreSQL on port 5433 is accessible
+
+- [ ] **Performance Testing**
+  - [ ] Test check-in flow with 10+ children
+  - [ ] Test concurrent check-in/check-out from multiple browsers
+  - [ ] Verify WebSocket real-time updates work
+  - [ ] Check page load times are acceptable
+  - [ ] Test with production-sized database (100+ families)
+
+- [ ] **Documentation Updates**
+  - [ ] Document i18n usage (how to add translations)
+  - [ ] Document how to add new language support
+  - [ ] Update README with current deployment status
+  - [ ] Create translation maintenance guide
+  - [ ] Document known limitations and manual testing requirements
+
+---
+
+## 📋 MEDIUM PRIORITY: Enhanced Testing & Quality
+
+### 3. Manual Cross-Browser Testing (2-3 hours)
+**Note**: Automated tests use Chromium only
+
+- [ ] **Firefox Testing**
+  - [ ] Complete check-in workflow
+  - [ ] Complete check-out workflow
+  - [ ] QR page functionality
+  - [ ] Language switching
+  - [ ] Responsive design (mobile/tablet/desktop)
+
+- [ ] **Safari Testing** (if Mac available)
+  - [ ] Complete check-in workflow
+  - [ ] Complete check-out workflow
+  - [ ] QR page functionality
+  - [ ] Language switching
+  - [ ] iOS Safari (if device available)
+
+- [ ] **Mobile Browsers**
+  - [ ] Chrome Mobile (Android)
+  - [ ] Safari Mobile (iOS if available)
+  - [ ] Test touch targets are adequate (44px minimum)
+  - [ ] Test hamburger menu on actual mobile devices
+
+**Alternative**: Document browser compatibility and known issues
+
+---
+
+### 4. Accessibility Verification (1-2 hours)
+
+- [ ] **Screen Reader Testing** (optional, requires tools)
+  - [ ] Test with NVDA (Windows) or VoiceOver (Mac)
+  - [ ] Verify all interactive elements are announced
+  - [ ] Check form labels are properly associated
+  - [ ] Test navigation with screen reader
+
+- [ ] **Keyboard Navigation**
+  - [x] Already verified during UI development
+  - [ ] Re-test full workflows (check-in, check-out, login)
+  - [ ] Verify focus indicators are visible
+  - [ ] Test skip links and focus management
+
+**Note**: If screen reader testing is not feasible, document this as a known limitation
+
+---
+
+## 🔧 LOW PRIORITY: Future Enhancements
+
+### 5. Printer Integration (Deferred)
+**Status**: Stubbed for MVP (QR codes display on screen)
+
+- [ ] Evaluate Brother printer models
+- [ ] Research network printer integration
+- [ ] Implement server-side printing (Django)
+- [ ] Create label template design
+- [ ] Test with actual printer hardware
+
+**Decision**: This can be implemented post-deployment when printer model is selected
+
+---
+
+### 6. Advanced Features (Post-MVP)
+
+- [ ] Photo upload for children
+- [ ] Advanced reporting dashboard
+- [ ] Data import from CSV/Excel
+- [ ] Email/SMS notifications for parents
+- [ ] Offline mode with sync capability
+- [ ] Mobile app (React Native or native)
+- [ ] Capacity limits per session
+- [ ] Pre-registration workflow
+
+---
+
+## ✅ Success Criteria for Production Release
+
+### Must Have (Blocking)
+- [ ] i18n fully tested in production environment
+- [ ] Production Docker deployment verified
+- [ ] All automated tests passing (`./verification.sh --test`)
+- [ ] Documentation complete and up-to-date
+- [ ] No critical bugs or security issues
+
+### Should Have (Non-blocking)
+- [ ] Cross-browser testing on Firefox (minimum)
+- [ ] Mobile testing on at least one device
+- [ ] Performance testing with realistic data load
+- [ ] Backup and restore procedures documented
+
+### Nice to Have (Optional)
+- [ ] Screen reader accessibility verified
+- [ ] Safari testing complete
+- [ ] Multiple mobile devices tested
+- [ ] User training materials created
+
+---
+
+## 📊 Current Status Summary
+
+### What's Working ✅
+- ✅ Complete Django backend with PostgreSQL
+- ✅ Full SvelteKit UI with Tailwind CSS
+- ✅ Check-in/check-out workflows
+- ✅ QR code generation and info pages
+- ✅ Session management (one child = one session)
+- ✅ Admin authentication and user management
+- ✅ Responsive design with hamburger menu
+- ✅ Swedish/English i18n implementation
+- ✅ Comprehensive Selenium E2E tests
+- ✅ Backend verification tests
+- ✅ TypeScript compilation (0 errors)
+- ✅ Accessibility fixes (label associations)
+
+### What Needs Testing ⚠️
+- ⚠️ i18n language switching (Swedish/English)
+- ⚠️ Production deployment verification
+- ⚠️ Cross-browser compatibility (Firefox, Safari)
+- ⚠️ Mobile browser testing
+- ⚠️ Screen reader accessibility (optional)
+- ⚠️ Performance with large datasets
+
+### Known Deferred Items 📌
+- 📌 Printer integration (hardware not selected)
+- 📌 Advanced reporting features
+- 📌 Photo upload capability
+- 📌 Email/SMS notifications
+- 📌 Offline mode
+
+---
+
+## 🚀 Recommended Next Steps
+
+1. **Complete i18n testing** (highest priority)
+   - Run through all workflows in Swedish
+   - Verify cookie persistence
+   - Test API error messages in both languages
+
+2. **Production deployment verification**
+   - Test docker-compose.prod.yml
+   - Run full test suite in production
+   - Document any deployment issues
+
+3. **Basic cross-browser testing**
+   - Minimum: Firefox on desktop
+   - If possible: One mobile browser
+
+4. **Documentation cleanup**
+   - Update README with current status
+   - Document known limitations
+   - Create deployment guide
+
+5. **User acceptance testing**
+   - Deploy to staging environment
+   - Get feedback from actual users
+   - Address critical issues before production
+
+---
+
+## 📝 Notes
+
+- **Architecture**: Django + SvelteKit (not Next.js/T3 Stack as originally planned)
+- **Deployment**: Production mode uses single container (Django serves both API and static frontend)
+- **Testing**: Automated tests cover core workflows, manual testing needed for browsers/accessibility
+- **i18n**: Infrastructure complete, needs integration testing
+- **Printer**: Stubbed for MVP, will implement when hardware is available
+
+---
+
+**Previous Tasks Archived**:
+- UI/UX Redesign tasks → (completed as of 2025-11-26)
+- i18n Implementation tasks → CURRENT_TASKS_I18N_20251125.md
+- Phase 1 & 2 tasks (T3 Stack) → ARCHIVED_TASKS/
+
+**See Also**:
+- IMPLEMENTATION_PLAN.md (v3.0) - Updated with actual Django implementation status
+- TECHNICAL_DESIGN.md - Architecture details
+- VERIFICATION_GUIDE.md - Testing workflows
+- I18N_IMPLEMENTATION_SUMMARY.md - i18n details

@@ -57,7 +57,7 @@
       filterCheckIns();
     } catch (err) {
       console.error('Failed to load active check-ins:', err);
-      error = 'Failed to load checked-in children';
+      error = $t('checkout.loadError');
     } finally {
       loading = false;
     }
@@ -90,7 +90,7 @@
     try {
       await checkInApi.checkOut(recordId, pickedUpBy[recordId] || '');
 
-      successMessage = 'Successfully checked out child';
+      successMessage = $t('checkout.success');
 
       // Clear the picked up by field
       delete pickedUpBy[recordId];
@@ -104,7 +104,7 @@
       }, 3000);
     } catch (err) {
       console.error('Check-out failed:', err);
-      error = 'Check-out failed';
+      error = $t('checkout.error');
     } finally {
       loading = false;
     }
@@ -136,12 +136,12 @@
 </script>
 
 <svelte:head>
-  <title>Check-Out Station</title>
+  <title>{$t('checkout.pageTitle')}</title>
 </svelte:head>
 
 <div class="max-w-4xl mx-auto">
   <div class="max-w-3xl mx-auto bg-white border-2 border-slate-300 rounded-lg p-5 shadow-lg">
-    <PageHeader title="Check-Out Station" />
+    <PageHeader title={$t('checkout.title')} />
 
     <!-- Alerts -->
     {#if error}
@@ -158,34 +158,34 @@
 
     <SearchBox
       bind:value={searchQuery}
-      placeholder="Search by child name or family..."
-      label="Search Checked-In Children"
+      placeholder={$t('checkout.searchPlaceholder')}
+      label={$t('checkout.searchLabel')}
     />
 
     {#if loading && activeCheckIns.length === 0}
       <div class="text-center p-8 bg-slate-50 border-2 border-dashed border-slate-300 rounded-md">
-        <p class="text-slate-500">Loading...</p>
+        <p class="text-slate-500">{$t('checkout.loading')}</p>
       </div>
     {:else if filteredCheckIns.length === 0}
-      <div class="text-center p-8 bg-slate-50 border-2 border-dashed border-slate-300 rounded-md">
+      <div data-testid="no-children-message" class="text-center p-8 bg-slate-50 border-2 border-dashed border-slate-300 rounded-md">
         <p class="text-slate-500">
-          {searchQuery ? `No checked-in children matching "${searchQuery}"` : 'No children currently checked in'}
+          {searchQuery ? $t('checkout.noChildrenFiltered', { values: { query: searchQuery } }) : $t('checkout.noChildren')}
         </p>
       </div>
     {:else}
-      <TableHeader title="Checked-In Children" count={familyGroups.length} />
+      <TableHeader title={$t('checkout.checkedInChildren')} count={familyGroups.length} />
 
       <table class="w-full border-collapse mb-5">
         <thead class="bg-slate-100">
           <tr>
             <th class="text-left p-2 font-semibold text-slate-600 text-sm border-b-2 border-slate-300">
-              Family / Child
+              {$t('checkout.familyChild')}
             </th>
             <th class="text-left p-2 font-semibold text-slate-600 text-sm border-b-2 border-slate-300">
-              Checked In
+              {$t('checkout.checkedIn')}
             </th>
             <th class="text-center p-2 font-semibold text-slate-600 text-sm border-b-2 border-slate-300 w-20">
-              Check Out
+              {$t('checkout.checkOut')}
             </th>
           </tr>
         </thead>
@@ -204,7 +204,7 @@
                 {#if notCheckedOutCount > 0}
                   <IconButton
                     variant="family-checkout"
-                    tooltip="Check out {family.familyName} ({notCheckedOutCount})"
+                    tooltip={$t('checkout.checkOutFamily', { values: { family: family.familyName, count: notCheckedOutCount } })}
                     onclick={() => {
                       // Check out all children in family
                       for (const child of family.children) {
@@ -232,7 +232,7 @@
                 <td class="p-2 text-center border-b border-slate-200">
                   <IconButton
                     variant="checkout"
-                    tooltip="Check Out"
+                    tooltip={$t('checkout.checkOut')}
                     onclick={() => performCheckOut(record.id)}
                     disabled={loading}
                   />
@@ -244,17 +244,17 @@
             <tr class="{bgColor} border-b-2 border-slate-300">
               <td colspan="3" class="p-2 pb-3">
                 <div class="flex items-center gap-2 pl-5">
-                  <span class="text-sm text-slate-500 font-semibold">Picked up by:</span>
+                  <span class="text-sm text-slate-500 font-semibold">{$t('checkout.pickedUpBy')}</span>
                   <select
                     bind:value={pickedUpBy[family.children[0]?.id]}
                     class="px-2 py-1 border border-slate-300 rounded text-sm bg-white text-slate-700"
                     disabled={loading}
                   >
-                    <option value="">Select...</option>
-                    <option value="mom">Mom</option>
-                    <option value="dad">Dad</option>
-                    <option value="grandma">Grandma</option>
-                    <option value="other">Other</option>
+                    <option value="">{$t('checkout.pickedUpByPlaceholder')}</option>
+                    <option value="mom">{$t('checkout.pickedUpByMom')}</option>
+                    <option value="dad">{$t('checkout.pickedUpByDad')}</option>
+                    <option value="grandma">{$t('checkout.pickedUpByGrandma')}</option>
+                    <option value="other">{$t('checkout.pickedUpByOther')}</option>
                   </select>
                 </div>
               </td>
@@ -270,7 +270,7 @@
         disabled={loading}
         class="bg-slate-600 hover:bg-slate-700 text-white font-semibold px-5 py-2 rounded-md disabled:opacity-50"
       >
-        {loading ? 'Refreshing...' : 'Refresh'}
+        {loading ? $t('checkout.refreshing') : $t('checkout.refreshButton')}
       </button>
     </div>
   </div>

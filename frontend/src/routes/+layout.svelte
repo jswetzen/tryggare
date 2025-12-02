@@ -1,7 +1,7 @@
 <script lang="ts">
   import '../app.css';
-  import '$lib/i18n/i18n';
-  import { t } from 'svelte-i18n';
+  import { translationsReady } from '$lib/i18n/i18n';
+  import { isLoading } from 'svelte-i18n';
   import TopNav from '$lib/components/TopNav.svelte';
 
   interface LayoutData {
@@ -11,10 +11,17 @@
   let { data, children }: { data: LayoutData; children: any } = $props();
 </script>
 
-{#if data.user}
-  <TopNav userName={data.user.username} />
-{/if}
+{#if $isLoading}
+  <!-- Show minimal loading state while translations load -->
+  <div class="min-h-screen bg-slate-100 flex items-center justify-center">
+    <div class="text-slate-600">Loading...</div>
+  </div>
+{:else}
+  {#if data.user}
+    <TopNav userName={data.user.username} />
+  {/if}
 
-<main class="min-h-screen bg-slate-100 p-5">
-  {@render children()}
-</main>
+  <main class="min-h-screen bg-slate-100 p-5">
+    {@render children()}
+  </main>
+{/if}

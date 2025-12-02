@@ -47,7 +47,7 @@
     <div class="flex justify-between items-center h-16">
       <!-- Logo/Title -->
       <div class="flex items-center">
-        <h1 class="text-xl font-bold text-blue-900">Check-In System</h1>
+        <h1 class="text-xl font-bold text-blue-900">{$t('nav.title')}</h1>
       </div>
 
       <!-- Desktop Navigation -->
@@ -68,11 +68,19 @@
         >
           {$t('nav.checkout')}
         </a>
+        <a
+          href="/print-queue"
+          class="px-4 py-2 rounded-md font-semibold transition-colors {isActive('/print-queue')
+            ? 'bg-blue-600 text-white'
+            : 'text-slate-700 hover:bg-slate-100'}"
+        >
+          {$t('nav.printQueue')}
+        </a>
 
         <div class="border-l border-slate-300 pl-6 ml-2 flex items-center space-x-4">
           <LanguageSwitcher />
           <span class="text-sm text-slate-600">
-            Welcome, <span class="font-semibold text-blue-900">{userName}</span>
+            {$t('nav.welcomeMobile')}, <span class="font-semibold text-blue-900">{userName}</span>
           </span>
           <button
             onclick={handleLogout}
@@ -90,7 +98,7 @@
           class="inline-flex items-center justify-center p-2 rounded-md text-slate-700 hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-blue-500"
           aria-expanded={mobileMenuOpen}
         >
-          <span class="sr-only">Open main menu</span>
+          <span class="sr-only">{$t('nav.openMenu')}</span>
           {#if !mobileMenuOpen}
             <!-- Hamburger icon -->
             <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -141,6 +149,15 @@
         >
           {$t('nav.checkout')}
         </a>
+        <a
+          href="/print-queue"
+          onclick={closeMobileMenu}
+          class="block px-3 py-2 rounded-md font-semibold {isActive('/print-queue')
+            ? 'bg-blue-600 text-white'
+            : 'text-slate-700 hover:bg-slate-100'}"
+        >
+          {$t('nav.printQueue')}
+        </a>
       </div>
       <div class="pt-4 pb-3 border-t border-slate-200">
         <div class="px-5">
@@ -148,7 +165,7 @@
             <LanguageSwitcher />
           </div>
           <div class="text-sm text-slate-600 mb-2">
-            Logged in as <span class="font-semibold text-blue-900">{userName}</span>
+            {$t('nav.loggedInAs')} <span class="font-semibold text-blue-900">{userName}</span>
           </div>
           <button
             onclick={() => {

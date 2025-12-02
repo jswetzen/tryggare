@@ -12,7 +12,7 @@ from families.models import Child
 from events.models import Session
 
 from .models import AuditLog, CheckInRecord
-from .serializers import AuditLogSerializer, CheckInRecordSerializer
+from .serializers import AuditLogSerializer, CheckInRecordSerializer, PrintQueueSerializer
 
 
 class CheckInRecordViewSet(viewsets.ModelViewSet):
@@ -78,7 +78,10 @@ class CheckInRecordViewSet(viewsets.ModelViewSet):
 
         # Create check-in record
         record = CheckInRecord.objects.create(
-            child=child, session=session, check_in_staff=request.user
+            child=child,
+            session=session,
+            check_in_staff=request.user,
+            label_printed=False
         )
 
         # Update last participation dates
@@ -185,6 +188,66 @@ class CheckInRecordViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(record)
         return Response(serializer.data)
 
+    @action(detail=True, methods=["post"])
+    def undo_checkout(self, request, pk=None):
+        """Undo a recent check-out (within 5 minutes)"""
+        from datetime import timedelta
+
+        record = self.get_object()
+
+        if not record.check_out_time:
+            return Response(
+                {"error": _("Child is not checked out")},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Check if check-out was within the last 5 minutes
+        time_since_checkout = timezone.now() - record.check_out_time
+        if time_since_checkout > timedelta(minutes=5):
+            return Response(
+                {"error": _("Cannot undo - too much time has passed (max 5 minutes)")},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Undo the check-out
+        record.check_out_time = None
+        record.check_out_staff = None
+        record.picked_up_by = ""
+        record.save()
+
+        # Log the action
+        AuditLog.objects.create(
+            user=request.user,
+            action="undo_checkout",
+            entity_type="CheckInRecord",
+            entity_id=str(record.id),
+            details={
+                "child_id": str(record.child.id),
+                "child_name": f"{record.child.first_name} {record.child.last_name}",
+                "session_id": str(record.session.id),
+                "session_name": record.session.name,
+            },
+        )
+
+        # Broadcast undo event via WebSocket
+        channel_layer = get_channel_layer()
+        async_to_sync(channel_layer.group_send)(
+            "checkins_broadcast",
+            {
+                "type": "checkout_undone",
+                "data": {
+                    "record_id": str(record.id),
+                    "child_id": str(record.child.id),
+                    "child_name": f"{record.child.first_name} {record.child.last_name}",
+                    "session_id": str(record.session.id),
+                    "session_name": record.session.name,
+                }
+            }
+        )
+
+        serializer = self.get_serializer(record)
+        return Response(serializer.data)
+
     @action(detail=False, methods=["get"])
     def active(self, request):
         """Get all active check-ins (not checked out yet)"""
@@ -204,3 +267,104 @@ class AuditLogViewSet(viewsets.ReadOnlyModelViewSet):
     permission_classes = [IsAuthenticated]
     filterset_fields = ["user", "action", "entity_type"]
     ordering = ["-timestamp"]
+
+
+class PrintQueueViewSet(viewsets.ReadOnlyModelViewSet):
+    """
+    ViewSet for managing label print queue.
+    Shows all checked-in children who need labels printed.
+    """
+
+    serializer_class = PrintQueueSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        """Get all unprintable check-ins (checked in, not printed, not checked out)"""
+        return CheckInRecord.objects.filter(
+            label_printed=False,
+            check_out_time__isnull=True,  # Still checked in
+        ).select_related(
+            'child',
+            'child__family',
+            'session',
+            'check_in_staff'
+        ).prefetch_related(
+            'child__family__parents'
+        ).order_by('-check_in_time')
+
+    @action(detail=False, methods=['post'])
+    def mark_printed(self, request):
+        """Mark one or more check-ins as printed"""
+        checkin_ids = request.data.get('checkin_ids', [])
+
+        if not checkin_ids:
+            return Response(
+                {'error': _('No check-in IDs provided')},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Update records
+        updated = CheckInRecord.objects.filter(
+            id__in=checkin_ids,
+            check_out_time__isnull=True  # Only if still checked in
+        ).update(
+            label_printed=True,
+            label_printed_at=timezone.now(),
+            label_printed_by=request.user
+        )
+
+        # Log the action
+        for checkin_id in checkin_ids[:updated]:  # Only log actually updated records
+            try:
+                record = CheckInRecord.objects.get(id=checkin_id)
+                AuditLog.objects.create(
+                    user=request.user,
+                    action="label_printed",
+                    entity_type="CheckInRecord",
+                    entity_id=str(checkin_id),
+                    details={
+                        "child_id": str(record.child.id),
+                        "child_name": f"{record.child.first_name} {record.child.last_name}",
+                        "session_id": str(record.session.id),
+                        "session_name": record.session.name,
+                    },
+                )
+            except CheckInRecord.DoesNotExist:
+                pass
+
+        return Response({
+            'message': _(f'{updated} labels marked as printed'),
+            'count': updated
+        })
+
+    @action(detail=False, methods=['get'])
+    def generate_pdf(self, request):
+        """Generate printable PDF of labels"""
+        from django.http import HttpResponse
+        from .utils import generate_label_pdf
+
+        checkin_ids = request.query_params.get('ids', '').split(',')
+        checkin_ids = [cid.strip() for cid in checkin_ids if cid.strip()]
+
+        if not checkin_ids:
+            return Response(
+                {'error': _('No check-in IDs provided')},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        checkins = CheckInRecord.objects.filter(
+            id__in=checkin_ids
+        ).select_related('child', 'session')
+
+        if not checkins.exists():
+            return Response(
+                {'error': _('No check-ins found')},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        # Generate PDF using utility function
+        pdf = generate_label_pdf(checkins)
+
+        response = HttpResponse(pdf, content_type='application/pdf')
+        response['Content-Disposition'] = 'attachment; filename="labels.pdf"'
+        return response

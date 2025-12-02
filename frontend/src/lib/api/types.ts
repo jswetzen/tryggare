@@ -37,6 +37,7 @@ export interface Child {
   medical_conditions?: string;
   special_needs?: string;
   qr_token?: string;
+  parent_names?: string[];  // Array of parent names for QR page
   last_participation_date?: string;
   created_at: string;
   updated_at: string;
@@ -79,6 +80,27 @@ export interface AuditLog {
   entity_id: string;
   details?: Record<string, unknown>;
   timestamp: string;
+}
+
+export interface Parent {
+  id: string;
+  name: string;
+  phone?: string;
+  email?: string;
+  relationship_type: 'MOM' | 'DAD' | 'OTHER';
+}
+
+export interface PrintQueueItem {
+  id: string;
+  child_name: string;
+  child_last_name: string;
+  qr_token: string;
+  session_name: string;
+  check_in_time: string;
+  parents: Parent[];
+  allergies?: string;
+  notes?: string;
+  label_printed: boolean;
 }
 
 // WebSocket message types
