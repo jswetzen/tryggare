@@ -60,8 +60,14 @@ The Conference Child Management System MVP is **largely complete** with Django +
 - [x] Test checked-out children removed from queue
 - [x] Write E2E test for print queue workflow
 - [x] Test Swedish translations
+- [x] Fixed database migration issues (applied to production database)
+- [x] Fixed CheckInRecord creation to explicitly set label_printed field
+- [x] Committed all changes to git
+- [ ] **BLOCKED**: Restart production server to load new code (touch restart.txt or rebuild)
 - [ ] Test mobile responsive design (requires manual testing)
 - [ ] Update documentation
+
+**Current Status**: Code complete and committed. Database migrations applied. Production server needs restart to complete deployment.
 
 ---
 
