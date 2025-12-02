@@ -2,7 +2,7 @@
 	import { onMount } from 'svelte';
 	import { printQueueApi } from '$lib/api/services';
 	import type { PrintQueueItem } from '$lib/api/types';
-	import { t } from '$lib/i18n/i18n';
+	import { t } from 'svelte-i18n';
 
 	let queueItems: PrintQueueItem[] = [];
 	let selectedIds = new Set<string>();
