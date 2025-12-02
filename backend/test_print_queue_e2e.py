@@ -319,3 +319,237 @@ class PrintQueueE2ETest(LiveServerTestCase):
         page_text = self.selenium.page_source
         self.assertIn("No labels need printing", page_text)
         self.assertNotIn("Charlie Doe", page_text)
+
+    def test_individual_print_button(self):
+        """Test individual print button workflow"""
+        # Create unprintable check-in
+        checkin = CheckInRecord.objects.create(
+            child=self.child1,
+            session=self.session,
+            check_in_staff=self.admin_user,
+            label_printed=False,
+        )
+
+        # Login
+        self.login()
+
+        # Navigate to print queue
+        self.selenium.get(f"{self.live_server_url}/print-queue")
+        wait = WebDriverWait(self.selenium, 10)
+
+        # Wait for table to load
+        wait.until(EC.presence_of_element_located((By.TAG_NAME, "table")))
+
+        # Find and click the "Print" button
+        print_button = wait.until(
+            EC.element_to_be_clickable((By.XPATH, "//button[contains(text(), 'Print')]"))
+        )
+
+        # Store current window handle
+        main_window = self.selenium.current_window_handle
+
+        print_button.click()
+
+        # Wait a moment for new window to open
+        time.sleep(2)
+
+        # Check if new window opened (print page)
+        windows = self.selenium.window_handles
+        # Should have more than one window if print page opened
+        # Note: In headless mode, window.open might not actually open a new window
+        # but we can verify the database was updated
+
+        # Verify database was updated (marked as printed)
+        checkin.refresh_from_db()
+        self.assertTrue(checkin.label_printed)
+
+        # Switch back to main window
+        self.selenium.switch_to.window(main_window)
+
+        # Refresh page to see changes
+        self.selenium.refresh()
+        wait.until(EC.presence_of_element_located((By.TAG_NAME, "h1")))
+
+        # Child should no longer be in main queue
+        page_text = self.selenium.page_source
+        # Check for empty state since the only child was printed
+        self.assertIn("No labels need printing", page_text)
+
+    def test_recently_printed_section(self):
+        """Test recently printed section functionality"""
+        # Create multiple check-ins and mark as printed
+        for i, child in enumerate([self.child1, self.child2]):
+            CheckInRecord.objects.create(
+                child=child,
+                session=self.session,
+                check_in_staff=self.admin_user,
+                label_printed=True,
+                label_printed_at=timezone.now(),
+                label_printed_by=self.admin_user,
+            )
+
+        # Login
+        self.login()
+
+        # Navigate to print queue
+        self.selenium.get(f"{self.live_server_url}/print-queue")
+        wait = WebDriverWait(self.selenium, 10)
+
+        # Wait for page to load
+        wait.until(EC.presence_of_element_located((By.TAG_NAME, "h1")))
+
+        # Find recently printed section
+        recently_printed_section = wait.until(
+            EC.presence_of_element_located((By.TAG_NAME, "details"))
+        )
+
+        # Should be collapsed by default
+        is_open = recently_printed_section.get_attribute("open")
+        self.assertIsNone(is_open)
+
+        # Find and click the summary to expand
+        summary = recently_printed_section.find_element(By.TAG_NAME, "summary")
+        summary.click()
+
+        # Wait for section to expand and content to load
+        time.sleep(1)
+
+        # Verify both children appear in recently printed
+        page_text = self.selenium.page_source
+        self.assertIn("Charlie Doe", page_text)
+        self.assertIn("Diana Doe", page_text)
+
+    def test_reprint_from_history(self):
+        """Test reprinting from recently printed section"""
+        # Create check-in marked as printed
+        checkin = CheckInRecord.objects.create(
+            child=self.child1,
+            session=self.session,
+            check_in_staff=self.admin_user,
+            label_printed=True,
+            label_printed_at=timezone.now(),
+            label_printed_by=self.admin_user,
+        )
+
+        # Login
+        self.login()
+
+        # Navigate to print queue
+        self.selenium.get(f"{self.live_server_url}/print-queue")
+        wait = WebDriverWait(self.selenium, 10)
+
+        # Wait for page to load
+        wait.until(EC.presence_of_element_located((By.TAG_NAME, "h1")))
+
+        # Find and expand recently printed section
+        recently_printed_section = wait.until(
+            EC.presence_of_element_located((By.TAG_NAME, "details"))
+        )
+        summary = recently_printed_section.find_element(By.TAG_NAME, "summary")
+        summary.click()
+
+        # Wait for content to load
+        time.sleep(1)
+
+        # Find print button in recently printed section
+        print_buttons = self.selenium.find_elements(By.XPATH, "//button[contains(text(), 'Print')]")
+        # Should have at least one print button
+        self.assertGreater(len(print_buttons), 0)
+
+        # Click the print button
+        main_window = self.selenium.current_window_handle
+        print_buttons[0].click()
+
+        # Wait for operation to complete
+        time.sleep(2)
+
+        # Switch back to main window
+        self.selenium.switch_to.window(main_window)
+
+        # Verify child is still in recently printed (not moved back to queue)
+        self.selenium.refresh()
+        time.sleep(1)
+
+        # Expand recently printed again
+        recently_printed_section = self.selenium.find_element(By.TAG_NAME, "details")
+        summary = recently_printed_section.find_element(By.TAG_NAME, "summary")
+        summary.click()
+        time.sleep(1)
+
+        page_text = self.selenium.page_source
+        self.assertIn("Charlie Doe", page_text)
+
+    def test_bulk_actions_removed(self):
+        """Test that bulk selection UI elements are removed"""
+        # Create unprintable check-ins
+        CheckInRecord.objects.create(
+            child=self.child1,
+            session=self.session,
+            check_in_staff=self.admin_user,
+            label_printed=False,
+        )
+        CheckInRecord.objects.create(
+            child=self.child2,
+            session=self.session,
+            check_in_staff=self.admin_user,
+            label_printed=False,
+        )
+
+        # Login
+        self.login()
+
+        # Navigate to print queue
+        self.selenium.get(f"{self.live_server_url}/print-queue")
+        wait = WebDriverWait(self.selenium, 10)
+
+        # Wait for table to load
+        wait.until(EC.presence_of_element_located((By.TAG_NAME, "table")))
+
+        # Verify no checkboxes in table (only used for bulk selection)
+        checkboxes = self.selenium.find_elements(By.CSS_SELECTOR, "table input[type='checkbox']")
+        self.assertEqual(len(checkboxes), 0, "No checkboxes should be present in the table")
+
+        # Verify bulk action buttons are not present
+        page_text = self.selenium.page_source
+        self.assertNotIn("Select All", page_text)
+        self.assertNotIn("Clear Selection", page_text)
+        self.assertNotIn("Print Selected", page_text)
+        # Note: "Print All" button should also be removed
+        # but "Print" button for individual items should exist
+
+    def test_print_page_content(self):
+        """Test that print page contains expected content"""
+        # Create check-in with allergies
+        CheckInRecord.objects.create(
+            child=self.child1,
+            session=self.session,
+            check_in_staff=self.admin_user,
+            label_printed=False,
+        )
+
+        # Login
+        self.login()
+
+        # Navigate directly to print page
+        print_url = f"{self.live_server_url}/api/print-queue/{self.child1.id}/print_page/"
+
+        # Since we need a valid check-in ID, let's get it from the database
+        checkin = CheckInRecord.objects.filter(child=self.child1).first()
+        if checkin:
+            print_url = f"{self.live_server_url}/api/print-queue/{checkin.id}/print_page/"
+            self.selenium.get(print_url)
+            wait = WebDriverWait(self.selenium, 10)
+
+            # Wait for page to load
+            wait.until(EC.presence_of_element_located((By.TAG_NAME, "body")))
+
+            # Verify content
+            page_text = self.selenium.page_source
+            self.assertIn("Charlie", page_text)  # Child name
+            self.assertIn("Doe", page_text)  # Last name
+            self.assertIn("Print Test Session", page_text)  # Session name
+            self.assertIn("Milk", page_text)  # Allergies
+
+            # Verify QR code is present (as img tag)
+            qr_images = self.selenium.find_elements(By.CSS_SELECTOR, "img.qr-code")
+            self.assertEqual(len(qr_images), 1, "QR code image should be present")
