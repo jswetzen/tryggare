@@ -35,6 +35,8 @@ PROJECT_ROOT="$(cd "$(dirname "$0")" && pwd)"
 WEB_LOG="$PROJECT_ROOT/web.log"
 FRONTEND_LOG="$PROJECT_ROOT/frontend.log"
 RESTART_FILE="$PROJECT_ROOT/restart.txt"
+BUILD_LOG="$PROJECT_ROOT/build.log"
+COMPOSE_BUILD_TIMEOUT=300  # 5 minutes for build to complete
 
 # Parse command line arguments
 while [[ $# -gt 0 ]]; do
@@ -63,6 +65,7 @@ while [[ $# -gt 0 ]]; do
       echo "  ./verification.sh --test             # Restart and run all tests"
       echo "  ./verification.sh --test <file>      # Restart and run specific test"
       echo "  ./verification.sh --no-restart --test # Skip restart, just run tests"
+      echo "  ./verification.sh --rebuild --test   # Rebuild production + run tests"
       echo "  ./verification.sh --timeout 60       # Custom timeout in seconds"
       echo "  ./verification.sh --help             # Show this help"
       echo ""
@@ -120,6 +123,97 @@ check_file() {
     print_error "File not found: $1"
     exit 1
   fi
+}
+
+# Function to check disk space
+check_disk_space() {
+  print_step "Checking available disk space..."
+
+  local available_space=$(df -BG "$PROJECT_ROOT" | tail -1 | awk '{print $4}' | sed 's/G//')
+  local required_space=2  # Require at least 2GB free
+
+  if [[ -z "$available_space" ]]; then
+    print_warning "Could not determine available disk space"
+    return 0
+  fi
+
+  print_info "Available disk space: ${available_space}GB"
+
+  if [[ "$available_space" -lt "$required_space" ]]; then
+    print_error "Insufficient disk space! Available: ${available_space}GB, Required: ${required_space}GB minimum"
+    print_info "Please free up disk space before building"
+    print_info "Common cleanup commands:"
+    echo -e "${CYAN}   docker system prune -a${NC}"
+    echo -e "${CYAN}   podman system prune -a${NC}"
+    return 1
+  fi
+
+  print_success "Sufficient disk space available (${available_space}GB)"
+  return 0
+}
+
+# Function to check build logs for errors
+check_build_logs() {
+  print_step "Checking build logs for errors..."
+
+  if [[ ! -f "$BUILD_LOG" ]]; then
+    print_warning "Build log not found at: $BUILD_LOG"
+    print_info "Build logs are captured by the 'watch restart.txt' process"
+    print_info "Check if the watcher is running and redirecting output to build.log"
+    return 1
+  fi
+
+  # Check file size - if it's very large, only check recent entries
+  local log_size=$(stat -f%z "$BUILD_LOG" 2>/dev/null || stat -c%s "$BUILD_LOG" 2>/dev/null || echo 0)
+  local check_lines=500
+
+  if [[ "$log_size" -gt 1000000 ]]; then
+    print_info "Build log is large ($(numfmt --to=iec $log_size 2>/dev/null || echo ${log_size} bytes)), checking last ${check_lines} lines"
+  fi
+
+  # Get the last portion of the build log
+  local recent_log=$(tail -n $check_lines "$BUILD_LOG")
+
+  # Check for critical build errors
+  local build_errors=$(echo "$recent_log" | grep -iE "ERROR|FAILED|no space left|Build command failed|build.*error" || true)
+
+  if [[ -n "$build_errors" ]]; then
+    print_error "Build errors detected in build.log!"
+    echo ""
+    print_info "Recent build errors:"
+    echo "$build_errors" | tail -n 20 | sed 's/^/   /'
+    echo ""
+
+    # Check for specific common errors
+    if echo "$build_errors" | grep -q "no space left"; then
+      print_error "DISK SPACE ERROR: No space left on device"
+      print_info "Action required: Free up disk space and rebuild"
+      print_info "Cleanup commands:"
+      echo -e "${CYAN}   docker system prune -a${NC}"
+      echo -e "${CYAN}   podman system prune -a${NC}"
+    fi
+
+    if echo "$build_errors" | grep -q "Build command failed"; then
+      print_error "BUILD FAILED: Docker/Podman build command failed"
+      print_info "Check the full build log: less $BUILD_LOG"
+    fi
+
+    return 1
+  fi
+
+  # Check for successful build completion
+  local build_success=$(echo "$recent_log" | grep -iE "Successfully built|Build complete|up-to-date" || true)
+
+  if [[ -n "$build_success" ]]; then
+    print_success "Build completed successfully"
+    echo -e "${CYAN}   Last build message: $(echo "$build_success" | tail -n 1 | sed 's/^[[:space:]]*//')${NC}"
+    return 0
+  fi
+
+  print_warning "Could not verify build status from logs"
+  print_info "Build may still be in progress or logs may not be captured"
+  print_info "Check: tail -f $BUILD_LOG"
+  return 0  # Don't fail, just warn
 }
 
 # Function to trigger restart
@@ -231,8 +325,40 @@ show_log_summary() {
   fi
 }
 
+# Function to run Django backend tests
+run_django_tests() {
+  print_header "Running Django Backend Tests"
+
+  cd "$PROJECT_ROOT/backend"
+
+  echo ""
+  print_step "Installing test dependencies..."
+  uv sync --group test > /dev/null 2>&1
+
+  echo ""
+  print_step "Executing Django tests..."
+  echo ""
+
+  # Run Django test suite with --keepdb to reuse existing test database
+  # Only test Django apps (checkins, families, etc.), not standalone test scripts
+  set +e
+  uv run python manage.py test --keepdb checkins families accounts events printing
+  local test_exit_code=$?
+  set -e
+
+  echo ""
+
+  if [[ $test_exit_code -eq 0 ]]; then
+    print_success "Django backend tests passed!"
+    return 0
+  else
+    print_error "Django tests failed with exit code: $test_exit_code"
+    return $test_exit_code
+  fi
+}
+
 # Function to run Selenium tests
-run_tests() {
+run_selenium_tests() {
   print_header "Running Selenium E2E Tests"
 
   cd "$PROJECT_ROOT/backend"
@@ -246,8 +372,8 @@ run_tests() {
     print_info "Running specific test: $TEST_FILE"
     TEST_CMD="uv run python $TEST_FILE"
   else
-    print_info "Running all Selenium tests: test_selenium_full_flows.py"
-    TEST_CMD="uv run python test_selenium_full_flows.py"
+    print_info "Running all Selenium tests: test_selenium_full_flows.py + test_qr_page_e2e.py"
+    TEST_CMD="uv run python test_selenium_full_flows.py && uv run python test_qr_page_e2e.py"
   fi
 
   echo ""
@@ -277,13 +403,41 @@ run_tests() {
   echo ""
 
   if [[ $test_exit_code -eq 0 ]]; then
-    print_success "All tests passed!"
+    print_success "Selenium E2E tests passed!"
     return 0
   else
     print_error "Tests failed with exit code: $test_exit_code"
     print_info "Check screenshots in /tmp/ for failure details"
     return $test_exit_code
   fi
+}
+
+# Function to run all tests
+run_tests() {
+  local overall_exit_code=0
+
+  # Run Django backend tests first
+  if ! run_django_tests; then
+    overall_exit_code=1
+    print_error "Django backend tests failed - skipping E2E tests"
+    return $overall_exit_code
+  fi
+
+  echo ""
+
+  # If Django tests passed, run Selenium E2E tests (unless a specific test file was provided)
+  if [[ -z "$TEST_FILE" ]]; then
+    if ! run_selenium_tests; then
+      overall_exit_code=1
+    fi
+  else
+    # If specific test file provided, only run that
+    if ! run_selenium_tests; then
+      overall_exit_code=1
+    fi
+  fi
+
+  return $overall_exit_code
 }
 
 # Main execution
@@ -300,6 +454,38 @@ main() {
     echo -e "${CYAN}   Test File:    $TEST_FILE${NC}"
   fi
   echo ""
+
+  # Step 0: Check build logs and disk space
+  echo ""
+  print_header "🔧 Pre-Flight Checks"
+  echo ""
+
+  # Check disk space first
+  if ! check_disk_space; then
+    print_error "Pre-flight checks failed: insufficient disk space"
+    exit 1
+  fi
+
+  echo ""
+
+  # Check build logs for any errors from previous builds
+  if ! check_build_logs; then
+    print_warning "Build log check failed - there may be build errors"
+    print_info "Review the build log before proceeding: less $BUILD_LOG"
+
+    if [[ "$RUN_TESTS" == true ]]; then
+      print_warning "Proceeding with tests, but be aware build may have failed"
+    else
+      print_error "Fix build errors before running verification"
+      echo ""
+      print_info "To fix build errors:"
+      echo -e "${CYAN}   1. Check build log: less $BUILD_LOG${NC}"
+      echo -e "${CYAN}   2. Free up disk space if needed: podman system prune -a${NC}"
+      echo -e "${CYAN}   3. Trigger rebuild: touch $RESTART_FILE${NC}"
+      echo -e "${CYAN}   4. Monitor rebuild: tail -f $BUILD_LOG${NC}"
+      exit 1
+    fi
+  fi
 
   # Step 1: Restart server (unless skipped)
   if [[ "$SKIP_RESTART" == false ]]; then

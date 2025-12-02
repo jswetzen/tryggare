@@ -21,8 +21,9 @@ interface AuthCheckResponse {
 }
 
 export async function load({ url }) {
-  // Skip auth check on login page or if not in browser
-  if (!browser || url.pathname === '/login') {
+  // Skip auth check on login page, QR pages, or if not in browser
+  // QR pages should be publicly accessible for parents to check child status
+  if (!browser || url.pathname === '/login' || url.pathname.startsWith('/qr/')) {
     return { user: null };
   }
 

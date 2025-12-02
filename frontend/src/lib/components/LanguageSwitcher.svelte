@@ -8,8 +8,7 @@
 
   function setLanguage(lang: string) {
     locale.set(lang);
-    // Save to cookie for Django backend
-    document.cookie = `django_language=${lang}; path=/; SameSite=Lax`;
+    // localStorage and cookie are now handled automatically by i18n.ts
   }
 </script>
 

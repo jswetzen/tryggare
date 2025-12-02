@@ -26,6 +26,25 @@ class CheckInRecord(models.Model):
         verbose_name=_("Check-Out Staff"),
     )
 
+    # Print tracking fields
+    label_printed = models.BooleanField(
+        default=False,
+        verbose_name=_("Label Printed")
+    )
+    label_printed_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        verbose_name=_("Label Printed At")
+    )
+    label_printed_by = models.ForeignKey(
+        "accounts.AdminUser",
+        related_name="labels_printed",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        verbose_name=_("Label Printed By"),
+    )
+
     class Meta:
         db_table = "check_in_records"
         verbose_name = _("Check-In Record")
@@ -38,6 +57,7 @@ class CheckInRecord(models.Model):
             models.Index(fields=["session"]),
             models.Index(fields=["check_in_staff"]),
             models.Index(fields=["check_out_staff"]),
+            models.Index(fields=["label_printed"]),
         ]
 
     def __str__(self) -> str:

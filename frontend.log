@@ -4360,3 +4360,98 @@
 2025-11-29T14:35:25.750722559+00:00 stdout F 2:35:25 PM [vite] page reload src/routes/checkin/+page.svelte
 2025-11-29T14:35:26.040471620+00:00 stdout F 2:35:26 PM [vite] page reload src/routes/checkin/+page.svelte
 2025-11-29T14:35:35.103458921+00:00 stdout F 2:35:35 PM [vite] page reload src/lib/components/SearchBox.svelte
+2025-11-29T20:35:38.948253862+00:00 stdout F 8:35:38 PM [vite] hmr update /src/lib/components/TopNav.svelte, /src/app.css
+2025-11-29T20:35:50.001693893+00:00 stdout F 8:35:50 PM [vite] hmr update /src/lib/components/TopNav.svelte, /src/app.css
+2025-11-29T20:36:04.152896741+00:00 stdout F 8:36:04 PM [vite] hmr update /src/lib/components/TopNav.svelte, /src/app.css
+2025-11-29T20:36:15.066036024+00:00 stdout F 8:36:15 PM [vite] page reload src/routes/checkin/+page.svelte
+2025-11-30T08:35:45.785517320+00:00 stdout F 8:35:45 AM [vite] hmr update /src/routes/+layout.svelte, /src/app.css
+2025-11-30T08:35:45.931443224+00:00 stdout F 8:35:45 AM [vite] hmr update /src/routes/+layout.svelte, /src/app.css
+2025-11-30T08:35:52.724873443+00:00 stdout F 8:35:52 AM [vite] hmr update /src/routes/+layout.svelte, /src/app.css
+2025-11-30T08:35:52.870082685+00:00 stdout F 8:35:52 AM [vite] hmr update /src/routes/+layout.svelte, /src/app.css
+2025-11-30T08:36:09.235029769+00:00 stdout F 8:36:09 AM [vite] hmr update /src/lib/components/TopNav.svelte, /src/app.css
+2025-11-30T08:36:09.390038571+00:00 stdout F 8:36:09 AM [vite] hmr update /src/lib/components/TopNav.svelte, /src/app.css
+2025-11-30T08:36:09.581266327+00:00 stdout F 8:36:09 AM [vite] hmr update /src/lib/components/TopNav.svelte, /src/app.css
+2025-11-30T08:36:09.796899395+00:00 stdout F 8:36:09 AM [vite] hmr update /src/lib/components/TopNav.svelte, /src/app.css
+2025-11-30T08:36:20.191968311+00:00 stdout F 8:36:20 AM [vite] hmr update /src/lib/components/SessionIndicator.svelte, /src/app.css
+2025-11-30T08:36:31.356651402+00:00 stdout F 8:36:31 AM [vite] page reload src/lib/components/SearchBox.svelte
+2025-11-30T08:36:31.547935396+00:00 stdout F 8:36:31 AM [vite] page reload src/lib/components/SearchBox.svelte
+2025-11-30T09:11:06.524920885+00:00 stdout F 9:11:06 AM [vite] hmr update /src/routes/+layout.svelte, /src/app.css
+2025-11-30T09:11:06.737757557+00:00 stdout F 9:11:06 AM [vite] hmr update /src/routes/+layout.svelte, /src/app.css
+2025-11-30T09:11:27.167539760+00:00 stdout F 9:11:27 AM [vite] hmr update /src/routes/+layout.svelte, /src/app.css
+2025-11-30T09:11:27.462955827+00:00 stdout F 9:11:27 AM [vite] hmr update /src/routes/+layout.svelte, /src/app.css
+2025-11-30T09:12:12.610891810+00:00 stdout F 9:12:12 AM [vite] page reload src/routes/checkout/+page.svelte
+2025-11-30T09:12:12.836125835+00:00 stdout F 9:12:12 AM [vite] page reload src/routes/checkout/+page.svelte
+2025-11-30T09:12:13.064876626+00:00 stdout F 9:12:13 AM [vite] page reload src/routes/checkout/+page.svelte
+2025-11-30T09:12:13.371074089+00:00 stdout F 9:12:13 AM [vite] page reload src/routes/checkout/+page.svelte
+2025-11-30T09:12:13.733878185+00:00 stdout F 9:12:13 AM [vite] page reload src/routes/checkout/+page.svelte
+2025-11-30T09:12:14.176870825+00:00 stdout F 9:12:14 AM [vite] page reload src/routes/checkout/+page.svelte
+2025-11-30T09:12:14.678302857+00:00 stdout F 9:12:14 AM [vite] page reload src/routes/checkout/+page.svelte
+2025-11-30T09:12:15.320979114+00:00 stdout F 9:12:15 AM [vite] page reload src/routes/checkout/+page.svelte
+2025-11-30T09:12:15.943743715+00:00 stdout F 9:12:15 AM [vite] page reload src/routes/checkout/+page.svelte
+2025-11-30T09:12:16.557570226+00:00 stdout F 9:12:16 AM [vite] page reload src/routes/checkout/+page.svelte
+2025-11-30T09:12:17.194886988+00:00 stdout F 9:12:17 AM [vite] page reload src/routes/checkout/+page.svelte
+2025-11-30T09:13:05.440378345+00:00 stdout F 9:13:05 AM [vite] page reload src/routes/checkin/+page.svelte
+2025-11-30T09:13:05.740744293+00:00 stdout F 9:13:05 AM [vite] page reload src/routes/checkin/+page.svelte
+2025-11-30T09:13:06.110407628+00:00 stdout F 9:13:06 AM [vite] page reload src/routes/checkin/+page.svelte
+2025-11-30T09:13:06.506071750+00:00 stdout F 9:13:06 AM [vite] page reload src/routes/checkin/+page.svelte
+2025-11-30T09:13:06.974365836+00:00 stdout F 9:13:06 AM [vite] page reload src/routes/checkin/+page.svelte
+2025-11-30T09:13:07.509916056+00:00 stdout F 9:13:07 AM [vite] page reload src/routes/checkin/+page.svelte
+2025-11-30T09:13:08.049296423+00:00 stdout F 9:13:08 AM [vite] page reload src/routes/checkin/+page.svelte
+2025-11-30T09:13:08.632532550+00:00 stdout F 9:13:08 AM [vite] page reload src/routes/checkin/+page.svelte
+2025-11-30T09:13:09.282244275+00:00 stdout F 9:13:09 AM [vite] page reload src/routes/checkin/+page.svelte
+2025-11-30T09:13:09.966378630+00:00 stdout F 9:13:09 AM [vite] page reload src/routes/checkin/+page.svelte
+2025-11-30T09:13:10.633037866+00:00 stdout F 9:13:10 AM [vite] page reload src/routes/checkin/+page.svelte
+2025-11-30T09:13:11.307704849+00:00 stdout F 9:13:11 AM [vite] page reload src/routes/checkin/+page.svelte
+2025-11-30T11:16:23.514243547+00:00 stdout F 11:16:23 AM [vite] hmr update /src/routes/+layout.svelte, /src/app.css
+2025-11-30T11:16:30.646444803+00:00 stdout F 11:16:30 AM [vite] hmr update /src/lib/components/LanguageSwitcher.svelte, /src/app.css
+2025-11-30T11:16:39.489924322+00:00 stdout F 11:16:39 AM [vite] hmr update /src/routes/+layout.svelte, /src/app.css
+2025-11-30T11:19:28.504141178+00:00 stdout F 11:19:28 AM [vite] hmr update /src/routes/+layout.svelte, /src/app.css
+2025-11-30T11:22:36.234450233+00:00 stdout F 11:22:36 AM [vite] hmr update /src/routes/+layout.svelte, /src/app.css
+2025-11-30T13:54:39.125741617+00:00 stdout F 1:54:39 PM [vite] hmr update /src/routes/+layout.svelte, /src/app.css
+2025-11-30T13:55:04.876037806+00:00 stdout F 1:55:04 PM [vite] hmr update /src/routes/+layout.svelte, /src/app.css
+2025-11-30T13:55:38.044572720+00:00 stdout F 1:55:38 PM [vite] page reload src/lib/api/services.ts
+2025-11-30T13:56:30.373945519+00:00 stdout F 1:56:30 PM [vite] page reload src/routes/qr/[token]/+page.svelte
+2025-11-30T13:56:42.482479205+00:00 stdout F 1:56:42 PM [vite] hmr update /src/routes/+layout.svelte, /src/app.css
+2025-11-30T13:56:49.257992344+00:00 stdout F 1:56:49 PM [vite] hmr update /src/routes/+layout.svelte, /src/app.css
+2025-12-01T18:23:17.724094349+00:00 stdout F 6:23:17 PM [vite] page reload src/lib/api/services.ts
+2025-12-01T18:23:48.465720837+00:00 stdout F 6:23:48 PM [vite] hmr update /src/routes/+layout.svelte, /src/app.css
+2025-12-01T18:24:02.902594752+00:00 stdout F 6:24:02 PM [vite] hmr update /src/routes/+layout.svelte, /src/app.css
+2025-12-01T18:24:52.632168201+00:00 stdout F 6:24:52 PM [vite] page reload src/routes/checkin/+page.svelte
+2025-12-01T18:25:11.389205172+00:00 stdout F 6:25:11 PM [vite] page reload src/routes/checkin/+page.svelte
+2025-12-01T18:25:21.810181178+00:00 stdout F 6:25:21 PM [vite] page reload src/routes/checkin/+page.svelte
+2025-12-01T19:01:11.769098617+00:00 stdout F 7:01:11 PM [vite] page reload src/lib/api/services.ts
+2025-12-01T19:04:38.967987859+00:00 stdout F 7:04:38 PM [vite] page reload src/routes/+layout.ts
+2025-12-01T19:51:52.833366988+00:00 stdout F 7:51:52 PM [vite] page reload src/routes/qr/[token]/+page.svelte
+2025-12-01T19:51:59.636641099+00:00 stdout F 7:51:59 PM [vite] page reload src/lib/api/types.ts
+2025-12-01T19:54:15.713946712+00:00 stdout F 7:54:15 PM [vite] page reload .svelte-kit/generated/client/nodes/0.js
+2025-12-01T19:54:15.714110936+00:00 stdout F 7:54:15 PM [vite] page reload .svelte-kit/generated/client/nodes/1.js
+2025-12-01T19:54:15.714265993+00:00 stdout F 7:54:15 PM [vite] page reload .svelte-kit/generated/client/nodes/3.js
+2025-12-01T19:54:15.714976921+00:00 stdout F 7:54:15 PM [vite] page reload .svelte-kit/generated/client/nodes/7.js
+2025-12-01T19:54:15.716035406+00:00 stdout F 7:54:15 PM [vite] page reload .svelte-kit/generated/client/app.js
+2025-12-01T19:54:15.716237407+00:00 stdout F 7:54:15 PM [vite] page reload .svelte-kit/generated/client/matchers.js
+2025-12-01T19:54:15.716967384+00:00 stdout F 7:54:15 PM [vite] page reload .svelte-kit/generated/server/internal.js
+2025-12-01T19:54:15.717344587+00:00 stdout F 7:54:15 PM [vite] page reload .svelte-kit/generated/root.js
+2025-12-01T19:54:19.341806233+00:00 stdout F 7:54:19 PM [vite] page reload build/__fallback.html
+2025-12-01T19:54:19.342114202+00:00 stdout F 7:54:19 PM [vite] page reload build/favicon.png.html
+2025-12-01T19:54:19.430851153+00:00 stdout F 7:54:19 PM [vite] page reload build/index.html
+2025-12-01T19:54:57.722806879+00:00 stdout F 7:54:57 PM [vite] page reload .svelte-kit/generated/client/nodes/0.js
+2025-12-01T19:54:57.723194289+00:00 stdout F 7:54:57 PM [vite] page reload .svelte-kit/generated/client/nodes/1.js
+2025-12-01T19:54:57.723409236+00:00 stdout F 7:54:57 PM [vite] page reload .svelte-kit/generated/client/nodes/3.js
+2025-12-01T19:54:57.724483960+00:00 stdout F 7:54:57 PM [vite] page reload .svelte-kit/generated/client/nodes/7.js
+2025-12-01T19:54:57.724833597+00:00 stdout F 7:54:57 PM [vite] page reload .svelte-kit/generated/client/app.js
+2025-12-01T19:54:57.725007631+00:00 stdout F 7:54:57 PM [vite] page reload .svelte-kit/generated/client/matchers.js
+2025-12-01T19:54:57.726093503+00:00 stdout F 7:54:57 PM [vite] page reload .svelte-kit/generated/server/internal.js
+2025-12-01T19:54:57.726748094+00:00 stdout F 7:54:57 PM [vite] page reload .svelte-kit/generated/root.js
+2025-12-01T19:55:01.484622180+00:00 stdout F 7:55:01 PM [vite] page reload build/__fallback.html
+2025-12-01T19:55:01.575651745+00:00 stdout F 7:55:01 PM [vite] page reload build/favicon.png.html
+2025-12-01T19:55:01.874040868+00:00 stdout F 7:55:01 PM [vite] page reload build/index.html
+2025-12-02T05:39:22.883432333+00:00 stdout F 5:39:22 AM [vite] page reload src/lib/api/types.ts
+2025-12-02T05:39:31.523456082+00:00 stdout F 5:39:31 AM [vite] page reload src/lib/api/services.ts
+2025-12-02T05:39:38.999420954+00:00 stdout F 5:39:38 AM [vite] page reload src/lib/api/services.ts
+2025-12-02T05:40:09.648393747+00:00 stdout F 5:40:09 AM [vite] hmr update /src/routes/+layout.svelte, /src/app.css
+2025-12-02T05:40:18.015468955+00:00 stdout F 5:40:18 AM [vite] hmr update /src/routes/+layout.svelte, /src/app.css
+2025-12-02T05:40:42.290003430+00:00 stdout F 5:40:42 AM [vite] hmr update /src/routes/+layout.svelte, /src/app.css
+2025-12-02T05:40:55.782798291+00:00 stdout F 5:40:55 AM [vite] hmr update /src/routes/+layout.svelte, /src/app.css
+2025-12-02T05:41:56.226163246+00:00 stdout F 5:41:56 AM [vite] page reload .svelte-kit/generated/client/app.js
+2025-12-02T05:42:20.967589403+00:00 stdout F 5:42:20 AM [vite] hmr update /src/lib/components/TopNav.svelte, /src/app.css
+2025-12-02T05:42:29.399979243+00:00 stdout F 5:42:29 AM [vite] hmr update /src/lib/components/TopNav.svelte, /src/app.css

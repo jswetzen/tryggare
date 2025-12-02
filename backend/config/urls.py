@@ -10,7 +10,7 @@ from rest_framework.routers import DefaultRouter
 from families.views import ChildViewSet, FamilyViewSet, ParentViewSet
 from families.qr_views import qr_info
 from events.views import EventViewSet, SessionViewSet, TicketViewSet
-from checkins.views import AuditLogViewSet, CheckInRecordViewSet
+from checkins.views import AuditLogViewSet, CheckInRecordViewSet, PrintQueueViewSet
 from accounts.views import csrf_token, check_auth, login_view, logout_view
 
 # Create API router
@@ -29,6 +29,7 @@ router.register(r"tickets", TicketViewSet, basename="ticket")
 # Check-in management
 router.register(r"checkins", CheckInRecordViewSet, basename="checkin")
 router.register(r"audit-logs", AuditLogViewSet, basename="audit-log")
+router.register(r"print-queue", PrintQueueViewSet, basename="print-queue")
 
 urlpatterns = [
     path("admin/", admin.site.urls),
@@ -38,9 +39,9 @@ urlpatterns = [
     path("api/auth/check/", check_auth, name="auth-check"),
     path("api/auth/login/", login_view, name="auth-login"),
     path("api/auth/logout/", logout_view, name="auth-logout"),
-    path("qr/<str:token>/", qr_info, name="qr-info"),  # Public QR code endpoint
+    path("api/qr/<str:token>/", qr_info, name="qr-info"),  # Public QR code endpoint
     # Serve frontend SPA - catch-all for client-side routing (must be last)
-    # Exclude SvelteKit's __data.json endpoints from catch-all
+    # Exclude admin/, api/, and SvelteKit's __data.json endpoints from catch-all
     # WhiteNoise middleware serves static files (_app/*) before this is reached
-    re_path(r"^(?!.*__data\.json).*$", TemplateView.as_view(template_name="index.html"), name="frontend"),
+    re_path(r"^(?!admin/)(?!api/)(?!.*__data\.json).*$", TemplateView.as_view(template_name="index.html"), name="frontend"),
 ]

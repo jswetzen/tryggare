@@ -6,8 +6,7 @@
     "isEntry": true,
     "imports": [
       "_internal.js",
-      "_environment.js",
-      "_shared-server.js"
+      "_environment.js"
     ]
   },
   "_IconButton.js": {
@@ -16,14 +15,16 @@
     "imports": [
       "_context.js",
       "_index.js",
-      "_index2.js"
+      "_index2.js",
+      "_runtime.js"
     ]
   },
   "_context.js": {
     "file": "chunks/context.js",
     "name": "context",
     "imports": [
-      "_false.js"
+      "_false.js",
+      "_utils2.js"
     ]
   },
   "_environment.js": {
@@ -42,6 +43,7 @@
     "file": "chunks/index.js",
     "name": "index",
     "imports": [
+      "_utils2.js",
       "_context.js"
     ]
   },
@@ -57,9 +59,9 @@
     "name": "internal",
     "imports": [
       "_context.js",
+      "_utils2.js",
       "_index2.js",
-      "_environment.js",
-      "_shared-server.js"
+      "_environment.js"
     ],
     "dynamicImports": [
       "src/hooks.server.ts"
@@ -72,10 +74,6 @@
       "_index.js"
     ]
   },
-  "_shared-server.js": {
-    "file": "chunks/shared-server.js",
-    "name": "shared-server"
-  },
   "_shared.js": {
     "file": "chunks/shared.js",
     "name": "shared",
@@ -87,7 +85,7 @@
     "file": "chunks/state.svelte.js",
     "name": "state.svelte",
     "imports": [
-      "_context.js"
+      "_utils2.js"
     ]
   },
   "_stores.js": {
@@ -102,6 +100,10 @@
   },
   "_utils.js": {
     "file": "chunks/utils.js",
+    "name": "utils"
+  },
+  "_utils2.js": {
+    "file": "chunks/utils2.js",
     "name": "utils"
   },
   "node_modules/.pnpm/@sveltejs+kit@2.49.0_@sveltejs+vite-plugin-svelte@4.0.4_svelte@5.43.14_vite@5.4.21__svelte@5.43.14_vite@5.4.21/node_modules/@sveltejs/kit/src/runtime/app/server/remote/index.js": {
@@ -140,7 +142,6 @@
       "_exports.js",
       "_utils.js",
       "_index.js",
-      "_shared-server.js",
       "_internal.js"
     ]
   },
@@ -150,7 +151,7 @@
     "src": "src/hooks.server.ts",
     "isDynamicEntry": true,
     "imports": [
-      "_shared-server.js"
+      "_internal.js"
     ]
   },
   "src/lib/i18n/locales/en.json": {
@@ -165,20 +166,15 @@
     "src": "src/lib/i18n/locales/sv.json",
     "isDynamicEntry": true
   },
-  "src/routes/+layout.server.ts": {
-    "file": "entries/pages/_layout.server.ts.js",
-    "name": "entries/pages/_layout.server.ts",
-    "src": "src/routes/+layout.server.ts",
-    "isEntry": true
-  },
   "src/routes/+layout.svelte": {
     "file": "entries/pages/_layout.svelte.js",
     "name": "entries/pages/_layout.svelte",
     "src": "src/routes/+layout.svelte",
     "isEntry": true,
     "imports": [
-      "_runtime.js",
       "_index2.js",
+      "_runtime.js",
+      "_index.js",
       "_stores.js",
       "_exports.js",
       "_utils.js",
@@ -190,7 +186,18 @@
       "src/lib/i18n/locales/sv.json"
     ],
     "css": [
-      "_app/immutable/assets/_layout.CRMT7zp_.css"
+      "_app/immutable/assets/_layout.BGbysTH4.css"
+    ]
+  },
+  "src/routes/+layout.ts": {
+    "file": "entries/pages/_layout.ts.js",
+    "name": "entries/pages/_layout.ts",
+    "src": "src/routes/+layout.ts",
+    "isEntry": true,
+    "imports": [
+      "_exports.js",
+      "_utils.js",
+      "_state.svelte.js"
     ]
   },
   "src/routes/+page.svelte": {
@@ -249,15 +256,6 @@
       "_context.js"
     ]
   },
-  "src/routes/login/+page.server.ts": {
-    "file": "entries/pages/login/_page.server.ts.js",
-    "name": "entries/pages/login/_page.server.ts",
-    "src": "src/routes/login/+page.server.ts",
-    "isEntry": true,
-    "imports": [
-      "_shared-server.js"
-    ]
-  },
   "src/routes/login/+page.svelte": {
     "file": "entries/pages/login/_page.svelte.js",
     "name": "entries/pages/login/_page.svelte",
@@ -272,14 +270,11 @@
       "_context.js"
     ]
   },
-  "src/routes/logout/+page.server.ts": {
-    "file": "entries/pages/logout/_page.server.ts.js",
-    "name": "entries/pages/logout/_page.server.ts",
-    "src": "src/routes/logout/+page.server.ts",
-    "isEntry": true,
-    "imports": [
-      "_shared-server.js"
-    ]
+  "src/routes/logout/+page.svelte": {
+    "file": "entries/pages/logout/_page.svelte.js",
+    "name": "entries/pages/logout/_page.svelte",
+    "src": "src/routes/logout/+page.svelte",
+    "isEntry": true
   },
   "src/routes/qr/[token]/+page.svelte": {
     "file": "entries/pages/qr/_token_/_page.svelte.js",
@@ -290,7 +285,10 @@
       "_index2.js",
       "_runtime.js",
       "_stores.js",
-      "_context.js"
+      "_exports.js",
+      "_utils.js",
+      "_context.js",
+      "_state.svelte.js"
     ]
   }
 }

@@ -1,6 +1,7 @@
 from django.utils.translation import gettext as _
 from rest_framework import serializers
 
+from families.serializers import ParentSerializer
 from .models import AuditLog, CheckInRecord
 
 
@@ -50,6 +51,32 @@ class CheckInRecordSerializer(serializers.ModelSerializer):
                 )
 
         return data
+
+
+class PrintQueueSerializer(serializers.ModelSerializer):
+    """Serializer for print queue - shows unprintable check-ins"""
+    child_name = serializers.CharField(source='child.first_name', read_only=True)
+    child_last_name = serializers.CharField(source='child.last_name', read_only=True)
+    qr_token = serializers.CharField(source='child.qr_token', read_only=True)
+    session_name = serializers.CharField(source='session.name', read_only=True)
+    parents = ParentSerializer(source='child.family.parents', many=True, read_only=True)
+    allergies = serializers.CharField(source='child.allergies', read_only=True)
+    notes = serializers.CharField(source='child.notes', read_only=True)
+
+    class Meta:
+        model = CheckInRecord
+        fields = [
+            'id',
+            'child_name',
+            'child_last_name',
+            'qr_token',
+            'session_name',
+            'check_in_time',
+            'parents',
+            'allergies',
+            'notes',
+            'label_printed',
+        ]
 
 
 class AuditLogSerializer(serializers.ModelSerializer):

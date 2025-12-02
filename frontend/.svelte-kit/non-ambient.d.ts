@@ -27,7 +27,7 @@ export {};
 
 declare module "$app/types" {
 	export interface AppTypes {
-		RouteId(): "/" | "/__fallback" | "/checkin" | "/checkout" | "/debug-cookies" | "/login" | "/logout" | "/qr" | "/qr/[token]";
+		RouteId(): "/" | "/__fallback" | "/checkin" | "/checkout" | "/debug-cookies" | "/login" | "/logout" | "/print-queue" | "/qr" | "/qr/[token]";
 		RouteParams(): {
 			"/qr/[token]": { token: string }
 		};
@@ -39,10 +39,11 @@ declare module "$app/types" {
 			"/debug-cookies": Record<string, never>;
 			"/login": Record<string, never>;
 			"/logout": Record<string, never>;
+			"/print-queue": Record<string, never>;
 			"/qr": { token?: string };
 			"/qr/[token]": { token: string }
 		};
-		Pathname(): "/" | "/__fallback" | "/__fallback/" | "/checkin" | "/checkin/" | "/checkout" | "/checkout/" | "/debug-cookies" | "/debug-cookies/" | "/login" | "/login/" | "/logout" | "/logout/" | "/qr" | "/qr/" | `/qr/${string}` & {} | `/qr/${string}/` & {};
+		Pathname(): "/" | "/__fallback" | "/__fallback/" | "/checkin" | "/checkin/" | "/checkout" | "/checkout/" | "/debug-cookies" | "/debug-cookies/" | "/login" | "/login/" | "/logout" | "/logout/" | "/print-queue" | "/print-queue/" | "/qr" | "/qr/" | `/qr/${string}` & {} | `/qr/${string}/` & {};
 		ResolvedPathname(): `${"" | `/${string}`}${ReturnType<AppTypes['Pathname']>}`;
 		Asset(): string & {};
 	}

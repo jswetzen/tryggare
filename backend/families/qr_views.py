@@ -44,12 +44,16 @@ def qr_info(request, token):
         "id": str(child.id),
         "first_name": child.first_name,
         "last_name": child.last_name,
-        "birthdate": child.birthdate,
+        "date_of_birth": str(child.birthdate) if child.birthdate else None,
         "allergies": child.allergies,
-        "notes": child.notes,
-        "family_id": str(child.family.id),
+        "medical_conditions": child.notes,  # Map notes to medical_conditions for frontend
+        "special_needs": None,  # Not yet implemented in backend model
+        "qr_token": child.qr_token,
+        "family": str(child.family.id),
         "parent_names": parent_names,
         "is_checked_in": active_checkin is not None,
+        "created_at": child.last_participation_date.isoformat() if child.last_participation_date else None,
+        "updated_at": child.last_participation_date.isoformat() if child.last_participation_date else None,
     }
 
     if active_checkin:

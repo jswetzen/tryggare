@@ -22,6 +22,9 @@
 	"/logout": [
 		"src/routes/+layout.ts"
 	],
+	"/print-queue": [
+		"src/routes/+layout.ts"
+	],
 	"/qr/[token]": [
 		"src/routes/+layout.ts"
 	]

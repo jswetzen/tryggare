@@ -11,8 +11,9 @@ Update IMPLEMENTATION_PLAN.md to check off items that are done. Also keep CURREN
 - **Access**: `http://localhost:8080` (both frontend and backend)
 - **Database**: PostgreSQL on port 5433
 - **Settings**: `config.settings.prod`
-- **Restart**: Requires manual rebuild: `podman compose -f docker-compose.prod.yml --env-file .env.prod up -d --build`
-- **Testing**: `./verification.sh --no-restart --test` (auto-detects production mode)
+- **Auto-rebuild**: `watch restart.txt { || podman compose -f docker-compose.prod.yml --env-file .env.prod up -d --force-recreate --build >build.log 2>&1 }`
+- **Manual rebuild**: `podman compose -f docker-compose.prod.yml --env-file .env.prod up -d --build 2>&1 | tee build.log`
+- **Testing**: `./verification.sh --test` (checks build logs, disk space, then runs tests)
 
 ### Development Environment (docker-compose.yml)
 - **Separate containers**: Frontend (SvelteKit dev server) and Backend (Django)
@@ -34,7 +35,10 @@ curl -s http://localhost:5173 >/dev/null && echo "✓ Development (5173)" || ech
 **Backend & Frontend:**
 - **Backend**: `backend/` directory with Django
 - **Frontend**: `frontend/` directory with SvelteKit
-- **Logs**: Available in `web.log` and `frontend.log`
+- **Logs**:
+  - Backend runtime: `web.log`
+  - Frontend dev server: `frontend.log`
+  - Production builds: `build.log` (captured from podman/docker compose)
 
 IMPORTANT: *Never* kill a process you have started.
 You risk stopping critical services or Claude Code by accident.
@@ -62,9 +66,14 @@ uv run python verify.py  # Quick verification
 ```
 
 **Debugging failures:**
-- Backend: Check `/workspace/check-ins/web.log`
-- Frontend: Check `/workspace/check-ins/frontend.log`
-- Selenium: Check screenshots in `/tmp/`
+- Backend runtime: Check `/workspace/check-ins/web.log`
+- Frontend dev: Check `/workspace/check-ins/frontend.log`
+- Production builds: Check `/workspace/check-ins/build.log`
+- Selenium tests: Check screenshots in `/tmp/`
+- Build errors: The verification script now automatically checks build.log for:
+  - "no space left on device" → Run `podman system prune -a`
+  - "Build command failed" → Check full log with `less build.log`
+  - Frontend build failures → Look for npm/vite errors in build.log
 
 **For detailed testing workflows, see [VERIFICATION_GUIDE.md](./VERIFICATION_GUIDE.md)**
 

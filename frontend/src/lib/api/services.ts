@@ -3,7 +3,7 @@
  */
 
 import { apiClient } from './client';
-import type { Family, Child, Session, CheckInRecord, AuditLog } from './types';
+import type { Family, Child, Session, CheckInRecord, AuditLog, PrintQueueItem } from './types';
 
 /**
  * Family API endpoints
@@ -12,6 +12,21 @@ export const familyApi = {
   list: () => apiClient.get<Family[]>('/families/'),
   get: (id: string) => apiClient.get<Family>(`/families/${id}/`),
   search: (query: string) => apiClient.get<Family[]>(`/families/?search=${encodeURIComponent(query)}`),
+  create: (data: {
+    parents: Array<{
+      name: string;
+      phone?: string;
+      email?: string;
+      relationship_type: string;
+    }>;
+    children: Array<{
+      first_name: string;
+      last_name: string;
+      birthdate: string;
+      allergies?: string;
+      notes?: string;
+    }>;
+  }) => apiClient.post<Family>('/families/', data),
 };
 
 /**
@@ -23,7 +38,7 @@ export const childApi = {
     return apiClient.get<Child[]>(url);
   },
   get: (id: string) => apiClient.get<Child>(`/children/${id}/`),
-  getByQrToken: (token: string) => apiClient.get<Child>(`/children/by_qr_token/?token=${token}`),
+  getByQrToken: (token: string) => apiClient.get<Child>(`/qr/${token}/`),
 };
 
 /**
@@ -50,6 +65,9 @@ export const checkInApi = {
     apiClient.post<CheckInRecord>(`/checkins/${recordId}/check_out/`, {
       picked_up_by: pickedUpBy || '',
     }),
+
+  undoCheckout: (recordId: string) =>
+    apiClient.post<CheckInRecord>(`/checkins/${recordId}/undo_checkout/`, {}),
 };
 
 /**
@@ -58,6 +76,29 @@ export const checkInApi = {
 export const auditLogApi = {
   list: () => apiClient.get<AuditLog[]>('/audit_logs/'),
   get: (id: string) => apiClient.get<AuditLog>(`/audit_logs/${id}/`),
+};
+
+/**
+ * Print Queue API endpoints
+ */
+export const printQueueApi = {
+  /**
+   * Get all unprintable check-ins (checked in, not printed, not checked out)
+   */
+  getQueue: () => apiClient.get<PrintQueueItem[]>('/print-queue/'),
+
+  /**
+   * Mark one or more check-ins as printed
+   */
+  markPrinted: (checkinIds: string[]) =>
+    apiClient.post<{ message: string; count: number }>('/print-queue/mark_printed/', {
+      checkin_ids: checkinIds,
+    }),
+
+  /**
+   * Get the URL for downloading PDF labels
+   */
+  getPrintUrl: (checkinIds: string[]) => `/api/print-queue/generate_pdf/?ids=${checkinIds.join(',')}`,
 };
 
 /**
