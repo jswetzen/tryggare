@@ -187,6 +187,7 @@
     "allergies": "Allergies",
     "notes": "Notes",
     "actions": "Actions",
+    "print": "Print",
     "printSelected": "Print Selected",
     "printAll": "Print All",
     "selectAll": "Select All",
@@ -194,8 +195,14 @@
     "viewQR": "View QR",
     "loadError": "Failed to load print queue",
     "markError": "Failed to mark as printed",
+    "printError": "Failed to print label",
+    "printSuccess": "Label sent to printer",
     "noSelection": "Please select at least one child",
     "markedAsPrinted": "{count} label(s) marked as printed",
-    "selectToMark": "Select labels and click 'Mark as Printed' after printing"
+    "selectToMark": "Select labels and click 'Mark as Printed' after printing",
+    "clickPrintToLabel": "Click 'Print' button to print individual labels",
+    "recentlyPrinted": "Recently Printed (Last 50)",
+    "recentlyPrintedCount": "Recently Printed ({count})",
+    "noRecentlyPrinted": "No recently printed labels"
   }
 }

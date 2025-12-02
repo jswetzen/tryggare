@@ -368,3 +368,82 @@ class PrintQueueViewSet(viewsets.ReadOnlyModelViewSet):
         response = HttpResponse(pdf, content_type='application/pdf')
         response['Content-Disposition'] = 'attachment; filename="labels.pdf"'
         return response
+
+    @action(detail=True, methods=['get'])
+    def print_page(self, request, pk=None):
+        """
+        Returns HTML page optimized for printing a single label on Brother QL-29mm.
+        Opens in browser for direct printing.
+        """
+        from django.shortcuts import render, get_object_or_404
+
+        checkin = get_object_or_404(
+            CheckInRecord.objects.select_related('child', 'session'),
+            pk=pk
+        )
+
+        # Build QR code URL (using child's QR token)
+        qr_url = request.build_absolute_uri(f'/api/qr/{checkin.child.qr_token}/')
+
+        return render(request, 'print_label.html', {
+            'checkin': checkin,
+            'qr_url': qr_url
+        })
+
+    @action(detail=True, methods=['post'])
+    def mark_single_printed(self, request, pk=None):
+        """
+        Mark a single check-in as printed.
+        Creates audit log entry.
+        """
+        from django.shortcuts import get_object_or_404
+
+        checkin = get_object_or_404(
+            CheckInRecord.objects.select_related('child', 'session'),
+            pk=pk,
+            check_out_time__isnull=True  # Only if still checked in
+        )
+
+        # Update record
+        checkin.label_printed = True
+        checkin.label_printed_at = timezone.now()
+        checkin.label_printed_by = request.user
+        checkin.save()
+
+        # Log the action
+        AuditLog.objects.create(
+            user=request.user,
+            action="label_printed",
+            entity_type="CheckInRecord",
+            entity_id=str(checkin.id),
+            details={
+                "child_id": str(checkin.child.id),
+                "child_name": f"{checkin.child.first_name} {checkin.child.last_name}",
+                "session_id": str(checkin.session.id),
+                "session_name": checkin.session.name,
+            },
+        )
+
+        serializer = self.get_serializer(checkin)
+        return Response(serializer.data)
+
+    @action(detail=False, methods=['get'])
+    def recently_printed(self, request):
+        """
+        Get recently printed labels (last 50).
+        Shows only checked-in (not checked out) records.
+        """
+        recent = CheckInRecord.objects.filter(
+            label_printed=True,
+            check_out_time__isnull=True,  # Still checked in
+        ).select_related(
+            'child',
+            'child__family',
+            'session',
+            'check_in_staff'
+        ).prefetch_related(
+            'child__family__parents'
+        ).order_by('-check_in_time')[:50]
+
+        serializer = self.get_serializer(recent, many=True)
+        return Response(serializer.data)

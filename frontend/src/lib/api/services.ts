@@ -96,9 +96,25 @@ export const printQueueApi = {
     }),
 
   /**
+   * Mark a single check-in as printed
+   */
+  markSinglePrinted: (checkinId: string) =>
+    apiClient.post<PrintQueueItem>(`/print-queue/${checkinId}/mark_single_printed/`, {}),
+
+  /**
+   * Get recently printed check-ins (last 50)
+   */
+  getRecentlyPrinted: () => apiClient.get<PrintQueueItem[]>('/print-queue/recently_printed/'),
+
+  /**
    * Get the URL for downloading PDF labels
    */
   getPrintUrl: (checkinIds: string[]) => `/api/print-queue/generate_pdf/?ids=${checkinIds.join(',')}`,
+
+  /**
+   * Get the URL for the print page (opens in new window for printing)
+   */
+  getPrintPageUrl: (checkinId: string) => `/api/print-queue/${checkinId}/print_page/`,
 };
 
 /**

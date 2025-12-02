@@ -261,3 +261,164 @@ class PrintQueueTests(TestCase):
         # Most recent should be first
         self.assertEqual(data[0]["id"], str(checkin2.id))
         self.assertEqual(data[1]["id"], str(checkin1.id))
+
+    def test_print_page_html_generation(self):
+        """Test print page HTML template renders correctly"""
+        # Create check-in with QR token
+        self.child1.qr_token = "test-qr-token-123"
+        self.child1.save()
+
+        checkin = CheckInRecord.objects.create(
+            child=self.child1,
+            session=self.session,
+            check_in_staff=self.admin_user,
+            label_printed=False,
+        )
+
+        # Request print page
+        response = self.client.get(f"/api/print-queue/{checkin.id}/print_page/")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response["Content-Type"], "text/html; charset=utf-8")
+
+        # Check content
+        content = response.content.decode("utf-8")
+        self.assertIn("Alice", content)  # Child name
+        self.assertIn("Smith", content)  # Last name
+        self.assertIn("Test Session", content)  # Session name
+        self.assertIn("Peanuts", content)  # Allergies
+        self.assertIn("/api/qr/test-qr-token-123/", content)  # QR code URL
+
+    def test_mark_single_printed(self):
+        """Test marking single check-in as printed"""
+        # Create unprintable check-in
+        checkin = CheckInRecord.objects.create(
+            child=self.child1,
+            session=self.session,
+            check_in_staff=self.admin_user,
+            label_printed=False,
+        )
+
+        # Mark as printed
+        response = self.client.post(f"/api/print-queue/{checkin.id}/mark_single_printed/")
+        self.assertEqual(response.status_code, 200)
+
+        data = response.json()
+        self.assertEqual(data["id"], str(checkin.id))
+        self.assertTrue(data["label_printed"])
+
+        # Verify database was updated
+        checkin.refresh_from_db()
+        self.assertTrue(checkin.label_printed)
+        self.assertIsNotNone(checkin.label_printed_at)
+        self.assertEqual(checkin.label_printed_by, self.admin_user)
+
+        # Verify audit log was created
+        from checkins.models import AuditLog
+        audit_logs = AuditLog.objects.filter(
+            action="label_printed",
+            entity_type="CheckInRecord",
+            entity_id=str(checkin.id)
+        )
+        self.assertEqual(audit_logs.count(), 1)
+
+    def test_recently_printed_list(self):
+        """Test recently printed list returns last 50 items"""
+        # Create 60 check-ins and mark them as printed
+        checkins = []
+        for i in range(60):
+            child = Child.objects.create(
+                family=self.family,
+                first_name=f"Child{i}",
+                last_name="Test",
+                birthdate="2018-01-01",
+            )
+            checkin = CheckInRecord.objects.create(
+                child=child,
+                session=self.session,
+                check_in_staff=self.admin_user,
+                label_printed=True,
+                label_printed_at=timezone.now(),
+                label_printed_by=self.admin_user,
+            )
+            checkins.append(checkin)
+
+        # Get recently printed
+        response = self.client.get("/api/print-queue/recently_printed/")
+        self.assertEqual(response.status_code, 200)
+
+        data = response.json()
+        self.assertEqual(len(data), 50)  # Should return exactly 50
+
+        # Verify all have label_printed=True
+        for item in data:
+            self.assertTrue(item["label_printed"])
+
+    def test_recently_printed_excludes_checked_out(self):
+        """Test recently printed excludes checked-out children"""
+        # Create 10 check-ins, mark all as printed
+        checkins = []
+        for i in range(10):
+            child = Child.objects.create(
+                family=self.family,
+                first_name=f"Child{i}",
+                last_name="Test",
+                birthdate="2018-01-01",
+            )
+            checkin = CheckInRecord.objects.create(
+                child=child,
+                session=self.session,
+                check_in_staff=self.admin_user,
+                label_printed=True,
+                label_printed_at=timezone.now(),
+                label_printed_by=self.admin_user,
+            )
+            checkins.append(checkin)
+
+        # Check out 5 of them
+        for i in range(5):
+            checkins[i].check_out_time = timezone.now()
+            checkins[i].check_out_staff = self.admin_user
+            checkins[i].save()
+
+        # Get recently printed
+        response = self.client.get("/api/print-queue/recently_printed/")
+        self.assertEqual(response.status_code, 200)
+
+        data = response.json()
+        self.assertEqual(len(data), 5)  # Should return only 5 (still checked in)
+
+    def test_print_page_not_found(self):
+        """Test print page returns 404 for invalid UUID"""
+        import uuid
+        fake_id = str(uuid.uuid4())
+        response = self.client.get(f"/api/print-queue/{fake_id}/print_page/")
+        self.assertEqual(response.status_code, 404)
+
+    def test_mark_single_printed_not_found(self):
+        """Test mark_single_printed returns 404 for invalid UUID"""
+        import uuid
+        fake_id = str(uuid.uuid4())
+        response = self.client.post(f"/api/print-queue/{fake_id}/mark_single_printed/")
+        self.assertEqual(response.status_code, 404)
+
+    def test_mark_printed_idempotent(self):
+        """Test marking same check-in as printed twice works without error"""
+        # Create unprintable check-in
+        checkin = CheckInRecord.objects.create(
+            child=self.child1,
+            session=self.session,
+            check_in_staff=self.admin_user,
+            label_printed=False,
+        )
+
+        # Mark as printed first time
+        response = self.client.post(f"/api/print-queue/{checkin.id}/mark_single_printed/")
+        self.assertEqual(response.status_code, 200)
+
+        # Mark as printed second time (should succeed)
+        response = self.client.post(f"/api/print-queue/{checkin.id}/mark_single_printed/")
+        self.assertEqual(response.status_code, 200)
+
+        # Verify still marked as printed
+        checkin.refresh_from_db()
+        self.assertTrue(checkin.label_printed)
