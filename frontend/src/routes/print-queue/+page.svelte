@@ -6,6 +6,7 @@
 
 	let queueItems: PrintQueueItem[] = [];
 	let recentlyPrintedItems: PrintQueueItem[] = [];
+	let recentlyPrintedCount = 0;
 	let loading = false;
 	let loadingRecent = false;
 	let error = '';
@@ -14,6 +15,7 @@
 
 	onMount(async () => {
 		await loadQueue();
+		await loadRecentlyPrintedCount();
 	});
 
 	async function loadQueue() {
@@ -30,10 +32,20 @@
 		}
 	}
 
+	async function loadRecentlyPrintedCount() {
+		try {
+			const items = await printQueueApi.getRecentlyPrinted();
+			recentlyPrintedCount = items.length;
+		} catch (e) {
+			console.error('Failed to load recently printed count:', e);
+		}
+	}
+
 	async function loadRecentlyPrinted() {
 		loadingRecent = true;
 		try {
 			recentlyPrintedItems = await printQueueApi.getRecentlyPrinted();
+			recentlyPrintedCount = recentlyPrintedItems.length;
 		} catch (e) {
 			console.error('Failed to load recently printed:', e);
 		} finally {
@@ -54,7 +66,8 @@
 			// Refresh queue to remove from main queue
 			await loadQueue();
 
-			// Refresh recently printed if expanded
+			// Always update count, and reload items if expanded
+			await loadRecentlyPrintedCount();
 			if (recentlyPrintedExpanded) {
 				recentlyPrintedItems = await printQueueApi.getRecentlyPrinted();
 			}
@@ -78,6 +91,7 @@
 
 	async function refreshAll() {
 		await loadQueue();
+		await loadRecentlyPrintedCount();
 		if (recentlyPrintedExpanded) {
 			recentlyPrintedItems = await printQueueApi.getRecentlyPrinted();
 		}
@@ -290,24 +304,44 @@
 	{/if}
 
 	<!-- Recently Printed Section -->
-	<div class="mt-8">
+	<div class="mt-8 card bg-base-200 shadow-xl">
 		<details bind:open={recentlyPrintedExpanded} on:toggle={toggleRecentlyPrinted}>
-			<summary class="cursor-pointer text-xl font-bold mb-4 flex items-center gap-2">
-				{$t('printQueue.recentlyPrintedCount', { values: { count: recentlyPrintedItems.length } })}
-				<span class="badge badge-neutral">{recentlyPrintedItems.length}</span>
+			<summary
+				class="cursor-pointer text-xl font-bold p-4 flex items-center gap-3 hover:bg-base-300 rounded-lg transition-colors"
+			>
+				<!-- Chevron icon that rotates when expanded -->
+				<svg
+					xmlns="http://www.w3.org/2000/svg"
+					class="h-6 w-6 transition-transform {recentlyPrintedExpanded ? 'rotate-90' : ''}"
+					fill="none"
+					viewBox="0 0 24 24"
+					stroke="currentColor"
+				>
+					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+				</svg>
+
+				<span>{$t('printQueue.recentlyPrinted')}</span>
+				<span class="badge badge-primary badge-lg">{recentlyPrintedCount}</span>
+
+				{#if !recentlyPrintedExpanded}
+					<span class="text-sm font-normal opacity-70 ml-auto">
+						{$t('printQueue.clickToExpand')}
+					</span>
+				{/if}
 			</summary>
 
-			{#if loadingRecent}
-				<div class="flex justify-center items-center py-8">
-					<span class="loading loading-spinner loading-md"></span>
-					<span class="ml-4">{$t('common.loading')}</span>
-				</div>
-			{:else if recentlyPrintedItems.length === 0}
-				<div class="text-center py-8 text-gray-500">
-					{$t('printQueue.noRecentlyPrinted')}
-				</div>
-			{:else}
-				<div class="overflow-x-auto bg-base-100 shadow-xl rounded-lg">
+			<div class="p-4">
+				{#if loadingRecent}
+					<div class="flex justify-center items-center py-8">
+						<span class="loading loading-spinner loading-md"></span>
+						<span class="ml-4">{$t('common.loading')}</span>
+					</div>
+				{:else if recentlyPrintedItems.length === 0}
+					<div class="text-center py-8 text-gray-500">
+						{$t('printQueue.noRecentlyPrinted')}
+					</div>
+				{:else}
+					<div class="overflow-x-auto bg-base-100 shadow-xl rounded-lg">
 					<table class="table table-zebra w-full">
 						<thead>
 							<tr>
@@ -376,8 +410,9 @@
 							{/each}
 						</tbody>
 					</table>
-				</div>
-			{/if}
+					</div>
+				{/if}
+			</div>
 		</details>
 	</div>
 </div>
