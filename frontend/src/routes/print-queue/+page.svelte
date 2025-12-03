@@ -31,8 +31,6 @@
 	}
 
 	async function loadRecentlyPrinted() {
-		if (recentlyPrintedItems.length > 0) return; // Already loaded
-
 		loadingRecent = true;
 		try {
 			recentlyPrintedItems = await printQueueApi.getRecentlyPrinted();
@@ -72,7 +70,7 @@
 	}
 
 	async function toggleRecentlyPrinted() {
-		recentlyPrintedExpanded = !recentlyPrintedExpanded;
+		// The bind:open already handles the toggle, we just need to load when opened
 		if (recentlyPrintedExpanded) {
 			await loadRecentlyPrinted();
 		}
