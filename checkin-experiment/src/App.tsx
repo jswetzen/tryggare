@@ -1,33 +1,38 @@
-import React, { useState } from 'react';
-import { Camera, X, Search, ChevronDown, ChevronRight } from 'lucide-react';
+import { useState, useMemo, useEffect } from 'react';
+import { Search, X } from 'lucide-react';
+import type { Family, Child, TicketType } from './types';
+import { useUndoTimer } from './hooks/useUndoTimer';
+import { getVisibleFamilies } from './utils/familyVisibility';
+import { FamilyCard } from './components/FamilyCard';
+import { AddFamilyPanel } from './components/AddFamilyPanel';
 
 // ============================================================================
 // MOCK DATA
 // ============================================================================
 
-const MOCK_FAMILIES = [
+const MOCK_FAMILIES: Family[] = [
   {
     id: 1,
     name: 'Garcia',
     children: [
-      { id: 1, name: 'Isabella Garcia', ticket: 'event', checkedIn: true, checkInTime: '9:05 AM' },
-      { id: 2, name: 'Lucas Garcia', ticket: 'none', checkedIn: false }
-    ]
+      { id: 1, name: 'Isabella Garcia', ticket: 'event', checkedIn: false },
+      { id: 2, name: 'Lucas Garcia', ticket: 'none', checkedIn: false },
+    ],
   },
   {
     id: 2,
     name: 'Johnson',
     children: [
-      { id: 3, name: 'Sophia Johnson', ticket: 'session', checkedIn: false }
-    ]
+      { id: 3, name: 'Sophia Johnson', ticket: 'session', checkedIn: false },
+    ],
   },
   {
     id: 3,
     name: 'Smith',
     children: [
       { id: 4, name: 'Emma Smith', ticket: 'event', checkedIn: false },
-      { id: 5, name: 'Oliver Smith', ticket: 'event', checkedIn: true, checkInTime: '9:16 AM' }
-    ]
+      { id: 5, name: 'Oliver Smith', ticket: 'event', checkedIn: false },
+    ],
   },
   {
     id: 4,
@@ -35,311 +40,125 @@ const MOCK_FAMILIES = [
     children: [
       { id: 6, name: 'Liam Anderson', ticket: 'event', checkedIn: false },
       { id: 7, name: 'Mia Anderson', ticket: 'event', checkedIn: false },
-      { id: 8, name: 'Noah Anderson', ticket: 'session', checkedIn: false }
-    ]
+      { id: 8, name: 'Noah Anderson', ticket: 'session', checkedIn: false },
+    ],
   },
-  {
-    id: 5,
-    name: 'Martinez',
-    children: [
-      { id: 9, name: 'Sofia Martinez', ticket: 'event', checkedIn: true, checkInTime: '8:45 AM' },
-      { id: 10, name: 'Diego Martinez', ticket: 'event', checkedIn: true, checkInTime: '8:45 AM' }
-    ]
-  }
 ];
 
 // ============================================================================
-// COMPONENTS
+// SESSION INDICATOR COMPONENT
 // ============================================================================
 
-// Session Indicator
-const SessionIndicator = ({ eventName, sessionName, sessionTime, onChangeSession }: {
+interface SessionIndicatorProps {
   eventName: string;
   sessionName: string;
   sessionTime: string;
   onChangeSession: () => void;
-}) => (
-  <div className="bg-slate-50 border border-slate-300 rounded px-3 py-2 mb-4 flex flex-wrap justify-between items-center gap-2 text-sm">
-    <div className="text-slate-600">
-      <span className="font-semibold text-blue-900">Event:</span> {eventName} •
-      <span className="font-semibold text-blue-900 ml-1">Session:</span> {sessionName} ({sessionTime})
-    </div>
-    <button
-      onClick={onChangeSession}
-      className="text-blue-600 font-semibold hover:underline"
-    >
-      Change Session
-    </button>
-  </div>
-);
+  onAddFamily: () => void;
+}
 
-// Child Check-In Button Component
-const ChildCheckInButton = ({ status, ticket, checkInTime, onCheckIn, onOverride }: {
-  status: string;
-  ticket: string;
-  checkInTime?: string;
-  onCheckIn: () => void;
-  onOverride: () => void;
-}) => {
-  if (status === 'checked-in') {
-    return (
-      <button
-        disabled
-        title={`Checked in at ${checkInTime}`}
-        className="px-3 py-1.5 bg-slate-400 text-white text-sm font-semibold rounded cursor-not-allowed"
-      >
-        Checked In
-      </button>
-    );
-  }
-
-  if (ticket === 'none') {
-    return (
-      <button
-        onClick={onOverride}
-        className="px-3 py-1.5 bg-red-100 text-red-700 text-sm font-semibold rounded border border-red-300 hover:bg-red-200 transition-colors"
-      >
-        No Ticket
-      </button>
-    );
-  }
-
+function SessionIndicator({
+  eventName,
+  sessionName,
+  sessionTime,
+  onChangeSession,
+  onAddFamily,
+}: SessionIndicatorProps) {
   return (
-    <button
-      onClick={onCheckIn}
-      className="px-3 py-1.5 bg-green-600 text-white text-sm font-semibold rounded hover:bg-green-700 transition-colors"
-    >
-      Check In
-    </button>
-  );
-};
-
-// Family Card Component
-const FamilyCard = ({ family, expanded, onToggle, onCheckInChild, onCheckInFamily, onOverride }: {
-  family: any;
-  expanded: boolean;
-  onToggle: () => void;
-  onCheckInChild: (familyId: number, childId: number) => void;
-  onCheckInFamily: (familyId: number) => void;
-  onOverride: (familyId: number, childId: number) => void;
-}) => {
-  // Calculate stats
-  const totalChildren = family.children.length;
-  const checkedInCount = family.children.filter((c: any) => c.checkedIn).length;
-  const canCheckInCount = family.children.filter((c: any) => !c.checkedIn && c.ticket !== 'none').length;
-  const allCheckedIn = checkedInCount === totalChildren;
-
-  return (
-    <div className="bg-white border border-slate-300 rounded-lg overflow-hidden mb-3 hover:shadow-md transition-shadow">
-      {/* Family Header */}
-      <div className="bg-slate-50 p-3 flex items-center justify-between">
-        <div className="flex items-center gap-2 flex-1">
-          <button
-            onClick={onToggle}
-            className="text-slate-600 hover:text-slate-900 transition-colors"
-          >
-            {expanded ? <ChevronDown size={20} /> : <ChevronRight size={20} />}
-          </button>
-          <div className="flex-1">
-            <h3 className="font-bold text-blue-900 text-lg">{family.name} Family</h3>
-            <p className="text-sm text-slate-600">
-              {totalChildren} {totalChildren === 1 ? 'child' : 'children'} • {checkedInCount} checked in
-            </p>
-          </div>
-        </div>
-
-        {/* Family Check-In Button */}
-        {!allCheckedIn && canCheckInCount > 0 && (
-          <button
-            onClick={() => onCheckInFamily(family.id)}
-            className="px-4 py-2 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition-colors text-sm"
-          >
-            Check In Family ({canCheckInCount})
-          </button>
-        )}
-
-        {allCheckedIn && (
-          <span className="px-4 py-2 bg-slate-200 text-slate-600 font-semibold rounded-lg text-sm">
-            All Checked In
-          </span>
-        )}
+    <div className="bg-slate-50 border border-slate-300 rounded px-3 py-2 mb-4 flex flex-wrap justify-between items-center gap-2 text-sm">
+      <div className="text-slate-600">
+        <span className="font-semibold text-blue-900">Event:</span> {eventName} •
+        <span className="font-semibold text-blue-900 ml-1">Session:</span> {sessionName} ({sessionTime})
       </div>
-
-      {/* Children List (when expanded) */}
-      {expanded && (
-        <div className="p-3 space-y-2">
-          {family.children.map((child: any) => (
-            <div
-              key={child.id}
-              className="flex items-center justify-between p-2 bg-slate-50 rounded border border-slate-200"
-            >
-              <div className="flex-1">
-                <div className="font-medium text-slate-700">{child.name}</div>
-                <div className="text-xs text-slate-500 mt-0.5">
-                  {child.ticket === 'event' && '🟢 Event Pass'}
-                  {child.ticket === 'session' && '🔵 Session Ticket'}
-                  {child.ticket === 'none' && '🔴 No Ticket'}
-                  {child.checkedIn && ` • Checked in at ${child.checkInTime}`}
-                </div>
-              </div>
-
-              <ChildCheckInButton
-                status={child.checkedIn ? 'checked-in' : 'ready'}
-                ticket={child.ticket}
-                checkInTime={child.checkInTime}
-                onCheckIn={() => onCheckInChild(family.id, child.id)}
-                onOverride={() => onOverride(family.id, child.id)}
-              />
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-};
-
-// QR Scanner View
-const QRScannerView = ({ onClose, onFamilyScanned }: {
-  onClose: () => void;
-  onFamilyScanned: (familyId: number) => void;
-}) => {
-  const [scannedFamily, setScannedFamily] = useState<any>(null);
-
-  const simulateScan = () => {
-    // Simulate scanning a random family
-    const randomFamily = MOCK_FAMILIES[Math.floor(Math.random() * MOCK_FAMILIES.length)];
-    setScannedFamily(randomFamily);
-  };
-
-  const handleCheckInFamily = (familyId: number) => {
-    onFamilyScanned(familyId);
-    // Go back to camera for next scan
-    setScannedFamily(null);
-  };
-
-  return (
-    <div className="fixed inset-0 bg-slate-900 z-50 flex flex-col">
-      {/* Header */}
-      <div className="bg-slate-800 p-4 flex items-center justify-between">
+      <div className="flex gap-2">
         <button
-          onClick={() => scannedFamily ? setScannedFamily(null) : onClose()}
-          className="text-white hover:text-slate-300 transition-colors"
+          onClick={onChangeSession}
+          className="px-3 py-1.5 text-blue-600 font-semibold hover:underline"
         >
-          {scannedFamily ? '← Back to Camera' : <X size={24} />}
-        </button>
-        <h2 className="text-white font-semibold">QR Code Scanner</h2>
-        <div className="w-6"></div>
-      </div>
-
-      {/* Camera View or Family Panel */}
-      {!scannedFamily ? (
-        <div className="flex-1 flex items-center justify-center bg-slate-800">
-          {/* Simulated Camera View */}
-          <div className="text-center">
-            <Camera size={80} className="text-white mx-auto mb-4" />
-            <p className="text-white text-lg mb-6">Position QR code in frame</p>
-            <button
-              onClick={simulateScan}
-              className="px-6 py-3 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700"
-            >
-              Simulate Scan
-            </button>
-          </div>
-        </div>
-      ) : (
-        <div className="flex-1 overflow-auto p-4 bg-slate-100">
-          <div className="max-w-md mx-auto">
-            <FamilyCard
-              family={scannedFamily}
-              expanded={true}
-              onToggle={() => {}}
-              onCheckInChild={(famId, childId) => {
-                alert(`Checked in child ${childId}`);
-                // In real app, update state and continue scanning
-              }}
-              onCheckInFamily={handleCheckInFamily}
-              onOverride={(famId, childId) => {
-                if (confirm('This child does not have a valid ticket. Check in anyway?')) {
-                  alert(`Override check-in for child ${childId}`);
-                }
-              }}
-            />
-          </div>
-        </div>
-      )}
-    </div>
-  );
-};
-
-// Override Confirmation Modal
-const OverrideModal = ({ childName, onConfirm, onCancel }: {
-  childName: string;
-  onConfirm: () => void;
-  onCancel: () => void;
-}) => (
-  <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-    <div className="bg-white rounded-lg p-6 max-w-md w-full">
-      <h3 className="text-lg font-bold text-slate-900 mb-2">No Valid Ticket</h3>
-      <p className="text-slate-600 mb-4">
-        <strong>{childName}</strong> does not have a valid ticket for this session.
-        Do you want to check them in anyway?
-      </p>
-      <div className="flex gap-3">
-        <button
-          onClick={onCancel}
-          className="flex-1 px-4 py-2 bg-slate-200 text-slate-700 font-semibold rounded-lg hover:bg-slate-300"
-        >
-          Cancel
+          Change Session
         </button>
         <button
-          onClick={onConfirm}
-          className="flex-1 px-4 py-2 bg-orange-600 text-white font-semibold rounded-lg hover:bg-orange-700"
+          onClick={onAddFamily}
+          className="px-3 py-1.5 bg-blue-600 text-white font-semibold rounded hover:bg-blue-700 transition-colors"
         >
-          Check In Anyway
+          + Add Family
         </button>
       </div>
     </div>
-  </div>
-);
+  );
+}
 
-// Success Toast
-const SuccessToast = ({ message, onClose }: {
+// ============================================================================
+// SUCCESS TOAST COMPONENT
+// ============================================================================
+
+interface SuccessToastProps {
   message: string;
   onClose: () => void;
-}) => {
-  React.useEffect(() => {
+}
+
+function SuccessToast({ message, onClose }: SuccessToastProps) {
+  useEffect(() => {
     const timer = setTimeout(onClose, 3000);
     return () => clearTimeout(timer);
   }, [onClose]);
 
   return (
-    <div className="fixed top-4 right-4 bg-green-600 text-white px-4 py-3 rounded-lg shadow-lg flex items-center gap-2 z-50 animate-slide-in">
+    <div
+      className="fixed top-4 right-4 bg-green-600 text-white px-4 py-3 rounded-lg shadow-lg flex items-center gap-2 z-50 animate-slide-in"
+      role="alert"
+      aria-live="polite"
+    >
       <span className="text-xl">✓</span>
       <span className="font-semibold">{message}</span>
     </div>
   );
-};
+}
 
 // ============================================================================
-// MAIN CHECK-IN VIEW
+// MAIN APP COMPONENT
 // ============================================================================
 
-export default function ImprovedCheckIn() {
-  const [families, setFamilies] = useState(MOCK_FAMILIES);
+export default function App() {
+  const [families, setFamilies] = useState<Family[]>(MOCK_FAMILIES);
   const [searchQuery, setSearchQuery] = useState('');
   const [expandedFamilies, setExpandedFamilies] = useState(new Set<number>());
-  const [showScanner, setShowScanner] = useState(false);
-  const [overrideModal, setOverrideModal] = useState<any>(null);
+  const [expandedChildId, setExpandedChildId] = useState<number | null>(null);
+  const [showAddPanel, setShowAddPanel] = useState(false);
   const [successToast, setSuccessToast] = useState<string | null>(null);
-  const [showAllFamilies, setShowAllFamilies] = useState(true);
+  const [nextFamilyId, setNextFamilyId] = useState(5);
+  const [nextChildId, setNextChildId] = useState(10);
 
-  // Filter families based on search
-  const filteredFamilies = families.filter(family => {
-    if (!searchQuery) return true;
+  // Use undo timer hook
+  const {
+    undoActions,
+    createUndoAction,
+    removeUndoAction,
+    getRemainingTime,
+    getFamilyUndoActions,
+  } = useUndoTimer();
+
+  // Helper to get current time formatted
+  const getCurrentTime = () => {
+    return new Date().toLocaleTimeString('en-US', {
+      hour: 'numeric',
+      minute: '2-digit',
+    });
+  };
+
+  // Filter visible families based on search and visibility rules
+  const visibleFamilies = useMemo(() => {
+    const filtered = getVisibleFamilies(families, undoActions);
+
+    if (!searchQuery) return filtered;
+
     const query = searchQuery.toLowerCase();
-    return family.name.toLowerCase().includes(query) ||
-           family.children.some(child => child.name.toLowerCase().includes(query));
-  });
+    return filtered.filter(
+      (family) =>
+        family.name.toLowerCase().includes(query) ||
+        family.children.some((child) => child.name.toLowerCase().includes(query))
+    );
+  }, [families, undoActions, searchQuery]);
 
   // Toggle family expansion
   const toggleFamily = (familyId: number) => {
@@ -354,58 +173,221 @@ export default function ImprovedCheckIn() {
 
   // Check in individual child
   const checkInChild = (familyId: number, childId: number) => {
-    setFamilies(families.map(fam => {
-      if (fam.id !== familyId) return fam;
-      return {
-        ...fam,
-        children: fam.children.map(child => {
-          if (child.id !== childId) return child;
-          return { ...child, checkedIn: true, checkInTime: new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }) };
-        })
-      };
-    }));
+    const actionId = createUndoAction(familyId, [childId]);
+    const checkInTime = getCurrentTime();
 
-    const family = families.find(f => f.id === familyId);
-    const child = family?.children.find(c => c.id === childId);
+    setFamilies((prev) =>
+      prev.map((fam) => {
+        if (fam.id !== familyId) return fam;
+        return {
+          ...fam,
+          children: fam.children.map((child) => {
+            if (child.id !== childId) return child;
+            return {
+              ...child,
+              checkedIn: true,
+              checkInTime,
+              checkInActionId: actionId,
+            };
+          }),
+        };
+      })
+    );
+
+    const family = families.find((f) => f.id === familyId);
+    const child = family?.children.find((c) => c.id === childId);
     if (child) {
       setSuccessToast(`${child.name} checked in!`);
     }
+
+    // Close expansion if open
+    setExpandedChildId(null);
   };
 
   // Check in entire family
   const checkInFamily = (familyId: number) => {
-    setFamilies(families.map(fam => {
-      if (fam.id !== familyId) return fam;
-      return {
-        ...fam,
-        children: fam.children.map(child => {
-          if (child.checkedIn || child.ticket === 'none') return child;
-          return { ...child, checkedIn: true, checkInTime: new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }) };
+    console.log('checkInFamily called with familyId:', familyId);
+    const family = families.find((f) => f.id === familyId);
+    console.log('Found family:', family);
+    if (!family) return;
+
+    const childIdsToCheckIn = family.children
+      .filter((c) => !c.checkedIn && c.ticket !== 'none')
+      .map((c) => c.id);
+
+    console.log('Child IDs to check in:', childIdsToCheckIn);
+    if (childIdsToCheckIn.length === 0) return;
+
+    const actionId = createUndoAction(familyId, childIdsToCheckIn);
+    const checkInTime = getCurrentTime();
+
+    console.log('Updating families state...');
+    setFamilies((prev) =>
+      prev.map((fam) => {
+        if (fam.id !== familyId) return fam;
+        return {
+          ...fam,
+          lastCheckInTime: Date.now(),
+          children: fam.children.map((child) => {
+            if (!childIdsToCheckIn.includes(child.id)) return child;
+            return {
+              ...child,
+              checkedIn: true,
+              checkInTime,
+              checkInActionId: actionId,
+            };
+          }),
+        };
+      })
+    );
+
+    setSuccessToast(
+      `${family.name} family checked in (${childIdsToCheckIn.length} ${
+        childIdsToCheckIn.length === 1 ? 'child' : 'children'
+      })!`
+    );
+    console.log('checkInFamily completed');
+  };
+
+  // Undo individual child check-in
+  const undoChildCheckIn = (familyId: number, childId: number) => {
+    const family = families.find((f) => f.id === familyId);
+    const child = family?.children.find((c) => c.id === childId);
+
+    if (child?.checkInActionId) {
+      removeUndoAction(child.checkInActionId);
+
+      setFamilies((prev) =>
+        prev.map((fam) => {
+          if (fam.id !== familyId) return fam;
+          return {
+            ...fam,
+            children: fam.children.map((c) => {
+              if (c.id !== childId) return c;
+              return {
+                ...c,
+                checkedIn: false,
+                checkInTime: undefined,
+                checkInActionId: undefined,
+              };
+            }),
+          };
         })
-      };
+      );
+
+      if (child) {
+        setSuccessToast(`${child.name} check-in undone`);
+      }
+    }
+  };
+
+  // Undo family check-in
+  const undoFamilyCheckIn = (familyId: number) => {
+    const family = families.find((f) => f.id === familyId);
+    if (!family) return;
+
+    // Find all undo actions for this family
+    const familyActions = getFamilyUndoActions(familyId);
+    if (familyActions.length === 0) return;
+
+    // Get the most recent family action (should have multiple children)
+    const familyAction = familyActions.find((a) => a.childIds.length > 1);
+    if (!familyAction) return;
+
+    removeUndoAction(familyAction.id);
+
+    // Undo all children affected by this action
+    setFamilies((prev) =>
+      prev.map((fam) => {
+        if (fam.id !== familyId) return fam;
+        return {
+          ...fam,
+          children: fam.children.map((c) => {
+            if (
+              familyAction.childIds.includes(c.id) &&
+              c.checkInActionId === familyAction.id
+            ) {
+              return {
+                ...c,
+                checkedIn: false,
+                checkInTime: undefined,
+                checkInActionId: undefined,
+              };
+            }
+            return c;
+          }),
+        };
+      })
+    );
+
+    setSuccessToast(`${family.name} check-in undone`);
+  };
+
+  // Assign ticket and check in child
+  const assignTicketAndCheckIn = (
+    familyId: number,
+    childId: number,
+    ticketType: TicketType
+  ) => {
+    // First update the ticket type
+    setFamilies((prev) =>
+      prev.map((fam) => {
+        if (fam.id !== familyId) return fam;
+        return {
+          ...fam,
+          children: fam.children.map((child) => {
+            if (child.id !== childId) return child;
+            return { ...child, ticket: ticketType };
+          }),
+        };
+      })
+    );
+
+    // Then check in the child
+    setTimeout(() => checkInChild(familyId, childId), 0);
+  };
+
+  // Add new family
+  const handleAddFamily = (data: {
+    familyName: string;
+    childrenNames: string[];
+    ticketType: TicketType;
+  }) => {
+    const newFamilyId = nextFamilyId;
+    let currentChildId = nextChildId;
+
+    const newChildren: Child[] = data.childrenNames.map((name) => ({
+      id: currentChildId++,
+      name: `${name} ${data.familyName}`,
+      ticket: data.ticketType,
+      checkedIn: false,
     }));
 
-    const family = families.find(f => f.id === familyId);
-    if (family) {
-      const count = family.children.filter(c => !c.checkedIn && c.ticket !== 'none').length;
-      setSuccessToast(`${family.name} family checked in (${count} ${count === 1 ? 'child' : 'children'})!`);
-    }
+    const newFamily: Family = {
+      id: newFamilyId,
+      name: data.familyName,
+      children: newChildren,
+    };
+
+    setFamilies((prev) => [...prev, newFamily].sort((a, b) => a.name.localeCompare(b.name)));
+    setNextFamilyId(newFamilyId + 1);
+    setNextChildId(currentChildId);
+    setShowAddPanel(false);
+    setSuccessToast(
+      `${data.familyName} family added with ${newChildren.length} ${
+        newChildren.length === 1 ? 'child' : 'children'
+      }!`
+    );
+
+    // Auto-expand the new family
+    setExpandedFamilies((prev) => new Set(prev).add(newFamilyId));
   };
 
-  // Handle override
-  const handleOverride = (familyId: number, childId: number) => {
-    const family = families.find(f => f.id === familyId);
-    const child = family?.children.find(c => c.id === childId);
-    if (child) {
-      setOverrideModal({ familyId, childId, childName: child.name });
-    }
-  };
-
-  const confirmOverride = () => {
-    if (overrideModal) {
-      checkInChild(overrideModal.familyId, overrideModal.childId);
-      setOverrideModal(null);
-    }
+  // Get family-level undo remaining time
+  const getFamilyUndoSeconds = (familyId: number): number | null => {
+    const familyActions = getFamilyUndoActions(familyId);
+    const familyAction = familyActions.find((a) => a.childIds.length > 1);
+    return familyAction ? getRemainingTime(familyAction.id) : null;
   };
 
   return (
@@ -416,25 +398,41 @@ export default function ImprovedCheckIn() {
           eventName="Summer Conference 2025"
           sessionName="Morning Care"
           sessionTime="8:00 AM - 12:00 PM"
-          onChangeSession={() => alert('Change session')}
+          onChangeSession={() => alert('Change session functionality')}
+          onAddFamily={() => setShowAddPanel(true)}
         />
 
-        {/* Header with QR Button */}
-        <div className="flex items-center justify-between mb-5">
+        {/* Add Family Panel */}
+        {showAddPanel && (
+          <AddFamilyPanel
+            onAdd={handleAddFamily}
+            onClose={() => setShowAddPanel(false)}
+          />
+        )}
+
+        {/* Header */}
+        <div className="mb-5">
           <h1 className="text-3xl font-bold text-blue-900">Check-In Station</h1>
+          {/* DEBUG TEST BUTTON */}
           <button
-            onClick={() => setShowScanner(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition-colors"
+            type="button"
+            onClick={() => {
+              console.log('TEST BUTTON CLICKED!');
+              alert('TEST: Button clicks ARE working!');
+            }}
+            style={{background: 'red', color: 'white', padding: '12px 24px', margin: '10px 0', fontWeight: 'bold', borderRadius: '8px', border: 'none'}}
           >
-            <Camera size={20} />
-            Scan QR
+            🔴 TEST BUTTON - Click Me!
           </button>
         </div>
 
         {/* Search Box */}
         <div className="mb-4">
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={20} />
+            <Search
+              className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+              size={20}
+            />
             <input
               type="text"
               value={searchQuery}
@@ -446,6 +444,7 @@ export default function ImprovedCheckIn() {
               <button
                 onClick={() => setSearchQuery('')}
                 className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                aria-label="Clear search"
               >
                 <X size={20} />
               </button>
@@ -453,77 +452,51 @@ export default function ImprovedCheckIn() {
           </div>
         </div>
 
-        {/* Filter Toggle */}
-        <div className="mb-4 flex items-center gap-2">
-          <label className="flex items-center gap-2 text-sm text-slate-600 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={showAllFamilies}
-              onChange={(e) => setShowAllFamilies(e.target.checked)}
-              className="w-4 h-4"
-            />
-            Show all families (including fully checked in)
-          </label>
-        </div>
-
         {/* Stats Header */}
         <div className="mb-4 flex items-center justify-between text-sm">
           <span className="text-slate-600">
-            {filteredFamilies.length} {filteredFamilies.length === 1 ? 'family' : 'families'}
+            {visibleFamilies.length}{' '}
+            {visibleFamilies.length === 1 ? 'family' : 'families'}
             {searchQuery && ' matching search'}
           </span>
         </div>
 
         {/* Family Cards */}
         <div className="space-y-3">
-          {filteredFamilies.length === 0 ? (
+          {visibleFamilies.length === 0 ? (
             <div className="text-center py-12 bg-white rounded-lg border-2 border-dashed border-slate-300">
-              <p className="text-slate-500 mb-2">No families found matching "{searchQuery}"</p>
-              <p className="text-sm text-slate-400">Try a different search term</p>
+              <p className="text-slate-500 mb-2">
+                {searchQuery
+                  ? `No families found matching "${searchQuery}"`
+                  : 'No families to check in'}
+              </p>
+              {searchQuery && (
+                <p className="text-sm text-slate-400">Try a different search term</p>
+              )}
             </div>
           ) : (
-            filteredFamilies.map(family => (
+            visibleFamilies.map((family) => (
               <FamilyCard
                 key={family.id}
                 family={family}
                 expanded={expandedFamilies.has(family.id)}
                 onToggle={() => toggleFamily(family.id)}
-                onCheckInChild={checkInChild}
-                onCheckInFamily={checkInFamily}
-                onOverride={handleOverride}
+                onCheckInChild={(childId) => checkInChild(family.id, childId)}
+                onCheckInFamily={() => checkInFamily(family.id)}
+                onUndoChild={(childId) => undoChildCheckIn(family.id, childId)}
+                onUndoFamily={() => undoFamilyCheckIn(family.id)}
+                onAssignTicket={(childId, ticketType) =>
+                  assignTicketAndCheckIn(family.id, childId, ticketType)
+                }
+                expandedChildId={expandedChildId}
+                onToggleChildExpansion={setExpandedChildId}
+                getRemainingTime={getRemainingTime}
+                familyUndoSeconds={getFamilyUndoSeconds(family.id)}
               />
             ))
           )}
         </div>
-
-        {/* Add Family Button */}
-        <div className="mt-6 text-center py-8 bg-white rounded-lg border-2 border-dashed border-slate-300">
-          <p className="text-slate-500 mb-3">Can't find the family you're looking for?</p>
-          <button className="px-6 py-2 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700">
-            + Add New Family
-          </button>
-        </div>
       </div>
-
-      {/* QR Scanner Modal */}
-      {showScanner && (
-        <QRScannerView
-          onClose={() => setShowScanner(false)}
-          onFamilyScanned={(familyId) => {
-            checkInFamily(familyId);
-            setShowScanner(false);
-          }}
-        />
-      )}
-
-      {/* Override Confirmation Modal */}
-      {overrideModal && (
-        <OverrideModal
-          childName={overrideModal.childName}
-          onConfirm={confirmOverride}
-          onCancel={() => setOverrideModal(null)}
-        />
-      )}
 
       {/* Success Toast */}
       {successToast && (
@@ -533,6 +506,7 @@ export default function ImprovedCheckIn() {
         />
       )}
 
+      {/* Animations */}
       <style>{`
         @keyframes slide-in {
           from {
@@ -546,6 +520,19 @@ export default function ImprovedCheckIn() {
         }
         .animate-slide-in {
           animation: slide-in 0.3s ease-out;
+        }
+        @keyframes expand {
+          from {
+            opacity: 0;
+            transform: translateY(-10px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+        .animate-expand {
+          animation: expand 0.2s ease-out;
         }
       `}</style>
     </div>
