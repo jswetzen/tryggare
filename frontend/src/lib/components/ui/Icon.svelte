@@ -1,7 +1,7 @@
 <script lang="ts">
   type IconName =
     | 'printer' | 'qr-code' | 'refresh' | 'check-circle'
-    | 'x-circle' | 'info' | 'alert-triangle' | 'chevron-down'
+    | 'x-circle' | 'x' | 'info' | 'alert-triangle' | 'chevron-down'
     | 'chevron-right' | 'chevron-up' | 'search' | 'plus'
     | 'minus' | 'edit' | 'trash' | 'eye' | 'download';
 
@@ -33,6 +33,7 @@
   const icons: Record<IconName, string> = {
     'check-circle': 'M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z',
     'x-circle': 'M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z',
+    'x': 'M6 18L18 6M6 6l12 12',
     'info': 'M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z',
     'alert-triangle': 'M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z',
     'printer': 'M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z',
