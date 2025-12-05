@@ -31,8 +31,8 @@
   }
 </script>
 
-<div class="border-2 border-blue-500 rounded-md p-3 mb-5 bg-blue-50">
-  <label for={inputId} class="block font-semibold text-blue-900 mb-2 text-sm">
+<div class="border-2 border-primary-500 rounded-card p-3 mb-5 bg-primary-50">
+  <label for={inputId} class="block font-semibold text-primary-900 mb-2 text-sm">
     {displayLabel}
   </label>
   <input
@@ -42,6 +42,6 @@
     {value}
     oninput={handleInput}
     placeholder={displayPlaceholder}
-    class="w-full px-3 py-2 border border-slate-300 rounded bg-white text-sm"
+    class="w-full px-3 py-2 border border-neutral-300 rounded-input bg-white text-sm focus:border-primary-600 focus:ring-2 focus:ring-primary-500"
   />
 </div>

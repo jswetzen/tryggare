@@ -19,10 +19,10 @@ function SessionIndicator($$renderer, $$props) {
   $$renderer.component(($$renderer2) => {
     var $$store_subs;
     let { eventName, sessionName, sessionTime, onChangeSession } = $$props;
-    $$renderer2.push(`<div class="bg-slate-50 border border-slate-300 rounded px-3 py-2 mb-4 flex flex-wrap justify-between items-center gap-2 text-sm"><div class="text-slate-600"><span class="font-semibold text-blue-900">${escape_html(store_get($$store_subs ??= {}, "$t", $format)("session.event"))}</span> ${escape_html(eventName)} • <span class="font-semibold text-blue-900 ml-1">${escape_html(store_get($$store_subs ??= {}, "$t", $format)("session.session"))}</span> ${escape_html(sessionName)} (${escape_html(sessionTime)})</div> `);
+    $$renderer2.push(`<div class="bg-neutral-50 border border-neutral-300 rounded-card px-3 py-2 mb-4 flex flex-wrap justify-between items-center gap-2 text-sm"><div class="text-neutral-600"><span class="font-semibold text-primary-900">${escape_html(store_get($$store_subs ??= {}, "$t", $format)("session.event"))}</span> ${escape_html(eventName)} • <span class="font-semibold text-primary-900 ml-1">${escape_html(store_get($$store_subs ??= {}, "$t", $format)("session.session"))}</span> ${escape_html(sessionName)} (${escape_html(sessionTime)})</div> `);
     if (onChangeSession) {
       $$renderer2.push("<!--[-->");
-      $$renderer2.push(`<button class="text-blue-600 font-semibold hover:underline">${escape_html(store_get($$store_subs ??= {}, "$t", $format)("session.changeSession"))}</button>`);
+      $$renderer2.push(`<button class="text-primary-600 font-semibold hover:underline">${escape_html(store_get($$store_subs ??= {}, "$t", $format)("session.changeSession"))}</button>`);
     } else {
       $$renderer2.push("<!--[!-->");
     }
@@ -41,7 +41,7 @@ function LanguageSwitcher($$renderer, $$props) {
     const each_array = ensure_array_like(languages);
     for (let $$index = 0, $$length = each_array.length; $$index < $$length; $$index++) {
       let lang = each_array[$$index];
-      $$renderer2.push(`<button${attr("data-testid", `language-${stringify(lang.code)}`)}${attr_class(`px-3 py-1 rounded text-sm transition-colors ${stringify(store_get($$store_subs ??= {}, "$locale", $locale) === lang.code ? "bg-blue-600 text-white" : "bg-gray-200 text-gray-700 hover:bg-gray-300")}`)}>${escape_html(lang.label)}</button>`);
+      $$renderer2.push(`<button${attr("data-testid", `language-${stringify(lang.code)}`)}${attr_class(`px-3 py-1 rounded-button text-sm transition-colors ${stringify(store_get($$store_subs ??= {}, "$locale", $locale) === lang.code ? "bg-primary-600 text-white" : "bg-neutral-200 text-neutral-700 hover:bg-neutral-300")}`)}>${escape_html(lang.label)}</button>`);
     }
     $$renderer2.push(`<!--]--></div>`);
     if ($$store_subs) unsubscribe_stores($$store_subs);
@@ -62,9 +62,9 @@ function TopNav($$renderer, $$props) {
     function isActive(path) {
       return currentPath === path;
     }
-    $$renderer2.push(`<nav class="bg-white border-b-2 border-slate-300 shadow-sm"><div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8"><div class="flex justify-between items-center h-16"><div class="flex items-center"><h1 class="text-xl font-bold text-blue-900">${escape_html(store_get($$store_subs ??= {}, "$t", $format)("nav.title"))}</h1></div> <div class="hidden md:flex items-center space-x-6"><a href="/checkin"${attr_class(`px-4 py-2 rounded-md font-semibold transition-colors ${stringify(isActive("/checkin") ? "bg-blue-600 text-white" : "text-slate-700 hover:bg-slate-100")}`)}>${escape_html(store_get($$store_subs ??= {}, "$t", $format)("nav.checkin"))}</a> <a href="/checkout"${attr_class(`px-4 py-2 rounded-md font-semibold transition-colors ${stringify(isActive("/checkout") ? "bg-blue-600 text-white" : "text-slate-700 hover:bg-slate-100")}`)}>${escape_html(store_get($$store_subs ??= {}, "$t", $format)("nav.checkout"))}</a> <div class="border-l border-slate-300 pl-6 ml-2 flex items-center space-x-4">`);
+    $$renderer2.push(`<nav class="bg-white border-b-2 border-neutral-300 shadow-sm"><div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8"><div class="flex justify-between items-center h-16"><div class="flex items-center"><h1 class="text-xl font-bold text-primary-900">${escape_html(store_get($$store_subs ??= {}, "$t", $format)("nav.title"))}</h1></div> <div class="hidden md:flex items-center space-x-6"><a href="/checkin"${attr_class(`px-4 py-2 rounded-button font-semibold transition-colors ${stringify(isActive("/checkin") ? "bg-primary-600 text-white" : "text-neutral-700 hover:bg-neutral-100")}`)}>${escape_html(store_get($$store_subs ??= {}, "$t", $format)("nav.checkin"))}</a> <a href="/checkout"${attr_class(`px-4 py-2 rounded-button font-semibold transition-colors ${stringify(isActive("/checkout") ? "bg-primary-600 text-white" : "text-neutral-700 hover:bg-neutral-100")}`)}>${escape_html(store_get($$store_subs ??= {}, "$t", $format)("nav.checkout"))}</a> <a href="/print-queue"${attr_class(`px-4 py-2 rounded-button font-semibold transition-colors ${stringify(isActive("/print-queue") ? "bg-primary-600 text-white" : "text-neutral-700 hover:bg-neutral-100")}`)}>${escape_html(store_get($$store_subs ??= {}, "$t", $format)("nav.printQueue"))}</a> <div class="border-l border-neutral-300 pl-6 ml-2 flex items-center space-x-4">`);
     LanguageSwitcher($$renderer2);
-    $$renderer2.push(`<!----> <span class="text-sm text-slate-600">${escape_html(store_get($$store_subs ??= {}, "$t", $format)("nav.welcomeMobile"))}, <span class="font-semibold text-blue-900">${escape_html(userName)}</span></span> <button class="text-sm text-red-600 font-semibold hover:underline">${escape_html(store_get($$store_subs ??= {}, "$t", $format)("nav.logout"))}</button></div></div> <div class="md:hidden"><button class="inline-flex items-center justify-center p-2 rounded-md text-slate-700 hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-blue-500"${attr("aria-expanded", mobileMenuOpen)}><span class="sr-only">${escape_html(store_get($$store_subs ??= {}, "$t", $format)("nav.openMenu"))}</span> `);
+    $$renderer2.push(`<!----> <span class="text-sm text-neutral-600">${escape_html(store_get($$store_subs ??= {}, "$t", $format)("nav.welcomeMobile"))}, <span class="font-semibold text-primary-900">${escape_html(userName)}</span></span> <button class="text-sm text-danger-600 font-semibold hover:underline">${escape_html(store_get($$store_subs ??= {}, "$t", $format)("nav.logout"))}</button></div></div> <div class="md:hidden"><button class="inline-flex items-center justify-center p-2 rounded-button text-neutral-700 hover:bg-neutral-100 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-primary-500"${attr("aria-expanded", mobileMenuOpen)}><span class="sr-only">${escape_html(store_get($$store_subs ??= {}, "$t", $format)("nav.openMenu"))}</span> `);
     {
       $$renderer2.push("<!--[-->");
       $$renderer2.push(`<svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path></svg>`);
@@ -97,7 +97,7 @@ function _layout($$renderer, $$props) {
     let { data, children } = $$props;
     if (store_get($$store_subs ??= {}, "$isLoading", $isLoading)) {
       $$renderer2.push("<!--[-->");
-      $$renderer2.push(`<div class="min-h-screen bg-slate-100 flex items-center justify-center"><div class="text-slate-600">Loading...</div></div>`);
+      $$renderer2.push(`<div class="min-h-screen bg-neutral-100 flex items-center justify-center"><div class="text-neutral-600">Loading...</div></div>`);
     } else {
       $$renderer2.push("<!--[!-->");
       if (data.user) {
@@ -106,7 +106,7 @@ function _layout($$renderer, $$props) {
       } else {
         $$renderer2.push("<!--[!-->");
       }
-      $$renderer2.push(`<!--]--> <main class="min-h-screen bg-slate-100 p-5">`);
+      $$renderer2.push(`<!--]--> <main class="min-h-screen bg-neutral-100 p-5">`);
       children($$renderer2);
       $$renderer2.push(`<!----></main>`);
     }

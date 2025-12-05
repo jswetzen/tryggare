@@ -13,6 +13,10 @@ This test suite covers:
 import os
 import sys
 import time
+import warnings
+
+# Suppress asyncio sleep warning for synchronous Selenium tests
+warnings.filterwarnings('ignore', message='.*coroutine.*was never awaited.*')
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait

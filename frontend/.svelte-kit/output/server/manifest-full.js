@@ -10,7 +10,7 @@ return {
 	assets: new Set([]),
 	mimeTypes: {},
 	_: {
-		client: {start:"_app/immutable/entry/start.CqmaQQ5H.js",app:"_app/immutable/entry/app.pqidW_38.js",imports:["_app/immutable/entry/start.CqmaQQ5H.js","_app/immutable/chunks/BmRUTw-1.js","_app/immutable/chunks/CMdyHIyL.js","_app/immutable/chunks/DIeogL5L.js","_app/immutable/chunks/Dt9VRRxM.js","_app/immutable/chunks/B9ZrYRGI.js","_app/immutable/chunks/LUIbBGDu.js","_app/immutable/entry/app.pqidW_38.js","_app/immutable/chunks/C1FmrZbK.js","_app/immutable/chunks/CMdyHIyL.js","_app/immutable/chunks/DIeogL5L.js","_app/immutable/chunks/DC07jX_I.js","_app/immutable/chunks/BtHQo87A.js","_app/immutable/chunks/CWj6FrbW.js","_app/immutable/chunks/LUIbBGDu.js","_app/immutable/chunks/DQ3q3nkm.js","_app/immutable/chunks/Dt9VRRxM.js","_app/immutable/chunks/iPCFofof.js"],stylesheets:[],fonts:[],uses_env_dynamic_public:false},
+		client: {start:"_app/immutable/entry/start.CLTPPavv.js",app:"_app/immutable/entry/app.ueP42Ut3.js",imports:["_app/immutable/entry/start.CLTPPavv.js","_app/immutable/chunks/CMEW_IyH.js","_app/immutable/chunks/BPcD9ALe.js","_app/immutable/chunks/DIeogL5L.js","_app/immutable/chunks/C2cHb0R7.js","_app/immutable/chunks/Oblwt2ks.js","_app/immutable/chunks/BbYY2DnQ.js","_app/immutable/entry/app.ueP42Ut3.js","_app/immutable/chunks/C1FmrZbK.js","_app/immutable/chunks/BPcD9ALe.js","_app/immutable/chunks/DIeogL5L.js","_app/immutable/chunks/DpOng859.js","_app/immutable/chunks/HsqQ6hQx.js","_app/immutable/chunks/CWj6FrbW.js","_app/immutable/chunks/BbYY2DnQ.js","_app/immutable/chunks/DsHOW9du.js","_app/immutable/chunks/C2cHb0R7.js","_app/immutable/chunks/BHhni8iu.js"],stylesheets:[],fonts:[],uses_env_dynamic_public:false},
 		nodes: [
 			__memo(() => import('./nodes/0.js')),
 			__memo(() => import('./nodes/1.js')),
@@ -21,7 +21,8 @@ return {
 			__memo(() => import('./nodes/6.js')),
 			__memo(() => import('./nodes/7.js')),
 			__memo(() => import('./nodes/8.js')),
-			__memo(() => import('./nodes/9.js'))
+			__memo(() => import('./nodes/9.js')),
+			__memo(() => import('./nodes/10.js'))
 		],
 		remotes: {
 			
@@ -77,10 +78,17 @@ return {
 				endpoint: null
 			},
 			{
+				id: "/print-queue",
+				pattern: /^\/print-queue\/?$/,
+				params: [],
+				page: { layouts: [0,], errors: [1,], leaf: 9 },
+				endpoint: null
+			},
+			{
 				id: "/qr/[token]",
 				pattern: /^\/qr\/([^/]+?)\/?$/,
 				params: [{"name":"token","optional":false,"rest":false,"chained":false}],
-				page: { layouts: [0,], errors: [1,], leaf: 9 },
+				page: { layouts: [0,], errors: [1,], leaf: 10 },
 				endpoint: null
 			}
 		],

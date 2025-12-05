@@ -1,0 +1,60 @@
+<script lang="ts">
+  /**
+   * ChildCheckInButton Component
+   *
+   * Displays different button states based on child's check-in status and ticket type:
+   * - Check In (green) - for children with valid tickets who aren't checked in
+   * - Undo (Xs) (orange) - for recently checked-in children during grace period
+   * - Checked In (gray, disabled) - for checked-in children after grace period
+   * - No Ticket (red) - for children without tickets, expands to show ticket assignment
+   */
+  import type { Child, TicketType } from '$lib/checkin/types';
+
+  export let child: Child;
+  export let onCheckIn: (() => void) | undefined = undefined;
+  export let onUndo: (() => void) | undefined = undefined;
+  export let onNoTicketClick: (() => void) | undefined = undefined;
+  export let remainingSeconds: number | null;
+  export let expanded: boolean = false;
+</script>
+
+{#if child.checkedIn && remainingSeconds !== null}
+  <!-- Checked in with active undo timer -->
+  <button
+    on:click={() => onUndo?.()}
+    class="px-3 py-1.5 bg-orange-500 text-white text-sm font-semibold rounded hover:bg-orange-600 transition-colors min-w-[100px]"
+    aria-label={`Undo check-in for ${child.name}, ${remainingSeconds} seconds remaining`}
+    data-testid={`child-undo-button-${child.id}`}
+  >
+    Undo ({remainingSeconds}s)
+  </button>
+{:else if child.checkedIn}
+  <!-- Checked in, undo expired -->
+  <button
+    disabled
+    title={`Checked in at ${child.checkInTime}`}
+    class="px-3 py-1.5 bg-slate-400 text-white text-sm font-semibold rounded cursor-not-allowed min-w-[100px]"
+  >
+    Checked In
+  </button>
+{:else if child.ticket === 'none'}
+  <!-- No ticket - show button only (expansion handled by parent) -->
+  <button
+    on:click={() => onNoTicketClick?.()}
+    class="px-3 py-1.5 bg-red-100 text-red-700 text-sm font-semibold rounded border border-red-300 hover:bg-red-200 transition-colors min-w-[100px]"
+    aria-label="No ticket - click to assign"
+    data-testid={`child-expand-button-${child.id}`}
+  >
+    No Ticket {expanded ? '▲' : '▼'}
+  </button>
+{:else}
+  <!-- Has valid ticket, ready to check in -->
+  <button
+    on:click={() => onCheckIn?.()}
+    class="px-3 py-1.5 bg-green-600 text-white text-sm font-semibold rounded hover:bg-green-700 transition-colors min-w-[100px]"
+    aria-label={`Check in ${child.name}`}
+    data-testid={`child-check-in-button-${child.id}`}
+  >
+    Check In
+  </button>
+{/if}

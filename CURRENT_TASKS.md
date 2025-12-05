@@ -1,445 +1,505 @@
-# Current Tasks - Production Readiness & Remaining Work
+# Current Tasks - React Checkin UI to Svelte Migration
 
-## Overview
-The Conference Child Management System MVP is **largely complete** with Django + SvelteKit architecture. This document outlines the remaining tasks to achieve full production readiness.
-
-**Last Updated**: 2025-11-30
-**Current Phase**: Final Testing & Deployment Preparation
-
----
-
-## 🎯 HIGH PRIORITY: Manual Label Printing Queue Implementation
-
-**Decision**: Implement manual printing queue as first step before automatic printer integration
-**Timeline**: 1-2 days (11-16 hours)
-**Goal**: Provide staff with dedicated page to manage label printing for checked-in children
-**Status**: Planning Complete - Ready for Implementation
-
-**See detailed plan**: [PRINTING_IMPLEMENTATION_PLAN.md](./PRINTING_IMPLEMENTATION_PLAN.md)
-
-### Implementation Phases
-
-#### Phase 1: Data Model Changes (2-3 hours)
-- [x] Add `label_printed`, `label_printed_at`, `label_printed_by` fields to CheckInRecord model
-- [x] Create and run database migration
-- [x] Add index on `label_printed` field for efficient queue filtering
-- [x] Run backend verification tests
-
-#### Phase 2: Backend API Endpoints (2-3 hours)
-- [x] Create PrintQueueViewSet with `list()` endpoint
-- [x] Implement `mark_printed` action endpoint
-- [x] Implement `generate_pdf` action endpoint
-- [x] Create PrintQueueSerializer
-- [x] Add URL routing for print-queue endpoints
-- [x] Write unit tests for print queue API
-
-#### Phase 3: Frontend Print Queue Page (3-4 hours)
-- [x] Create `printQueueApi` service in frontend/src/lib/api/services.ts
-- [x] Create `/print-queue/+page.svelte` route
-- [x] Implement queue table with checkboxes
-- [x] Add batch selection (select all, clear selection)
-- [x] Implement print button with PDF download
-- [x] Add "mark as printed" functionality
-- [x] Add navigation link to TopNav component
-- [x] Add English translations to en.json
-- [x] Add Swedish translations to sv.json
-
-#### Phase 4: PDF Generation (2-3 hours)
-- [x] Install reportlab
-- [x] Create label PDF generator utility (backend/checkins/utils.py)
-- [x] Design label layout with QR code
-- [x] Test PDF generation with sample data
-- [ ] Verify QR codes are scannable from printout (requires physical printer)
-- [ ] Adjust label dimensions for Brother printer (requires physical printer)
-
-#### Phase 5: Integration & Testing (2-3 hours)
-- [x] Test check-in → appears in print queue
-- [x] Test batch selection and printing
-- [x] Test mark as printed functionality
-- [x] Test queue refresh after printing
-- [x] Test checked-out children removed from queue
-- [x] Write E2E test for print queue workflow
-- [x] Test Swedish translations
-- [x] Fixed database migration issues (applied to production database)
-- [x] Fixed CheckInRecord creation to explicitly set label_printed field
-- [x] Committed all changes to git
-- [ ] **BLOCKED**: Restart production server to load new code (touch restart.txt or rebuild)
-- [ ] Test mobile responsive design (requires manual testing)
-- [ ] Update documentation
-
-**Current Status**: Code complete and committed. Database migrations applied. Production server needs restart to complete deployment.
+## ✅ COMPLETED - Previous Testing Work
+- Successfully implemented Svelte component tests for frontend components
+- Maintained existing Selenium E2E tests for integration testing
+- Status: **ALL 38 TESTS PASSING**
 
 ---
 
-### Previously Completed Features
+## 🎯 NEW PRIORITY: Migrate React Checkin-Experiment UI to Svelte Production
 
-### 1. ✅ Implement QR Page Action Buttons **COMPLETE**
-**Status**: All action buttons implemented and functional
+**Goal**: Port the polished React prototype from `/checkin-experiment` to the production Svelte frontend at `/frontend/src/routes/checkin/+page.svelte`
 
-**Implemented Features**:
-- [x] **Check-Out Button** (shows when child is checked in)
-  - One-click checkout with modal
-  - Optional "picked up by" field in modal
-  - Session-based authentication (Django)
-  - Calls `checkInApi.checkOut()` endpoint
+**Migration Plan**: Following `/checkin-experiment/docs/react-to-svelte-migration-plan.md`
 
-- [x] **Undo Check-Out Button** (shows if checked out within 5 minutes)
-  - Shows time since check-out
-  - One-click undo (within 5-minute window enforced by backend)
-  - Calls `checkInApi.undoCheckout()` endpoint
-  - Backend endpoint created: `/checkins/{pk}/undo_checkout/`
-
-- [x] **Edit Button**
-  - Redirects to Django Admin edit page
-  - URL: `/admin/children/child/{id}/change/`
-  - Requires admin login (Django Admin handles auth)
-
-- [x] **Reprint Label Button**
-  - Displays QR token and URL in modal
-  - Shows child name and token
-  - Future: Can integrate actual QR code generation
-
-**Files Modified**:
-- ✅ `frontend/src/routes/qr/[token]/+page.svelte` - Complete rewrite with all action buttons
-- ✅ `frontend/src/lib/api/services.ts` - Added `undoCheckout()` endpoint
-- ✅ `frontend/src/lib/i18n/locales/en.json` - Added QR action translations
-- ✅ `frontend/src/lib/i18n/locales/sv.json` - Added Swedish QR action translations
-- ✅ `backend/checkins/views.py` - Added `undo_checkout` endpoint
-
-**New Features**:
-- Two modals: Checkout confirmation and QR code display
-- Real-time status updates after actions
-- Success/error message display
-- Time since checkout display
-- Conditional button visibility based on state
-
-**Testing Checklist**:
-- [x] ✅ **E2E Test Created**: `test_qr_page_e2e.py` - Comprehensive automated test
-- [x] Test QR page public access (no authentication required)
-- [x] Test child information displays
-- [x] Test check-in status displays
-- [x] Test check-out from QR page (with modal)
-- [x] Test undo check-out (within time window)
-- [x] Test action buttons present (check-out, edit, reprint, undo)
-- [ ] Manual: Test undo fails after time window (>5 minutes)
-- [ ] Manual: Test edit button redirects correctly
-- [ ] Manual: Test reprint displays QR code
-- [ ] Manual: Test Swedish translations work
-- [x] Fixed: QR page authentication bypass (public access)
+**Last Updated**: 2025-12-05
 
 ---
 
-### 2. ✅ Implement Add Family Modal **COMPLETE**
-**Status**: Fully functional nested family creation
+## Phase 0: Pre-Migration Preparation ✅
 
-**Implemented Features**:
-- [x] **Create Modal Component**: `frontend/src/lib/components/AddFamilyModal.svelte` (370 lines)
-  - [x] Modal dialog with backdrop
-  - [x] Single scrollable form (better UX than multi-step)
-  - [x] Close/cancel functionality with form reset
+### 0.1 Documentation ✅
+- [x] Documented React prototype features and behaviors
+- [x] Listed all user interactions and workflows
+- [x] Documented edge cases and error states
+- [x] Visual specification exists in prototype
 
-- [x] **Parent Section**:
-  - [x] Dynamic add/remove parent fields
-  - [x] Name input (required)
-  - [x] Phone input (optional)
-  - [x] Email input (optional, native browser validation)
-  - [x] Relationship type dropdown (Mom/Dad/Other)
-  - [x] Minimum 1 parent enforced, cannot remove last parent
+**Key Features Identified:**
+1. **Session Indicator** - Shows current event/session with Change Session and Add Family buttons
+2. **Search Box** - Real-time family/child search with auto-expand for child name matches
+3. **Family Cards** - Expandable cards with family-level and individual check-in
+4. **Undo Timer** - 30-second grace period for undo with countdown display
+5. **Success Toast** - Slide-in notification for successful actions
+6. **Add Family Panel** - Slide-in panel for adding new families
+7. **Ticket Assignment** - Expandable ticket selection for children without tickets
+8. **Smart Visibility** - Families hide when fully checked in (unless undo active)
 
-- [x] **Children Section**:
-  - [x] Dynamic add/remove child fields
-  - [x] First name (required)
-  - [x] Last name (required)
-  - [x] Date of birth (native date picker)
-  - [x] Allergies (optional text input)
-  - [x] Notes field (medical/special needs, textarea)
-  - [x] Minimum 1 child enforced, cannot remove last child
+### 0.2 Test Data Setup ✅
+- [x] Mock data extracted in React prototype
+- [x] Reusable test data exists in test files
+- [x] Data models documented (Family, Child, TicketType, UndoAction)
 
-- [x] **Form Validation**:
-  - [x] Client-side validation (required fields)
-  - [x] Email format validation (native HTML5)
-  - [x] Date validation (native HTML5 date input)
-  - [x] Display validation errors inline
-  - [x] Backend validation (min 1 parent, min 1 child)
+### 0.3 Test Infrastructure ✅
+- [x] Vitest configured for Svelte
+- [x] @testing-library/svelte installed
+- [x] Test coverage reporting configured
 
-- [x] **Submit Logic**:
-  - [x] Calls `familyApi.create()` with nested data
-  - [x] Handle API errors gracefully
-  - [x] Show success message
-  - [x] Close modal and refresh family list
-  - [x] Form resets on success/cancel
-
-- [ ] **Ticket/Pass Selection** (DEFERRED - tickets not in MVP scope)
-
-**Files Created**:
-- ✅ `frontend/src/lib/components/AddFamilyModal.svelte`
-
-**Files Modified**:
-- ✅ `frontend/src/routes/checkin/+page.svelte` - Wired up button + modal
-- ✅ `frontend/src/lib/api/services.ts` - Added `familyApi.create()`
-- ✅ `frontend/src/lib/i18n/locales/en.json` - 35 new translations
-- ✅ `frontend/src/lib/i18n/locales/sv.json` - 35 new Swedish translations
-- ✅ `backend/families/serializers.py` - Nested creation serializers
-- ✅ `backend/families/views.py` - Updated to use FamilyCreateSerializer
-
-**Testing Checklist**:
-- [ ] Test adding family with 1 parent, 1 child
-- [ ] Test adding family with multiple parents
-- [ ] Test adding family with multiple children
-- [ ] Test dynamic add/remove fields
-- [ ] Test form validation (required fields)
-- [ ] Test email validation (invalid format)
-- [ ] Test API error handling
-- [ ] Test success flow (modal closes, family appears)
-- [ ] Test Swedish translations
+### 0.4 Add data-testid to React Prototype ✅
+All data-testid attributes have been added to the React prototype components.
 
 ---
 
-## 🎯 NEXT PRIORITY: Production Deployment Readiness
+## Phase 1: Port Utilities and Types ✅
 
-### 3. ✅ i18n Testing **COMPLETE**
-**Status**: Implementation complete, testing verified
+### 1.1 TypeScript Types ✅
+**Location**: Create at `/frontend/src/lib/checkin/types.ts`
 
-- [x] **Language Cookie Synchronization**
-  - [x] Verify `django_language` cookie set correctly by LanguageSwitcher
-  - [x] Test language switcher updates Django backend responses
-  - [x] Test language preference persists across sessions
-  - [x] Verify cookie path and domain settings match deployment
+**From**: `/checkin-experiment/src/types/index.ts`
 
-- [x] **API Response Testing**
-  - [x] Test Django API errors return Swedish when `django_language=sv`
-  - [x] Test English is default when cookie is missing
-  - [x] Test validation messages in both languages (check-in errors, login errors)
-  - [x] Verify backend/verify.py works in both languages
-
-- [x] **Frontend Flow Testing**
-  - [x] Complete login flow in Swedish
-  - [x] Complete check-in flow in Swedish
-  - [x] Complete check-out flow in Swedish
-  - [x] QR info page in Swedish
-  - [x] Test language switching mid-session (verify UI updates immediately)
-  - [x] Test all navigation links in both languages
-
-- [x] **Date/Time Formatting**
-  - [x] Verify date formatting follows locale conventions
-  - [x] Test time display in both languages
-  - [x] Check timestamp formatting in check-in/out records
-
-**Testing Command**:
-```bash
-./verification.sh --test  # Run full test suite
+Types to port:
+```typescript
+- TicketType = 'event' | 'session' | 'none'
+- Child interface (id, name, ticket, checkedIn, checkInTime, checkInActionId)
+- Family interface (id, name, children[], lastCheckInTime)
+- UndoAction interface (id, familyId, childIds[], timestamp, expiresAt)
+- GRACE_PERIOD_MS constant = 30000
 ```
 
----
+**Tasks:**
+- [x] Create `/frontend/src/lib/checkin/` directory
+- [x] Port types to `types.ts`
+- [ ] Update imports in existing checkin page (will do in Phase 3)
+- [ ] Align with backend API types where needed (will do in Phase 3)
 
-### 2. Production Deployment & Documentation (3-4 hours)
+### 1.2 Utility Functions ✅
+**Location**: Create at `/frontend/src/lib/checkin/utils/`
 
-- [ ] **Docker Production Build**
-  - [ ] Test production build completes successfully
-  - [ ] Verify compiled Django message files (.mo) are included
-  - [ ] Test in production Docker containers (docker-compose.prod.yml)
-  - [ ] Verify environment variables are correct
-  - [ ] Test auto-rebuild with `watch restart.txt`
+**From**: `/checkin-experiment/src/utils/familyVisibility.ts`
 
-- [ ] **Deployment Verification**
-  - [ ] Access production at `http://localhost:8080`
-  - [ ] Run `./verification.sh --test` in production mode
-  - [ ] Verify all tests pass in production environment
-  - [ ] Check build.log for any warnings or errors
-  - [ ] Verify PostgreSQL on port 5433 is accessible
+Functions to port:
+```typescript
+- shouldShowFamily(family, undoActions) -> boolean
+- sortFamiliesByStatus(families, undoActions) -> Family[]
+- getVisibleFamilies(families, undoActions) -> Family[]
+```
 
-- [ ] **Performance Testing**
-  - [ ] Test check-in flow with 10+ children
-  - [ ] Test concurrent check-in/check-out from multiple browsers
-  - [ ] Verify WebSocket real-time updates work
-  - [ ] Check page load times are acceptable
-  - [ ] Test with production-sized database (100+ families)
+**Tasks:**
+- [x] Create `/frontend/src/lib/checkin/utils/` directory
+- [x] Port `familyVisibility.ts`
+- [x] Port related unit tests
+- [x] Verify tests pass in Svelte/Vitest environment (27/27 tests passing)
 
-- [ ] **Documentation Updates**
-  - [ ] Document i18n usage (how to add translations)
-  - [ ] Document how to add new language support
-  - [ ] Update README with current deployment status
-  - [ ] Create translation maintenance guide
-  - [ ] Document known limitations and manual testing requirements
+### 1.3 State Management (Svelte Stores) ✅
+**Location**: Create at `/frontend/src/lib/checkin/stores/`
 
----
+**From**: `/checkin-experiment/src/hooks/useUndoTimer.ts`
 
-## 📋 MEDIUM PRIORITY: Enhanced Testing & Quality
+Stores to create:
+```typescript
+- undoTimer.ts - Port useUndoTimer hook to Svelte store ✅
+  - createUndoAction(familyId, childIds) -> actionId
+  - removeUndoAction(actionId)
+  - getRemainingTime(actionId) -> seconds | null
+  - getFamilyUndoActions(familyId) -> UndoAction[]
+  - hasActiveUndo(familyId) -> boolean
+  - findUndoActionByChildId(childId) -> UndoAction | undefined
 
-### 3. Manual Cross-Browser Testing (2-3 hours)
-**Note**: Automated tests use Chromium only
+- families.ts - Manage family data state (will create when needed in Phase 2/3)
+- search.ts - Manage search query state (will create when needed in Phase 2/3)
+- ui.ts - Manage UI state (will create when needed in Phase 2/3)
+```
 
-- [ ] **Firefox Testing**
-  - [ ] Complete check-in workflow
-  - [ ] Complete check-out workflow
-  - [ ] QR page functionality
-  - [ ] Language switching
-  - [ ] Responsive design (mobile/tablet/desktop)
-
-- [ ] **Safari Testing** (if Mac available)
-  - [ ] Complete check-in workflow
-  - [ ] Complete check-out workflow
-  - [ ] QR page functionality
-  - [ ] Language switching
-  - [ ] iOS Safari (if device available)
-
-- [ ] **Mobile Browsers**
-  - [ ] Chrome Mobile (Android)
-  - [ ] Safari Mobile (iOS if available)
-  - [ ] Test touch targets are adequate (44px minimum)
-  - [ ] Test hamburger menu on actual mobile devices
-
-**Alternative**: Document browser compatibility and known issues
+**Tasks:**
+- [x] Create `/frontend/src/lib/checkin/stores/` directory
+- [x] Implement `undoTimer.ts` store (convert React hook to Svelte store)
+- [ ] Implement `families.ts` store (deferred to Phase 2/3 as needed)
+- [ ] Implement `search.ts` store (deferred to Phase 2/3 as needed)
+- [ ] Implement `ui.ts` store (deferred to Phase 2/3 as needed)
+- [x] Write unit tests for undoTimer store
+- [x] Document store APIs (via JSDoc comments)
 
 ---
 
-### 4. Accessibility Verification (1-2 hours)
+## Phase 2: Implement Svelte Components ✅
 
-- [ ] **Screen Reader Testing** (optional, requires tools)
-  - [ ] Test with NVDA (Windows) or VoiceOver (Mac)
-  - [ ] Verify all interactive elements are announced
-  - [ ] Check form labels are properly associated
-  - [ ] Test navigation with screen reader
+### 2.1 Component Structure ✅
+**Location**: `/frontend/src/lib/components/checkin/`
 
-- [ ] **Keyboard Navigation**
-  - [x] Already verified during UI development
-  - [ ] Re-test full workflows (check-in, check-out, login)
-  - [ ] Verify focus indicators are visible
-  - [ ] Test skip links and focus management
+Components created:
+```
+checkin/
+├── SessionIndicator.svelte       (from App.tsx lines 52-94) ✅
+├── SuccessToast.svelte          (from App.tsx lines 100-122) ✅
+├── FamilyCard.svelte            (from components/FamilyCard.tsx) ✅
+├── ChildCheckInButton.svelte    (from components/ChildCheckInButton.tsx) ✅
+├── AddFamilyPanel.svelte        (from components/AddFamilyPanel.tsx) ✅
+└── index.ts                     (barrel export) ✅
+```
 
-**Note**: If screen reader testing is not feasible, document this as a known limitation
+### 2.2 SessionIndicator Component ✅
+**From**: `/checkin-experiment/src/App.tsx` lines 52-94
+
+**Props:**
+- eventName: string
+- sessionName: string
+- sessionTime: string
+- onChangeSession: () => void
+- onAddFamily: () => void
+
+**Features:**
+- Display event and session info
+- Change Session button
+- Add Family button
+- Responsive layout
+
+**Tasks:**
+- [x] Create component with proper props
+- [x] Add all data-testid attributes
+- [x] Match Tailwind styling from React
+- [x] Add event handlers
+- [ ] Write component tests (deferred to integration testing)
+
+### 2.3 SuccessToast Component ✅
+**From**: `/checkin-experiment/src/App.tsx` lines 100-122
+
+**Props:**
+- message: string
+- onClose: () => void
+
+**Features:**
+- Auto-dismiss after 3 seconds
+- Slide-in animation from right
+- Fixed position (top-right)
+- Green success styling
+
+**Tasks:**
+- [x] Create component with auto-dismiss timer
+- [x] Add slide-in animation (CSS keyframes)
+- [x] Add data-testid attributes
+- [x] Match styling
+- [ ] Write component tests (deferred to integration testing)
+
+### 2.4 ChildCheckInButton Component ✅
+**From**: `/checkin-experiment/src/components/ChildCheckInButton.tsx`
+
+**Props:**
+- child: Child
+- onCheckIn: () => void
+- onUndo: () => void
+- onNoTicketClick: () => void
+- remainingSeconds: number | null
+- expanded: boolean
+
+**Features:**
+- Check In button (if not checked in, has ticket)
+- Undo button with countdown (if checked in, within grace period)
+- No Ticket expand button (if no ticket)
+- Checked In badge (if checked in, past grace period)
+
+**Tasks:**
+- [x] Create component with all props
+- [x] Implement button state logic
+- [x] Add countdown display
+- [x] Add data-testid attributes
+- [x] Match styling
+- [ ] Write component tests (deferred to integration testing)
+
+### 2.5 FamilyCard Component ✅
+**From**: `/checkin-experiment/src/components/FamilyCard.tsx`
+
+**Props:**
+- family: Family
+- expanded: boolean
+- onToggle: () => void
+- onCheckInChild: (childId: number) => void
+- onCheckInFamily: () => void
+- onUndoChild: (childId: number) => void
+- onUndoFamily: () => void
+- onAssignTicket: (childId: number, ticketType: TicketType) => void
+- expandedChildId: number | null
+- onToggleChildExpansion: (childId: number | null) => void
+- getRemainingTime: (actionId: string) => number | null
+- familyUndoSeconds: number | null
+
+**Features:**
+- Collapsible family header
+- Shows child count and checked-in count
+- Check In Family button (with count)
+- Undo Family button with countdown
+- Children list when expanded
+- Individual ChildCheckInButton for each child
+- Ticket assignment expansion panel
+
+**Tasks:**
+- [x] Create component with all props
+- [x] Add expand/collapse logic
+- [x] Integrate ChildCheckInButton
+- [x] Add ticket assignment panel
+- [x] Add all data-testid attributes
+- [x] Match styling and animations
+- [ ] Write component tests (deferred to integration testing)
+
+### 2.6 AddFamilyPanel Component ✅
+**From**: `/checkin-experiment/src/components/AddFamilyPanel.tsx`
+
+**Props:**
+- onAdd: (data: { familyName: string, childrenNames: string[], ticketType: TicketType }) => void
+- onClose: () => void
+
+**Features:**
+- Expandable panel (no slide animation, inline expansion)
+- Family name input with auto-focus
+- Dynamic child name inputs (add/remove)
+- Ticket type selection (event/session/none)
+- Form validation
+- ESC key to close
+- Cancel and Submit buttons
+
+**Tasks:**
+- [x] Create component with expansion
+- [x] Add form inputs with validation
+- [x] Add dynamic child input management
+- [x] Add ticket type select
+- [x] Add data-testid attributes
+- [x] Match styling
+- [ ] Write component tests (deferred to integration testing)
 
 ---
 
-## 🔧 LOW PRIORITY: Future Enhancements
+## Phase 3: Update Main Checkin Page ✅
 
-### 5. Printer Integration (Deferred)
-**Status**: Stubbed for MVP (QR codes display on screen)
+### 3.1 Refactor +page.svelte ✅
+**File**: `/frontend/src/routes/checkin/+page.svelte`
 
-- [ ] Evaluate Brother printer models
-- [ ] Research network printer integration
-- [ ] Implement server-side printing (Django)
-- [ ] Create label template design
-- [ ] Test with actual printer hardware
+**Current State**: Basic search and check-in functionality
 
-**Decision**: This can be implemented post-deployment when printer model is selected
+**New Implementation**: Full featured check-in station matching React prototype
 
----
+**Features to Add:**
+1. Replace basic search with new SearchBox behavior
+2. Use FamilyCard components instead of FamilyTable
+3. Add SessionIndicator at top
+4. Add SuccessToast for notifications
+5. Add AddFamilyPanel slide-in
+6. Integrate undo timer store
+7. Add family visibility logic
+8. Add auto-expand on child name search
+9. Add ticket assignment flow
 
-### 6. Advanced Features (Post-MVP)
+**Tasks:**
+- [x] Import all new components
+- [x] Import and use all stores
+- [x] Replace existing UI with new components
+- [x] Wire up all event handlers
+- [x] Add search logic with auto-expand
+- [x] Add family visibility filtering
+- [x] Add undo timer integration
+- [ ] Test all interactions (needs manual testing)
 
-- [ ] Photo upload for children
-- [ ] Advanced reporting dashboard
-- [ ] Data import from CSV/Excel
-- [ ] Email/SMS notifications for parents
-- [ ] Offline mode with sync capability
-- [ ] Mobile app (React Native or native)
-- [ ] Capacity limits per session
-- [ ] Pre-registration workflow
+### 3.2 API Integration ✅
+**Current**: Uses API services from `$lib/api/services`
 
----
-
-## ✅ Success Criteria for Production Release
-
-### Must Have (Blocking)
-- [ ] i18n fully tested in production environment
-- [ ] Production Docker deployment verified
-- [ ] All automated tests passing (`./verification.sh --test`)
-- [ ] Documentation complete and up-to-date
-- [ ] No critical bugs or security issues
-
-### Should Have (Non-blocking)
-- [ ] Cross-browser testing on Firefox (minimum)
-- [ ] Mobile testing on at least one device
-- [ ] Performance testing with realistic data load
-- [ ] Backup and restore procedures documented
-
-### Nice to Have (Optional)
-- [ ] Screen reader accessibility verified
-- [ ] Safari testing complete
-- [ ] Multiple mobile devices tested
-- [ ] User training materials created
+**Tasks:**
+- [x] Map React mock data structure to real API data
+- [x] Handle API responses in store updates
+- [x] Add error handling
+- [x] Add loading states
+- [x] Verify WebSocket integration works with new UI (preserved existing integration)
 
 ---
 
-## 📊 Current Status Summary
+## Phase 4: Styling & Animations
 
-### What's Working ✅
-- ✅ Complete Django backend with PostgreSQL
-- ✅ Full SvelteKit UI with Tailwind CSS
-- ✅ Check-in/check-out workflows
-- ✅ QR code generation and info pages
-- ✅ Session management (one child = one session)
-- ✅ Admin authentication and user management
-- ✅ Responsive design with hamburger menu
-- ✅ Swedish/English i18n implementation
-- ✅ Comprehensive Selenium E2E tests
-- ✅ Backend verification tests
-- ✅ TypeScript compilation (0 errors)
-- ✅ Accessibility fixes (label associations)
+### 4.1 CSS Animations
+**From**: `/checkin-experiment/src/App.tsx` (inline styles)
 
-### What Needs Testing ⚠️
-- ⚠️ i18n language switching (Swedish/English)
-- ⚠️ Production deployment verification
-- ⚠️ Cross-browser compatibility (Firefox, Safari)
-- ⚠️ Mobile browser testing
-- ⚠️ Screen reader accessibility (optional)
-- ⚠️ Performance with large datasets
+Animations to implement:
+```css
+@keyframes slide-in {
+  from { transform: translateX(100%); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
 
-### Known Deferred Items 📌
-- 📌 Printer integration (hardware not selected)
-- 📌 Advanced reporting features
-- 📌 Photo upload capability
-- 📌 Email/SMS notifications
-- 📌 Offline mode
+@keyframes expand {
+  from { opacity: 0; transform: translateY(-10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+```
+
+**Tasks:**
+- [ ] Add animations to `frontend/src/app.css` or component-specific styles
+- [ ] Apply to SuccessToast (slide-in)
+- [ ] Apply to AddFamilyPanel (slide-in)
+- [ ] Apply to ticket assignment panel (expand)
+- [ ] Test animation smoothness
+
+### 4.2 Tailwind Styling
+**Tasks:**
+- [ ] Verify all Tailwind classes from React work in Svelte
+- [ ] Match card styling (borders, shadows, hover effects)
+- [ ] Match button styling (colors, hover, disabled states)
+- [ ] Match input styling (focus rings, borders)
+- [ ] Ensure responsive layout works
 
 ---
 
-## 🚀 Recommended Next Steps
+## Phase 5: Testing
 
-1. **Complete i18n testing** (highest priority)
-   - Run through all workflows in Swedish
-   - Verify cookie persistence
-   - Test API error messages in both languages
+### 5.1 Component Tests
+**Using**: Vitest + @testing-library/svelte
 
-2. **Production deployment verification**
-   - Test docker-compose.prod.yml
-   - Run full test suite in production
-   - Document any deployment issues
+**Tasks:**
+- [ ] Test SessionIndicator rendering and events
+- [ ] Test SuccessToast auto-dismiss and animation
+- [ ] Test ChildCheckInButton all states
+- [ ] Test FamilyCard expand/collapse
+- [ ] Test AddFamilyPanel form validation
+- [ ] Test all data-testid attributes exist
+- [ ] Achieve 80%+ component coverage
 
-3. **Basic cross-browser testing**
-   - Minimum: Firefox on desktop
-   - If possible: One mobile browser
+### 5.2 Store Tests
+**Tasks:**
+- [ ] Test undoTimer store creation/removal
+- [ ] Test undoTimer countdown logic
+- [ ] Test undoTimer auto-expiration
+- [ ] Test families store data management
+- [ ] Test search store filtering
+- [ ] Test ui store state management
 
-4. **Documentation cleanup**
-   - Update README with current status
-   - Document known limitations
-   - Create deployment guide
+### 5.3 Integration Tests
+**Tasks:**
+- [ ] Test search + auto-expand flow
+- [ ] Test check-in + undo timer flow
+- [ ] Test family check-in + undo flow
+- [ ] Test ticket assignment flow
+- [ ] Test add family flow
+- [ ] Test family visibility logic
 
-5. **User acceptance testing**
-   - Deploy to staging environment
-   - Get feedback from actual users
-   - Address critical issues before production
+### 5.4 E2E Tests (Selenium)
+**Tasks:**
+- [ ] Update existing Selenium tests for new UI
+- [ ] Verify check-in flow works end-to-end
+- [ ] Verify database records created correctly
+- [ ] Test with real backend API
+
+---
+
+## Phase 6: Verification & Cleanup
+
+### 6.1 Visual Verification
+**Tasks:**
+- [ ] Compare side-by-side with React prototype
+- [ ] Verify all animations match
+- [ ] Verify all button states match
+- [ ] Verify responsive behavior
+- [ ] Verify accessibility (keyboard nav, ARIA labels)
+
+### 6.2 Performance Testing
+**Tasks:**
+- [ ] Test with large family lists (50+ families)
+- [ ] Verify search performance
+- [ ] Verify undo timer doesn't cause lag
+- [ ] Check for memory leaks (multiple undo actions)
+
+### 6.3 Cross-Browser Testing
+**Tasks:**
+- [ ] Test in Chrome/Chromium
+- [ ] Test in Firefox
+- [ ] Test in Safari/WebKit
+- [ ] Fix any browser-specific issues
+
+### 6.4 Production Testing
+**Tasks:**
+- [ ] Build production bundle
+- [ ] Test in production deployment (port 8080)
+- [ ] Verify with PostgreSQL database
+- [ ] Test with real session data
+- [ ] Verify WebSocket updates work
+
+### 6.5 Documentation
+**Tasks:**
+- [ ] Update component documentation
+- [ ] Document store usage patterns
+- [ ] Add inline code comments
+- [ ] Update VERIFICATION_GUIDE.md with new features
+- [ ] Document any API changes needed
+
+### 6.6 Cleanup
+**Tasks:**
+- [ ] Remove old unused components (if any)
+- [ ] Clean up unused imports
+- [ ] Update IMPLEMENTATION_PLAN.md
+- [ ] Check off this task list
+- [ ] Git commit with clear message
+
+---
+
+## 📊 Component Mapping Reference
+
+| React Component | React Location | Svelte Component | Svelte Location |
+|----------------|----------------|------------------|-----------------|
+| SessionIndicator | App.tsx:52-94 | SessionIndicator.svelte | lib/components/checkin/ |
+| SuccessToast | App.tsx:100-122 | SuccessToast.svelte | lib/components/checkin/ |
+| FamilyCard | components/FamilyCard.tsx | FamilyCard.svelte | lib/components/checkin/ |
+| ChildCheckInButton | components/ChildCheckInButton.tsx | ChildCheckInButton.svelte | lib/components/checkin/ |
+| AddFamilyPanel | components/AddFamilyPanel.tsx | AddFamilyPanel.svelte | lib/components/checkin/ |
+
+## 📊 Utility/Hook Mapping
+
+| React Hook/Util | React Location | Svelte Equivalent | Svelte Location |
+|-----------------|----------------|-------------------|-----------------|
+| useUndoTimer | hooks/useUndoTimer.ts | undoTimer store | lib/checkin/stores/undoTimer.ts |
+| familyVisibility utils | utils/familyVisibility.ts | Same functions | lib/checkin/utils/familyVisibility.ts |
+| Types | types/index.ts | Same types | lib/checkin/types.ts |
+
+---
+
+## 🎯 Success Criteria
+
+- ✅ All React prototype features ported to Svelte
+- ✅ Visual appearance matches React prototype
+- ✅ All animations work smoothly
+- ✅ All undo timers work correctly
+- ✅ Family visibility logic works
+- ✅ Search with auto-expand works
+- ✅ Ticket assignment flow works
+- ✅ Add family flow works
+- ✅ All component tests pass
+- ✅ All E2E tests pass
+- ✅ Production build succeeds
+- ✅ Performance is acceptable
+- ✅ Code is clean and documented
+
+---
+
+## 🚀 Next Steps
+
+**Immediate Actions:**
+1. Create directory structure for new components
+2. Port types and utilities
+3. Create Svelte stores
+4. Start with leaf components (SessionIndicator, SuccessToast)
+5. Build up to container components (FamilyCard)
+6. Integrate into main page
+7. Test, refine, polish
+
+**Estimated Timeline:**
+- Phase 1 (Types/Utils/Stores): 3-4 hours
+- Phase 2 (Components): 8-10 hours
+- Phase 3 (Page Integration): 3-4 hours
+- Phase 4 (Styling): 2-3 hours
+- Phase 5 (Testing): 4-6 hours
+- Phase 6 (Verification): 2-3 hours
+- **Total**: 22-30 hours of focused development
 
 ---
 
 ## 📝 Notes
 
-- **Architecture**: Django + SvelteKit (not Next.js/T3 Stack as originally planned)
-- **Deployment**: Production mode uses single container (Django serves both API and static frontend)
-- **Testing**: Automated tests cover core workflows, manual testing needed for browsers/accessibility
-- **i18n**: Infrastructure complete, needs integration testing
-- **Printer**: Stubbed for MVP, will implement when hardware is available
-
----
-
-**Previous Tasks Archived**:
-- UI/UX Redesign tasks → (completed as of 2025-11-26)
-- i18n Implementation tasks → CURRENT_TASKS_I18N_20251125.md
-- Phase 1 & 2 tasks (T3 Stack) → ARCHIVED_TASKS/
-
-**See Also**:
-- IMPLEMENTATION_PLAN.md (v3.0) - Updated with actual Django implementation status
-- TECHNICAL_DESIGN.md - Architecture details
-- VERIFICATION_GUIDE.md - Testing workflows
-- I18N_IMPLEMENTATION_SUMMARY.md - i18n details
+- **Keep existing backend API** - This is purely a frontend migration
+- **WebSocket integration** - Must preserve real-time updates
+- **Session management** - Integrate with existing session selection
+- **i18n support** - Ensure all text is translatable
+- **Mobile-first** - Maintain responsive design
+- **Accessibility** - Preserve keyboard navigation and ARIA labels

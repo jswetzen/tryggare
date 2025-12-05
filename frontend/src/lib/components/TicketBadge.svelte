@@ -8,9 +8,9 @@
   let { type }: Props = $props();
 
   const styles = {
-    event: 'bg-green-600',
-    session: 'bg-blue-600',
-    none: 'bg-red-600'
+    event: 'bg-success-600',
+    session: 'bg-primary-600',
+    none: 'bg-danger-600'
   };
 
   const labels = {

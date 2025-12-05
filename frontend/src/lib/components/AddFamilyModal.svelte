@@ -148,8 +148,8 @@
       <h2 class="text-2xl font-bold mb-6">{$t('checkin.addFamilyTitle')}</h2>
 
       {#if error}
-        <div class="bg-red-50 border border-red-200 rounded p-4 mb-4">
-          <div class="text-red-800 font-semibold">{error}</div>
+        <div class="bg-danger-50 border border-danger-200 rounded-button p-4 mb-4">
+          <div class="text-danger-800 font-semibold">{error}</div>
         </div>
       {/if}
 
@@ -158,13 +158,13 @@
         <h3 class="text-xl font-semibold mb-4">{$t('checkin.parentInfo')}</h3>
 
         {#each parents as parent, index}
-          <div class="border border-gray-300 rounded p-4 mb-4">
+          <div class="border border-neutral-300 rounded-button p-4 mb-4">
             <div class="flex justify-between items-center mb-3">
-              <span class="font-semibold text-gray-700">Parent {index + 1}</span>
+              <span class="font-semibold text-neutral-700">Parent {index + 1}</span>
               {#if parents.length > 1}
                 <button
                   type="button"
-                  class="text-red-600 hover:text-red-700 text-sm"
+                  class="text-danger-600 hover:text-danger-700 text-sm"
                   onclick={() => removeParent(index)}
                 >
                   {$t('checkin.removeParent')}
@@ -174,12 +174,12 @@
 
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label class="block text-sm font-semibold text-gray-700 mb-1">
-                  {$t('checkin.parentName')} <span class="text-red-600">*</span>
+                <label class="block text-sm font-semibold text-neutral-700 mb-1">
+                  {$t('checkin.parentName')} <span class="text-danger-600">*</span>
                 </label>
                 <input
                   type="text"
-                  class="w-full px-4 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  class="w-full px-4 py-2 border border-neutral-300 rounded-input focus:outline-none focus:ring-2 focus:ring-primary-500"
                   placeholder={$t('checkin.parentNamePlaceholder')}
                   bind:value={parent.name}
                   required
@@ -187,11 +187,11 @@
               </div>
 
               <div>
-                <label class="block text-sm font-semibold text-gray-700 mb-1">
-                  {$t('checkin.relationshipType')} <span class="text-red-600">*</span>
+                <label class="block text-sm font-semibold text-neutral-700 mb-1">
+                  {$t('checkin.relationshipType')} <span class="text-danger-600">*</span>
                 </label>
                 <select
-                  class="w-full px-4 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  class="w-full px-4 py-2 border border-neutral-300 rounded-input focus:outline-none focus:ring-2 focus:ring-primary-500"
                   bind:value={parent.relationship_type}
                 >
                   <option value="Mom">{$t('checkin.relationshipMom')}</option>
@@ -201,24 +201,24 @@
               </div>
 
               <div>
-                <label class="block text-sm font-semibold text-gray-700 mb-1">
+                <label class="block text-sm font-semibold text-neutral-700 mb-1">
                   {$t('checkin.parentPhone')}
                 </label>
                 <input
                   type="tel"
-                  class="w-full px-4 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  class="w-full px-4 py-2 border border-neutral-300 rounded-input focus:outline-none focus:ring-2 focus:ring-primary-500"
                   placeholder={$t('checkin.parentPhonePlaceholder')}
                   bind:value={parent.phone}
                 />
               </div>
 
               <div>
-                <label class="block text-sm font-semibold text-gray-700 mb-1">
+                <label class="block text-sm font-semibold text-neutral-700 mb-1">
                   {$t('checkin.parentEmail')}
                 </label>
                 <input
                   type="email"
-                  class="w-full px-4 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  class="w-full px-4 py-2 border border-neutral-300 rounded-input focus:outline-none focus:ring-2 focus:ring-primary-500"
                   placeholder={$t('checkin.parentEmailPlaceholder')}
                   bind:value={parent.email}
                 />
@@ -229,7 +229,7 @@
 
         <button
           type="button"
-          class="bg-blue-100 hover:bg-blue-200 text-blue-700 font-semibold px-4 py-2 rounded"
+          class="bg-primary-100 hover:bg-primary-200 text-primary-700 font-semibold px-4 py-2 rounded-button"
           onclick={addParent}
         >
           + {$t('checkin.addParent')}
@@ -241,13 +241,13 @@
         <h3 class="text-xl font-semibold mb-4">{$t('checkin.childInfo')}</h3>
 
         {#each children as child, index}
-          <div class="border border-gray-300 rounded p-4 mb-4">
+          <div class="border border-neutral-300 rounded-button p-4 mb-4">
             <div class="flex justify-between items-center mb-3">
-              <span class="font-semibold text-gray-700">Child {index + 1}</span>
+              <span class="font-semibold text-neutral-700">Child {index + 1}</span>
               {#if children.length > 1}
                 <button
                   type="button"
-                  class="text-red-600 hover:text-red-700 text-sm"
+                  class="text-danger-600 hover:text-danger-700 text-sm"
                   onclick={() => removeChild(index)}
                 >
                   {$t('checkin.removeChild')}
@@ -257,12 +257,12 @@
 
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label class="block text-sm font-semibold text-gray-700 mb-1">
-                  {$t('checkin.childFirstName')} <span class="text-red-600">*</span>
+                <label class="block text-sm font-semibold text-neutral-700 mb-1">
+                  {$t('checkin.childFirstName')} <span class="text-danger-600">*</span>
                 </label>
                 <input
                   type="text"
-                  class="w-full px-4 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  class="w-full px-4 py-2 border border-neutral-300 rounded-input focus:outline-none focus:ring-2 focus:ring-primary-500"
                   placeholder={$t('checkin.childFirstNamePlaceholder')}
                   bind:value={child.first_name}
                   required
@@ -270,12 +270,12 @@
               </div>
 
               <div>
-                <label class="block text-sm font-semibold text-gray-700 mb-1">
-                  {$t('checkin.childLastName')} <span class="text-red-600">*</span>
+                <label class="block text-sm font-semibold text-neutral-700 mb-1">
+                  {$t('checkin.childLastName')} <span class="text-danger-600">*</span>
                 </label>
                 <input
                   type="text"
-                  class="w-full px-4 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  class="w-full px-4 py-2 border border-neutral-300 rounded-input focus:outline-none focus:ring-2 focus:ring-primary-500"
                   placeholder={$t('checkin.childLastNamePlaceholder')}
                   bind:value={child.last_name}
                   required
@@ -283,35 +283,35 @@
               </div>
 
               <div>
-                <label class="block text-sm font-semibold text-gray-700 mb-1">
-                  {$t('checkin.childBirthdate')} <span class="text-red-600">*</span>
+                <label class="block text-sm font-semibold text-neutral-700 mb-1">
+                  {$t('checkin.childBirthdate')} <span class="text-danger-600">*</span>
                 </label>
                 <input
                   type="date"
-                  class="w-full px-4 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  class="w-full px-4 py-2 border border-neutral-300 rounded-input focus:outline-none focus:ring-2 focus:ring-primary-500"
                   bind:value={child.birthdate}
                   required
                 />
               </div>
 
               <div>
-                <label class="block text-sm font-semibold text-gray-700 mb-1">
+                <label class="block text-sm font-semibold text-neutral-700 mb-1">
                   {$t('checkin.childAllergies')}
                 </label>
                 <input
                   type="text"
-                  class="w-full px-4 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  class="w-full px-4 py-2 border border-neutral-300 rounded-input focus:outline-none focus:ring-2 focus:ring-primary-500"
                   placeholder={$t('checkin.childAllergiesPlaceholder')}
                   bind:value={child.allergies}
                 />
               </div>
 
               <div class="md:col-span-2">
-                <label class="block text-sm font-semibold text-gray-700 mb-1">
+                <label class="block text-sm font-semibold text-neutral-700 mb-1">
                   {$t('checkin.childNotes')}
                 </label>
                 <textarea
-                  class="w-full px-4 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  class="w-full px-4 py-2 border border-neutral-300 rounded-input focus:outline-none focus:ring-2 focus:ring-primary-500"
                   rows="2"
                   placeholder={$t('checkin.childNotesPlaceholder')}
                   bind:value={child.notes}
@@ -323,7 +323,7 @@
 
         <button
           type="button"
-          class="bg-green-100 hover:bg-green-200 text-green-700 font-semibold px-4 py-2 rounded"
+          class="bg-success-100 hover:bg-success-200 text-success-700 font-semibold px-4 py-2 rounded-button"
           onclick={addChild}
         >
           + {$t('checkin.addChild')}
@@ -334,7 +334,7 @@
       <div class="flex gap-3 justify-end">
         <button
           type="button"
-          class="bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold px-6 py-2 rounded"
+          class="bg-neutral-200 hover:bg-neutral-300 text-neutral-800 font-semibold px-6 py-2 rounded-button"
           onclick={handleCancel}
           disabled={submitting}
         >
@@ -342,7 +342,7 @@
         </button>
         <button
           type="button"
-          class="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-6 py-2 rounded"
+          class="bg-primary-600 hover:bg-primary-700 text-white font-semibold px-6 py-2 rounded-button"
           onclick={handleSubmit}
           disabled={submitting}
         >

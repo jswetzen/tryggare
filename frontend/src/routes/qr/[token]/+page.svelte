@@ -139,16 +139,16 @@
   {#if loading}
     <div class="card">
       <div class="text-center py-8">
-        <div class="text-gray-600">{$t('qr.loading')}</div>
+        <div class="text-neutral-600">{$t('qr.loading')}</div>
       </div>
     </div>
   {:else if error && !child}
     <div class="card">
       <div class="text-center py-8">
-        <div class="text-red-600 font-semibold mb-2">
+        <div class="text-danger-600 font-semibold mb-2">
           {error || $t('qr.notFound')}
         </div>
-        <div class="text-gray-600">
+        <div class="text-neutral-600">
           {$t('qr.notFoundHelp')}
         </div>
       </div>
@@ -156,13 +156,13 @@
   {:else if child}
     <!-- Success/Error Messages -->
     {#if successMessage}
-      <div class="bg-green-50 border border-green-200 rounded p-4 mb-4">
-        <div class="text-green-800 font-semibold">{successMessage}</div>
+      <div class="bg-success-50 border border-success-200 rounded-card p-4 mb-4">
+        <div class="text-success-800 font-semibold">{successMessage}</div>
       </div>
     {/if}
     {#if error}
-      <div class="bg-red-50 border border-red-200 rounded p-4 mb-4">
-        <div class="text-red-800 font-semibold">{error}</div>
+      <div class="bg-danger-50 border border-danger-200 rounded-card p-4 mb-4">
+        <div class="text-danger-800 font-semibold">{error}</div>
       </div>
     {/if}
 
@@ -172,7 +172,7 @@
 
       <div class="space-y-4">
         <div>
-          <div class="text-sm text-gray-600">{$t('qr.name')}</div>
+          <div class="text-sm text-neutral-600">{$t('qr.name')}</div>
           <div class="text-xl font-semibold">
             {child.first_name}
             {child.last_name}
@@ -181,21 +181,21 @@
 
         {#if child.date_of_birth}
           <div>
-            <div class="text-sm text-gray-600">{$t('qr.dateOfBirth')}</div>
+            <div class="text-sm text-neutral-600">{$t('qr.dateOfBirth')}</div>
             <div class="text-lg">{child.date_of_birth}</div>
           </div>
         {/if}
 
         {#if child.allergies}
           <div>
-            <div class="text-sm text-gray-600">{$t('qr.allergies')}</div>
-            <div class="text-lg text-red-600 font-semibold">{child.allergies}</div>
+            <div class="text-sm text-neutral-600">{$t('qr.allergies')}</div>
+            <div class="text-lg text-danger-600 font-semibold">{child.allergies}</div>
           </div>
         {/if}
 
         {#if child.medical_conditions}
           <div>
-            <div class="text-sm text-gray-600">{$t('qr.medicalConditions')}</div>
+            <div class="text-sm text-neutral-600">{$t('qr.medicalConditions')}</div>
             <div class="text-lg text-orange-600 font-semibold">
               {child.medical_conditions}
             </div>
@@ -204,7 +204,7 @@
 
         {#if child.special_needs}
           <div>
-            <div class="text-sm text-gray-600">{$t('qr.specialNeeds')}</div>
+            <div class="text-sm text-neutral-600">{$t('qr.specialNeeds')}</div>
             <div class="text-lg">{child.special_needs}</div>
           </div>
         {/if}
@@ -216,38 +216,38 @@
       <h2 class="text-xl font-semibold mb-4">{$t('qr.checkInStatus')}</h2>
 
       {#if activeCheckIn}
-        <div class="bg-green-50 border border-green-200 rounded p-4">
+        <div class="bg-success-50 border border-success-200 rounded-card p-4">
           <div class="flex items-center gap-2 mb-2">
-            <div class="w-3 h-3 rounded-full bg-green-500"></div>
-            <span class="font-semibold text-green-800">{$t('qr.currentlyCheckedIn')}</span>
+            <div class="w-3 h-3 rounded-full bg-success-500"></div>
+            <span class="font-semibold text-success-800">{$t('qr.currentlyCheckedIn')}</span>
           </div>
-          <div class="text-sm text-gray-700">
+          <div class="text-sm text-neutral-700">
             {$t('qr.session')} {activeCheckIn.session}
           </div>
-          <div class="text-sm text-gray-700">
+          <div class="text-sm text-neutral-700">
             {$t('qr.since')} {new Date(activeCheckIn.check_in_time).toLocaleString()}
           </div>
         </div>
       {:else if recentCheckOut}
-        <div class="bg-gray-50 border border-gray-200 rounded p-4">
+        <div class="bg-neutral-50 border border-neutral-200 rounded-card p-4">
           <div class="flex items-center gap-2 mb-2">
-            <div class="w-3 h-3 rounded-full bg-gray-400"></div>
-            <span class="font-semibold text-gray-800">{$t('qr.notCheckedIn')}</span>
+            <div class="w-3 h-3 rounded-full bg-neutral-400"></div>
+            <span class="font-semibold text-neutral-800">{$t('qr.notCheckedIn')}</span>
           </div>
-          <div class="text-sm text-gray-600">
+          <div class="text-sm text-neutral-600">
             {$t('qr.checkedOutAt')} {new Date(recentCheckOut.check_out_time!).toLocaleString()}
           </div>
           {#if canUndoCheckout()}
-            <div class="text-sm text-blue-600 mt-1">
+            <div class="text-sm text-primary-600 mt-1">
               {$t('qr.canUndo')} ({formatTimeSince(recentCheckOut.check_out_time!)})
             </div>
           {/if}
         </div>
       {:else}
-        <div class="bg-gray-50 border border-gray-200 rounded p-4">
+        <div class="bg-neutral-50 border border-neutral-200 rounded-card p-4">
           <div class="flex items-center gap-2">
-            <div class="w-3 h-3 rounded-full bg-gray-400"></div>
-            <span class="font-semibold text-gray-800">{$t('qr.notCheckedIn')}</span>
+            <div class="w-3 h-3 rounded-full bg-neutral-400"></div>
+            <span class="font-semibold text-neutral-800">{$t('qr.notCheckedIn')}</span>
           </div>
         </div>
       {/if}
@@ -260,7 +260,7 @@
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
         {#if activeCheckIn}
           <button
-            class="bg-red-600 hover:bg-red-700 text-white font-semibold px-5 py-3 rounded"
+            class="bg-danger-600 hover:bg-danger-700 text-white font-semibold px-5 py-3 rounded-card"
             onclick={() => showCheckoutModal = true}
             disabled={actionInProgress}
           >
@@ -270,7 +270,7 @@
 
         {#if recentCheckOut && canUndoCheckout()}
           <button
-            class="bg-orange-600 hover:bg-orange-700 text-white font-semibold px-5 py-3 rounded"
+            class="bg-orange-600 hover:bg-orange-700 text-white font-semibold px-5 py-3 rounded-card"
             onclick={handleUndoCheckout}
             disabled={actionInProgress}
           >
@@ -279,7 +279,7 @@
         {/if}
 
         <button
-          class="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-5 py-3 rounded"
+          class="bg-primary-600 hover:bg-primary-700 text-white font-semibold px-5 py-3 rounded-card"
           onclick={handleEditChild}
           disabled={actionInProgress}
         >
@@ -287,7 +287,7 @@
         </button>
 
         <button
-          class="bg-green-600 hover:bg-green-700 text-white font-semibold px-5 py-3 rounded"
+          class="bg-success-600 hover:bg-success-700 text-white font-semibold px-5 py-3 rounded-card"
           onclick={handleReprintLabel}
           disabled={actionInProgress}
         >
@@ -299,18 +299,18 @@
     <!-- Emergency Contact Info -->
     <div class="card">
       <h2 class="text-xl font-semibold mb-4">{$t('qr.emergencyContact')}</h2>
-      <div class="text-sm text-gray-600 mb-2">
+      <div class="text-sm text-neutral-600 mb-2">
         {$t('qr.emergencyContactHelp')}
       </div>
       {#if child.parent_names && child.parent_names.length > 0}
         <div class="mb-2">
-          <div class="text-sm font-semibold text-gray-700">Parents/Guardians:</div>
+          <div class="text-sm font-semibold text-neutral-700">Parents/Guardians:</div>
           <div class="text-lg">
             {child.parent_names.join(', ')}
           </div>
         </div>
       {/if}
-      <div class="text-sm text-gray-600">{$t('qr.familyId')} {child.family}</div>
+      <div class="text-sm text-neutral-600">{$t('qr.familyId')} {child.family}</div>
     </div>
   {/if}
 </main>
@@ -318,16 +318,17 @@
 <!-- Checkout Modal -->
 {#if showCheckoutModal}
   <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-    <div class="bg-white rounded-lg p-6 max-w-md w-full">
+    <div class="bg-white rounded-card p-6 max-w-md w-full">
       <h3 class="text-xl font-bold mb-4">{$t('qr.checkOutConfirm')}</h3>
 
       <div class="mb-4">
-        <label class="block text-sm font-semibold text-gray-700 mb-2">
+        <label for="picked-up-by" class="block text-sm font-semibold text-neutral-700 mb-2">
           {$t('qr.pickedUpBy')}
         </label>
         <input
+          id="picked-up-by"
           type="text"
-          class="w-full px-4 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+          class="w-full px-4 py-2 border border-neutral-300 rounded-card focus:outline-none focus:ring-2 focus:ring-primary-500"
           placeholder={$t('qr.pickedUpByPlaceholder')}
           bind:value={pickedUpBy}
         />
@@ -335,14 +336,14 @@
 
       <div class="flex gap-3">
         <button
-          class="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold px-5 py-2 rounded"
+          class="flex-1 bg-neutral-200 hover:bg-neutral-300 text-neutral-800 font-semibold px-5 py-2 rounded-card"
           onclick={() => { showCheckoutModal = false; pickedUpBy = ''; }}
           disabled={actionInProgress}
         >
           {$t('common.cancel')}
         </button>
         <button
-          class="flex-1 bg-red-600 hover:bg-red-700 text-white font-semibold px-5 py-2 rounded"
+          class="flex-1 bg-danger-600 hover:bg-danger-700 text-white font-semibold px-5 py-2 rounded-card"
           onclick={handleCheckOut}
           disabled={actionInProgress}
         >
@@ -356,20 +357,20 @@
 <!-- QR Code Display Modal -->
 {#if showQrCode && child?.qr_token}
   <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-    <div class="bg-white rounded-lg p-6 max-w-md w-full">
+    <div class="bg-white rounded-card p-6 max-w-md w-full">
       <h3 class="text-xl font-bold mb-4">{$t('qr.qrCode')}</h3>
 
       <div class="flex flex-col items-center mb-4">
         <div class="text-center mb-4">
           <p class="font-semibold">{child.first_name} {child.last_name}</p>
-          <p class="text-sm text-gray-600">{child.qr_token}</p>
+          <p class="text-sm text-neutral-600">{child.qr_token}</p>
         </div>
 
         <!-- QR Code would be generated here -->
         <!-- For now, display the token and URL -->
-        <div class="bg-gray-100 p-6 rounded">
+        <div class="bg-neutral-100 p-6 rounded-card">
           <div class="text-center">
-            <p class="text-sm text-gray-600 mb-2">QR URL:</p>
+            <p class="text-sm text-neutral-600 mb-2">QR URL:</p>
             <p class="text-xs font-mono break-all">
               {window.location.origin}/qr/{child.qr_token}
             </p>
@@ -378,7 +379,7 @@
       </div>
 
       <button
-        class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold px-5 py-2 rounded"
+        class="w-full bg-primary-600 hover:bg-primary-700 text-white font-semibold px-5 py-2 rounded-card"
         onclick={() => showQrCode = false}
       >
           {$t('common.close')}

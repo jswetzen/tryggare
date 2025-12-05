@@ -41,50 +41,50 @@
   }
 </script>
 
-<nav class="bg-white border-b-2 border-slate-300 shadow-sm">
+<nav class="bg-white border-b-2 border-neutral-300 shadow-sm">
   <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
     <!-- Top Bar -->
     <div class="flex justify-between items-center h-16">
       <!-- Logo/Title -->
       <div class="flex items-center">
-        <h1 class="text-xl font-bold text-blue-900">{$t('nav.title')}</h1>
+        <h1 class="text-xl font-bold text-primary-900">{$t('nav.title')}</h1>
       </div>
 
       <!-- Desktop Navigation -->
       <div class="hidden md:flex items-center space-x-6">
         <a
           href="/checkin"
-          class="px-4 py-2 rounded-md font-semibold transition-colors {isActive('/checkin')
-            ? 'bg-blue-600 text-white'
-            : 'text-slate-700 hover:bg-slate-100'}"
+          class="px-4 py-2 rounded-button font-semibold transition-colors {isActive('/checkin')
+            ? 'bg-primary-600 text-white'
+            : 'text-neutral-700 hover:bg-neutral-100'}"
         >
           {$t('nav.checkin')}
         </a>
         <a
           href="/checkout"
-          class="px-4 py-2 rounded-md font-semibold transition-colors {isActive('/checkout')
-            ? 'bg-blue-600 text-white'
-            : 'text-slate-700 hover:bg-slate-100'}"
+          class="px-4 py-2 rounded-button font-semibold transition-colors {isActive('/checkout')
+            ? 'bg-primary-600 text-white'
+            : 'text-neutral-700 hover:bg-neutral-100'}"
         >
           {$t('nav.checkout')}
         </a>
         <a
           href="/print-queue"
-          class="px-4 py-2 rounded-md font-semibold transition-colors {isActive('/print-queue')
-            ? 'bg-blue-600 text-white'
-            : 'text-slate-700 hover:bg-slate-100'}"
+          class="px-4 py-2 rounded-button font-semibold transition-colors {isActive('/print-queue')
+            ? 'bg-primary-600 text-white'
+            : 'text-neutral-700 hover:bg-neutral-100'}"
         >
           {$t('nav.printQueue')}
         </a>
 
-        <div class="border-l border-slate-300 pl-6 ml-2 flex items-center space-x-4">
+        <div class="border-l border-neutral-300 pl-6 ml-2 flex items-center space-x-4">
           <LanguageSwitcher />
-          <span class="text-sm text-slate-600">
-            {$t('nav.welcomeMobile')}, <span class="font-semibold text-blue-900">{userName}</span>
+          <span class="text-sm text-neutral-600">
+            {$t('nav.welcomeMobile')}, <span class="font-semibold text-primary-900">{userName}</span>
           </span>
           <button
             onclick={handleLogout}
-            class="text-sm text-red-600 font-semibold hover:underline"
+            class="text-sm text-danger-600 font-semibold hover:underline"
           >
             {$t('nav.logout')}
           </button>
@@ -95,7 +95,7 @@
       <div class="md:hidden">
         <button
           onclick={toggleMobileMenu}
-          class="inline-flex items-center justify-center p-2 rounded-md text-slate-700 hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-blue-500"
+          class="inline-flex items-center justify-center p-2 rounded-button text-neutral-700 hover:bg-neutral-100 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-primary-500"
           aria-expanded={mobileMenuOpen}
         >
           <span class="sr-only">{$t('nav.openMenu')}</span>
@@ -129,50 +129,50 @@
 
   <!-- Mobile menu -->
   {#if mobileMenuOpen}
-    <div class="md:hidden border-t border-slate-200">
+    <div class="md:hidden border-t border-neutral-200">
       <div class="px-2 pt-2 pb-3 space-y-1">
         <a
           href="/checkin"
           onclick={closeMobileMenu}
-          class="block px-3 py-2 rounded-md font-semibold {isActive('/checkin')
-            ? 'bg-blue-600 text-white'
-            : 'text-slate-700 hover:bg-slate-100'}"
+          class="block px-3 py-2 rounded-button font-semibold {isActive('/checkin')
+            ? 'bg-primary-600 text-white'
+            : 'text-neutral-700 hover:bg-neutral-100'}"
         >
           {$t('nav.checkin')}
         </a>
         <a
           href="/checkout"
           onclick={closeMobileMenu}
-          class="block px-3 py-2 rounded-md font-semibold {isActive('/checkout')
-            ? 'bg-blue-600 text-white'
-            : 'text-slate-700 hover:bg-slate-100'}"
+          class="block px-3 py-2 rounded-button font-semibold {isActive('/checkout')
+            ? 'bg-primary-600 text-white'
+            : 'text-neutral-700 hover:bg-neutral-100'}"
         >
           {$t('nav.checkout')}
         </a>
         <a
           href="/print-queue"
           onclick={closeMobileMenu}
-          class="block px-3 py-2 rounded-md font-semibold {isActive('/print-queue')
-            ? 'bg-blue-600 text-white'
-            : 'text-slate-700 hover:bg-slate-100'}"
+          class="block px-3 py-2 rounded-button font-semibold {isActive('/print-queue')
+            ? 'bg-primary-600 text-white'
+            : 'text-neutral-700 hover:bg-neutral-100'}"
         >
           {$t('nav.printQueue')}
         </a>
       </div>
-      <div class="pt-4 pb-3 border-t border-slate-200">
+      <div class="pt-4 pb-3 border-t border-neutral-200">
         <div class="px-5">
           <div class="mb-3">
             <LanguageSwitcher />
           </div>
-          <div class="text-sm text-slate-600 mb-2">
-            {$t('nav.loggedInAs')} <span class="font-semibold text-blue-900">{userName}</span>
+          <div class="text-sm text-neutral-600 mb-2">
+            {$t('nav.loggedInAs')} <span class="font-semibold text-primary-900">{userName}</span>
           </div>
           <button
             onclick={() => {
               closeMobileMenu();
               handleLogout();
             }}
-            class="w-full text-left px-3 py-2 rounded-md text-red-600 font-semibold hover:bg-red-50"
+            class="w-full text-left px-3 py-2 rounded-button text-danger-600 font-semibold hover:bg-danger-50"
           >
             {$t('nav.logout')}
           </button>
