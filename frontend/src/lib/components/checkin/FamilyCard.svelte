@@ -1,0 +1,193 @@
+<script lang="ts">
+  /**
+   * FamilyCard Component
+   *
+   * Displays a family with expandable child list and check-in functionality.
+   * Supports:
+   * - Individual child check-in with undo
+   * - Family-level check-in with undo
+   * - Ticket assignment for children without tickets
+   * - Countdown timers for undo actions
+   */
+  import type { Family, TicketType } from '$lib/checkin/types';
+  import ChildCheckInButton from './ChildCheckInButton.svelte';
+
+  export let family: Family;
+  export let expanded: boolean;
+  export let onToggle: () => void;
+  export let onCheckInChild: (childId: number) => void;
+  export let onCheckInFamily: () => void;
+  export let onUndoChild: (childId: number) => void;
+  export let onUndoFamily: () => void;
+  export let onAssignTicket: (childId: number, ticketType: TicketType) => void;
+  export let expandedChildId: number | null;
+  export let onToggleChildExpansion: (childId: number | null) => void;
+  export let getRemainingTime: (actionId: string) => number | null;
+  export let familyUndoSeconds: number | null;
+
+  $: totalChildren = family.children.length;
+  $: checkedInCount = family.children.filter((c) => c.checkedIn).length;
+  $: canCheckInCount = family.children.filter((c) => !c.checkedIn && c.ticket !== 'none').length;
+  $: allCheckedIn = checkedInCount === totalChildren;
+  $: hasNoTicketChildren = family.children.some((c) => c.ticket === 'none');
+
+  // Helper to get ticket type display
+  function getTicketDisplay(ticketType: string): string {
+    switch (ticketType) {
+      case 'event':
+        return '🟢 Event Pass';
+      case 'session':
+        return '🔵 Session Ticket';
+      case 'none':
+        return '🔴 No Ticket';
+      default:
+        return '';
+    }
+  }
+</script>
+
+<div
+  class="bg-white border border-slate-300 rounded-lg overflow-hidden mb-3 hover:shadow-md transition-shadow"
+  data-testid={`family-card-${family.id}`}
+>
+  <!-- Family Header -->
+  <div class="bg-slate-50 p-3 flex items-center justify-between gap-3">
+    <div class="flex items-center gap-2 flex-1 min-w-0">
+      <div class="text-slate-600 flex-shrink-0">
+        <span class="chevron" class:expanded>
+          {expanded ? '▼' : '▶'}
+        </span>
+      </div>
+      <button
+        on:click={onToggle}
+        class="flex-1 min-w-0 text-left hover:bg-slate-100 rounded px-2 py-1 -mx-2 -my-1 transition-colors"
+        aria-label={`${expanded ? 'Collapse' : 'Expand'} ${family.name} family`}
+        data-testid={`family-toggle-button-${family.id}`}
+      >
+        <h3 class="font-bold text-blue-900 text-lg truncate">
+          {family.name} Family
+        </h3>
+        <p class="text-sm text-slate-600">
+          {totalChildren} {totalChildren === 1 ? 'child' : 'children'} •
+          {checkedInCount} checked in
+        </p>
+      </button>
+    </div>
+
+    <!-- Family Action Button -->
+    <!-- svelte-ignore a11y-click-events-have-key-events -->
+    <!-- svelte-ignore a11y-no-static-element-interactions -->
+    <div class="flex-shrink-0" on:click|stopPropagation={() => {}}>
+      {#if familyUndoSeconds !== null}
+        <!-- Undo Family button during grace period -->
+        <button
+          on:click={onUndoFamily}
+          class="px-4 py-2 bg-orange-500 text-white font-semibold rounded-lg hover:bg-orange-600 transition-colors text-sm whitespace-nowrap"
+          aria-label={`Undo family check-in, ${familyUndoSeconds} seconds remaining`}
+          data-testid={`family-undo-button-${family.id}`}
+        >
+          Undo Family ({familyUndoSeconds}s)
+        </button>
+      {:else if !allCheckedIn && canCheckInCount > 0 && !hasNoTicketChildren}
+        <!-- Check In Family button -->
+        <button
+          type="button"
+          on:click={onCheckInFamily}
+          class="px-4 py-2 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition-colors text-sm whitespace-nowrap"
+          aria-label={`Check in ${canCheckInCount} children from ${family.name} family`}
+          data-testid={`family-check-in-button-${family.id}`}
+        >
+          Check In Family ({canCheckInCount})
+        </button>
+      {:else if allCheckedIn}
+        <!-- All checked in -->
+        <span class="px-4 py-2 bg-slate-200 text-slate-600 font-semibold rounded-lg text-sm whitespace-nowrap">
+          All Checked In
+        </span>
+      {/if}
+    </div>
+  </div>
+
+  <!-- Children List (when expanded) -->
+  {#if expanded}
+    <div class="p-3 space-y-2">
+      {#each family.children as child (child.id)}
+        {@const childUndoAction = child.checkInActionId ? getRemainingTime(child.checkInActionId) : null}
+        {@const isExpanded = expandedChildId === child.id}
+
+        <div
+          class="flex flex-col gap-2 p-2 bg-slate-50 rounded border border-slate-200"
+          data-testid={`child-row-${child.id}`}
+        >
+          <div class="flex items-center justify-between gap-3">
+            <div class="flex-1 min-w-0">
+              <div class="font-medium text-slate-700">{child.name}</div>
+              <div class="text-xs text-slate-500 mt-0.5">
+                {getTicketDisplay(child.ticket)}
+                {#if child.checkedIn && child.checkInTime}
+                  • Checked in at {child.checkInTime}
+                {/if}
+              </div>
+            </div>
+
+            <ChildCheckInButton
+              {child}
+              onCheckIn={() => onCheckInChild(child.id)}
+              onUndo={() => onUndoChild(child.id)}
+              onNoTicketClick={() => onToggleChildExpansion(isExpanded ? null : child.id)}
+              remainingSeconds={childUndoAction}
+              expanded={isExpanded}
+            />
+          </div>
+
+          <!-- Ticket assignment expansion (for "No Ticket" children) -->
+          {#if isExpanded && child.ticket === 'none'}
+            <div class="w-full bg-yellow-50 border border-yellow-200 rounded p-3 animate-expand">
+              <p class="text-sm text-slate-700 mb-2 font-medium">
+                Check in {child.name} with:
+              </p>
+              <div class="flex gap-2">
+                <button
+                  on:click={() => onAssignTicket(child.id, 'session')}
+                  class="flex-1 px-3 py-2 bg-blue-500 text-white text-sm font-semibold rounded hover:bg-blue-600 transition-colors"
+                  data-testid={`ticket-assign-session-${child.id}`}
+                >
+                  Session Only
+                </button>
+                <button
+                  on:click={() => onAssignTicket(child.id, 'event')}
+                  class="flex-1 px-3 py-2 bg-green-600 text-white text-sm font-semibold rounded hover:bg-green-700 transition-colors"
+                  data-testid={`ticket-assign-event-${child.id}`}
+                >
+                  Full Event Pass
+                </button>
+              </div>
+            </div>
+          {/if}
+        </div>
+      {/each}
+    </div>
+  {/if}
+</div>
+
+<style>
+  @keyframes expand {
+    from {
+      opacity: 0;
+      transform: translateY(-10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  .animate-expand {
+    animation: expand 0.2s ease-out;
+  }
+
+  .chevron {
+    display: inline-block;
+    transition: transform 0.2s ease;
+  }
+</style>

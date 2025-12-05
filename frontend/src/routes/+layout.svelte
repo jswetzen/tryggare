@@ -13,15 +13,15 @@
 
 {#if $isLoading}
   <!-- Show minimal loading state while translations load -->
-  <div class="min-h-screen bg-slate-100 flex items-center justify-center">
-    <div class="text-slate-600">Loading...</div>
+  <div class="min-h-screen bg-neutral-100 flex items-center justify-center">
+    <div class="text-neutral-600">Loading...</div>
   </div>
 {:else}
   {#if data.user}
     <TopNav userName={data.user.username} />
   {/if}
 
-  <main class="min-h-screen bg-slate-100 p-5">
+  <main class="min-h-screen bg-neutral-100 p-5">
     {@render children()}
   </main>
 {/if}

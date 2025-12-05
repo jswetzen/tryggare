@@ -8,8 +8,10 @@
   // Import new components
   import PageHeader from '$lib/components/PageHeader.svelte';
   import SearchBox from '$lib/components/SearchBox.svelte';
-  import TableHeader from '$lib/components/TableHeader.svelte';
-  import IconButton from '$lib/components/IconButton.svelte';
+  import Alert from '$lib/components/ui/Alert.svelte';
+  import { EmptyState, Button, Icon } from '$lib/components/ui';
+  import { PageContainer } from '$lib/components/layout';
+  import FamilyTable from '$lib/components/domain/FamilyTable.svelte';
 
   let searchQuery = $state('');
   let activeCheckIns = $state<CheckInRecord[]>([]);
@@ -71,8 +73,7 @@
 
     const query = searchQuery.toLowerCase();
     filteredCheckIns = activeCheckIns.filter((record) => {
-      // This is a simplified filter - you'll need to adjust based on your data structure
-      const childName = `${record.child}`.toLowerCase();
+      const childName = record.child_name?.toLowerCase() || '';
       return childName.includes(query);
     });
   }
@@ -110,29 +111,42 @@
     }
   }
 
-  // Group check-ins by family (placeholder - you'll need to implement based on your data model)
-  interface FamilyGroup {
-    familyName: string;
-    children: CheckInRecord[];
+  // Helper function to format time
+  function formatTime(isoString: string) {
+    return new Date(isoString).toLocaleTimeString('en-US', {
+      hour: 'numeric',
+      minute: '2-digit'
+    });
   }
 
-  let familyGroups = $derived.by(() => {
-    // This is a placeholder grouping - adjust based on your actual data structure
-    const groups: Map<string, CheckInRecord[]> = new Map();
-
-    for (const record of filteredCheckIns) {
-      const familyId = 'family_' + record.child; // Placeholder
-      if (!groups.has(familyId)) {
-        groups.set(familyId, []);
-      }
-      groups.get(familyId)!.push(record);
-    }
-
-    return Array.from(groups.entries()).map(([familyId, children]): FamilyGroup => ({
-      familyName: familyId.replace('family_', 'Family '),
-      children,
-    }));
-  });
+  // Transform check-ins to match FamilyTable's expected format
+  // Each check-in record is treated as a separate "family" since we don't have family grouping data
+  const transformedFamilies = $derived(
+    filteredCheckIns.map((record) => ({
+      id: record.id,
+      name: record.child_name,
+      family_name: record.child_name,
+      primary_contact_name: '',
+      primary_contact_phone: '',
+      primary_contact_email: '',
+      created_at: '',
+      updated_at: '',
+      children: [{
+        ...record,
+        id: record.id,  // Use the CheckInRecord id
+        family: record.child,
+        first_name: record.child_name?.split(' ')[0] || '',
+        last_name: record.child_name?.split(' ').slice(1).join(' ') || '',
+        firstName: record.child_name?.split(' ')[0] || '',
+        lastName: record.child_name?.split(' ').slice(1).join(' ') || '',
+        checkInTime: record.check_in_time,
+        date_of_birth: '',
+        created_at: '',
+        updated_at: ''
+      }],
+      parents: []
+    }))
+  );
 </script>
 
 <svelte:head>
@@ -140,20 +154,20 @@
 </svelte:head>
 
 <div class="max-w-4xl mx-auto">
-  <div class="max-w-3xl mx-auto bg-white border-2 border-slate-300 rounded-lg p-5 shadow-lg">
+  <div class="max-w-3xl mx-auto bg-white border-2 border-neutral-300 rounded-card p-5 shadow-lg">
     <PageHeader title={$t('checkout.title')} />
 
     <!-- Alerts -->
     {#if error}
-      <div class="alert alert-error mb-5">
+      <Alert type="error" dismissible ondismiss={() => error = null} class="mb-4">
         {error}
-      </div>
+      </Alert>
     {/if}
 
     {#if successMessage}
-      <div class="alert alert-success mb-5">
+      <Alert type="success" dismissible ondismiss={() => successMessage = null} class="mb-4">
         {successMessage}
-      </div>
+      </Alert>
     {/if}
 
     <SearchBox
@@ -163,115 +177,42 @@
     />
 
     {#if loading && activeCheckIns.length === 0}
-      <div class="text-center p-8 bg-slate-50 border-2 border-dashed border-slate-300 rounded-md">
-        <p class="text-slate-500">{$t('checkout.loading')}</p>
-      </div>
-    {:else if filteredCheckIns.length === 0}
-      <div data-testid="no-children-message" class="text-center p-8 bg-slate-50 border-2 border-dashed border-slate-300 rounded-md">
-        <p class="text-slate-500">
-          {searchQuery ? $t('checkout.noChildrenFiltered', { values: { query: searchQuery } }) : $t('checkout.noChildren')}
-        </p>
-      </div>
-    {:else}
-      <TableHeader title={$t('checkout.checkedInChildren')} count={familyGroups.length} />
-
-      <table class="w-full border-collapse mb-5">
-        <thead class="bg-slate-100">
-          <tr>
-            <th class="text-left p-2 font-semibold text-slate-600 text-sm border-b-2 border-slate-300">
-              {$t('checkout.familyChild')}
-            </th>
-            <th class="text-left p-2 font-semibold text-slate-600 text-sm border-b-2 border-slate-300">
-              {$t('checkout.checkedIn')}
-            </th>
-            <th class="text-center p-2 font-semibold text-slate-600 text-sm border-b-2 border-slate-300 w-20">
-              {$t('checkout.checkOut')}
-            </th>
-          </tr>
-        </thead>
-        <tbody>
-          {#each familyGroups as family, idx}
-            {@const bgColor = idx % 2 === 0 ? 'bg-slate-50' : 'bg-slate-100/50'}
-            {@const notCheckedOutCount = family.children.length}
-
-            <!-- Family Name Row -->
-            <tr class={bgColor}>
-              <td class="p-2 font-bold text-blue-900 border-b border-slate-200">
-                {family.familyName}
-              </td>
-              <td class="p-2 border-b border-slate-200"></td>
-              <td class="p-2 text-center border-b border-slate-200">
-                {#if notCheckedOutCount > 0}
-                  <IconButton
-                    variant="family-checkout"
-                    tooltip={$t('checkout.checkOutFamily', { values: { family: family.familyName, count: notCheckedOutCount } })}
-                    onclick={() => {
-                      // Check out all children in family
-                      for (const child of family.children) {
-                        performCheckOut(child.id);
-                      }
-                    }}
-                  />
-                {/if}
-              </td>
-            </tr>
-
-            <!-- Children Rows -->
-            {#each family.children as record, childIdx}
-              {@const isLastChild = childIdx === family.children.length - 1}
-
-              <tr class={bgColor}>
-                <td class="p-2 pl-5 font-medium text-slate-700 text-sm border-b border-slate-200">
-                  Child {record.child}
-                </td>
-                <td class="p-2 border-b border-slate-200">
-                  <span class="text-slate-500 text-sm">
-                    {new Date(record.check_in_time).toLocaleTimeString()}
-                  </span>
-                </td>
-                <td class="p-2 text-center border-b border-slate-200">
-                  <IconButton
-                    variant="checkout"
-                    tooltip={$t('checkout.checkOut')}
-                    onclick={() => performCheckOut(record.id)}
-                    disabled={loading}
-                  />
-                </td>
-              </tr>
-            {/each}
-
-            <!-- Pickup By Row -->
-            <tr class="{bgColor} border-b-2 border-slate-300">
-              <td colspan="3" class="p-2 pb-3">
-                <div class="flex items-center gap-2 pl-5">
-                  <span class="text-sm text-slate-500 font-semibold">{$t('checkout.pickedUpBy')}</span>
-                  <select
-                    bind:value={pickedUpBy[family.children[0]?.id]}
-                    class="px-2 py-1 border border-slate-300 rounded text-sm bg-white text-slate-700"
-                    disabled={loading}
-                  >
-                    <option value="">{$t('checkout.pickedUpByPlaceholder')}</option>
-                    <option value="mom">{$t('checkout.pickedUpByMom')}</option>
-                    <option value="dad">{$t('checkout.pickedUpByDad')}</option>
-                    <option value="grandma">{$t('checkout.pickedUpByGrandma')}</option>
-                    <option value="other">{$t('checkout.pickedUpByOther')}</option>
-                  </select>
-                </div>
-              </td>
-            </tr>
-          {/each}
-        </tbody>
-      </table>
+      <EmptyState
+        type="loading"
+        title={$t('checkout.loading')}
+      />
     {/if}
 
-    <div class="mt-4 text-center">
-      <button
-        onclick={loadActiveCheckIns}
-        disabled={loading}
-        class="bg-slate-600 hover:bg-slate-700 text-white font-semibold px-5 py-2 rounded-md disabled:opacity-50"
+    {#if !loading && filteredCheckIns.length === 0}
+      <EmptyState
+        type="empty"
+        title={searchQuery ? $t('checkout.noChildrenFiltered', { values: { query: searchQuery } }) : $t('checkout.noChildren')}
+        description={$t('checkout.noChildrenDescription')}
       >
-        {loading ? $t('checkout.refreshing') : $t('checkout.refreshButton')}
-      </button>
+        {#snippet icon()}
+          <Icon name="check-circle" size="xl" />
+        {/snippet}
+      </EmptyState>
+    {/if}
+
+    {#if filteredCheckIns.length > 0 && !loading}
+      <FamilyTable
+        families={transformedFamilies}
+        mode="checkout"
+        onCheckOut={performCheckOut}
+        formatTime={formatTime}
+        bind:pickedUpBy={pickedUpBy}
+        onPickedUpByChange={(familyId, value) => {
+          pickedUpBy = { ...pickedUpBy, [familyId]: value };
+        }}
+      />
+    {/if}
+
+    <div class="mt-6 flex justify-end">
+      <Button variant="ghost" onclick={loadActiveCheckIns} disabled={loading}>
+        <Icon name="refresh" size="sm" class="mr-2" />
+        {$t('common.refresh')}
+      </Button>
     </div>
   </div>
 </div>

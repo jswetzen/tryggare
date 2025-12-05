@@ -19,8 +19,8 @@
   });
 </script>
 
-<div class="fixed inset-0 flex items-center justify-center bg-gray-100">
+<div class="fixed inset-0 flex items-center justify-center bg-neutral-100">
   <div class="text-center">
-    <p class="text-xl">Logging out...</p>
+    <p class="text-xl text-neutral-700">Logging out...</p>
   </div>
 </div>

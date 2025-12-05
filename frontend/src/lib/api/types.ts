@@ -63,9 +63,13 @@ export interface Session {
 export interface CheckInRecord {
   id: string;
   child: string;
+  child_name: string;
   session: string;
+  session_name: string;
   check_in_staff: string;
+  check_in_staff_name: string;
   check_out_staff?: string;
+  check_out_staff_name?: string;
   check_in_time: string;
   check_out_time?: string;
   notes?: string;

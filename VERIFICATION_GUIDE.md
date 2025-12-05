@@ -6,12 +6,95 @@ This guide provides a foolproof process for testing and verifying changes to the
 
 ## Table of Contents
 
-1. [Understanding the Environment](#understanding-the-environment)
-2. [The Restart Mechanism](#the-restart-mechanism)
-3. [Quick Testing Workflows](#quick-testing-workflows)
-4. [Selenium E2E Testing](#selenium-e2e-testing)
-5. [Production-Style Testing](#production-style-testing)
-6. [Troubleshooting Common Issues](#troubleshooting-common-issues)
+1. [Testing Strategy](#testing-strategy)
+2. [Component Tests (Frontend)](#component-tests-frontend)
+3. [Understanding the Environment](#understanding-the-environment)
+4. [The Restart Mechanism](#the-restart-mechanism)
+5. [Quick Testing Workflows](#quick-testing-workflows)
+6. [Selenium E2E Testing](#selenium-e2e-testing)
+7. [Production-Style Testing](#production-style-testing)
+8. [Troubleshooting Common Issues](#troubleshooting-common-issues)
+
+---
+
+## Testing Strategy
+
+This project uses a **two-tier testing approach**:
+
+### 1. Component Tests (Fast, Unit-level)
+- **Purpose**: Fast feedback during frontend development
+- **Location**: `frontend/src/` (alongside components)
+- **Tool**: Vitest + Testing Library
+- **Speed**: 2-3 seconds for 38 tests
+- **Run**: `cd frontend && pnpm test`
+- **When**: During development for instant feedback
+
+### 2. E2E Tests (Slow, Integration-level)
+- **Purpose**: Production confidence with full integration
+- **Location**: `backend/test_selenium_full_flows.py`
+- **Tool**: Selenium + Django test framework
+- **Speed**: 15-20 seconds per test
+- **Run**: `./verification.sh --test`
+- **When**: Before deployment to verify full system
+
+**Both are valuable and complementary!**
+- Component tests catch bugs early
+- E2E tests verify everything works together
+
+See [frontend/TESTING.md](frontend/TESTING.md) for detailed component testing guide.
+
+---
+
+## Component Tests (Frontend)
+
+### Quick Start
+
+```bash
+cd frontend
+
+# Run tests in watch mode (recommended for development)
+pnpm test
+
+# Run tests once
+pnpm test run
+
+# Run tests with interactive UI
+pnpm test:ui
+
+# Run tests with coverage
+pnpm test:coverage
+```
+
+### What's Tested
+
+**38 Component Tests**:
+- LanguageSwitcher (5 tests) - Language switching, i18n
+- SearchBox (8 tests) - Input handling, callbacks
+- LoginPage (9 tests) - Authentication, validation
+- FamilyTable (15 tests) - Check-in/checkout functionality
+
+### When to Use
+
+✅ **Use component tests for**:
+- Testing individual component behavior
+- Fast iteration during development
+- Catching UI bugs before integration testing
+- Testing user interactions (clicks, typing)
+- Testing conditional rendering
+- Testing form validation
+
+❌ **Don't use component tests for**:
+- Database verification
+- Full user workflows
+- Real API integration
+- Cross-page navigation
+- Production environment validation
+
+**For these, use E2E tests instead!**
+
+### Documentation
+- **[frontend/TESTING.md](frontend/TESTING.md)** - Complete testing guide
+- **[frontend/UI_TESTING.md](frontend/UI_TESTING.md)** - Testing strategy and architecture
 
 ---
 

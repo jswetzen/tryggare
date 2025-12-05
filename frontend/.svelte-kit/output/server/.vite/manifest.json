@@ -9,14 +9,22 @@
       "_environment.js"
     ]
   },
-  "_IconButton.js": {
-    "file": "chunks/IconButton.js",
-    "name": "IconButton",
+  "_FamilyTable.js": {
+    "file": "chunks/FamilyTable.js",
+    "name": "FamilyTable",
     "imports": [
       "_context.js",
       "_index.js",
       "_index2.js",
       "_runtime.js"
+    ]
+  },
+  "_Icon.js": {
+    "file": "chunks/Icon.js",
+    "name": "Icon",
+    "imports": [
+      "_index2.js",
+      "_context.js"
     ]
   },
   "_context.js": {
@@ -106,10 +114,10 @@
     "file": "chunks/utils2.js",
     "name": "utils"
   },
-  "node_modules/.pnpm/@sveltejs+kit@2.49.0_@sveltejs+vite-plugin-svelte@4.0.4_svelte@5.43.14_vite@5.4.21__svelte@5.43.14_vite@5.4.21/node_modules/@sveltejs/kit/src/runtime/app/server/remote/index.js": {
+  "node_modules/.pnpm/@sveltejs+kit@2.49.0_@sveltejs+vite-plugin-svelte@4.0.4_svelte@5.43.14_vite@5.4.21_@typ_b4479cef9c8f1f9fecf7bc37df862601/node_modules/@sveltejs/kit/src/runtime/app/server/remote/index.js": {
     "file": "remote-entry.js",
     "name": "remote-entry",
-    "src": "node_modules/.pnpm/@sveltejs+kit@2.49.0_@sveltejs+vite-plugin-svelte@4.0.4_svelte@5.43.14_vite@5.4.21__svelte@5.43.14_vite@5.4.21/node_modules/@sveltejs/kit/src/runtime/app/server/remote/index.js",
+    "src": "node_modules/.pnpm/@sveltejs+kit@2.49.0_@sveltejs+vite-plugin-svelte@4.0.4_svelte@5.43.14_vite@5.4.21_@typ_b4479cef9c8f1f9fecf7bc37df862601/node_modules/@sveltejs/kit/src/runtime/app/server/remote/index.js",
     "isEntry": true,
     "imports": [
       "_shared.js",
@@ -117,10 +125,10 @@
       "_environment.js"
     ]
   },
-  "node_modules/.pnpm/@sveltejs+kit@2.49.0_@sveltejs+vite-plugin-svelte@4.0.4_svelte@5.43.14_vite@5.4.21__svelte@5.43.14_vite@5.4.21/node_modules/@sveltejs/kit/src/runtime/components/svelte-5/error.svelte": {
+  "node_modules/.pnpm/@sveltejs+kit@2.49.0_@sveltejs+vite-plugin-svelte@4.0.4_svelte@5.43.14_vite@5.4.21_@typ_b4479cef9c8f1f9fecf7bc37df862601/node_modules/@sveltejs/kit/src/runtime/components/svelte-5/error.svelte": {
     "file": "entries/fallbacks/error.svelte.js",
     "name": "entries/fallbacks/error.svelte",
-    "src": "node_modules/.pnpm/@sveltejs+kit@2.49.0_@sveltejs+vite-plugin-svelte@4.0.4_svelte@5.43.14_vite@5.4.21__svelte@5.43.14_vite@5.4.21/node_modules/@sveltejs/kit/src/runtime/components/svelte-5/error.svelte",
+    "src": "node_modules/.pnpm/@sveltejs+kit@2.49.0_@sveltejs+vite-plugin-svelte@4.0.4_svelte@5.43.14_vite@5.4.21_@typ_b4479cef9c8f1f9fecf7bc37df862601/node_modules/@sveltejs/kit/src/runtime/components/svelte-5/error.svelte",
     "isEntry": true,
     "imports": [
       "_context.js",
@@ -130,10 +138,10 @@
       "_index.js"
     ]
   },
-  "node_modules/.pnpm/@sveltejs+kit@2.49.0_@sveltejs+vite-plugin-svelte@4.0.4_svelte@5.43.14_vite@5.4.21__svelte@5.43.14_vite@5.4.21/node_modules/@sveltejs/kit/src/runtime/server/index.js": {
+  "node_modules/.pnpm/@sveltejs+kit@2.49.0_@sveltejs+vite-plugin-svelte@4.0.4_svelte@5.43.14_vite@5.4.21_@typ_b4479cef9c8f1f9fecf7bc37df862601/node_modules/@sveltejs/kit/src/runtime/server/index.js": {
     "file": "index.js",
     "name": "index",
-    "src": "node_modules/.pnpm/@sveltejs+kit@2.49.0_@sveltejs+vite-plugin-svelte@4.0.4_svelte@5.43.14_vite@5.4.21__svelte@5.43.14_vite@5.4.21/node_modules/@sveltejs/kit/src/runtime/server/index.js",
+    "src": "node_modules/.pnpm/@sveltejs+kit@2.49.0_@sveltejs+vite-plugin-svelte@4.0.4_svelte@5.43.14_vite@5.4.21_@typ_b4479cef9c8f1f9fecf7bc37df862601/node_modules/@sveltejs/kit/src/runtime/server/index.js",
     "isEntry": true,
     "imports": [
       "_false.js",
@@ -186,7 +194,7 @@
       "src/lib/i18n/locales/sv.json"
     ],
     "css": [
-      "_app/immutable/assets/_layout.BGbysTH4.css"
+      "_app/immutable/assets/_layout.ByNCK2RD.css"
     ]
   },
   "src/routes/+layout.ts": {
@@ -229,8 +237,9 @@
     "isEntry": true,
     "imports": [
       "_index2.js",
-      "_IconButton.js",
+      "_FamilyTable.js",
       "_runtime.js",
+      "_Icon.js",
       "_context.js"
     ]
   },
@@ -241,8 +250,9 @@
     "isEntry": true,
     "imports": [
       "_index2.js",
-      "_IconButton.js",
+      "_FamilyTable.js",
       "_runtime.js",
+      "_Icon.js",
       "_context.js"
     ]
   },
@@ -275,6 +285,18 @@
     "name": "entries/pages/logout/_page.svelte",
     "src": "src/routes/logout/+page.svelte",
     "isEntry": true
+  },
+  "src/routes/print-queue/+page.svelte": {
+    "file": "entries/pages/print-queue/_page.svelte.js",
+    "name": "entries/pages/print-queue/_page.svelte",
+    "src": "src/routes/print-queue/+page.svelte",
+    "isEntry": true,
+    "imports": [
+      "_index2.js",
+      "_Icon.js",
+      "_runtime.js",
+      "_context.js"
+    ]
   },
   "src/routes/qr/[token]/+page.svelte": {
     "file": "entries/pages/qr/_token_/_page.svelte.js",

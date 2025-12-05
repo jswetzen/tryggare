@@ -17,7 +17,7 @@
     <button
       data-testid="language-{lang.code}"
       onclick={() => setLanguage(lang.code)}
-      class="px-3 py-1 rounded text-sm transition-colors {$locale === lang.code ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}"
+      class="px-3 py-1 rounded-button text-sm transition-colors {$locale === lang.code ? 'bg-primary-600 text-white' : 'bg-neutral-200 text-neutral-700 hover:bg-neutral-300'}"
     >
       {lang.label}
     </button>
