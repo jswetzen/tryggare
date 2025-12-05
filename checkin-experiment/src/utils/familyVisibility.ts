@@ -30,11 +30,41 @@ export function shouldShowFamily(
 }
 
 /**
- * Filter families that should be displayed
+ * Sorts families by check-in status and alphabetically
+ *
+ * Sorting order:
+ * 1. Families with unchecked children (sorted alphabetically by family name)
+ * 2. Families with all checked-in but active undo (sorted alphabetically by family name)
+ *
+ * A family has unchecked children if ANY child has checkedIn === false
+ *
+ * @param families - Array of families to sort
+ * @param _undoActions - Array of undo actions (unused, kept for API consistency)
+ */
+export function sortFamiliesByStatus(
+  families: Family[],
+  _undoActions: UndoAction[]
+): Family[] {
+  return [...families].sort((a, b) => {
+    const aHasUnchecked = a.children.some((child) => !child.checkedIn);
+    const bHasUnchecked = b.children.some((child) => !child.checkedIn);
+
+    // If one has unchecked and the other doesn't, unchecked comes first
+    if (aHasUnchecked && !bHasUnchecked) return -1;
+    if (!aHasUnchecked && bHasUnchecked) return 1;
+
+    // Both have same unchecked status, sort alphabetically
+    return a.name.localeCompare(b.name);
+  });
+}
+
+/**
+ * Filter families that should be displayed, sorted by status
  */
 export function getVisibleFamilies(
   families: Family[],
   undoActions: UndoAction[]
 ): Family[] {
-  return families.filter((family) => shouldShowFamily(family, undoActions));
+  const visible = families.filter((family) => shouldShowFamily(family, undoActions));
+  return sortFamiliesByStatus(visible, undoActions);
 }

@@ -210,7 +210,7 @@ describe('FamilyCard', () => {
       />
     );
 
-    const toggleButton = screen.getByRole('button', { name: /toggle/i });
+    const toggleButton = screen.getByRole('button', { name: /expand.*garcia family/i });
     await user.click(toggleButton);
 
     expect(mockOnToggle).toHaveBeenCalledTimes(1);
@@ -382,5 +382,150 @@ describe('FamilyCard', () => {
     await user.click(sessionButton);
 
     expect(mockOnAssignTicket).toHaveBeenCalledWith(3, 'session');
+  });
+
+  describe('Entire card clickable feature', () => {
+    it('should call onToggle when clicking on family name area', async () => {
+      const user = userEvent.setup();
+      const mockOnToggle = vi.fn();
+
+      render(
+        <FamilyCard
+          family={mockFamily}
+          expanded={false}
+          onToggle={mockOnToggle}
+          onCheckInChild={vi.fn()}
+          onCheckInFamily={vi.fn()}
+          onUndoChild={vi.fn()}
+          onUndoFamily={vi.fn()}
+          onAssignTicket={vi.fn()}
+          expandedChildId={null}
+          onToggleChildExpansion={vi.fn()}
+          getRemainingTime={vi.fn()}
+          familyUndoSeconds={null}
+        />
+      );
+
+      // Click on the family name text
+      const familyName = screen.getByText(/garcia family/i);
+      await user.click(familyName);
+
+      expect(mockOnToggle).toHaveBeenCalledTimes(1);
+    });
+
+    it('should call onToggle when clicking on children count text', async () => {
+      const user = userEvent.setup();
+      const mockOnToggle = vi.fn();
+
+      render(
+        <FamilyCard
+          family={mockFamily}
+          expanded={false}
+          onToggle={mockOnToggle}
+          onCheckInChild={vi.fn()}
+          onCheckInFamily={vi.fn()}
+          onUndoChild={vi.fn()}
+          onUndoFamily={vi.fn()}
+          onAssignTicket={vi.fn()}
+          expandedChildId={null}
+          onToggleChildExpansion={vi.fn()}
+          getRemainingTime={vi.fn()}
+          familyUndoSeconds={null}
+        />
+      );
+
+      // Click on the children count text
+      const childrenCount = screen.getByText(/2 children/i);
+      await user.click(childrenCount);
+
+      expect(mockOnToggle).toHaveBeenCalledTimes(1);
+    });
+
+    it('should NOT call onToggle when clicking Check In Family button', async () => {
+      const user = userEvent.setup();
+      const mockOnToggle = vi.fn();
+      const mockOnCheckInFamily = vi.fn();
+
+      render(
+        <FamilyCard
+          family={mockFamily}
+          expanded={false}
+          onToggle={mockOnToggle}
+          onCheckInChild={vi.fn()}
+          onCheckInFamily={mockOnCheckInFamily}
+          onUndoChild={vi.fn()}
+          onUndoFamily={vi.fn()}
+          onAssignTicket={vi.fn()}
+          expandedChildId={null}
+          onToggleChildExpansion={vi.fn()}
+          getRemainingTime={vi.fn()}
+          familyUndoSeconds={null}
+        />
+      );
+
+      const checkInButton = screen.getByRole('button', { name: /check in.*children/i });
+      await user.click(checkInButton);
+
+      // Should call check in handler but NOT toggle handler
+      expect(mockOnCheckInFamily).toHaveBeenCalledTimes(1);
+      expect(mockOnToggle).not.toHaveBeenCalled();
+    });
+
+    it('should NOT call onToggle when clicking Undo Family button', async () => {
+      const user = userEvent.setup();
+      const mockOnToggle = vi.fn();
+      const mockOnUndoFamily = vi.fn();
+
+      render(
+        <FamilyCard
+          family={mockFamily}
+          expanded={false}
+          onToggle={mockOnToggle}
+          onCheckInChild={vi.fn()}
+          onCheckInFamily={vi.fn()}
+          onUndoChild={vi.fn()}
+          onUndoFamily={mockOnUndoFamily}
+          onAssignTicket={vi.fn()}
+          expandedChildId={null}
+          onToggleChildExpansion={vi.fn()}
+          getRemainingTime={vi.fn()}
+          familyUndoSeconds={27}
+        />
+      );
+
+      const undoButton = screen.getByRole('button', { name: /undo family/i });
+      await user.click(undoButton);
+
+      // Should call undo handler but NOT toggle handler
+      expect(mockOnUndoFamily).toHaveBeenCalledTimes(1);
+      expect(mockOnToggle).not.toHaveBeenCalled();
+    });
+
+    it('should show hover effect on family info area', () => {
+      render(
+        <FamilyCard
+          family={mockFamily}
+          expanded={false}
+          onToggle={vi.fn()}
+          onCheckInChild={vi.fn()}
+          onCheckInFamily={vi.fn()}
+          onUndoChild={vi.fn()}
+          onUndoFamily={vi.fn()}
+          onAssignTicket={vi.fn()}
+          expandedChildId={null}
+          onToggleChildExpansion={vi.fn()}
+          getRemainingTime={vi.fn()}
+          familyUndoSeconds={null}
+        />
+      );
+
+      // Find the clickable area by looking for a button that contains the family name
+      const familyNameElement = screen.getByText(/garcia family/i);
+      const clickableButton = familyNameElement.closest('button');
+
+      expect(clickableButton).toBeInTheDocument();
+      // Check for hover styling classes
+      expect(clickableButton?.className).toMatch(/hover/);
+    });
   });
 });

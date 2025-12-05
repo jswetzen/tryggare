@@ -65,7 +65,10 @@ function SessionIndicator({
   onAddFamily,
 }: SessionIndicatorProps) {
   return (
-    <div className="bg-slate-50 border border-slate-300 rounded px-3 py-2 mb-4 flex flex-wrap justify-between items-center gap-2 text-sm">
+    <div
+      className="bg-slate-50 border border-slate-300 rounded px-3 py-2 mb-4 flex flex-wrap justify-between items-center gap-2 text-sm"
+      data-testid="session-indicator"
+    >
       <div className="text-slate-600">
         <span className="font-semibold text-blue-900">Event:</span> {eventName} •
         <span className="font-semibold text-blue-900 ml-1">Session:</span> {sessionName} ({sessionTime})
@@ -74,12 +77,14 @@ function SessionIndicator({
         <button
           onClick={onChangeSession}
           className="px-3 py-1.5 text-blue-600 font-semibold hover:underline"
+          data-testid="change-session-button"
         >
           Change Session
         </button>
         <button
           onClick={onAddFamily}
           className="px-3 py-1.5 bg-blue-600 text-white font-semibold rounded hover:bg-blue-700 transition-colors"
+          data-testid="add-family-button"
         >
           + Add Family
         </button>
@@ -108,6 +113,7 @@ function SuccessToast({ message, onClose }: SuccessToastProps) {
       className="fixed top-4 right-4 bg-green-600 text-white px-4 py-3 rounded-lg shadow-lg flex items-center gap-2 z-50 animate-slide-in"
       role="alert"
       aria-live="polite"
+      data-testid="success-toast"
     >
       <span className="text-xl">✓</span>
       <span className="font-semibold">{message}</span>
@@ -160,6 +166,37 @@ export default function App() {
     );
   }, [families, undoActions, searchQuery]);
 
+  // Auto-expand families when search matches child name (but not family name)
+  useEffect(() => {
+    if (!searchQuery) {
+      // Don't collapse families when clearing search (less disruptive)
+      return;
+    }
+
+    const query = searchQuery.toLowerCase();
+
+    // Find families where search matches child name but NOT family name
+    visibleFamilies.forEach((family) => {
+      const familyNameMatches = family.name.toLowerCase().includes(query);
+
+      if (!familyNameMatches) {
+        // Check if any child name matches
+        const childNameMatches = family.children.some((child) =>
+          child.name.toLowerCase().includes(query)
+        );
+
+        if (childNameMatches) {
+          // Auto-expand this family
+          setExpandedFamilies((prev) => {
+            const newSet = new Set(prev);
+            newSet.add(family.id);
+            return newSet;
+          });
+        }
+      }
+    });
+  }, [searchQuery, visibleFamilies]);
+
   // Toggle family expansion
   const toggleFamily = (familyId: number) => {
     const newExpanded = new Set(expandedFamilies);
@@ -206,22 +243,18 @@ export default function App() {
 
   // Check in entire family
   const checkInFamily = (familyId: number) => {
-    console.log('checkInFamily called with familyId:', familyId);
     const family = families.find((f) => f.id === familyId);
-    console.log('Found family:', family);
     if (!family) return;
 
     const childIdsToCheckIn = family.children
       .filter((c) => !c.checkedIn && c.ticket !== 'none')
       .map((c) => c.id);
 
-    console.log('Child IDs to check in:', childIdsToCheckIn);
     if (childIdsToCheckIn.length === 0) return;
 
     const actionId = createUndoAction(familyId, childIdsToCheckIn);
     const checkInTime = getCurrentTime();
 
-    console.log('Updating families state...');
     setFamilies((prev) =>
       prev.map((fam) => {
         if (fam.id !== familyId) return fam;
@@ -246,7 +279,6 @@ export default function App() {
         childIdsToCheckIn.length === 1 ? 'child' : 'children'
       })!`
     );
-    console.log('checkInFamily completed');
   };
 
   // Undo individual child check-in
@@ -413,17 +445,6 @@ export default function App() {
         {/* Header */}
         <div className="mb-5">
           <h1 className="text-3xl font-bold text-blue-900">Check-In Station</h1>
-          {/* DEBUG TEST BUTTON */}
-          <button
-            type="button"
-            onClick={() => {
-              console.log('TEST BUTTON CLICKED!');
-              alert('TEST: Button clicks ARE working!');
-            }}
-            style={{background: 'red', color: 'white', padding: '12px 24px', margin: '10px 0', fontWeight: 'bold', borderRadius: '8px', border: 'none'}}
-          >
-            🔴 TEST BUTTON - Click Me!
-          </button>
         </div>
 
         {/* Search Box */}
@@ -439,12 +460,14 @@ export default function App() {
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search by family or child name..."
               className="w-full pl-10 pr-10 py-3 border-2 border-blue-500 rounded-lg bg-blue-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              data-testid="search-input"
             />
             {searchQuery && (
               <button
                 onClick={() => setSearchQuery('')}
                 className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
                 aria-label="Clear search"
+                data-testid="clear-search-button"
               >
                 <X size={20} />
               </button>
@@ -454,7 +477,7 @@ export default function App() {
 
         {/* Stats Header */}
         <div className="mb-4 flex items-center justify-between text-sm">
-          <span className="text-slate-600">
+          <span className="text-slate-600" data-testid="family-count-text">
             {visibleFamilies.length}{' '}
             {visibleFamilies.length === 1 ? 'family' : 'families'}
             {searchQuery && ' matching search'}
