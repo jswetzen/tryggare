@@ -84,7 +84,10 @@ export function AddFamilyPanel({ onAdd, onClose }: AddFamilyPanelProps) {
   };
 
   return (
-    <div className="bg-white border border-slate-300 rounded-lg p-4 mb-4 shadow-sm">
+    <div
+      className="bg-white border border-slate-300 rounded-lg p-4 mb-4 shadow-sm"
+      data-testid="add-family-panel"
+    >
       <form onSubmit={handleSubmit}>
         {/* Header */}
         <div className="flex items-center justify-between mb-4">
@@ -94,6 +97,7 @@ export function AddFamilyPanel({ onAdd, onClose }: AddFamilyPanelProps) {
             onClick={onClose}
             aria-label="Close"
             className="text-slate-400 hover:text-slate-600 transition-colors"
+            data-testid="add-family-close-button"
           >
             <X size={20} />
           </button>
@@ -122,6 +126,7 @@ export function AddFamilyPanel({ onAdd, onClose }: AddFamilyPanelProps) {
             onChange={(e) => setFamilyName(e.target.value)}
             placeholder="Garcia, Smith, etc."
             className="w-full px-3 py-2 border border-slate-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+            data-testid="add-family-name-input"
           />
         </div>
 
@@ -188,12 +193,14 @@ export function AddFamilyPanel({ onAdd, onClose }: AddFamilyPanelProps) {
             type="button"
             onClick={onClose}
             className="px-4 py-2 bg-slate-200 text-slate-700 font-semibold rounded-lg hover:bg-slate-300 transition-colors"
+            data-testid="add-family-cancel-button"
           >
             Cancel
           </button>
           <button
             type="submit"
             className="px-4 py-2 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition-colors"
+            data-testid="add-family-submit-button"
           >
             Add Family
           </button>

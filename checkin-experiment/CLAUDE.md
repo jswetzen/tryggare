@@ -1,5 +1,10 @@
 # Claude Code Guidelines
 
+## Project hints
+pnpm for javascript package management
+uv for python
+it's a React app in scr/App.tsx
+
 ## Project Organization
 
 ### Documentation

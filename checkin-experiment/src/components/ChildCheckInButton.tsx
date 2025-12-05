@@ -34,6 +34,7 @@ export function ChildCheckInButton({
         onClick={() => onUndo?.()}
         className="px-3 py-1.5 bg-orange-500 text-white text-sm font-semibold rounded hover:bg-orange-600 transition-colors min-w-[100px]"
         aria-label={`Undo check-in for ${child.name}, ${remainingSeconds} seconds remaining`}
+        data-testid={`child-undo-button-${child.id}`}
       >
         Undo ({remainingSeconds}s)
       </button>
@@ -60,6 +61,7 @@ export function ChildCheckInButton({
         onClick={() => onNoTicketClick?.()}
         className="px-3 py-1.5 bg-red-100 text-red-700 text-sm font-semibold rounded border border-red-300 hover:bg-red-200 transition-colors min-w-[100px]"
         aria-label="No ticket - click to assign"
+        data-testid={`child-expand-button-${child.id}`}
       >
         No Ticket {expanded ? '▲' : '▼'}
       </button>
@@ -72,6 +74,7 @@ export function ChildCheckInButton({
       onClick={() => onCheckIn?.()}
       className="px-3 py-1.5 bg-green-600 text-white text-sm font-semibold rounded hover:bg-green-700 transition-colors min-w-[100px]"
       aria-label={`Check in ${child.name}`}
+      data-testid={`child-check-in-button-${child.id}`}
     >
       Check In
     </button>

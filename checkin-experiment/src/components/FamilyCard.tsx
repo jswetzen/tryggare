@@ -64,18 +64,22 @@ export function FamilyCard({
   };
 
   return (
-    <div className="bg-white border border-slate-300 rounded-lg overflow-hidden mb-3 hover:shadow-md transition-shadow">
+    <div
+      className="bg-white border border-slate-300 rounded-lg overflow-hidden mb-3 hover:shadow-md transition-shadow"
+      data-testid={`family-card-${family.id}`}
+    >
       {/* Family Header */}
       <div className="bg-slate-50 p-3 flex items-center justify-between gap-3">
         <div className="flex items-center gap-2 flex-1 min-w-0">
+          <div className="text-slate-600 flex-shrink-0">
+            {expanded ? <ChevronDown size={20} /> : <ChevronRight size={20} />}
+          </div>
           <button
             onClick={onToggle}
-            className="text-slate-600 hover:text-slate-900 transition-colors flex-shrink-0"
-            aria-label={`Toggle ${family.name} family`}
+            className="flex-1 min-w-0 text-left hover:bg-slate-100 rounded px-2 py-1 -mx-2 -my-1 transition-colors"
+            aria-label={`${expanded ? 'Collapse' : 'Expand'} ${family.name} family`}
+            data-testid={`family-toggle-button-${family.id}`}
           >
-            {expanded ? <ChevronDown size={20} /> : <ChevronRight size={20} />}
-          </button>
-          <div className="flex-1 min-w-0">
             <h3 className="font-bold text-blue-900 text-lg truncate">
               {family.name} Family
             </h3>
@@ -83,17 +87,18 @@ export function FamilyCard({
               {totalChildren} {totalChildren === 1 ? 'child' : 'children'} •{' '}
               {checkedInCount} checked in
             </p>
-          </div>
+          </button>
         </div>
 
         {/* Family Action Button */}
-        <div className="flex-shrink-0">
+        <div className="flex-shrink-0" onClick={(e) => e.stopPropagation()}>
           {familyUndoSeconds !== null ? (
             // Undo Family button during grace period
             <button
               onClick={onUndoFamily}
               className="px-4 py-2 bg-orange-500 text-white font-semibold rounded-lg hover:bg-orange-600 transition-colors text-sm whitespace-nowrap"
               aria-label={`Undo family check-in, ${familyUndoSeconds} seconds remaining`}
+              data-testid={`family-undo-button-${family.id}`}
             >
               Undo Family ({familyUndoSeconds}s)
             </button>
@@ -101,22 +106,10 @@ export function FamilyCard({
             // Check In Family button
             <button
               type="button"
-              onClick={(e) => {
-                console.log('=== CHECK IN FAMILY BUTTON CLICKED ===');
-                console.log('Family:', family.name);
-                console.log('Event:', e);
-                console.log('onCheckInFamily type:', typeof onCheckInFamily);
-                console.log('Calling onCheckInFamily...');
-                try {
-                  onCheckInFamily();
-                  console.log('onCheckInFamily called successfully');
-                } catch (error) {
-                  console.error('Error calling onCheckInFamily:', error);
-                  alert('Error: ' + error);
-                }
-              }}
+              onClick={onCheckInFamily}
               className="px-4 py-2 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition-colors text-sm whitespace-nowrap"
               aria-label={`Check in ${canCheckInCount} children from ${family.name} family`}
+              data-testid={`family-check-in-button-${family.id}`}
             >
               Check In Family ({canCheckInCount})
             </button>
@@ -143,6 +136,7 @@ export function FamilyCard({
               <div
                 key={child.id}
                 className="flex flex-col gap-2 p-2 bg-slate-50 rounded border border-slate-200"
+                data-testid={`child-row-${child.id}`}
               >
                 <div className="flex items-center justify-between gap-3">
                   <div className="flex-1 min-w-0">
@@ -182,12 +176,14 @@ export function FamilyCard({
                       <button
                         onClick={() => onAssignTicket(child.id, 'session')}
                         className="flex-1 px-3 py-2 bg-blue-500 text-white text-sm font-semibold rounded hover:bg-blue-600 transition-colors"
+                        data-testid={`ticket-assign-session-${child.id}`}
                       >
                         Session Only
                       </button>
                       <button
                         onClick={() => onAssignTicket(child.id, 'event')}
                         className="flex-1 px-3 py-2 bg-green-600 text-white text-sm font-semibold rounded hover:bg-green-700 transition-colors"
+                        data-testid={`ticket-assign-event-${child.id}`}
                       >
                         Full Event Pass
                       </button>
