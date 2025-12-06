@@ -45,7 +45,7 @@ class PrintQueueE2ETest(LiveServerTestCase):
         )
 
         # Create family with children
-        self.family = Family.objects.create()
+        self.family = Family.objects.create(last_name="TestFamily")
         self.parent = Parent.objects.create(
             family=self.family,
             name="John Doe",

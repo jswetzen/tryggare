@@ -19,7 +19,7 @@ print("🔍 Quick Model Verification\n")
 
 # Test all models can be created
 print("Creating test data...")
-family = Family.objects.create()
+family = Family.objects.create(last_name="TestFamily")
 parent = Parent.objects.create(
     family=family,
     name="Test Parent",

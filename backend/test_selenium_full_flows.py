@@ -231,7 +231,7 @@ def test_complete_checkin_flow():
         )
 
         # Create test family
-        test_family = Family.objects.create()
+        test_family = Family.objects.create(last_name="Smith")
         test_parent = Parent.objects.create(
             family=test_family,
             name="John Smith",
@@ -488,7 +488,7 @@ def test_complete_checkout_flow():
         )
 
         # Create test family
-        test_family = Family.objects.create()
+        test_family = Family.objects.create(last_name="Doe")
         test_parent = Parent.objects.create(
             family=test_family,
             name="Jane Doe",
@@ -730,7 +730,7 @@ def test_i18n_language_switching():
         print(f"   ✓ Session: {test_session.name}")
 
         # Create test family and child
-        test_family = Family.objects.create()
+        test_family = Family.objects.create(last_name="Child")
         test_parent = Parent.objects.create(
             family=test_family,
             name="Test Parent",
