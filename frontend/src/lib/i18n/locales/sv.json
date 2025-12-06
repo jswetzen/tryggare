@@ -209,6 +209,7 @@
     "allergies": "Allergier",
     "notes": "Anteckningar",
     "actions": "Åtgärder",
+    "print": "Skriv ut",
     "printSelected": "Skriv ut valda",
     "printAll": "Skriv ut alla",
     "selectAll": "Välj alla",
@@ -216,8 +217,15 @@
     "viewQR": "Visa QR",
     "loadError": "Kunde inte läsa in utskriftskön",
     "markError": "Kunde inte markera som utskrivna",
+    "printError": "Kunde inte skriva ut etikett",
+    "printSuccess": "Etikett skickad till skrivaren",
     "noSelection": "Vänligen välj minst ett barn",
     "markedAsPrinted": "{count} etikett(er) markerade som utskrivna",
-    "selectToMark": "Välj etiketter och klicka på 'Markera som utskrivna' efter utskrift"
+    "selectToMark": "Välj etiketter och klicka på 'Markera som utskrivna' efter utskrift",
+    "clickPrintToLabel": "Klicka på 'Skriv ut'-knappen för att skriva ut enskilda etiketter",
+    "recentlyPrinted": "Nyligen utskrivna (senaste 50)",
+    "recentlyPrintedCount": "Nyligen utskrivna ({count})",
+    "noRecentlyPrinted": "Inga nyligen utskrivna etiketter",
+    "clickToExpand": "Klicka för att expandera"
   }
 }
