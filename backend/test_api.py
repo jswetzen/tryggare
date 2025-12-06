@@ -40,7 +40,26 @@ print(f"✓ Got {len(families)} families\n")
 
 # Test 3: Create family
 print("Test 3: Create family")
-response = client.post('/api/families/', {}, content_type='application/json')
+response = client.post('/api/families/', {
+    'last_name': 'Test',
+    'parents': [
+        {
+            'name': 'Test Parent',
+            'phone': '+1234567890',
+            'email': 'test@example.com',
+            'relationship_type': 'Parent'
+        }
+    ],
+    'children': [
+        {
+            'first_name': 'TestChild',
+            'last_name': 'Test',
+            'birthdate': '2020-01-15',
+            'allergies': None,
+            'notes': None
+        }
+    ]
+}, content_type='application/json')
 assert response.status_code == 201, f"Expected 201, got {response.status_code}: {response.content}"
 family_id = response.json()['id']
 print(f"✓ Created family: {family_id}\n")
@@ -83,7 +102,7 @@ child.save()
 
 # Test without authentication
 client.logout()
-response = client.get(f'/qr/{child.qr_token}/')
+response = client.get(f'/api/qr/{child.qr_token}/')
 assert response.status_code == 200, f"Expected 200, got {response.status_code}"
 data = response.json()
 assert data['first_name'] == 'Test', "QR endpoint should return child data"
@@ -94,7 +113,7 @@ print(f"  Parent names: {data['parent_names']}\n")
 
 # Test 8: Invalid QR token
 print("Test 8: Invalid QR token")
-response = client.get('/qr/invalid-token-12345/')
+response = client.get('/api/qr/invalid-token-12345/')
 assert response.status_code == 404, f"Expected 404, got {response.status_code}"
 print("✓ Invalid QR token returns 404\n")
 
@@ -126,6 +145,6 @@ print("✅ All API tests passed!")
 print("=" * 50)
 print()
 print("Test URLs:")
-print(f"  QR endpoint: http://localhost:8000/qr/{child.qr_token}/")
+print(f"  QR API endpoint: http://localhost:8000/api/qr/{child.qr_token}/")
 print(f"  Admin: http://localhost:8000/admin/")
 print()

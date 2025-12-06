@@ -41,7 +41,7 @@ class FamilySerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Family
-        fields = ["id", "last_participation_date", "parents", "children"]
+        fields = ["id", "last_name", "last_participation_date", "parents", "children"]
         read_only_fields = ["id", "last_participation_date"]
 
 
@@ -53,7 +53,7 @@ class FamilyDetailSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Family
-        fields = ["id", "last_participation_date", "parents", "children"]
+        fields = ["id", "last_name", "last_participation_date", "parents", "children"]
         read_only_fields = ["id", "last_participation_date"]
 
 
@@ -79,7 +79,7 @@ class FamilyCreateSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Family
-        fields = ["id", "parents", "children"]
+        fields = ["id", "last_name", "parents", "children"]
         read_only_fields = ["id"]
 
     def validate_parents(self, value):
