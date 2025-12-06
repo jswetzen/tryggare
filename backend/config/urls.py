@@ -9,7 +9,7 @@ from rest_framework.routers import DefaultRouter
 
 from families.views import ChildViewSet, FamilyViewSet, ParentViewSet
 from families.qr_views import qr_info
-from events.views import EventViewSet, SessionViewSet, TicketViewSet
+from events.views import EventViewSet, EventTicketViewSet, SessionViewSet, SessionTicketViewSet, TicketViewSet
 from checkins.views import AuditLogViewSet, CheckInRecordViewSet, PrintQueueViewSet
 from accounts.views import csrf_token, check_auth, login_view, logout_view
 
@@ -24,7 +24,9 @@ router.register(r"children", ChildViewSet, basename="child")
 # Event management
 router.register(r"events", EventViewSet, basename="event")
 router.register(r"sessions", SessionViewSet, basename="session")
-router.register(r"tickets", TicketViewSet, basename="ticket")
+router.register(r"tickets", TicketViewSet, basename="ticket")  # DEPRECATED
+router.register(r"event-tickets", EventTicketViewSet, basename="event-ticket")
+router.register(r"session-tickets", SessionTicketViewSet, basename="session-ticket")
 
 # Check-in management
 router.register(r"checkins", CheckInRecordViewSet, basename="checkin")

@@ -32217,3 +32217,1486 @@
 2025-12-06T09:40:11.397457665+00:00 stderr F 2025-12-06 09:40:11,397 INFO     HTTP/2 support not enabled (install the http2 and tls Twisted extras)
 2025-12-06T09:40:11.397572936+00:00 stderr F 2025-12-06 09:40:11,397 INFO     Configuring endpoint tcp:port=8000:interface=0.0.0.0
 2025-12-06T09:40:11.397878921+00:00 stderr F 2025-12-06 09:40:11,397 INFO     Listening on TCP address 0.0.0.0:8000
+2025-12-06T10:30:02.606341103+00:00 stdout F 10.89.1.5:38434 - - [06/Dec/2025:10:30:02] "GET /api/auth/check/" 200 117
+2025-12-06T10:30:03.086240076+00:00 stdout F 10.89.1.5:38434 - - [06/Dec/2025:10:30:03] "GET /api/auth/check/" 200 117
+2025-12-06T10:30:03.332921410+00:00 stdout F 10.89.1.5:38434 - - [06/Dec/2025:10:30:03] "GET /api/auth/check/" 200 117
+2025-12-06T13:11:00.024054584+00:00 stdout F 10.89.0.4:46966 - - [06/Dec/2025:13:11:00] "GET /checkin" 200 1722
+2025-12-06T13:11:00.154296637+00:00 stdout F 10.89.0.4:46966 - - [06/Dec/2025:13:11:00] "GET /_app/immutable/entry/start.BjwLlQWe.js" 200 118
+2025-12-06T13:11:00.159477468+00:00 stdout F 10.89.0.4:46966 - - [06/Dec/2025:13:11:00] "GET /_app/immutable/chunks/BJJQazKu.js" 200 27626
+2025-12-06T13:11:00.161332256+00:00 stdout F 10.89.0.4:46972 - - [06/Dec/2025:13:11:00] "GET /_app/immutable/chunks/pxs1u2Lk.js" 200 23950
+2025-12-06T13:11:00.181767677+00:00 stdout F 10.89.0.4:46966 - - [06/Dec/2025:13:11:00] "GET /_app/immutable/chunks/DIeogL5L.js" 200 62
+2025-12-06T13:11:00.184069405+00:00 stdout F 10.89.0.4:46978 - - [06/Dec/2025:13:11:00] "GET /_app/immutable/chunks/DE_lwqnV.js" 200 1128
+2025-12-06T13:11:00.193281543+00:00 stdout F 10.89.0.4:46972 - - [06/Dec/2025:13:11:00] "GET /_app/immutable/chunks/CjuLKQVU.js" 200 7031
+2025-12-06T13:11:00.196181589+00:00 stdout F 10.89.0.4:46990 - - [06/Dec/2025:13:11:00] "GET /_app/immutable/chunks/B4SCbM-L.js" 200 404
+2025-12-06T13:11:00.197299217+00:00 stdout F 10.89.0.4:46978 - - [06/Dec/2025:13:11:00] "GET /_app/immutable/chunks/C1FmrZbK.js" 200 1141
+2025-12-06T13:11:00.197437830+00:00 stdout F 10.89.0.4:46966 - - [06/Dec/2025:13:11:00] "GET /_app/immutable/entry/app.Bth_R2R7.js" 200 6716
+2025-12-06T13:11:00.199657971+00:00 stdout F 10.89.0.4:46994 - - [06/Dec/2025:13:11:00] "GET /_app/immutable/chunks/Cr9hUHC2.js" 200 7438
+2025-12-06T13:11:00.201184595+00:00 stdout F 10.89.0.4:47008 - - [06/Dec/2025:13:11:00] "GET /_app/immutable/chunks/DOBAaUNM.js" 200 1216
+2025-12-06T13:11:00.207705079+00:00 stdout F 10.89.0.4:46972 - - [06/Dec/2025:13:11:00] "GET /_app/immutable/chunks/CWj6FrbW.js" 200 106
+2025-12-06T13:11:00.210771992+00:00 stdout F 10.89.0.4:46966 - - [06/Dec/2025:13:11:00] "GET /_app/immutable/chunks/BmWNL-SK.js" 200 3184
+2025-12-06T13:11:00.213433292+00:00 stdout F 10.89.0.4:46994 - - [06/Dec/2025:13:11:00] "GET /_app/immutable/chunks/D9fO5uqx.js" 200 312
+2025-12-06T13:11:00.215142195+00:00 stdout F 10.89.0.4:46972 - - [06/Dec/2025:13:11:00] "GET /_app/immutable/chunks/Dn4RsGBP.js" 200 969
+2025-12-06T13:11:00.322060513+00:00 stdout F 10.89.0.4:47012 - - [06/Dec/2025:13:11:00] "GET /favicon.png" 200 1722
+2025-12-06T13:11:00.384789625+00:00 stdout F 10.89.0.4:46972 - - [06/Dec/2025:13:11:00] "GET /_app/immutable/chunks/BlmT29IN.js" 200 1651
+2025-12-06T13:11:00.384996099+00:00 stdout F 10.89.0.4:46978 - - [06/Dec/2025:13:11:00] "GET /_app/immutable/chunks/BeF3ABjC.js" 200 1075
+2025-12-06T13:11:00.385119944+00:00 stdout F 10.89.0.4:46966 - - [06/Dec/2025:13:11:00] "GET /_app/immutable/nodes/0.C9404B9s.js" 200 9485
+2025-12-06T13:11:00.385252799+00:00 stdout F 10.89.0.4:46994 - - [06/Dec/2025:13:11:00] "GET /_app/immutable/chunks/CXU6eOrJ.js" 200 186
+2025-12-06T13:11:00.385374099+00:00 stdout F 10.89.0.4:46990 - - [06/Dec/2025:13:11:00] "GET /_app/immutable/chunks/CvqyA-eW.js" 200 1126
+2025-12-06T13:11:00.386085171+00:00 stdout F 10.89.0.4:47008 - - [06/Dec/2025:13:11:00] "GET /_app/immutable/chunks/YA-Bbw3_.js" 200 50332
+2025-12-06T13:11:00.544665053+00:00 stdout F 10.89.0.4:46990 - - [06/Dec/2025:13:11:00] "GET /_app/immutable/chunks/jja-utjJ.js" 200 3679
+2025-12-06T13:11:00.546212815+00:00 stdout F 10.89.0.4:46972 - - [06/Dec/2025:13:11:00] "GET /_app/immutable/chunks/69_IOA4Y.js" 200 34
+2025-12-06T13:11:00.546421877+00:00 stdout F 10.89.0.4:46994 - - [06/Dec/2025:13:11:00] "GET /_app/immutable/nodes/1.CC5Ue_Ij.js" 200 681
+2025-12-06T13:11:00.547205070+00:00 stdout F 10.89.0.4:46966 - - [06/Dec/2025:13:11:00] "GET /_app/immutable/chunks/DkznuABM.js" 200 227
+2025-12-06T13:11:00.547768693+00:00 stdout F 10.89.0.4:46978 - - [06/Dec/2025:13:11:00] "GET /_app/immutable/chunks/MAAkiWPp.js" 200 523
+2025-12-06T13:11:00.553708370+00:00 stdout F 10.89.0.4:46990 - - [06/Dec/2025:13:11:00] "GET /_app/immutable/nodes/4.DURrjTPR.js" 200 21175
+2025-12-06T13:11:00.556449433+00:00 stdout F 10.89.0.4:46966 - - [06/Dec/2025:13:11:00] "GET /_app/immutable/chunks/C8zwPL_V.js" 200 368
+2025-12-06T13:11:00.558191099+00:00 stdout F 10.89.0.4:46972 - - [06/Dec/2025:13:11:00] "GET /_app/immutable/chunks/CYybpuDY.js" 200 821
+2025-12-06T13:11:00.558336442+00:00 stdout F 10.89.0.4:46994 - - [06/Dec/2025:13:11:00] "GET /_app/immutable/chunks/4OATMlZZ.js" 200 2325
+2025-12-06T13:11:00.560743877+00:00 stdout F 10.89.0.4:46978 - - [06/Dec/2025:13:11:00] "GET /_app/immutable/chunks/v91Tt0dh.js" 200 995
+2025-12-06T13:11:00.561646327+00:00 stdout F 10.89.0.4:47008 - - [06/Dec/2025:13:11:00] "GET /_app/immutable/assets/0.6l9l9vHw.css" 200 34835
+2025-12-06T13:11:00.563250432+00:00 stdout F 10.89.0.4:46966 - - [06/Dec/2025:13:11:00] "GET /_app/immutable/assets/4.CqowWpqW.css" 200 796
+2025-12-06T13:11:00.640445350+00:00 stdout F 10.89.0.4:47008 - - [06/Dec/2025:13:11:00] "GET /_app/immutable/chunks/dDoZxGrO.js" 200 6491
+2025-12-06T13:11:00.686122236+00:00 stdout F 10.89.0.4:47008 - - [06/Dec/2025:13:11:00] "GET /api/auth/check/" 200 35
+2025-12-06T13:11:00.711386326+00:00 stdout F 10.89.0.4:47008 - - [06/Dec/2025:13:11:00] "GET /_app/immutable/nodes/7.BTMxaUVU.js" 200 3119
+2025-12-06T13:11:08.318170737+00:00 stderr F 2025-12-06 13:11:08,318 WARNING  Unauthorized: /api/auth/login/
+2025-12-06T13:11:08.318438238+00:00 stdout F 10.89.0.4:47008 - - [06/Dec/2025:13:11:08] "POST /api/auth/login/" 401 31
+2025-12-06T13:11:22.145384990+00:00 stdout F 10.89.0.4:44804 - - [06/Dec/2025:13:11:22] "POST /api/auth/login/" 200 98
+2025-12-06T13:11:22.317690637+00:00 stdout F 10.89.0.4:44804 - - [06/Dec/2025:13:11:22] "GET /checkin" 200 1722
+2025-12-06T13:11:22.469055174+00:00 stdout F 10.89.0.4:44812 - - [06/Dec/2025:13:11:22] "GET /favicon.png" 200 1722
+2025-12-06T13:11:22.690241256+00:00 stdout F 10.89.0.4:44804 - - [06/Dec/2025:13:11:22] "GET /api/auth/check/" 200 104
+2025-12-06T13:11:55.754367894+00:00 stdout F 10.89.0.4:52690 - - [06/Dec/2025:13:11:55] "GET /_app/immutable/nodes/9.BvftY2VC.js" 200 8514
+2025-12-06T13:11:55.760995903+00:00 stdout F 10.89.0.4:52690 - - [06/Dec/2025:13:11:55] "GET /_app/immutable/chunks/C87YaWyy.js" 200 7882
+2025-12-06T13:11:55.772175153+00:00 stdout F 10.89.0.4:52690 - - [06/Dec/2025:13:11:55] "GET /_app/immutable/chunks/8k5-Q4vb.js" 200 849
+2025-12-06T13:11:55.795015715+00:00 stdout F 10.89.0.4:52706 - - [06/Dec/2025:13:11:55] "GET /api/auth/check/" 200 104
+2025-12-06T13:11:55.890434755+00:00 stdout F 10.89.0.4:52690 - - [06/Dec/2025:13:11:55] "GET /api/print-queue/" 200 2
+2025-12-06T13:11:55.958345656+00:00 stdout F 10.89.0.4:52690 - - [06/Dec/2025:13:11:55] "GET /api/print-queue/recently_printed/" 200 2
+2025-12-06T13:11:57.852387833+00:00 stdout F 10.89.0.4:52690 - - [06/Dec/2025:13:11:57] "GET /api/auth/check/" 200 104
+2025-12-06T13:11:59.459455312+00:00 stdout F 10.89.0.4:52690 - - [06/Dec/2025:13:11:59] "GET /checkin" 200 1722
+2025-12-06T13:11:59.650284415+00:00 stdout F 10.89.0.4:52720 - - [06/Dec/2025:13:11:59] "GET /favicon.png" 200 1722
+2025-12-06T13:11:59.890648683+00:00 stdout F 10.89.0.4:52690 - - [06/Dec/2025:13:11:59] "GET /api/auth/check/" 200 104
+2025-12-06T13:12:01.225727552+00:00 stdout F 10.89.0.4:52690 - - [06/Dec/2025:13:12:01] "GET /_app/immutable/chunks/DZUYVa9Z.js" 200 6351
+2025-12-06T13:13:06.964358865+00:00 stdout F 10.89.0.4:43066 - - [06/Dec/2025:13:13:06] "GET /checkin" 200 1722
+2025-12-06T13:13:07.068610774+00:00 stdout F 10.89.0.4:43066 - - [06/Dec/2025:13:13:07] "GET /_app/immutable/entry/start.BjwLlQWe.js" 304 -
+2025-12-06T13:13:07.074288683+00:00 stdout F 10.89.0.4:43066 - - [06/Dec/2025:13:13:07] "GET /_app/immutable/chunks/BJJQazKu.js" 304 -
+2025-12-06T13:13:07.078195273+00:00 stdout F 10.89.0.4:43082 - - [06/Dec/2025:13:13:07] "GET /_app/immutable/chunks/pxs1u2Lk.js" 304 -
+2025-12-06T13:13:07.079916738+00:00 stdout F 10.89.0.4:43068 - - [06/Dec/2025:13:13:07] "GET /_app/immutable/chunks/DIeogL5L.js" 304 -
+2025-12-06T13:13:07.080029249+00:00 stdout F 10.89.0.4:43092 - - [06/Dec/2025:13:13:07] "GET /_app/immutable/chunks/DE_lwqnV.js" 304 -
+2025-12-06T13:13:07.081938293+00:00 stdout F 10.89.0.4:43108 - - [06/Dec/2025:13:13:07] "GET /_app/immutable/chunks/B4SCbM-L.js" 304 -
+2025-12-06T13:13:07.082056738+00:00 stdout F 10.89.0.4:43066 - - [06/Dec/2025:13:13:07] "GET /_app/immutable/chunks/CjuLKQVU.js" 304 -
+2025-12-06T13:13:07.086532467+00:00 stdout F 10.89.0.4:43110 - - [06/Dec/2025:13:13:07] "GET /_app/immutable/entry/app.Bth_R2R7.js" 304 -
+2025-12-06T13:13:07.088118887+00:00 stdout F 10.89.0.4:43082 - - [06/Dec/2025:13:13:07] "GET /_app/immutable/chunks/C1FmrZbK.js" 304 -
+2025-12-06T13:13:07.092015569+00:00 stdout F 10.89.0.4:43066 - - [06/Dec/2025:13:13:07] "GET /_app/immutable/chunks/Cr9hUHC2.js" 304 -
+2025-12-06T13:13:07.092447369+00:00 stdout F 10.89.0.4:43092 - - [06/Dec/2025:13:13:07] "GET /_app/immutable/chunks/DOBAaUNM.js" 304 -
+2025-12-06T13:13:07.094348058+00:00 stdout F 10.89.0.4:43068 - - [06/Dec/2025:13:13:07] "GET /_app/immutable/chunks/CWj6FrbW.js" 304 -
+2025-12-06T13:13:07.094437681+00:00 stdout F 10.89.0.4:43108 - - [06/Dec/2025:13:13:07] "GET /_app/immutable/chunks/BmWNL-SK.js" 304 -
+2025-12-06T13:13:07.126527916+00:00 stdout F 10.89.0.4:43066 - - [06/Dec/2025:13:13:07] "GET /_app/immutable/chunks/D9fO5uqx.js" 304 -
+2025-12-06T13:13:07.126667394+00:00 stdout F 10.89.0.4:43082 - - [06/Dec/2025:13:13:07] "GET /_app/immutable/chunks/Dn4RsGBP.js" 304 -
+2025-12-06T13:13:07.236556327+00:00 stdout F 10.89.0.4:43066 - - [06/Dec/2025:13:13:07] "GET /_app/immutable/nodes/0.C9404B9s.js" 304 -
+2025-12-06T13:13:07.238314489+00:00 stdout F 10.89.0.4:43120 - - [06/Dec/2025:13:13:07] "GET /favicon.png" 200 1722
+2025-12-06T13:13:07.252374874+00:00 stdout F 10.89.0.4:43066 - - [06/Dec/2025:13:13:07] "GET /_app/immutable/chunks/BlmT29IN.js" 304 -
+2025-12-06T13:13:07.257262697+00:00 stdout F 10.89.0.4:43066 - - [06/Dec/2025:13:13:07] "GET /_app/immutable/chunks/CXU6eOrJ.js" 304 -
+2025-12-06T13:13:07.267936616+00:00 stdout F 10.89.0.4:43066 - - [06/Dec/2025:13:13:07] "GET /_app/immutable/chunks/YA-Bbw3_.js" 304 -
+2025-12-06T13:13:07.309903973+00:00 stdout F 10.89.0.4:43110 - - [06/Dec/2025:13:13:07] "GET /_app/immutable/chunks/CvqyA-eW.js" 304 -
+2025-12-06T13:13:07.310637385+00:00 stdout F 10.89.0.4:43066 - - [06/Dec/2025:13:13:07] "GET /_app/immutable/chunks/BeF3ABjC.js" 304 -
+2025-12-06T13:13:07.311685108+00:00 stdout F 10.89.0.4:43092 - - [06/Dec/2025:13:13:07] "GET /_app/immutable/chunks/DkznuABM.js" 304 -
+2025-12-06T13:13:07.315321939+00:00 stdout F 10.89.0.4:43066 - - [06/Dec/2025:13:13:07] "GET /_app/immutable/chunks/69_IOA4Y.js" 304 -
+2025-12-06T13:13:07.320036367+00:00 stdout F 10.89.0.4:43068 - - [06/Dec/2025:13:13:07] "GET /_app/immutable/chunks/jja-utjJ.js" 304 -
+2025-12-06T13:13:07.320433190+00:00 stdout F 10.89.0.4:43066 - - [06/Dec/2025:13:13:07] "GET /_app/immutable/chunks/MAAkiWPp.js" 304 -
+2025-12-06T13:13:07.322357206+00:00 stdout F 10.89.0.4:43108 - - [06/Dec/2025:13:13:07] "GET /_app/immutable/assets/0.6l9l9vHw.css" 304 -
+2025-12-06T13:13:07.323851284+00:00 stdout F 10.89.0.4:43082 - - [06/Dec/2025:13:13:07] "GET /_app/immutable/nodes/1.CC5Ue_Ij.js" 304 -
+2025-12-06T13:13:07.351638586+00:00 stdout F 10.89.0.4:43066 - - [06/Dec/2025:13:13:07] "GET /_app/immutable/nodes/4.DURrjTPR.js" 304 -
+2025-12-06T13:13:07.357776961+00:00 stdout F 10.89.0.4:43110 - - [06/Dec/2025:13:13:07] "GET /_app/immutable/chunks/C8zwPL_V.js" 304 -
+2025-12-06T13:13:07.357981249+00:00 stdout F 10.89.0.4:43068 - - [06/Dec/2025:13:13:07] "GET /_app/immutable/chunks/4OATMlZZ.js" 304 -
+2025-12-06T13:13:07.358500453+00:00 stdout F 10.89.0.4:43092 - - [06/Dec/2025:13:13:07] "GET /_app/immutable/chunks/CYybpuDY.js" 304 -
+2025-12-06T13:13:07.362956251+00:00 stdout F 10.89.0.4:43066 - - [06/Dec/2025:13:13:07] "GET /_app/immutable/chunks/v91Tt0dh.js" 304 -
+2025-12-06T13:13:07.363788044+00:00 stdout F 10.89.0.4:43108 - - [06/Dec/2025:13:13:07] "GET /_app/immutable/assets/4.CqowWpqW.css" 304 -
+2025-12-06T13:13:07.451586084+00:00 stdout F 10.89.0.4:43082 - - [06/Dec/2025:13:13:07] "GET /_app/immutable/chunks/DZUYVa9Z.js" 304 -
+2025-12-06T13:13:07.452369840+00:00 stdout F 10.89.0.4:43066 - - [06/Dec/2025:13:13:07] "GET /_app/immutable/chunks/dDoZxGrO.js" 304 -
+2025-12-06T13:13:07.470004867+00:00 stdout F 10.89.0.4:43110 - - [06/Dec/2025:13:13:07] "GET /api/auth/check/" 200 104
+2025-12-06T13:13:09.081592805+00:00 stdout F 10.89.0.4:43066 - - [06/Dec/2025:13:13:09] "GET /checkin" 200 1722
+2025-12-06T13:13:09.228685868+00:00 stdout F 10.89.0.4:43120 - - [06/Dec/2025:13:13:09] "GET /favicon.png" 200 1722
+2025-12-06T13:13:09.498708810+00:00 stdout F 10.89.0.4:43066 - - [06/Dec/2025:13:13:09] "GET /api/auth/check/" 200 104
+2025-12-06T13:13:10.487709474+00:00 stdout F 10.89.0.4:43066 - - [06/Dec/2025:13:13:10] "GET /checkin" 200 1722
+2025-12-06T13:13:10.628454743+00:00 stdout F 10.89.0.4:43120 - - [06/Dec/2025:13:13:10] "GET /favicon.png" 200 1722
+2025-12-06T13:13:10.886587975+00:00 stdout F 10.89.0.4:43066 - - [06/Dec/2025:13:13:10] "GET /api/auth/check/" 200 104
+2025-12-06T13:13:12.347273530+00:00 stderr F 2025-12-06 13:13:12,347 INFO     Killed 0 pending application instances
+2025-12-06T13:13:14.605124524+00:00 stdout F 10.89.0.4:43066 - - [06/Dec/2025:13:13:14] "GET /checkin" 200 1722
+2025-12-06T13:13:14.772816323+00:00 stdout F 10.89.0.4:43120 - - [06/Dec/2025:13:13:14] "GET /favicon.png" 200 1722
+2025-12-06T13:13:14.955497562+00:00 stdout F 10.89.0.4:43066 - - [06/Dec/2025:13:13:14] "GET /api/auth/check/" 200 104
+2025-12-06T13:13:15.905158696+00:00 stderr F Uninstalled 9 packages in 26ms
+2025-12-06T13:13:15.905158696+00:00 stderr F  - certifi==2025.11.12
+2025-12-06T13:13:15.905158696+00:00 stderr F  - django-stubs==5.2.7
+2025-12-06T13:13:15.905158696+00:00 stderr P  - django-stubs-ext==
+2025-12-06T13:13:15.905205413+00:00 stderr F 5.2.7
+2025-12-06T13:13:15.905205413+00:00 stderr F  - djangorestframework-stubs==3.16.5
+2025-12-06T13:13:15.905205413+00:00 stderr F  - requests==2.32.5
+2025-12-06T13:13:15.905205413+00:00 stderr P  -
+2025-12-06T13:13:15.905211669+00:00 stderr P  ruff==
+2025-12-06T13:13:15.905216893+00:00 stderr P 0.14.6
+2025-12-06T13:13:15.905222180+00:00 stderr F 
+2025-12-06T13:13:15.905222180+00:00 stderr P  
+2025-12-06T13:13:15.905227367+00:00 stderr P - types-pyyaml
+2025-12-06T13:13:15.905232531+00:00 stderr P ==6.
+2025-12-06T13:13:15.905237771+00:00 stderr P 0.12.
+2025-12-06T13:13:15.905242780+00:00 stderr F 20250915
+2025-12-06T13:13:15.905242780+00:00 stderr P  
+2025-12-06T13:13:15.905248080+00:00 stderr P - types-requests
+2025-12-06T13:13:15.905253110+00:00 stderr P ==2.
+2025-12-06T13:13:15.905258135+00:00 stderr P 32.4.
+2025-12-06T13:13:15.905263136+00:00 stderr F 20250913
+2025-12-06T13:13:15.905263136+00:00 stderr P  
+2025-12-06T13:13:15.905268246+00:00 stderr P - urllib3
+2025-12-06T13:13:15.905273262+00:00 stderr P ==2.
+2025-12-06T13:13:15.905278366+00:00 stderr P 5.0
+2025-12-06T13:13:15.905283392+00:00 stderr F 
+2025-12-06T13:13:15.986166365+00:00 stderr F Downloading ruff (13.3MiB)
+2025-12-06T13:13:16.045500494+00:00 stdout F 10.89.0.4:43066 - - [06/Dec/2025:13:13:16] "GET /_app/immutable/nodes/5.DXnqkCIC.js" 200 14176
+2025-12-06T13:13:16.064328631+00:00 stdout F 10.89.0.4:43110 - - [06/Dec/2025:13:13:16] "GET /_app/immutable/chunks/8k5-Q4vb.js" 304 -
+2025-12-06T13:13:16.083896760+00:00 stdout F 10.89.0.4:43068 - - [06/Dec/2025:13:13:16] "GET /_app/immutable/chunks/C87YaWyy.js" 304 -
+2025-12-06T13:13:16.100245898+00:00 stdout F 10.89.0.4:43092 - - [06/Dec/2025:13:13:16] "GET /api/auth/check/" 200 104
+2025-12-06T13:13:16.185183251+00:00 stdout F 10.89.0.4:37530 - - [06/Dec/2025:13:13:16] "WSCONNECTING /ws/checkins/" - -
+2025-12-06T13:13:16.188539265+00:00 stdout F 10.89.0.4:43066 - - [06/Dec/2025:13:13:16] "GET /api/checkins/active/" 200 2
+2025-12-06T13:13:16.453439541+00:00 stderr F  Downloaded ruff
+2025-12-06T13:13:16.459127575+00:00 stderr F warning: Failed to hardlink files; falling back to full copy. This may lead to degraded performance.
+2025-12-06T13:13:16.459127575+00:00 stderr F          If the cache and target directories are on different filesystems, hardlinking may not be supported.
+2025-12-06T13:13:16.459127575+00:00 stderr F          If this is intentional, set `export UV_LINK_MODE=copy` or use `--link-mode=copy` to suppress this warning.
+2025-12-06T13:13:16.486289535+00:00 stderr F Installed 9 packages in 32ms
+2025-12-06T13:13:16.727263448+00:00 stdout F 10.89.0.4:37530 - - [06/Dec/2025:13:13:16] "WSCONNECT /ws/checkins/" - -
+2025-12-06T13:13:17.289579005+00:00 stdout F 10.89.0.4:37530 - - [06/Dec/2025:13:13:17] "WSDISCONNECT /ws/checkins/" - -
+2025-12-06T13:13:17.327302092+00:00 stdout F 10.89.0.4:43066 - - [06/Dec/2025:13:13:17] "GET /checkout" 200 1722
+2025-12-06T13:13:17.491235284+00:00 stdout F 10.89.0.4:43120 - - [06/Dec/2025:13:13:17] "GET /favicon.png" 200 1722
+2025-12-06T13:13:17.725661110+00:00 stdout F 10.89.0.4:43066 - - [06/Dec/2025:13:13:17] "GET /api/auth/check/" 200 104
+2025-12-06T13:13:17.836975221+00:00 stdout F 10.89.0.4:37546 - - [06/Dec/2025:13:13:17] "WSCONNECTING /ws/checkins/" - -
+2025-12-06T13:13:17.856168532+00:00 stdout F 10.89.0.4:37546 - - [06/Dec/2025:13:13:17] "WSCONNECT /ws/checkins/" - -
+2025-12-06T13:13:17.862346847+00:00 stdout F 10.89.0.4:43066 - - [06/Dec/2025:13:13:17] "GET /api/checkins/active/" 200 2
+2025-12-06T13:13:18.392624980+00:00 stdout F 
+2025-12-06T13:13:18.392624980+00:00 stdout F 0 static files copied to '/app/staticfiles', 163 unmodified, 426 post-processed.
+2025-12-06T13:13:18.931236800+00:00 stdout F 10.89.0.4:43066 - - [06/Dec/2025:13:13:18] "GET /_app/immutable/nodes/9.BvftY2VC.js" 304 -
+2025-12-06T13:13:18.961856496+00:00 stderr F 2025-12-06 13:13:18,961 INFO     Killed 1 pending application instances
+2025-12-06T13:13:18.971286432+00:00 stderr F 2025-12-06 13:13:18,964 ERROR    Internal Server Error: /api/auth/check/
+2025-12-06T13:13:18.971286432+00:00 stderr F Traceback (most recent call last):
+2025-12-06T13:13:18.971286432+00:00 stderr F   File "/app/.venv/lib/python3.12/site-packages/django/contrib/sessions/backends/base.py", line 244, in _get_session
+2025-12-06T13:13:18.971286432+00:00 stderr F     return self._session_cache
+2025-12-06T13:13:18.971286432+00:00 stderr F            ^^^^^^^^^^^^^^^^^^^
+2025-12-06T13:13:18.971286432+00:00 stderr F AttributeError: 'SessionStore' object has no attribute '_session_cache'
+2025-12-06T13:13:18.971286432+00:00 stderr F 
+2025-12-06T13:13:18.971286432+00:00 stderr F During handling of the above exception, another exception occurred:
+2025-12-06T13:13:18.971286432+00:00 stderr F 
+2025-12-06T13:13:18.971286432+00:00 stderr F Traceback (most recent call last):
+2025-12-06T13:13:18.971286432+00:00 stderr F   File "/app/.venv/lib/python3.12/site-packages/django/db/backends/base/base.py", line 279, in ensure_connection
+2025-12-06T13:13:18.971286432+00:00 stderr F     self.connect()
+2025-12-06T13:13:18.971286432+00:00 stderr F   File "/app/.venv/lib/python3.12/site-packages/django/utils/asyncio.py", line 26, in inner
+2025-12-06T13:13:18.971286432+00:00 stderr F     return func(*args, **kwargs)
+2025-12-06T13:13:18.971286432+00:00 stderr F            ^^^^^^^^^^^^^^^^^^^^^
+2025-12-06T13:13:18.971286432+00:00 stderr F   File "/app/.venv/lib/python3.12/site-packages/django/db/backends/base/base.py", line 256, in connect
+2025-12-06T13:13:18.971286432+00:00 stderr F     self.connection = self.get_new_connection(conn_params)
+2025-12-06T13:13:18.971286432+00:00 stderr F                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2025-12-06T13:13:18.971286432+00:00 stderr F   File "/app/.venv/lib/python3.12/site-packages/django/utils/asyncio.py", line 26, in inner
+2025-12-06T13:13:18.971286432+00:00 stderr F     return func(*args, **kwargs)
+2025-12-06T13:13:18.971286432+00:00 stderr F            ^^^^^^^^^^^^^^^^^^^^^
+2025-12-06T13:13:18.971286432+00:00 stderr F   File "/app/.venv/lib/python3.12/site-packages/django/db/backends/postgresql/base.py", line 332, in get_new_connection
+2025-12-06T13:13:18.971286432+00:00 stderr F     connection = self.Database.connect(**conn_params)
+2025-12-06T13:13:18.971286432+00:00 stderr F                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2025-12-06T13:13:18.971286432+00:00 stderr F   File "/app/.venv/lib/python3.12/site-packages/psycopg/connection.py", line 754, in connect
+2025-12-06T13:13:18.971286432+00:00 stderr F     raise last_ex.with_traceback(None)
+2025-12-06T13:13:18.971286432+00:00 stderr F psycopg.OperationalError: connection failed: connection to server at "10.89.0.2", port 5432 failed: FATAL:  the database system is shutting down
+2025-12-06T13:13:18.971286432+00:00 stderr F 
+2025-12-06T13:13:18.971286432+00:00 stderr F The above exception was the direct cause of the following exception:
+2025-12-06T13:13:18.971286432+00:00 stderr F 
+2025-12-06T13:13:18.971286432+00:00 stderr F Traceback (most recent call last):
+2025-12-06T13:13:18.971286432+00:00 stderr F   File "/app/.venv/lib/python3.12/site-packages/asgiref/sync.py", line 555, in thread_handler
+2025-12-06T13:13:18.971286432+00:00 stderr F     raise exc_info[1]
+2025-12-06T13:13:18.971286432+00:00 stderr F   File "/app/.venv/lib/python3.12/site-packages/django/core/handlers/exception.py", line 42, in inner
+2025-12-06T13:13:18.971286432+00:00 stderr F     response = await get_response(request)
+2025-12-06T13:13:18.971286432+00:00 stderr F                ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2025-12-06T13:13:18.971286432+00:00 stderr F   File "/app/.venv/lib/python3.12/site-packages/asgiref/sync.py", line 555, in thread_handler
+2025-12-06T13:13:18.971286432+00:00 stderr F     raise exc_info[1]
+2025-12-06T13:13:18.971286432+00:00 stderr F   File "/app/.venv/lib/python3.12/site-packages/django/core/handlers/base.py", line 253, in _get_response_async
+2025-12-06T13:13:18.971286432+00:00 stderr F     response = await wrapped_callback(
+2025-12-06T13:13:18.971286432+00:00 stderr F                ^^^^^^^^^^^^^^^^^^^^^^^
+2025-12-06T13:13:18.971286432+00:00 stderr F   File "/app/.venv/lib/python3.12/site-packages/asgiref/sync.py", line 504, in __call__
+2025-12-06T13:13:18.971286432+00:00 stderr F     ret = await asyncio.shield(exec_coro)
+2025-12-06T13:13:18.971286432+00:00 stderr F           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2025-12-06T13:13:18.971286432+00:00 stderr F   File "/app/.venv/lib/python3.12/site-packages/asgiref/current_thread_executor.py", line 40, in run
+2025-12-06T13:13:18.971286432+00:00 stderr F     result = self.fn(*self.args, **self.kwargs)
+2025-12-06T13:13:18.971286432+00:00 stderr F              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2025-12-06T13:13:18.971286432+00:00 stderr F   File "/app/.venv/lib/python3.12/site-packages/asgiref/sync.py", line 559, in thread_handler
+2025-12-06T13:13:18.971286432+00:00 stderr F     return func(*args, **kwargs)
+2025-12-06T13:13:18.971286432+00:00 stderr F            ^^^^^^^^^^^^^^^^^^^^^
+2025-12-06T13:13:18.971286432+00:00 stderr F   File "/app/.venv/lib/python3.12/site-packages/django/views/decorators/csrf.py", line 65, in _view_wrapper
+2025-12-06T13:13:18.971286432+00:00 stderr F     return view_func(request, *args, **kwargs)
+2025-12-06T13:13:18.971286432+00:00 stderr F            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2025-12-06T13:13:18.971286432+00:00 stderr F   File "/app/.venv/lib/python3.12/site-packages/django/views/generic/base.py", line 105, in view
+2025-12-06T13:13:18.971286432+00:00 stderr F     return self.dispatch(request, *args, **kwargs)
+2025-12-06T13:13:18.971286432+00:00 stderr F            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2025-12-06T13:13:18.971286432+00:00 stderr F   File "/app/.venv/lib/python3.12/site-packages/rest_framework/views.py", line 509, in dispatch
+2025-12-06T13:13:18.971286432+00:00 stderr F     response = self.handle_exception(exc)
+2025-12-06T13:13:18.971286432+00:00 stderr F                ^^^^^^^^^^^^^^^^^^^^^^^^^^
+2025-12-06T13:13:18.971286432+00:00 stderr F   File "/app/.venv/lib/python3.12/site-packages/rest_framework/views.py", line 469, in handle_exception
+2025-12-06T13:13:18.971286432+00:00 stderr F     self.raise_uncaught_exception(exc)
+2025-12-06T13:13:18.971286432+00:00 stderr F   File "/app/.venv/lib/python3.12/site-packages/rest_framework/views.py", line 480, in raise_uncaught_exception
+2025-12-06T13:13:18.971286432+00:00 stderr F     raise exc
+2025-12-06T13:13:18.971286432+00:00 stderr F   File "/app/.venv/lib/python3.12/site-packages/rest_framework/views.py", line 497, in dispatch
+2025-12-06T13:13:18.971286432+00:00 stderr F     self.initial(request, *args, **kwargs)
+2025-12-06T13:13:18.971286432+00:00 stderr F   File "/app/.venv/lib/python3.12/site-packages/rest_framework/views.py", line 414, in initial
+2025-12-06T13:13:18.971286432+00:00 stderr F     self.perform_authentication(request)
+2025-12-06T13:13:18.971286432+00:00 stderr F   File "/app/.venv/lib/python3.12/site-packages/rest_framework/views.py", line 324, in perform_authentication
+2025-12-06T13:13:18.971286432+00:00 stderr F     request.user
+2025-12-06T13:13:18.971286432+00:00 stderr F   File "/app/.venv/lib/python3.12/site-packages/rest_framework/request.py", line 231, in user
+2025-12-06T13:13:18.971286432+00:00 stderr F     self._authenticate()
+2025-12-06T13:13:18.971286432+00:00 stderr F   File "/app/.venv/lib/python3.12/site-packages/rest_framework/request.py", line 384, in _authenticate
+2025-12-06T13:13:18.971286432+00:00 stderr F     user_auth_tuple = authenticator.authenticate(self)
+2025-12-06T13:13:18.971286432+00:00 stderr F                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2025-12-06T13:13:18.971286432+00:00 stderr F   File "/app/.venv/lib/python3.12/site-packages/rest_framework/authentication.py", line 127, in authenticate
+2025-12-06T13:13:18.971286432+00:00 stderr F     if not user or not user.is_active:
+2025-12-06T13:13:18.971286432+00:00 stderr F            ^^^^
+2025-12-06T13:13:18.971286432+00:00 stderr F   File "/app/.venv/lib/python3.12/site-packages/django/utils/functional.py", line 251, in inner
+2025-12-06T13:13:18.971286432+00:00 stderr F     self._setup()
+2025-12-06T13:13:18.971286432+00:00 stderr F   File "/app/.venv/lib/python3.12/site-packages/django/utils/functional.py", line 404, in _setup
+2025-12-06T13:13:18.971286432+00:00 stderr F     self._wrapped = self._setupfunc()
+2025-12-06T13:13:18.971286432+00:00 stderr F                     ^^^^^^^^^^^^^^^^^
+2025-12-06T13:13:18.971286432+00:00 stderr F   File "/app/.venv/lib/python3.12/site-packages/django/contrib/auth/middleware.py", line 40, in <lambda>
+2025-12-06T13:13:18.971286432+00:00 stderr F     request.user = SimpleLazyObject(lambda: get_user(request))
+2025-12-06T13:13:18.971286432+00:00 stderr F                                             ^^^^^^^^^^^^^^^^^
+2025-12-06T13:13:18.971286432+00:00 stderr F   File "/app/.venv/lib/python3.12/site-packages/django/contrib/auth/middleware.py", line 20, in get_user
+2025-12-06T13:13:18.971286432+00:00 stderr F     request._cached_user = auth.get_user(request)
+2025-12-06T13:13:18.971286432+00:00 stderr F                            ^^^^^^^^^^^^^^^^^^^^^^
+2025-12-06T13:13:18.971286432+00:00 stderr F   File "/app/.venv/lib/python3.12/site-packages/django/contrib/auth/__init__.py", line 304, in get_user
+2025-12-06T13:13:18.971286432+00:00 stderr F     user_id = _get_user_session_key(request)
+2025-12-06T13:13:18.971286432+00:00 stderr F               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2025-12-06T13:13:18.971286432+00:00 stderr F   File "/app/.venv/lib/python3.12/site-packages/django/contrib/auth/__init__.py", line 95, in _get_user_session_key
+2025-12-06T13:13:18.971286432+00:00 stderr F     return get_user_model()._meta.pk.to_python(request.session[SESSION_KEY])
+2025-12-06T13:13:18.971286432+00:00 stderr F                                                ~~~~~~~~~~~~~~~^^^^^^^^^^^^^
+2025-12-06T13:13:18.971286432+00:00 stderr F   File "/app/.venv/lib/python3.12/site-packages/django/contrib/sessions/backends/base.py", line 55, in __getitem__
+2025-12-06T13:13:18.971286432+00:00 stderr F     return self._session[key]
+2025-12-06T13:13:18.971286432+00:00 stderr F            ^^^^^^^^^^^^^
+2025-12-06T13:13:18.971286432+00:00 stderr F   File "/app/.venv/lib/python3.12/site-packages/django/contrib/sessions/backends/base.py", line 249, in _get_session
+2025-12-06T13:13:18.971286432+00:00 stderr F     self._session_cache = self.load()
+2025-12-06T13:13:18.971286432+00:00 stderr F                           ^^^^^^^^^^^
+2025-12-06T13:13:18.971286432+00:00 stderr F   File "/app/.venv/lib/python3.12/site-packages/django/contrib/sessions/backends/db.py", line 55, in load
+2025-12-06T13:13:18.971286432+00:00 stderr F     s = self._get_session_from_db()
+2025-12-06T13:13:18.971286432+00:00 stderr F         ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2025-12-06T13:13:18.971286432+00:00 stderr F   File "/app/.venv/lib/python3.12/site-packages/django/contrib/sessions/backends/db.py", line 34, in _get_session_from_db
+2025-12-06T13:13:18.971286432+00:00 stderr F     return self.model.objects.get(
+2025-12-06T13:13:18.971286432+00:00 stderr F            ^^^^^^^^^^^^^^^^^^^^^^^
+2025-12-06T13:13:18.971286432+00:00 stderr F   File "/app/.venv/lib/python3.12/site-packages/django/db/models/manager.py", line 87, in manager_method
+2025-12-06T13:13:18.971286432+00:00 stderr F     return getattr(self.get_queryset(), name)(*args, **kwargs)
+2025-12-06T13:13:18.971286432+00:00 stderr F            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2025-12-06T13:13:18.971286432+00:00 stderr F   File "/app/.venv/lib/python3.12/site-packages/django/db/models/query.py", line 631, in get
+2025-12-06T13:13:18.971286432+00:00 stderr F     num = len(clone)
+2025-12-06T13:13:18.971286432+00:00 stderr F           ^^^^^^^^^^
+2025-12-06T13:13:18.971286432+00:00 stderr F   File "/app/.venv/lib/python3.12/site-packages/django/db/models/query.py", line 368, in __len__
+2025-12-06T13:13:18.971286432+00:00 stderr F     self._fetch_all()
+2025-12-06T13:13:18.971286432+00:00 stderr F   File "/app/.venv/lib/python3.12/site-packages/django/db/models/query.py", line 1954, in _fetch_all
+2025-12-06T13:13:18.971286432+00:00 stderr F     self._result_cache = list(self._iterable_class(self))
+2025-12-06T13:13:18.971286432+00:00 stderr F                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2025-12-06T13:13:18.971286432+00:00 stderr F   File "/app/.venv/lib/python3.12/site-packages/django/db/models/query.py", line 93, in __iter__
+2025-12-06T13:13:18.971286432+00:00 stderr F     results = compiler.execute_sql(
+2025-12-06T13:13:18.971286432+00:00 stderr F               ^^^^^^^^^^^^^^^^^^^^^
+2025-12-06T13:13:18.971286432+00:00 stderr F   File "/app/.venv/lib/python3.12/site-packages/django/db/models/sql/compiler.py", line 1621, in execute_sql
+2025-12-06T13:13:18.971286432+00:00 stderr F     cursor = self.connection.cursor()
+2025-12-06T13:13:18.971286432+00:00 stderr F              ^^^^^^^^^^^^^^^^^^^^^^^^
+2025-12-06T13:13:18.971286432+00:00 stderr F   File "/app/.venv/lib/python3.12/site-packages/django/utils/asyncio.py", line 26, in inner
+2025-12-06T13:13:18.971286432+00:00 stderr F     return func(*args, **kwargs)
+2025-12-06T13:13:18.971286432+00:00 stderr F            ^^^^^^^^^^^^^^^^^^^^^
+2025-12-06T13:13:18.971286432+00:00 stderr F   File "/app/.venv/lib/python3.12/site-packages/django/db/backends/base/base.py", line 320, in cursor
+2025-12-06T13:13:18.971286432+00:00 stderr F     return self._cursor()
+2025-12-06T13:13:18.971286432+00:00 stderr F            ^^^^^^^^^^^^^^
+2025-12-06T13:13:18.971286432+00:00 stderr F   File "/app/.venv/lib/python3.12/site-packages/django/db/backends/base/base.py", line 296, in _cursor
+2025-12-06T13:13:18.971286432+00:00 stderr F     self.ensure_connection()
+2025-12-06T13:13:18.971286432+00:00 stderr F   File "/app/.venv/lib/python3.12/site-packages/django/utils/asyncio.py", line 26, in inner
+2025-12-06T13:13:18.971286432+00:00 stderr F     return func(*args, **kwargs)
+2025-12-06T13:13:18.971286432+00:00 stderr P            ^^^^^^^
+2025-12-06T13:13:18.971337009+00:00 stderr F ^^^^^^^^^^^^^^
+2025-12-06T13:13:18.971337009+00:00 stderr F   File "/app/.venv/lib/python3.12/site-packages/django/db/backends/base/base.py", line 278, in ensure_connection
+2025-12-06T13:13:18.971337009+00:00 stderr F     with self.wrap_database_errors:
+2025-12-06T13:13:18.971337009+00:00 stderr F          ^^^^^^^^^^^^^^^^^^^^^^^^^
+2025-12-06T13:13:18.971337009+00:00 stderr F   File "/app/.venv/lib/python3.12/site-packages/django/db/utils.py", line 91, in __exit__
+2025-12-06T13:13:18.971337009+00:00 stderr F     raise dj_exc_value.with_traceback(traceback) from exc_value
+2025-12-06T13:13:18.971337009+00:00 stderr F   File "/app/.venv/lib/python3.12/site-packages/django/db/backends/base/base.py", line 279, in ensure_connection
+2025-12-06T13:13:18.971337009+00:00 stderr F     self.connect()
+2025-12-06T13:13:18.971337009+00:00 stderr F   File "/app/.venv/lib/python3.12/site-packages/django/utils/asyncio.py", line 26, in inner
+2025-12-06T13:13:18.971337009+00:00 stderr F     return func(*args, **kwargs)
+2025-12-06T13:13:18.971337009+00:00 stderr F            ^^^^^^^^^^^^^^^^^^^^^
+2025-12-06T13:13:18.971337009+00:00 stderr F   File "/app/.venv/lib/python3.12/site-packages/django/db/backends/base/base.py", line 256, in connect
+2025-12-06T13:13:18.971337009+00:00 stderr F     self.connection = self.get_new_connection(conn_params)
+2025-12-06T13:13:18.971337009+00:00 stderr F                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2025-12-06T13:13:18.971337009+00:00 stderr F   File "/app/.venv/lib/python3.12/site-packages/django/utils/asyncio.py", line 26, in inner
+2025-12-06T13:13:18.971337009+00:00 stderr F     return func(*args, **kwargs)
+2025-12-06T13:13:18.971337009+00:00 stderr F            ^^^^^^^^^^^^^^^^^^^^^
+2025-12-06T13:13:18.971337009+00:00 stderr F   File "/app/.venv/lib/python3.12/site-packages/django/db/backends/postgresql/base.py", line 332, in get_new_connection
+2025-12-06T13:13:18.971337009+00:00 stderr F     connection = self.Database.connect(**conn_params)
+2025-12-06T13:13:18.971337009+00:00 stderr F                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2025-12-06T13:13:18.971337009+00:00 stderr F   File "/app/.venv/lib/python3.12/site-packages/psycopg/connection.py", line 754, in connect
+2025-12-06T13:13:18.971337009+00:00 stderr F     raise last_ex.with_traceback(None)
+2025-12-06T13:13:18.971337009+00:00 stderr F django.db.utils.OperationalError: connection failed: connection to server at "10.89.0.2", port 5432 failed: FATAL:  the database system is shutting down
+2025-12-06T13:13:19.469477540+00:00 stdout F Operations to perform:
+2025-12-06T13:13:19.469477540+00:00 stdout F   Apply all migrations: accounts, admin, auth, checkins, contenttypes, events, families, sessions
+2025-12-06T13:13:19.501964270+00:00 stdout F Running migrations:
+2025-12-06T13:13:19.501964270+00:00 stdout F   No migrations to apply.
+2025-12-06T13:13:20.051986388+00:00 stderr F 2025-12-06 13:13:20,051 INFO     Starting server at tcp:port=8000:interface=0.0.0.0
+2025-12-06T13:13:20.052182918+00:00 stderr F 2025-12-06 13:13:20,052 INFO     HTTP/2 support not enabled (install the http2 and tls Twisted extras)
+2025-12-06T13:13:20.052282625+00:00 stderr F 2025-12-06 13:13:20,052 INFO     Configuring endpoint tcp:port=8000:interface=0.0.0.0
+2025-12-06T13:13:20.052584320+00:00 stderr F 2025-12-06 13:13:20,052 INFO     Listening on TCP address 0.0.0.0:8000
+2025-12-06T13:13:31.386370891+00:00 stdout F Collecting static files...
+2025-12-06T13:13:31.674759109+00:00 stderr F Downloading ruff (13.3MiB)
+2025-12-06T13:13:32.099104854+00:00 stderr F  Downloaded ruff
+2025-12-06T13:13:32.144043586+00:00 stderr F Installed 9 packages in 44ms
+2025-12-06T13:13:34.094288410+00:00 stdout F 
+2025-12-06T13:13:34.094288410+00:00 stdout F 163 static files copied to '/app/staticfiles', 469 post-processed.
+2025-12-06T13:13:34.151742852+00:00 stdout F Running migrations...
+2025-12-06T13:13:34.971042553+00:00 stdout F Operations to perform:
+2025-12-06T13:13:34.971042553+00:00 stdout F   Apply all migrations: accounts, admin, auth, checkins, contenttypes, events, families, sessions
+2025-12-06T13:13:34.978801827+00:00 stdout F Running migrations:
+2025-12-06T13:13:34.978801827+00:00 stdout F   No migrations to apply.
+2025-12-06T13:13:35.084223395+00:00 stdout F Starting daphne...
+2025-12-06T13:13:36.221477125+00:00 stderr F 2025-12-06 13:13:36,221 INFO     Starting server at tcp:port=8000:interface=0.0.0.0
+2025-12-06T13:13:36.221644128+00:00 stderr F 2025-12-06 13:13:36,221 INFO     HTTP/2 support not enabled (install the http2 and tls Twisted extras)
+2025-12-06T13:13:36.221709790+00:00 stderr F 2025-12-06 13:13:36,221 INFO     Configuring endpoint tcp:port=8000:interface=0.0.0.0
+2025-12-06T13:13:36.222092170+00:00 stderr F 2025-12-06 13:13:36,222 INFO     Listening on TCP address 0.0.0.0:8000
+2025-12-06T13:13:36.458609858+00:00 stdout F 10.89.0.4:51092 - - [06/Dec/2025:13:13:36] "GET /checkout" 200 1722
+2025-12-06T13:13:36.562095513+00:00 stdout F 10.89.0.4:51092 - - [06/Dec/2025:13:13:36] "GET /_app/immutable/entry/start.CvYt-jhb.js" 200 118
+2025-12-06T13:13:36.570991557+00:00 stdout F 10.89.0.4:51092 - - [06/Dec/2025:13:13:36] "GET /_app/immutable/chunks/GXS8E3ir.js" 200 27626
+2025-12-06T13:13:36.582994905+00:00 stdout F 10.89.0.4:51108 - - [06/Dec/2025:13:13:36] "GET /_app/immutable/chunks/CIPQRzU_.js" 200 23950
+2025-12-06T13:13:36.597821765+00:00 stdout F 10.89.0.4:51092 - - [06/Dec/2025:13:13:36] "GET /_app/immutable/chunks/CYWZV9VM.js" 200 1128
+2025-12-06T13:13:36.679730702+00:00 stdout F 10.89.0.4:51092 - - [06/Dec/2025:13:13:36] "GET /_app/immutable/chunks/CyYm6miT.js" 200 7031
+2025-12-06T13:13:36.680056640+00:00 stdout F 10.89.0.4:51124 - - [06/Dec/2025:13:13:36] "GET /_app/immutable/chunks/dEj5iH-E.js" 200 404
+2025-12-06T13:13:36.684050556+00:00 stdout F 10.89.0.4:51136 - - [06/Dec/2025:13:13:36] "GET /_app/immutable/entry/app.nImj67TR.js" 200 6677
+2025-12-06T13:13:36.686074095+00:00 stdout F 10.89.0.4:51142 - - [06/Dec/2025:13:13:36] "GET /favicon.png" 200 1722
+2025-12-06T13:13:36.689686041+00:00 stdout F 10.89.0.4:51108 - - [06/Dec/2025:13:13:36] "GET /_app/immutable/chunks/G4dE13le.js" 200 7438
+2025-12-06T13:13:36.690210743+00:00 stdout F 10.89.0.4:51158 - - [06/Dec/2025:13:13:36] "GET /_app/immutable/chunks/BfP-hxiR.js" 200 3184
+2025-12-06T13:13:36.690402017+00:00 stdout F 10.89.0.4:51148 - - [06/Dec/2025:13:13:36] "GET /_app/immutable/chunks/0MMDOyRE.js" 200 1216
+2025-12-06T13:13:36.699125606+00:00 stdout F 10.89.0.4:51092 - - [06/Dec/2025:13:13:36] "GET /_app/immutable/chunks/D44CGOIo.js" 200 312
+2025-12-06T13:13:36.699640694+00:00 stdout F 10.89.0.4:51124 - - [06/Dec/2025:13:13:36] "GET /_app/immutable/chunks/hp-8yDhn.js" 200 969
+2025-12-06T13:13:36.821887892+00:00 stdout F 10.89.0.4:51092 - - [06/Dec/2025:13:13:36] "GET /_app/immutable/nodes/0.BpkG8_5o.js" 200 9450
+2025-12-06T13:13:36.825154749+00:00 stdout F 10.89.0.4:51136 - - [06/Dec/2025:13:13:36] "GET /_app/immutable/chunks/BNFd6fC3.js" 200 51433
+2025-12-06T13:13:36.827082696+00:00 stdout F 10.89.0.4:51148 - - [06/Dec/2025:13:13:36] "GET /_app/immutable/chunks/DqnBgxcn.js" 200 227
+2025-12-06T13:13:36.827239324+00:00 stdout F 10.89.0.4:51108 - - [06/Dec/2025:13:13:36] "GET /_app/immutable/chunks/CDAblc8-.js" 200 186
+2025-12-06T13:13:36.827962644+00:00 stdout F 10.89.0.4:51158 - - [06/Dec/2025:13:13:36] "GET /_app/immutable/chunks/DGUiHMYC.js" 200 1126
+2025-12-06T13:13:36.829547061+00:00 stdout F 10.89.0.4:51124 - - [06/Dec/2025:13:13:36] "GET /_app/immutable/chunks/DmjiRdd-.js" 200 3679
+2025-12-06T13:13:36.830508659+00:00 stdout F 10.89.0.4:51092 - - [06/Dec/2025:13:13:36] "GET /_app/immutable/chunks/CCiSKU-S.js" 200 523
+2025-12-06T13:13:36.835471567+00:00 stdout F 10.89.0.4:51148 - - [06/Dec/2025:13:13:36] "GET /_app/immutable/nodes/1.D1ikP5W1.js" 200 681
+2025-12-06T13:13:36.836301083+00:00 stdout F 10.89.0.4:51108 - - [06/Dec/2025:13:13:36] "GET /_app/immutable/nodes/5.BccIQCZk.js" 200 14141
+2025-12-06T13:13:36.836420501+00:00 stdout F 10.89.0.4:51158 - - [06/Dec/2025:13:13:36] "GET /_app/immutable/chunks/mftO0taR.js" 200 368
+2025-12-06T13:13:36.840039872+00:00 stdout F 10.89.0.4:51092 - - [06/Dec/2025:13:13:36] "GET /_app/immutable/chunks/D9glXvM_.js" 200 7882
+2025-12-06T13:13:36.840700196+00:00 stdout F 10.89.0.4:51136 - - [06/Dec/2025:13:13:36] "GET /_app/immutable/chunks/JWoRiOHi.js" 200 995
+2025-12-06T13:13:36.840841680+00:00 stdout F 10.89.0.4:51124 - - [06/Dec/2025:13:13:36] "GET /_app/immutable/chunks/CqyfsPvS.js" 200 2325
+2025-12-06T13:13:36.883036842+00:00 stdout F 10.89.0.4:51136 - - [06/Dec/2025:13:13:36] "GET /_app/immutable/chunks/C5Dbivyt.js" 200 7312
+2025-12-06T13:13:36.912048992+00:00 stdout F 10.89.0.4:51092 - - [06/Dec/2025:13:13:36] "GET /api/auth/check/" 200 104
+2025-12-06T13:13:36.988334476+00:00 stdout F 10.89.0.4:51166 - - [06/Dec/2025:13:13:36] "WSCONNECTING /ws/checkins/" - -
+2025-12-06T13:13:37.203757274+00:00 stdout F 10.89.0.4:51166 - - [06/Dec/2025:13:13:37] "WSCONNECT /ws/checkins/" - -
+2025-12-06T13:13:37.230518300+00:00 stdout F 10.89.0.4:51136 - - [06/Dec/2025:13:13:37] "GET /api/checkins/active/" 200 2
+2025-12-06T13:13:38.941438161+00:00 stdout F 10.89.0.4:51136 - - [06/Dec/2025:13:13:38] "GET /_app/immutable/nodes/4.CbAqDoH3.js" 200 23310
+2025-12-06T13:13:38.957259028+00:00 stdout F 10.89.0.4:51092 - - [06/Dec/2025:13:13:38] "GET /_app/immutable/chunks/CTMPSxW8.js" 200 821
+2025-12-06T13:13:38.974098365+00:00 stdout F 10.89.0.4:51108 - - [06/Dec/2025:13:13:38] "GET /api/auth/check/" 200 104
+2025-12-06T13:13:40.760323026+00:00 stdout F 10.89.0.4:51166 - - [06/Dec/2025:13:13:40] "WSDISCONNECT /ws/checkins/" - -
+2025-12-06T13:13:40.796153972+00:00 stdout F 10.89.0.4:51136 - - [06/Dec/2025:13:13:40] "GET /checkin" 200 1722
+2025-12-06T13:13:40.951502652+00:00 stdout F 10.89.0.4:51142 - - [06/Dec/2025:13:13:40] "GET /favicon.png" 200 1722
+2025-12-06T13:13:41.202231667+00:00 stdout F 10.89.0.4:51136 - - [06/Dec/2025:13:13:41] "GET /api/auth/check/" 200 104
+2025-12-06T13:13:47.189730023+00:00 stdout F 10.89.0.4:51136 - - [06/Dec/2025:13:13:47] "GET /api/auth/check/" 200 104
+2025-12-06T13:13:47.298255870+00:00 stdout F 10.89.0.4:41834 - - [06/Dec/2025:13:13:47] "WSCONNECTING /ws/checkins/" - -
+2025-12-06T13:13:47.315879872+00:00 stdout F 10.89.0.4:41834 - - [06/Dec/2025:13:13:47] "WSCONNECT /ws/checkins/" - -
+2025-12-06T13:13:47.319965984+00:00 stdout F 10.89.0.4:51136 - - [06/Dec/2025:13:13:47] "GET /api/checkins/active/" 200 2
+2025-12-06T13:13:49.926511408+00:00 stdout F 10.89.0.4:51136 - - [06/Dec/2025:13:13:49] "GET /api/auth/check/" 200 104
+2025-12-06T13:13:51.971137478+00:00 stdout F 10.89.0.4:51136 - - [06/Dec/2025:13:13:51] "GET /_app/immutable/chunks/C2sUmXuI.js" 200 7211
+2025-12-06T13:13:55.585004598+00:00 stdout F 10.89.0.4:41834 - - [06/Dec/2025:13:13:55] "WSDISCONNECT /ws/checkins/" - -
+2025-12-06T13:13:55.630005959+00:00 stdout F 10.89.0.4:51136 - - [06/Dec/2025:13:13:55] "GET /checkin" 200 1722
+2025-12-06T13:13:55.865919089+00:00 stdout F 10.89.0.4:51142 - - [06/Dec/2025:13:13:55] "GET /favicon.png" 200 1722
+2025-12-06T13:13:55.985980379+00:00 stdout F 10.89.0.4:51136 - - [06/Dec/2025:13:13:55] "GET /api/auth/check/" 200 104
+2025-12-06T13:13:59.892054724+00:00 stdout F 10.89.0.4:51136 - - [06/Dec/2025:13:13:59] "GET /api/auth/check/" 200 104
+2025-12-06T13:13:59.963141347+00:00 stdout F 10.89.0.4:56450 - - [06/Dec/2025:13:13:59] "WSCONNECTING /ws/checkins/" - -
+2025-12-06T13:13:59.979372699+00:00 stdout F 10.89.0.4:56450 - - [06/Dec/2025:13:13:59] "WSCONNECT /ws/checkins/" - -
+2025-12-06T13:13:59.980653906+00:00 stdout F 10.89.0.4:51136 - - [06/Dec/2025:13:13:59] "GET /api/checkins/active/" 200 2
+2025-12-06T13:14:01.719447956+00:00 stdout F 10.89.0.4:56450 - - [06/Dec/2025:13:14:01] "WSDISCONNECT /ws/checkins/" - -
+2025-12-06T13:14:01.762930217+00:00 stdout F 10.89.0.4:51136 - - [06/Dec/2025:13:14:01] "GET /checkout" 200 1722
+2025-12-06T13:14:01.908832915+00:00 stdout F 10.89.0.4:51142 - - [06/Dec/2025:13:14:01] "GET /favicon.png" 200 1722
+2025-12-06T13:14:02.114257245+00:00 stdout F 10.89.0.4:51136 - - [06/Dec/2025:13:14:02] "GET /api/auth/check/" 200 104
+2025-12-06T13:14:02.236443842+00:00 stdout F 10.89.0.4:57374 - - [06/Dec/2025:13:14:02] "WSCONNECTING /ws/checkins/" - -
+2025-12-06T13:14:02.248332823+00:00 stdout F 10.89.0.4:51136 - - [06/Dec/2025:13:14:02] "GET /api/checkins/active/" 200 2
+2025-12-06T13:14:02.254618125+00:00 stdout F 10.89.0.4:57374 - - [06/Dec/2025:13:14:02] "WSCONNECT /ws/checkins/" - -
+2025-12-06T13:14:03.985635108+00:00 stdout F 10.89.0.4:57374 - - [06/Dec/2025:13:14:03] "WSDISCONNECT /ws/checkins/" - -
+2025-12-06T13:14:04.020690193+00:00 stdout F 10.89.0.4:51136 - - [06/Dec/2025:13:14:04] "GET /checkout" 200 1722
+2025-12-06T13:14:04.175362084+00:00 stdout F 10.89.0.4:51142 - - [06/Dec/2025:13:14:04] "GET /favicon.png" 200 1722
+2025-12-06T13:14:04.390658076+00:00 stdout F 10.89.0.4:51136 - - [06/Dec/2025:13:14:04] "GET /api/auth/check/" 200 104
+2025-12-06T13:14:04.463076127+00:00 stdout F 10.89.0.4:57384 - - [06/Dec/2025:13:14:04] "WSCONNECTING /ws/checkins/" - -
+2025-12-06T13:14:04.477850133+00:00 stdout F 10.89.0.4:57384 - - [06/Dec/2025:13:14:04] "WSCONNECT /ws/checkins/" - -
+2025-12-06T13:14:04.481689103+00:00 stdout F 10.89.0.4:51136 - - [06/Dec/2025:13:14:04] "GET /api/checkins/active/" 200 2
+2025-12-06T13:14:06.523671224+00:00 stdout F 10.89.0.4:51136 - - [06/Dec/2025:13:14:06] "GET /api/auth/check/" 200 104
+2025-12-06T13:14:09.325533806+00:00 stdout F 10.89.0.4:51136 - - [06/Dec/2025:13:14:09] "GET /api/auth/check/" 200 104
+2025-12-06T13:14:10.399416393+00:00 stdout F 10.89.0.4:51136 - - [06/Dec/2025:13:14:10] "GET /_app/immutable/nodes/9.DwmXPhNd.js" 200 8514
+2025-12-06T13:14:10.432311255+00:00 stdout F 10.89.0.4:51136 - - [06/Dec/2025:13:14:10] "GET /api/auth/check/" 200 104
+2025-12-06T13:14:10.534935729+00:00 stdout F 10.89.0.4:51136 - - [06/Dec/2025:13:14:10] "GET /api/print-queue/" 200 2
+2025-12-06T13:14:10.581395438+00:00 stdout F 10.89.0.4:51136 - - [06/Dec/2025:13:14:10] "GET /api/print-queue/recently_printed/" 200 2
+2025-12-06T13:14:11.902850807+00:00 stdout F 10.89.0.4:51136 - - [06/Dec/2025:13:14:11] "GET /api/auth/check/" 200 104
+2025-12-06T13:14:11.998604059+00:00 stdout F 10.89.0.4:51136 - - [06/Dec/2025:13:14:11] "GET /api/checkins/active/" 200 2
+2025-12-06T13:14:13.464673432+00:00 stdout F 10.89.0.4:57384 - - [06/Dec/2025:13:14:13] "WSDISCONNECT /ws/checkins/" - -
+2025-12-06T13:14:13.497295862+00:00 stdout F 10.89.0.4:51136 - - [06/Dec/2025:13:14:13] "GET /checkout" 200 1722
+2025-12-06T13:14:13.644379376+00:00 stdout F 10.89.0.4:51092 - - [06/Dec/2025:13:14:13] "GET /_app/immutable/chunks/C1FmrZbK.js" 200 1141
+2025-12-06T13:14:13.644511026+00:00 stdout F 10.89.0.4:51136 - - [06/Dec/2025:13:14:13] "GET /_app/immutable/chunks/DIeogL5L.js" 200 62
+2025-12-06T13:14:13.645599184+00:00 stdout F 10.89.0.4:51108 - - [06/Dec/2025:13:14:13] "GET /_app/immutable/chunks/CWj6FrbW.js" 200 106
+2025-12-06T13:14:13.659663823+00:00 stdout F 10.89.0.4:51142 - - [06/Dec/2025:13:14:13] "GET /favicon.png" 200 1722
+2025-12-06T13:14:13.842659972+00:00 stdout F 10.89.0.4:51092 - - [06/Dec/2025:13:14:13] "GET /_app/immutable/chunks/69_IOA4Y.js" 200 34
+2025-12-06T13:14:13.842824066+00:00 stdout F 10.89.0.4:51108 - - [06/Dec/2025:13:14:13] "GET /_app/immutable/assets/0.6l9l9vHw.css" 200 34835
+2025-12-06T13:14:13.843438884+00:00 stdout F 10.89.0.4:51136 - - [06/Dec/2025:13:14:13] "GET /_app/immutable/chunks/BlmT29IN.js" 200 1651
+2025-12-06T13:14:13.896642710+00:00 stdout F 10.89.0.4:51136 - - [06/Dec/2025:13:14:13] "GET /api/auth/check/" 200 104
+2025-12-06T13:14:13.947002500+00:00 stdout F 10.89.0.4:32916 - - [06/Dec/2025:13:14:13] "WSCONNECTING /ws/checkins/" - -
+2025-12-06T13:14:13.967235978+00:00 stdout F 10.89.0.4:32916 - - [06/Dec/2025:13:14:13] "WSCONNECT /ws/checkins/" - -
+2025-12-06T13:14:13.971168076+00:00 stdout F 10.89.0.4:51136 - - [06/Dec/2025:13:14:13] "GET /api/checkins/active/" 200 2
+2025-12-06T13:14:15.565230641+00:00 stdout F 10.89.0.4:51136 - - [06/Dec/2025:13:14:15] "GET /_app/immutable/assets/4.CqowWpqW.css" 200 796
+2025-12-06T13:14:15.585897599+00:00 stdout F 10.89.0.4:51108 - - [06/Dec/2025:13:14:15] "GET /api/auth/check/" 200 104
+2025-12-06T13:14:16.940830929+00:00 stdout F 10.89.0.4:32916 - - [06/Dec/2025:13:14:16] "WSDISCONNECT /ws/checkins/" - -
+2025-12-06T13:14:16.974967577+00:00 stdout F 10.89.0.4:51136 - - [06/Dec/2025:13:14:16] "GET /checkin" 200 1722
+2025-12-06T13:14:17.112618833+00:00 stdout F 10.89.0.4:51142 - - [06/Dec/2025:13:14:17] "GET /favicon.png" 200 1722
+2025-12-06T13:14:17.343878157+00:00 stdout F 10.89.0.4:51136 - - [06/Dec/2025:13:14:17] "GET /api/auth/check/" 200 104
+2025-12-06T13:17:18.206687012+00:00 stderr F 2025-12-06 13:17:18,206 INFO     Killed 0 pending application instances
+2025-12-06T13:17:26.357905413+00:00 stderr F Uninstalled 9 packages in 27ms
+2025-12-06T13:17:26.357905413+00:00 stderr F  - certifi==2025.11.12
+2025-12-06T13:17:26.357905413+00:00 stderr F  - django-stubs==5.2.7
+2025-12-06T13:17:26.357956041+00:00 stderr F  - django-stubs-ext==5.2.7
+2025-12-06T13:17:26.357956041+00:00 stderr F  - djangorestframework-stubs==3.16.5
+2025-12-06T13:17:26.357956041+00:00 stderr F  - requests==2.32.5
+2025-12-06T13:17:26.357962213+00:00 stderr P  - 
+2025-12-06T13:17:26.357967615+00:00 stderr P ruff==0
+2025-12-06T13:17:26.357972715+00:00 stderr P .14.6
+2025-12-06T13:17:26.357977763+00:00 stderr F 
+2025-12-06T13:17:26.357977763+00:00 stderr P  -
+2025-12-06T13:17:26.357983028+00:00 stderr P  types-pyyaml
+2025-12-06T13:17:26.357988110+00:00 stderr P ==6.0
+2025-12-06T13:17:26.357993113+00:00 stderr P .12.20250915
+2025-12-06T13:17:26.357998137+00:00 stderr F 
+2025-12-06T13:17:26.357998137+00:00 stderr P  -
+2025-12-06T13:17:26.358003309+00:00 stderr P  types-requests
+2025-12-06T13:17:26.358008351+00:00 stderr P ==2.32
+2025-12-06T13:17:26.358013372+00:00 stderr P .4.20250913
+2025-12-06T13:17:26.358018415+00:00 stderr F 
+2025-12-06T13:17:26.358018415+00:00 stderr P  
+2025-12-06T13:17:26.358023554+00:00 stderr P - urllib3
+2025-12-06T13:17:26.358028557+00:00 stderr P ==2.
+2025-12-06T13:17:26.358033564+00:00 stderr F 5.0
+2025-12-06T13:17:26.451861893+00:00 stderr F Downloading ruff (13.3MiB)
+2025-12-06T13:17:26.878480825+00:00 stderr F  Downloaded ruff
+2025-12-06T13:17:26.886206838+00:00 stderr P warning
+2025-12-06T13:17:26.886359522+00:00 stderr F : Failed to hardlink files; falling back to full copy. This may lead to degraded performance.
+2025-12-06T13:17:26.886359522+00:00 stderr F          If the cache and target directories are on different filesystems, hardlinking may not be supported.
+2025-12-06T13:17:26.886359522+00:00 stderr F          If this is intentional, set `export UV_LINK_MODE=copy` or use `--link-mode=copy` to suppress this warning.
+2025-12-06T13:17:26.925478849+00:00 stderr F Installed 9 packages in 46ms
+2025-12-06T13:17:28.235603661+00:00 stdout F 10.89.0.4:41798 - - [06/Dec/2025:13:17:28] "GET /checkin" 200 1722
+2025-12-06T13:17:28.363538527+00:00 stdout F 
+2025-12-06T13:17:28.363538527+00:00 stdout F 0 static files copied to '/app/staticfiles', 163 unmodified, 426 post-processed.
+2025-12-06T13:17:28.375404549+00:00 stdout F 10.89.0.4:41798 - - [06/Dec/2025:13:17:28] "GET /_app/immutable/entry/start.CvYt-jhb.js" 304 -
+2025-12-06T13:17:28.380773181+00:00 stdout F 10.89.0.4:41810 - - [06/Dec/2025:13:17:28] "GET /_app/immutable/chunks/GXS8E3ir.js" 304 -
+2025-12-06T13:17:28.401197889+00:00 stdout F 10.89.0.4:41798 - - [06/Dec/2025:13:17:28] "GET /_app/immutable/chunks/CIPQRzU_.js" 304 -
+2025-12-06T13:17:28.402955394+00:00 stdout F 10.89.0.4:41810 - - [06/Dec/2025:13:17:28] "GET /_app/immutable/chunks/DIeogL5L.js" 304 -
+2025-12-06T13:17:28.414014051+00:00 stdout F 10.89.0.4:41816 - - [06/Dec/2025:13:17:28] "GET /_app/immutable/chunks/CYWZV9VM.js" 304 -
+2025-12-06T13:17:28.417802215+00:00 stdout F 10.89.0.4:41840 - - [06/Dec/2025:13:17:28] "GET /_app/immutable/chunks/C1FmrZbK.js" 304 -
+2025-12-06T13:17:28.418065702+00:00 stdout F 10.89.0.4:41810 - - [06/Dec/2025:13:17:28] "GET /_app/immutable/chunks/dEj5iH-E.js" 304 -
+2025-12-06T13:17:28.418613802+00:00 stdout F 10.89.0.4:41832 - - [06/Dec/2025:13:17:28] "GET /_app/immutable/entry/app.nImj67TR.js" 304 -
+2025-12-06T13:17:28.419517639+00:00 stdout F 10.89.0.4:41798 - - [06/Dec/2025:13:17:28] "GET /_app/immutable/chunks/CyYm6miT.js" 304 -
+2025-12-06T13:17:28.422079777+00:00 stdout F 10.89.0.4:41816 - - [06/Dec/2025:13:17:28] "GET /_app/immutable/chunks/G4dE13le.js" 304 -
+2025-12-06T13:17:28.426425184+00:00 stdout F 10.89.0.4:41844 - - [06/Dec/2025:13:17:28] "GET /_app/immutable/chunks/0MMDOyRE.js" 304 -
+2025-12-06T13:17:28.426631683+00:00 stdout F 10.89.0.4:41810 - - [06/Dec/2025:13:17:28] "GET /_app/immutable/chunks/CWj6FrbW.js" 304 -
+2025-12-06T13:17:28.426782064+00:00 stdout F 10.89.0.4:41840 - - [06/Dec/2025:13:17:28] "GET /_app/immutable/chunks/D44CGOIo.js" 304 -
+2025-12-06T13:17:28.427582177+00:00 stdout F 10.89.0.4:41832 - - [06/Dec/2025:13:17:28] "GET /_app/immutable/chunks/BfP-hxiR.js" 304 -
+2025-12-06T13:17:28.432234790+00:00 stdout F 10.89.0.4:41798 - - [06/Dec/2025:13:17:28] "GET /_app/immutable/chunks/hp-8yDhn.js" 304 -
+2025-12-06T13:17:28.553131559+00:00 stdout F 10.89.0.4:41854 - - [06/Dec/2025:13:17:28] "GET /favicon.png" 200 1722
+2025-12-06T13:17:28.618006705+00:00 stdout F 10.89.0.4:41798 - - [06/Dec/2025:13:17:28] "GET /_app/immutable/nodes/0.BpkG8_5o.js" 304 -
+2025-12-06T13:17:28.640986545+00:00 stdout F 10.89.0.4:41798 - - [06/Dec/2025:13:17:28] "GET /_app/immutable/chunks/BlmT29IN.js" 304 -
+2025-12-06T13:17:28.667113081+00:00 stdout F 10.89.0.4:41798 - - [06/Dec/2025:13:17:28] "GET /_app/immutable/chunks/CDAblc8-.js" 304 -
+2025-12-06T13:17:28.679257748+00:00 stdout F 10.89.0.4:41798 - - [06/Dec/2025:13:17:28] "GET /_app/immutable/chunks/BNFd6fC3.js" 304 -
+2025-12-06T13:17:28.686721339+00:00 stdout F 10.89.0.4:41798 - - [06/Dec/2025:13:17:28] "GET /_app/immutable/chunks/DGUiHMYC.js" 304 -
+2025-12-06T13:17:28.691741045+00:00 stdout F 10.89.0.4:41816 - - [06/Dec/2025:13:17:28] "GET /_app/immutable/chunks/DqnBgxcn.js" 304 -
+2025-12-06T13:17:28.692568716+00:00 stdout F 10.89.0.4:41798 - - [06/Dec/2025:13:17:28] "GET /_app/immutable/chunks/69_IOA4Y.js" 304 -
+2025-12-06T13:17:28.700602107+00:00 stdout F 10.89.0.4:41798 - - [06/Dec/2025:13:17:28] "GET /_app/immutable/chunks/DmjiRdd-.js" 304 -
+2025-12-06T13:17:28.710591715+00:00 stdout F 10.89.0.4:41798 - - [06/Dec/2025:13:17:28] "GET /_app/immutable/chunks/CCiSKU-S.js" 304 -
+2025-12-06T13:17:28.713951915+00:00 stdout F 10.89.0.4:41810 - - [06/Dec/2025:13:17:28] "GET /_app/immutable/assets/0.6l9l9vHw.css" 304 -
+2025-12-06T13:17:28.716143562+00:00 stdout F 10.89.0.4:41832 - - [06/Dec/2025:13:17:28] "GET /_app/immutable/nodes/1.D1ikP5W1.js" 304 -
+2025-12-06T13:17:28.731179471+00:00 stdout F 10.89.0.4:41798 - - [06/Dec/2025:13:17:28] "GET /_app/immutable/nodes/4.CbAqDoH3.js" 304 -
+2025-12-06T13:17:28.740067889+00:00 stdout F 10.89.0.4:41840 - - [06/Dec/2025:13:17:28] "GET /_app/immutable/chunks/mftO0taR.js" 304 -
+2025-12-06T13:17:28.751134123+00:00 stdout F 10.89.0.4:41798 - - [06/Dec/2025:13:17:28] "GET /_app/immutable/chunks/CTMPSxW8.js" 304 -
+2025-12-06T13:17:28.752581672+00:00 stdout F 10.89.0.4:41844 - - [06/Dec/2025:13:17:28] "GET /_app/immutable/chunks/CqyfsPvS.js" 304 -
+2025-12-06T13:17:28.757478606+00:00 stdout F 10.89.0.4:41798 - - [06/Dec/2025:13:17:28] "GET /_app/immutable/assets/4.CqowWpqW.css" 304 -
+2025-12-06T13:17:28.757576025+00:00 stdout F 10.89.0.4:41816 - - [06/Dec/2025:13:17:28] "GET /_app/immutable/chunks/JWoRiOHi.js" 304 -
+2025-12-06T13:17:28.833560122+00:00 stdout F 10.89.0.4:41798 - - [06/Dec/2025:13:17:28] "GET /_app/immutable/chunks/C5Dbivyt.js" 304 -
+2025-12-06T13:17:28.841433950+00:00 stdout F 10.89.0.4:41810 - - [06/Dec/2025:13:17:28] "GET /_app/immutable/chunks/C2sUmXuI.js" 304 -
+2025-12-06T13:17:28.889226114+00:00 stdout F 10.89.0.4:41798 - - [06/Dec/2025:13:17:28] "GET /api/auth/check/" 200 104
+2025-12-06T13:17:29.178285309+00:00 stdout F Operations to perform:
+2025-12-06T13:17:29.178285309+00:00 stdout F   Apply all migrations: accounts, admin, auth, checkins, contenttypes, events, families, sessions
+2025-12-06T13:17:29.187853510+00:00 stdout F Running migrations:
+2025-12-06T13:17:29.187853510+00:00 stdout F   No migrations to apply.
+2025-12-06T13:17:29.880215744+00:00 stderr F 2025-12-06 13:17:29,880 INFO     Starting server at tcp:port=8000:interface=0.0.0.0
+2025-12-06T13:17:29.880443718+00:00 stderr F 2025-12-06 13:17:29,880 INFO     HTTP/2 support not enabled (install the http2 and tls Twisted extras)
+2025-12-06T13:17:29.880564842+00:00 stderr F 2025-12-06 13:17:29,880 INFO     Configuring endpoint tcp:port=8000:interface=0.0.0.0
+2025-12-06T13:17:29.880938642+00:00 stderr F 2025-12-06 13:17:29,880 INFO     Listening on TCP address 0.0.0.0:8000
+2025-12-06T13:17:35.376073652+00:00 stderr F 2025-12-06 13:17:35,375 INFO     Killed 0 pending application instances
+2025-12-06T13:17:39.730108867+00:00 stdout F Collecting static files...
+2025-12-06T13:17:40.016053241+00:00 stderr F Downloading ruff (13.3MiB)
+2025-12-06T13:17:40.440934441+00:00 stderr F  Downloaded ruff
+2025-12-06T13:17:40.498151003+00:00 stderr F Installed 9 packages in 56ms
+2025-12-06T13:17:42.588593986+00:00 stdout F 
+2025-12-06T13:17:42.588593986+00:00 stdout F 163 static files copied to '/app/staticfiles', 469 post-processed.
+2025-12-06T13:17:42.650114062+00:00 stdout F Running migrations...
+2025-12-06T13:17:43.518432477+00:00 stdout F Operations to perform:
+2025-12-06T13:17:43.518432477+00:00 stdout F   Apply all migrations: accounts, admin, auth, checkins, contenttypes, events, families, sessions
+2025-12-06T13:17:43.527024150+00:00 stdout F Running migrations:
+2025-12-06T13:17:43.527024150+00:00 stdout F   No migrations to apply.
+2025-12-06T13:17:43.637384277+00:00 stdout F Starting daphne...
+2025-12-06T13:17:44.976821007+00:00 stderr F 2025-12-06 13:17:44,976 INFO     Starting server at tcp:port=8000:interface=0.0.0.0
+2025-12-06T13:17:44.977020046+00:00 stderr F 2025-12-06 13:17:44,976 INFO     HTTP/2 support not enabled (install the http2 and tls Twisted extras)
+2025-12-06T13:17:44.977131659+00:00 stderr F 2025-12-06 13:17:44,977 INFO     Configuring endpoint tcp:port=8000:interface=0.0.0.0
+2025-12-06T13:17:44.977441118+00:00 stderr F 2025-12-06 13:17:44,977 INFO     Listening on TCP address 0.0.0.0:8000
+2025-12-06T13:17:45.092761491+00:00 stdout F 10.89.0.4:55076 - - [06/Dec/2025:13:17:45] "GET /checkin" 200 1723
+2025-12-06T13:17:45.194748372+00:00 stdout F 10.89.0.4:55076 - - [06/Dec/2025:13:17:45] "GET /_app/immutable/entry/start.MyLhYtHe.js" 200 118
+2025-12-06T13:17:45.197675799+00:00 stdout F 10.89.0.4:55090 - - [06/Dec/2025:13:17:45] "GET /_app/immutable/chunks/CFUkBDe_.js" 200 27628
+2025-12-06T13:17:45.206090861+00:00 stdout F 10.89.0.4:55076 - - [06/Dec/2025:13:17:45] "GET /_app/immutable/chunks/Ce4SaUks.js" 200 7033
+2025-12-06T13:17:45.215087357+00:00 stdout F 10.89.0.4:55090 - - [06/Dec/2025:13:17:45] "GET /_app/immutable/entry/app.J8u8brnW.js" 200 6677
+2025-12-06T13:17:45.271481421+00:00 stdout F 10.89.0.4:55102 - - [06/Dec/2025:13:17:45] "GET /favicon.png" 200 1723
+2025-12-06T13:17:45.362434327+00:00 stdout F 10.89.0.4:55090 - - [06/Dec/2025:13:17:45] "GET /_app/immutable/nodes/0.CriHsIiH.js" 200 9450
+2025-12-06T13:17:45.384327484+00:00 stdout F 10.89.0.4:55076 - - [06/Dec/2025:13:17:45] "GET /_app/immutable/chunks/B4dxi-AB.js" 200 227
+2025-12-06T13:17:45.387849888+00:00 stdout F 10.89.0.4:55100 - - [06/Dec/2025:13:17:45] "GET /_app/immutable/nodes/1.C_JTtQXq.js" 200 681
+2025-12-06T13:17:45.433028909+00:00 stdout F 10.89.0.4:55090 - - [06/Dec/2025:13:17:45] "GET /_app/immutable/chunks/BLZgblMC.js" 200 7599
+2025-12-06T13:17:45.465644315+00:00 stdout F 10.89.0.4:55076 - - [06/Dec/2025:13:17:45] "GET /api/auth/check/" 200 104
+2025-12-06T13:17:48.784053922+00:00 stdout F 10.89.0.4:55090 - - [06/Dec/2025:13:17:48] "GET /checkin" 200 1723
+2025-12-06T13:17:48.991257071+00:00 stdout F 10.89.0.4:55102 - - [06/Dec/2025:13:17:48] "GET /favicon.png" 200 1723
+2025-12-06T13:17:49.156230295+00:00 stdout F 10.89.0.4:55090 - - [06/Dec/2025:13:17:49] "GET /api/auth/check/" 200 104
+2025-12-06T13:18:00.022139580+00:00 stdout F 10.89.0.4:55090 - - [06/Dec/2025:13:18:00] "GET /checkin" 200 1723
+2025-12-06T13:18:00.170547807+00:00 stdout F 10.89.0.4:55102 - - [06/Dec/2025:13:18:00] "GET /favicon.png" 200 1723
+2025-12-06T13:18:00.388038248+00:00 stdout F 10.89.0.4:55090 - - [06/Dec/2025:13:18:00] "GET /api/auth/check/" 200 104
+2025-12-06T14:14:43.087937874+00:00 stdout F 10.89.0.4:56480 - - [06/Dec/2025:14:14:43] "GET /admin" 200 1723
+2025-12-06T14:14:43.238751329+00:00 stdout F 10.89.0.4:56480 - - [06/Dec/2025:14:14:43] "GET /_app/immutable/entry/start.MyLhYtHe.js" 304 -
+2025-12-06T14:14:43.252739233+00:00 stdout F 10.89.0.4:56480 - - [06/Dec/2025:14:14:43] "GET /_app/immutable/chunks/CFUkBDe_.js" 304 -
+2025-12-06T14:14:43.253995176+00:00 stdout F 10.89.0.4:56494 - - [06/Dec/2025:14:14:43] "GET /_app/immutable/chunks/CIPQRzU_.js" 200 23950
+2025-12-06T14:14:43.263429893+00:00 stdout F 10.89.0.4:56480 - - [06/Dec/2025:14:14:43] "GET /_app/immutable/chunks/DIeogL5L.js" 200 62
+2025-12-06T14:14:43.266686391+00:00 stdout F 10.89.0.4:56508 - - [06/Dec/2025:14:14:43] "GET /_app/immutable/chunks/CYWZV9VM.js" 200 1128
+2025-12-06T14:14:43.268383445+00:00 stdout F 10.89.0.4:56516 - - [06/Dec/2025:14:14:43] "GET /_app/immutable/chunks/Ce4SaUks.js" 304 -
+2025-12-06T14:14:43.270221833+00:00 stdout F 10.89.0.4:56524 - - [06/Dec/2025:14:14:43] "GET /_app/immutable/chunks/dEj5iH-E.js" 200 404
+2025-12-06T14:14:43.271020404+00:00 stdout F 10.89.0.4:56536 - - [06/Dec/2025:14:14:43] "GET /_app/immutable/entry/app.J8u8brnW.js" 304 -
+2025-12-06T14:14:43.274810295+00:00 stdout F 10.89.0.4:56480 - - [06/Dec/2025:14:14:43] "GET /_app/immutable/chunks/G4dE13le.js" 200 7438
+2025-12-06T14:14:43.275373660+00:00 stdout F 10.89.0.4:56508 - - [06/Dec/2025:14:14:43] "GET /_app/immutable/chunks/CWj6FrbW.js" 200 106
+2025-12-06T14:14:43.275561810+00:00 stdout F 10.89.0.4:56516 - - [06/Dec/2025:14:14:43] "GET /_app/immutable/chunks/0MMDOyRE.js" 200 1216
+2025-12-06T14:14:43.276003864+00:00 stdout F 10.89.0.4:56494 - - [06/Dec/2025:14:14:43] "GET /_app/immutable/chunks/C1FmrZbK.js" 200 1141
+2025-12-06T14:14:43.283274354+00:00 stdout F 10.89.0.4:56524 - - [06/Dec/2025:14:14:43] "GET /_app/immutable/chunks/D44CGOIo.js" 200 312
+2025-12-06T14:14:43.283770139+00:00 stdout F 10.89.0.4:56480 - - [06/Dec/2025:14:14:43] "GET /_app/immutable/chunks/BfP-hxiR.js" 200 3184
+2025-12-06T14:14:43.284027117+00:00 stdout F 10.89.0.4:56536 - - [06/Dec/2025:14:14:43] "GET /_app/immutable/chunks/hp-8yDhn.js" 200 969
+2025-12-06T14:14:43.306871674+00:00 stdout F 10.89.0.4:56548 - - [06/Dec/2025:14:14:43] "GET /favicon.png" 200 1723
+2025-12-06T14:14:43.375420840+00:00 stdout F 10.89.0.4:56494 - - [06/Dec/2025:14:14:43] "GET /_app/immutable/nodes/0.CriHsIiH.js" 304 -
+2025-12-06T14:14:43.380103972+00:00 stdout F 10.89.0.4:56494 - - [06/Dec/2025:14:14:43] "GET /_app/immutable/chunks/BlmT29IN.js" 200 1651
+2025-12-06T14:14:43.386832789+00:00 stdout F 10.89.0.4:56494 - - [06/Dec/2025:14:14:43] "GET /_app/immutable/chunks/CDAblc8-.js" 200 186
+2025-12-06T14:14:43.396200073+00:00 stdout F 10.89.0.4:56494 - - [06/Dec/2025:14:14:43] "GET /_app/immutable/chunks/BNFd6fC3.js" 200 51433
+2025-12-06T14:14:43.405975344+00:00 stdout F 10.89.0.4:56480 - - [06/Dec/2025:14:14:43] "GET /_app/immutable/chunks/DGUiHMYC.js" 200 1126
+2025-12-06T14:14:43.417916173+00:00 stdout F 10.89.0.4:56494 - - [06/Dec/2025:14:14:43] "GET /_app/immutable/chunks/B4dxi-AB.js" 304 -
+2025-12-06T14:14:43.425883630+00:00 stdout F 10.89.0.4:56494 - - [06/Dec/2025:14:14:43] "GET /_app/immutable/chunks/69_IOA4Y.js" 200 34
+2025-12-06T14:14:43.426115064+00:00 stdout F 10.89.0.4:56480 - - [06/Dec/2025:14:14:43] "GET /_app/immutable/chunks/DmjiRdd-.js" 200 3679
+2025-12-06T14:14:43.427709314+00:00 stdout F 10.89.0.4:56516 - - [06/Dec/2025:14:14:43] "GET /_app/immutable/chunks/CCiSKU-S.js" 200 523
+2025-12-06T14:14:43.442335543+00:00 stdout F 10.89.0.4:56494 - - [06/Dec/2025:14:14:43] "GET /_app/immutable/nodes/1.C_JTtQXq.js" 304 -
+2025-12-06T14:14:43.457220859+00:00 stdout F 10.89.0.4:56494 - - [06/Dec/2025:14:14:43] "GET /_app/immutable/assets/0.6l9l9vHw.css" 200 34835
+2025-12-06T14:14:43.498263236+00:00 stdout F 10.89.0.4:56480 - - [06/Dec/2025:14:14:43] "GET /_app/immutable/chunks/BLZgblMC.js" 304 -
+2025-12-06T14:14:43.498932798+00:00 stdout F 10.89.0.4:56494 - - [06/Dec/2025:14:14:43] "GET /_app/immutable/chunks/C5Dbivyt.js" 200 7312
+2025-12-06T14:14:43.519779400+00:00 stdout F 10.89.0.4:56516 - - [06/Dec/2025:14:14:43] "GET /api/auth/check/" 200 104
+2025-12-06T14:14:43.539706369+00:00 stdout F 10.89.0.4:56494 - - [06/Dec/2025:14:14:43] "GET /_app/version.json" 200 27
+2025-12-06T14:14:53.176602376+00:00 stdout F 10.89.0.4:56494 - - [06/Dec/2025:14:14:53] "GET /admin/login" 301 -
+2025-12-06T14:14:53.304845740+00:00 stdout F 10.89.0.4:56494 - - [06/Dec/2025:14:14:53] "GET /admin/login/" 302 -
+2025-12-06T14:14:53.390012241+00:00 stdout F 10.89.0.4:56494 - - [06/Dec/2025:14:14:53] "GET /admin/" 200 13099
+2025-12-06T14:14:53.531378778+00:00 stdout F 10.89.0.4:56494 - - [06/Dec/2025:14:14:53] "GET /admin/img/icon-addlink.073aeb1feda7.svg" 200 207
+2025-12-06T14:14:53.531976455+00:00 stdout F 10.89.0.4:56480 - - [06/Dec/2025:14:14:53] "GET /admin/img/icon-changelink.7eddb320e61f.svg" 200 269
+2025-12-06T14:15:03.963714969+00:00 stdout F 10.89.0.4:56494 - - [06/Dec/2025:14:15:03] "GET /admin/events/ticket/" 200 14128
+2025-12-06T14:15:04.138635804+00:00 stdout F 10.89.0.4:56494 - - [06/Dec/2025:14:15:04] "GET /admin/img/search.7cf54ff789c6.svg" 200 264
+2025-12-06T14:15:04.162615134+00:00 stdout F 10.89.0.4:56480 - - [06/Dec/2025:14:15:04] "GET /admin/jsi18n/" 200 7928
+2025-12-06T14:15:04.241098874+00:00 stdout F 10.89.0.4:56494 - - [06/Dec/2025:14:15:04] "GET /admin/img/tooltag-add.e59d620a9742.svg" 200 203
+2025-12-06T14:15:04.241765715+00:00 stdout F 10.89.0.4:56480 - - [06/Dec/2025:14:15:04] "GET /admin/img/icon-viewlink.41eb31f7826e.svg" 200 346
+2025-12-06T14:15:12.144926143+00:00 stdout F 10.89.0.4:56494 - - [06/Dec/2025:14:15:12] "GET /admin/events/ticket/add/" 200 17392
+2025-12-06T14:15:12.453821146+00:00 stdout F 10.89.0.4:56494 - - [06/Dec/2025:14:15:12] "GET /admin/jsi18n/" 200 7928
+2025-12-06T14:15:24.890335346+00:00 stdout F 10.89.0.4:56494 - - [06/Dec/2025:14:15:24] "GET /admin/events/ticket/" 200 14128
+2025-12-06T14:15:26.011933328+00:00 stdout F 10.89.0.4:56494 - - [06/Dec/2025:14:15:26] "GET /admin/" 200 13099
+2025-12-06T14:15:28.924343215+00:00 stdout F 10.89.0.4:56494 - - [06/Dec/2025:14:15:28] "GET /admin/families/family/" 200 15019
+2025-12-06T14:15:29.060061344+00:00 stdout F 10.89.0.4:56494 - - [06/Dec/2025:14:15:29] "GET /admin/jsi18n/" 200 7928
+2025-12-06T14:15:31.093396476+00:00 stdout F 10.89.0.4:56494 - - [06/Dec/2025:14:15:31] "GET /admin/families/family/add/" 200 14168
+2025-12-06T14:15:31.225832436+00:00 stdout F 10.89.0.4:56494 - - [06/Dec/2025:14:15:31] "GET /admin/jsi18n/" 200 7928
+2025-12-06T14:15:31.401790221+00:00 stdout F 10.89.0.4:56480 - - [06/Dec/2025:14:15:31] "GET /admin/img/icon-clock.e1d4dfac3f2b.svg" 200 357
+2025-12-06T14:15:31.402324306+00:00 stdout F 10.89.0.4:56494 - - [06/Dec/2025:14:15:31] "GET /admin/img/icon-calendar.ac7aea671bea.svg" 200 438
+2025-12-06T14:15:39.249040351+00:00 stdout F 10.89.0.4:56494 - - [06/Dec/2025:14:15:39] "GET /admin/families/family/" 200 15019
+2025-12-06T14:44:07.727226492+00:00 stdout F 10.89.0.4:58928 - - [06/Dec/2025:14:44:07] "GET /admin/" 200 13099
+2025-12-06T14:44:10.240576369+00:00 stdout F 10.89.0.4:58928 - - [06/Dec/2025:14:44:10] "GET /admin/families/child/" 200 16815
+2025-12-06T14:44:10.379580555+00:00 stdout F 10.89.0.4:58928 - - [06/Dec/2025:14:44:10] "GET /admin/jsi18n/" 200 7928
+2025-12-06T14:44:18.277570239+00:00 stdout F 10.89.0.4:58928 - - [06/Dec/2025:14:44:18] "GET /admin/" 200 13099
+2025-12-06T14:44:19.780123681+00:00 stdout F 10.89.0.4:58928 - - [06/Dec/2025:14:44:19] "GET /admin/families/parent/" 200 15810
+2025-12-06T14:44:19.910374695+00:00 stdout F 10.89.0.4:58928 - - [06/Dec/2025:14:44:19] "GET /admin/jsi18n/" 200 7928
+2025-12-06T14:44:28.367475145+00:00 stdout F 10.89.0.4:58928 - - [06/Dec/2025:14:44:28] "GET /admin/" 200 13099
+2025-12-06T14:44:29.711617119+00:00 stdout F 10.89.0.4:58928 - - [06/Dec/2025:14:44:29] "GET /admin/families/child/" 200 16815
+2025-12-06T14:44:29.839947160+00:00 stdout F 10.89.0.4:58928 - - [06/Dec/2025:14:44:29] "GET /admin/jsi18n/" 200 7928
+2025-12-06T17:27:21.784719812+00:00 stderr F 2025-12-06 17:27:21,779 ERROR    Exception inside application: cannot import name 'EventTicket' from 'events.models' (/app/events/models.py)
+2025-12-06T17:27:21.784719812+00:00 stderr F Traceback (most recent call last):
+2025-12-06T17:27:21.784719812+00:00 stderr F   File "/app/.venv/lib/python3.12/site-packages/asgiref/sync.py", line 555, in thread_handler
+2025-12-06T17:27:21.784719812+00:00 stderr F     raise exc_info[1]
+2025-12-06T17:27:21.784719812+00:00 stderr F   File "/app/.venv/lib/python3.12/site-packages/django/core/handlers/exception.py", line 42, in inner
+2025-12-06T17:27:21.784719812+00:00 stderr F     response = await get_response(request)
+2025-12-06T17:27:21.784719812+00:00 stderr F                ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2025-12-06T17:27:21.784719812+00:00 stderr F   File "/app/.venv/lib/python3.12/site-packages/django/utils/deprecation.py", line 132, in __acall__
+2025-12-06T17:27:21.784719812+00:00 stderr F     response = await sync_to_async(
+2025-12-06T17:27:21.784719812+00:00 stderr F                ^^^^^^^^^^^^^^^^^^^^
+2025-12-06T17:27:21.784719812+00:00 stderr F   File "/app/.venv/lib/python3.12/site-packages/asgiref/sync.py", line 504, in __call__
+2025-12-06T17:27:21.784719812+00:00 stderr F     ret = await asyncio.shield(exec_coro)
+2025-12-06T17:27:21.784719812+00:00 stderr F           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2025-12-06T17:27:21.784719812+00:00 stderr F   File "/app/.venv/lib/python3.12/site-packages/asgiref/current_thread_executor.py", line 40, in run
+2025-12-06T17:27:21.784719812+00:00 stderr F     result = self.fn(*self.args, **self.kwargs)
+2025-12-06T17:27:21.784719812+00:00 stderr F              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2025-12-06T17:27:21.784719812+00:00 stderr F   File "/app/.venv/lib/python3.12/site-packages/asgiref/sync.py", line 559, in thread_handler
+2025-12-06T17:27:21.784719812+00:00 stderr F     return func(*args, **kwargs)
+2025-12-06T17:27:21.784719812+00:00 stderr F            ^^^^^^^^^^^^^^^^^^^^^
+2025-12-06T17:27:21.784719812+00:00 stderr F   File "/app/.venv/lib/python3.12/site-packages/django/middleware/locale.py", line 24, in process_request
+2025-12-06T17:27:21.784719812+00:00 stderr F     ) = is_language_prefix_patterns_used(urlconf)
+2025-12-06T17:27:21.784719812+00:00 stderr F         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2025-12-06T17:27:21.784719812+00:00 stderr F   File "/app/.venv/lib/python3.12/site-packages/django/conf/urls/i18n.py", line 31, in is_language_prefix_patterns_used
+2025-12-06T17:27:21.784719812+00:00 stderr F     for url_pattern in get_resolver(urlconf).url_patterns:
+2025-12-06T17:27:21.784719812+00:00 stderr F                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2025-12-06T17:27:21.784719812+00:00 stderr F   File "/app/.venv/lib/python3.12/site-packages/django/utils/functional.py", line 47, in __get__
+2025-12-06T17:27:21.784719812+00:00 stderr F     res = instance.__dict__[self.name] = self.func(instance)
+2025-12-06T17:27:21.784719812+00:00 stderr F                                          ^^^^^^^^^^^^^^^^^^^
+2025-12-06T17:27:21.784719812+00:00 stderr F   File "/app/.venv/lib/python3.12/site-packages/django/urls/resolvers.py", line 718, in url_patterns
+2025-12-06T17:27:21.784719812+00:00 stderr F     patterns = getattr(self.urlconf_module, "urlpatterns", self.urlconf_module)
+2025-12-06T17:27:21.784719812+00:00 stderr F                        ^^^^^^^^^^^^^^^^^^^
+2025-12-06T17:27:21.784719812+00:00 stderr F   File "/app/.venv/lib/python3.12/site-packages/django/utils/functional.py", line 47, in __get__
+2025-12-06T17:27:21.784719812+00:00 stderr F     res = instance.__dict__[self.name] = self.func(instance)
+2025-12-06T17:27:21.784719812+00:00 stderr F                                          ^^^^^^^^^^^^^^^^^^^
+2025-12-06T17:27:21.784719812+00:00 stderr F   File "/app/.venv/lib/python3.12/site-packages/django/urls/resolvers.py", line 711, in urlconf_module
+2025-12-06T17:27:21.784719812+00:00 stderr F     return import_module(self.urlconf_name)
+2025-12-06T17:27:21.784719812+00:00 stderr F            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2025-12-06T17:27:21.784719812+00:00 stderr F   File "/root/.local/share/uv/python/cpython-3.12.12-linux-x86_64-gnu/lib/python3.12/importlib/__init__.py", line 90, in import_module
+2025-12-06T17:27:21.784719812+00:00 stderr F     return _bootstrap._gcd_import(name[level:], package, level)
+2025-12-06T17:27:21.784719812+00:00 stderr F            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2025-12-06T17:27:21.784719812+00:00 stderr F   File "<frozen importlib._bootstrap>", line 1387, in _gcd_import
+2025-12-06T17:27:21.784719812+00:00 stderr F   File "<frozen importlib._bootstrap>", line 1360, in _find_and_load
+2025-12-06T17:27:21.784719812+00:00 stderr F   File "<frozen importlib._bootstrap>", line 1331, in _find_and_load_unlocked
+2025-12-06T17:27:21.784719812+00:00 stderr F   File "<frozen importlib._bootstrap>", line 935, in _load_unlocked
+2025-12-06T17:27:21.784719812+00:00 stderr F   File "<frozen importlib._bootstrap_external>", line 999, in exec_module
+2025-12-06T17:27:21.784719812+00:00 stderr F   File "<frozen importlib._bootstrap>", line 488, in _call_with_frames_removed
+2025-12-06T17:27:21.784719812+00:00 stderr F   File "/app/config/urls.py", line 12, in <module>
+2025-12-06T17:27:21.784719812+00:00 stderr F     from events.views import EventViewSet, EventTicketViewSet, SessionViewSet, SessionTicketViewSet, TicketViewSet
+2025-12-06T17:27:21.784719812+00:00 stderr F   File "/app/events/views.py", line 6, in <module>
+2025-12-06T17:27:21.784719812+00:00 stderr F     from .models import Event, EventTicket, Session, SessionTicket, Ticket
+2025-12-06T17:27:21.784719812+00:00 stderr F ImportError: cannot import name 'EventTicket' from 'events.models' (/app/events/models.py)
+2025-12-06T17:27:21.784719812+00:00 stderr F 
+2025-12-06T17:27:21.784719812+00:00 stderr F During handling of the above exception, another exception occurred:
+2025-12-06T17:27:21.784719812+00:00 stderr F 
+2025-12-06T17:27:21.784719812+00:00 stderr F Traceback (most recent call last):
+2025-12-06T17:27:21.784719812+00:00 stderr F   File "/app/.venv/lib/python3.12/site-packages/asgiref/sync.py", line 555, in thread_handler
+2025-12-06T17:27:21.784719812+00:00 stderr F     raise exc_info[1]
+2025-12-06T17:27:21.784719812+00:00 stderr F   File "/app/.venv/lib/python3.12/site-packages/django/core/handlers/exception.py", line 42, in inner
+2025-12-06T17:27:21.784719812+00:00 stderr F     response = await get_response(request)
+2025-12-06T17:27:21.784719812+00:00 stderr F                ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2025-12-06T17:27:21.784719812+00:00 stderr F   File "/app/.venv/lib/python3.12/site-packages/django/utils/deprecation.py", line 136, in __acall__
+2025-12-06T17:27:21.784719812+00:00 stderr F     response = response or await self.get_response(request)
+2025-12-06T17:27:21.784719812+00:00 stderr F                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2025-12-06T17:27:21.784719812+00:00 stderr F   File "/app/.venv/lib/python3.12/site-packages/django/core/handlers/exception.py", line 44, in inner
+2025-12-06T17:27:21.784719812+00:00 stderr F     response = await sync_to_async(
+2025-12-06T17:27:21.784719812+00:00 stderr F                ^^^^^^^^^^^^^^^^^^^^
+2025-12-06T17:27:21.784719812+00:00 stderr F   File "/app/.venv/lib/python3.12/site-packages/asgiref/sync.py", line 504, in __call__
+2025-12-06T17:27:21.784719812+00:00 stderr F     ret = await asyncio.shield(exec_coro)
+2025-12-06T17:27:21.784719812+00:00 stderr F           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2025-12-06T17:27:21.784719812+00:00 stderr F   File "/root/.local/share/uv/python/cpython-3.12.12-linux-x86_64-gnu/lib/python3.12/concurrent/futures/thread.py", line 59, in run
+2025-12-06T17:27:21.784719812+00:00 stderr F     result = self.fn(*self.args, **self.kwargs)
+2025-12-06T17:27:21.784719812+00:00 stderr F              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2025-12-06T17:27:21.784719812+00:00 stderr F   File "/app/.venv/lib/python3.12/site-packages/asgiref/sync.py", line 557, in thread_handler
+2025-12-06T17:27:21.784719812+00:00 stderr F     return func(*args, **kwargs)
+2025-12-06T17:27:21.784719812+00:00 stderr F            ^^^^^^^^^^^^^^^^^^^^^
+2025-12-06T17:27:21.784719812+00:00 stderr F   File "/app/.venv/lib/python3.12/site-packages/django/core/handlers/exception.py", line 141, in response_for_exception
+2025-12-06T17:27:21.784719812+00:00 stderr F     response = handle_uncaught_exception(
+2025-12-06T17:27:21.784719812+00:00 stderr F                ^^^^^^^^^^^^^^^^^^^^^^^^^^
+2025-12-06T17:27:21.784719812+00:00 stderr F   File "/app/.venv/lib/python3.12/site-packages/django/core/handlers/exception.py", line 182, in handle_uncaught_exception
+2025-12-06T17:27:21.784719812+00:00 stderr F     return debug.technical_500_response(request, *exc_info)
+2025-12-06T17:27:21.784719812+00:00 stderr F            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2025-12-06T17:27:21.784719812+00:00 stderr F   File "/app/.venv/lib/python3.12/site-packages/django/views/debug.py", line 69, in technical_500_response
+2025-12-06T17:27:21.784719812+00:00 stderr F     html = reporter.get_traceback_html()
+2025-12-06T17:27:21.784719812+00:00 stderr F            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2025-12-06T17:27:21.784719812+00:00 stderr F   File "/app/.venv/lib/python3.12/site-packages/django/views/debug.py", line 428, in get_traceback_html
+2025-12-06T17:27:21.784719812+00:00 stderr F     c = Context(self.get_traceback_data(), use_l10n=False)
+2025-12-06T17:27:21.784719812+00:00 stderr F                 ^^^^^^^^^^^^^^^^^^^^^^^^^
+2025-12-06T17:27:21.784719812+00:00 stderr F   File "/app/.venv/lib/python3.12/site-packages/django/views/debug.py", line 411, in get_traceback_data
+2025-12-06T17:27:21.784719812+00:00 stderr F     c["raising_view_name"] = get_caller(self.request)
+2025-12-06T17:27:21.784719812+00:00 stderr F                              ^^^^^^^^^^^^^^^^^^^^^^^^
+2025-12-06T17:27:21.784719812+00:00 stderr F   File "/app/.venv/lib/python3.12/site-packages/django/views/debug.py", line 102, in get_caller
+2025-12-06T17:27:21.784719812+00:00 stderr F     resolver_match = resolve(request.path)
+2025-12-06T17:27:21.784719812+00:00 stderr F                      ^^^^^^^^^^^^^^^^^^^^^
+2025-12-06T17:27:21.784719812+00:00 stderr F   File "/app/.venv/lib/python3.12/site-packages/django/urls/base.py", line 25, in resolve
+2025-12-06T17:27:21.784719812+00:00 stderr F     return get_resolver(urlconf).resolve(path)
+2025-12-06T17:27:21.784719812+00:00 stderr F            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2025-12-06T17:27:21.784719812+00:00 stderr F   File "/app/.venv/lib/python3.12/site-packages/django/urls/resolvers.py", line 666, in resolve
+2025-12-06T17:27:21.784719812+00:00 stderr F     for pattern in self.url_patterns:
+2025-12-06T17:27:21.784719812+00:00 stderr F                    ^^^^^^^^^^^^^^^^^
+2025-12-06T17:27:21.784719812+00:00 stderr F   File "/app/.venv/lib/python3.12/site-packages/django/utils/functional.py", line 47, in __get__
+2025-12-06T17:27:21.784719812+00:00 stderr F     res = instance.__dict__[self.name] = self.func(instance)
+2025-12-06T17:27:21.784719812+00:00 stderr F                                          ^^^^^^^^^^^^^^^^^^^
+2025-12-06T17:27:21.784719812+00:00 stderr F   File "/app/.venv/lib/python3.12/site-packages/django/urls/resolvers.py", line 718, in url_patterns
+2025-12-06T17:27:21.784719812+00:00 stderr F     patterns = getattr(self.urlconf_module, "urlpatterns", self.urlconf_module)
+2025-12-06T17:27:21.784719812+00:00 stderr F                        ^^^^^^^^^^^^^^^^^^^
+2025-12-06T17:27:21.784719812+00:00 stderr F   File "/app/.venv/lib/python3.12/site-packages/django/utils/functional.py", line 47, in __get__
+2025-12-06T17:27:21.784719812+00:00 stderr F     res = instance.__dict__[self.name] = self.func(instance)
+2025-12-06T17:27:21.784719812+00:00 stderr F                                          ^^^^^^^^^^^^^^^^^^^
+2025-12-06T17:27:21.784719812+00:00 stderr F   File "/app/.venv/lib/python3.12/site-packages/django/urls/resolvers.py", line 711, in urlconf_module
+2025-12-06T17:27:21.784719812+00:00 stderr F     return import_module(self.urlconf_name)
+2025-12-06T17:27:21.784719812+00:00 stderr F            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2025-12-06T17:27:21.784719812+00:00 stderr F   File "/root/.local/share/uv/python/cpython-3.12.12-linux-x86_64-gnu/lib/python3.12/importlib/__init__.py", line 90, in import_module
+2025-12-06T17:27:21.784719812+00:00 stderr F     return _bootstrap._gcd_import(name[level:], package, level)
+2025-12-06T17:27:21.784719812+00:00 stderr F            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2025-12-06T17:27:21.784719812+00:00 stderr F   File "<frozen importlib._bootstrap>", line 1387, in _gcd_import
+2025-12-06T17:27:21.784719812+00:00 stderr F   File "<frozen importlib._bootstrap>", line 1360, in _find_and_load
+2025-12-06T17:27:21.784719812+00:00 stderr F   File "<frozen importlib._bootstrap>", line 1331, in _find_and_load_unlocked
+2025-12-06T17:27:21.784719812+00:00 stderr F   File "<frozen importlib._bootstrap>", line 935, in _load_unlocked
+2025-12-06T17:27:21.784719812+00:00 stderr F   File "<frozen importlib._bootstrap_external>", line 999, in exec_module
+2025-12-06T17:27:21.784719812+00:00 stderr F   File "<frozen importlib._bootstrap>", line 488, in _call_with_frames_removed
+2025-12-06T17:27:21.784719812+00:00 stderr F   File "/app/config/urls.py", line 12, in <module>
+2025-12-06T17:27:21.784719812+00:00 stderr P     from events.views import EventViewSet, EventTicketViewSet, SessionViewSet, 
+2025-12-06T17:27:21.784771661+00:00 stderr F SessionTicketViewSet, TicketViewSet
+2025-12-06T17:27:21.784771661+00:00 stderr F   File "/app/events/views.py", line 6, in <module>
+2025-12-06T17:27:21.784771661+00:00 stderr F     from .models import Event, EventTicket, Session, SessionTicket, Ticket
+2025-12-06T17:27:21.784771661+00:00 stderr F ImportError: cannot import name 'EventTicket' from 'events.models' (/app/events/models.py)
+2025-12-06T17:27:21.784771661+00:00 stderr F 
+2025-12-06T17:27:21.784771661+00:00 stderr F During handling of the above exception, another exception occurred:
+2025-12-06T17:27:21.784771661+00:00 stderr F 
+2025-12-06T17:27:21.784771661+00:00 stderr F Traceback (most recent call last):
+2025-12-06T17:27:21.784771661+00:00 stderr F   File "/app/.venv/lib/python3.12/site-packages/django/core/handlers/exception.py", line 55, in inner
+2025-12-06T17:27:21.784771661+00:00 stderr F     response = get_response(request)
+2025-12-06T17:27:21.784771661+00:00 stderr F                ^^^^^^^^^^^^^^^^^^^^^
+2025-12-06T17:27:21.784771661+00:00 stderr F   File "/app/.venv/lib/python3.12/site-packages/whitenoise/middleware.py", line 123, in __call__
+2025-12-06T17:27:21.784771661+00:00 stderr F     return self.get_response(request)
+2025-12-06T17:27:21.784771661+00:00 stderr F            ^^^^^^^^^^^^^^^^^^^^^^^^^^
+2025-12-06T17:27:21.784771661+00:00 stderr F   File "/app/.venv/lib/python3.12/site-packages/asgiref/sync.py", line 325, in __call__
+2025-12-06T17:27:21.784771661+00:00 stderr F     return call_result.result()
+2025-12-06T17:27:21.784771661+00:00 stderr F            ^^^^^^^^^^^^^^^^^^^^
+2025-12-06T17:27:21.784771661+00:00 stderr F   File "/root/.local/share/uv/python/cpython-3.12.12-linux-x86_64-gnu/lib/python3.12/concurrent/futures/_base.py", line 449, in result
+2025-12-06T17:27:21.784771661+00:00 stderr F     return self.__get_result()
+2025-12-06T17:27:21.784771661+00:00 stderr F            ^^^^^^^^^^^^^^^^^^^
+2025-12-06T17:27:21.784771661+00:00 stderr F   File "/root/.local/share/uv/python/cpython-3.12.12-linux-x86_64-gnu/lib/python3.12/concurrent/futures/_base.py", line 401, in __get_result
+2025-12-06T17:27:21.784771661+00:00 stderr F     raise self._exception
+2025-12-06T17:27:21.784771661+00:00 stderr F   File "/app/.venv/lib/python3.12/site-packages/asgiref/sync.py", line 365, in main_wrap
+2025-12-06T17:27:21.784771661+00:00 stderr F     result = await awaitable
+2025-12-06T17:27:21.784771661+00:00 stderr F              ^^^^^^^^^^^^^^^
+2025-12-06T17:27:21.784771661+00:00 stderr F   File "/app/.venv/lib/python3.12/site-packages/django/core/handlers/exception.py", line 44, in inner
+2025-12-06T17:27:21.784771661+00:00 stderr F     response = await sync_to_async(
+2025-12-06T17:27:21.784771661+00:00 stderr F                ^^^^^^^^^^^^^^^^^^^^
+2025-12-06T17:27:21.784771661+00:00 stderr F   File "/app/.venv/lib/python3.12/site-packages/asgiref/sync.py", line 504, in __call__
+2025-12-06T17:27:21.784771661+00:00 stderr F     ret = await asyncio.shield(exec_coro)
+2025-12-06T17:27:21.784771661+00:00 stderr F           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2025-12-06T17:27:21.784771661+00:00 stderr F   File "/root/.local/share/uv/python/cpython-3.12.12-linux-x86_64-gnu/lib/python3.12/concurrent/futures/thread.py", line 59, in run
+2025-12-06T17:27:21.784771661+00:00 stderr F     result = self.fn(*self.args, **self.kwargs)
+2025-12-06T17:27:21.784771661+00:00 stderr F              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2025-12-06T17:27:21.784771661+00:00 stderr F   File "/app/.venv/lib/python3.12/site-packages/asgiref/sync.py", line 557, in thread_handler
+2025-12-06T17:27:21.784771661+00:00 stderr F     return func(*args, **kwargs)
+2025-12-06T17:27:21.784771661+00:00 stderr F            ^^^^^^^^^^^^^^^^^^^^^
+2025-12-06T17:27:21.784771661+00:00 stderr F   File "/app/.venv/lib/python3.12/site-packages/django/core/handlers/exception.py", line 141, in response_for_exception
+2025-12-06T17:27:21.784771661+00:00 stderr F     response = handle_uncaught_exception(
+2025-12-06T17:27:21.784771661+00:00 stderr F                ^^^^^^^^^^^^^^^^^^^^^^^^^^
+2025-12-06T17:27:21.784771661+00:00 stderr F   File "/app/.venv/lib/python3.12/site-packages/django/core/handlers/exception.py", line 182, in handle_uncaught_exception
+2025-12-06T17:27:21.784771661+00:00 stderr F     return debug.technical_500_response(request, *exc_info)
+2025-12-06T17:27:21.784771661+00:00 stderr F            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2025-12-06T17:27:21.784771661+00:00 stderr F   File "/app/.venv/lib/python3.12/site-packages/django/views/debug.py", line 69, in technical_500_response
+2025-12-06T17:27:21.784771661+00:00 stderr F     html = reporter.get_traceback_html()
+2025-12-06T17:27:21.784771661+00:00 stderr F            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2025-12-06T17:27:21.784771661+00:00 stderr F   File "/app/.venv/lib/python3.12/site-packages/django/views/debug.py", line 428, in get_traceback_html
+2025-12-06T17:27:21.784771661+00:00 stderr F     c = Context(self.get_traceback_data(), use_l10n=False)
+2025-12-06T17:27:21.784771661+00:00 stderr F                 ^^^^^^^^^^^^^^^^^^^^^^^^^
+2025-12-06T17:27:21.784771661+00:00 stderr F   File "/app/.venv/lib/python3.12/site-packages/django/views/debug.py", line 411, in get_traceback_data
+2025-12-06T17:27:21.784771661+00:00 stderr F     c["raising_view_name"] = get_caller(self.request)
+2025-12-06T17:27:21.784771661+00:00 stderr F                              ^^^^^^^^^^^^^^^^^^^^^^^^
+2025-12-06T17:27:21.784771661+00:00 stderr F   File "/app/.venv/lib/python3.12/site-packages/django/views/debug.py", line 102, in get_caller
+2025-12-06T17:27:21.784771661+00:00 stderr F     resolver_match = resolve(request.path)
+2025-12-06T17:27:21.784771661+00:00 stderr F                      ^^^^^^^^^^^^^^^^^^^^^
+2025-12-06T17:27:21.784771661+00:00 stderr F   File "/app/.venv/lib/python3.12/site-packages/django/urls/base.py", line 25, in resolve
+2025-12-06T17:27:21.784771661+00:00 stderr F     return get_resolver(urlconf).resolve(path)
+2025-12-06T17:27:21.784771661+00:00 stderr F            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2025-12-06T17:27:21.784771661+00:00 stderr F   File "/app/.venv/lib/python3.12/site-packages/django/urls/resolvers.py", line 666, in resolve
+2025-12-06T17:27:21.784771661+00:00 stderr F     for pattern in self.url_patterns:
+2025-12-06T17:27:21.784771661+00:00 stderr F                    ^^^^^^^^^^^^^^^^^
+2025-12-06T17:27:21.784771661+00:00 stderr F   File "/app/.venv/lib/python3.12/site-packages/django/utils/functional.py", line 47, in __get__
+2025-12-06T17:27:21.784771661+00:00 stderr F     res = instance.__dict__[self.name] = self.func(instance)
+2025-12-06T17:27:21.784771661+00:00 stderr F                                          ^^^^^^^^^^^^^^^^^^^
+2025-12-06T17:27:21.784771661+00:00 stderr F   File "/app/.venv/lib/python3.12/site-packages/django/urls/resolvers.py", line 718, in url_patterns
+2025-12-06T17:27:21.784771661+00:00 stderr F     patterns = getattr(self.urlconf_module, "urlpatterns", self.urlconf_module)
+2025-12-06T17:27:21.784771661+00:00 stderr F                        ^^^^^^^^^^^^^^^^^^^
+2025-12-06T17:27:21.784771661+00:00 stderr F   File "/app/.venv/lib/python3.12/site-packages/django/utils/functional.py", line 47, in __get__
+2025-12-06T17:27:21.784771661+00:00 stderr F     res = instance.__dict__[self.name] = self.func(instance)
+2025-12-06T17:27:21.784771661+00:00 stderr F                                          ^^^^^^^^^^^^^^^^^^^
+2025-12-06T17:27:21.784771661+00:00 stderr F   File "/app/.venv/lib/python3.12/site-packages/django/urls/resolvers.py", line 711, in urlconf_module
+2025-12-06T17:27:21.784771661+00:00 stderr F     return import_module(self.urlconf_name)
+2025-12-06T17:27:21.784771661+00:00 stderr F            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2025-12-06T17:27:21.784771661+00:00 stderr F   File "/root/.local/share/uv/python/cpython-3.12.12-linux-x86_64-gnu/lib/python3.12/importlib/__init__.py", line 90, in import_module
+2025-12-06T17:27:21.784771661+00:00 stderr F     return _bootstrap._gcd_import(name[level:], package, level)
+2025-12-06T17:27:21.784771661+00:00 stderr F            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2025-12-06T17:27:21.784771661+00:00 stderr F   File "<frozen importlib._bootstrap>", line 1387, in _gcd_import
+2025-12-06T17:27:21.784771661+00:00 stderr F   File "<frozen importlib._bootstrap>", line 1360, in _find_and_load
+2025-12-06T17:27:21.784771661+00:00 stderr F   File "<frozen importlib._bootstrap>", line 1331, in _find_and_load_unlocked
+2025-12-06T17:27:21.784771661+00:00 stderr F   File "<frozen importlib._bootstrap>", line 935, in _load_unlocked
+2025-12-06T17:27:21.784771661+00:00 stderr F   File "<frozen importlib._bootstrap_external>", line 999, in exec_module
+2025-12-06T17:27:21.784771661+00:00 stderr F   File "<frozen importlib._bootstrap>", line 488, in _call_with_frames_removed
+2025-12-06T17:27:21.784771661+00:00 stderr F   File "/app/config/urls.py", line 12, in <module>
+2025-12-06T17:27:21.784771661+00:00 stderr F     from events.views import EventViewSet, EventTicketViewSet, SessionViewSet, SessionTicketViewSet, TicketViewSet
+2025-12-06T17:27:21.784771661+00:00 stderr F   File "/app/events/views.py", line 6, in <module>
+2025-12-06T17:27:21.784771661+00:00 stderr F     from .models import Event, EventTicket, Session, SessionTicket, Ticket
+2025-12-06T17:27:21.784771661+00:00 stderr F ImportError: cannot import name 'EventTicket' from 'events.models' (/app/events/models.py)
+2025-12-06T17:27:21.784771661+00:00 stderr F 
+2025-12-06T17:27:21.784771661+00:00 stderr F During handling of the above exception, another exception occurred:
+2025-12-06T17:27:21.784771661+00:00 stderr F 
+2025-12-06T17:27:21.784771661+00:00 stderr F Traceback (most recent call last):
+2025-12-06T17:27:21.784771661+00:00 stderr F   File "/app/.venv/lib/python3.12/site-packages/django/core/handlers/exception.py", line 55, in inner
+2025-12-06T17:27:21.784771661+00:00 stderr F     response = get_response(request)
+2025-12-06T17:27:21.784771661+00:00 stderr F                ^^^^^^^^^^^^^^^^^^^^^
+2025-12-06T17:27:21.784771661+00:00 stderr F   File "/app/.venv/lib/python3.12/site-packages/django/utils/deprecation.py", line 120, in __call__
+2025-12-06T17:27:21.784771661+00:00 stderr F     response = response or self.get_response(request)
+2025-12-06T17:27:21.784771661+00:00 stderr F                            ^^^^^^^^^^^^^^^^^^^^^^^^^^
+2025-12-06T17:27:21.784771661+00:00 stderr F   File "/app/.venv/lib/python3.12/site-packages/django/core/handlers/exception.py", line 57, in inner
+2025-12-06T17:27:21.784771661+00:00 stderr F     response = response_for_exception(request, exc)
+2025-12-06T17:27:21.784771661+00:00 stderr F                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2025-12-06T17:27:21.784771661+00:00 stderr F   File "/app/.venv/lib/python3.12/site-packages/django/core/handlers/exception.py", line 141, in response_for_exception
+2025-12-06T17:27:21.784771661+00:00 stderr F     response = handle_uncaught_exception(
+2025-12-06T17:27:21.784771661+00:00 stderr F                ^^^^^^^^^^^^^^^^^^^^^^^^^^
+2025-12-06T17:27:21.784771661+00:00 stderr F   File "/app/.venv/lib/python3.12/site-packages/django/core/handlers/exception.py", line 182, in handle_uncaught_exception
+2025-12-06T17:27:21.784771661+00:00 stderr F     return debug.technical_500_response(request, *exc_info)
+2025-12-06T17:27:21.784771661+00:00 stderr F            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2025-12-06T17:27:21.784771661+00:00 stderr F   File "/app/.venv/lib/python3.12/site-packages/django/views/debug.py", line 69, in technical_500_response
+2025-12-06T17:27:21.784771661+00:00 stderr F     html = reporter.get_traceback_html()
+2025-12-06T17:27:21.784771661+00:00 stderr F            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2025-12-06T17:27:21.784771661+00:00 stderr F   File "/app/.venv/lib/python3.12/site-packages/django/views/debug.py", line 428, in get_traceback_html
+2025-12-06T17:27:21.784771661+00:00 stderr F     c = Context(self.get_traceback_data(), use_l10n=False)
+2025-12-06T17:27:21.784771661+00:00 stderr F                 ^^^^^^^^^^^^^^^^^^^^^^^^^
+2025-12-06T17:27:21.784771661+00:00 stderr F   File "/app/.venv/lib/python3.12/site-packages/django/views/debug.py", line 411, in get_traceback_data
+2025-12-06T17:27:21.784771661+00:00 stderr F     c["raising_view_name"] = get_caller(self.request)
+2025-12-06T17:27:21.784771661+00:00 stderr F                              ^^^^^^^^^^^^^^^^^^^^^^^^
+2025-12-06T17:27:21.784771661+00:00 stderr F   File "/app/.venv/lib/python3.12/site-packages/django/views/debug.py", line 102, in get_caller
+2025-12-06T17:27:21.784771661+00:00 stderr F     resolver_match = resolve(request.path)
+2025-12-06T17:27:21.784771661+00:00 stderr F                      ^^^^^^^^^^^^^^^^^^^^^
+2025-12-06T17:27:21.784771661+00:00 stderr F   File "/app/.venv/lib/python3.12/site-packages/django/urls/base.py", line 25, in resolve
+2025-12-06T17:27:21.784771661+00:00 stderr F     return get_resolver(urlconf).resolve(path)
+2025-12-06T17:27:21.784771661+00:00 stderr F            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2025-12-06T17:27:21.784771661+00:00 stderr F   File "/app/.venv/lib/python3.12/site-packages/django/urls/resolvers.py", line 666, in resolve
+2025-12-06T17:27:21.784771661+00:00 stderr F     for pattern in self.url_patterns:
+2025-12-06T17:27:21.784771661+00:00 stderr F                    ^^^^^^^^^^^^^^^^^
+2025-12-06T17:27:21.784771661+00:00 stderr F   File "/app/.venv/lib/python3.12/site-packages/django/utils/functional.py", line 47, in __get__
+2025-12-06T17:27:21.784771661+00:00 stderr F     res = instance.__dict__[self.name] = self.func(instance)
+2025-12-06T17:27:21.784771661+00:00 stderr F                                          ^^^^^^^^^^^^^^^^^^^
+2025-12-06T17:27:21.784771661+00:00 stderr P   File "/app/.venv/lib/python3.12/site-packages/django/urls/r
+2025-12-06T17:27:21.784797549+00:00 stderr F esolvers.py", line 718, in url_patterns
+2025-12-06T17:27:21.784797549+00:00 stderr F     patterns = getattr(self.urlconf_module, "urlpatterns", self.urlconf_module)
+2025-12-06T17:27:21.784797549+00:00 stderr F                        ^^^^^^^^^^^^^^^^^^^
+2025-12-06T17:27:21.784797549+00:00 stderr F   File "/app/.venv/lib/python3.12/site-packages/django/utils/functional.py", line 47, in __get__
+2025-12-06T17:27:21.784797549+00:00 stderr F     res = instance.__dict__[self.name] = self.func(instance)
+2025-12-06T17:27:21.784797549+00:00 stderr F                                          ^^^^^^^^^^^^^^^^^^^
+2025-12-06T17:27:21.784797549+00:00 stderr F   File "/app/.venv/lib/python3.12/site-packages/django/urls/resolvers.py", line 711, in urlconf_module
+2025-12-06T17:27:21.784797549+00:00 stderr F     return import_module(self.urlconf_name)
+2025-12-06T17:27:21.784797549+00:00 stderr F            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2025-12-06T17:27:21.784797549+00:00 stderr F   File "/root/.local/share/uv/python/cpython-3.12.12-linux-x86_64-gnu/lib/python3.12/importlib/__init__.py", line 90, in import_module
+2025-12-06T17:27:21.784797549+00:00 stderr F     return _bootstrap._gcd_import(name[level:], package, level)
+2025-12-06T17:27:21.784797549+00:00 stderr F            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2025-12-06T17:27:21.784797549+00:00 stderr F   File "<frozen importlib._bootstrap>", line 1387, in _gcd_import
+2025-12-06T17:27:21.784797549+00:00 stderr F   File "<frozen importlib._bootstrap>", line 1360, in _find_and_load
+2025-12-06T17:27:21.784797549+00:00 stderr F   File "<frozen importlib._bootstrap>", line 1331, in _find_and_load_unlocked
+2025-12-06T17:27:21.784797549+00:00 stderr F   File "<frozen importlib._bootstrap>", line 935, in _load_unlocked
+2025-12-06T17:27:21.784797549+00:00 stderr F   File "<frozen importlib._bootstrap_external>", line 999, in exec_module
+2025-12-06T17:27:21.784797549+00:00 stderr F   File "<frozen importlib._bootstrap>", line 488, in _call_with_frames_removed
+2025-12-06T17:27:21.784797549+00:00 stderr F   File "/app/config/urls.py", line 12, in <module>
+2025-12-06T17:27:21.784797549+00:00 stderr F     from events.views import EventViewSet, EventTicketViewSet, SessionViewSet, SessionTicketViewSet, TicketViewSet
+2025-12-06T17:27:21.784797549+00:00 stderr F   File "/app/events/views.py", line 6, in <module>
+2025-12-06T17:27:21.784797549+00:00 stderr F     from .models import Event, EventTicket, Session, SessionTicket, Ticket
+2025-12-06T17:27:21.784797549+00:00 stderr F ImportError: cannot import name 'EventTicket' from 'events.models' (/app/events/models.py)
+2025-12-06T17:27:21.784797549+00:00 stderr F 
+2025-12-06T17:27:21.784797549+00:00 stderr F During handling of the above exception, another exception occurred:
+2025-12-06T17:27:21.784797549+00:00 stderr F 
+2025-12-06T17:27:21.784797549+00:00 stderr F Traceback (most recent call last):
+2025-12-06T17:27:21.784797549+00:00 stderr F   File "/app/.venv/lib/python3.12/site-packages/channels/routing.py", line 48, in __call__
+2025-12-06T17:27:21.784797549+00:00 stderr F     return await application(scope, receive, send)
+2025-12-06T17:27:21.784797549+00:00 stderr F            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2025-12-06T17:27:21.784797549+00:00 stderr F   File "/app/.venv/lib/python3.12/site-packages/django/core/handlers/asgi.py", line 162, in __call__
+2025-12-06T17:27:21.784797549+00:00 stderr F     await self.handle(scope, receive, send)
+2025-12-06T17:27:21.784797549+00:00 stderr F   File "/app/.venv/lib/python3.12/site-packages/django/core/handlers/asgi.py", line 208, in handle
+2025-12-06T17:27:21.784797549+00:00 stderr F     task.result()
+2025-12-06T17:27:21.784797549+00:00 stderr F   File "/app/.venv/lib/python3.12/site-packages/django/core/handlers/asgi.py", line 185, in process_request
+2025-12-06T17:27:21.784797549+00:00 stderr F     response = await self.run_get_response(request)
+2025-12-06T17:27:21.784797549+00:00 stderr F                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2025-12-06T17:27:21.784797549+00:00 stderr F   File "/app/.venv/lib/python3.12/site-packages/django/core/handlers/asgi.py", line 244, in run_get_response
+2025-12-06T17:27:21.784797549+00:00 stderr F     response = await self.get_response_async(request)
+2025-12-06T17:27:21.784797549+00:00 stderr F                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2025-12-06T17:27:21.784797549+00:00 stderr F   File "/app/.venv/lib/python3.12/site-packages/django/core/handlers/base.py", line 162, in get_response_async
+2025-12-06T17:27:21.784797549+00:00 stderr F     response = await self._middleware_chain(request)
+2025-12-06T17:27:21.784797549+00:00 stderr F                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2025-12-06T17:27:21.784797549+00:00 stderr F   File "/app/.venv/lib/python3.12/site-packages/asgiref/sync.py", line 504, in __call__
+2025-12-06T17:27:21.784797549+00:00 stderr F     ret = await asyncio.shield(exec_coro)
+2025-12-06T17:27:21.784797549+00:00 stderr F           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2025-12-06T17:27:21.784797549+00:00 stderr F   File "/root/.local/share/uv/python/cpython-3.12.12-linux-x86_64-gnu/lib/python3.12/concurrent/futures/thread.py", line 59, in run
+2025-12-06T17:27:21.784797549+00:00 stderr F     result = self.fn(*self.args, **self.kwargs)
+2025-12-06T17:27:21.784797549+00:00 stderr F              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2025-12-06T17:27:21.784797549+00:00 stderr F   File "/app/.venv/lib/python3.12/site-packages/asgiref/sync.py", line 559, in thread_handler
+2025-12-06T17:27:21.784797549+00:00 stderr F     return func(*args, **kwargs)
+2025-12-06T17:27:21.784797549+00:00 stderr F            ^^^^^^^^^^^^^^^^^^^^^
+2025-12-06T17:27:21.784797549+00:00 stderr F   File "/app/.venv/lib/python3.12/site-packages/django/core/handlers/exception.py", line 57, in inner
+2025-12-06T17:27:21.784797549+00:00 stderr F     response = response_for_exception(request, exc)
+2025-12-06T17:27:21.784797549+00:00 stderr F                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2025-12-06T17:27:21.784797549+00:00 stderr F   File "/app/.venv/lib/python3.12/site-packages/django/core/handlers/exception.py", line 141, in response_for_exception
+2025-12-06T17:27:21.784797549+00:00 stderr F     response = handle_uncaught_exception(
+2025-12-06T17:27:21.784797549+00:00 stderr F                ^^^^^^^^^^^^^^^^^^^^^^^^^^
+2025-12-06T17:27:21.784797549+00:00 stderr F   File "/app/.venv/lib/python3.12/site-packages/django/core/handlers/exception.py", line 182, in handle_uncaught_exception
+2025-12-06T17:27:21.784797549+00:00 stderr F     return debug.technical_500_response(request, *exc_info)
+2025-12-06T17:27:21.784797549+00:00 stderr F            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2025-12-06T17:27:21.784797549+00:00 stderr F   File "/app/.venv/lib/python3.12/site-packages/django/views/debug.py", line 69, in technical_500_response
+2025-12-06T17:27:21.784797549+00:00 stderr F     html = reporter.get_traceback_html()
+2025-12-06T17:27:21.784797549+00:00 stderr F            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2025-12-06T17:27:21.784797549+00:00 stderr F   File "/app/.venv/lib/python3.12/site-packages/django/views/debug.py", line 428, in get_traceback_html
+2025-12-06T17:27:21.784797549+00:00 stderr F     c = Context(self.get_traceback_data(), use_l10n=False)
+2025-12-06T17:27:21.784797549+00:00 stderr F                 ^^^^^^^^^^^^^^^^^^^^^^^^^
+2025-12-06T17:27:21.784797549+00:00 stderr F   File "/app/.venv/lib/python3.12/site-packages/django/views/debug.py", line 411, in get_traceback_data
+2025-12-06T17:27:21.784797549+00:00 stderr F     c["raising_view_name"] = get_caller(self.request)
+2025-12-06T17:27:21.784797549+00:00 stderr F                              ^^^^^^^^^^^^^^^^^^^^^^^^
+2025-12-06T17:27:21.784797549+00:00 stderr F   File "/app/.venv/lib/python3.12/site-packages/django/views/debug.py", line 102, in get_caller
+2025-12-06T17:27:21.784797549+00:00 stderr F     resolver_match = resolve(request.path)
+2025-12-06T17:27:21.784797549+00:00 stderr F                      ^^^^^^^^^^^^^^^^^^^^^
+2025-12-06T17:27:21.784797549+00:00 stderr F   File "/app/.venv/lib/python3.12/site-packages/django/urls/base.py", line 25, in resolve
+2025-12-06T17:27:21.784797549+00:00 stderr F     return get_resolver(urlconf).resolve(path)
+2025-12-06T17:27:21.784797549+00:00 stderr F            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2025-12-06T17:27:21.784797549+00:00 stderr F   File "/app/.venv/lib/python3.12/site-packages/django/urls/resolvers.py", line 666, in resolve
+2025-12-06T17:27:21.784797549+00:00 stderr F     for pattern in self.url_patterns:
+2025-12-06T17:27:21.784797549+00:00 stderr F                    ^^^^^^^^^^^^^^^^^
+2025-12-06T17:27:21.784797549+00:00 stderr F   File "/app/.venv/lib/python3.12/site-packages/django/utils/functional.py", line 47, in __get__
+2025-12-06T17:27:21.784797549+00:00 stderr F     res = instance.__dict__[self.name] = self.func(instance)
+2025-12-06T17:27:21.784797549+00:00 stderr F                                          ^^^^^^^^^^^^^^^^^^^
+2025-12-06T17:27:21.784797549+00:00 stderr F   File "/app/.venv/lib/python3.12/site-packages/django/urls/resolvers.py", line 718, in url_patterns
+2025-12-06T17:27:21.784797549+00:00 stderr F     patterns = getattr(self.urlconf_module, "urlpatterns", self.urlconf_module)
+2025-12-06T17:27:21.784797549+00:00 stderr F                        ^^^^^^^^^^^^^^^^^^^
+2025-12-06T17:27:21.784797549+00:00 stderr F   File "/app/.venv/lib/python3.12/site-packages/django/utils/functional.py", line 47, in __get__
+2025-12-06T17:27:21.784797549+00:00 stderr F     res = instance.__dict__[self.name] = self.func(instance)
+2025-12-06T17:27:21.784797549+00:00 stderr F                                          ^^^^^^^^^^^^^^^^^^^
+2025-12-06T17:27:21.784797549+00:00 stderr F   File "/app/.venv/lib/python3.12/site-packages/django/urls/resolvers.py", line 711, in urlconf_module
+2025-12-06T17:27:21.784797549+00:00 stderr F     return import_module(self.urlconf_name)
+2025-12-06T17:27:21.784797549+00:00 stderr F            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2025-12-06T17:27:21.784797549+00:00 stderr F   File "/root/.local/share/uv/python/cpython-3.12.12-linux-x86_64-gnu/lib/python3.12/importlib/__init__.py", line 90, in import_module
+2025-12-06T17:27:21.784797549+00:00 stderr F     return _bootstrap._gcd_import(name[level:], package, level)
+2025-12-06T17:27:21.784797549+00:00 stderr F            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2025-12-06T17:27:21.784797549+00:00 stderr F   File "<frozen importlib._bootstrap>", line 1387, in _gcd_import
+2025-12-06T17:27:21.784797549+00:00 stderr F   File "<frozen importlib._bootstrap>", line 1360, in _find_and_load
+2025-12-06T17:27:21.784797549+00:00 stderr F   File "<frozen importlib._bootstrap>", line 1331, in _find_and_load_unlocked
+2025-12-06T17:27:21.784797549+00:00 stderr F   File "<frozen importlib._bootstrap>", line 935, in _load_unlocked
+2025-12-06T17:27:21.784797549+00:00 stderr F   File "<frozen importlib._bootstrap_external>", line 999, in exec_module
+2025-12-06T17:27:21.784797549+00:00 stderr F   File "<frozen importlib._bootstrap>", line 488, in _call_with_frames_removed
+2025-12-06T17:27:21.784797549+00:00 stderr F   File "/app/config/urls.py", line 12, in <module>
+2025-12-06T17:27:21.784797549+00:00 stderr F     from events.views import EventViewSet, EventTicketViewSet, SessionViewSet, SessionTicketViewSet, TicketViewSet
+2025-12-06T17:27:21.784797549+00:00 stderr F   File "/app/events/views.py", line 6, in <module>
+2025-12-06T17:27:21.784797549+00:00 stderr F     from .models import Event, EventTicket, Session, SessionTicket, Ticket
+2025-12-06T17:27:21.784797549+00:00 stderr F ImportError: cannot import name 'EventTicket' from 'events.models' (/app/events/models.py)
+2025-12-06T17:27:21.784917085+00:00 stdout F 10.89.1.4:50128 - - [06/Dec/2025:17:27:21] "GET /api/event-tickets/" 500 453
+2025-12-06T17:27:24.791653679+00:00 stderr F 2025-12-06 17:27:24,787 ERROR    Exception inside application: cannot import name 'EventTicket' from 'events.models' (/app/events/models.py)
+2025-12-06T17:27:24.791653679+00:00 stderr F Traceback (most recent call last):
+2025-12-06T17:27:24.791653679+00:00 stderr F   File "/app/.venv/lib/python3.12/site-packages/asgiref/sync.py", line 555, in thread_handler
+2025-12-06T17:27:24.791653679+00:00 stderr F     raise exc_info[1]
+2025-12-06T17:27:24.791653679+00:00 stderr F   File "/app/.venv/lib/python3.12/site-packages/django/core/handlers/exception.py", line 42, in inner
+2025-12-06T17:27:24.791653679+00:00 stderr F     response = await get_response(request)
+2025-12-06T17:27:24.791653679+00:00 stderr F                ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2025-12-06T17:27:24.791653679+00:00 stderr F   File "/app/.venv/lib/python3.12/site-packages/django/utils/deprecation.py", line 132, in __acall__
+2025-12-06T17:27:24.791653679+00:00 stderr F     response = await sync_to_async(
+2025-12-06T17:27:24.791653679+00:00 stderr F                ^^^^^^^^^^^^^^^^^^^^
+2025-12-06T17:27:24.791653679+00:00 stderr F   File "/app/.venv/lib/python3.12/site-packages/asgiref/sync.py", line 504, in __call__
+2025-12-06T17:27:24.791653679+00:00 stderr F     ret = await asyncio.shield(exec_coro)
+2025-12-06T17:27:24.791653679+00:00 stderr F           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2025-12-06T17:27:24.791653679+00:00 stderr F   File "/app/.venv/lib/python3.12/site-packages/asgiref/current_thread_executor.py", line 40, in run
+2025-12-06T17:27:24.791653679+00:00 stderr F     result = self.fn(*self.args, **self.kwargs)
+2025-12-06T17:27:24.791653679+00:00 stderr F              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2025-12-06T17:27:24.791653679+00:00 stderr F   File "/app/.venv/lib/python3.12/site-packages/asgiref/sync.py", line 559, in thread_handler
+2025-12-06T17:27:24.791653679+00:00 stderr F     return func(*args, **kwargs)
+2025-12-06T17:27:24.791653679+00:00 stderr F            ^^^^^^^^^^^^^^^^^^^^^
+2025-12-06T17:27:24.791653679+00:00 stderr F   File "/app/.venv/lib/python3.12/site-packages/django/middleware/locale.py", line 24, in process_request
+2025-12-06T17:27:24.791653679+00:00 stderr F     ) = is_language_prefix_patterns_used(urlconf)
+2025-12-06T17:27:24.791653679+00:00 stderr F         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2025-12-06T17:27:24.791653679+00:00 stderr F   File "/app/.venv/lib/python3.12/site-packages/django/conf/urls/i18n.py", line 31, in is_language_prefix_patterns_used
+2025-12-06T17:27:24.791653679+00:00 stderr F     for url_pattern in get_resolver(urlconf).url_patterns:
+2025-12-06T17:27:24.791653679+00:00 stderr F                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2025-12-06T17:27:24.791653679+00:00 stderr F   File "/app/.venv/lib/python3.12/site-packages/django/utils/functional.py", line 47, in __get__
+2025-12-06T17:27:24.791653679+00:00 stderr F     res = instance.__dict__[self.name] = self.func(instance)
+2025-12-06T17:27:24.791653679+00:00 stderr F                                          ^^^^^^^^^^^^^^^^^^^
+2025-12-06T17:27:24.791653679+00:00 stderr F   File "/app/.venv/lib/python3.12/site-packages/django/urls/resolvers.py", line 718, in url_patterns
+2025-12-06T17:27:24.791653679+00:00 stderr F     patterns = getattr(self.urlconf_module, "urlpatterns", self.urlconf_module)
+2025-12-06T17:27:24.791653679+00:00 stderr F                        ^^^^^^^^^^^^^^^^^^^
+2025-12-06T17:27:24.791653679+00:00 stderr F   File "/app/.venv/lib/python3.12/site-packages/django/utils/functional.py", line 47, in __get__
+2025-12-06T17:27:24.791653679+00:00 stderr F     res = instance.__dict__[self.name] = self.func(instance)
+2025-12-06T17:27:24.791653679+00:00 stderr F                                          ^^^^^^^^^^^^^^^^^^^
+2025-12-06T17:27:24.791653679+00:00 stderr F   File "/app/.venv/lib/python3.12/site-packages/django/urls/resolvers.py", line 711, in urlconf_module
+2025-12-06T17:27:24.791653679+00:00 stderr F     return import_module(self.urlconf_name)
+2025-12-06T17:27:24.791653679+00:00 stderr F            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2025-12-06T17:27:24.791653679+00:00 stderr F   File "/root/.local/share/uv/python/cpython-3.12.12-linux-x86_64-gnu/lib/python3.12/importlib/__init__.py", line 90, in import_module
+2025-12-06T17:27:24.791653679+00:00 stderr F     return _bootstrap._gcd_import(name[level:], package, level)
+2025-12-06T17:27:24.791653679+00:00 stderr F            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2025-12-06T17:27:24.791653679+00:00 stderr F   File "<frozen importlib._bootstrap>", line 1387, in _gcd_import
+2025-12-06T17:27:24.791653679+00:00 stderr F   File "<frozen importlib._bootstrap>", line 1360, in _find_and_load
+2025-12-06T17:27:24.791653679+00:00 stderr F   File "<frozen importlib._bootstrap>", line 1331, in _find_and_load_unlocked
+2025-12-06T17:27:24.791653679+00:00 stderr F   File "<frozen importlib._bootstrap>", line 935, in _load_unlocked
+2025-12-06T17:27:24.791653679+00:00 stderr F   File "<frozen importlib._bootstrap_external>", line 999, in exec_module
+2025-12-06T17:27:24.791653679+00:00 stderr F   File "<frozen importlib._bootstrap>", line 488, in _call_with_frames_removed
+2025-12-06T17:27:24.791653679+00:00 stderr F   File "/app/config/urls.py", line 12, in <module>
+2025-12-06T17:27:24.791653679+00:00 stderr F     from events.views import EventViewSet, EventTicketViewSet, SessionViewSet, SessionTicketViewSet, TicketViewSet
+2025-12-06T17:27:24.791653679+00:00 stderr F   File "/app/events/views.py", line 6, in <module>
+2025-12-06T17:27:24.791653679+00:00 stderr F     from .models import Event, EventTicket, Session, SessionTicket, Ticket
+2025-12-06T17:27:24.791653679+00:00 stderr F ImportError: cannot import name 'EventTicket' from 'events.models' (/app/events/models.py)
+2025-12-06T17:27:24.791653679+00:00 stderr F 
+2025-12-06T17:27:24.791653679+00:00 stderr F During handling of the above exception, another exception occurred:
+2025-12-06T17:27:24.791653679+00:00 stderr F 
+2025-12-06T17:27:24.791653679+00:00 stderr F Traceback (most recent call last):
+2025-12-06T17:27:24.791653679+00:00 stderr F   File "/app/.venv/lib/python3.12/site-packages/asgiref/sync.py", line 555, in thread_handler
+2025-12-06T17:27:24.791653679+00:00 stderr F     raise exc_info[1]
+2025-12-06T17:27:24.791653679+00:00 stderr F   File "/app/.venv/lib/python3.12/site-packages/django/core/handlers/exception.py", line 42, in inner
+2025-12-06T17:27:24.791653679+00:00 stderr F     response = await get_response(request)
+2025-12-06T17:27:24.791653679+00:00 stderr F                ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2025-12-06T17:27:24.791653679+00:00 stderr F   File "/app/.venv/lib/python3.12/site-packages/django/utils/deprecation.py", line 136, in __acall__
+2025-12-06T17:27:24.791653679+00:00 stderr F     response = response or await self.get_response(request)
+2025-12-06T17:27:24.791653679+00:00 stderr F                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2025-12-06T17:27:24.791653679+00:00 stderr F   File "/app/.venv/lib/python3.12/site-packages/django/core/handlers/exception.py", line 44, in inner
+2025-12-06T17:27:24.791653679+00:00 stderr F     response = await sync_to_async(
+2025-12-06T17:27:24.791653679+00:00 stderr F                ^^^^^^^^^^^^^^^^^^^^
+2025-12-06T17:27:24.791653679+00:00 stderr F   File "/app/.venv/lib/python3.12/site-packages/asgiref/sync.py", line 504, in __call__
+2025-12-06T17:27:24.791653679+00:00 stderr F     ret = await asyncio.shield(exec_coro)
+2025-12-06T17:27:24.791653679+00:00 stderr F           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2025-12-06T17:27:24.791653679+00:00 stderr F   File "/root/.local/share/uv/python/cpython-3.12.12-linux-x86_64-gnu/lib/python3.12/concurrent/futures/thread.py", line 59, in run
+2025-12-06T17:27:24.791653679+00:00 stderr F     result = self.fn(*self.args, **self.kwargs)
+2025-12-06T17:27:24.791653679+00:00 stderr F              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2025-12-06T17:27:24.791653679+00:00 stderr F   File "/app/.venv/lib/python3.12/site-packages/asgiref/sync.py", line 557, in thread_handler
+2025-12-06T17:27:24.791653679+00:00 stderr F     return func(*args, **kwargs)
+2025-12-06T17:27:24.791653679+00:00 stderr F            ^^^^^^^^^^^^^^^^^^^^^
+2025-12-06T17:27:24.791653679+00:00 stderr F   File "/app/.venv/lib/python3.12/site-packages/django/core/handlers/exception.py", line 141, in response_for_exception
+2025-12-06T17:27:24.791653679+00:00 stderr F     response = handle_uncaught_exception(
+2025-12-06T17:27:24.791653679+00:00 stderr F                ^^^^^^^^^^^^^^^^^^^^^^^^^^
+2025-12-06T17:27:24.791653679+00:00 stderr F   File "/app/.venv/lib/python3.12/site-packages/django/core/handlers/exception.py", line 182, in handle_uncaught_exception
+2025-12-06T17:27:24.791653679+00:00 stderr F     return debug.technical_500_response(request, *exc_info)
+2025-12-06T17:27:24.791653679+00:00 stderr F            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2025-12-06T17:27:24.791653679+00:00 stderr F   File "/app/.venv/lib/python3.12/site-packages/django/views/debug.py", line 69, in technical_500_response
+2025-12-06T17:27:24.791653679+00:00 stderr F     html = reporter.get_traceback_html()
+2025-12-06T17:27:24.791653679+00:00 stderr F            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2025-12-06T17:27:24.791653679+00:00 stderr F   File "/app/.venv/lib/python3.12/site-packages/django/views/debug.py", line 428, in get_traceback_html
+2025-12-06T17:27:24.791653679+00:00 stderr F     c = Context(self.get_traceback_data(), use_l10n=False)
+2025-12-06T17:27:24.791653679+00:00 stderr F                 ^^^^^^^^^^^^^^^^^^^^^^^^^
+2025-12-06T17:27:24.791653679+00:00 stderr F   File "/app/.venv/lib/python3.12/site-packages/django/views/debug.py", line 411, in get_traceback_data
+2025-12-06T17:27:24.791653679+00:00 stderr F     c["raising_view_name"] = get_caller(self.request)
+2025-12-06T17:27:24.791653679+00:00 stderr F                              ^^^^^^^^^^^^^^^^^^^^^^^^
+2025-12-06T17:27:24.791653679+00:00 stderr F   File "/app/.venv/lib/python3.12/site-packages/django/views/debug.py", line 102, in get_caller
+2025-12-06T17:27:24.791653679+00:00 stderr F     resolver_match = resolve(request.path)
+2025-12-06T17:27:24.791653679+00:00 stderr F                      ^^^^^^^^^^^^^^^^^^^^^
+2025-12-06T17:27:24.791653679+00:00 stderr F   File "/app/.venv/lib/python3.12/site-packages/django/urls/base.py", line 25, in resolve
+2025-12-06T17:27:24.791653679+00:00 stderr F     return get_resolver(urlconf).resolve(path)
+2025-12-06T17:27:24.791653679+00:00 stderr F            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2025-12-06T17:27:24.791653679+00:00 stderr F   File "/app/.venv/lib/python3.12/site-packages/django/urls/resolvers.py", line 666, in resolve
+2025-12-06T17:27:24.791653679+00:00 stderr F     for pattern in self.url_patterns:
+2025-12-06T17:27:24.791653679+00:00 stderr F                    ^^^^^^^^^^^^^^^^^
+2025-12-06T17:27:24.791653679+00:00 stderr F   File "/app/.venv/lib/python3.12/site-packages/django/utils/functional.py", line 47, in __get__
+2025-12-06T17:27:24.791653679+00:00 stderr F     res = instance.__dict__[self.name] = self.func(instance)
+2025-12-06T17:27:24.791653679+00:00 stderr F                                          ^^^^^^^^^^^^^^^^^^^
+2025-12-06T17:27:24.791653679+00:00 stderr F   File "/app/.venv/lib/python3.12/site-packages/django/urls/resolvers.py", line 718, in url_patterns
+2025-12-06T17:27:24.791653679+00:00 stderr F     patterns = getattr(self.urlconf_module, "urlpatterns", self.urlconf_module)
+2025-12-06T17:27:24.791653679+00:00 stderr F                        ^^^^^^^^^^^^^^^^^^^
+2025-12-06T17:27:24.791653679+00:00 stderr F   File "/app/.venv/lib/python3.12/site-packages/django/utils/functional.py", line 47, in __get__
+2025-12-06T17:27:24.791653679+00:00 stderr F     res = instance.__dict__[self.name] = self.func(instance)
+2025-12-06T17:27:24.791653679+00:00 stderr F                                          ^^^^^^^^^^^^^^^^^^^
+2025-12-06T17:27:24.791653679+00:00 stderr F   File "/app/.venv/lib/python3.12/site-packages/django/urls/resolvers.py", line 711, in urlconf_module
+2025-12-06T17:27:24.791653679+00:00 stderr F     return import_module(self.urlconf_name)
+2025-12-06T17:27:24.791653679+00:00 stderr F            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2025-12-06T17:27:24.791653679+00:00 stderr F   File "/root/.local/share/uv/python/cpython-3.12.12-linux-x86_64-gnu/lib/python3.12/importlib/__init__.py", line 90, in import_module
+2025-12-06T17:27:24.791653679+00:00 stderr F     return _bootstrap._gcd_import(name[level:], package, level)
+2025-12-06T17:27:24.791653679+00:00 stderr F            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2025-12-06T17:27:24.791653679+00:00 stderr F   File "<frozen importlib._bootstrap>", line 1387, in _gcd_import
+2025-12-06T17:27:24.791653679+00:00 stderr F   File "<frozen importlib._bootstrap>", line 1360, in _find_and_load
+2025-12-06T17:27:24.791653679+00:00 stderr F   File "<frozen importlib._bootstrap>", line 1331, in _find_and_load_unlocked
+2025-12-06T17:27:24.791653679+00:00 stderr F   File "<frozen importlib._bootstrap>", line 935, in _load_unlocked
+2025-12-06T17:27:24.791653679+00:00 stderr F   File "<frozen importlib._bootstrap_external>", line 999, in exec_module
+2025-12-06T17:27:24.791653679+00:00 stderr F   File "<frozen importlib._bootstrap>", line 488, in _call_with_frames_removed
+2025-12-06T17:27:24.791653679+00:00 stderr F   File "/app/config/urls.py", line 12, in <module>
+2025-12-06T17:27:24.791653679+00:00 stderr P     from events.views import EventViewSet, EventTicketViewSet, SessionViewSet, 
+2025-12-06T17:27:24.791703100+00:00 stderr F SessionTicketViewSet, TicketViewSet
+2025-12-06T17:27:24.791703100+00:00 stderr F   File "/app/events/views.py", line 6, in <module>
+2025-12-06T17:27:24.791703100+00:00 stderr F     from .models import Event, EventTicket, Session, SessionTicket, Ticket
+2025-12-06T17:27:24.791703100+00:00 stderr F ImportError: cannot import name 'EventTicket' from 'events.models' (/app/events/models.py)
+2025-12-06T17:27:24.791703100+00:00 stderr F 
+2025-12-06T17:27:24.791703100+00:00 stderr F During handling of the above exception, another exception occurred:
+2025-12-06T17:27:24.791703100+00:00 stderr F 
+2025-12-06T17:27:24.791703100+00:00 stderr F Traceback (most recent call last):
+2025-12-06T17:27:24.791703100+00:00 stderr F   File "/app/.venv/lib/python3.12/site-packages/django/core/handlers/exception.py", line 55, in inner
+2025-12-06T17:27:24.791703100+00:00 stderr F     response = get_response(request)
+2025-12-06T17:27:24.791703100+00:00 stderr F                ^^^^^^^^^^^^^^^^^^^^^
+2025-12-06T17:27:24.791703100+00:00 stderr F   File "/app/.venv/lib/python3.12/site-packages/whitenoise/middleware.py", line 123, in __call__
+2025-12-06T17:27:24.791703100+00:00 stderr F     return self.get_response(request)
+2025-12-06T17:27:24.791703100+00:00 stderr F            ^^^^^^^^^^^^^^^^^^^^^^^^^^
+2025-12-06T17:27:24.791703100+00:00 stderr F   File "/app/.venv/lib/python3.12/site-packages/asgiref/sync.py", line 325, in __call__
+2025-12-06T17:27:24.791703100+00:00 stderr F     return call_result.result()
+2025-12-06T17:27:24.791703100+00:00 stderr F            ^^^^^^^^^^^^^^^^^^^^
+2025-12-06T17:27:24.791703100+00:00 stderr F   File "/root/.local/share/uv/python/cpython-3.12.12-linux-x86_64-gnu/lib/python3.12/concurrent/futures/_base.py", line 449, in result
+2025-12-06T17:27:24.791703100+00:00 stderr F     return self.__get_result()
+2025-12-06T17:27:24.791703100+00:00 stderr F            ^^^^^^^^^^^^^^^^^^^
+2025-12-06T17:27:24.791703100+00:00 stderr F   File "/root/.local/share/uv/python/cpython-3.12.12-linux-x86_64-gnu/lib/python3.12/concurrent/futures/_base.py", line 401, in __get_result
+2025-12-06T17:27:24.791703100+00:00 stderr F     raise self._exception
+2025-12-06T17:27:24.791703100+00:00 stderr F   File "/app/.venv/lib/python3.12/site-packages/asgiref/sync.py", line 365, in main_wrap
+2025-12-06T17:27:24.791703100+00:00 stderr F     result = await awaitable
+2025-12-06T17:27:24.791703100+00:00 stderr F              ^^^^^^^^^^^^^^^
+2025-12-06T17:27:24.791703100+00:00 stderr F   File "/app/.venv/lib/python3.12/site-packages/django/core/handlers/exception.py", line 44, in inner
+2025-12-06T17:27:24.791703100+00:00 stderr F     response = await sync_to_async(
+2025-12-06T17:27:24.791703100+00:00 stderr F                ^^^^^^^^^^^^^^^^^^^^
+2025-12-06T17:27:24.791703100+00:00 stderr F   File "/app/.venv/lib/python3.12/site-packages/asgiref/sync.py", line 504, in __call__
+2025-12-06T17:27:24.791703100+00:00 stderr F     ret = await asyncio.shield(exec_coro)
+2025-12-06T17:27:24.791703100+00:00 stderr F           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2025-12-06T17:27:24.791703100+00:00 stderr F   File "/root/.local/share/uv/python/cpython-3.12.12-linux-x86_64-gnu/lib/python3.12/concurrent/futures/thread.py", line 59, in run
+2025-12-06T17:27:24.791703100+00:00 stderr F     result = self.fn(*self.args, **self.kwargs)
+2025-12-06T17:27:24.791703100+00:00 stderr F              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2025-12-06T17:27:24.791703100+00:00 stderr F   File "/app/.venv/lib/python3.12/site-packages/asgiref/sync.py", line 557, in thread_handler
+2025-12-06T17:27:24.791703100+00:00 stderr F     return func(*args, **kwargs)
+2025-12-06T17:27:24.791703100+00:00 stderr F            ^^^^^^^^^^^^^^^^^^^^^
+2025-12-06T17:27:24.791703100+00:00 stderr F   File "/app/.venv/lib/python3.12/site-packages/django/core/handlers/exception.py", line 141, in response_for_exception
+2025-12-06T17:27:24.791703100+00:00 stderr F     response = handle_uncaught_exception(
+2025-12-06T17:27:24.791703100+00:00 stderr F                ^^^^^^^^^^^^^^^^^^^^^^^^^^
+2025-12-06T17:27:24.791703100+00:00 stderr F   File "/app/.venv/lib/python3.12/site-packages/django/core/handlers/exception.py", line 182, in handle_uncaught_exception
+2025-12-06T17:27:24.791703100+00:00 stderr F     return debug.technical_500_response(request, *exc_info)
+2025-12-06T17:27:24.791703100+00:00 stderr F            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2025-12-06T17:27:24.791703100+00:00 stderr F   File "/app/.venv/lib/python3.12/site-packages/django/views/debug.py", line 69, in technical_500_response
+2025-12-06T17:27:24.791703100+00:00 stderr F     html = reporter.get_traceback_html()
+2025-12-06T17:27:24.791703100+00:00 stderr F            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2025-12-06T17:27:24.791703100+00:00 stderr F   File "/app/.venv/lib/python3.12/site-packages/django/views/debug.py", line 428, in get_traceback_html
+2025-12-06T17:27:24.791703100+00:00 stderr F     c = Context(self.get_traceback_data(), use_l10n=False)
+2025-12-06T17:27:24.791703100+00:00 stderr F                 ^^^^^^^^^^^^^^^^^^^^^^^^^
+2025-12-06T17:27:24.791703100+00:00 stderr F   File "/app/.venv/lib/python3.12/site-packages/django/views/debug.py", line 411, in get_traceback_data
+2025-12-06T17:27:24.791703100+00:00 stderr F     c["raising_view_name"] = get_caller(self.request)
+2025-12-06T17:27:24.791703100+00:00 stderr F                              ^^^^^^^^^^^^^^^^^^^^^^^^
+2025-12-06T17:27:24.791703100+00:00 stderr F   File "/app/.venv/lib/python3.12/site-packages/django/views/debug.py", line 102, in get_caller
+2025-12-06T17:27:24.791703100+00:00 stderr F     resolver_match = resolve(request.path)
+2025-12-06T17:27:24.791703100+00:00 stderr F                      ^^^^^^^^^^^^^^^^^^^^^
+2025-12-06T17:27:24.791703100+00:00 stderr F   File "/app/.venv/lib/python3.12/site-packages/django/urls/base.py", line 25, in resolve
+2025-12-06T17:27:24.791703100+00:00 stderr F     return get_resolver(urlconf).resolve(path)
+2025-12-06T17:27:24.791703100+00:00 stderr F            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2025-12-06T17:27:24.791703100+00:00 stderr F   File "/app/.venv/lib/python3.12/site-packages/django/urls/resolvers.py", line 666, in resolve
+2025-12-06T17:27:24.791703100+00:00 stderr F     for pattern in self.url_patterns:
+2025-12-06T17:27:24.791703100+00:00 stderr F                    ^^^^^^^^^^^^^^^^^
+2025-12-06T17:27:24.791703100+00:00 stderr F   File "/app/.venv/lib/python3.12/site-packages/django/utils/functional.py", line 47, in __get__
+2025-12-06T17:27:24.791703100+00:00 stderr F     res = instance.__dict__[self.name] = self.func(instance)
+2025-12-06T17:27:24.791703100+00:00 stderr F                                          ^^^^^^^^^^^^^^^^^^^
+2025-12-06T17:27:24.791703100+00:00 stderr F   File "/app/.venv/lib/python3.12/site-packages/django/urls/resolvers.py", line 718, in url_patterns
+2025-12-06T17:27:24.791703100+00:00 stderr F     patterns = getattr(self.urlconf_module, "urlpatterns", self.urlconf_module)
+2025-12-06T17:27:24.791703100+00:00 stderr F                        ^^^^^^^^^^^^^^^^^^^
+2025-12-06T17:27:24.791703100+00:00 stderr F   File "/app/.venv/lib/python3.12/site-packages/django/utils/functional.py", line 47, in __get__
+2025-12-06T17:27:24.791703100+00:00 stderr F     res = instance.__dict__[self.name] = self.func(instance)
+2025-12-06T17:27:24.791703100+00:00 stderr F                                          ^^^^^^^^^^^^^^^^^^^
+2025-12-06T17:27:24.791703100+00:00 stderr F   File "/app/.venv/lib/python3.12/site-packages/django/urls/resolvers.py", line 711, in urlconf_module
+2025-12-06T17:27:24.791703100+00:00 stderr F     return import_module(self.urlconf_name)
+2025-12-06T17:27:24.791703100+00:00 stderr F            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2025-12-06T17:27:24.791703100+00:00 stderr F   File "/root/.local/share/uv/python/cpython-3.12.12-linux-x86_64-gnu/lib/python3.12/importlib/__init__.py", line 90, in import_module
+2025-12-06T17:27:24.791703100+00:00 stderr F     return _bootstrap._gcd_import(name[level:], package, level)
+2025-12-06T17:27:24.791703100+00:00 stderr F            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2025-12-06T17:27:24.791703100+00:00 stderr F   File "<frozen importlib._bootstrap>", line 1387, in _gcd_import
+2025-12-06T17:27:24.791703100+00:00 stderr F   File "<frozen importlib._bootstrap>", line 1360, in _find_and_load
+2025-12-06T17:27:24.791703100+00:00 stderr F   File "<frozen importlib._bootstrap>", line 1331, in _find_and_load_unlocked
+2025-12-06T17:27:24.791703100+00:00 stderr F   File "<frozen importlib._bootstrap>", line 935, in _load_unlocked
+2025-12-06T17:27:24.791703100+00:00 stderr F   File "<frozen importlib._bootstrap_external>", line 999, in exec_module
+2025-12-06T17:27:24.791703100+00:00 stderr F   File "<frozen importlib._bootstrap>", line 488, in _call_with_frames_removed
+2025-12-06T17:27:24.791703100+00:00 stderr F   File "/app/config/urls.py", line 12, in <module>
+2025-12-06T17:27:24.791703100+00:00 stderr F     from events.views import EventViewSet, EventTicketViewSet, SessionViewSet, SessionTicketViewSet, TicketViewSet
+2025-12-06T17:27:24.791703100+00:00 stderr F   File "/app/events/views.py", line 6, in <module>
+2025-12-06T17:27:24.791703100+00:00 stderr F     from .models import Event, EventTicket, Session, SessionTicket, Ticket
+2025-12-06T17:27:24.791703100+00:00 stderr F ImportError: cannot import name 'EventTicket' from 'events.models' (/app/events/models.py)
+2025-12-06T17:27:24.791703100+00:00 stderr F 
+2025-12-06T17:27:24.791703100+00:00 stderr F During handling of the above exception, another exception occurred:
+2025-12-06T17:27:24.791703100+00:00 stderr F 
+2025-12-06T17:27:24.791703100+00:00 stderr F Traceback (most recent call last):
+2025-12-06T17:27:24.791703100+00:00 stderr F   File "/app/.venv/lib/python3.12/site-packages/django/core/handlers/exception.py", line 55, in inner
+2025-12-06T17:27:24.791703100+00:00 stderr F     response = get_response(request)
+2025-12-06T17:27:24.791703100+00:00 stderr F                ^^^^^^^^^^^^^^^^^^^^^
+2025-12-06T17:27:24.791703100+00:00 stderr F   File "/app/.venv/lib/python3.12/site-packages/django/utils/deprecation.py", line 120, in __call__
+2025-12-06T17:27:24.791703100+00:00 stderr F     response = response or self.get_response(request)
+2025-12-06T17:27:24.791703100+00:00 stderr F                            ^^^^^^^^^^^^^^^^^^^^^^^^^^
+2025-12-06T17:27:24.791703100+00:00 stderr F   File "/app/.venv/lib/python3.12/site-packages/django/core/handlers/exception.py", line 57, in inner
+2025-12-06T17:27:24.791703100+00:00 stderr F     response = response_for_exception(request, exc)
+2025-12-06T17:27:24.791703100+00:00 stderr F                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2025-12-06T17:27:24.791703100+00:00 stderr F   File "/app/.venv/lib/python3.12/site-packages/django/core/handlers/exception.py", line 141, in response_for_exception
+2025-12-06T17:27:24.791703100+00:00 stderr F     response = handle_uncaught_exception(
+2025-12-06T17:27:24.791703100+00:00 stderr F                ^^^^^^^^^^^^^^^^^^^^^^^^^^
+2025-12-06T17:27:24.791703100+00:00 stderr F   File "/app/.venv/lib/python3.12/site-packages/django/core/handlers/exception.py", line 182, in handle_uncaught_exception
+2025-12-06T17:27:24.791703100+00:00 stderr F     return debug.technical_500_response(request, *exc_info)
+2025-12-06T17:27:24.791703100+00:00 stderr F            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2025-12-06T17:27:24.791703100+00:00 stderr F   File "/app/.venv/lib/python3.12/site-packages/django/views/debug.py", line 69, in technical_500_response
+2025-12-06T17:27:24.791703100+00:00 stderr F     html = reporter.get_traceback_html()
+2025-12-06T17:27:24.791703100+00:00 stderr F            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2025-12-06T17:27:24.791703100+00:00 stderr F   File "/app/.venv/lib/python3.12/site-packages/django/views/debug.py", line 428, in get_traceback_html
+2025-12-06T17:27:24.791703100+00:00 stderr F     c = Context(self.get_traceback_data(), use_l10n=False)
+2025-12-06T17:27:24.791703100+00:00 stderr F                 ^^^^^^^^^^^^^^^^^^^^^^^^^
+2025-12-06T17:27:24.791703100+00:00 stderr F   File "/app/.venv/lib/python3.12/site-packages/django/views/debug.py", line 411, in get_traceback_data
+2025-12-06T17:27:24.791703100+00:00 stderr F     c["raising_view_name"] = get_caller(self.request)
+2025-12-06T17:27:24.791703100+00:00 stderr F                              ^^^^^^^^^^^^^^^^^^^^^^^^
+2025-12-06T17:27:24.791703100+00:00 stderr F   File "/app/.venv/lib/python3.12/site-packages/django/views/debug.py", line 102, in get_caller
+2025-12-06T17:27:24.791703100+00:00 stderr F     resolver_match = resolve(request.path)
+2025-12-06T17:27:24.791703100+00:00 stderr F                      ^^^^^^^^^^^^^^^^^^^^^
+2025-12-06T17:27:24.791703100+00:00 stderr F   File "/app/.venv/lib/python3.12/site-packages/django/urls/base.py", line 25, in resolve
+2025-12-06T17:27:24.791703100+00:00 stderr F     return get_resolver(urlconf).resolve(path)
+2025-12-06T17:27:24.791703100+00:00 stderr F            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2025-12-06T17:27:24.791703100+00:00 stderr F   File "/app/.venv/lib/python3.12/site-packages/django/urls/resolvers.py", line 666, in resolve
+2025-12-06T17:27:24.791703100+00:00 stderr F     for pattern in self.url_patterns:
+2025-12-06T17:27:24.791703100+00:00 stderr F                    ^^^^^^^^^^^^^^^^^
+2025-12-06T17:27:24.791703100+00:00 stderr F   File "/app/.venv/lib/python3.12/site-packages/django/utils/functional.py", line 47, in __get__
+2025-12-06T17:27:24.791703100+00:00 stderr F     res = instance.__dict__[self.name] = self.func(instance)
+2025-12-06T17:27:24.791703100+00:00 stderr F                                          ^^^^^^^^^^^^^^^^^^^
+2025-12-06T17:27:24.791703100+00:00 stderr P   File "/app/.venv/lib/python3.12/site-packages/django/urls/r
+2025-12-06T17:27:24.791729084+00:00 stderr F esolvers.py", line 718, in url_patterns
+2025-12-06T17:27:24.791729084+00:00 stderr F     patterns = getattr(self.urlconf_module, "urlpatterns", self.urlconf_module)
+2025-12-06T17:27:24.791729084+00:00 stderr F                        ^^^^^^^^^^^^^^^^^^^
+2025-12-06T17:27:24.791729084+00:00 stderr F   File "/app/.venv/lib/python3.12/site-packages/django/utils/functional.py", line 47, in __get__
+2025-12-06T17:27:24.791729084+00:00 stderr F     res = instance.__dict__[self.name] = self.func(instance)
+2025-12-06T17:27:24.791729084+00:00 stderr F                                          ^^^^^^^^^^^^^^^^^^^
+2025-12-06T17:27:24.791729084+00:00 stderr F   File "/app/.venv/lib/python3.12/site-packages/django/urls/resolvers.py", line 711, in urlconf_module
+2025-12-06T17:27:24.791729084+00:00 stderr F     return import_module(self.urlconf_name)
+2025-12-06T17:27:24.791729084+00:00 stderr F            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2025-12-06T17:27:24.791729084+00:00 stderr F   File "/root/.local/share/uv/python/cpython-3.12.12-linux-x86_64-gnu/lib/python3.12/importlib/__init__.py", line 90, in import_module
+2025-12-06T17:27:24.791729084+00:00 stderr F     return _bootstrap._gcd_import(name[level:], package, level)
+2025-12-06T17:27:24.791729084+00:00 stderr F            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2025-12-06T17:27:24.791729084+00:00 stderr F   File "<frozen importlib._bootstrap>", line 1387, in _gcd_import
+2025-12-06T17:27:24.791729084+00:00 stderr F   File "<frozen importlib._bootstrap>", line 1360, in _find_and_load
+2025-12-06T17:27:24.791729084+00:00 stderr F   File "<frozen importlib._bootstrap>", line 1331, in _find_and_load_unlocked
+2025-12-06T17:27:24.791729084+00:00 stderr F   File "<frozen importlib._bootstrap>", line 935, in _load_unlocked
+2025-12-06T17:27:24.791729084+00:00 stderr F   File "<frozen importlib._bootstrap_external>", line 999, in exec_module
+2025-12-06T17:27:24.791729084+00:00 stderr F   File "<frozen importlib._bootstrap>", line 488, in _call_with_frames_removed
+2025-12-06T17:27:24.791729084+00:00 stderr F   File "/app/config/urls.py", line 12, in <module>
+2025-12-06T17:27:24.791729084+00:00 stderr F     from events.views import EventViewSet, EventTicketViewSet, SessionViewSet, SessionTicketViewSet, TicketViewSet
+2025-12-06T17:27:24.791729084+00:00 stderr F   File "/app/events/views.py", line 6, in <module>
+2025-12-06T17:27:24.791729084+00:00 stderr F     from .models import Event, EventTicket, Session, SessionTicket, Ticket
+2025-12-06T17:27:24.791729084+00:00 stderr F ImportError: cannot import name 'EventTicket' from 'events.models' (/app/events/models.py)
+2025-12-06T17:27:24.791729084+00:00 stderr F 
+2025-12-06T17:27:24.791729084+00:00 stderr F During handling of the above exception, another exception occurred:
+2025-12-06T17:27:24.791729084+00:00 stderr F 
+2025-12-06T17:27:24.791729084+00:00 stderr F Traceback (most recent call last):
+2025-12-06T17:27:24.791729084+00:00 stderr F   File "/app/.venv/lib/python3.12/site-packages/channels/routing.py", line 48, in __call__
+2025-12-06T17:27:24.791729084+00:00 stderr F     return await application(scope, receive, send)
+2025-12-06T17:27:24.791729084+00:00 stderr F            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2025-12-06T17:27:24.791729084+00:00 stderr F   File "/app/.venv/lib/python3.12/site-packages/django/core/handlers/asgi.py", line 162, in __call__
+2025-12-06T17:27:24.791729084+00:00 stderr F     await self.handle(scope, receive, send)
+2025-12-06T17:27:24.791729084+00:00 stderr F   File "/app/.venv/lib/python3.12/site-packages/django/core/handlers/asgi.py", line 208, in handle
+2025-12-06T17:27:24.791729084+00:00 stderr F     task.result()
+2025-12-06T17:27:24.791729084+00:00 stderr F   File "/app/.venv/lib/python3.12/site-packages/django/core/handlers/asgi.py", line 185, in process_request
+2025-12-06T17:27:24.791729084+00:00 stderr F     response = await self.run_get_response(request)
+2025-12-06T17:27:24.791729084+00:00 stderr F                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2025-12-06T17:27:24.791729084+00:00 stderr F   File "/app/.venv/lib/python3.12/site-packages/django/core/handlers/asgi.py", line 244, in run_get_response
+2025-12-06T17:27:24.791729084+00:00 stderr F     response = await self.get_response_async(request)
+2025-12-06T17:27:24.791729084+00:00 stderr F                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2025-12-06T17:27:24.791729084+00:00 stderr F   File "/app/.venv/lib/python3.12/site-packages/django/core/handlers/base.py", line 162, in get_response_async
+2025-12-06T17:27:24.791729084+00:00 stderr F     response = await self._middleware_chain(request)
+2025-12-06T17:27:24.791729084+00:00 stderr F                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2025-12-06T17:27:24.791729084+00:00 stderr F   File "/app/.venv/lib/python3.12/site-packages/asgiref/sync.py", line 504, in __call__
+2025-12-06T17:27:24.791729084+00:00 stderr F     ret = await asyncio.shield(exec_coro)
+2025-12-06T17:27:24.791729084+00:00 stderr F           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2025-12-06T17:27:24.791729084+00:00 stderr F   File "/root/.local/share/uv/python/cpython-3.12.12-linux-x86_64-gnu/lib/python3.12/concurrent/futures/thread.py", line 59, in run
+2025-12-06T17:27:24.791729084+00:00 stderr F     result = self.fn(*self.args, **self.kwargs)
+2025-12-06T17:27:24.791729084+00:00 stderr F              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2025-12-06T17:27:24.791729084+00:00 stderr F   File "/app/.venv/lib/python3.12/site-packages/asgiref/sync.py", line 559, in thread_handler
+2025-12-06T17:27:24.791729084+00:00 stderr F     return func(*args, **kwargs)
+2025-12-06T17:27:24.791729084+00:00 stderr F            ^^^^^^^^^^^^^^^^^^^^^
+2025-12-06T17:27:24.791729084+00:00 stderr F   File "/app/.venv/lib/python3.12/site-packages/django/core/handlers/exception.py", line 57, in inner
+2025-12-06T17:27:24.791729084+00:00 stderr F     response = response_for_exception(request, exc)
+2025-12-06T17:27:24.791729084+00:00 stderr F                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2025-12-06T17:27:24.791729084+00:00 stderr F   File "/app/.venv/lib/python3.12/site-packages/django/core/handlers/exception.py", line 141, in response_for_exception
+2025-12-06T17:27:24.791729084+00:00 stderr F     response = handle_uncaught_exception(
+2025-12-06T17:27:24.791729084+00:00 stderr F                ^^^^^^^^^^^^^^^^^^^^^^^^^^
+2025-12-06T17:27:24.791729084+00:00 stderr F   File "/app/.venv/lib/python3.12/site-packages/django/core/handlers/exception.py", line 182, in handle_uncaught_exception
+2025-12-06T17:27:24.791729084+00:00 stderr F     return debug.technical_500_response(request, *exc_info)
+2025-12-06T17:27:24.791729084+00:00 stderr F            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2025-12-06T17:27:24.791729084+00:00 stderr F   File "/app/.venv/lib/python3.12/site-packages/django/views/debug.py", line 69, in technical_500_response
+2025-12-06T17:27:24.791729084+00:00 stderr F     html = reporter.get_traceback_html()
+2025-12-06T17:27:24.791729084+00:00 stderr F            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2025-12-06T17:27:24.791729084+00:00 stderr F   File "/app/.venv/lib/python3.12/site-packages/django/views/debug.py", line 428, in get_traceback_html
+2025-12-06T17:27:24.791729084+00:00 stderr F     c = Context(self.get_traceback_data(), use_l10n=False)
+2025-12-06T17:27:24.791729084+00:00 stderr F                 ^^^^^^^^^^^^^^^^^^^^^^^^^
+2025-12-06T17:27:24.791729084+00:00 stderr F   File "/app/.venv/lib/python3.12/site-packages/django/views/debug.py", line 411, in get_traceback_data
+2025-12-06T17:27:24.791729084+00:00 stderr F     c["raising_view_name"] = get_caller(self.request)
+2025-12-06T17:27:24.791729084+00:00 stderr F                              ^^^^^^^^^^^^^^^^^^^^^^^^
+2025-12-06T17:27:24.791729084+00:00 stderr F   File "/app/.venv/lib/python3.12/site-packages/django/views/debug.py", line 102, in get_caller
+2025-12-06T17:27:24.791729084+00:00 stderr F     resolver_match = resolve(request.path)
+2025-12-06T17:27:24.791729084+00:00 stderr F                      ^^^^^^^^^^^^^^^^^^^^^
+2025-12-06T17:27:24.791729084+00:00 stderr F   File "/app/.venv/lib/python3.12/site-packages/django/urls/base.py", line 25, in resolve
+2025-12-06T17:27:24.791729084+00:00 stderr F     return get_resolver(urlconf).resolve(path)
+2025-12-06T17:27:24.791729084+00:00 stderr F            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2025-12-06T17:27:24.791729084+00:00 stderr F   File "/app/.venv/lib/python3.12/site-packages/django/urls/resolvers.py", line 666, in resolve
+2025-12-06T17:27:24.791729084+00:00 stderr F     for pattern in self.url_patterns:
+2025-12-06T17:27:24.791729084+00:00 stderr F                    ^^^^^^^^^^^^^^^^^
+2025-12-06T17:27:24.791729084+00:00 stderr F   File "/app/.venv/lib/python3.12/site-packages/django/utils/functional.py", line 47, in __get__
+2025-12-06T17:27:24.791729084+00:00 stderr F     res = instance.__dict__[self.name] = self.func(instance)
+2025-12-06T17:27:24.791729084+00:00 stderr F                                          ^^^^^^^^^^^^^^^^^^^
+2025-12-06T17:27:24.791729084+00:00 stderr F   File "/app/.venv/lib/python3.12/site-packages/django/urls/resolvers.py", line 718, in url_patterns
+2025-12-06T17:27:24.791729084+00:00 stderr F     patterns = getattr(self.urlconf_module, "urlpatterns", self.urlconf_module)
+2025-12-06T17:27:24.791729084+00:00 stderr F                        ^^^^^^^^^^^^^^^^^^^
+2025-12-06T17:27:24.791729084+00:00 stderr F   File "/app/.venv/lib/python3.12/site-packages/django/utils/functional.py", line 47, in __get__
+2025-12-06T17:27:24.791729084+00:00 stderr F     res = instance.__dict__[self.name] = self.func(instance)
+2025-12-06T17:27:24.791729084+00:00 stderr F                                          ^^^^^^^^^^^^^^^^^^^
+2025-12-06T17:27:24.791729084+00:00 stderr F   File "/app/.venv/lib/python3.12/site-packages/django/urls/resolvers.py", line 711, in urlconf_module
+2025-12-06T17:27:24.791729084+00:00 stderr F     return import_module(self.urlconf_name)
+2025-12-06T17:27:24.791729084+00:00 stderr F            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2025-12-06T17:27:24.791729084+00:00 stderr F   File "/root/.local/share/uv/python/cpython-3.12.12-linux-x86_64-gnu/lib/python3.12/importlib/__init__.py", line 90, in import_module
+2025-12-06T17:27:24.791729084+00:00 stderr F     return _bootstrap._gcd_import(name[level:], package, level)
+2025-12-06T17:27:24.791729084+00:00 stderr F            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2025-12-06T17:27:24.791729084+00:00 stderr F   File "<frozen importlib._bootstrap>", line 1387, in _gcd_import
+2025-12-06T17:27:24.791729084+00:00 stderr F   File "<frozen importlib._bootstrap>", line 1360, in _find_and_load
+2025-12-06T17:27:24.791729084+00:00 stderr F   File "<frozen importlib._bootstrap>", line 1331, in _find_and_load_unlocked
+2025-12-06T17:27:24.791729084+00:00 stderr F   File "<frozen importlib._bootstrap>", line 935, in _load_unlocked
+2025-12-06T17:27:24.791729084+00:00 stderr F   File "<frozen importlib._bootstrap_external>", line 999, in exec_module
+2025-12-06T17:27:24.791729084+00:00 stderr F   File "<frozen importlib._bootstrap>", line 488, in _call_with_frames_removed
+2025-12-06T17:27:24.791729084+00:00 stderr F   File "/app/config/urls.py", line 12, in <module>
+2025-12-06T17:27:24.791729084+00:00 stderr F     from events.views import EventViewSet, EventTicketViewSet, SessionViewSet, SessionTicketViewSet, TicketViewSet
+2025-12-06T17:27:24.791729084+00:00 stderr F   File "/app/events/views.py", line 6, in <module>
+2025-12-06T17:27:24.791729084+00:00 stderr F     from .models import Event, EventTicket, Session, SessionTicket, Ticket
+2025-12-06T17:27:24.791729084+00:00 stderr F ImportError: cannot import name 'EventTicket' from 'events.models' (/app/events/models.py)
+2025-12-06T17:27:24.791835313+00:00 stdout F 10.89.1.4:34520 - - [06/Dec/2025:17:27:24] "GET /api/event-tickets/" 500 453
+2025-12-06T17:27:55.187213646+00:00 stderr F 2025-12-06 17:27:55,187 INFO     Killed 0 pending application instances
+2025-12-06T17:27:55.924839536+00:00 stderr F 2025-12-06 17:27:55,924 INFO     Killed 0 pending application instances
+2025-12-06T17:28:00.986751977+00:00 stdout F Collecting static files...
+2025-12-06T17:28:01.153042828+00:00 stderr F Uninstalled 9 packages in 62ms
+2025-12-06T17:28:01.153042828+00:00 stderr P  - certifi
+2025-12-06T17:28:01.153083731+00:00 stderr F ==2025.11.12
+2025-12-06T17:28:01.153083731+00:00 stderr P  - django-stubs==5.2.
+2025-12-06T17:28:01.153089671+00:00 stderr F 7
+2025-12-06T17:28:01.153094866+00:00 stderr P  -
+2025-12-06T17:28:01.153100000+00:00 stderr P  
+2025-12-06T17:28:01.153105084+00:00 stderr P django-stubs-ext
+2025-12-06T17:28:01.153110187+00:00 stderr P ==5
+2025-12-06T17:28:01.153115265+00:00 stderr P .2.
+2025-12-06T17:28:01.153120319+00:00 stderr F 7
+2025-12-06T17:28:01.153125362+00:00 stderr P  
+2025-12-06T17:28:01.153130436+00:00 stderr P - 
+2025-12-06T17:28:01.153135486+00:00 stderr P djangorestframework-stubs
+2025-12-06T17:28:01.153140563+00:00 stderr P ==3
+2025-12-06T17:28:01.153145617+00:00 stderr P .16
+2025-12-06T17:28:01.153150656+00:00 stderr P .5
+2025-12-06T17:28:01.153155702+00:00 stderr F 
+2025-12-06T17:28:01.153155702+00:00 stderr P  
+2025-12-06T17:28:01.153160964+00:00 stderr P - 
+2025-12-06T17:28:01.153166016+00:00 stderr P requests
+2025-12-06T17:28:01.153171118+00:00 stderr P ==2
+2025-12-06T17:28:01.153176156+00:00 stderr P .32
+2025-12-06T17:28:01.153181193+00:00 stderr P .5
+2025-12-06T17:28:01.153186226+00:00 stderr F 
+2025-12-06T17:28:01.153186226+00:00 stderr P  
+2025-12-06T17:28:01.153191420+00:00 stderr P -
+2025-12-06T17:28:01.153196477+00:00 stderr P  ruff
+2025-12-06T17:28:01.153201531+00:00 stderr P ==
+2025-12-06T17:28:01.153206575+00:00 stderr P 0.14
+2025-12-06T17:28:01.153211618+00:00 stderr P .6
+2025-12-06T17:28:01.153216656+00:00 stderr F 
+2025-12-06T17:28:01.153216656+00:00 stderr P  
+2025-12-06T17:28:01.153221833+00:00 stderr P -
+2025-12-06T17:28:01.153226909+00:00 stderr P  types-pyyaml
+2025-12-06T17:28:01.153231979+00:00 stderr P ==6
+2025-12-06T17:28:01.153240840+00:00 stderr P .0.12
+2025-12-06T17:28:01.153245506+00:00 stderr P .20250915
+2025-12-06T17:28:01.153249929+00:00 stderr F 
+2025-12-06T17:28:01.153249929+00:00 stderr P  
+2025-12-06T17:28:01.153255576+00:00 stderr P -
+2025-12-06T17:28:01.153260024+00:00 stderr P  types-requests
+2025-12-06T17:28:01.153265490+00:00 stderr P ==
+2025-12-06T17:28:01.153269889+00:00 stderr P 2.
+2025-12-06T17:28:01.153274290+00:00 stderr P 32.4
+2025-12-06T17:28:01.153278687+00:00 stderr P .20250913
+2025-12-06T17:28:01.153284166+00:00 stderr F 
+2025-12-06T17:28:01.153288577+00:00 stderr P  -
+2025-12-06T17:28:01.153300032+00:00 stderr P  
+2025-12-06T17:28:01.153305206+00:00 stderr P urllib3
+2025-12-06T17:28:01.153309646+00:00 stderr P ==2
+2025-12-06T17:28:01.153314001+00:00 stderr P .5
+2025-12-06T17:28:01.153318366+00:00 stderr P .0
+2025-12-06T17:28:01.153322698+00:00 stderr F 
+2025-12-06T17:28:01.268924786+00:00 stderr F Downloading ruff (13.3MiB)
+2025-12-06T17:28:01.540431922+00:00 stderr F Downloading ruff (13.3MiB)
+2025-12-06T17:28:01.774843776+00:00 stderr F  Downloaded ruff
+2025-12-06T17:28:01.789876752+00:00 stderr F warning: Failed to hardlink files; falling back to full copy. This may lead to degraded performance.
+2025-12-06T17:28:01.789876752+00:00 stderr F          If the cache and target directories are on different filesystems, hardlinking may not be supported.
+2025-12-06T17:28:01.789876752+00:00 stderr F          If this is intentional, set `export UV_LINK_MODE=copy` or use `--link-mode=copy` to suppress this warning.
+2025-12-06T17:28:01.816737530+00:00 stderr F Installed 9 packages in 41ms
+2025-12-06T17:28:02.977174442+00:00 stderr F  Downloaded ruff
+2025-12-06T17:28:03.096034394+00:00 stdout F 
+2025-12-06T17:28:03.096034394+00:00 stdout F 0 static files copied to '/app/staticfiles', 163 unmodified, 426 post-processed.
+2025-12-06T17:28:03.106111823+00:00 stderr F Installed 9 packages in 127ms
+2025-12-06T17:28:03.708471758+00:00 stdout F Operations to perform:
+2025-12-06T17:28:03.708471758+00:00 stdout F   Apply all migrations: accounts, admin, auth, checkins, contenttypes, events, families, sessions
+2025-12-06T17:28:03.718794035+00:00 stdout F Running migrations:
+2025-12-06T17:28:03.718794035+00:00 stdout F   No migrations to apply.
+2025-12-06T17:28:04.293501343+00:00 stderr F 2025-12-06 17:28:04,293 INFO     Starting server at tcp:port=8000:interface=0.0.0.0
+2025-12-06T17:28:04.293750659+00:00 stderr F 2025-12-06 17:28:04,293 INFO     HTTP/2 support not enabled (install the http2 and tls Twisted extras)
+2025-12-06T17:28:04.293849289+00:00 stderr F 2025-12-06 17:28:04,293 INFO     Configuring endpoint tcp:port=8000:interface=0.0.0.0
+2025-12-06T17:28:04.294141911+00:00 stderr F 2025-12-06 17:28:04,294 INFO     Listening on TCP address 0.0.0.0:8000
+2025-12-06T17:28:05.362489125+00:00 stdout F 
+2025-12-06T17:28:05.362489125+00:00 stdout F 163 static files copied to '/app/staticfiles', 469 post-processed.
+2025-12-06T17:28:05.415013724+00:00 stdout F Running migrations...
+2025-12-06T17:28:06.287504668+00:00 stdout F Operations to perform:
+2025-12-06T17:28:06.287504668+00:00 stdout F   Apply all migrations: accounts, admin, auth, checkins, contenttypes, events, families, sessions
+2025-12-06T17:28:06.295064314+00:00 stdout F Running migrations:
+2025-12-06T17:28:06.295064314+00:00 stdout F   No migrations to apply.
+2025-12-06T17:28:06.397195584+00:00 stdout F Starting daphne...
+2025-12-06T17:28:07.639967083+00:00 stderr F 2025-12-06 17:28:07,639 INFO     Starting server at tcp:port=8000:interface=0.0.0.0
+2025-12-06T17:28:07.640161404+00:00 stderr F 2025-12-06 17:28:07,640 INFO     HTTP/2 support not enabled (install the http2 and tls Twisted extras)
+2025-12-06T17:28:07.640227533+00:00 stderr F 2025-12-06 17:28:07,640 INFO     Configuring endpoint tcp:port=8000:interface=0.0.0.0
+2025-12-06T17:28:07.640591651+00:00 stderr F 2025-12-06 17:28:07,640 INFO     Listening on TCP address 0.0.0.0:8000
+2025-12-06T17:28:24.581139246+00:00 stderr F Forbidden: /api/event-tickets/
+2025-12-06T17:28:24.581139246+00:00 stderr F 2025-12-06 17:28:24,581 WARNING  Forbidden: /api/event-tickets/
+2025-12-06T17:28:24.581474314+00:00 stdout F 10.89.0.4:58644 - - [06/Dec/2025:17:28:24] "GET /api/event-tickets/" 403 58
+2025-12-06T17:31:37.580463379+00:00 stderr F 2025-12-06 17:31:37,580 INFO     Killed 0 pending application instances
+2025-12-06T17:31:44.332281174+00:00 stderr F 2025-12-06 17:31:44,332 INFO     Killed 0 pending application instances
+2025-12-06T17:31:47.384796941+00:00 stderr F Prepared 1 package in 153ms
+2025-12-06T17:31:47.415662344+00:00 stderr F Uninstalled 9 packages in 30ms
+2025-12-06T17:31:47.422635579+00:00 stderr F warning: Failed to hardlink files; falling back to full copy. This may lead to degraded performance.
+2025-12-06T17:31:47.422635579+00:00 stderr F          If the cache and target directories are on different filesystems, hardlinking may not be supported.
+2025-12-06T17:31:47.422635579+00:00 stderr F          If this is intentional, set `export UV_LINK_MODE=copy` or use `--link-mode=copy` to suppress this warning.
+2025-12-06T17:31:47.426123652+00:00 stderr F Installed 1 package in 10ms
+2025-12-06T17:31:47.426123652+00:00 stderr P  - certifi
+2025-12-06T17:31:47.426141586+00:00 stderr F ==2025.11.12
+2025-12-06T17:31:47.426141586+00:00 stderr P  + django-filter
+2025-12-06T17:31:47.426151286+00:00 stderr F ==24.3
+2025-12-06T17:31:47.426151286+00:00 stderr P  -
+2025-12-06T17:31:47.426160368+00:00 stderr P  django-stubs==5.
+2025-12-06T17:31:47.426167087+00:00 stderr F 2.7
+2025-12-06T17:31:47.426167087+00:00 stderr P  
+2025-12-06T17:31:47.426173219+00:00 stderr P - django-stubs-ext
+2025-12-06T17:31:47.426179185+00:00 stderr P ==5.
+2025-12-06T17:31:47.426185077+00:00 stderr F 2.7
+2025-12-06T17:31:47.426185077+00:00 stderr P  
+2025-12-06T17:31:47.426191130+00:00 stderr P - djangorestframework-stubs
+2025-12-06T17:31:47.426197056+00:00 stderr P ==3.
+2025-12-06T17:31:47.426202941+00:00 stderr F 16.5
+2025-12-06T17:31:47.426208792+00:00 stderr P  - 
+2025-12-06T17:31:47.426214714+00:00 stderr P requests==2.
+2025-12-06T17:31:47.426220620+00:00 stderr F 32.5
+2025-12-06T17:31:47.426226479+00:00 stderr P  - 
+2025-12-06T17:31:47.426232356+00:00 stderr P ruff==0.
+2025-12-06T17:31:47.426238192+00:00 stderr F 14.6
+2025-12-06T17:31:47.426244030+00:00 stderr P  - 
+2025-12-06T17:31:47.426249929+00:00 stderr P types-pyyaml==6
+2025-12-06T17:31:47.426255824+00:00 stderr P .0.12.
+2025-12-06T17:31:47.426261995+00:00 stderr F 20250915
+2025-12-06T17:31:47.426261995+00:00 stderr P  -
+2025-12-06T17:31:47.426268067+00:00 stderr P  types-requests
+2025-12-06T17:31:47.426280353+00:00 stderr P ==2.32
+2025-12-06T17:31:47.426285753+00:00 stderr P .4.20250913
+2025-12-06T17:31:47.426290738+00:00 stderr F 
+2025-12-06T17:31:47.426290738+00:00 stderr P  -
+2025-12-06T17:31:47.426295926+00:00 stderr P  urllib3==
+2025-12-06T17:31:47.426300881+00:00 stderr P 2.5.
+2025-12-06T17:31:47.426305805+00:00 stderr F 0
+2025-12-06T17:31:47.498781671+00:00 stderr F Downloading ruff (13.3MiB)
+2025-12-06T17:31:47.949401962+00:00 stderr F  Downloaded ruff
+2025-12-06T17:31:47.956043444+00:00 stderr F warning: Failed to hardlink files; falling back to full copy. This may lead to degraded performance.
+2025-12-06T17:31:47.956043444+00:00 stderr F          If the cache and target directories are on different filesystems, hardlinking may not be supported.
+2025-12-06T17:31:47.956043444+00:00 stderr F          If this is intentional, set `export UV_LINK_MODE=copy` or use `--link-mode=copy` to suppress this warning.
+2025-12-06T17:31:47.982537000+00:00 stderr F Installed 9 packages in 32ms
+2025-12-06T17:31:50.063900235+00:00 stdout F Collecting static files...
+2025-12-06T17:31:50.607700855+00:00 stderr F Downloading ruff (13.3MiB)
+2025-12-06T17:31:51.009367386+00:00 stdout F 
+2025-12-06T17:31:51.009367386+00:00 stdout F 0 static files copied to '/app/staticfiles', 163 unmodified, 426 post-processed.
+2025-12-06T17:31:51.027759358+00:00 stderr F  Downloaded ruff
+2025-12-06T17:31:51.120278015+00:00 stderr F Installed 9 packages in 92ms
+2025-12-06T17:31:51.823119361+00:00 stdout F Operations to perform:
+2025-12-06T17:31:51.823119361+00:00 stdout F   Apply all migrations: accounts, admin, auth, checkins, contenttypes, events, families, sessions
+2025-12-06T17:31:51.829658726+00:00 stdout F Running migrations:
+2025-12-06T17:31:51.829658726+00:00 stdout F   No migrations to apply.
+2025-12-06T17:31:52.674682737+00:00 stderr F 2025-12-06 17:31:52,674 INFO     Starting server at tcp:port=8000:interface=0.0.0.0
+2025-12-06T17:31:52.674958220+00:00 stderr F 2025-12-06 17:31:52,674 INFO     HTTP/2 support not enabled (install the http2 and tls Twisted extras)
+2025-12-06T17:31:52.675071276+00:00 stderr F 2025-12-06 17:31:52,674 INFO     Configuring endpoint tcp:port=8000:interface=0.0.0.0
+2025-12-06T17:31:52.675418609+00:00 stderr F 2025-12-06 17:31:52,675 INFO     Listening on TCP address 0.0.0.0:8000
+2025-12-06T17:31:53.675120904+00:00 stdout F 
+2025-12-06T17:31:53.675120904+00:00 stdout F 163 static files copied to '/app/staticfiles', 469 post-processed.
+2025-12-06T17:31:53.747104672+00:00 stdout F Running migrations...
+2025-12-06T17:31:54.849433317+00:00 stdout F Operations to perform:
+2025-12-06T17:31:54.849433317+00:00 stdout F   Apply all migrations: accounts, admin, auth, checkins, contenttypes, events, families, sessions
+2025-12-06T17:31:54.857476562+00:00 stdout F Running migrations:
+2025-12-06T17:31:54.857476562+00:00 stdout F   No migrations to apply.
+2025-12-06T17:31:54.960711064+00:00 stdout F Starting daphne...
+2025-12-06T17:31:56.457035975+00:00 stderr F 2025-12-06 17:31:56,456 INFO     Starting server at tcp:port=8000:interface=0.0.0.0
+2025-12-06T17:31:56.457231925+00:00 stderr F 2025-12-06 17:31:56,457 INFO     HTTP/2 support not enabled (install the http2 and tls Twisted extras)
+2025-12-06T17:31:56.457345155+00:00 stderr F 2025-12-06 17:31:56,457 INFO     Configuring endpoint tcp:port=8000:interface=0.0.0.0
+2025-12-06T17:31:56.457666317+00:00 stderr F 2025-12-06 17:31:56,457 INFO     Listening on TCP address 0.0.0.0:8000

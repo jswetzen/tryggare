@@ -42,6 +42,13 @@ class Session(models.Model):
 
 
 class Ticket(models.Model):
+    """
+    Base model for tickets. This is kept for backwards compatibility
+    but new code should use EventTicket or SessionTicket.
+
+    DEPRECATED: This model will be removed in a future version.
+    Use EventTicket or SessionTicket instead.
+    """
     EVENT_PASS = "EVENT_PASS"
     SESSION_TICKET = "SESSION_TICKET"
     NONE = "NONE"
@@ -68,3 +75,69 @@ class Ticket(models.Model):
 
     def __str__(self) -> str:
         return f"{self.type} for {self.child}"
+
+
+class EventTicket(models.Model):
+    """
+    Represents a ticket/pass for an entire event.
+    Gives the child access to all sessions within the event.
+    """
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    child = models.ForeignKey(
+        "families.Child",
+        related_name="event_tickets",
+        on_delete=models.CASCADE,
+        verbose_name=_("Child")
+    )
+    event = models.ForeignKey(
+        Event,
+        related_name="event_tickets",
+        on_delete=models.CASCADE,
+        verbose_name=_("Event")
+    )
+
+    class Meta:
+        db_table = "event_tickets"
+        verbose_name = _("Event Ticket")
+        verbose_name_plural = _("Event Tickets")
+        indexes = [
+            models.Index(fields=["child"]),
+            models.Index(fields=["event"]),
+        ]
+        unique_together = [["child", "event"]]
+
+    def __str__(self) -> str:
+        return f"Event Pass: {self.child} - {self.event}"
+
+
+class SessionTicket(models.Model):
+    """
+    Represents a ticket for a specific session.
+    Gives the child access only to the specified session.
+    """
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    child = models.ForeignKey(
+        "families.Child",
+        related_name="session_tickets",
+        on_delete=models.CASCADE,
+        verbose_name=_("Child")
+    )
+    session = models.ForeignKey(
+        Session,
+        related_name="session_tickets",
+        on_delete=models.CASCADE,
+        verbose_name=_("Session")
+    )
+
+    class Meta:
+        db_table = "session_tickets"
+        verbose_name = _("Session Ticket")
+        verbose_name_plural = _("Session Tickets")
+        indexes = [
+            models.Index(fields=["child"]),
+            models.Index(fields=["session"]),
+        ]
+        unique_together = [["child", "session"]]
+
+    def __str__(self) -> str:
+        return f"Session Ticket: {self.child} - {self.session}"

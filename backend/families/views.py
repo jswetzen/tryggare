@@ -1,9 +1,11 @@
+from django.db.models import Prefetch
 from django.utils import timezone
 from rest_framework import viewsets
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
+from events.models import EventTicket, SessionTicket
 from .models import Child, Family, Parent
 from .serializers import (
     ChildSerializer,
@@ -20,8 +22,28 @@ class FamilyViewSet(viewsets.ModelViewSet):
     Requires authentication for all actions.
     """
 
-    queryset = Family.objects.prefetch_related("parents", "children").all()
     permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        """
+        Optimize queries with prefetch_related to avoid N+1 problems.
+        Includes ticket information for children.
+        """
+        event_ticket_prefetch = Prefetch(
+            'children__event_tickets',
+            queryset=EventTicket.objects.select_related('event')
+        )
+        session_ticket_prefetch = Prefetch(
+            'children__session_tickets',
+            queryset=SessionTicket.objects.select_related('session', 'session__event')
+        )
+
+        return Family.objects.prefetch_related(
+            "parents",
+            "children",
+            event_ticket_prefetch,
+            session_ticket_prefetch,
+        ).all()
 
     def get_serializer_class(self):
         if self.action == "create":
@@ -66,11 +88,29 @@ class ChildViewSet(viewsets.ModelViewSet):
     Requires authentication for most actions.
     """
 
-    queryset = Child.objects.select_related("family").all()
     serializer_class = ChildSerializer
     permission_classes = [IsAuthenticated]
     search_fields = ["first_name", "last_name", "qr_token"]
     filterset_fields = ["family"]
+
+    def get_queryset(self):
+        """
+        Optimize queries with select_related and prefetch_related.
+        Includes ticket information to avoid N+1 queries.
+        """
+        event_ticket_prefetch = Prefetch(
+            'event_tickets',
+            queryset=EventTicket.objects.select_related('event')
+        )
+        session_ticket_prefetch = Prefetch(
+            'session_tickets',
+            queryset=SessionTicket.objects.select_related('session', 'session__event')
+        )
+
+        return Child.objects.select_related("family").prefetch_related(
+            event_ticket_prefetch,
+            session_ticket_prefetch,
+        ).all()
 
     def perform_update(self, serializer):
         """Update last_participation_date when child info is updated"""

@@ -19,6 +19,9 @@ class ParentSerializer(serializers.ModelSerializer):
 
 
 class ChildSerializer(serializers.ModelSerializer):
+    ticket_type = serializers.SerializerMethodField()
+    ticket_details = serializers.SerializerMethodField()
+
     class Meta:
         model = Child
         fields = [
@@ -31,18 +34,39 @@ class ChildSerializer(serializers.ModelSerializer):
             "qr_token",
             "last_participation_date",
             "family",
+            "ticket_type",
+            "ticket_details",
         ]
-        read_only_fields = ["id", "qr_token", "last_participation_date"]
+        read_only_fields = ["id", "qr_token", "last_participation_date", "ticket_type", "ticket_details"]
+
+    def get_ticket_type(self, obj: Child) -> str:
+        """
+        Get the type of ticket the child has.
+
+        Returns:
+            str: 'event', 'session', or 'none'
+        """
+        return obj.get_ticket_type()
+
+    def get_ticket_details(self, obj: Child) -> dict:
+        """
+        Get detailed information about the child's tickets.
+
+        Returns:
+            dict: Ticket details including event_tickets and session_tickets lists
+        """
+        return obj.get_ticket_details()
 
 
 class FamilySerializer(serializers.ModelSerializer):
     parents = ParentSerializer(many=True, read_only=True)
     children = ChildSerializer(many=True, read_only=True)
+    display_name = serializers.ReadOnlyField()
 
     class Meta:
         model = Family
-        fields = ["id", "last_name", "last_participation_date", "parents", "children"]
-        read_only_fields = ["id", "last_participation_date"]
+        fields = ["id", "last_name", "last_participation_date", "parents", "children", "display_name"]
+        read_only_fields = ["id", "last_participation_date", "display_name"]
 
 
 class FamilyDetailSerializer(serializers.ModelSerializer):
@@ -50,11 +74,12 @@ class FamilyDetailSerializer(serializers.ModelSerializer):
 
     parents = ParentSerializer(many=True, read_only=True)
     children = ChildSerializer(many=True, read_only=True)
+    display_name = serializers.ReadOnlyField()
 
     class Meta:
         model = Family
-        fields = ["id", "last_name", "last_participation_date", "parents", "children"]
-        read_only_fields = ["id", "last_participation_date"]
+        fields = ["id", "last_name", "last_participation_date", "parents", "children", "display_name"]
+        read_only_fields = ["id", "last_participation_date", "display_name"]
 
 
 class ParentCreateSerializer(serializers.ModelSerializer):

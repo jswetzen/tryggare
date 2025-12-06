@@ -1,79 +1,40 @@
-STEP 1/8: FROM docker.io/node:22-alpine
 STEP 1/15: FROM ghcr.io/astral-sh/uv:python3.14-trixie-slim AS base
-STEP 2/8: WORKDIR /app
+STEP 1/8: FROM docker.io/node:22-alpine
 STEP 2/15: WORKDIR /app
+STEP 2/8: WORKDIR /app
 --> Using cache e0d7be78f4e044e6069a6f402a17351c039a01cfa32b4307c486b7a717a99bcd
 --> e0d7be78f4e0
---> Using cache 32d89c05436259a5bbe673f817b96725639aafe78b25a2c2c428cdc1511dcd31
---> 32d89c054362
+--> Using cache 5b7004ad737419c26c8da4eb67a58b6747ea9b21307dd83d777af1cf48ee474d
+--> 5b7004ad7374
 STEP 3/8: RUN corepack enable
 --> Using cache 6526bcffb68aecd35d56116dba6e4e8e7c27d02a3051e38399e4abc11922e7a8
 --> 6526bcffb68a
 STEP 3/15: COPY pyproject.toml uv.lock README.md ./
 STEP 4/8: COPY package.json pnpm-lock.yaml ./
---> Using cache 2bd88a1db40a01707a7ce26c3d6d3a207143f1384c5c25e6ca4a95a960b14d8c
---> 2bd88a1db40a
 --> Using cache 06f8c1c94671e61f789dcc821a08f6f34881c6672613459eeb50871cb61e4ee9
 --> 06f8c1c94671
-STEP 4/15: RUN uv sync --frozen --no-dev
---> Using cache 2aea6384deecbe746946c82956b59c6c736e3a97f7205ad34a397a90d8536982
---> 2aea6384deec
 STEP 5/8: RUN pnpm install --frozen-lockfile
 --> Using cache ee4092da0c2a9c862457fb3880fec107a586d2da6dcdc402e313a64f3376e343
 --> ee4092da0c2a
-STEP 5/15: COPY manage.py ./
 STEP 6/8: COPY . .
---> Using cache 236d0d83e0cbc034919609d40c5943c6ed2b9f3cbac67cec8173fad325515e72
---> 236d0d83e0cb
-STEP 6/15: COPY config ./config
---> Using cache 9a1f7227548cf629150f02717673e380cbf5a5e5e4b52bdbc17367ce56cb732f
---> 9a1f7227548c
-STEP 7/15: COPY accounts ./accounts
---> Using cache eeb585a77c0e0876ca68db0890eeb8ca573859e39a78d3e3270475a77f46fa07
---> eeb585a77c0e
-STEP 8/15: COPY families ./families
---> Using cache 08b9e4917fd93144cbb4c612bc981a6872a6dced0c712b55a3a5efa5d711af04
---> 08b9e4917fd9
-STEP 9/15: COPY events ./events
---> Using cache a393db141c618ee3fded855eaacf0a7b732dd7ebf0184b81bbb15cc39611c2ec
---> a393db141c61
-STEP 10/15: COPY checkins ./checkins
---> Using cache df9f5a519f54ebc0f891e669466bc95a6ccc563aeb0d0040895c96b51210322a
---> df9f5a519f54
-STEP 11/15: COPY printing ./printing
---> Using cache 1b30a2c13bb5d7b69a1c5d3afe01838b416ae2dccbc6e79211b866c6a8abf099
---> 1b30a2c13bb5
-STEP 12/15: ENV DJANGO_SETTINGS_MODULE=config.settings.prod
---> Using cache e914859778c3f88044ef8fd43b28c90cd48fa449eef162ee1edde28da6b0e09e
---> e914859778c3
-STEP 13/15: ENV PYTHONUNBUFFERED=1
---> Using cache 9187fd29b82b77d7ff1f19d80b9264a5d68aa0d9c30a2b6a1e4cb590881b7128
---> 9187fd29b82b
-STEP 14/15: EXPOSE 8000
---> Using cache a6cf77b16dc793b661fa8771230ddf3606eca8fbd562b9298806bda5d240866a
---> a6cf77b16dc7
-STEP 15/15: CMD ["uv", "run", "python", "-m", "daphne", "-b", "0.0.0.0", "-p", "8000", "config.asgi:application"]
---> Using cache 9fd076b306ddec6cc83f56b862300be56bee56a0680eec67e60b8bdd3e4f5313
-COMMIT check-ins_web
---> 9fd076b306dd
-Successfully tagged localhost/check-ins_web:latest
-9fd076b306ddec6cc83f56b862300be56bee56a0680eec67e60b8bdd3e4f5313
+--> 3cd7a0aa80a8
+STEP 4/15: RUN uv sync --frozen --no-dev
+check-ins_frontend_1
+check-ins_db_1
+check-ins_web_1
+check-ins_valkey_1
 check-ins_frontend_1
 check-ins_web_1
 check-ins_valkey_1
 check-ins_db_1
-check-ins_frontend_1
-check-ins_web_1
-check-ins_valkey_1
-check-ins_db_1
-feca28b29b59908932591dc9c29a8c2451cb3aaba37347e0f98cbc87d45d0338
+b93f32484da12dbc234b491de0cc0cc6f6d40ae1e97364ca6096fc8cd57b7d4d
 check-ins_default
-a92a31111cb80c79c929d6130cd3d1697084587e2cdd3d12d5a354b82c66d9b2
-980e5c117c17cdc195d42e98d4e9fac53c986c967b6cf899273c171c966f0be9
+f610cb63c7bc490c0db967d53890ff353addcb9e47a2a715afaf00bff1d58e22
+1b9a025fec9836be8feea8acd9b8ce7450b711c55cb1d22732062b50a96ceb34
 check-ins_db_1
-392754c03c518a86ca56b4a39a641ca0d07c23265fd7f28cddf3c22db02ac035
+df6782925f7f53f15d79062a56918e721dcafac67370e584f3566d4c5f966e03
 check-ins_valkey_1
-d57fa8453f5c45c569573fab0a7f229a2fc0bf0d205b279b6ca5a04ecc49820b
+f707d4b7e945b2caacd925782c9dfe3c6503d27b49dd0939e5a1caeff1928bfe
 check-ins_web_1
-8854fbc56bd3c8c0a896e802ab90fa05e0ba04517798789528c0b90366021afa
+d963addd8f78ccb2219c6e431697768402c940c6bfddd378c6d4ea85d5f05cfa
 check-ins_frontend_1
