@@ -130,7 +130,7 @@ def test_qr_page_public_access():
         )
 
         # Create test family with child
-        test_family = Family.objects.create()
+        test_family = Family.objects.create(last_name="QRTest")
         test_parent = Parent.objects.create(
             family=test_family,
             name="Jane QRTest",

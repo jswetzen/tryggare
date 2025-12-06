@@ -24,7 +24,7 @@ class PrintQueueTests(TestCase):
         )
 
         # Create family and children
-        self.family = Family.objects.create()
+        self.family = Family.objects.create(last_name="TestFamily")
         self.child1 = Child.objects.create(
             family=self.family,
             first_name="Alice",

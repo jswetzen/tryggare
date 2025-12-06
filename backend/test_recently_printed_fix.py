@@ -26,7 +26,7 @@ class RecentlyPrintedFixTest(TestCase):
         self.client.force_authenticate(user=self.user)
 
         # Create family and children
-        self.family = Family.objects.create()
+        self.family = Family.objects.create(last_name="TestFamily")
         self.parent = Parent.objects.create(
             family=self.family,
             name="John Doe",
