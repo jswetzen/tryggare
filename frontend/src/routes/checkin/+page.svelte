@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onDestroy } from 'svelte';
+  import { _ } from 'svelte-i18n';
   import type { Family, Child, TicketType } from '$lib/checkin/types';
   import Icon from '$lib/components/ui/Icon.svelte';
 
@@ -189,7 +190,7 @@
     const family = families.find((f) => f.id === familyId);
     const child = family?.children.find((c) => c.id === childId);
     if (child) {
-      successToast = `${child.name} checked in!`;
+      successToast = $_('checkin.successCheckedIn', { values: { name: child.name } });
     }
 
     // Close expansion if open
@@ -227,9 +228,15 @@
       };
     });
 
-    successToast = `${family.name} family checked in (${childIdsToCheckIn.length} ${
-      childIdsToCheckIn.length === 1 ? 'child' : 'children'
-    })!`;
+    const count = childIdsToCheckIn.length;
+    const childrenLabel = count === 1 ? $_('checkin.child') : $_('checkin.children');
+    successToast = $_('checkin.successFamilyCheckedIn', {
+      values: {
+        family: family.name,
+        count: count,
+        childrenLabel: childrenLabel
+      }
+    });
   }
 
   // Undo individual child check-in
@@ -350,9 +357,16 @@
     nextFamilyId = newFamilyId + 1;
     nextChildId = currentChildId;
     showAddPanel = false;
-    successToast = `${data.familyName} family added with ${newChildren.length} ${
-      newChildren.length === 1 ? 'child' : 'children'
-    }!`;
+
+    const count = newChildren.length;
+    const childrenLabel = count === 1 ? $_('checkin.child') : $_('checkin.children');
+    successToast = $_('checkin.successFamilyCheckedIn', {
+      values: {
+        family: data.familyName,
+        count: count,
+        childrenLabel: childrenLabel
+      }
+    });
 
     // Auto-expand the new family
     expandedFamilies.add(newFamilyId);
@@ -361,7 +375,7 @@
 </script>
 
 <svelte:head>
-  <title>Check-In Station</title>
+  <title>{$_('checkin.pageTitle')}</title>
 </svelte:head>
 
 <div class="min-h-screen bg-slate-100">
@@ -385,7 +399,7 @@
 
     <!-- Header -->
     <div class="mb-5">
-      <h1 class="text-3xl font-bold text-blue-900">Check-In Station</h1>
+      <h1 class="text-3xl font-bold text-blue-900">{$_('checkin.title')}</h1>
     </div>
 
     <!-- Search Box -->
@@ -399,7 +413,7 @@
         <input
           type="text"
           bind:value={searchQuery}
-          placeholder="Search by family or child name..."
+          placeholder={$_('checkin.searchPlaceholder')}
           class="w-full pl-10 pr-10 py-3 border-2 border-blue-500 rounded-lg bg-blue-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
           data-testid="search-input"
         />
@@ -407,7 +421,7 @@
           <button
             onclick={() => (searchQuery = '')}
             class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
-            aria-label="Clear search"
+            aria-label={$_('checkin.clearSearch')}
             data-testid="clear-search-button"
           >
             <Icon name="x" size="sm" />
@@ -431,11 +445,11 @@
         <div class="text-center py-12 bg-white rounded-lg border-2 border-dashed border-slate-300">
           <p class="text-slate-500 mb-2">
             {searchQuery
-              ? `No families found matching "${searchQuery}"`
-              : 'No families to check in'}
+              ? $_('checkin.noFamiliesFound', { values: { query: searchQuery } })
+              : $_('checkin.noFamilies')}
           </p>
           {#if searchQuery}
-            <p class="text-sm text-slate-400">Try a different search term</p>
+            <p class="text-sm text-slate-400">{$_('checkin.tryDifferentSearch')}</p>
           {/if}
         </div>
       {:else}

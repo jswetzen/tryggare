@@ -7,6 +7,8 @@
    * - Add a new family
    */
 
+  import { _ } from 'svelte-i18n';
+
   let {
     eventName,
     sessionName,
@@ -27,8 +29,8 @@
   data-testid="session-indicator"
 >
   <div class="text-slate-600">
-    <span class="font-semibold text-blue-900">Event:</span> {eventName} •
-    <span class="font-semibold text-blue-900 ml-1">Session:</span> {sessionName} ({sessionTime})
+    <span class="font-semibold text-blue-900">{$_('session.event')}</span> {eventName} •
+    <span class="font-semibold text-blue-900 ml-1">{$_('session.session')}</span> {sessionName} ({sessionTime})
   </div>
   <div class="flex gap-2">
     <button
@@ -36,14 +38,14 @@
       class="px-3 py-1.5 text-blue-600 font-semibold hover:underline"
       data-testid="change-session-button"
     >
-      Change Session
+      {$_('session.changeSession')}
     </button>
     <button
       on:click={onAddFamily}
       class="px-3 py-1.5 bg-blue-600 text-white font-semibold rounded hover:bg-blue-700 transition-colors"
       data-testid="add-family-button"
     >
-      + Add Family
+      {$_('checkin.addNewFamily')}
     </button>
   </div>
 </div>

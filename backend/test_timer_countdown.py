@@ -65,18 +65,18 @@ try:
 
     # Find and click first family to expand
     print("Expanding first family...")
-    family_cards = driver.find_elements(By.CSS_SELECTOR, "[data-testid^='family-card-']")
-    if not family_cards:
-        print("✗ No family cards found")
+    family_toggle_buttons = driver.find_elements(By.CSS_SELECTOR, "[data-testid^='family-toggle-button-']")
+    if not family_toggle_buttons:
+        print("✗ No family toggle buttons found")
         driver.save_screenshot("/tmp/no_families.png")
         exit(1)
 
-    family_cards[0].click()
+    family_toggle_buttons[0].click()
     time.sleep(1)
 
     # Find first child check-in button
     print("Looking for check-in button...")
-    checkin_buttons = driver.find_elements(By.CSS_SELECTOR, "[data-testid^='checkin-button-']")
+    checkin_buttons = driver.find_elements(By.CSS_SELECTOR, "[data-testid^='child-check-in-button-']")
     if not checkin_buttons:
         print("✗ No check-in buttons found")
         driver.save_screenshot("/tmp/no_buttons.png")

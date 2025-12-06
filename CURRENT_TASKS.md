@@ -19,12 +19,18 @@
 
 ## 📊 Current Status Summary
 
-### ✅ Completed (Phases 0-3)
+### ✅ Completed (Phases 0-3 + i18n)
 1. **Phase 0**: Pre-migration preparation complete
 2. **Phase 1**: Types, utilities, and stores ported (27/27 tests passing)
 3. **Phase 2**: All 5 Svelte components created
 4. **Phase 3**: Checkin page rebuilt from scratch using mock data
-5. **Bug Fixes**: Fixed 5 UI issues (search clear, collapse on clear, arrow clickable, undo countdown, undo button color)
+5. **Bug Fixes**: Fixed 7 UI issues (search clear, collapse on clear, arrow clickable, undo countdown, undo button color, undo timer reactivity)
+6. **i18n Support**: Full internationalization added to all checkin components ✨ NEW!
+   - SessionIndicator, AddFamilyPanel, ChildCheckInButton, FamilyCard all translated
+   - Main checkin page fully internationalized
+   - English and Swedish translations complete
+   - All success messages with proper parameterization
+   - Zero TypeScript errors
 
 ### 🚧 Currently Using Mock Data
 - The checkin page (`/frontend/src/routes/checkin/+page.svelte`) is working with **React prototype mock data**
@@ -38,9 +44,9 @@
 - **API Integration**: Replace mock data with Django backend calls (3 endpoints needed)
 
 ### 🎯 Next Immediate Steps
-1. Manual testing of all 5 bug fixes in production build
-2. Visual comparison with React prototype
-3. Decide: continue with mock data or integrate backend API?
+1. Visual verification and styling polish (Phase 4)
+2. Backend API integration - replace mock data with real API calls
+3. Component and integration testing (Phase 5)
 
 ---
 
@@ -354,6 +360,103 @@ checkin/
 - [x] Add error handling
 - [x] Add loading states
 - [x] Verify WebSocket integration works with new UI (preserved existing integration)
+
+---
+
+## Phase 3.5: Internationalization (i18n) ✅ **COMPLETED 2025-12-06**
+
+### Overview
+Added complete i18n support to all checkin page components using the existing svelte-i18n infrastructure.
+
+### Components Internationalized
+
+**1. SessionIndicator Component** ✅
+- Event/Session labels
+- "Change Session" button
+- "+ Add Family" button
+- Translation keys: `session.event`, `session.session`, `session.changeSession`, `checkin.addNewFamily`
+
+**2. SuccessToast Component** ✅
+- No hardcoded strings (messages passed from parent)
+- Already i18n-ready
+
+**3. AddFamilyPanel Component** ✅
+- All form labels and placeholders
+- Error messages
+- Button text
+- Ticket type options (Event Pass, Session Only, No Ticket)
+- Translation keys include: `checkin.familyName`, `checkin.ticketType`, `checkin.children`, etc.
+
+**4. ChildCheckInButton Component** ✅
+- Button states (Check In, Undo, Checked In)
+- Countdown timer with parameterization
+- No Ticket assignment
+- Translation keys: `checkin.checkIn`, `checkin.undo`, `checkin.undoSeconds`, `checkin.alreadyCheckedIn`
+
+**5. FamilyCard Component** ✅
+- Child/children singular/plural logic
+- Check In Family button with count
+- Undo button with countdown
+- Ticket type display
+- Checked-in status with time
+- Translation keys with parameterization for counts and dynamic values
+
+**6. Main Checkin Page** ✅
+- Page title and header
+- Search placeholder and clear button
+- Empty states ("No families to check in", etc.)
+- Success messages with parameterization
+- Proper singular/plural handling for child/children
+- Translation keys: `checkin.pageTitle`, `checkin.searchPlaceholder`, `checkin.successCheckedIn`, etc.
+
+### Translation Files Updated
+
+**Added translation keys to both:**
+- `/frontend/src/lib/i18n/locales/en.json`
+- `/frontend/src/lib/i18n/locales/sv.json`
+
+**New keys added (30+):**
+- `checkin.ticketType`, `checkin.ticketNone`, `checkin.ticketSession`, `checkin.ticketEvent`
+- `checkin.checkInCount`, `checkin.undo`, `checkin.undoSeconds`
+- `checkin.checkedInAt`, `checkin.noFamilies`, `checkin.tryDifferentSearch`
+- `checkin.familyName`, `checkin.assignTicket`, `checkin.noTicketClickToAssign`
+- `checkin.successCheckedIn`, `checkin.successFamilyCheckedIn`
+- `checkin.familyNameRequired`, `checkin.atLeastOneChildRequired`
+- And many more for complete coverage
+
+### Technical Implementation
+
+**Parameterized Translations:**
+- Used `$_('key', { values: { param: value } })` format for dynamic content
+- Example: `$_('checkin.undoSeconds', { values: { seconds: remainingSeconds } })`
+- Proper handling of child/children singular/plural in success messages
+
+**Reactive Translation Access:**
+- All components import `{ _ }` from 'svelte-i18n'
+- Use `$_('key')` syntax for reactive translation updates
+- Translations automatically update when user switches language
+
+**Validation:**
+- Zero TypeScript errors after i18n implementation
+- All existing functionality preserved
+- All data-testid attributes maintained for testing
+- Warnings only relate to deprecated Svelte syntax (on:click → onclick)
+
+### Testing Status
+- ✅ Development server builds successfully
+- ✅ Zero TypeScript errors in checkin page and components
+- ✅ Existing Svelte 5 deprecation warnings (not related to i18n)
+- ⏳ Manual language switching test needed
+- ⏳ Visual verification needed
+
+### Files Modified
+1. `/frontend/src/lib/i18n/locales/en.json` - Added 30+ translation keys
+2. `/frontend/src/lib/i18n/locales/sv.json` - Added 30+ translation keys
+3. `/frontend/src/lib/components/checkin/SessionIndicator.svelte`
+4. `/frontend/src/lib/components/checkin/AddFamilyPanel.svelte`
+5. `/frontend/src/lib/components/checkin/ChildCheckInButton.svelte`
+6. `/frontend/src/lib/components/checkin/FamilyCard.svelte`
+7. `/frontend/src/routes/checkin/+page.svelte`
 
 ---
 
