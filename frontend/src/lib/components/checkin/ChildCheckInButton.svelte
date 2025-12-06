@@ -10,19 +10,28 @@
    */
   import type { Child, TicketType } from '$lib/checkin/types';
 
-  export let child: Child;
-  export let onCheckIn: (() => void) | undefined = undefined;
-  export let onUndo: (() => void) | undefined = undefined;
-  export let onNoTicketClick: (() => void) | undefined = undefined;
-  export let remainingSeconds: number | null;
-  export let expanded: boolean = false;
+  let {
+    child,
+    onCheckIn = undefined,
+    onUndo = undefined,
+    onNoTicketClick = undefined,
+    remainingSeconds,
+    expanded = false
+  }: {
+    child: Child;
+    onCheckIn?: (() => void) | undefined;
+    onUndo?: (() => void) | undefined;
+    onNoTicketClick?: (() => void) | undefined;
+    remainingSeconds: number | null;
+    expanded?: boolean;
+  } = $props();
 </script>
 
 {#if child.checkedIn && remainingSeconds !== null}
   <!-- Checked in with active undo timer -->
   <button
     on:click={() => onUndo?.()}
-    class="px-3 py-1.5 bg-orange-500 text-white text-sm font-semibold rounded hover:bg-orange-600 transition-colors min-w-[100px]"
+    class="px-3 py-1.5 bg-amber-600 text-white text-sm font-semibold rounded hover:bg-amber-700 transition-colors min-w-[100px]"
     aria-label={`Undo check-in for ${child.name}, ${remainingSeconds} seconds remaining`}
     data-testid={`child-undo-button-${child.id}`}
   >

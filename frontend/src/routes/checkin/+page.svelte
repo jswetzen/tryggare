@@ -440,9 +440,10 @@
         </div>
       {:else}
         {#each visibleFamilies as family (family.id)}
+          {@const _tick = undoActionsData.tick}
           {@const familyActions = getFamilyUndoActions(family.id)}
           {@const familyAction = familyActions.find((a) => a.childIds.length > 1)}
-          {@const familyUndoSeconds = familyAction ? getRemainingTime(familyAction.id) : null}
+          {@const familyUndoSeconds = familyAction && _tick >= 0 ? getRemainingTime(familyAction.id) : null}
           <FamilyCard
             {family}
             expanded={expandedFamilies.has(family.id)}

@@ -7,11 +7,19 @@
    * - Add a new family
    */
 
-  export let eventName: string;
-  export let sessionName: string;
-  export let sessionTime: string;
-  export let onChangeSession: () => void;
-  export let onAddFamily: () => void;
+  let {
+    eventName,
+    sessionName,
+    sessionTime,
+    onChangeSession,
+    onAddFamily
+  }: {
+    eventName: string;
+    sessionName: string;
+    sessionTime: string;
+    onChangeSession: () => void;
+    onAddFamily: () => void;
+  } = $props();
 </script>
 
 <div
