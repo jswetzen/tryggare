@@ -3,7 +3,20 @@
     "allow": [
       "Bash(touch:*)",
       "Bash(pnpm dlx:*)",
-      "Bash(curl:*)"
+      "Bash(curl:*)",
+      "Bash(podman-compose up:*)",
+      "Bash(podman system prune:*)",
+      "Bash(podman-compose:*)",
+      "Bash(podman ps:*)",
+      "Bash(podman logs:*)",
+      "Bash(podman restart:*)",
+      "mcp__playwright__browser_navigate",
+      "mcp__playwright__browser_take_screenshot",
+      "mcp__playwright__browser_snapshot",
+      "mcp__playwright__browser_fill_form",
+      "mcp__playwright__browser_click",
+      "mcp__playwright__browser_network_requests",
+      "mcp__playwright__browser_close"
     ],
     "deny": [],
     "ask": []

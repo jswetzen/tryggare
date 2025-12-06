@@ -2,17 +2,20 @@ The Conference Child Management System has a detailed specification in the file 
 
 Update IMPLEMENTATION_PLAN.md to check off items that are done. Also keep CURRENT_TASKS.md up-to-date as you complete items.
 
+If you really have to write on-the fly documentation or markdown summaries, store them under docs/
+Any tools and scripts you create for ad-hoc testing shall be stored under agent-tools/
+
 ## Deployment Environments
 
-**Two deployment modes exist. Determine which is running:**
+**Two deployment modes exist. Both should be running:**
 
-### Production Deployment (docker-compose.prod.yml) - **LIKELY CURRENT**
+### Production Deployment (docker-compose.prod.yml)
 - **Single container**: Django serves both API and built frontend static files
 - **Access**: `http://localhost:8080` (both frontend and backend)
 - **Database**: PostgreSQL on port 5433
 - **Settings**: `config.settings.prod`
-- **Auto-rebuild**: `watch restart.txt { || podman compose -f docker-compose.prod.yml --env-file .env.prod up -d --force-recreate --build >build.log 2>&1 }`
-- **Manual rebuild**: `podman compose -f docker-compose.prod.yml --env-file .env.prod up -d --build 2>&1 | tee build.log`
+- **Auto-rebuild**: This command is running on the host in this repository with nushell: `watch restart.txt { || podman compose -f docker-compose.prod.yml --env-file .env.prod up -d --force-recreate --build | save -f build.prod.log }`
+- **Manual rebuild**: No podman access, the only way is to write to `restart.txt`.
 - **Testing**: `./verification.sh --test` (checks build logs, disk space, then runs tests)
 
 ### Development Environment (docker-compose.yml)
@@ -20,17 +23,9 @@ Update IMPLEMENTATION_PLAN.md to check off items that are done. Also keep CURREN
 - **Access**: Frontend `http://localhost:5173`, Backend `http://localhost:8000`
 - **Database**: PostgreSQL on port 5432
 - **Settings**: `config.settings.local`
-- **Restart**: `./verification.sh` (touches `restart.txt`, waits for reload)
-- **Testing**: `./verification.sh --test`
-
-**How to tell which you're running:**
-```bash
-# Check if production is accessible
-curl -s http://localhost:8080 >/dev/null && echo "✓ Production (8080)" || echo "✗ Not running"
-
-# Check if development is accessible
-curl -s http://localhost:5173 >/dev/null && echo "✓ Development (5173)" || echo "✗ Not running"
-```
+- **Auto-rebuild**: This command is running on the host in this repository with nushell: `watch restart.txt { || podman compose up -d --force-recreate --build | save -f build.dev.log }`
+- **Restart**: Hot reloading should cover most code changes, but if you have to restart, trigger the auto-rebuild by writing to `checks-ins/restart.txt`.
+- **Note**: `backend/config/settings/local.py` overrides `STATIC_URL = "/static/"` to avoid conflicts with `MEDIA_URL` in dev mode
 
 **Backend & Frontend:**
 - **Backend**: `backend/` directory with Django
@@ -38,22 +33,14 @@ curl -s http://localhost:5173 >/dev/null && echo "✓ Development (5173)" || ech
 - **Logs**:
   - Backend runtime: `web.log`
   - Frontend dev server: `frontend.log`
-  - Production builds: `build.log` (captured from podman/docker compose)
+  - Development builds: `build.dev.log` (captured from podman compose)
+  - Production builds: `build.prod.log` (captured from podman compose)
 
-IMPORTANT: *Never* kill a process you have started.
-You risk stopping critical services or Claude Code by accident.
-Instead, if there's a risk a process won't finish you should execute it with a timeout.
-
-## Quick Testing Workflow
-
-**After making changes:**
+## Full test running
 
 ```bash
-# Production deployment (most common)
+# Production deployment test
 ./verification.sh --no-restart --test    # Tests only, no restart
-# If you need to rebuild: podman compose -f docker-compose.prod.yml --env-file .env.prod up -d --build
-
-# Development deployment (if using docker-compose.yml)
 ./verification.sh --test                 # Restart + tests
 ```
 
@@ -68,9 +55,9 @@ uv run python verify.py  # Quick verification
 **Debugging failures:**
 - Backend runtime: Check `/workspace/check-ins/web.log`
 - Frontend dev: Check `/workspace/check-ins/frontend.log`
-- Production builds: Check `/workspace/check-ins/build.log`
+- Production builds: Check `/workspace/check-ins/build.prod.log`
 - Selenium tests: Check screenshots in `/tmp/`
-- Build errors: The verification script now automatically checks build.log for:
+- Build errors: The verification script now automatically checks build.prod.log for:
   - "no space left on device" → Run `podman system prune -a`
   - "Build command failed" → Check full log with `less build.log`
   - Frontend build failures → Look for npm/vite errors in build.log
@@ -85,4 +72,13 @@ Before considering an implementation phase complete, make sure to:
 - Run the full test suite: `uv run python manage.py test` (for production testing)
 - Update CURRENT_TASKS.md so everything that you actually finished is checked off
 - Commit all your changes to git with clear commit messages
+
+## Playwright for Manual Testing
+
+Playwright browser automation is available for testing and validation:
+- **Use case**: Manually test frontend flows, login, navigation, form submissions
+- **Access**: Use `mcp__playwright__browser_*` tools to interact with the browser
+- **Example**: Navigate to `http://localhost:5173`, fill forms, click buttons, take screenshots
+- **Credentials**: `admin:admin123` for testing login flows
+- **Note**: Useful when testing from remote/mobile devices isn't practical due to CORS/CSRF restrictions
 

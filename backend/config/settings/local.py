@@ -18,6 +18,9 @@ CHANNEL_LAYERS = {
     }
 }
 
+# Static files - override base.py for dev mode to avoid conflict with MEDIA_URL
+STATIC_URL = "/static/"  # In dev, use /static/ (production uses / for SvelteKit)
+
 # Keep session-based authentication enabled in development
 # Override base.py to allow unauthenticated access to public endpoints
 # Individual views will use @permission_classes to control access

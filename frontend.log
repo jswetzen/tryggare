@@ -4627,3 +4627,208 @@
 2025-12-05T18:53:14.293091482+00:00 stdout F 6:53:14 PM [vite] page reload .svelte-kit/generated/client/matchers.js
 2025-12-05T18:53:14.293182771+00:00 stdout F 6:53:14 PM [vite] page reload .svelte-kit/generated/server/internal.js
 2025-12-05T18:53:14.293444750+00:00 stdout F 6:53:14 PM [vite] page reload .svelte-kit/generated/root.js
+2025-12-05T20:11:29.092488779+00:00 stdout F Lockfile is up to date, resolution step is skipped
+2025-12-05T20:11:29.180937719+00:00 stdout F Progress: resolved 1, reused 0, downloaded 0, added 0
+2025-12-05T20:11:29.265946639+00:00 stdout F Packages: +103 -7
+2025-12-05T20:11:29.265946639+00:00 stdout F ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++------
+2025-12-05T20:11:30.182394727+00:00 stdout F Progress: resolved 103, reused 8, downloaded 95, added 102
+2025-12-05T20:11:30.493645370+00:00 stdout F Progress: resolved 103, reused 8, downloaded 95, added 103, done
+2025-12-05T20:11:30.886753614+00:00 stdout F 
+2025-12-05T20:11:30.886753614+00:00 stdout F devDependencies:
+2025-12-05T20:11:30.886753614+00:00 stdout F + @testing-library/jest-dom 6.9.1
+2025-12-05T20:11:30.886753614+00:00 stdout F + @testing-library/svelte 5.2.9
+2025-12-05T20:11:30.886753614+00:00 stdout F + @testing-library/user-event 14.6.1
+2025-12-05T20:11:30.886753614+00:00 stdout F + happy-dom 20.0.11
+2025-12-05T20:11:30.886753614+00:00 stdout F + jsdom 27.2.0
+2025-12-05T20:11:30.886753614+00:00 stdout F + vitest 4.0.15
+2025-12-05T20:11:30.886753614+00:00 stdout F 
+2025-12-05T20:11:30.886753614+00:00 stdout F ╭ Warning ─────────────────────────────────────────────────────────────────────╮
+2025-12-05T20:11:30.886753614+00:00 stdout F │                                                                              │
+2025-12-05T20:11:30.886753614+00:00 stdout F │   Ignored build scripts: esbuild.                                            │
+2025-12-05T20:11:30.886753614+00:00 stdout F │   Run "pnpm approve-builds" to pick which dependencies should be allowed     │
+2025-12-05T20:11:30.886753614+00:00 stdout F │   to run scripts.                                                            │
+2025-12-05T20:11:30.886753614+00:00 stdout F │                                                                              │
+2025-12-05T20:11:30.886753614+00:00 stdout F ╰──────────────────────────────────────────────────────────────────────────────╯
+2025-12-05T20:11:30.886753614+00:00 stdout F 
+2025-12-05T20:11:30.949091239+00:00 stdout F Done in 2.2s using pnpm v10.24.0
+2025-12-05T20:11:31.332600821+00:00 stdout F 
+2025-12-05T20:11:31.332600821+00:00 stdout F > check-ins-frontend@0.0.1 dev /app
+2025-12-05T20:11:31.332600821+00:00 stdout F > vite dev --host --host 0.0.0.0 --port 5173
+2025-12-05T20:11:31.332600821+00:00 stdout F 
+2025-12-05T20:11:32.396172762+00:00 stdout F Re-optimizing dependencies because lockfile has changed
+2025-12-05T20:11:32.873304486+00:00 stdout F 
+2025-12-05T20:11:32.873304486+00:00 stdout F   VITE v5.4.21  ready in 1508 ms
+2025-12-05T20:11:32.873304486+00:00 stdout F 
+2025-12-05T20:11:32.873482173+00:00 stdout F   ➜  Local:   http://localhost:5173/
+2025-12-05T20:11:32.873507318+00:00 stdout F   ➜  Network: http://10.89.0.5:5173/
+2025-12-05T20:12:43.161883422+00:00 stdout F  ELIFECYCLE  Command failed.
+2025-12-06T08:55:16.232441125+00:00 stdout F Lockfile is up to date, resolution step is skipped
+2025-12-06T08:55:16.295973434+00:00 stdout F Already up to date
+2025-12-06T08:55:16.543628929+00:00 stdout F 
+2025-12-06T08:55:16.543628929+00:00 stdout F ╭ Warning ─────────────────────────────────────────────────────────────────────╮
+2025-12-06T08:55:16.543628929+00:00 stdout F │                                                                              │
+2025-12-06T08:55:16.543628929+00:00 stdout F │   Ignored build scripts: esbuild.                                            │
+2025-12-06T08:55:16.543628929+00:00 stdout F │   Run "pnpm approve-builds" to pick which dependencies should be allowed     │
+2025-12-06T08:55:16.543628929+00:00 stdout F │   to run scripts.                                                            │
+2025-12-06T08:55:16.543628929+00:00 stdout F │                                                                              │
+2025-12-06T08:55:16.543628929+00:00 stdout F ╰──────────────────────────────────────────────────────────────────────────────╯
+2025-12-06T08:55:16.543628929+00:00 stdout F 
+2025-12-06T08:55:16.557210664+00:00 stdout F Done in 758ms using pnpm v10.24.0
+2025-12-06T08:55:16.959377854+00:00 stdout F 
+2025-12-06T08:55:16.959377854+00:00 stdout F > check-ins-frontend@0.0.1 dev /app
+2025-12-06T08:55:16.959377854+00:00 stdout F > vite dev --host --host 0.0.0.0 --port 5173
+2025-12-06T08:55:16.959377854+00:00 stdout F 
+2025-12-06T08:55:18.184175018+00:00 stdout F 
+2025-12-06T08:55:18.184175018+00:00 stdout F   VITE v5.4.21  ready in 1194 ms
+2025-12-06T08:55:18.184175018+00:00 stdout F 
+2025-12-06T08:55:18.184386025+00:00 stdout F   ➜  Local:   http://localhost:5173/
+2025-12-06T08:55:18.184462555+00:00 stdout F   ➜  Network: http://10.89.0.5:5173/
+2025-12-06T08:58:18.807791703+00:00 stderr F 
+2025-12-06T08:58:18.807791703+00:00 stderr F [1;31m[404] GET /favicon.png[0m
+2025-12-06T08:58:19.891682977+00:00 stdout F 8:58:19 AM [vite-plugin-svelte] src/lib/components/checkin/SessionIndicator.svelte:35:6 Using `on:click` to listen to the click event is deprecated. Use the event attribute `onclick` instead
+2025-12-06T08:58:19.891682977+00:00 stdout F https://svelte.dev/e/event_directive_deprecated
+2025-12-06T08:58:19.891682977+00:00 stdout F 8:58:19 AM [vite-plugin-svelte] src/lib/components/checkin/SessionIndicator.svelte:42:6 Using `on:click` to listen to the click event is deprecated. Use the event attribute `onclick` instead
+2025-12-06T08:58:19.891682977+00:00 stdout F https://svelte.dev/e/event_directive_deprecated
+2025-12-06T08:58:19.938194813+00:00 stdout F 8:58:19 AM [vite-plugin-svelte] src/lib/components/checkin/FamilyCard.svelte:79:6 Using `on:click` to listen to the click event is deprecated. Use the event attribute `onclick` instead
+2025-12-06T08:58:19.938194813+00:00 stdout F https://svelte.dev/e/event_directive_deprecated
+2025-12-06T08:58:19.938194813+00:00 stdout F 8:58:19 AM [vite-plugin-svelte] src/lib/components/checkin/FamilyCard.svelte:102:23 `a11y-no-static-element-interactions` is no longer valid — please use `a11y_no_static_element_interactions` instead
+2025-12-06T08:58:19.938194813+00:00 stdout F https://svelte.dev/e/legacy_code
+2025-12-06T08:58:19.938328858+00:00 stdout F 8:58:19 AM [vite-plugin-svelte] src/lib/components/checkin/FamilyCard.svelte:101:23 `a11y-click-events-have-key-events` is no longer valid — please use `a11y_click_events_have_key_events` instead
+2025-12-06T08:58:19.938328858+00:00 stdout F https://svelte.dev/e/legacy_code
+2025-12-06T08:58:19.938328858+00:00 stdout F 8:58:19 AM [vite-plugin-svelte] src/lib/components/checkin/FamilyCard.svelte:103:4 Visible, non-interactive elements with a click event must be accompanied by a keyboard event handler. Consider whether an interactive element such as `<button type="button">` or `<a>` might be more appropriate
+2025-12-06T08:58:19.938328858+00:00 stdout F https://svelte.dev/e/a11y_click_events_have_key_events
+2025-12-06T08:58:19.938342087+00:00 stdout F 8:58:19 AM [vite-plugin-svelte] src/lib/components/checkin/FamilyCard.svelte:103:4 `<div>` with a click handler must have an ARIA role
+2025-12-06T08:58:19.938342087+00:00 stdout F https://svelte.dev/e/a11y_no_static_element_interactions
+2025-12-06T08:58:19.938359878+00:00 stdout F 8:58:19 AM [vite-plugin-svelte] src/lib/components/checkin/FamilyCard.svelte:103:31 Using `on:click` to listen to the click event is deprecated. Use the event attribute `onclick` instead
+2025-12-06T08:58:19.938359878+00:00 stdout F https://svelte.dev/e/event_directive_deprecated
+2025-12-06T08:58:19.938466211+00:00 stdout F 8:58:19 AM [vite-plugin-svelte] src/lib/components/checkin/FamilyCard.svelte:107:10 Using `on:click` to listen to the click event is deprecated. Use the event attribute `onclick` instead
+2025-12-06T08:58:19.938466211+00:00 stdout F https://svelte.dev/e/event_directive_deprecated
+2025-12-06T08:58:19.938488116+00:00 stdout F 8:58:19 AM [vite-plugin-svelte] src/lib/components/checkin/FamilyCard.svelte:118:10 Using `on:click` to listen to the click event is deprecated. Use the event attribute `onclick` instead
+2025-12-06T08:58:19.938488116+00:00 stdout F https://svelte.dev/e/event_directive_deprecated
+2025-12-06T08:58:19.938493416+00:00 stdout F 8:58:19 AM [vite-plugin-svelte] src/lib/components/checkin/FamilyCard.svelte:175:18 Using `on:click` to listen to the click event is deprecated. Use the event attribute `onclick` instead
+2025-12-06T08:58:19.938493416+00:00 stdout F https://svelte.dev/e/event_directive_deprecated
+2025-12-06T08:58:19.938510294+00:00 stdout F 8:58:19 AM [vite-plugin-svelte] src/lib/components/checkin/FamilyCard.svelte:182:18 Using `on:click` to listen to the click event is deprecated. Use the event attribute `onclick` instead
+2025-12-06T08:58:19.938510294+00:00 stdout F https://svelte.dev/e/event_directive_deprecated
+2025-12-06T08:58:19.960130165+00:00 stdout F 8:58:19 AM [vite-plugin-svelte] src/lib/components/checkin/AddFamilyPanel.svelte:90:8 Using `on:submit` to listen to the submit event is deprecated. Use the event attribute `onsubmit` instead
+2025-12-06T08:58:19.960130165+00:00 stdout F https://svelte.dev/e/event_directive_deprecated
+2025-12-06T08:58:19.960153400+00:00 stdout F 8:58:19 AM [vite-plugin-svelte] src/lib/components/checkin/AddFamilyPanel.svelte:96:8 Using `on:click` to listen to the click event is deprecated. Use the event attribute `onclick` instead
+2025-12-06T08:58:19.960153400+00:00 stdout F https://svelte.dev/e/event_directive_deprecated
+2025-12-06T08:58:19.960281340+00:00 stdout F 8:58:19 AM [vite-plugin-svelte] src/lib/components/checkin/AddFamilyPanel.svelte:167:16 Using `on:click` to listen to the click event is deprecated. Use the event attribute `onclick` instead
+2025-12-06T08:58:19.960281340+00:00 stdout F https://svelte.dev/e/event_directive_deprecated
+2025-12-06T08:58:19.960387357+00:00 stdout F 8:58:19 AM [vite-plugin-svelte] src/lib/components/checkin/AddFamilyPanel.svelte:179:8 Using `on:click` to listen to the click event is deprecated. Use the event attribute `onclick` instead
+2025-12-06T08:58:19.960387357+00:00 stdout F https://svelte.dev/e/event_directive_deprecated
+2025-12-06T08:58:19.960387357+00:00 stdout F 8:58:19 AM [vite-plugin-svelte] src/lib/components/checkin/AddFamilyPanel.svelte:190:8 Using `on:click` to listen to the click event is deprecated. Use the event attribute `onclick` instead
+2025-12-06T08:58:19.960387357+00:00 stdout F https://svelte.dev/e/event_directive_deprecated
+2025-12-06T08:58:19.971546379+00:00 stdout F 8:58:19 AM [vite-plugin-svelte] src/lib/components/checkin/ChildCheckInButton.svelte:33:4 Using `on:click` to listen to the click event is deprecated. Use the event attribute `onclick` instead
+2025-12-06T08:58:19.971546379+00:00 stdout F https://svelte.dev/e/event_directive_deprecated
+2025-12-06T08:58:19.971568731+00:00 stdout F 8:58:19 AM [vite-plugin-svelte] src/lib/components/checkin/ChildCheckInButton.svelte:52:4 Using `on:click` to listen to the click event is deprecated. Use the event attribute `onclick` instead
+2025-12-06T08:58:19.971568731+00:00 stdout F https://svelte.dev/e/event_directive_deprecated
+2025-12-06T08:58:19.971568731+00:00 stdout F 8:58:19 AM [vite-plugin-svelte] src/lib/components/checkin/ChildCheckInButton.svelte:62:4 Using `on:click` to listen to the click event is deprecated. Use the event attribute `onclick` instead
+2025-12-06T08:58:19.971568731+00:00 stdout F https://svelte.dev/e/event_directive_deprecated
+2025-12-06T09:01:15.701707398+00:00 stderr F 
+2025-12-06T09:01:15.701707398+00:00 stderr F [1;31m[404] GET /favicon.png[0m
+2025-12-06T09:11:00.389437571+00:00 stdout F Lockfile is up to date, resolution step is skipped
+2025-12-06T09:11:00.448509618+00:00 stdout F Already up to date
+2025-12-06T09:11:00.691966262+00:00 stdout F 
+2025-12-06T09:11:00.691966262+00:00 stdout F ╭ Warning ─────────────────────────────────────────────────────────────────────╮
+2025-12-06T09:11:00.691966262+00:00 stdout F │                                                                              │
+2025-12-06T09:11:00.691966262+00:00 stdout F │   Ignored build scripts: esbuild.                                            │
+2025-12-06T09:11:00.691966262+00:00 stdout F │   Run "pnpm approve-builds" to pick which dependencies should be allowed     │
+2025-12-06T09:11:00.691966262+00:00 stdout F │   to run scripts.                                                            │
+2025-12-06T09:11:00.691966262+00:00 stdout F │                                                                              │
+2025-12-06T09:11:00.691966262+00:00 stdout F ╰──────────────────────────────────────────────────────────────────────────────╯
+2025-12-06T09:11:00.691966262+00:00 stdout F 
+2025-12-06T09:11:00.705248156+00:00 stdout F Done in 709ms using pnpm v10.24.0
+2025-12-06T09:11:01.076736189+00:00 stdout F 
+2025-12-06T09:11:01.076736189+00:00 stdout F > check-ins-frontend@0.0.1 dev /app
+2025-12-06T09:11:01.076736189+00:00 stdout F > vite dev --host --host 0.0.0.0 --port 5173
+2025-12-06T09:11:01.076736189+00:00 stdout F 
+2025-12-06T09:11:02.057084512+00:00 stdout F 
+2025-12-06T09:11:02.057084512+00:00 stdout F   VITE v5.4.21  ready in 939 ms
+2025-12-06T09:11:02.057084512+00:00 stdout F 
+2025-12-06T09:11:02.057265852+00:00 stdout F   ➜  Local:   http://localhost:5173/
+2025-12-06T09:11:02.057275291+00:00 stdout F   ➜  Network: http://10.89.0.5:5173/
+2025-12-06T09:11:51.251990656+00:00 stdout F Lockfile is up to date, resolution step is skipped
+2025-12-06T09:11:51.309558701+00:00 stdout F Already up to date
+2025-12-06T09:11:51.567422338+00:00 stdout F 
+2025-12-06T09:11:51.567422338+00:00 stdout F ╭ Warning ─────────────────────────────────────────────────────────────────────╮
+2025-12-06T09:11:51.567422338+00:00 stdout F │                                                                              │
+2025-12-06T09:11:51.567422338+00:00 stdout F │   Ignored build scripts: esbuild.                                            │
+2025-12-06T09:11:51.567422338+00:00 stdout F │   Run "pnpm approve-builds" to pick which dependencies should be allowed     │
+2025-12-06T09:11:51.567422338+00:00 stdout F │   to run scripts.                                                            │
+2025-12-06T09:11:51.567422338+00:00 stdout F │                                                                              │
+2025-12-06T09:11:51.567422338+00:00 stdout F ╰──────────────────────────────────────────────────────────────────────────────╯
+2025-12-06T09:11:51.567422338+00:00 stdout F 
+2025-12-06T09:11:51.580862283+00:00 stdout F Done in 724ms using pnpm v10.24.0
+2025-12-06T09:11:51.946699348+00:00 stdout F 
+2025-12-06T09:11:51.946699348+00:00 stdout F > check-ins-frontend@0.0.1 dev /app
+2025-12-06T09:11:51.946699348+00:00 stdout F > vite dev --host --host 0.0.0.0 --port 5173
+2025-12-06T09:11:51.946699348+00:00 stdout F 
+2025-12-06T09:11:52.907316207+00:00 stdout F 
+2025-12-06T09:11:52.907316207+00:00 stdout F   VITE v5.4.21  ready in 930 ms
+2025-12-06T09:11:52.907316207+00:00 stdout F 
+2025-12-06T09:11:52.907493572+00:00 stdout F   ➜  Local:   http://localhost:5173/
+2025-12-06T09:11:52.907505822+00:00 stdout F   ➜  Network: http://10.89.0.5:5173/
+2025-12-06T09:13:00.197503888+00:00 stdout F Lockfile is up to date, resolution step is skipped
+2025-12-06T09:13:00.273602928+00:00 stdout F Already up to date
+2025-12-06T09:13:00.553951772+00:00 stdout F 
+2025-12-06T09:13:00.553951772+00:00 stdout F ╭ Warning ─────────────────────────────────────────────────────────────────────╮
+2025-12-06T09:13:00.553951772+00:00 stdout F │                                                                              │
+2025-12-06T09:13:00.553951772+00:00 stdout F │   Ignored build scripts: esbuild.                                            │
+2025-12-06T09:13:00.553951772+00:00 stdout F │   Run "pnpm approve-builds" to pick which dependencies should be allowed     │
+2025-12-06T09:13:00.553951772+00:00 stdout F │   to run scripts.                                                            │
+2025-12-06T09:13:00.553951772+00:00 stdout F │                                                                              │
+2025-12-06T09:13:00.553951772+00:00 stdout F ╰──────────────────────────────────────────────────────────────────────────────╯
+2025-12-06T09:13:00.553951772+00:00 stdout F 
+2025-12-06T09:13:00.571503965+00:00 stdout F Done in 779ms using pnpm v10.24.0
+2025-12-06T09:13:00.952854946+00:00 stdout F 
+2025-12-06T09:13:00.952854946+00:00 stdout F > check-ins-frontend@0.0.1 dev /app
+2025-12-06T09:13:00.952854946+00:00 stdout F > vite dev --host --host 0.0.0.0 --port 5173
+2025-12-06T09:13:00.952854946+00:00 stdout F 
+2025-12-06T09:13:02.201827052+00:00 stdout F 
+2025-12-06T09:13:02.201827052+00:00 stdout F   VITE v5.4.21  ready in 1212 ms
+2025-12-06T09:13:02.201827052+00:00 stdout F 
+2025-12-06T09:13:02.202055380+00:00 stdout F   ➜  Local:   http://localhost:5173/
+2025-12-06T09:13:02.202130997+00:00 stdout F   ➜  Network: http://10.89.0.5:5173/
+2025-12-06T09:21:23.090636056+00:00 stdout F Lockfile is up to date, resolution step is skipped
+2025-12-06T09:21:23.152321590+00:00 stdout F Already up to date
+2025-12-06T09:21:23.403916537+00:00 stdout F 
+2025-12-06T09:21:23.403916537+00:00 stdout F ╭ Warning ─────────────────────────────────────────────────────────────────────╮
+2025-12-06T09:21:23.403916537+00:00 stdout F │                                                                              │
+2025-12-06T09:21:23.403916537+00:00 stdout F │   Ignored build scripts: esbuild.                                            │
+2025-12-06T09:21:23.403916537+00:00 stdout F │   Run "pnpm approve-builds" to pick which dependencies should be allowed     │
+2025-12-06T09:21:23.403916537+00:00 stdout F │   to run scripts.                                                            │
+2025-12-06T09:21:23.403916537+00:00 stdout F │                                                                              │
+2025-12-06T09:21:23.403916537+00:00 stdout F ╰──────────────────────────────────────────────────────────────────────────────╯
+2025-12-06T09:21:23.403916537+00:00 stdout F 
+2025-12-06T09:21:23.417548800+00:00 stdout F Done in 703ms using pnpm v10.24.0
+2025-12-06T09:21:23.788506187+00:00 stdout F 
+2025-12-06T09:21:23.788506187+00:00 stdout F > check-ins-frontend@0.0.1 dev /app
+2025-12-06T09:21:23.788506187+00:00 stdout F > vite dev --host --host 0.0.0.0 --port 5173
+2025-12-06T09:21:23.788506187+00:00 stdout F 
+2025-12-06T09:21:24.732087520+00:00 stdout F 
+2025-12-06T09:21:24.732087520+00:00 stdout F   VITE v5.4.21  ready in 915 ms
+2025-12-06T09:21:24.732087520+00:00 stdout F 
+2025-12-06T09:21:24.732311513+00:00 stdout F   ➜  Local:   http://localhost:5173/
+2025-12-06T09:21:24.732331316+00:00 stdout F   ➜  Network: http://10.89.0.5:5173/
+2025-12-06T09:40:06.253917009+00:00 stdout F Lockfile is up to date, resolution step is skipped
+2025-12-06T09:40:06.332332647+00:00 stdout F Already up to date
+2025-12-06T09:40:06.611652595+00:00 stdout F 
+2025-12-06T09:40:06.611652595+00:00 stdout F ╭ Warning ─────────────────────────────────────────────────────────────────────╮
+2025-12-06T09:40:06.611652595+00:00 stdout F │                                                                              │
+2025-12-06T09:40:06.611652595+00:00 stdout F │   Ignored build scripts: esbuild.                                            │
+2025-12-06T09:40:06.611652595+00:00 stdout F │   Run "pnpm approve-builds" to pick which dependencies should be allowed     │
+2025-12-06T09:40:06.611652595+00:00 stdout F │   to run scripts.                                                            │
+2025-12-06T09:40:06.611652595+00:00 stdout F │                                                                              │
+2025-12-06T09:40:06.611652595+00:00 stdout F ╰──────────────────────────────────────────────────────────────────────────────╯
+2025-12-06T09:40:06.611652595+00:00 stdout F 
+2025-12-06T09:40:06.625534206+00:00 stdout F Done in 759ms using pnpm v10.24.0
+2025-12-06T09:40:07.048628764+00:00 stdout F 
+2025-12-06T09:40:07.048628764+00:00 stdout F > check-ins-frontend@0.0.1 dev /app
+2025-12-06T09:40:07.048628764+00:00 stdout F > vite dev --host --host 0.0.0.0 --port 5173
+2025-12-06T09:40:07.048628764+00:00 stdout F 
+2025-12-06T09:40:08.491728329+00:00 stdout F 
+2025-12-06T09:40:08.491728329+00:00 stdout F   VITE v5.4.21  ready in 1413 ms
+2025-12-06T09:40:08.491728329+00:00 stdout F 
+2025-12-06T09:40:08.491898560+00:00 stdout F   ➜  Local:   http://localhost:5173/
+2025-12-06T09:40:08.491951795+00:00 stdout F   ➜  Network: http://10.89.1.5:5173/

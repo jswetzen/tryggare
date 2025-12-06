@@ -36,10 +36,12 @@ function initializeTickInterval() {
   subscriptionInitialized = true;
 
   console.log('[undoTimer] Initializing tick interval subscription');
+
   undoActionsStore.subscribe((actions) => {
     console.log('[undoTimer] Store update - actions count:', actions.length, 'tickInterval:', tickInterval);
     if (actions.length > 0 && !tickInterval) {
       // Start tick interval when we have actions
+      // Keep it running until manually stopped (don't auto-stop when actions become empty)
       console.log('[undoTimer] Starting tick interval');
       tickInterval = setInterval(() => {
         tickStore.update((t) => {
@@ -47,12 +49,10 @@ function initializeTickInterval() {
           return t + 1;
         });
       }, 1000);
-    } else if (actions.length === 0 && tickInterval) {
-      // Stop tick interval when no actions
-      console.log('[undoTimer] Stopping tick interval');
-      clearInterval(tickInterval);
-      tickInterval = null;
     }
+    // Note: We intentionally DO NOT stop the interval when actions become empty
+    // This matches React's useEffect cleanup behavior and allows the UI to update
+    // showing 0 seconds before the button changes state
   });
 }
 

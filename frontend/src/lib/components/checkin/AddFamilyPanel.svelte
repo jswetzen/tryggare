@@ -6,6 +6,7 @@
    * Allows setting a default ticket type for all children in the family.
    */
   import { onMount } from 'svelte';
+  import { _ } from 'svelte-i18n';
   import type { TicketType } from '$lib/checkin/types';
 
   let {
@@ -58,7 +59,7 @@
 
     // Validate family name
     if (!familyName.trim()) {
-      error = 'Family name is required';
+      error = $_('checkin.familyNameRequired');
       return;
     }
 
@@ -68,7 +69,7 @@
       .filter((name) => name.length > 0);
 
     if (validChildren.length === 0) {
-      error = 'At least one child name is required';
+      error = $_('checkin.atLeastOneChildRequired');
       return;
     }
 
@@ -90,11 +91,11 @@
   <form on:submit={handleSubmit}>
     <!-- Header -->
     <div class="flex items-center justify-between mb-4">
-      <h2 class="text-lg font-bold text-slate-900">Add New Family</h2>
+      <h2 class="text-lg font-bold text-slate-900">{$_('checkin.addFamilyTitle')}</h2>
       <button
         type="button"
         on:click={onClose}
-        aria-label="Close"
+        aria-label={$_('common.close')}
         class="text-slate-400 hover:text-slate-600 transition-colors text-xl"
         data-testid="add-family-close-button"
       >
@@ -115,14 +116,14 @@
         for="family-name"
         class="block text-sm font-semibold text-slate-700 mb-1"
       >
-        Family Name:
+        {$_('checkin.familyName')}:
       </label>
       <input
         bind:this={familyNameInput}
         id="family-name"
         type="text"
         bind:value={familyName}
-        placeholder="Garcia, Smith, etc."
+        placeholder={$_('checkin.familyNamePlaceholder')}
         class="w-full px-3 py-2 border border-slate-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
         data-testid="add-family-name-input"
       />
@@ -134,23 +135,23 @@
         for="ticket-type"
         class="block text-sm font-semibold text-slate-700 mb-1"
       >
-        Ticket:
+        {$_('checkin.ticketType')}:
       </label>
       <select
         id="ticket-type"
         bind:value={ticketType}
         class="w-full px-3 py-2 border border-slate-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
       >
-        <option value="none">No Ticket</option>
-        <option value="session">Session Only</option>
-        <option value="event">Full Event Pass</option>
+        <option value="none">{$_('checkin.ticketNone')}</option>
+        <option value="session">{$_('checkin.ticketSession')}</option>
+        <option value="event">{$_('checkin.ticketEvent')}</option>
       </select>
     </div>
 
     <!-- Children -->
     <div class="mb-4">
       <div class="block text-sm font-semibold text-slate-700 mb-2">
-        Children:
+        {$_('checkin.children')}:
       </div>
       <div class="space-y-2">
         {#each childrenNames as name, index (index)}
@@ -158,17 +159,17 @@
             <input
               type="text"
               bind:value={childrenNames[index]}
-              placeholder={`Child ${index + 1} name`}
+              placeholder={$_('checkin.childNamePlaceholder')}
               class="flex-1 px-3 py-2 border border-slate-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
             {#if index > 0}
               <button
                 type="button"
                 on:click={() => handleRemoveChild(index)}
-                aria-label="Remove child"
+                aria-label={$_('checkin.removeChildLabel')}
                 class="text-red-600 hover:text-red-700 text-sm font-medium px-2 py-1"
               >
-                Remove
+                {$_('common.remove')}
               </button>
             {/if}
           </div>
@@ -179,7 +180,7 @@
         on:click={handleAddChild}
         class="mt-2 text-blue-600 hover:text-blue-700 text-sm font-semibold"
       >
-        + Add Child
+        {$_('checkin.addAnotherChild')}
       </button>
     </div>
 
@@ -191,14 +192,14 @@
         class="px-4 py-2 bg-slate-200 text-slate-700 font-semibold rounded-lg hover:bg-slate-300 transition-colors"
         data-testid="add-family-cancel-button"
       >
-        Cancel
+        {$_('common.cancel')}
       </button>
       <button
         type="submit"
         class="px-4 py-2 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition-colors"
         data-testid="add-family-submit-button"
       >
-        Add Family
+        {$_('checkin.addNewFamily')}
       </button>
     </div>
   </form>

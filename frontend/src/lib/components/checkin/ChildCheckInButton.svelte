@@ -8,6 +8,7 @@
    * - Checked In (gray, disabled) - for checked-in children after grace period
    * - No Ticket (red) - for children without tickets, expands to show ticket assignment
    */
+  import { _ } from 'svelte-i18n';
   import type { Child, TicketType } from '$lib/checkin/types';
 
   let {
@@ -35,7 +36,7 @@
     aria-label={`Undo check-in for ${child.name}, ${remainingSeconds} seconds remaining`}
     data-testid={`child-undo-button-${child.id}`}
   >
-    Undo ({remainingSeconds}s)
+    {$_('checkin.undoSeconds', { values: { seconds: remainingSeconds } })}
   </button>
 {:else if child.checkedIn}
   <!-- Checked in, undo expired -->
@@ -44,17 +45,17 @@
     title={`Checked in at ${child.checkInTime}`}
     class="px-3 py-1.5 bg-slate-400 text-white text-sm font-semibold rounded cursor-not-allowed min-w-[100px]"
   >
-    Checked In
+    {$_('checkin.alreadyCheckedIn')}
   </button>
 {:else if child.ticket === 'none'}
   <!-- No ticket - show button only (expansion handled by parent) -->
   <button
     on:click={() => onNoTicketClick?.()}
     class="px-3 py-1.5 bg-red-100 text-red-700 text-sm font-semibold rounded border border-red-300 hover:bg-red-200 transition-colors min-w-[100px]"
-    aria-label="No ticket - click to assign"
+    aria-label={$_('checkin.noTicketClickToAssign')}
     data-testid={`child-expand-button-${child.id}`}
   >
-    No Ticket {expanded ? '▲' : '▼'}
+    {$_('checkin.ticketNone')} {expanded ? '▲' : '▼'}
   </button>
 {:else}
   <!-- Has valid ticket, ready to check in -->
@@ -64,6 +65,6 @@
     aria-label={`Check in ${child.name}`}
     data-testid={`child-check-in-button-${child.id}`}
   >
-    Check In
+    {$_('checkin.checkIn')}
   </button>
 {/if}

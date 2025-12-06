@@ -11,6 +11,7 @@
    */
   import type { Family, TicketType } from '$lib/checkin/types';
   import ChildCheckInButton from './ChildCheckInButton.svelte';
+  import { _ } from 'svelte-i18n';
 
   import { undoActionsWithTick } from '$lib/checkin/stores/undoTimer';
 
@@ -58,11 +59,11 @@
   function getTicketDisplay(ticketType: string): string {
     switch (ticketType) {
       case 'event':
-        return '🟢 Event Pass';
+        return `🟢 ${$_('checkin.ticketEvent')}`;
       case 'session':
-        return '🔵 Session Ticket';
+        return `🔵 ${$_('checkin.ticketSession')}`;
       case 'none':
-        return '🔴 No Ticket';
+        return `🔴 ${$_('checkin.ticketNone')}`;
       default:
         return '';
     }
@@ -91,7 +92,7 @@
           {family.name} Family
         </h3>
         <p class="text-sm text-slate-600">
-          {totalChildren} {totalChildren === 1 ? 'child' : 'children'} •
+          {totalChildren} {totalChildren === 1 ? $_('checkin.child') : $_('checkin.children')} •
           {checkedInCount} checked in
         </p>
       </div>
@@ -109,7 +110,7 @@
           aria-label={`Undo family check-in, ${familyUndoSeconds} seconds remaining`}
           data-testid={`family-undo-button-${family.id}`}
         >
-          Undo Family ({familyUndoSeconds}s)
+          {$_('checkin.undoSeconds', { values: { seconds: familyUndoSeconds } })}
         </button>
       {:else if !allCheckedIn && canCheckInCount > 0 && !hasNoTicketChildren}
         <!-- Check In Family button -->
@@ -120,12 +121,12 @@
           aria-label={`Check in ${canCheckInCount} children from ${family.name} family`}
           data-testid={`family-check-in-button-${family.id}`}
         >
-          Check In Family ({canCheckInCount})
+          {$_('checkin.checkInCount', { values: { count: canCheckInCount } })}
         </button>
       {:else if allCheckedIn}
         <!-- All checked in -->
         <span class="px-4 py-2 bg-slate-200 text-slate-600 font-semibold rounded-lg text-sm whitespace-nowrap">
-          All Checked In
+          {$_('checkin.alreadyCheckedIn')}
         </span>
       {/if}
     </div>
@@ -149,7 +150,7 @@
               <div class="text-xs text-slate-500 mt-0.5">
                 {getTicketDisplay(child.ticket)}
                 {#if child.checkedIn && child.checkInTime}
-                  • Checked in at {child.checkInTime}
+                  • {$_('checkin.checkedInAt', { values: { time: child.checkInTime } })}
                 {/if}
               </div>
             </div>
@@ -168,7 +169,7 @@
           {#if isExpanded && child.ticket === 'none'}
             <div class="w-full bg-yellow-50 border border-yellow-200 rounded p-3 animate-expand">
               <p class="text-sm text-slate-700 mb-2 font-medium">
-                Check in {child.name} with:
+                {$_('checkin.checkIn')} {child.name} with:
               </p>
               <div class="flex gap-2">
                 <button
@@ -176,14 +177,14 @@
                   class="flex-1 px-3 py-2 bg-blue-500 text-white text-sm font-semibold rounded hover:bg-blue-600 transition-colors"
                   data-testid={`ticket-assign-session-${child.id}`}
                 >
-                  Session Only
+                  {$_('checkin.ticketSession')}
                 </button>
                 <button
                   on:click={() => onAssignTicket(child.id, 'event')}
                   class="flex-1 px-3 py-2 bg-green-600 text-white text-sm font-semibold rounded hover:bg-green-700 transition-colors"
                   data-testid={`ticket-assign-event-${child.id}`}
                 >
-                  Full Event Pass
+                  {$_('checkin.ticketEvent')}
                 </button>
               </div>
             </div>
