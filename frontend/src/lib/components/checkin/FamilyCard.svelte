@@ -12,24 +12,47 @@
   import type { Family, TicketType } from '$lib/checkin/types';
   import ChildCheckInButton from './ChildCheckInButton.svelte';
 
-  export let family: Family;
-  export let expanded: boolean;
-  export let onToggle: () => void;
-  export let onCheckInChild: (childId: number) => void;
-  export let onCheckInFamily: () => void;
-  export let onUndoChild: (childId: number) => void;
-  export let onUndoFamily: () => void;
-  export let onAssignTicket: (childId: number, ticketType: TicketType) => void;
-  export let expandedChildId: number | null;
-  export let onToggleChildExpansion: (childId: number | null) => void;
-  export let getRemainingTime: (actionId: string) => number | null;
-  export let familyUndoSeconds: number | null;
+  import { undoActionsWithTick } from '$lib/checkin/stores/undoTimer';
 
-  $: totalChildren = family.children.length;
-  $: checkedInCount = family.children.filter((c) => c.checkedIn).length;
-  $: canCheckInCount = family.children.filter((c) => !c.checkedIn && c.ticket !== 'none').length;
-  $: allCheckedIn = checkedInCount === totalChildren;
-  $: hasNoTicketChildren = family.children.some((c) => c.ticket === 'none');
+  let {
+    family,
+    expanded,
+    onToggle,
+    onCheckInChild,
+    onCheckInFamily,
+    onUndoChild,
+    onUndoFamily,
+    onAssignTicket,
+    expandedChildId,
+    onToggleChildExpansion,
+    getRemainingTime,
+    familyUndoSeconds
+  }: {
+    family: Family;
+    expanded: boolean;
+    onToggle: () => void;
+    onCheckInChild: (childId: number) => void;
+    onCheckInFamily: () => void;
+    onUndoChild: (childId: number) => void;
+    onUndoFamily: () => void;
+    onAssignTicket: (childId: number, ticketType: TicketType) => void;
+    expandedChildId: number | null;
+    onToggleChildExpansion: (childId: number | null) => void;
+    getRemainingTime: (actionId: string) => number | null;
+    familyUndoSeconds: number | null;
+  } = $props();
+
+  // Subscribe to tick store for reactive countdown
+  // Subscribe to undo timer store for reactivity
+  // undoActionsWithTick returns { actions: UndoAction[], tick: number }
+  let undoActionsData = $derived($undoActionsWithTick);
+  let undoActions = $derived(undoActionsData.actions);
+
+  const totalChildren = $derived(family.children.length);
+  const checkedInCount = $derived(family.children.filter((c) => c.checkedIn).length);
+  const canCheckInCount = $derived(family.children.filter((c) => !c.checkedIn && c.ticket !== 'none').length);
+  const allCheckedIn = $derived(checkedInCount === totalChildren);
+  const hasNoTicketChildren = $derived(family.children.some((c) => c.ticket === 'none'));
 
   // Helper to get ticket type display
   function getTicketDisplay(ticketType: string): string {
@@ -52,18 +75,18 @@
 >
   <!-- Family Header -->
   <div class="bg-slate-50 p-3 flex items-center justify-between gap-3">
-    <div class="flex items-center gap-2 flex-1 min-w-0">
+    <button
+      on:click={onToggle}
+      class="flex items-center gap-2 flex-1 min-w-0 text-left hover:bg-slate-100 rounded px-2 py-1 -mx-2 -my-1 transition-colors"
+      aria-label={`${expanded ? 'Collapse' : 'Expand'} ${family.name} family`}
+      data-testid={`family-toggle-button-${family.id}`}
+    >
       <div class="text-slate-600 flex-shrink-0">
         <span class="chevron" class:expanded>
           {expanded ? '▼' : '▶'}
         </span>
       </div>
-      <button
-        on:click={onToggle}
-        class="flex-1 min-w-0 text-left hover:bg-slate-100 rounded px-2 py-1 -mx-2 -my-1 transition-colors"
-        aria-label={`${expanded ? 'Collapse' : 'Expand'} ${family.name} family`}
-        data-testid={`family-toggle-button-${family.id}`}
-      >
+      <div class="flex-1 min-w-0">
         <h3 class="font-bold text-blue-900 text-lg truncate">
           {family.name} Family
         </h3>
@@ -71,8 +94,8 @@
           {totalChildren} {totalChildren === 1 ? 'child' : 'children'} •
           {checkedInCount} checked in
         </p>
-      </button>
-    </div>
+      </div>
+    </button>
 
     <!-- Family Action Button -->
     <!-- svelte-ignore a11y-click-events-have-key-events -->
@@ -82,7 +105,7 @@
         <!-- Undo Family button during grace period -->
         <button
           on:click={onUndoFamily}
-          class="px-4 py-2 bg-orange-500 text-white font-semibold rounded-lg hover:bg-orange-600 transition-colors text-sm whitespace-nowrap"
+          class="px-4 py-2 bg-amber-600 text-white font-semibold rounded-lg hover:bg-amber-700 transition-colors text-sm whitespace-nowrap"
           aria-label={`Undo family check-in, ${familyUndoSeconds} seconds remaining`}
           data-testid={`family-undo-button-${family.id}`}
         >
@@ -112,8 +135,8 @@
   {#if expanded}
     <div class="p-3 space-y-2">
       {#each family.children as child (child.id)}
-        {@const childUndoAction = child.checkInActionId ? getRemainingTime(child.checkInActionId) : null}
         {@const isExpanded = expandedChildId === child.id}
+        {@const childRemainingSeconds = child.checkInActionId ? getRemainingTime(child.checkInActionId) : null}
 
         <div
           class="flex flex-col gap-2 p-2 bg-slate-50 rounded border border-slate-200"
@@ -135,7 +158,7 @@
               onCheckIn={() => onCheckInChild(child.id)}
               onUndo={() => onUndoChild(child.id)}
               onNoTicketClick={() => onToggleChildExpansion(isExpanded ? null : child.id)}
-              remainingSeconds={childUndoAction}
+              remainingSeconds={childRemainingSeconds}
               expanded={isExpanded}
             />
           </div>
