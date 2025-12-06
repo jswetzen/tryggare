@@ -38,10 +38,11 @@
 - Backend API integration still needed (deferred for later)
 
 ### 📋 Remaining Work
+- **Phase 3.7**: Backend data model updates (prerequisites for API integration)
 - **Phase 4**: Verify styling and animations match React prototype exactly
 - **Phase 5**: Write component tests, integration tests, E2E tests
 - **Phase 6**: Visual verification, performance testing, cleanup
-- **API Integration**: Replace mock data with Django backend calls (3 endpoints needed)
+- **Phase 7**: API Integration - Replace mock data with Django backend calls
 
 ### 🎯 Next Immediate Steps
 1. Visual verification and styling polish (Phase 4)
@@ -457,6 +458,107 @@ Added complete i18n support to all checkin page components using the existing sv
 5. `/frontend/src/lib/components/checkin/ChildCheckInButton.svelte`
 6. `/frontend/src/lib/components/checkin/FamilyCard.svelte`
 7. `/frontend/src/routes/checkin/+page.svelte`
+
+---
+
+## Phase 3.7: Backend Data Model Updates 🔧
+
+**Goal**: Update Django models to better support the check-in UI and clarify data relationships
+
+**Reference**: See `/workspace/check-ins/docs/CHECKIN_API_INTEGRATION_ANALYSIS.md` sections 9.3 and 9.1
+
+### 3.7.1 Add Family Last Name Field ✅ **COMPLETED 2025-12-06**
+**Problem**: Currently family display names must be derived by parsing the first parent's full name, which is fragile and unreliable.
+
+**Solution**: Add explicit `last_name` field to Family model
+
+**Tasks:**
+- [x] Add `last_name` CharField to `backend/families/models.py` Family model
+- [x] Create migration for new field (0003_family_last_name_family_families_last_na_e36008_idx.py)
+- [x] Update `FamilySerializer` to include `last_name` field
+- [x] Update admin interface to show/edit last_name
+- [x] Populate existing families with derived last names (data migration 0004_auto_20251206_1654.py)
+- [x] Update tests to use new field
+- [x] Verification: All backend tests passing
+
+**Benefits:**
+- More reliable family display names
+- Handles edge cases (different parent last names, step-families)
+- Makes family name a first-class concept
+- Simpler frontend code (no name parsing needed)
+
+### 3.7.2 Refactor Ticket Model (Polymorphic Approach)
+**Problem**: Current Ticket model has ambiguous relationships:
+- `type` field ('EVENT_PASS' | 'SESSION_TICKET' | 'NONE')
+- `session` field is nullable
+- Unclear if event passes link to events or sessions
+- No enforcement that SESSION_TICKET must have a session
+
+**Solution**: Use polymorphic ticket model with explicit Event and Session ticket types
+
+**Current Model:**
+```python
+class Ticket(models.Model):
+    type = models.CharField(...)  # EVENT_PASS | SESSION_TICKET | NONE
+    child = models.ForeignKey(Child, ...)
+    session = models.ForeignKey(Session, ..., null=True, blank=True)  # Ambiguous!
+```
+
+**Proposed Model:**
+```python
+class Ticket(models.Model):
+    # Base ticket class (abstract or concrete)
+    id = models.UUIDField(...)
+    child = models.ForeignKey(Child, ...)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        abstract = False  # Keep as concrete for polymorphic queries
+
+class EventTicket(models.Model):
+    ticket = models.OneToOneField(Ticket, on_delete=models.CASCADE, related_name='event_ticket')
+    event = models.ForeignKey(Event, on_delete=models.CASCADE)
+
+class SessionTicket(models.Model):
+    ticket = models.OneToOneField(Ticket, on_delete=models.CASCADE, related_name='session_ticket')
+    session = models.ForeignKey(Session, on_delete=models.CASCADE)  # NOT nullable!
+```
+
+**Tasks:**
+- [ ] Design final polymorphic model structure
+- [ ] Create new EventTicket and SessionTicket models in `backend/events/models.py`
+- [ ] Create migration to split existing Ticket records
+- [ ] Update TicketSerializer to handle polymorphic types
+- [ ] Update check-in logic to work with new ticket types
+- [ ] Update admin interface for new models
+- [ ] Write data migration to convert existing tickets
+- [ ] Update all tests to use new ticket structure
+- [ ] Update API documentation
+
+**Benefits:**
+- Crystal clear relationships (event tickets → events, session tickets → sessions)
+- Type safety at database level (session tickets MUST have a session)
+- Easier to query (get all event tickets, get all session tickets)
+- Future extensibility (add other ticket types if needed)
+- No more ambiguous null checks in business logic
+
+### 3.7.3 Update API Serializers
+**Tasks:**
+- [ ] Update `ChildSerializer` to include ticket information
+- [ ] Add computed `ticket_type` field to Child API response
+- [ ] Update `FamilySerializer` to include `display_name` computed from `last_name`
+- [ ] Add API endpoint for ticket management
+- [ ] Update WebSocket messages to include ticket updates
+
+### 3.7.4 Testing & Verification
+**Tasks:**
+- [ ] Run all backend unit tests
+- [ ] Run integration tests
+- [ ] Test data migrations on copy of production data
+- [ ] Verify admin interface works with new models
+- [ ] Update fixtures with new data structure
+- [ ] Run `uv run python backend/verify.py`
+- [ ] Run full test suite: `./verification.sh --test`
 
 ---
 

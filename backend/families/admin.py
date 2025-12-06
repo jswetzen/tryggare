@@ -5,8 +5,9 @@ from .models import Child, Family, Parent
 
 @admin.register(Family)
 class FamilyAdmin(admin.ModelAdmin):
-    list_display = ("id", "last_participation_date")
-    search_fields = ("id",)
+    list_display = ("id", "last_name", "last_participation_date")
+    search_fields = ("id", "last_name")
+    list_filter = ("last_participation_date",)
 
 
 @admin.register(Parent)

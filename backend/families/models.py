@@ -6,14 +6,20 @@ from django.utils.translation import gettext_lazy as _
 
 class Family(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    last_name = models.CharField(max_length=255, verbose_name=_("Last Name"), blank=True, default="")
     last_participation_date = models.DateTimeField(null=True, blank=True, verbose_name=_("Last Participation Date"))
 
     class Meta:
         db_table = "families"
         verbose_name = _("Family")
         verbose_name_plural = _("Families")
+        indexes = [
+            models.Index(fields=["last_name"]),
+        ]
 
     def __str__(self) -> str:
+        if self.last_name:
+            return f"{self.last_name} Family"
         return f"Family {self.id}" if not self.parents.exists() else f"{self.parents.first().name}'s family"
 
 
