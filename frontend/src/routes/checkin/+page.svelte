@@ -674,6 +674,11 @@
           {@const familyActions = getFamilyUndoActions(family.id)}
           {@const familyAction = familyActions.find((a) => a.childIds.length > 1)}
           {@const familyUndoSeconds = familyAction && _tick >= 0 ? getRemainingTime(familyAction.id) : null}
+          {@const childRemainingTimes = new Map(
+            family.children
+              .filter(c => c.checkInActionId)
+              .map(c => [c.id, _tick >= 0 ? getRemainingTime(c.checkInActionId!) : null])
+          )}
           <FamilyCard
             {family}
             expanded={expandedFamilies.has(family.id)}
@@ -688,7 +693,7 @@
             onToggleChildExpansion={(childId) => {
               expandedChildId = childId;
             }}
-            {getRemainingTime}
+            {childRemainingTimes}
             {familyUndoSeconds}
           />
         {/each}
