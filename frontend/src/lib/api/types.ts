@@ -12,19 +12,11 @@ export interface User {
 
 export interface Family {
   id: string;
-  family_name: string;
-  primary_contact_name: string;
-  primary_contact_phone: string;
-  primary_contact_email: string;
-  secondary_contact_name?: string;
-  secondary_contact_phone?: string;
-  secondary_contact_email?: string;
-  address?: string;
-  notes?: string;
+  last_name: string;
+  display_name: string;
+  parents: Parent[];
+  children: Child[]; // Always populated from API
   last_participation_date?: string;
-  created_at: string;
-  updated_at: string;
-  children?: Child[]; // Optional, populated when needed
 }
 
 export interface Child {
@@ -32,20 +24,30 @@ export interface Child {
   family: string;
   first_name: string;
   last_name: string;
-  date_of_birth?: string;
+  birthdate?: string;
   allergies?: string;
-  medical_conditions?: string;
-  special_needs?: string;
+  notes?: string;
   qr_token?: string;
-  parent_names?: string[];  // Array of parent names for QR page
   last_participation_date?: string;
-  created_at: string;
-  updated_at: string;
+  ticket_type: 'event' | 'session' | 'none';
+  ticket_details?: {
+    event_tickets: Array<{
+      id: string;
+      event: string;
+      event_name: string;
+    }>;
+    session_tickets: Array<{
+      id: string;
+      session: string;
+      session_name: string;
+    }>;
+  };
 }
 
 export interface Session {
   id: string;
   event: string;
+  event_name: string;
   name: string;
   session_type: 'SERVICE' | 'CHILDCARE' | 'EVENT' | 'OTHER';
   start_time: string;
@@ -56,8 +58,6 @@ export interface Session {
   max_age_months?: number;
   description?: string;
   is_active: boolean;
-  created_at: string;
-  updated_at: string;
 }
 
 export interface CheckInRecord {

@@ -1,7 +1,7 @@
 <script lang="ts">
-  import { onDestroy } from 'svelte';
+  import { onMount, onDestroy } from 'svelte';
   import { _ } from 'svelte-i18n';
-  import type { Family, Child, TicketType } from '$lib/checkin/types';
+  import type { Family, Child, TicketType, Session, FamilyApiResponse } from '$lib/checkin/types';
   import Icon from '$lib/components/ui/Icon.svelte';
 
   // Import checkin components
@@ -21,63 +21,112 @@
   } from '$lib/checkin/stores/undoTimer';
   import { getVisibleFamilies } from '$lib/checkin/utils/familyVisibility';
 
+  // Import API services
+  import { checkinApi, ticketApi } from '$lib/api/services';
+  import type { ApiError } from '$lib/api/client';
+  import { websocketStore } from '$lib/stores/websocket';
+  import type { WebSocketMessage } from '$lib/api/types';
+
   // ============================================================================
-  // MOCK DATA
+  // HELPER FUNCTIONS - Transform API responses to frontend types
   // ============================================================================
 
-  const MOCK_FAMILIES: Family[] = [
-    {
-      id: 1,
-      name: 'Garcia',
-      children: [
-        { id: 1, name: 'Isabella Garcia', ticket: 'event', checkedIn: false },
-        { id: 2, name: 'Lucas Garcia', ticket: 'none', checkedIn: false },
-      ],
-    },
-    {
-      id: 2,
-      name: 'Johnson',
-      children: [
-        { id: 3, name: 'Sophia Johnson', ticket: 'session', checkedIn: false },
-      ],
-    },
-    {
-      id: 3,
-      name: 'Smith',
-      children: [
-        { id: 4, name: 'Emma Smith', ticket: 'event', checkedIn: false },
-        { id: 5, name: 'Oliver Smith', ticket: 'event', checkedIn: false },
-      ],
-    },
-    {
-      id: 4,
-      name: 'Anderson',
-      children: [
-        { id: 6, name: 'Liam Anderson', ticket: 'event', checkedIn: false },
-        { id: 7, name: 'Mia Anderson', ticket: 'event', checkedIn: false },
-        { id: 8, name: 'Noah Anderson', ticket: 'session', checkedIn: false },
-      ],
-    },
-  ];
+  function transformFamilyResponse(apiFamily: FamilyApiResponse): Family {
+    return {
+      id: apiFamily.id,
+      last_name: apiFamily.last_name,
+      display_name: apiFamily.display_name,
+      name: apiFamily.display_name, // Use display_name for backward compatibility
+      children: apiFamily.children.map((child) => ({
+        id: child.id,
+        first_name: child.first_name,
+        last_name: child.last_name,
+        name: `${child.first_name} ${child.last_name}`,
+        ticket: (child.ticket_type as TicketType) || 'none',
+        ticket_type: (child.ticket_type as TicketType) || 'none',
+        ticket_details: child.ticket_details,
+        checkedIn: false, // Will be updated from active check-ins
+        family: child.family,
+        birthdate: child.birthdate,
+        allergies: child.allergies,
+        notes: child.notes,
+        qr_token: child.qr_token,
+      })),
+      parents: apiFamily.parents,
+      last_participation_date: apiFamily.last_participation_date,
+    };
+  }
 
   // ============================================================================
   // STATE MANAGEMENT
   // ============================================================================
 
-  let families = $state<Family[]>(MOCK_FAMILIES);
+  let families = $state<Family[]>([]);
+  let activeSession = $state<Session | null>(null);
+  let loading = $state(true);
+  let error = $state<string | null>(null);
   let searchQuery = $state('');
-  let expandedFamilies = $state(new Set<number>());
-  let expandedChildId = $state<number | null>(null);
+  let expandedFamilies = $state<Set<string>>(new Set());
+  let expandedChildId = $state<string | null>(null);
   let showAddPanel = $state(false);
   let successToast = $state<string | null>(null);
-  let nextFamilyId = $state(5);
-  let nextChildId = $state(10);
 
   // Subscribe to undo timer store for reactivity
   // The $ prefix makes this reactive to store updates
   // undoActionsWithTick returns { actions: UndoAction[], tick: number }
   let undoActionsData = $derived($undoActionsWithTick);
   let undoActions = $derived(undoActionsData.actions);
+
+  // ============================================================================
+  // DATA LOADING
+  // ============================================================================
+
+  async function loadFamilies() {
+    try {
+      loading = true;
+      error = null;
+      const response = await checkinApi.getFamilies();
+      families = response.map(transformFamilyResponse);
+    } catch (err) {
+      const apiError = err as ApiError;
+      error = apiError.message || 'Failed to load families';
+      console.error('Error loading families:', err);
+    } finally {
+      loading = false;
+    }
+  }
+
+  async function loadActiveSession() {
+    try {
+      const sessions = await checkinApi.getActiveSessions();
+      if (sessions.length > 0) {
+        activeSession = sessions[0]; // Use the first active session
+      } else {
+        error = 'No active session found';
+      }
+    } catch (err) {
+      const apiError = err as ApiError;
+      console.error('Error loading active session:', err);
+      // Don't set error state here, as it's not critical
+    }
+  }
+
+  // Load data on mount
+  onMount(() => {
+    // Load initial data
+    Promise.all([loadFamilies(), loadActiveSession()]);
+
+    // Connect to WebSocket for real-time updates
+    websocketStore.connect();
+
+    // Subscribe to WebSocket messages
+    const unsubscribe = websocketStore.onMessage(handleWebSocketMessage);
+
+    // Return cleanup function
+    return () => {
+      unsubscribe();
+    };
+  });
 
   // ============================================================================
   // HELPER FUNCTIONS
@@ -89,6 +138,18 @@
       hour: 'numeric',
       minute: '2-digit',
     });
+  }
+
+  // Handle WebSocket messages for real-time updates
+  function handleWebSocketMessage(message: WebSocketMessage) {
+    if (message.type === 'child_checked_in') {
+      // Another station checked in a child - reload family list to update UI
+      // This ensures we show the latest check-in state across all stations
+      loadFamilies();
+    } else if (message.type === 'child_checked_out') {
+      // Child was checked out - reload family list
+      loadFamilies();
+    }
   }
 
   // ============================================================================
@@ -123,7 +184,7 @@
     }
 
     const query = searchQuery.toLowerCase();
-    const newExpanded = new Set<number>();
+    const newExpanded = new Set<string>();
 
     // Use families directly instead of visibleFamilies to avoid circular dependency
     families.forEach((family) => {
@@ -150,6 +211,7 @@
   // Cleanup on destroy
   onDestroy(() => {
     cleanupUndoTimer();
+    websocketStore.disconnect();
   });
 
   // ============================================================================
@@ -157,7 +219,7 @@
   // ============================================================================
 
   // Toggle family expansion
-  function toggleFamily(familyId: number) {
+  function toggleFamily(familyId: string) {
     if (expandedFamilies.has(familyId)) {
       expandedFamilies.delete(familyId);
     } else {
@@ -167,38 +229,62 @@
   }
 
   // Check in individual child
-  function checkInChild(familyId: number, childId: number) {
-    const actionId = createUndoAction(familyId, [childId]);
-    const checkInTime = getCurrentTime();
-
-    families = families.map((fam) => {
-      if (fam.id !== familyId) return fam;
-      return {
-        ...fam,
-        children: fam.children.map((child) => {
-          if (child.id !== childId) return child;
-          return {
-            ...child,
-            checkedIn: true,
-            checkInTime,
-            checkInActionId: actionId,
-          };
-        }),
-      };
-    });
-
-    const family = families.find((f) => f.id === familyId);
-    const child = family?.children.find((c) => c.id === childId);
-    if (child) {
-      successToast = $_('checkin.successCheckedIn', { values: { name: child.name } });
+  async function checkInChild(familyId: string, childId: string) {
+    if (!activeSession) {
+      error = 'No active session';
+      return;
     }
 
-    // Close expansion if open
-    expandedChildId = null;
+    try {
+      // Call API to check in the child
+      await checkinApi.checkIn({
+        child: childId,
+        session: activeSession.id,
+      });
+
+      // Create undo action
+      const actionId = createUndoAction(familyId, [childId]);
+      const checkInTime = getCurrentTime();
+
+      // Update local state optimistically
+      families = families.map((fam) => {
+        if (fam.id !== familyId) return fam;
+        return {
+          ...fam,
+          children: fam.children.map((child) => {
+            if (child.id !== childId) return child;
+            return {
+              ...child,
+              checkedIn: true,
+              checkInTime,
+              checkInActionId: actionId,
+            };
+          }),
+        };
+      });
+
+      const family = families.find((f) => f.id === familyId);
+      const child = family?.children.find((c) => c.id === childId);
+      if (child) {
+        successToast = $_('checkin.successCheckedIn', { values: { name: child.name } });
+      }
+
+      // Close expansion if open
+      expandedChildId = null;
+    } catch (err) {
+      const apiError = err as ApiError;
+      error = apiError.message || 'Failed to check in child';
+      console.error('Error checking in child:', err);
+    }
   }
 
   // Check in entire family
-  function checkInFamily(familyId: number) {
+  async function checkInFamily(familyId: string) {
+    if (!activeSession) {
+      error = 'No active session';
+      return;
+    }
+
     const family = families.find((f) => f.id === familyId);
     if (!family) return;
 
@@ -208,39 +294,58 @@
 
     if (childIdsToCheckIn.length === 0) return;
 
-    const actionId = createUndoAction(familyId, childIdsToCheckIn);
-    const checkInTime = getCurrentTime();
+    try {
+      // Check in all children sequentially
+      await Promise.all(
+        childIdsToCheckIn.map((childId) =>
+          checkinApi.checkIn({
+            child: childId,
+            session: activeSession.id,
+          })
+        )
+      );
 
-    families = families.map((fam) => {
-      if (fam.id !== familyId) return fam;
-      return {
-        ...fam,
-        lastCheckInTime: Date.now(),
-        children: fam.children.map((child) => {
-          if (!childIdsToCheckIn.includes(child.id)) return child;
-          return {
-            ...child,
-            checkedIn: true,
-            checkInTime,
-            checkInActionId: actionId,
-          };
-        }),
-      };
-    });
+      const actionId = createUndoAction(familyId, childIdsToCheckIn);
+      const checkInTime = getCurrentTime();
 
-    const count = childIdsToCheckIn.length;
-    const childrenLabel = count === 1 ? $_('checkin.child') : $_('checkin.children');
-    successToast = $_('checkin.successFamilyCheckedIn', {
-      values: {
-        family: family.name,
-        count: count,
-        childrenLabel: childrenLabel
-      }
-    });
+      families = families.map((fam) => {
+        if (fam.id !== familyId) return fam;
+        return {
+          ...fam,
+          lastCheckInTime: Date.now(),
+          children: fam.children.map((child) => {
+            if (!childIdsToCheckIn.includes(child.id)) return child;
+            return {
+              ...child,
+              checkedIn: true,
+              checkInTime,
+              checkInActionId: actionId,
+            };
+          }),
+        };
+      });
+
+      const count = childIdsToCheckIn.length;
+      const childrenLabel = count === 1 ? $_('checkin.child') : $_('checkin.children');
+      successToast = $_('checkin.successFamilyCheckedIn', {
+        values: {
+          family: family.name,
+          count: count,
+          childrenLabel: childrenLabel,
+        },
+      });
+    } catch (err) {
+      const apiError = err as ApiError;
+      error = apiError.message || 'Failed to check in family';
+      console.error('Error checking in family:', err);
+    }
   }
 
   // Undo individual child check-in
-  function undoChildCheckIn(familyId: number, childId: number) {
+  // NOTE: Backend does not support undo check-in (only undo check-out within 5 minutes)
+  // This is a client-side only undo that removes the local check-in state
+  // The check-in record remains in the database - staff must use check-out to reverse
+  function undoChildCheckIn(familyId: string, childId: string) {
     const family = families.find((f) => f.id === familyId);
     const child = family?.children.find((c) => c.id === childId);
 
@@ -267,10 +372,17 @@
         successToast = `${child.name} check-in undone`;
       }
     }
+    // LIMITATION: Backend does not support undo check-in API endpoint
+    // The check-in record persists in the database
+    // This undo only affects the local UI state within the 30-second grace period
+    // To fully reverse, staff must check out the child
   }
 
   // Undo family check-in
-  function undoFamilyCheckIn(familyId: number) {
+  // NOTE: Backend does not support undo check-in (only undo check-out within 5 minutes)
+  // This is a client-side only undo that removes the local check-in state
+  // The check-in records remain in the database - staff must use check-out to reverse
+  function undoFamilyCheckIn(familyId: string) {
     const family = families.find((f) => f.id === familyId);
     if (!family) return;
 
@@ -307,70 +419,120 @@
     });
 
     successToast = `${family.name} check-in undone`;
+    // LIMITATION: Backend does not support undo check-in API endpoint
+    // The check-in records persist in the database
+    // This undo only affects the local UI state within the 30-second grace period
+    // To fully reverse, staff must check out each child individually
   }
 
   // Assign ticket and check in child
-  function assignTicketAndCheckIn(
-    familyId: number,
-    childId: number,
+  async function assignTicketAndCheckIn(
+    familyId: string,
+    childId: string,
     ticketType: TicketType
   ) {
-    // First update the ticket type
-    families = families.map((fam) => {
-      if (fam.id !== familyId) return fam;
-      return {
-        ...fam,
-        children: fam.children.map((child) => {
-          if (child.id !== childId) return child;
-          return { ...child, ticket: ticketType };
-        }),
-      };
-    });
+    if (!activeSession) {
+      error = 'No active session';
+      return;
+    }
 
-    // Then check in the child
-    setTimeout(() => checkInChild(familyId, childId), 0);
+    try {
+      // Assign the ticket via API based on ticket type
+      if (ticketType === 'event') {
+        await ticketApi.assignEventTicket({
+          child: childId,
+          event: activeSession.event,
+        });
+      } else if (ticketType === 'session') {
+        await ticketApi.assignSessionTicket({
+          child: childId,
+          session: activeSession.id,
+        });
+      }
+
+      // Update local state
+      families = families.map((fam) => {
+        if (fam.id !== familyId) return fam;
+        return {
+          ...fam,
+          children: fam.children.map((child) => {
+            if (child.id !== childId) return child;
+            return { ...child, ticket: ticketType, ticket_type: ticketType };
+          }),
+        };
+      });
+
+      // Then check in the child
+      await checkInChild(familyId, childId);
+    } catch (err) {
+      const apiError = err as ApiError;
+      error = apiError.message || 'Failed to assign ticket';
+      console.error('Error assigning ticket:', err);
+    }
   }
 
   // Add new family
-  function handleAddFamily(data: {
+  async function handleAddFamily(data: {
     familyName: string;
     childrenNames: string[];
     ticketType: TicketType;
   }) {
-    const newFamilyId = nextFamilyId;
-    let currentChildId = nextChildId;
+    try {
+      // Create family via API
+      const newFamily = await checkinApi.createFamily({
+        last_name: data.familyName,
+        parents: [
+          {
+            name: 'Parent', // Placeholder - AddFamilyPanel should be updated to collect parent info
+            relationship_type: 'OTHER',
+          },
+        ],
+        children: data.childrenNames.map((name) => ({
+          first_name: name,
+          last_name: data.familyName,
+        })),
+      });
 
-    const newChildren: Child[] = data.childrenNames.map((name) => ({
-      id: currentChildId++,
-      name: `${name} ${data.familyName}`,
-      ticket: data.ticketType,
-      checkedIn: false,
-    }));
+      // Transform and add to local state
+      const transformedFamily = transformFamilyResponse(newFamily);
 
-    const newFamily: Family = {
-      id: newFamilyId,
-      name: data.familyName,
-      children: newChildren,
-    };
-
-    families = [...families, newFamily].sort((a, b) => a.name.localeCompare(b.name));
-    nextFamilyId = newFamilyId + 1;
-    nextChildId = currentChildId;
-    showAddPanel = false;
-
-    const count = newChildren.length;
-    const childrenLabel = count === 1 ? $_('checkin.child') : $_('checkin.children');
-    successToast = $_('checkin.successFamilyCheckedIn', {
-      values: {
-        family: data.familyName,
-        count: count,
-        childrenLabel: childrenLabel
+      // Assign tickets to children if needed
+      if (data.ticketType !== 'none' && activeSession) {
+        for (const child of transformedFamily.children) {
+          if (data.ticketType === 'event') {
+            await ticketApi.assignEventTicket({
+              child: child.id,
+              event: activeSession.event,
+            });
+          } else if (data.ticketType === 'session') {
+            await ticketApi.assignSessionTicket({
+              child: child.id,
+              session: activeSession.id,
+            });
+          }
+          // Update ticket type in local state
+          child.ticket = data.ticketType;
+          child.ticket_type = data.ticketType;
+        }
       }
-    });
 
-    // Auto-expand the new family
-    expandedFamilies.add(newFamilyId);
-    expandedFamilies = new Set(expandedFamilies);
+      families = [...families, transformedFamily].sort((a, b) =>
+        a.name.localeCompare(b.name)
+      );
+      showAddPanel = false;
+
+      const count = transformedFamily.children.length;
+      const childrenLabel = count === 1 ? $_('checkin.child') : $_('checkin.children');
+      successToast = `${data.familyName} family added with ${count} ${childrenLabel}!`;
+
+      // Auto-expand the new family
+      expandedFamilies.add(transformedFamily.id);
+      expandedFamilies = new Set(expandedFamilies);
+    } catch (err) {
+      const apiError = err as ApiError;
+      error = apiError.message || 'Failed to create family';
+      console.error('Error creating family:', err);
+    }
   }
 </script>
 
@@ -380,14 +542,40 @@
 
 <div class="min-h-screen bg-slate-100">
   <div class="max-w-4xl mx-auto p-5">
-    <!-- Session Indicator -->
-    <SessionIndicator
-      eventName="Summer Conference 2025"
-      sessionName="Morning Care"
-      sessionTime="8:00 AM - 12:00 PM"
-      onChangeSession={() => alert('Change session functionality')}
-      onAddFamily={() => (showAddPanel = true)}
-    />
+    {#if loading}
+      <div class="text-center py-12">
+        <p class="text-slate-600">{$_('common.loading')}</p>
+      </div>
+    {:else if error}
+      <div class="mb-4 p-4 bg-red-50 border-2 border-red-500 rounded-lg">
+        <p class="text-red-700">{error}</p>
+        <button
+          onclick={() => {
+            error = null;
+            loadFamilies();
+          }}
+          class="mt-2 px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600"
+        >
+          {$_('common.retry')}
+        </button>
+      </div>
+    {:else}
+      <!-- Session Indicator -->
+      <SessionIndicator
+        eventName={activeSession?.event_name || 'No Event'}
+        sessionName={activeSession?.name || 'No Active Session'}
+        sessionTime={activeSession
+          ? `${new Date(activeSession.start_time).toLocaleTimeString('en-US', {
+              hour: 'numeric',
+              minute: '2-digit',
+            })} - ${activeSession.end_time ? new Date(activeSession.end_time).toLocaleTimeString('en-US', {
+              hour: 'numeric',
+              minute: '2-digit',
+            }) : 'Open'}`
+          : ''}
+        onChangeSession={() => alert('Change session functionality')}
+        onAddFamily={() => (showAddPanel = true)}
+      />
 
     <!-- Add Family Panel -->
     {#if showAddPanel}
@@ -478,6 +666,7 @@
         {/each}
       {/if}
     </div>
+  {/if}
   </div>
 </div>
 

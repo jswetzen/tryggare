@@ -248,6 +248,77 @@ class CheckInRecordViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(record)
         return Response(serializer.data)
 
+    @action(detail=True, methods=["post"])
+    def undo(self, request, pk=None):
+        """
+        Undo a recent check-in (within 5 minutes).
+        Deletes the check-in record if it's still active (not checked out)
+        and was created within the allowed time window.
+        """
+        from datetime import timedelta
+
+        record = self.get_object()
+
+        # Validate that child hasn't been checked out yet
+        if record.check_out_time is not None:
+            return Response(
+                {"error": _("Cannot undo: child already checked out")},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Validate time window (5 minutes = 300 seconds)
+        time_elapsed = timezone.now() - record.check_in_time
+        if time_elapsed > timedelta(minutes=5):
+            return Response(
+                {"error": _("Cannot undo: check-in was more than 5 minutes ago")},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Store details before deletion for logging and broadcasting
+        child_id = str(record.child.id)
+        child_name = f"{record.child.first_name} {record.child.last_name}"
+        session_id = str(record.session.id)
+        session_name = record.session.name
+        record_id = str(record.id)
+
+        # Log the action before deleting the record
+        AuditLog.objects.create(
+            user=request.user,
+            action="undo_checkin",
+            entity_type="CheckInRecord",
+            entity_id=record_id,
+            details={
+                "child_id": child_id,
+                "child_name": child_name,
+                "session_id": session_id,
+                "session_name": session_name,
+            },
+        )
+
+        # Delete the check-in record
+        record.delete()
+
+        # Broadcast undo check-in event via WebSocket
+        channel_layer = get_channel_layer()
+        async_to_sync(channel_layer.group_send)(
+            "checkins_broadcast",
+            {
+                "type": "checkin_undone",
+                "data": {
+                    "record_id": record_id,
+                    "child_id": child_id,
+                    "child_name": child_name,
+                    "session_id": session_id,
+                    "session_name": session_name,
+                }
+            }
+        )
+
+        return Response(
+            {"success": True, "message": _("Check-in successfully undone")},
+            status=status.HTTP_200_OK
+        )
+
     @action(detail=False, methods=["get"])
     def active(self, request):
         """Get all active check-ins (not checked out yet)"""
