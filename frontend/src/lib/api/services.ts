@@ -68,6 +68,9 @@ export const checkInApi = {
 
   undoCheckout: (recordId: string) =>
     apiClient.post<CheckInRecord>(`/checkins/${recordId}/undo_checkout/`, {}),
+
+  undo: (recordId: string) =>
+    apiClient.post<void>(`/checkins/${recordId}/undo/`, {}),
 };
 
 /**

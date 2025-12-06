@@ -27,8 +27,10 @@ class FamilyViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         """
         Optimize queries with prefetch_related to avoid N+1 problems.
-        Includes ticket information for children.
+        Includes ticket information and check-in status for children.
         """
+        from checkins.models import CheckInRecord
+
         event_ticket_prefetch = Prefetch(
             'children__event_tickets',
             queryset=EventTicket.objects.select_related('event')
@@ -37,12 +39,19 @@ class FamilyViewSet(viewsets.ModelViewSet):
             'children__session_tickets',
             queryset=SessionTicket.objects.select_related('session', 'session__event')
         )
+        # Prefetch active check-ins for children to avoid N+1 queries
+        active_checkins_prefetch = Prefetch(
+            'children__checkin_records',
+            queryset=CheckInRecord.objects.filter(check_out_time__isnull=True),
+            to_attr='active_checkins'
+        )
 
         return Family.objects.prefetch_related(
             "parents",
             "children",
             event_ticket_prefetch,
             session_ticket_prefetch,
+            active_checkins_prefetch,
         ).all()
 
     def get_serializer_class(self):

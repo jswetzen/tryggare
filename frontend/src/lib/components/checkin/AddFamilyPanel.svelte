@@ -17,6 +17,12 @@
       familyName: string;
       childrenNames: string[];
       ticketType: TicketType;
+      parents: Array<{
+        name: string;
+        phone: string;
+        email: string;
+        relationship_type: string;
+      }>;
     }) => void;
     onClose: () => void;
   } = $props();
@@ -24,6 +30,14 @@
   let familyName = $state('');
   let childrenNames = $state(['']);
   let ticketType = $state<TicketType>('none');
+  let parents = $state([
+    {
+      name: '',
+      phone: '',
+      email: '',
+      relationship_type: 'OTHER',
+    },
+  ]);
   let error = $state('');
   let familyNameInput = $state<HTMLInputElement>();
 
@@ -53,6 +67,32 @@
     childrenNames = newNames;
   }
 
+  function handleAddParent() {
+    parents = [
+      ...parents,
+      {
+        name: '',
+        phone: '',
+        email: '',
+        relationship_type: 'OTHER',
+      },
+    ];
+  }
+
+  function handleRemoveParent(index: number) {
+    parents = parents.filter((_, i) => i !== index);
+  }
+
+  function handleParentChange(
+    index: number,
+    field: 'name' | 'phone' | 'email' | 'relationship_type',
+    value: string
+  ) {
+    const newParents = [...parents];
+    newParents[index][field] = value;
+    parents = newParents;
+  }
+
   function handleSubmit(e: Event) {
     e.preventDefault();
     error = '';
@@ -73,11 +113,27 @@
       return;
     }
 
+    // Filter out parents with empty names and validate
+    const validParents = parents
+      .filter((parent) => parent.name.trim().length > 0)
+      .map((parent) => ({
+        name: parent.name.trim(),
+        phone: parent.phone.trim(),
+        email: parent.email.trim(),
+        relationship_type: parent.relationship_type,
+      }));
+
+    if (validParents.length === 0) {
+      error = 'At least one parent is required';
+      return;
+    }
+
     // Submit
     onAdd({
       familyName: familyName.trim(),
       childrenNames: validChildren,
       ticketType,
+      parents: validParents,
     });
   }
 </script>
@@ -127,6 +183,94 @@
         class="w-full px-3 py-2 border border-slate-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
         data-testid="add-family-name-input"
       />
+    </div>
+
+    <!-- Parents -->
+    <div class="mb-4">
+      <div class="block text-sm font-semibold text-slate-700 mb-2">
+        Parents:
+      </div>
+      <div class="space-y-3">
+        {#each parents as parent, index (index)}
+          <div class="border border-slate-200 rounded p-3 bg-slate-50">
+            <div class="grid grid-cols-2 gap-2 mb-2">
+              <div>
+                <label for={`parent-name-${index}`} class="block text-xs text-slate-600 mb-1">
+                  Name *
+                </label>
+                <input
+                  id={`parent-name-${index}`}
+                  type="text"
+                  value={parent.name}
+                  on:input={(e) => handleParentChange(index, 'name', e.currentTarget.value)}
+                  placeholder="Parent name"
+                  class="w-full px-2 py-1.5 text-sm border border-slate-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              <div>
+                <label for={`parent-relationship-${index}`} class="block text-xs text-slate-600 mb-1">
+                  Relationship
+                </label>
+                <select
+                  id={`parent-relationship-${index}`}
+                  value={parent.relationship_type}
+                  on:change={(e) => handleParentChange(index, 'relationship_type', e.currentTarget.value)}
+                  class="w-full px-2 py-1.5 text-sm border border-slate-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="MOM">Mom</option>
+                  <option value="DAD">Dad</option>
+                  <option value="GUARDIAN">Guardian</option>
+                  <option value="OTHER">Other</option>
+                </select>
+              </div>
+            </div>
+            <div class="grid grid-cols-2 gap-2">
+              <div>
+                <label for={`parent-phone-${index}`} class="block text-xs text-slate-600 mb-1">
+                  Phone
+                </label>
+                <input
+                  id={`parent-phone-${index}`}
+                  type="tel"
+                  value={parent.phone}
+                  on:input={(e) => handleParentChange(index, 'phone', e.currentTarget.value)}
+                  placeholder="555-1234"
+                  class="w-full px-2 py-1.5 text-sm border border-slate-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              <div>
+                <label for={`parent-email-${index}`} class="block text-xs text-slate-600 mb-1">
+                  Email
+                </label>
+                <input
+                  id={`parent-email-${index}`}
+                  type="email"
+                  value={parent.email}
+                  on:input={(e) => handleParentChange(index, 'email', e.currentTarget.value)}
+                  placeholder="email@example.com"
+                  class="w-full px-2 py-1.5 text-sm border border-slate-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+            </div>
+            {#if index > 0}
+              <button
+                type="button"
+                on:click={() => handleRemoveParent(index)}
+                class="mt-2 text-red-600 hover:text-red-700 text-xs font-medium"
+              >
+                Remove Parent
+              </button>
+            {/if}
+          </div>
+        {/each}
+      </div>
+      <button
+        type="button"
+        on:click={handleAddParent}
+        class="mt-2 text-blue-600 hover:text-blue-700 text-sm font-semibold"
+      >
+        + Add Another Parent
+      </button>
     </div>
 
     <!-- Ticket Type Selector -->

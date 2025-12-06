@@ -4960,3 +4960,529 @@
 2025-12-06T17:46:52.772806641+00:00 stdout F https://svelte.dev/e/event_directive_deprecated
 2025-12-06T17:46:52.772806641+00:00 stdout F 5:46:52 PM [vite-plugin-svelte] src/lib/components/checkin/ChildCheckInButton.svelte:63:4 Using `on:click` to listen to the click event is deprecated. Use the event attribute `onclick` instead
 2025-12-06T17:46:52.772806641+00:00 stdout F https://svelte.dev/e/event_directive_deprecated
+2025-12-06T18:02:49.475620982+00:00 stdout F 6:02:49 PM [vite] hmr update /src/app.css, /src/routes/checkin/+page.svelte, /src/lib/components/checkin/FamilyCard.svelte
+2025-12-06T18:03:02.222322005+00:00 stdout F 6:03:02 PM [vite] hmr update /src/app.css, /src/routes/print-queue/+page.svelte, /src/routes/checkout/+page.svelte
+2025-12-06T18:03:35.464812141+00:00 stdout F 6:03:35 PM [vite] hmr update /src/routes/checkin/+page.svelte, /src/app.css
+2025-12-06T18:03:46.857726046+00:00 stdout F 6:03:46 PM [vite] hmr update /src/routes/checkin/+page.svelte, /src/app.css
+2025-12-06T18:03:58.698487568+00:00 stdout F 6:03:58 PM [vite] hmr update /src/routes/checkin/+page.svelte, /src/app.css
+2025-12-06T18:04:11.299212373+00:00 stdout F 6:04:11 PM [vite] hmr update /src/routes/checkin/+page.svelte, /src/app.css
+2025-12-06T18:04:27.104823179+00:00 stdout F 6:04:27 PM [vite] hmr update /src/routes/checkin/+page.svelte, /src/app.css
+2025-12-06T18:04:51.201259985+00:00 stdout F 6:04:51 PM [vite] hmr update /src/routes/checkin/+page.svelte, /src/app.css
+2025-12-06T18:05:08.016253865+00:00 stdout F 6:05:08 PM [vite] hmr update /src/routes/checkin/+page.svelte, /src/app.css, /src/routes/checkin/+page.svelte?svelte&type=style&lang.css
+2025-12-06T18:05:41.240685370+00:00 stdout F 6:05:41 PM [vite] hmr update /src/routes/checkin/+page.svelte, /src/app.css
+2025-12-06T18:05:51.805658950+00:00 stderr F 
+2025-12-06T18:05:51.805658950+00:00 stderr F [1;31m[404] GET /favicon.png[0m
+2025-12-06T18:05:53.107636485+00:00 stderr F 
+2025-12-06T18:05:53.107636485+00:00 stderr F [1;31m[404] GET /favicon.png[0m
+2025-12-06T18:06:07.019119187+00:00 stderr F 
+2025-12-06T18:06:07.019119187+00:00 stderr F [1;31m[404] GET /favicon.png[0m
+2025-12-06T18:07:01.520270792+00:00 stdout F Lockfile is up to date, resolution step is skipped
+2025-12-06T18:07:01.616326733+00:00 stdout F Already up to date
+2025-12-06T18:07:01.936365822+00:00 stdout F 
+2025-12-06T18:07:01.936365822+00:00 stdout F ╭ Warning ─────────────────────────────────────────────────────────────────────╮
+2025-12-06T18:07:01.936365822+00:00 stdout F │                                                                              │
+2025-12-06T18:07:01.936365822+00:00 stdout F │   Ignored build scripts: esbuild.                                            │
+2025-12-06T18:07:01.936365822+00:00 stdout F │   Run "pnpm approve-builds" to pick which dependencies should be allowed     │
+2025-12-06T18:07:01.936365822+00:00 stdout F │   to run scripts.                                                            │
+2025-12-06T18:07:01.936365822+00:00 stdout F │                                                                              │
+2025-12-06T18:07:01.936365822+00:00 stdout F ╰──────────────────────────────────────────────────────────────────────────────╯
+2025-12-06T18:07:01.936365822+00:00 stdout F 
+2025-12-06T18:07:01.953203448+00:00 stdout F Done in 891ms using pnpm v10.24.0
+2025-12-06T18:07:02.373957876+00:00 stdout F 
+2025-12-06T18:07:02.373957876+00:00 stdout F > check-ins-frontend@0.0.1 dev /app
+2025-12-06T18:07:02.373957876+00:00 stdout F > vite dev --host --host 0.0.0.0 --port 5173
+2025-12-06T18:07:02.373957876+00:00 stdout F 
+2025-12-06T18:07:03.565582025+00:00 stdout F 
+2025-12-06T18:07:03.565582025+00:00 stdout F   VITE v5.4.21  ready in 1158 ms
+2025-12-06T18:07:03.565582025+00:00 stdout F 
+2025-12-06T18:07:03.565976380+00:00 stdout F   ➜  Local:   http://localhost:5173/
+2025-12-06T18:07:03.566113120+00:00 stdout F   ➜  Network: http://10.89.0.5:5173/
+2025-12-06T18:07:06.364975527+00:00 stdout F 6:07:06 PM [vite-plugin-svelte] src/lib/components/checkin/SessionIndicator.svelte:37:6 Using `on:click` to listen to the click event is deprecated. Use the event attribute `onclick` instead
+2025-12-06T18:07:06.364975527+00:00 stdout F https://svelte.dev/e/event_directive_deprecated
+2025-12-06T18:07:06.365001535+00:00 stdout F 6:07:06 PM [vite-plugin-svelte] src/lib/components/checkin/SessionIndicator.svelte:44:6 Using `on:click` to listen to the click event is deprecated. Use the event attribute `onclick` instead
+2025-12-06T18:07:06.365001535+00:00 stdout F https://svelte.dev/e/event_directive_deprecated
+2025-12-06T18:07:06.410118175+00:00 stdout F 6:07:06 PM [vite-plugin-svelte] src/lib/components/checkin/FamilyCard.svelte:80:6 Using `on:click` to listen to the click event is deprecated. Use the event attribute `onclick` instead
+2025-12-06T18:07:06.410118175+00:00 stdout F https://svelte.dev/e/event_directive_deprecated
+2025-12-06T18:07:06.410177920+00:00 stdout F 6:07:06 PM [vite-plugin-svelte] src/lib/components/checkin/FamilyCard.svelte:103:23 `a11y-no-static-element-interactions` is no longer valid — please use `a11y_no_static_element_interactions` instead
+2025-12-06T18:07:06.410177920+00:00 stdout F https://svelte.dev/e/legacy_code
+2025-12-06T18:07:06.410266135+00:00 stdout F 6:07:06 PM [vite-plugin-svelte] src/lib/components/checkin/FamilyCard.svelte:102:23 `a11y-click-events-have-key-events` is no longer valid — please use `a11y_click_events_have_key_events` instead
+2025-12-06T18:07:06.410266135+00:00 stdout F https://svelte.dev/e/legacy_code
+2025-12-06T18:07:06.410266135+00:00 stdout F 6:07:06 PM [vite-plugin-svelte] src/lib/components/checkin/FamilyCard.svelte:104:4 Visible, non-interactive elements with a click event must be accompanied by a keyboard event handler. Consider whether an interactive element such as `<button type="button">` or `<a>` might be more appropriate
+2025-12-06T18:07:06.410266135+00:00 stdout F https://svelte.dev/e/a11y_click_events_have_key_events
+2025-12-06T18:07:06.410760895+00:00 stdout F 6:07:06 PM [vite-plugin-svelte] src/lib/components/checkin/FamilyCard.svelte:104:4 `<div>` with a click handler must have an ARIA role
+2025-12-06T18:07:06.410760895+00:00 stdout F https://svelte.dev/e/a11y_no_static_element_interactions
+2025-12-06T18:07:06.410816643+00:00 stdout F 6:07:06 PM [vite-plugin-svelte] src/lib/components/checkin/FamilyCard.svelte:104:31 Using `on:click` to listen to the click event is deprecated. Use the event attribute `onclick` instead
+2025-12-06T18:07:06.410816643+00:00 stdout F https://svelte.dev/e/event_directive_deprecated
+2025-12-06T18:07:06.410842937+00:00 stdout F 6:07:06 PM [vite-plugin-svelte] src/lib/components/checkin/FamilyCard.svelte:108:10 Using `on:click` to listen to the click event is deprecated. Use the event attribute `onclick` instead
+2025-12-06T18:07:06.410842937+00:00 stdout F https://svelte.dev/e/event_directive_deprecated
+2025-12-06T18:07:06.410872851+00:00 stdout F 6:07:06 PM [vite-plugin-svelte] src/lib/components/checkin/FamilyCard.svelte:119:10 Using `on:click` to listen to the click event is deprecated. Use the event attribute `onclick` instead
+2025-12-06T18:07:06.410872851+00:00 stdout F https://svelte.dev/e/event_directive_deprecated
+2025-12-06T18:07:06.410888295+00:00 stdout F 6:07:06 PM [vite-plugin-svelte] src/lib/components/checkin/FamilyCard.svelte:176:18 Using `on:click` to listen to the click event is deprecated. Use the event attribute `onclick` instead
+2025-12-06T18:07:06.410888295+00:00 stdout F https://svelte.dev/e/event_directive_deprecated
+2025-12-06T18:07:06.410888295+00:00 stdout F 6:07:06 PM [vite-plugin-svelte] src/lib/components/checkin/FamilyCard.svelte:183:18 Using `on:click` to listen to the click event is deprecated. Use the event attribute `onclick` instead
+2025-12-06T18:07:06.410888295+00:00 stdout F https://svelte.dev/e/event_directive_deprecated
+2025-12-06T18:07:06.430844241+00:00 stdout F 6:07:06 PM [vite-plugin-svelte] src/lib/components/checkin/AddFamilyPanel.svelte:91:8 Using `on:submit` to listen to the submit event is deprecated. Use the event attribute `onsubmit` instead
+2025-12-06T18:07:06.430844241+00:00 stdout F https://svelte.dev/e/event_directive_deprecated
+2025-12-06T18:07:06.430888916+00:00 stdout F 6:07:06 PM [vite-plugin-svelte] src/lib/components/checkin/AddFamilyPanel.svelte:97:8 Using `on:click` to listen to the click event is deprecated. Use the event attribute `onclick` instead
+2025-12-06T18:07:06.430888916+00:00 stdout F https://svelte.dev/e/event_directive_deprecated
+2025-12-06T18:07:06.430897991+00:00 stdout F 6:07:06 PM [vite-plugin-svelte] src/lib/components/checkin/AddFamilyPanel.svelte:168:16 Using `on:click` to listen to the click event is deprecated. Use the event attribute `onclick` instead
+2025-12-06T18:07:06.430897991+00:00 stdout F https://svelte.dev/e/event_directive_deprecated
+2025-12-06T18:07:06.430918886+00:00 stdout F 6:07:06 PM [vite-plugin-svelte] src/lib/components/checkin/AddFamilyPanel.svelte:180:8 Using `on:click` to listen to the click event is deprecated. Use the event attribute `onclick` instead
+2025-12-06T18:07:06.430918886+00:00 stdout F https://svelte.dev/e/event_directive_deprecated
+2025-12-06T18:07:06.430925556+00:00 stdout F 6:07:06 PM [vite-plugin-svelte] src/lib/components/checkin/AddFamilyPanel.svelte:191:8 Using `on:click` to listen to the click event is deprecated. Use the event attribute `onclick` instead
+2025-12-06T18:07:06.430925556+00:00 stdout F https://svelte.dev/e/event_directive_deprecated
+2025-12-06T18:07:06.685395711+00:00 stdout F 6:07:06 PM [vite-plugin-svelte] src/lib/components/checkin/ChildCheckInButton.svelte:34:4 Using `on:click` to listen to the click event is deprecated. Use the event attribute `onclick` instead
+2025-12-06T18:07:06.685395711+00:00 stdout F https://svelte.dev/e/event_directive_deprecated
+2025-12-06T18:07:06.685423822+00:00 stdout F 6:07:06 PM [vite-plugin-svelte] src/lib/components/checkin/ChildCheckInButton.svelte:53:4 Using `on:click` to listen to the click event is deprecated. Use the event attribute `onclick` instead
+2025-12-06T18:07:06.685423822+00:00 stdout F https://svelte.dev/e/event_directive_deprecated
+2025-12-06T18:07:06.685423822+00:00 stdout F 6:07:06 PM [vite-plugin-svelte] src/lib/components/checkin/ChildCheckInButton.svelte:63:4 Using `on:click` to listen to the click event is deprecated. Use the event attribute `onclick` instead
+2025-12-06T18:07:06.685423822+00:00 stdout F https://svelte.dev/e/event_directive_deprecated
+2025-12-06T18:08:07.669804486+00:00 stderr F 
+2025-12-06T18:08:07.669804486+00:00 stderr F [1;31m[404] GET /favicon.png[0m
+2025-12-06T20:14:46.313362206+00:00 stderr F 
+2025-12-06T20:14:46.313362206+00:00 stderr F [1;31m[404] GET /favicon.png[0m
+2025-12-06T20:23:05.428228202+00:00 stdout F Lockfile is up to date, resolution step is skipped
+2025-12-06T20:23:05.496053468+00:00 stdout F Already up to date
+2025-12-06T20:23:05.771543617+00:00 stdout F 
+2025-12-06T20:23:05.771543617+00:00 stdout F ╭ Warning ─────────────────────────────────────────────────────────────────────╮
+2025-12-06T20:23:05.771543617+00:00 stdout F │                                                                              │
+2025-12-06T20:23:05.771543617+00:00 stdout F │   Ignored build scripts: esbuild.                                            │
+2025-12-06T20:23:05.771543617+00:00 stdout F │   Run "pnpm approve-builds" to pick which dependencies should be allowed     │
+2025-12-06T20:23:05.771543617+00:00 stdout F │   to run scripts.                                                            │
+2025-12-06T20:23:05.771543617+00:00 stdout F │                                                                              │
+2025-12-06T20:23:05.771543617+00:00 stdout F ╰──────────────────────────────────────────────────────────────────────────────╯
+2025-12-06T20:23:05.771543617+00:00 stdout F 
+2025-12-06T20:23:05.790372126+00:00 stdout F Done in 813ms using pnpm v10.24.0
+2025-12-06T20:23:06.204499110+00:00 stdout F 
+2025-12-06T20:23:06.204499110+00:00 stdout F > check-ins-frontend@0.0.1 dev /app
+2025-12-06T20:23:06.204499110+00:00 stdout F > vite dev --host --host 0.0.0.0 --port 5173
+2025-12-06T20:23:06.204499110+00:00 stdout F 
+2025-12-06T20:23:07.722118198+00:00 stdout F 
+2025-12-06T20:23:07.722118198+00:00 stdout F   VITE v5.4.21  ready in 1474 ms
+2025-12-06T20:23:07.722118198+00:00 stdout F 
+2025-12-06T20:23:07.722315288+00:00 stdout F   ➜  Local:   http://localhost:5173/
+2025-12-06T20:23:07.722325650+00:00 stdout F   ➜  Network: http://10.89.0.5:5173/
+2025-12-06T20:23:11.287997401+00:00 stdout F 8:23:11 PM [vite-plugin-svelte] src/lib/components/checkin/SessionIndicator.svelte:37:6 Using `on:click` to listen to the click event is deprecated. Use the event attribute `onclick` instead
+2025-12-06T20:23:11.287997401+00:00 stdout F https://svelte.dev/e/event_directive_deprecated
+2025-12-06T20:23:11.288020044+00:00 stdout F 8:23:11 PM [vite-plugin-svelte] src/lib/components/checkin/SessionIndicator.svelte:44:6 Using `on:click` to listen to the click event is deprecated. Use the event attribute `onclick` instead
+2025-12-06T20:23:11.288020044+00:00 stdout F https://svelte.dev/e/event_directive_deprecated
+2025-12-06T20:23:11.326577577+00:00 stdout F 8:23:11 PM [vite-plugin-svelte] src/lib/components/checkin/FamilyCard.svelte:80:6 Using `on:click` to listen to the click event is deprecated. Use the event attribute `onclick` instead
+2025-12-06T20:23:11.326577577+00:00 stdout F https://svelte.dev/e/event_directive_deprecated
+2025-12-06T20:23:11.326728797+00:00 stdout F 8:23:11 PM [vite-plugin-svelte] src/lib/components/checkin/FamilyCard.svelte:103:23 `a11y-no-static-element-interactions` is no longer valid — please use `a11y_no_static_element_interactions` instead
+2025-12-06T20:23:11.326728797+00:00 stdout F https://svelte.dev/e/legacy_code
+2025-12-06T20:23:11.326801318+00:00 stdout F 8:23:11 PM [vite-plugin-svelte] src/lib/components/checkin/FamilyCard.svelte:102:23 `a11y-click-events-have-key-events` is no longer valid — please use `a11y_click_events_have_key_events` instead
+2025-12-06T20:23:11.326801318+00:00 stdout F https://svelte.dev/e/legacy_code
+2025-12-06T20:23:11.326938668+00:00 stdout F 8:23:11 PM [vite-plugin-svelte] src/lib/components/checkin/FamilyCard.svelte:104:4 Visible, non-interactive elements with a click event must be accompanied by a keyboard event handler. Consider whether an interactive element such as `<button type="button">` or `<a>` might be more appropriate
+2025-12-06T20:23:11.326938668+00:00 stdout F https://svelte.dev/e/a11y_click_events_have_key_events
+2025-12-06T20:23:11.326968712+00:00 stdout F 8:23:11 PM [vite-plugin-svelte] src/lib/components/checkin/FamilyCard.svelte:104:4 `<div>` with a click handler must have an ARIA role
+2025-12-06T20:23:11.326968712+00:00 stdout F https://svelte.dev/e/a11y_no_static_element_interactions
+2025-12-06T20:23:11.326985456+00:00 stdout F 8:23:11 PM [vite-plugin-svelte] src/lib/components/checkin/FamilyCard.svelte:104:31 Using `on:click` to listen to the click event is deprecated. Use the event attribute `onclick` instead
+2025-12-06T20:23:11.326985456+00:00 stdout F https://svelte.dev/e/event_directive_deprecated
+2025-12-06T20:23:11.327064039+00:00 stdout F 8:23:11 PM [vite-plugin-svelte] src/lib/components/checkin/FamilyCard.svelte:108:10 Using `on:click` to listen to the click event is deprecated. Use the event attribute `onclick` instead
+2025-12-06T20:23:11.327064039+00:00 stdout F https://svelte.dev/e/event_directive_deprecated
+2025-12-06T20:23:11.327175304+00:00 stdout F 8:23:11 PM [vite-plugin-svelte] src/lib/components/checkin/FamilyCard.svelte:119:10 Using `on:click` to listen to the click event is deprecated. Use the event attribute `onclick` instead
+2025-12-06T20:23:11.327175304+00:00 stdout F https://svelte.dev/e/event_directive_deprecated
+2025-12-06T20:23:11.327175304+00:00 stdout F 8:23:11 PM [vite-plugin-svelte] src/lib/components/checkin/FamilyCard.svelte:176:18 Using `on:click` to listen to the click event is deprecated. Use the event attribute `onclick` instead
+2025-12-06T20:23:11.327175304+00:00 stdout F https://svelte.dev/e/event_directive_deprecated
+2025-12-06T20:23:11.327175304+00:00 stdout F 8:23:11 PM [vite-plugin-svelte] src/lib/components/checkin/FamilyCard.svelte:183:18 Using `on:click` to listen to the click event is deprecated. Use the event attribute `onclick` instead
+2025-12-06T20:23:11.327175304+00:00 stdout F https://svelte.dev/e/event_directive_deprecated
+2025-12-06T20:23:11.353763178+00:00 stdout F 8:23:11 PM [vite-plugin-svelte] src/lib/components/checkin/AddFamilyPanel.svelte:91:8 Using `on:submit` to listen to the submit event is deprecated. Use the event attribute `onsubmit` instead
+2025-12-06T20:23:11.353763178+00:00 stdout F https://svelte.dev/e/event_directive_deprecated
+2025-12-06T20:23:11.353864006+00:00 stdout F 8:23:11 PM [vite-plugin-svelte] src/lib/components/checkin/AddFamilyPanel.svelte:97:8 Using `on:click` to listen to the click event is deprecated. Use the event attribute `onclick` instead
+2025-12-06T20:23:11.353864006+00:00 stdout F https://svelte.dev/e/event_directive_deprecated
+2025-12-06T20:23:11.353864006+00:00 stdout F 8:23:11 PM [vite-plugin-svelte] src/lib/components/checkin/AddFamilyPanel.svelte:168:16 Using `on:click` to listen to the click event is deprecated. Use the event attribute `onclick` instead
+2025-12-06T20:23:11.353864006+00:00 stdout F https://svelte.dev/e/event_directive_deprecated
+2025-12-06T20:23:11.353943260+00:00 stdout F 8:23:11 PM [vite-plugin-svelte] src/lib/components/checkin/AddFamilyPanel.svelte:180:8 Using `on:click` to listen to the click event is deprecated. Use the event attribute `onclick` instead
+2025-12-06T20:23:11.353943260+00:00 stdout F https://svelte.dev/e/event_directive_deprecated
+2025-12-06T20:23:11.353943260+00:00 stdout F 8:23:11 PM [vite-plugin-svelte] src/lib/components/checkin/AddFamilyPanel.svelte:191:8 Using `on:click` to listen to the click event is deprecated. Use the event attribute `onclick` instead
+2025-12-06T20:23:11.353943260+00:00 stdout F https://svelte.dev/e/event_directive_deprecated
+2025-12-06T20:23:11.373318564+00:00 stdout F 8:23:11 PM [vite-plugin-svelte] src/lib/components/checkin/ChildCheckInButton.svelte:34:4 Using `on:click` to listen to the click event is deprecated. Use the event attribute `onclick` instead
+2025-12-06T20:23:11.373318564+00:00 stdout F https://svelte.dev/e/event_directive_deprecated
+2025-12-06T20:23:11.373350470+00:00 stdout F 8:23:11 PM [vite-plugin-svelte] src/lib/components/checkin/ChildCheckInButton.svelte:53:4 Using `on:click` to listen to the click event is deprecated. Use the event attribute `onclick` instead
+2025-12-06T20:23:11.373350470+00:00 stdout F https://svelte.dev/e/event_directive_deprecated
+2025-12-06T20:23:11.373375811+00:00 stdout F 8:23:11 PM [vite-plugin-svelte] src/lib/components/checkin/ChildCheckInButton.svelte:63:4 Using `on:click` to listen to the click event is deprecated. Use the event attribute `onclick` instead
+2025-12-06T20:23:11.373375811+00:00 stdout F https://svelte.dev/e/event_directive_deprecated
+2025-12-06T20:24:23.118996090+00:00 stderr F 
+2025-12-06T20:24:23.118996090+00:00 stderr F [1;31m[404] GET /favicon.png[0m
+2025-12-06T20:24:34.919116665+00:00 stderr F 
+2025-12-06T20:24:34.919116665+00:00 stderr F [1;31m[404] GET /api/print-queue/9af8c443-db56-4c85-8614-a774fbe4c883/print_page/[0m
+2025-12-06T20:24:49.174569283+00:00 stderr F 
+2025-12-06T20:24:49.174569283+00:00 stderr F [1;31m[404] GET /api/print-queue/3715c4b7-e4b9-424d-912e-f8eac01ddcc2/print_page/[0m
+2025-12-06T20:24:57.862096839+00:00 stderr F 
+2025-12-06T20:24:57.862096839+00:00 stderr F [1;31m[404] GET /api/print-queue/5817fb71-e9fc-433c-a465-8456de98d045/print_page/[0m
+2025-12-06T20:34:48.127101282+00:00 stdout F 8:34:48 PM [vite] page reload src/lib/api/types.ts
+2025-12-06T20:34:54.257017119+00:00 stdout F 8:34:54 PM [vite] page reload src/lib/api/types.ts
+2025-12-06T20:34:59.361467689+00:00 stdout F 8:34:59 PM [vite] page reload src/lib/api/types.ts
+2025-12-06T20:35:05.955677721+00:00 stdout F 8:35:05 PM [vite] hmr update /src/routes/checkin/+page.svelte, /src/app.css
+2025-12-06T20:35:11.473727269+00:00 stdout F 8:35:11 PM [vite] hmr update /src/routes/checkin/+page.svelte, /src/app.css
+2025-12-06T20:35:19.176581923+00:00 stdout F 8:35:19 PM [vite] hmr update /src/routes/checkin/+page.svelte, /src/app.css
+2025-12-06T20:35:35.164315208+00:00 stdout F 8:35:35 PM [vite] hmr update /src/routes/checkin/+page.svelte, /src/app.css
+2025-12-06T20:35:45.962133150+00:00 stdout F 8:35:45 PM [vite] hmr update /src/routes/checkin/+page.svelte, /src/app.css
+2025-12-06T20:35:53.796034219+00:00 stdout F 8:35:53 PM [vite] hmr update /src/routes/checkin/+page.svelte, /src/app.css
+2025-12-06T20:36:09.066816507+00:00 stdout F 8:36:09 PM [vite] page reload .svelte-kit/generated/client/nodes/0.js
+2025-12-06T20:36:09.067248920+00:00 stdout F 8:36:09 PM [vite] page reload .svelte-kit/generated/client/nodes/1.js
+2025-12-06T20:36:09.068222369+00:00 stdout F 8:36:09 PM [vite] page reload .svelte-kit/generated/client/nodes/4.js
+2025-12-06T20:36:09.068386656+00:00 stdout F 8:36:09 PM [vite] page reload .svelte-kit/generated/client/nodes/5.js
+2025-12-06T20:36:09.068626717+00:00 stdout F 8:36:09 PM [vite] page reload .svelte-kit/generated/client/nodes/7.js
+2025-12-06T20:36:09.068837992+00:00 stdout F 8:36:09 PM [vite] page reload .svelte-kit/generated/client/nodes/9.js
+2025-12-06T20:36:09.069004565+00:00 stdout F 8:36:09 PM [vite] page reload .svelte-kit/generated/client/nodes/10.js
+2025-12-06T20:36:09.069262300+00:00 stdout F 8:36:09 PM [vite] page reload .svelte-kit/generated/client/app.js
+2025-12-06T20:36:09.069404178+00:00 stdout F 8:36:09 PM [vite] page reload .svelte-kit/generated/client/matchers.js
+2025-12-06T20:36:09.070484983+00:00 stdout F 8:36:09 PM [vite] page reload .svelte-kit/generated/server/internal.js
+2025-12-06T20:36:09.070864820+00:00 stdout F 8:36:09 PM [vite] page reload .svelte-kit/generated/root.js
+2025-12-06T20:36:24.756907341+00:00 stdout F 8:36:24 PM [vite] page reload .svelte-kit/generated/client/nodes/0.js
+2025-12-06T20:36:24.757105048+00:00 stdout F 8:36:24 PM [vite] page reload .svelte-kit/generated/client/nodes/1.js
+2025-12-06T20:36:24.757337529+00:00 stdout F 8:36:24 PM [vite] page reload .svelte-kit/generated/client/nodes/4.js
+2025-12-06T20:36:24.757476599+00:00 stdout F 8:36:24 PM [vite] page reload .svelte-kit/generated/client/nodes/5.js
+2025-12-06T20:36:24.757683139+00:00 stdout F 8:36:24 PM [vite] page reload .svelte-kit/generated/client/nodes/7.js
+2025-12-06T20:36:24.757841774+00:00 stdout F 8:36:24 PM [vite] page reload .svelte-kit/generated/client/nodes/9.js
+2025-12-06T20:36:24.758632313+00:00 stdout F 8:36:24 PM [vite] page reload .svelte-kit/generated/client/nodes/10.js
+2025-12-06T20:36:24.759661861+00:00 stdout F 8:36:24 PM [vite] page reload .svelte-kit/generated/client/app.js
+2025-12-06T20:36:24.759813507+00:00 stdout F 8:36:24 PM [vite] page reload .svelte-kit/generated/client/matchers.js
+2025-12-06T20:36:24.759984372+00:00 stdout F 8:36:24 PM [vite] page reload .svelte-kit/generated/server/internal.js
+2025-12-06T20:36:24.760347035+00:00 stdout F 8:36:24 PM [vite] page reload .svelte-kit/generated/root.js
+2025-12-06T20:36:54.228829678+00:00 stdout F 8:36:54 PM [vite] hmr update /src/routes/checkin/+page.svelte, /src/app.css
+2025-12-06T20:37:02.886829216+00:00 stdout F 8:37:02 PM [vite] page reload .svelte-kit/generated/client/nodes/0.js
+2025-12-06T20:37:02.887009404+00:00 stdout F 8:37:02 PM [vite] page reload .svelte-kit/generated/client/nodes/1.js
+2025-12-06T20:37:02.887242011+00:00 stdout F 8:37:02 PM [vite] page reload .svelte-kit/generated/client/nodes/4.js
+2025-12-06T20:37:02.888187343+00:00 stdout F 8:37:02 PM [vite] page reload .svelte-kit/generated/client/nodes/5.js
+2025-12-06T20:37:02.888445836+00:00 stdout F 8:37:02 PM [vite] page reload .svelte-kit/generated/client/nodes/7.js
+2025-12-06T20:37:02.888596850+00:00 stdout F 8:37:02 PM [vite] page reload .svelte-kit/generated/client/nodes/9.js
+2025-12-06T20:37:02.888716247+00:00 stdout F 8:37:02 PM [vite] page reload .svelte-kit/generated/client/nodes/10.js
+2025-12-06T20:37:02.888899491+00:00 stdout F 8:37:02 PM [vite] page reload .svelte-kit/generated/client/app.js
+2025-12-06T20:37:02.889046672+00:00 stdout F 8:37:02 PM [vite] page reload .svelte-kit/generated/client/matchers.js
+2025-12-06T20:37:02.890091231+00:00 stdout F 8:37:02 PM [vite] page reload .svelte-kit/generated/server/internal.js
+2025-12-06T20:37:02.890446263+00:00 stdout F 8:37:02 PM [vite] page reload .svelte-kit/generated/root.js
+2025-12-06T20:57:35.743192124+00:00 stderr F 
+2025-12-06T20:57:35.743192124+00:00 stderr F [1;31m[404] GET /favicon.png[0m
+2025-12-06T20:58:29.598155808+00:00 stdout F Lockfile is up to date, resolution step is skipped
+2025-12-06T20:58:29.668807428+00:00 stdout F Already up to date
+2025-12-06T20:58:30.004999691+00:00 stdout F 
+2025-12-06T20:58:30.004999691+00:00 stdout F ╭ Warning ─────────────────────────────────────────────────────────────────────╮
+2025-12-06T20:58:30.004999691+00:00 stdout F │                                                                              │
+2025-12-06T20:58:30.004999691+00:00 stdout F │   Ignored build scripts: esbuild.                                            │
+2025-12-06T20:58:30.004999691+00:00 stdout F │   Run "pnpm approve-builds" to pick which dependencies should be allowed     │
+2025-12-06T20:58:30.004999691+00:00 stdout F │   to run scripts.                                                            │
+2025-12-06T20:58:30.004999691+00:00 stdout F │                                                                              │
+2025-12-06T20:58:30.004999691+00:00 stdout F ╰──────────────────────────────────────────────────────────────────────────────╯
+2025-12-06T20:58:30.004999691+00:00 stdout F 
+2025-12-06T20:58:30.021037777+00:00 stdout F Done in 832ms using pnpm v10.24.0
+2025-12-06T20:58:30.461081151+00:00 stdout F 
+2025-12-06T20:58:30.461081151+00:00 stdout F > check-ins-frontend@0.0.1 dev /app
+2025-12-06T20:58:30.461081151+00:00 stdout F > vite dev --host --host 0.0.0.0 --port 5173
+2025-12-06T20:58:30.461081151+00:00 stdout F 
+2025-12-06T20:58:34.033403924+00:00 stdout F 
+2025-12-06T20:58:34.033403924+00:00 stdout F   VITE v5.4.21  ready in 3541 ms
+2025-12-06T20:58:34.033403924+00:00 stdout F 
+2025-12-06T20:58:34.033717790+00:00 stdout F   ➜  Local:   http://localhost:5173/
+2025-12-06T20:58:34.033729793+00:00 stdout F   ➜  Network: http://10.89.0.5:5173/
+2025-12-06T20:59:28.086452079+00:00 stdout F 8:59:28 PM [vite-plugin-svelte] src/lib/components/checkin/SessionIndicator.svelte:37:6 Using `on:click` to listen to the click event is deprecated. Use the event attribute `onclick` instead
+2025-12-06T20:59:28.086452079+00:00 stdout F https://svelte.dev/e/event_directive_deprecated
+2025-12-06T20:59:28.086494297+00:00 stdout F 8:59:28 PM [vite-plugin-svelte] src/lib/components/checkin/SessionIndicator.svelte:44:6 Using `on:click` to listen to the click event is deprecated. Use the event attribute `onclick` instead
+2025-12-06T20:59:28.086494297+00:00 stdout F https://svelte.dev/e/event_directive_deprecated
+2025-12-06T20:59:28.133060456+00:00 stdout F 8:59:28 PM [vite-plugin-svelte] src/lib/components/checkin/FamilyCard.svelte:80:6 Using `on:click` to listen to the click event is deprecated. Use the event attribute `onclick` instead
+2025-12-06T20:59:28.133060456+00:00 stdout F https://svelte.dev/e/event_directive_deprecated
+2025-12-06T20:59:28.133084996+00:00 stdout F 8:59:28 PM [vite-plugin-svelte] src/lib/components/checkin/FamilyCard.svelte:103:23 `a11y-no-static-element-interactions` is no longer valid — please use `a11y_no_static_element_interactions` instead
+2025-12-06T20:59:28.133084996+00:00 stdout F https://svelte.dev/e/legacy_code
+2025-12-06T20:59:28.133277834+00:00 stdout F 8:59:28 PM [vite-plugin-svelte] src/lib/components/checkin/FamilyCard.svelte:102:23 `a11y-click-events-have-key-events` is no longer valid — please use `a11y_click_events_have_key_events` instead
+2025-12-06T20:59:28.133277834+00:00 stdout F https://svelte.dev/e/legacy_code
+2025-12-06T20:59:28.133277834+00:00 stdout F 8:59:28 PM [vite-plugin-svelte] src/lib/components/checkin/FamilyCard.svelte:104:4 Visible, non-interactive elements with a click event must be accompanied by a keyboard event handler. Consider whether an interactive element such as `<button type="button">` or `<a>` might be more appropriate
+2025-12-06T20:59:28.133277834+00:00 stdout F https://svelte.dev/e/a11y_click_events_have_key_events
+2025-12-06T20:59:28.133374826+00:00 stdout F 8:59:28 PM [vite-plugin-svelte] src/lib/components/checkin/FamilyCard.svelte:104:4 `<div>` with a click handler must have an ARIA role
+2025-12-06T20:59:28.133374826+00:00 stdout F https://svelte.dev/e/a11y_no_static_element_interactions
+2025-12-06T20:59:28.133374826+00:00 stdout F 8:59:28 PM [vite-plugin-svelte] src/lib/components/checkin/FamilyCard.svelte:104:31 Using `on:click` to listen to the click event is deprecated. Use the event attribute `onclick` instead
+2025-12-06T20:59:28.133374826+00:00 stdout F https://svelte.dev/e/event_directive_deprecated
+2025-12-06T20:59:28.133598842+00:00 stdout F 8:59:28 PM [vite-plugin-svelte] src/lib/components/checkin/FamilyCard.svelte:108:10 Using `on:click` to listen to the click event is deprecated. Use the event attribute `onclick` instead
+2025-12-06T20:59:28.133598842+00:00 stdout F https://svelte.dev/e/event_directive_deprecated
+2025-12-06T20:59:28.133705425+00:00 stdout F 8:59:28 PM [vite-plugin-svelte] src/lib/components/checkin/FamilyCard.svelte:119:10 Using `on:click` to listen to the click event is deprecated. Use the event attribute `onclick` instead
+2025-12-06T20:59:28.133705425+00:00 stdout F https://svelte.dev/e/event_directive_deprecated
+2025-12-06T20:59:28.133705425+00:00 stdout F 8:59:28 PM [vite-plugin-svelte] src/lib/components/checkin/FamilyCard.svelte:176:18 Using `on:click` to listen to the click event is deprecated. Use the event attribute `onclick` instead
+2025-12-06T20:59:28.133705425+00:00 stdout F https://svelte.dev/e/event_directive_deprecated
+2025-12-06T20:59:28.133705425+00:00 stdout F 8:59:28 PM [vite-plugin-svelte] src/lib/components/checkin/FamilyCard.svelte:183:18 Using `on:click` to listen to the click event is deprecated. Use the event attribute `onclick` instead
+2025-12-06T20:59:28.133705425+00:00 stdout F https://svelte.dev/e/event_directive_deprecated
+2025-12-06T20:59:28.163021526+00:00 stdout F 8:59:28 PM [vite-plugin-svelte] src/lib/components/checkin/AddFamilyPanel.svelte:91:8 Using `on:submit` to listen to the submit event is deprecated. Use the event attribute `onsubmit` instead
+2025-12-06T20:59:28.163021526+00:00 stdout F https://svelte.dev/e/event_directive_deprecated
+2025-12-06T20:59:28.163053924+00:00 stdout F 8:59:28 PM [vite-plugin-svelte] src/lib/components/checkin/AddFamilyPanel.svelte:97:8 Using `on:click` to listen to the click event is deprecated. Use the event attribute `onclick` instead
+2025-12-06T20:59:28.163053924+00:00 stdout F https://svelte.dev/e/event_directive_deprecated
+2025-12-06T20:59:28.163053924+00:00 stdout F 8:59:28 PM [vite-plugin-svelte] src/lib/components/checkin/AddFamilyPanel.svelte:168:16 Using `on:click` to listen to the click event is deprecated. Use the event attribute `onclick` instead
+2025-12-06T20:59:28.163053924+00:00 stdout F https://svelte.dev/e/event_directive_deprecated
+2025-12-06T20:59:28.163076332+00:00 stdout F 8:59:28 PM [vite-plugin-svelte] src/lib/components/checkin/AddFamilyPanel.svelte:180:8 Using `on:click` to listen to the click event is deprecated. Use the event attribute `onclick` instead
+2025-12-06T20:59:28.163076332+00:00 stdout F https://svelte.dev/e/event_directive_deprecated
+2025-12-06T20:59:28.163123650+00:00 stdout F 8:59:28 PM [vite-plugin-svelte] src/lib/components/checkin/AddFamilyPanel.svelte:191:8 Using `on:click` to listen to the click event is deprecated. Use the event attribute `onclick` instead
+2025-12-06T20:59:28.163123650+00:00 stdout F https://svelte.dev/e/event_directive_deprecated
+2025-12-06T20:59:28.312438816+00:00 stdout F 8:59:28 PM [vite-plugin-svelte] src/lib/components/checkin/ChildCheckInButton.svelte:34:4 Using `on:click` to listen to the click event is deprecated. Use the event attribute `onclick` instead
+2025-12-06T20:59:28.312438816+00:00 stdout F https://svelte.dev/e/event_directive_deprecated
+2025-12-06T20:59:28.312470471+00:00 stdout F 8:59:28 PM [vite-plugin-svelte] src/lib/components/checkin/ChildCheckInButton.svelte:53:4 Using `on:click` to listen to the click event is deprecated. Use the event attribute `onclick` instead
+2025-12-06T20:59:28.312470471+00:00 stdout F https://svelte.dev/e/event_directive_deprecated
+2025-12-06T20:59:28.312470471+00:00 stdout F 8:59:28 PM [vite-plugin-svelte] src/lib/components/checkin/ChildCheckInButton.svelte:63:4 Using `on:click` to listen to the click event is deprecated. Use the event attribute `onclick` instead
+2025-12-06T20:59:28.312470471+00:00 stdout F https://svelte.dev/e/event_directive_deprecated
+2025-12-06T21:20:43.780064470+00:00 stdout F Lockfile is up to date, resolution step is skipped
+2025-12-06T21:20:43.874679666+00:00 stdout F Already up to date
+2025-12-06T21:20:44.190326435+00:00 stdout F 
+2025-12-06T21:20:44.190326435+00:00 stdout F ╭ Warning ─────────────────────────────────────────────────────────────────────╮
+2025-12-06T21:20:44.190326435+00:00 stdout F │                                                                              │
+2025-12-06T21:20:44.190326435+00:00 stdout F │   Ignored build scripts: esbuild.                                            │
+2025-12-06T21:20:44.190326435+00:00 stdout F │   Run "pnpm approve-builds" to pick which dependencies should be allowed     │
+2025-12-06T21:20:44.190326435+00:00 stdout F │   to run scripts.                                                            │
+2025-12-06T21:20:44.190326435+00:00 stdout F │                                                                              │
+2025-12-06T21:20:44.190326435+00:00 stdout F ╰──────────────────────────────────────────────────────────────────────────────╯
+2025-12-06T21:20:44.190326435+00:00 stdout F 
+2025-12-06T21:20:44.207191739+00:00 stdout F Done in 895ms using pnpm v10.24.0
+2025-12-06T21:20:44.714464705+00:00 stdout F 
+2025-12-06T21:20:44.714464705+00:00 stdout F > check-ins-frontend@0.0.1 dev /app
+2025-12-06T21:20:44.714464705+00:00 stdout F > vite dev --host --host 0.0.0.0 --port 5173
+2025-12-06T21:20:44.714464705+00:00 stdout F 
+2025-12-06T21:20:46.461559578+00:00 stdout F 
+2025-12-06T21:20:46.461559578+00:00 stdout F   VITE v5.4.21  ready in 1695 ms
+2025-12-06T21:20:46.461559578+00:00 stdout F 
+2025-12-06T21:20:46.461871394+00:00 stdout F   ➜  Local:   http://localhost:5173/
+2025-12-06T21:20:46.461951929+00:00 stdout F   ➜  Network: http://10.89.0.5:5173/
+2025-12-06T21:23:45.471308398+00:00 stdout F 9:23:45 PM [vite-plugin-svelte] src/lib/components/checkin/SessionIndicator.svelte:37:6 Using `on:click` to listen to the click event is deprecated. Use the event attribute `onclick` instead
+2025-12-06T21:23:45.471308398+00:00 stdout F https://svelte.dev/e/event_directive_deprecated
+2025-12-06T21:23:45.471359983+00:00 stdout F 9:23:45 PM [vite-plugin-svelte] src/lib/components/checkin/SessionIndicator.svelte:44:6 Using `on:click` to listen to the click event is deprecated. Use the event attribute `onclick` instead
+2025-12-06T21:23:45.471359983+00:00 stdout F https://svelte.dev/e/event_directive_deprecated
+2025-12-06T21:23:45.525407245+00:00 stdout F 9:23:45 PM [vite-plugin-svelte] src/lib/components/checkin/FamilyCard.svelte:80:6 Using `on:click` to listen to the click event is deprecated. Use the event attribute `onclick` instead
+2025-12-06T21:23:45.525407245+00:00 stdout F https://svelte.dev/e/event_directive_deprecated
+2025-12-06T21:23:45.525797133+00:00 stdout F 9:23:45 PM [vite-plugin-svelte] src/lib/components/checkin/FamilyCard.svelte:103:23 `a11y-no-static-element-interactions` is no longer valid — please use `a11y_no_static_element_interactions` instead
+2025-12-06T21:23:45.525797133+00:00 stdout F https://svelte.dev/e/legacy_code
+2025-12-06T21:23:45.525872599+00:00 stdout F 9:23:45 PM [vite-plugin-svelte] src/lib/components/checkin/FamilyCard.svelte:102:23 `a11y-click-events-have-key-events` is no longer valid — please use `a11y_click_events_have_key_events` instead
+2025-12-06T21:23:45.525872599+00:00 stdout F https://svelte.dev/e/legacy_code
+2025-12-06T21:23:45.525955297+00:00 stdout F 9:23:45 PM [vite-plugin-svelte] src/lib/components/checkin/FamilyCard.svelte:104:4 Visible, non-interactive elements with a click event must be accompanied by a keyboard event handler. Consider whether an interactive element such as `<button type="button">` or `<a>` might be more appropriate
+2025-12-06T21:23:45.525955297+00:00 stdout F https://svelte.dev/e/a11y_click_events_have_key_events
+2025-12-06T21:23:45.526565346+00:00 stdout F 9:23:45 PM [vite-plugin-svelte] src/lib/components/checkin/FamilyCard.svelte:104:4 `<div>` with a click handler must have an ARIA role
+2025-12-06T21:23:45.526565346+00:00 stdout F https://svelte.dev/e/a11y_no_static_element_interactions
+2025-12-06T21:23:45.526577392+00:00 stdout F 9:23:45 PM [vite-plugin-svelte] src/lib/components/checkin/FamilyCard.svelte:104:31 Using `on:click` to listen to the click event is deprecated. Use the event attribute `onclick` instead
+2025-12-06T21:23:45.526577392+00:00 stdout F https://svelte.dev/e/event_directive_deprecated
+2025-12-06T21:23:45.526654318+00:00 stdout F 9:23:45 PM [vite-plugin-svelte] src/lib/components/checkin/FamilyCard.svelte:108:10 Using `on:click` to listen to the click event is deprecated. Use the event attribute `onclick` instead
+2025-12-06T21:23:45.526654318+00:00 stdout F https://svelte.dev/e/event_directive_deprecated
+2025-12-06T21:23:45.526756346+00:00 stdout F 9:23:45 PM [vite-plugin-svelte] src/lib/components/checkin/FamilyCard.svelte:119:10 Using `on:click` to listen to the click event is deprecated. Use the event attribute `onclick` instead
+2025-12-06T21:23:45.526756346+00:00 stdout F https://svelte.dev/e/event_directive_deprecated
+2025-12-06T21:23:45.526804217+00:00 stdout F 9:23:45 PM [vite-plugin-svelte] src/lib/components/checkin/FamilyCard.svelte:176:18 Using `on:click` to listen to the click event is deprecated. Use the event attribute `onclick` instead
+2025-12-06T21:23:45.526804217+00:00 stdout F https://svelte.dev/e/event_directive_deprecated
+2025-12-06T21:23:45.526881242+00:00 stdout F 9:23:45 PM [vite-plugin-svelte] src/lib/components/checkin/FamilyCard.svelte:183:18 Using `on:click` to listen to the click event is deprecated. Use the event attribute `onclick` instead
+2025-12-06T21:23:45.526881242+00:00 stdout F https://svelte.dev/e/event_directive_deprecated
+2025-12-06T21:23:45.555544428+00:00 stdout F 9:23:45 PM [vite-plugin-svelte] src/lib/components/checkin/AddFamilyPanel.svelte:91:8 Using `on:submit` to listen to the submit event is deprecated. Use the event attribute `onsubmit` instead
+2025-12-06T21:23:45.555544428+00:00 stdout F https://svelte.dev/e/event_directive_deprecated
+2025-12-06T21:23:45.555544428+00:00 stdout F 9:23:45 PM [vite-plugin-svelte] src/lib/components/checkin/AddFamilyPanel.svelte:97:8 Using `on:click` to listen to the click event is deprecated. Use the event attribute `onclick` instead
+2025-12-06T21:23:45.555544428+00:00 stdout F https://svelte.dev/e/event_directive_deprecated
+2025-12-06T21:23:45.555569029+00:00 stdout F 9:23:45 PM [vite-plugin-svelte] src/lib/components/checkin/AddFamilyPanel.svelte:168:16 Using `on:click` to listen to the click event is deprecated. Use the event attribute `onclick` instead
+2025-12-06T21:23:45.555569029+00:00 stdout F https://svelte.dev/e/event_directive_deprecated
+2025-12-06T21:23:45.555569029+00:00 stdout F 9:23:45 PM [vite-plugin-svelte] src/lib/components/checkin/AddFamilyPanel.svelte:180:8 Using `on:click` to listen to the click event is deprecated. Use the event attribute `onclick` instead
+2025-12-06T21:23:45.555569029+00:00 stdout F https://svelte.dev/e/event_directive_deprecated
+2025-12-06T21:23:45.555588999+00:00 stdout F 9:23:45 PM [vite-plugin-svelte] src/lib/components/checkin/AddFamilyPanel.svelte:191:8 Using `on:click` to listen to the click event is deprecated. Use the event attribute `onclick` instead
+2025-12-06T21:23:45.555588999+00:00 stdout F https://svelte.dev/e/event_directive_deprecated
+2025-12-06T21:23:45.871307792+00:00 stdout F 9:23:45 PM [vite-plugin-svelte] src/lib/components/checkin/ChildCheckInButton.svelte:34:4 Using `on:click` to listen to the click event is deprecated. Use the event attribute `onclick` instead
+2025-12-06T21:23:45.871307792+00:00 stdout F https://svelte.dev/e/event_directive_deprecated
+2025-12-06T21:23:45.871425002+00:00 stdout F 9:23:45 PM [vite-plugin-svelte] src/lib/components/checkin/ChildCheckInButton.svelte:53:4 Using `on:click` to listen to the click event is deprecated. Use the event attribute `onclick` instead
+2025-12-06T21:23:45.871425002+00:00 stdout F https://svelte.dev/e/event_directive_deprecated
+2025-12-06T21:23:45.871455629+00:00 stdout F 9:23:45 PM [vite-plugin-svelte] src/lib/components/checkin/ChildCheckInButton.svelte:63:4 Using `on:click` to listen to the click event is deprecated. Use the event attribute `onclick` instead
+2025-12-06T21:23:45.871455629+00:00 stdout F https://svelte.dev/e/event_directive_deprecated
+2025-12-06T21:24:38.516592190+00:00 stdout F 9:24:38 PM [vite] hmr update /src/app.css, /src/routes/checkin/+page.svelte, /src/lib/components/checkin/FamilyCard.svelte
+2025-12-06T21:24:48.455876996+00:00 stdout F 9:24:48 PM [vite] hmr update /src/routes/checkin/+page.svelte, /src/app.css
+2025-12-06T21:25:15.798603507+00:00 stdout F 9:25:15 PM [vite] hmr update /src/routes/checkin/+page.svelte, /src/app.css, /src/lib/components/checkin/FamilyCard.svelte
+2025-12-06T21:25:21.369801366+00:00 stdout F 9:25:21 PM [vite] hmr update /src/routes/checkin/+page.svelte, /src/app.css, /src/lib/components/checkin/FamilyCard.svelte
+2025-12-06T21:25:27.808204217+00:00 stdout F 9:25:27 PM [vite] hmr update /src/routes/checkin/+page.svelte, /src/app.css, /src/lib/components/checkin/FamilyCard.svelte
+2025-12-06T21:25:39.337874501+00:00 stdout F 9:25:39 PM [vite-plugin-svelte] src/lib/components/checkin/FamilyCard.svelte:80:6 Using `on:click` to listen to the click event is deprecated. Use the event attribute `onclick` instead
+2025-12-06T21:25:39.337874501+00:00 stdout F https://svelte.dev/e/event_directive_deprecated
+2025-12-06T21:25:39.337902781+00:00 stdout F 9:25:39 PM [vite-plugin-svelte] src/lib/components/checkin/FamilyCard.svelte:103:23 `a11y-no-static-element-interactions` is no longer valid — please use `a11y_no_static_element_interactions` instead
+2025-12-06T21:25:39.337902781+00:00 stdout F https://svelte.dev/e/legacy_code
+2025-12-06T21:25:39.337916493+00:00 stdout F 9:25:39 PM [vite-plugin-svelte] src/lib/components/checkin/FamilyCard.svelte:102:23 `a11y-click-events-have-key-events` is no longer valid — please use `a11y_click_events_have_key_events` instead
+2025-12-06T21:25:39.337916493+00:00 stdout F https://svelte.dev/e/legacy_code
+2025-12-06T21:25:39.337939329+00:00 stdout F 9:25:39 PM [vite-plugin-svelte] src/lib/components/checkin/FamilyCard.svelte:104:4 Visible, non-interactive elements with a click event must be accompanied by a keyboard event handler. Consider whether an interactive element such as `<button type="button">` or `<a>` might be more appropriate
+2025-12-06T21:25:39.337939329+00:00 stdout F https://svelte.dev/e/a11y_click_events_have_key_events
+2025-12-06T21:25:39.337965034+00:00 stdout F 9:25:39 PM [vite-plugin-svelte] src/lib/components/checkin/FamilyCard.svelte:104:4 `<div>` with a click handler must have an ARIA role
+2025-12-06T21:25:39.337965034+00:00 stdout F https://svelte.dev/e/a11y_no_static_element_interactions
+2025-12-06T21:25:39.337986733+00:00 stdout F 9:25:39 PM [vite-plugin-svelte] src/lib/components/checkin/FamilyCard.svelte:104:31 Using `on:click` to listen to the click event is deprecated. Use the event attribute `onclick` instead
+2025-12-06T21:25:39.337986733+00:00 stdout F https://svelte.dev/e/event_directive_deprecated
+2025-12-06T21:25:39.338015031+00:00 stdout F 9:25:39 PM [vite-plugin-svelte] src/lib/components/checkin/FamilyCard.svelte:108:10 Using `on:click` to listen to the click event is deprecated. Use the event attribute `onclick` instead
+2025-12-06T21:25:39.338015031+00:00 stdout F https://svelte.dev/e/event_directive_deprecated
+2025-12-06T21:25:39.338022163+00:00 stdout F 9:25:39 PM [vite-plugin-svelte] src/lib/components/checkin/FamilyCard.svelte:119:10 Using `on:click` to listen to the click event is deprecated. Use the event attribute `onclick` instead
+2025-12-06T21:25:39.338022163+00:00 stdout F https://svelte.dev/e/event_directive_deprecated
+2025-12-06T21:25:39.338053699+00:00 stdout F 9:25:39 PM [vite-plugin-svelte] src/lib/components/checkin/FamilyCard.svelte:176:18 Using `on:click` to listen to the click event is deprecated. Use the event attribute `onclick` instead
+2025-12-06T21:25:39.338053699+00:00 stdout F https://svelte.dev/e/event_directive_deprecated
+2025-12-06T21:25:39.338060859+00:00 stdout F 9:25:39 PM [vite-plugin-svelte] src/lib/components/checkin/FamilyCard.svelte:183:18 Using `on:click` to listen to the click event is deprecated. Use the event attribute `onclick` instead
+2025-12-06T21:25:39.338060859+00:00 stdout F https://svelte.dev/e/event_directive_deprecated
+2025-12-06T21:26:01.953868302+00:00 stdout F 9:26:01 PM [vite] hmr update /src/routes/checkin/+page.svelte, /src/app.css
+2025-12-06T21:26:02.011699092+00:00 stdout F 9:26:02 PM [vite-plugin-svelte] src/lib/components/checkin/FamilyCard.svelte:80:6 Using `on:click` to listen to the click event is deprecated. Use the event attribute `onclick` instead
+2025-12-06T21:26:02.011699092+00:00 stdout F https://svelte.dev/e/event_directive_deprecated
+2025-12-06T21:26:02.011727660+00:00 stdout F 9:26:02 PM [vite-plugin-svelte] src/lib/components/checkin/FamilyCard.svelte:103:23 `a11y-no-static-element-interactions` is no longer valid — please use `a11y_no_static_element_interactions` instead
+2025-12-06T21:26:02.011727660+00:00 stdout F https://svelte.dev/e/legacy_code
+2025-12-06T21:26:02.011727660+00:00 stdout F 9:26:02 PM [vite-plugin-svelte] src/lib/components/checkin/FamilyCard.svelte:102:23 `a11y-click-events-have-key-events` is no longer valid — please use `a11y_click_events_have_key_events` instead
+2025-12-06T21:26:02.011727660+00:00 stdout F https://svelte.dev/e/legacy_code
+2025-12-06T21:26:02.011747788+00:00 stdout F 9:26:02 PM [vite-plugin-svelte] src/lib/components/checkin/FamilyCard.svelte:104:4 Visible, non-interactive elements with a click event must be accompanied by a keyboard event handler. Consider whether an interactive element such as `<button type="button">` or `<a>` might be more appropriate
+2025-12-06T21:26:02.011747788+00:00 stdout F https://svelte.dev/e/a11y_click_events_have_key_events
+2025-12-06T21:26:02.011766933+00:00 stdout F 9:26:02 PM [vite-plugin-svelte] src/lib/components/checkin/FamilyCard.svelte:104:4 `<div>` with a click handler must have an ARIA role
+2025-12-06T21:26:02.011766933+00:00 stdout F https://svelte.dev/e/a11y_no_static_element_interactions
+2025-12-06T21:26:02.011771885+00:00 stdout F 9:26:02 PM [vite-plugin-svelte] src/lib/components/checkin/FamilyCard.svelte:104:31 Using `on:click` to listen to the click event is deprecated. Use the event attribute `onclick` instead
+2025-12-06T21:26:02.011771885+00:00 stdout F https://svelte.dev/e/event_directive_deprecated
+2025-12-06T21:26:02.011782727+00:00 stdout F 9:26:02 PM [vite-plugin-svelte] src/lib/components/checkin/FamilyCard.svelte:108:10 Using `on:click` to listen to the click event is deprecated. Use the event attribute `onclick` instead
+2025-12-06T21:26:02.011782727+00:00 stdout F https://svelte.dev/e/event_directive_deprecated
+2025-12-06T21:26:02.011796126+00:00 stdout F 9:26:02 PM [vite-plugin-svelte] src/lib/components/checkin/FamilyCard.svelte:119:10 Using `on:click` to listen to the click event is deprecated. Use the event attribute `onclick` instead
+2025-12-06T21:26:02.011796126+00:00 stdout F https://svelte.dev/e/event_directive_deprecated
+2025-12-06T21:26:02.011817003+00:00 stdout F 9:26:02 PM [vite-plugin-svelte] src/lib/components/checkin/FamilyCard.svelte:176:18 Using `on:click` to listen to the click event is deprecated. Use the event attribute `onclick` instead
+2025-12-06T21:26:02.011817003+00:00 stdout F https://svelte.dev/e/event_directive_deprecated
+2025-12-06T21:26:02.011900041+00:00 stdout F 9:26:02 PM [vite-plugin-svelte] src/lib/components/checkin/FamilyCard.svelte:183:18 Using `on:click` to listen to the click event is deprecated. Use the event attribute `onclick` instead
+2025-12-06T21:26:02.011900041+00:00 stdout F https://svelte.dev/e/event_directive_deprecated
+2025-12-06T21:26:12.009459323+00:00 stdout F 9:26:12 PM [vite] hmr update /src/app.css, /src/routes/checkin/+page.svelte, /src/lib/components/checkin/FamilyCard.svelte
+2025-12-06T21:26:25.570630024+00:00 stdout F 9:26:25 PM [vite] hmr update /src/routes/checkin/+page.svelte, /src/app.css
+2025-12-06T21:26:38.907266358+00:00 stdout F 9:26:38 PM [vite] hmr update /src/routes/checkin/+page.svelte, /src/app.css
+2025-12-06T21:26:53.207459729+00:00 stdout F 9:26:53 PM [vite] hmr update /src/routes/checkin/+page.svelte, /src/app.css
+2025-12-06T21:27:07.904894035+00:00 stdout F 9:27:07 PM [vite] hmr update /src/routes/checkin/+page.svelte, /src/app.css
+2025-12-06T21:27:21.560714612+00:00 stdout F 9:27:21 PM [vite] hmr update /src/lib/components/checkin/AddFamilyPanel.svelte, /src/app.css
+2025-12-06T21:27:21.583568057+00:00 stdout F 9:27:21 PM [vite-plugin-svelte] src/lib/components/checkin/AddFamilyPanel.svelte:105:8 Using `on:submit` to listen to the submit event is deprecated. Use the event attribute `onsubmit` instead
+2025-12-06T21:27:21.583568057+00:00 stdout F https://svelte.dev/e/event_directive_deprecated
+2025-12-06T21:27:21.583594069+00:00 stdout F 9:27:21 PM [vite-plugin-svelte] src/lib/components/checkin/AddFamilyPanel.svelte:111:8 Using `on:click` to listen to the click event is deprecated. Use the event attribute `onclick` instead
+2025-12-06T21:27:21.583594069+00:00 stdout F https://svelte.dev/e/event_directive_deprecated
+2025-12-06T21:27:21.583645997+00:00 stdout F 9:27:21 PM [vite-plugin-svelte] src/lib/components/checkin/AddFamilyPanel.svelte:182:16 Using `on:click` to listen to the click event is deprecated. Use the event attribute `onclick` instead
+2025-12-06T21:27:21.583645997+00:00 stdout F https://svelte.dev/e/event_directive_deprecated
+2025-12-06T21:27:21.583660615+00:00 stdout F 9:27:21 PM [vite-plugin-svelte] src/lib/components/checkin/AddFamilyPanel.svelte:194:8 Using `on:click` to listen to the click event is deprecated. Use the event attribute `onclick` instead
+2025-12-06T21:27:21.583660615+00:00 stdout F https://svelte.dev/e/event_directive_deprecated
+2025-12-06T21:27:21.583690623+00:00 stdout F 9:27:21 PM [vite-plugin-svelte] src/lib/components/checkin/AddFamilyPanel.svelte:205:8 Using `on:click` to listen to the click event is deprecated. Use the event attribute `onclick` instead
+2025-12-06T21:27:21.583690623+00:00 stdout F https://svelte.dev/e/event_directive_deprecated
+2025-12-06T21:27:28.918940950+00:00 stdout F 9:27:28 PM [vite] hmr update /src/lib/components/checkin/AddFamilyPanel.svelte, /src/app.css
+2025-12-06T21:27:28.937562485+00:00 stdout F 9:27:28 PM [vite-plugin-svelte] src/lib/components/checkin/AddFamilyPanel.svelte:131:8 Using `on:submit` to listen to the submit event is deprecated. Use the event attribute `onsubmit` instead
+2025-12-06T21:27:28.937562485+00:00 stdout F https://svelte.dev/e/event_directive_deprecated
+2025-12-06T21:27:28.937593430+00:00 stdout F 9:27:28 PM [vite-plugin-svelte] src/lib/components/checkin/AddFamilyPanel.svelte:137:8 Using `on:click` to listen to the click event is deprecated. Use the event attribute `onclick` instead
+2025-12-06T21:27:28.937593430+00:00 stdout F https://svelte.dev/e/event_directive_deprecated
+2025-12-06T21:27:28.937593430+00:00 stdout F 9:27:28 PM [vite-plugin-svelte] src/lib/components/checkin/AddFamilyPanel.svelte:208:16 Using `on:click` to listen to the click event is deprecated. Use the event attribute `onclick` instead
+2025-12-06T21:27:28.937593430+00:00 stdout F https://svelte.dev/e/event_directive_deprecated
+2025-12-06T21:27:28.937605913+00:00 stdout F 9:27:28 PM [vite-plugin-svelte] src/lib/components/checkin/AddFamilyPanel.svelte:220:8 Using `on:click` to listen to the click event is deprecated. Use the event attribute `onclick` instead
+2025-12-06T21:27:28.937605913+00:00 stdout F https://svelte.dev/e/event_directive_deprecated
+2025-12-06T21:27:28.937616259+00:00 stdout F 9:27:28 PM [vite-plugin-svelte] src/lib/components/checkin/AddFamilyPanel.svelte:231:8 Using `on:click` to listen to the click event is deprecated. Use the event attribute `onclick` instead
+2025-12-06T21:27:28.937616259+00:00 stdout F https://svelte.dev/e/event_directive_deprecated
+2025-12-06T21:27:37.694245115+00:00 stdout F 9:27:37 PM [vite] hmr update /src/lib/components/checkin/AddFamilyPanel.svelte, /src/app.css
+2025-12-06T21:27:37.729659436+00:00 stdout F 9:27:37 PM [vite-plugin-svelte] src/lib/components/checkin/AddFamilyPanel.svelte:147:8 Using `on:submit` to listen to the submit event is deprecated. Use the event attribute `onsubmit` instead
+2025-12-06T21:27:37.729659436+00:00 stdout F https://svelte.dev/e/event_directive_deprecated
+2025-12-06T21:27:37.729693814+00:00 stdout F 9:27:37 PM [vite-plugin-svelte] src/lib/components/checkin/AddFamilyPanel.svelte:153:8 Using `on:click` to listen to the click event is deprecated. Use the event attribute `onclick` instead
+2025-12-06T21:27:37.729693814+00:00 stdout F https://svelte.dev/e/event_directive_deprecated
+2025-12-06T21:27:37.729693814+00:00 stdout F 9:27:37 PM [vite-plugin-svelte] src/lib/components/checkin/AddFamilyPanel.svelte:224:16 Using `on:click` to listen to the click event is deprecated. Use the event attribute `onclick` instead
+2025-12-06T21:27:37.729693814+00:00 stdout F https://svelte.dev/e/event_directive_deprecated
+2025-12-06T21:27:37.729701784+00:00 stdout F 9:27:37 PM [vite-plugin-svelte] src/lib/components/checkin/AddFamilyPanel.svelte:236:8 Using `on:click` to listen to the click event is deprecated. Use the event attribute `onclick` instead
+2025-12-06T21:27:37.729701784+00:00 stdout F https://svelte.dev/e/event_directive_deprecated
+2025-12-06T21:27:37.729709230+00:00 stdout F 9:27:37 PM [vite-plugin-svelte] src/lib/components/checkin/AddFamilyPanel.svelte:247:8 Using `on:click` to listen to the click event is deprecated. Use the event attribute `onclick` instead
+2025-12-06T21:27:37.729709230+00:00 stdout F https://svelte.dev/e/event_directive_deprecated
+2025-12-06T21:28:00.795532814+00:00 stdout F 9:28:00 PM [vite] hmr update /src/lib/components/checkin/AddFamilyPanel.svelte, /src/app.css
+2025-12-06T21:28:00.831328384+00:00 stdout F 9:28:00 PM [vite-plugin-svelte] src/lib/components/checkin/AddFamilyPanel.svelte:147:8 Using `on:submit` to listen to the submit event is deprecated. Use the event attribute `onsubmit` instead
+2025-12-06T21:28:00.831328384+00:00 stdout F https://svelte.dev/e/event_directive_deprecated
+2025-12-06T21:28:00.831590679+00:00 stdout F 9:28:00 PM [vite-plugin-svelte] src/lib/components/checkin/AddFamilyPanel.svelte:153:8 Using `on:click` to listen to the click event is deprecated. Use the event attribute `onclick` instead
+2025-12-06T21:28:00.831590679+00:00 stdout F https://svelte.dev/e/event_directive_deprecated
+2025-12-06T21:28:00.831614248+00:00 stdout F 9:28:00 PM [vite-plugin-svelte] src/lib/components/checkin/AddFamilyPanel.svelte:205:18 Using `on:input` to listen to the input event is deprecated. Use the event attribute `oninput` instead
+2025-12-06T21:28:00.831614248+00:00 stdout F https://svelte.dev/e/event_directive_deprecated
+2025-12-06T21:28:00.831614248+00:00 stdout F 9:28:00 PM [vite-plugin-svelte] src/lib/components/checkin/AddFamilyPanel.svelte:217:18 Using `on:change` to listen to the change event is deprecated. Use the event attribute `onchange` instead
+2025-12-06T21:28:00.831614248+00:00 stdout F https://svelte.dev/e/event_directive_deprecated
+2025-12-06T21:28:00.831649281+00:00 stdout F 9:28:00 PM [vite-plugin-svelte] src/lib/components/checkin/AddFamilyPanel.svelte:236:18 Using `on:input` to listen to the input event is deprecated. Use the event attribute `oninput` instead
+2025-12-06T21:28:00.831649281+00:00 stdout F https://svelte.dev/e/event_directive_deprecated
+2025-12-06T21:28:00.831649281+00:00 stdout F 9:28:00 PM [vite-plugin-svelte] src/lib/components/checkin/AddFamilyPanel.svelte:249:18 Using `on:input` to listen to the input event is deprecated. Use the event attribute `oninput` instead
+2025-12-06T21:28:00.831649281+00:00 stdout F https://svelte.dev/e/event_directive_deprecated
+2025-12-06T21:28:00.831660921+00:00 stdout F 9:28:00 PM [vite-plugin-svelte] src/lib/components/checkin/AddFamilyPanel.svelte:258:16 Using `on:click` to listen to the click event is deprecated. Use the event attribute `onclick` instead
+2025-12-06T21:28:00.831660921+00:00 stdout F https://svelte.dev/e/event_directive_deprecated
+2025-12-06T21:28:00.831670452+00:00 stdout F 9:28:00 PM [vite-plugin-svelte] src/lib/components/checkin/AddFamilyPanel.svelte:269:8 Using `on:click` to listen to the click event is deprecated. Use the event attribute `onclick` instead
+2025-12-06T21:28:00.831670452+00:00 stdout F https://svelte.dev/e/event_directive_deprecated
+2025-12-06T21:28:00.831681016+00:00 stdout F 9:28:00 PM [vite-plugin-svelte] src/lib/components/checkin/AddFamilyPanel.svelte:312:16 Using `on:click` to listen to the click event is deprecated. Use the event attribute `onclick` instead
+2025-12-06T21:28:00.831681016+00:00 stdout F https://svelte.dev/e/event_directive_deprecated
+2025-12-06T21:28:00.831691747+00:00 stdout F 9:28:00 PM [vite-plugin-svelte] src/lib/components/checkin/AddFamilyPanel.svelte:324:8 Using `on:click` to listen to the click event is deprecated. Use the event attribute `onclick` instead
+2025-12-06T21:28:00.831691747+00:00 stdout F https://svelte.dev/e/event_directive_deprecated
+2025-12-06T21:28:00.831701631+00:00 stdout F 9:28:00 PM [vite-plugin-svelte] src/lib/components/checkin/AddFamilyPanel.svelte:335:8 Using `on:click` to listen to the click event is deprecated. Use the event attribute `onclick` instead
+2025-12-06T21:28:00.831701631+00:00 stdout F https://svelte.dev/e/event_directive_deprecated
+2025-12-06T21:28:09.983178742+00:00 stdout F 9:28:09 PM [vite] hmr update /src/routes/checkin/+page.svelte, /src/app.css
+2025-12-06T21:28:25.451447241+00:00 stdout F 9:28:25 PM [vite] page reload .svelte-kit/generated/client/nodes/0.js
+2025-12-06T21:28:25.452013674+00:00 stdout F 9:28:25 PM [vite] page reload .svelte-kit/generated/client/nodes/1.js
+2025-12-06T21:28:25.452414466+00:00 stdout F 9:28:25 PM [vite] page reload .svelte-kit/generated/client/nodes/4.js
+2025-12-06T21:28:25.454245346+00:00 stdout F 9:28:25 PM [vite] page reload .svelte-kit/generated/client/app.js
+2025-12-06T21:28:25.454559042+00:00 stdout F 9:28:25 PM [vite] page reload .svelte-kit/generated/client/matchers.js
+2025-12-06T21:28:25.454723793+00:00 stdout F 9:28:25 PM [vite] page reload .svelte-kit/generated/server/internal.js
+2025-12-06T21:28:25.455118901+00:00 stdout F 9:28:25 PM [vite] page reload .svelte-kit/generated/root.js
+2025-12-06T21:28:36.310112234+00:00 stdout F 9:28:36 PM [vite] page reload src/lib/checkin/stores/undoTimer.test.ts
+2025-12-06T21:29:27.043619210+00:00 stdout F 9:29:27 PM [vite] page reload src/lib/checkin/stores/undoTimer.test.ts
+2025-12-06T21:29:35.684188577+00:00 stdout F 9:29:35 PM [vite] page reload .svelte-kit/generated/client/nodes/0.js
+2025-12-06T21:29:35.684560230+00:00 stdout F 9:29:35 PM [vite] page reload .svelte-kit/generated/client/nodes/1.js
+2025-12-06T21:29:35.684819224+00:00 stdout F 9:29:35 PM [vite] page reload .svelte-kit/generated/client/nodes/4.js
+2025-12-06T21:29:35.686454098+00:00 stdout F 9:29:35 PM [vite] page reload .svelte-kit/generated/client/app.js
+2025-12-06T21:29:35.686635373+00:00 stdout F 9:29:35 PM [vite] page reload .svelte-kit/generated/client/matchers.js
+2025-12-06T21:29:35.687986481+00:00 stdout F 9:29:35 PM [vite] page reload .svelte-kit/generated/server/internal.js
+2025-12-06T21:29:35.688621322+00:00 stdout F 9:29:35 PM [vite] page reload .svelte-kit/generated/root.js
+2025-12-06T21:29:47.121360857+00:00 stdout F 9:29:47 PM [vite] page reload src/lib/checkin/utils/familyVisibility.test.ts
+2025-12-06T21:29:53.752203588+00:00 stdout F 9:29:53 PM [vite] page reload src/lib/checkin/utils/familyVisibility.test.ts
+2025-12-06T21:30:43.297873241+00:00 stdout F 9:30:43 PM [vite] page reload src/lib/checkin/utils/familyVisibility.test.ts
+2025-12-06T21:30:59.616358539+00:00 stdout F 9:30:59 PM [vite] page reload .svelte-kit/generated/client/nodes/0.js
+2025-12-06T21:30:59.616572028+00:00 stdout F 9:30:59 PM [vite] page reload .svelte-kit/generated/client/nodes/1.js
+2025-12-06T21:30:59.617471403+00:00 stdout F 9:30:59 PM [vite] page reload .svelte-kit/generated/client/nodes/4.js
+2025-12-06T21:30:59.618628339+00:00 stdout F 9:30:59 PM [vite] page reload .svelte-kit/generated/client/app.js
+2025-12-06T21:30:59.618817431+00:00 stdout F 9:30:59 PM [vite] page reload .svelte-kit/generated/client/matchers.js
+2025-12-06T21:30:59.619453744+00:00 stdout F 9:30:59 PM [vite] page reload .svelte-kit/generated/server/internal.js
+2025-12-06T21:30:59.620243011+00:00 stdout F 9:30:59 PM [vite] page reload .svelte-kit/generated/root.js
+2025-12-06T21:31:23.036381883+00:00 stdout F Lockfile is up to date, resolution step is skipped
+2025-12-06T21:31:23.097097446+00:00 stdout F Already up to date
+2025-12-06T21:31:23.376634307+00:00 stdout F 
+2025-12-06T21:31:23.376634307+00:00 stdout F ╭ Warning ─────────────────────────────────────────────────────────────────────╮
+2025-12-06T21:31:23.376634307+00:00 stdout F │                                                                              │
+2025-12-06T21:31:23.376634307+00:00 stdout F │   Ignored build scripts: esbuild.                                            │
+2025-12-06T21:31:23.376634307+00:00 stdout F │   Run "pnpm approve-builds" to pick which dependencies should be allowed     │
+2025-12-06T21:31:23.376634307+00:00 stdout F │   to run scripts.                                                            │
+2025-12-06T21:31:23.376634307+00:00 stdout F │                                                                              │
+2025-12-06T21:31:23.376634307+00:00 stdout F ╰──────────────────────────────────────────────────────────────────────────────╯
+2025-12-06T21:31:23.376634307+00:00 stdout F 
+2025-12-06T21:31:23.396340347+00:00 stdout F Done in 773ms using pnpm v10.24.0
+2025-12-06T21:31:23.802500239+00:00 stdout F 
+2025-12-06T21:31:23.802500239+00:00 stdout F > check-ins-frontend@0.0.1 dev /app
+2025-12-06T21:31:23.802500239+00:00 stdout F > vite dev --host --host 0.0.0.0 --port 5173
+2025-12-06T21:31:23.802500239+00:00 stdout F 
+2025-12-06T21:31:25.160267154+00:00 stdout F 
+2025-12-06T21:31:25.160267154+00:00 stdout F   VITE v5.4.21  ready in 1319 ms
+2025-12-06T21:31:25.160267154+00:00 stdout F 
+2025-12-06T21:31:25.160671697+00:00 stdout F   ➜  Local:   http://localhost:5173/
+2025-12-06T21:31:25.160752430+00:00 stdout F   ➜  Network: http://10.89.0.5:5173/
+2025-12-06T21:44:14.427733488+00:00 stdout F 9:44:14 PM [vite-plugin-svelte] src/lib/components/checkin/SessionIndicator.svelte:37:6 Using `on:click` to listen to the click event is deprecated. Use the event attribute `onclick` instead
+2025-12-06T21:44:14.427733488+00:00 stdout F https://svelte.dev/e/event_directive_deprecated
+2025-12-06T21:44:14.427762256+00:00 stdout F 9:44:14 PM [vite-plugin-svelte] src/lib/components/checkin/SessionIndicator.svelte:44:6 Using `on:click` to listen to the click event is deprecated. Use the event attribute `onclick` instead
+2025-12-06T21:44:14.427762256+00:00 stdout F https://svelte.dev/e/event_directive_deprecated
+2025-12-06T21:44:14.481055461+00:00 stdout F 9:44:14 PM [vite-plugin-svelte] src/lib/components/checkin/FamilyCard.svelte:80:6 Using `on:click` to listen to the click event is deprecated. Use the event attribute `onclick` instead
+2025-12-06T21:44:14.481055461+00:00 stdout F https://svelte.dev/e/event_directive_deprecated
+2025-12-06T21:44:14.481055461+00:00 stdout F 9:44:14 PM [vite-plugin-svelte] src/lib/components/checkin/FamilyCard.svelte:103:23 `a11y-no-static-element-interactions` is no longer valid — please use `a11y_no_static_element_interactions` instead
+2025-12-06T21:44:14.481055461+00:00 stdout F https://svelte.dev/e/legacy_code
+2025-12-06T21:44:14.481080262+00:00 stdout F 9:44:14 PM [vite-plugin-svelte] src/lib/components/checkin/FamilyCard.svelte:102:23 `a11y-click-events-have-key-events` is no longer valid — please use `a11y_click_events_have_key_events` instead
+2025-12-06T21:44:14.481080262+00:00 stdout F https://svelte.dev/e/legacy_code
+2025-12-06T21:44:14.481111405+00:00 stdout F 9:44:14 PM [vite-plugin-svelte] src/lib/components/checkin/FamilyCard.svelte:104:4 Visible, non-interactive elements with a click event must be accompanied by a keyboard event handler. Consider whether an interactive element such as `<button type="button">` or `<a>` might be more appropriate
+2025-12-06T21:44:14.481111405+00:00 stdout F https://svelte.dev/e/a11y_click_events_have_key_events
+2025-12-06T21:44:14.481281180+00:00 stdout F 9:44:14 PM [vite-plugin-svelte] src/lib/components/checkin/FamilyCard.svelte:104:4 `<div>` with a click handler must have an ARIA role
+2025-12-06T21:44:14.481281180+00:00 stdout F https://svelte.dev/e/a11y_no_static_element_interactions
+2025-12-06T21:44:14.481281180+00:00 stdout F 9:44:14 PM [vite-plugin-svelte] src/lib/components/checkin/FamilyCard.svelte:104:31 Using `on:click` to listen to the click event is deprecated. Use the event attribute `onclick` instead
+2025-12-06T21:44:14.481281180+00:00 stdout F https://svelte.dev/e/event_directive_deprecated
+2025-12-06T21:44:14.481293582+00:00 stdout F 9:44:14 PM [vite-plugin-svelte] src/lib/components/checkin/FamilyCard.svelte:108:10 Using `on:click` to listen to the click event is deprecated. Use the event attribute `onclick` instead
+2025-12-06T21:44:14.481293582+00:00 stdout F https://svelte.dev/e/event_directive_deprecated
+2025-12-06T21:44:14.481330377+00:00 stdout F 9:44:14 PM [vite-plugin-svelte] src/lib/components/checkin/FamilyCard.svelte:119:10 Using `on:click` to listen to the click event is deprecated. Use the event attribute `onclick` instead
+2025-12-06T21:44:14.481330377+00:00 stdout F https://svelte.dev/e/event_directive_deprecated
+2025-12-06T21:44:14.481348358+00:00 stdout F 9:44:14 PM [vite-plugin-svelte] src/lib/components/checkin/FamilyCard.svelte:176:18 Using `on:click` to listen to the click event is deprecated. Use the event attribute `onclick` instead
+2025-12-06T21:44:14.481348358+00:00 stdout F https://svelte.dev/e/event_directive_deprecated
+2025-12-06T21:44:14.481354934+00:00 stdout F 9:44:14 PM [vite-plugin-svelte] src/lib/components/checkin/FamilyCard.svelte:183:18 Using `on:click` to listen to the click event is deprecated. Use the event attribute `onclick` instead
+2025-12-06T21:44:14.481354934+00:00 stdout F https://svelte.dev/e/event_directive_deprecated
+2025-12-06T21:44:14.517849348+00:00 stdout F 9:44:14 PM [vite-plugin-svelte] src/lib/components/checkin/AddFamilyPanel.svelte:147:8 Using `on:submit` to listen to the submit event is deprecated. Use the event attribute `onsubmit` instead
+2025-12-06T21:44:14.517849348+00:00 stdout F https://svelte.dev/e/event_directive_deprecated
+2025-12-06T21:44:14.517849348+00:00 stdout F 9:44:14 PM [vite-plugin-svelte] src/lib/components/checkin/AddFamilyPanel.svelte:153:8 Using `on:click` to listen to the click event is deprecated. Use the event attribute `onclick` instead
+2025-12-06T21:44:14.517849348+00:00 stdout F https://svelte.dev/e/event_directive_deprecated
+2025-12-06T21:44:14.517849348+00:00 stdout F 9:44:14 PM [vite-plugin-svelte] src/lib/components/checkin/AddFamilyPanel.svelte:205:18 Using `on:input` to listen to the input event is deprecated. Use the event attribute `oninput` instead
+2025-12-06T21:44:14.517849348+00:00 stdout F https://svelte.dev/e/event_directive_deprecated
+2025-12-06T21:44:14.517871911+00:00 stdout F 9:44:14 PM [vite-plugin-svelte] src/lib/components/checkin/AddFamilyPanel.svelte:217:18 Using `on:change` to listen to the change event is deprecated. Use the event attribute `onchange` instead
+2025-12-06T21:44:14.517871911+00:00 stdout F https://svelte.dev/e/event_directive_deprecated
+2025-12-06T21:44:14.517871911+00:00 stdout F 9:44:14 PM [vite-plugin-svelte] src/lib/components/checkin/AddFamilyPanel.svelte:236:18 Using `on:input` to listen to the input event is deprecated. Use the event attribute `oninput` instead
+2025-12-06T21:44:14.517871911+00:00 stdout F https://svelte.dev/e/event_directive_deprecated
+2025-12-06T21:44:14.517877733+00:00 stdout F 9:44:14 PM [vite-plugin-svelte] src/lib/components/checkin/AddFamilyPanel.svelte:249:18 Using `on:input` to listen to the input event is deprecated. Use the event attribute `oninput` instead
+2025-12-06T21:44:14.517877733+00:00 stdout F https://svelte.dev/e/event_directive_deprecated
+2025-12-06T21:44:14.517900204+00:00 stdout F 9:44:14 PM [vite-plugin-svelte] src/lib/components/checkin/AddFamilyPanel.svelte:258:16 Using `on:click` to listen to the click event is deprecated. Use the event attribute `onclick` instead
+2025-12-06T21:44:14.517900204+00:00 stdout F https://svelte.dev/e/event_directive_deprecated
+2025-12-06T21:44:14.517905803+00:00 stdout F 9:44:14 PM [vite-plugin-svelte] src/lib/components/checkin/AddFamilyPanel.svelte:269:8 Using `on:click` to listen to the click event is deprecated. Use the event attribute `onclick` instead
+2025-12-06T21:44:14.517905803+00:00 stdout F https://svelte.dev/e/event_directive_deprecated
+2025-12-06T21:44:14.517928494+00:00 stdout F 9:44:14 PM [vite-plugin-svelte] src/lib/components/checkin/AddFamilyPanel.svelte:312:16 Using `on:click` to listen to the click event is deprecated. Use the event attribute `onclick` instead
+2025-12-06T21:44:14.517928494+00:00 stdout F https://svelte.dev/e/event_directive_deprecated
+2025-12-06T21:44:14.517934419+00:00 stdout F 9:44:14 PM [vite-plugin-svelte] src/lib/components/checkin/AddFamilyPanel.svelte:324:8 Using `on:click` to listen to the click event is deprecated. Use the event attribute `onclick` instead
+2025-12-06T21:44:14.517934419+00:00 stdout F https://svelte.dev/e/event_directive_deprecated
+2025-12-06T21:44:14.517944806+00:00 stdout F 9:44:14 PM [vite-plugin-svelte] src/lib/components/checkin/AddFamilyPanel.svelte:335:8 Using `on:click` to listen to the click event is deprecated. Use the event attribute `onclick` instead
+2025-12-06T21:44:14.517944806+00:00 stdout F https://svelte.dev/e/event_directive_deprecated
+2025-12-06T21:44:14.858066506+00:00 stdout F 9:44:14 PM [vite-plugin-svelte] src/lib/components/checkin/ChildCheckInButton.svelte:34:4 Using `on:click` to listen to the click event is deprecated. Use the event attribute `onclick` instead
+2025-12-06T21:44:14.858066506+00:00 stdout F https://svelte.dev/e/event_directive_deprecated
+2025-12-06T21:44:14.858066506+00:00 stdout F 9:44:14 PM [vite-plugin-svelte] src/lib/components/checkin/ChildCheckInButton.svelte:53:4 Using `on:click` to listen to the click event is deprecated. Use the event attribute `onclick` instead
+2025-12-06T21:44:14.858066506+00:00 stdout F https://svelte.dev/e/event_directive_deprecated
+2025-12-06T21:44:14.858066506+00:00 stdout F 9:44:14 PM [vite-plugin-svelte] src/lib/components/checkin/ChildCheckInButton.svelte:63:4 Using `on:click` to listen to the click event is deprecated. Use the event attribute `onclick` instead
+2025-12-06T21:44:14.858066506+00:00 stdout F https://svelte.dev/e/event_directive_deprecated
+2025-12-06T21:44:14.905809548+00:00 stderr F 
+2025-12-06T21:44:14.905809548+00:00 stderr F [1;31m[404] GET /favicon.png[0m

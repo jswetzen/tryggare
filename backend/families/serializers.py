@@ -21,6 +21,8 @@ class ParentSerializer(serializers.ModelSerializer):
 class ChildSerializer(serializers.ModelSerializer):
     ticket_type = serializers.SerializerMethodField()
     ticket_details = serializers.SerializerMethodField()
+    is_checked_in = serializers.SerializerMethodField()
+    active_checkin_id = serializers.SerializerMethodField()
 
     class Meta:
         model = Child
@@ -36,8 +38,10 @@ class ChildSerializer(serializers.ModelSerializer):
             "family",
             "ticket_type",
             "ticket_details",
+            "is_checked_in",
+            "active_checkin_id",
         ]
-        read_only_fields = ["id", "qr_token", "last_participation_date", "ticket_type", "ticket_details"]
+        read_only_fields = ["id", "qr_token", "last_participation_date", "ticket_type", "ticket_details", "is_checked_in", "active_checkin_id"]
 
     def get_ticket_type(self, obj: Child) -> str:
         """
@@ -56,6 +60,44 @@ class ChildSerializer(serializers.ModelSerializer):
             dict: Ticket details including event_tickets and session_tickets lists
         """
         return obj.get_ticket_details()
+
+    def get_is_checked_in(self, obj: Child) -> bool:
+        """
+        Check if the child has an active check-in (not checked out).
+
+        Returns:
+            bool: True if child has an active check-in, False otherwise
+        """
+        # Use prefetched active_checkins if available to avoid N+1 queries
+        if hasattr(obj, 'active_checkins'):
+            return len(obj.active_checkins) > 0
+
+        # Fallback: query if not prefetched
+        from checkins.models import CheckInRecord
+        active_checkin = CheckInRecord.objects.filter(
+            child=obj,
+            check_out_time__isnull=True
+        ).first()
+        return active_checkin is not None
+
+    def get_active_checkin_id(self, obj: Child) -> str | None:
+        """
+        Get the ID of the active check-in record if any.
+
+        Returns:
+            str: The check-in record ID, or None if not checked in
+        """
+        # Use prefetched active_checkins if available to avoid N+1 queries
+        if hasattr(obj, 'active_checkins') and len(obj.active_checkins) > 0:
+            return str(obj.active_checkins[0].id)
+
+        # Fallback: query if not prefetched
+        from checkins.models import CheckInRecord
+        active_checkin = CheckInRecord.objects.filter(
+            child=obj,
+            check_out_time__isnull=True
+        ).first()
+        return str(active_checkin.id) if active_checkin else None
 
 
 class FamilySerializer(serializers.ModelSerializer):

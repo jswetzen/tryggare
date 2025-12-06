@@ -34,13 +34,13 @@ describe('undoTimer store', () => {
     const now = Date.now();
     vi.setSystemTime(now);
 
-    const actionId = createUndoAction(1, [2, 3]);
+    const actionId = createUndoAction('1', ['2', '3']);
 
     const actions = get(undoActions);
     expect(actions).toHaveLength(1);
     expect(actions[0]).toMatchObject({
-      familyId: 1,
-      childIds: [2, 3],
+      familyId: '1',
+      childIds: ['2', '3'],
       timestamp: now,
       expiresAt: now + 30000,
     });
@@ -52,7 +52,7 @@ describe('undoTimer store', () => {
     const now = Date.now();
     vi.setSystemTime(now);
 
-    const actionId = createUndoAction(1, [2]);
+    const actionId = createUndoAction('1', ['2']);
 
     // Just created, should have ~30 seconds
     expect(getRemainingTime(actionId)).toBe(30);
@@ -67,7 +67,7 @@ describe('undoTimer store', () => {
   });
 
   it('should auto-remove expired undo actions', () => {
-    const actionId = createUndoAction(1, [2]);
+    const actionId = createUndoAction('1', ['2']);
 
     let actions = get(undoActions);
     expect(actions).toHaveLength(1);
@@ -81,7 +81,7 @@ describe('undoTimer store', () => {
   });
 
   it('should manually remove undo action', () => {
-    const actionId = createUndoAction(1, [2]);
+    const actionId = createUndoAction('1', ['2']);
 
     let actions = get(undoActions);
     expect(actions).toHaveLength(1);
@@ -96,11 +96,11 @@ describe('undoTimer store', () => {
     const now = Date.now();
     vi.setSystemTime(now);
 
-    const action1Id = createUndoAction(1, [2]);
+    const action1Id = createUndoAction('1', ['2']);
 
     // Create second action 5 seconds later
     vi.advanceTimersByTime(5000);
-    const action2Id = createUndoAction(1, [3]);
+    const action2Id = createUndoAction('1', ['3']);
 
     let actions = get(undoActions);
     expect(actions).toHaveLength(2);
@@ -118,34 +118,34 @@ describe('undoTimer store', () => {
   });
 
   it('should check if family has active undo', () => {
-    createUndoAction(1, [2]);
-    createUndoAction(3, [4]);
+    createUndoAction('1', ['2']);
+    createUndoAction('3', ['4']);
 
-    expect(hasActiveUndo(1)).toBe(true);
-    expect(hasActiveUndo(3)).toBe(true);
-    expect(hasActiveUndo(99)).toBe(false);
+    expect(hasActiveUndo('1')).toBe(true);
+    expect(hasActiveUndo('3')).toBe(true);
+    expect(hasActiveUndo('99')).toBe(false);
   });
 
   it('should find undo action by child ID', () => {
-    const actionId = createUndoAction(1, [2, 3, 4]);
+    const actionId = createUndoAction('1', ['2', '3', '4']);
 
-    expect(findUndoActionByChildId(2)?.id).toBe(actionId);
-    expect(findUndoActionByChildId(3)?.id).toBe(actionId);
-    expect(findUndoActionByChildId(4)?.id).toBe(actionId);
-    expect(findUndoActionByChildId(99)).toBeUndefined();
+    expect(findUndoActionByChildId('2')?.id).toBe(actionId);
+    expect(findUndoActionByChildId('3')?.id).toBe(actionId);
+    expect(findUndoActionByChildId('4')?.id).toBe(actionId);
+    expect(findUndoActionByChildId('99')).toBeUndefined();
   });
 
   it('should get all undo actions for a family', () => {
-    const action1Id = createUndoAction(1, [2]);
-    const action2Id = createUndoAction(1, [3]);
-    createUndoAction(2, [4]); // Different family
+    const action1Id = createUndoAction('1', ['2']);
+    const action2Id = createUndoAction('1', ['3']);
+    createUndoAction('2', ['4']); // Different family
 
-    const familyActions = getFamilyUndoActions(1);
+    const familyActions = getFamilyUndoActions('1');
     expect(familyActions).toHaveLength(2);
     expect(familyActions[0].id).toBe(action1Id);
     expect(familyActions[1].id).toBe(action2Id);
 
-    const family2Actions = getFamilyUndoActions(2);
+    const family2Actions = getFamilyUndoActions('2');
     expect(family2Actions).toHaveLength(1);
   });
 
@@ -158,10 +158,10 @@ describe('undoTimer store', () => {
     // Initial value
     expect(values).toEqual([0]);
 
-    createUndoAction(1, [2]);
+    createUndoAction('1', ['2']);
     expect(values).toEqual([0, 1]);
 
-    createUndoAction(1, [3]);
+    createUndoAction('1', ['3']);
     expect(values).toEqual([0, 1, 2]);
 
     unsubscribe();
@@ -171,7 +171,7 @@ describe('undoTimer store', () => {
     const now = Date.now();
     vi.setSystemTime(now);
 
-    const actionId = createUndoAction(1, [2]);
+    const actionId = createUndoAction('1', ['2']);
 
     // Advance to 29.5 seconds (just before expiration)
     vi.advanceTimersByTime(29500);
@@ -185,7 +185,7 @@ describe('undoTimer store', () => {
   });
 
   it('should handle removing non-existent action gracefully', () => {
-    createUndoAction(1, [2]);
+    createUndoAction('1', ['2']);
 
     let actions = get(undoActions);
     expect(actions).toHaveLength(1);
@@ -199,8 +199,8 @@ describe('undoTimer store', () => {
   });
 
   it('should cleanup all timers on cleanup call', () => {
-    createUndoAction(1, [2]);
-    createUndoAction(1, [3]);
+    createUndoAction('1', ['2']);
+    createUndoAction('1', ['3']);
 
     let actions = get(undoActions);
     expect(actions).toHaveLength(2);
@@ -227,7 +227,7 @@ describe('undoTimer store', () => {
     const initialTick = tickValues[0];
 
     // Create an action - this should start the tick interval
-    createUndoAction(1, [2]);
+    createUndoAction('1', ['2']);
 
     // Advance 1 second - tick should increment
     vi.advanceTimersByTime(1000);
@@ -249,7 +249,7 @@ describe('undoTimer store', () => {
     });
 
     // Create an action
-    createUndoAction(1, [2]);
+    createUndoAction('1', ['2']);
 
     // Advance 1 second
     vi.advanceTimersByTime(1000);
@@ -271,7 +271,7 @@ describe('undoTimer store', () => {
     const initialLength = tickValues.length;
 
     // Create an action - starts tick interval
-    const actionId = createUndoAction(1, [2]);
+    const actionId = createUndoAction('1', ['2']);
 
     // Advance 2 seconds
     vi.advanceTimersByTime(2000);

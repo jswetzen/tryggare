@@ -45,7 +45,7 @@
         ticket: (child.ticket_type as TicketType) || 'none',
         ticket_type: (child.ticket_type as TicketType) || 'none',
         ticket_details: child.ticket_details,
-        checkedIn: false, // Will be updated from active check-ins
+        checkedIn: child.is_checked_in || false, // Use backend check-in status
         family: child.family,
         birthdate: child.birthdate,
         allergies: child.allergies,
@@ -237,7 +237,7 @@
 
     try {
       // Call API to check in the child
-      await checkinApi.checkIn({
+      const checkInRecord = await checkinApi.checkIn({
         child: childId,
         session: activeSession.id,
       });
@@ -258,6 +258,7 @@
               checkedIn: true,
               checkInTime,
               checkInActionId: actionId,
+              checkInRecordId: checkInRecord.id, // Store the backend record ID
             };
           }),
         };
@@ -295,14 +296,19 @@
     if (childIdsToCheckIn.length === 0) return;
 
     try {
-      // Check in all children sequentially
-      await Promise.all(
+      // Check in all children and collect their record IDs
+      const checkInRecords = await Promise.all(
         childIdsToCheckIn.map((childId) =>
           checkinApi.checkIn({
             child: childId,
             session: activeSession.id,
           })
         )
+      );
+
+      // Map child IDs to record IDs
+      const recordIdMap = new Map(
+        checkInRecords.map((record) => [record.child, record.id])
       );
 
       const actionId = createUndoAction(familyId, childIdsToCheckIn);
@@ -320,6 +326,7 @@
               checkedIn: true,
               checkInTime,
               checkInActionId: actionId,
+              checkInRecordId: recordIdMap.get(child.id), // Store the backend record ID
             };
           }),
         };
@@ -342,16 +349,22 @@
   }
 
   // Undo individual child check-in
-  // NOTE: Backend does not support undo check-in (only undo check-out within 5 minutes)
-  // This is a client-side only undo that removes the local check-in state
-  // The check-in record remains in the database - staff must use check-out to reverse
-  function undoChildCheckIn(familyId: string, childId: string) {
+  async function undoChildCheckIn(familyId: string, childId: string) {
     const family = families.find((f) => f.id === familyId);
     const child = family?.children.find((c) => c.id === childId);
 
-    if (child?.checkInActionId) {
+    if (!child?.checkInActionId || !child?.checkInRecordId) {
+      return;
+    }
+
+    try {
+      // Call backend undo endpoint
+      await checkInApi.undo(child.checkInRecordId);
+
+      // Remove undo action from timer store
       removeUndoAction(child.checkInActionId);
 
+      // Update local state
       families = families.map((fam) => {
         if (fam.id !== familyId) return fam;
         return {
@@ -363,6 +376,7 @@
               checkedIn: false,
               checkInTime: undefined,
               checkInActionId: undefined,
+              checkInRecordId: undefined,
             };
           }),
         };
@@ -371,18 +385,15 @@
       if (child) {
         successToast = `${child.name} check-in undone`;
       }
+    } catch (err) {
+      const apiError = err as ApiError;
+      error = apiError.message || 'Failed to undo check-in';
+      console.error('Error undoing check-in:', err);
     }
-    // LIMITATION: Backend does not support undo check-in API endpoint
-    // The check-in record persists in the database
-    // This undo only affects the local UI state within the 30-second grace period
-    // To fully reverse, staff must check out the child
   }
 
   // Undo family check-in
-  // NOTE: Backend does not support undo check-in (only undo check-out within 5 minutes)
-  // This is a client-side only undo that removes the local check-in state
-  // The check-in records remain in the database - staff must use check-out to reverse
-  function undoFamilyCheckIn(familyId: string) {
+  async function undoFamilyCheckIn(familyId: string) {
     const family = families.find((f) => f.id === familyId);
     if (!family) return;
 
@@ -394,35 +405,51 @@
     const familyAction = familyActions.find((a) => a.childIds.length > 1);
     if (!familyAction) return;
 
-    removeUndoAction(familyAction.id);
+    try {
+      // Find all children affected by this family action
+      const affectedChildren = family.children.filter(
+        (c) => familyAction.childIds.includes(c.id) && c.checkInActionId === familyAction.id
+      );
 
-    // Undo all children affected by this action
-    families = families.map((fam) => {
-      if (fam.id !== familyId) return fam;
-      return {
-        ...fam,
-        children: fam.children.map((c) => {
-          if (
-            familyAction.childIds.includes(c.id) &&
-            c.checkInActionId === familyAction.id
-          ) {
-            return {
-              ...c,
-              checkedIn: false,
-              checkInTime: undefined,
-              checkInActionId: undefined,
-            };
-          }
-          return c;
-        }),
-      };
-    });
+      // Call backend undo endpoint for each child
+      await Promise.all(
+        affectedChildren
+          .filter((c) => c.checkInRecordId)
+          .map((c) => checkInApi.undo(c.checkInRecordId!))
+      );
 
-    successToast = `${family.name} check-in undone`;
-    // LIMITATION: Backend does not support undo check-in API endpoint
-    // The check-in records persist in the database
-    // This undo only affects the local UI state within the 30-second grace period
-    // To fully reverse, staff must check out each child individually
+      // Remove undo action from timer store
+      removeUndoAction(familyAction.id);
+
+      // Update local state - undo all children affected by this action
+      families = families.map((fam) => {
+        if (fam.id !== familyId) return fam;
+        return {
+          ...fam,
+          children: fam.children.map((c) => {
+            if (
+              familyAction.childIds.includes(c.id) &&
+              c.checkInActionId === familyAction.id
+            ) {
+              return {
+                ...c,
+                checkedIn: false,
+                checkInTime: undefined,
+                checkInActionId: undefined,
+                checkInRecordId: undefined,
+              };
+            }
+            return c;
+          }),
+        };
+      });
+
+      successToast = `${family.name} check-in undone`;
+    } catch (err) {
+      const apiError = err as ApiError;
+      error = apiError.message || 'Failed to undo family check-in';
+      console.error('Error undoing family check-in:', err);
+    }
   }
 
   // Assign ticket and check in child
@@ -476,17 +503,18 @@
     familyName: string;
     childrenNames: string[];
     ticketType: TicketType;
+    parents: Array<{
+      name: string;
+      phone: string;
+      email: string;
+      relationship_type: string;
+    }>;
   }) {
     try {
       // Create family via API
       const newFamily = await checkinApi.createFamily({
         last_name: data.familyName,
-        parents: [
-          {
-            name: 'Parent', // Placeholder - AddFamilyPanel should be updated to collect parent info
-            relationship_type: 'OTHER',
-          },
-        ],
+        parents: data.parents,
         children: data.childrenNames.map((name) => ({
           first_name: name,
           last_name: data.familyName,
