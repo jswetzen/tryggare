@@ -27,6 +27,7 @@ export interface Child {
   checkedIn: boolean;
   checkInTime?: string; // "9:15 AM"
   checkInActionId?: string; // UUID linking to undo action
+  checkInRecordId?: string; // Backend check-in record ID for API calls
   family: string; // Family ID
   birthdate?: string;
   allergies?: string;
@@ -101,6 +102,8 @@ export interface FamilyApiResponse {
     allergies?: string;
     notes?: string;
     qr_token?: string;
+    is_checked_in?: boolean;
+    active_checkin_id?: string | null;
   }>;
   last_participation_date?: string;
 }

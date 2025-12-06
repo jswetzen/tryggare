@@ -4,11 +4,14 @@ import type { Family, UndoAction } from '../types';
 
 describe('shouldShowFamily', () => {
   const mockFamily: Family = {
-    id: 1,
+    id: '1',
     name: 'Garcia',
+    last_name: 'Garcia',
+    display_name: 'Garcia Family',
+    parents: [],
     children: [
-      { id: 1, name: 'Isabella', ticket: 'event', checkedIn: false },
-      { id: 2, name: 'Lucas', ticket: 'session', checkedIn: false },
+      { id: '1', name: 'Isabella', first_name: 'Isabella', last_name: 'Garcia', ticket: 'event', ticket_type: 'event', checkedIn: false, family: '1' },
+      { id: '2', name: 'Lucas', first_name: 'Lucas', last_name: 'Garcia', ticket: 'session', ticket_type: 'session', checkedIn: false, family: '1' },
     ],
   };
 
@@ -33,8 +36,8 @@ describe('shouldShowFamily', () => {
 
     const activeUndoAction: UndoAction = {
       id: 'undo-1',
-      familyId: 1,
-      childIds: [1, 2],
+      familyId: '1',
+      childIds: ['1', '2'],
       timestamp: Date.now(),
       expiresAt: Date.now() + 30000,
     };
@@ -62,8 +65,8 @@ describe('shouldShowFamily', () => {
 
     const undoForOtherFamily: UndoAction = {
       id: 'undo-1',
-      familyId: 999, // Different family
-      childIds: [1, 2],
+      familyId: '999', // Different family
+      childIds: ['1', '2'],
       timestamp: Date.now(),
       expiresAt: Date.now() + 30000,
     };
@@ -80,15 +83,15 @@ describe('shouldShowFamily', () => {
     const undoActions: UndoAction[] = [
       {
         id: 'undo-1',
-        familyId: 1,
-        childIds: [1],
+        familyId: '1',
+        childIds: ['1'],
         timestamp: Date.now(),
         expiresAt: Date.now() + 30000,
       },
       {
         id: 'undo-2',
-        familyId: 1,
-        childIds: [2],
+        familyId: '1',
+        childIds: ['2'],
         timestamp: Date.now(),
         expiresAt: Date.now() + 25000,
       },
@@ -99,8 +102,11 @@ describe('shouldShowFamily', () => {
 
   it('should handle empty children array', () => {
     const emptyFamily: Family = {
-      id: 1,
+      id: '1',
       name: 'Empty',
+      last_name: 'Empty',
+      display_name: 'Empty Family',
+      parents: [],
       children: [],
     };
 
@@ -110,44 +116,59 @@ describe('shouldShowFamily', () => {
 
 describe('sortFamiliesByStatus', () => {
   const garciaFamily: Family = {
-    id: 1,
+    id: '1',
     name: 'Garcia',
+    last_name: 'Garcia',
+    display_name: 'Garcia Family',
+    parents: [],
     children: [
-      { id: 1, name: 'Isabella', ticket: 'event', checkedIn: false },
-      { id: 2, name: 'Lucas', ticket: 'session', checkedIn: false },
+      { id: '1', name: 'Isabella', first_name: 'Isabella', last_name: 'Garcia', ticket: 'event', ticket_type: 'event', checkedIn: false, family: '1' },
+      { id: '2', name: 'Lucas', first_name: 'Lucas', last_name: 'Garcia', ticket: 'session', ticket_type: 'session', checkedIn: false, family: '1' },
     ],
   };
 
   const smithFamily: Family = {
-    id: 2,
+    id: '2',
     name: 'Smith',
+    last_name: 'Smith',
+    display_name: 'Smith Family',
+    parents: [],
     children: [
-      { id: 3, name: 'Emma', ticket: 'event', checkedIn: false },
+      { id: '3', name: 'Emma', first_name: 'Emma', last_name: 'Smith', ticket: 'event', ticket_type: 'event', checkedIn: false, family: '2' },
     ],
   };
 
   const andersonFamily: Family = {
-    id: 3,
+    id: '3',
     name: 'Anderson',
+    last_name: 'Anderson',
+    display_name: 'Anderson Family',
+    parents: [],
     children: [
-      { id: 4, name: 'Liam', ticket: 'event', checkedIn: false },
+      { id: '4', name: 'Liam', first_name: 'Liam', last_name: 'Anderson', ticket: 'event', ticket_type: 'event', checkedIn: false, family: '3' },
     ],
   };
 
   const martinezFamily: Family = {
-    id: 4,
+    id: '4',
     name: 'Martinez',
+    last_name: 'Martinez',
+    display_name: 'Martinez Family',
+    parents: [],
     children: [
-      { id: 5, name: 'Sofia', ticket: 'event', checkedIn: true },
-      { id: 6, name: 'Diego', ticket: 'event', checkedIn: true },
+      { id: '5', name: 'Sofia', first_name: 'Sofia', last_name: 'Martinez', ticket: 'event', ticket_type: 'event', checkedIn: true, family: '4' },
+      { id: '6', name: 'Diego', first_name: 'Diego', last_name: 'Martinez', ticket: 'event', ticket_type: 'event', checkedIn: true, family: '4' },
     ],
   };
 
   const williamsFamily: Family = {
-    id: 5,
+    id: '5',
     name: 'Williams',
+    last_name: 'Williams',
+    display_name: 'Williams Family',
+    parents: [],
     children: [
-      { id: 7, name: 'Olivia', ticket: 'event', checkedIn: true },
+      { id: '7', name: 'Olivia', first_name: 'Olivia', last_name: 'Williams', ticket: 'event', ticket_type: 'event', checkedIn: true, family: '5' },
     ],
   };
 
@@ -166,8 +187,8 @@ describe('sortFamiliesByStatus', () => {
 
     const undoAction: UndoAction = {
       id: 'undo-1',
-      familyId: 4,
-      childIds: [5, 6],
+      familyId: '4',
+      childIds: ['5', '6'],
       timestamp: Date.now(),
       expiresAt: Date.now() + 30000,
     };
@@ -192,16 +213,16 @@ describe('sortFamiliesByStatus', () => {
 
     const undoAction1: UndoAction = {
       id: 'undo-1',
-      familyId: 4,
-      childIds: [5, 6],
+      familyId: '4',
+      childIds: ['5', '6'],
       timestamp: Date.now(),
       expiresAt: Date.now() + 30000,
     };
 
     const undoAction2: UndoAction = {
       id: 'undo-2',
-      familyId: 5,
-      childIds: [7],
+      familyId: '5',
+      childIds: ['7'],
       timestamp: Date.now(),
       expiresAt: Date.now() + 25000,
     };
@@ -229,8 +250,8 @@ describe('sortFamiliesByStatus', () => {
 
     const undoAction: UndoAction = {
       id: 'undo-1',
-      familyId: 4,
-      childIds: [5, 6],
+      familyId: '4',
+      childIds: ['5', '6'],
       timestamp: Date.now(),
       expiresAt: Date.now() + 30000,
     };
@@ -257,15 +278,21 @@ describe('sortFamiliesByStatus', () => {
 
   it('should maintain original order for families in same priority group with same name', () => {
     const garcia1: Family = {
-      id: 1,
+      id: '1',
       name: 'Garcia',
-      children: [{ id: 1, name: 'Isabella', ticket: 'event', checkedIn: false }],
+      last_name: 'Garcia',
+      display_name: 'Garcia Family',
+      parents: [],
+      children: [{ id: '1', name: 'Isabella', first_name: 'Isabella', last_name: 'Garcia', ticket: 'event', ticket_type: 'event', checkedIn: false, family: '1' }],
     };
 
     const garcia2: Family = {
-      id: 2,
+      id: '2',
       name: 'Garcia',
-      children: [{ id: 2, name: 'Lucas', ticket: 'event', checkedIn: false }],
+      last_name: 'Garcia',
+      display_name: 'Garcia Family',
+      parents: [],
+      children: [{ id: '2', name: 'Lucas', first_name: 'Lucas', last_name: 'Garcia', ticket: 'event', ticket_type: 'event', checkedIn: false, family: '2' }],
     };
 
     const families = [garcia1, garcia2];

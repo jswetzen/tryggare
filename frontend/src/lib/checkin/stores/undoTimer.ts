@@ -62,7 +62,7 @@ function initializeTickInterval() {
  * @param childIds - Array of child IDs affected by this action
  * @returns The ID of the created undo action
  */
-export function createUndoAction(familyId: number, childIds: number[]): string {
+export function createUndoAction(familyId: string, childIds: string[]): string {
   // Initialize tick interval on first use
   initializeTickInterval();
 
@@ -127,7 +127,7 @@ export function getRemainingTime(actionId: string): number | null {
  * @param familyId - The family ID to check
  * @returns True if family has active undo actions
  */
-export function hasActiveUndo(familyId: number): boolean {
+export function hasActiveUndo(familyId: string): boolean {
   const actions = get(undoActionsStore);
   return actions.some((a) => a.familyId === familyId);
 }
@@ -137,7 +137,7 @@ export function hasActiveUndo(familyId: number): boolean {
  * @param childId - The child ID to search for
  * @returns The undo action containing this child, or undefined
  */
-export function findUndoActionByChildId(childId: number): UndoAction | undefined {
+export function findUndoActionByChildId(childId: string): UndoAction | undefined {
   const actions = get(undoActionsStore);
   return actions.find((a) => a.childIds.includes(childId));
 }
@@ -147,7 +147,7 @@ export function findUndoActionByChildId(childId: number): UndoAction | undefined
  * @param familyId - The family ID
  * @returns Array of undo actions for this family
  */
-export function getFamilyUndoActions(familyId: number): UndoAction[] {
+export function getFamilyUndoActions(familyId: string): UndoAction[] {
   const actions = get(undoActionsStore);
   return actions.filter((a) => a.familyId === familyId);
 }

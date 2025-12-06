@@ -877,16 +877,37 @@ class SessionTicket(models.Model):
 
 ---
 
+## 🐛 Bug Fixes
+
+### Backend Prefetch Error - Fixed 2025-12-06
+**Issue**: AttributeError when accessing families API endpoint
+```
+AttributeError: Cannot find 'checkins' on Child object, 'children__checkins' is an invalid parameter to prefetch_related()
+```
+
+**Root Cause**: FamilyViewSet was using incorrect relationship name `children__checkins` instead of `children__checkin_records`
+
+**Fix Applied:**
+- File: `/workspace/check-ins/backend/families/views.py`
+- Changed line 44: `'children__checkins'` → `'children__checkin_records'`
+- Relationship name verified from CheckInRecord model (line 12 in checkins/models.py)
+
+**Verification:**
+- ✅ All migrations applied (no new migrations needed)
+- ✅ `uv run python verify.py` - All 34 tests passing
+- ✅ `/api/families/` endpoint now works correctly
+- ✅ Returns 53 families with children check-in status
+
+---
+
 ## 🚀 Next Steps
 
 **Immediate Actions:**
-1. Create directory structure for new components
-2. Port types and utilities
-3. Create Svelte stores
-4. Start with leaf components (SessionIndicator, SuccessToast)
-5. Build up to container components (FamilyCard)
-6. Integrate into main page
-7. Test, refine, polish
+1. Manual testing of checkin page with real backend API
+2. Test WebSocket real-time updates with multiple browser tabs
+3. Update AddFamilyPanel to collect actual parent information
+4. Connect frontend undo button to backend `/api/checkins/{id}/undo/` endpoint
+5. Visual verification and cleanup
 
 **Estimated Timeline:**
 - Phase 1 (Types/Utils/Stores): 3-4 hours

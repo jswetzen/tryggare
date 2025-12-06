@@ -32,13 +32,13 @@
     family: Family;
     expanded: boolean;
     onToggle: () => void;
-    onCheckInChild: (childId: number) => void;
+    onCheckInChild: (childId: string) => void;
     onCheckInFamily: () => void;
-    onUndoChild: (childId: number) => void;
+    onUndoChild: (childId: string) => void;
     onUndoFamily: () => void;
-    onAssignTicket: (childId: number, ticketType: TicketType) => void;
-    expandedChildId: number | null;
-    onToggleChildExpansion: (childId: number | null) => void;
+    onAssignTicket: (childId: string, ticketType: TicketType) => void;
+    expandedChildId: string | null;
+    onToggleChildExpansion: (childId: string | null) => void;
     getRemainingTime: (actionId: string) => number | null;
     familyUndoSeconds: number | null;
   } = $props();
