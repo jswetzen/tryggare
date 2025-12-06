@@ -123,3 +123,61 @@ export const printQueueApi = {
  * which uses session-based authentication instead of token-based.
  * This old authApi is kept for backwards compatibility but should not be used.
  */
+
+/**
+ * Checkin-specific API endpoints
+ */
+export const checkinApi = {
+  /**
+   * Get active sessions
+   */
+  getActiveSessions: () => apiClient.get<Session[]>('/sessions/active/'),
+
+  /**
+   * Check in a child to a session
+   */
+  checkIn: (data: { child: string; session: string }) =>
+    apiClient.post<CheckInRecord>('/checkins/check_in/', data),
+
+  /**
+   * Get all families with nested children and parents
+   */
+  getFamilies: () => apiClient.get<Family[]>('/families/'),
+
+  /**
+   * Create a new family with parents and children
+   */
+  createFamily: (data: {
+    last_name: string;
+    parents: Array<{
+      name: string;
+      phone?: string;
+      email?: string;
+      relationship_type: string;
+    }>;
+    children: Array<{
+      first_name: string;
+      last_name: string;
+      birthdate?: string;
+      allergies?: string;
+      notes?: string;
+    }>;
+  }) => apiClient.post<Family>('/families/', data),
+};
+
+/**
+ * Ticket API endpoints
+ */
+export const ticketApi = {
+  /**
+   * Assign an event ticket to a child
+   */
+  assignEventTicket: (data: { child: string; event: string }) =>
+    apiClient.post('/event-tickets/', data),
+
+  /**
+   * Assign a session ticket to a child
+   */
+  assignSessionTicket: (data: { child: string; session: string }) =>
+    apiClient.post('/session-tickets/', data),
+};
