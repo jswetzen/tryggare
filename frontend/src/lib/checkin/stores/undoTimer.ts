@@ -26,20 +26,35 @@ const timeoutsMap = new Map<string, ReturnType<typeof setTimeout>>();
 
 // Update tick every second to trigger countdown updates
 let tickInterval: ReturnType<typeof setInterval> | null = null;
+let subscriptionInitialized = false;
 
-// Subscribe to undo actions to manage tick interval
-undoActionsStore.subscribe((actions) => {
-  if (actions.length > 0 && !tickInterval) {
-    // Start tick interval when we have actions
-    tickInterval = setInterval(() => {
-      tickStore.update((t) => t + 1);
-    }, 1000);
-  } else if (actions.length === 0 && tickInterval) {
-    // Stop tick interval when no actions
-    clearInterval(tickInterval);
-    tickInterval = null;
+// Initialize the tick interval subscription in the browser
+function initializeTickInterval() {
+  if (subscriptionInitialized || typeof window === 'undefined') {
+    return;
   }
-});
+  subscriptionInitialized = true;
+
+  console.log('[undoTimer] Initializing tick interval subscription');
+  undoActionsStore.subscribe((actions) => {
+    console.log('[undoTimer] Store update - actions count:', actions.length, 'tickInterval:', tickInterval);
+    if (actions.length > 0 && !tickInterval) {
+      // Start tick interval when we have actions
+      console.log('[undoTimer] Starting tick interval');
+      tickInterval = setInterval(() => {
+        tickStore.update((t) => {
+          console.log('[undoTimer] Tick update:', t + 1);
+          return t + 1;
+        });
+      }, 1000);
+    } else if (actions.length === 0 && tickInterval) {
+      // Stop tick interval when no actions
+      console.log('[undoTimer] Stopping tick interval');
+      clearInterval(tickInterval);
+      tickInterval = null;
+    }
+  });
+}
 
 /**
  * Create a new undo action
@@ -48,6 +63,9 @@ undoActionsStore.subscribe((actions) => {
  * @returns The ID of the created undo action
  */
 export function createUndoAction(familyId: number, childIds: number[]): string {
+  // Initialize tick interval on first use
+  initializeTickInterval();
+
   const now = Date.now();
   const action: UndoAction = {
     id: generateUUID(),

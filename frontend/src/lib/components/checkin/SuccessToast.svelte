@@ -7,8 +7,13 @@
    */
   import { onMount } from 'svelte';
 
-  export let message: string;
-  export let onClose: () => void;
+  let {
+    message,
+    onClose
+  }: {
+    message: string;
+    onClose: () => void;
+  } = $props();
 
   onMount(() => {
     const timer = setTimeout(onClose, 3000);

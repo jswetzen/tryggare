@@ -8,18 +8,23 @@
   import { onMount } from 'svelte';
   import type { TicketType } from '$lib/checkin/types';
 
-  export let onAdd: (data: {
-    familyName: string;
-    childrenNames: string[];
-    ticketType: TicketType;
-  }) => void;
-  export let onClose: () => void;
+  let {
+    onAdd,
+    onClose
+  }: {
+    onAdd: (data: {
+      familyName: string;
+      childrenNames: string[];
+      ticketType: TicketType;
+    }) => void;
+    onClose: () => void;
+  } = $props();
 
-  let familyName = '';
-  let childrenNames = [''];
-  let ticketType: TicketType = 'none';
-  let error = '';
-  let familyNameInput: HTMLInputElement;
+  let familyName = $state('');
+  let childrenNames = $state(['']);
+  let ticketType = $state<TicketType>('none');
+  let error = $state('');
+  let familyNameInput = $state<HTMLInputElement>();
 
   // Focus family name input on mount
   onMount(() => {
@@ -144,9 +149,9 @@
 
     <!-- Children -->
     <div class="mb-4">
-      <label class="block text-sm font-semibold text-slate-700 mb-2">
+      <div class="block text-sm font-semibold text-slate-700 mb-2">
         Children:
-      </label>
+      </div>
       <div class="space-y-2">
         {#each childrenNames as name, index (index)}
           <div class="flex items-center gap-2">

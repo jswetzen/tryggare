@@ -136,7 +136,8 @@
     <div class="p-3 space-y-2">
       {#each family.children as child (child.id)}
         {@const isExpanded = expandedChildId === child.id}
-        {@const childRemainingSeconds = child.checkInActionId ? getRemainingTime(child.checkInActionId) : null}
+        {@const _tick = undoActionsData.tick}
+        {@const childRemainingSeconds = child.checkInActionId && _tick >= 0 ? getRemainingTime(child.checkInActionId) : null}
 
         <div
           class="flex flex-col gap-2 p-2 bg-slate-50 rounded border border-slate-200"
