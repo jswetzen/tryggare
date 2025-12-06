@@ -73,7 +73,10 @@
   let nextChildId = $state(10);
 
   // Subscribe to undo timer store for reactivity
-  const undoActions = $undoActionsWithTick;
+  // The $ prefix makes this reactive to store updates
+  // undoActionsWithTick returns { actions: UndoAction[], tick: number }
+  let undoActionsData = $derived($undoActionsWithTick);
+  let undoActions = $derived(undoActionsData.actions);
 
   // ============================================================================
   // HELPER FUNCTIONS
@@ -110,12 +113,19 @@
   // ============================================================================
 
   // Auto-expand families when search matches child name (but not family name)
+  // Collapse all families when search is cleared
   $effect(() => {
-    if (!searchQuery) return;
+    if (!searchQuery) {
+      // Clear all expanded families when search is cleared
+      expandedFamilies = new Set();
+      return;
+    }
 
     const query = searchQuery.toLowerCase();
+    const newExpanded = new Set<number>();
 
-    visibleFamilies.forEach((family) => {
+    // Use families directly instead of visibleFamilies to avoid circular dependency
+    families.forEach((family) => {
       const familyNameMatches = family.name.toLowerCase().includes(query);
 
       if (!familyNameMatches) {
@@ -124,12 +134,16 @@
         );
 
         if (childNameMatches) {
-          expandedFamilies.add(family.id);
-          // Trigger reactivity
-          expandedFamilies = new Set(expandedFamilies);
+          newExpanded.add(family.id);
         }
       }
     });
+
+    // Only update if different to avoid unnecessary re-renders
+    if (newExpanded.size !== expandedFamilies.size ||
+        ![...newExpanded].every(id => expandedFamilies.has(id))) {
+      expandedFamilies = newExpanded;
+    }
   });
 
   // Cleanup on destroy
@@ -344,13 +358,6 @@
     expandedFamilies.add(newFamilyId);
     expandedFamilies = new Set(expandedFamilies);
   }
-
-  // Get family-level undo remaining time
-  function getFamilyUndoSeconds(familyId: number): number | null {
-    const familyActions = getFamilyUndoActions(familyId);
-    const familyAction = familyActions.find((a) => a.childIds.length > 1);
-    return familyAction ? getRemainingTime(familyAction.id) : null;
-  }
 </script>
 
 <svelte:head>
@@ -433,6 +440,9 @@
         </div>
       {:else}
         {#each visibleFamilies as family (family.id)}
+          {@const familyActions = getFamilyUndoActions(family.id)}
+          {@const familyAction = familyActions.find((a) => a.childIds.length > 1)}
+          {@const familyUndoSeconds = familyAction ? getRemainingTime(familyAction.id) : null}
           <FamilyCard
             {family}
             expanded={expandedFamilies.has(family.id)}
@@ -448,7 +458,7 @@
               expandedChildId = childId;
             }}
             {getRemainingTime}
-            familyUndoSeconds={getFamilyUndoSeconds(family.id)}
+            {familyUndoSeconds}
           />
         {/each}
       {/if}

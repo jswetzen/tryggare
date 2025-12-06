@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { get } from 'svelte/store';
 import {
   undoActions,
+  undoActionsWithTick,
   createUndoAction,
   removeUndoAction,
   getRemainingTime,
@@ -213,5 +214,81 @@ describe('undoTimer store', () => {
     // Note: In real usage, cleanup is called on component unmount
     actions = get(undoActions);
     expect(actions).toHaveLength(2);
+  });
+
+  it('should update tick value every second when actions exist', () => {
+    const tickValues: number[] = [];
+    const unsubscribe = undoActionsWithTick.subscribe((data) => {
+      tickValues.push(data.tick);
+    });
+
+    // Initial tick value
+    expect(tickValues).toHaveLength(1);
+    const initialTick = tickValues[0];
+
+    // Create an action - this should start the tick interval
+    createUndoAction(1, [2]);
+
+    // Advance 1 second - tick should increment
+    vi.advanceTimersByTime(1000);
+    expect(tickValues).toHaveLength(3); // Initial + action created + 1 second tick
+    expect(tickValues[2]).toBe(initialTick + 1);
+
+    // Advance 2 more seconds
+    vi.advanceTimersByTime(2000);
+    expect(tickValues).toHaveLength(5); // + 2 more ticks
+    expect(tickValues[4]).toBe(initialTick + 3);
+
+    unsubscribe();
+  });
+
+  it('should emit new object reference on each tick for Svelte reactivity', () => {
+    const dataObjects: any[] = [];
+    const unsubscribe = undoActionsWithTick.subscribe((data) => {
+      dataObjects.push(data);
+    });
+
+    // Create an action
+    createUndoAction(1, [2]);
+
+    // Advance 1 second
+    vi.advanceTimersByTime(1000);
+
+    // Each emission should be a new object reference
+    expect(dataObjects.length).toBeGreaterThanOrEqual(2);
+    // Verify they're different object references (for Svelte reactivity)
+    expect(dataObjects[dataObjects.length - 1]).not.toBe(dataObjects[dataObjects.length - 2]);
+
+    unsubscribe();
+  });
+
+  it('should stop tick interval when all actions are removed', () => {
+    const tickValues: number[] = [];
+    const unsubscribe = undoActionsWithTick.subscribe((data) => {
+      tickValues.push(data.tick);
+    });
+
+    const initialLength = tickValues.length;
+
+    // Create an action - starts tick interval
+    const actionId = createUndoAction(1, [2]);
+
+    // Advance 2 seconds
+    vi.advanceTimersByTime(2000);
+    const lengthWithTick = tickValues.length;
+    expect(lengthWithTick).toBeGreaterThan(initialLength);
+
+    // Remove the action - should stop tick interval
+    removeUndoAction(actionId);
+
+    const lengthAfterRemoval = tickValues.length;
+
+    // Advance 2 more seconds - tick should NOT continue
+    vi.advanceTimersByTime(2000);
+
+    // Should not have new ticks after action removal
+    expect(tickValues.length).toBe(lengthAfterRemoval);
+
+    unsubscribe();
   });
 });

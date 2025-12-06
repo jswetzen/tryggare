@@ -89,6 +89,8 @@ export function removeUndoAction(actionId: string): void {
  * Get remaining seconds for an undo action
  * @param actionId - The ID of the action
  * @returns Remaining seconds, or null if action doesn't exist
+ * NOTE: This function uses Date.now() which isn't reactive.
+ * Use in templates with the undoActionsWithTick store subscription for reactivity.
  */
 export function getRemainingTime(actionId: string): number | null {
   const actions = get(undoActionsStore);
@@ -157,7 +159,11 @@ export function reset(): void {
 export const undoActions = { subscribe: undoActionsStore.subscribe };
 
 // Export a derived store that combines undoActions with tick for reactive countdown updates
+// Returns a new object each tick to ensure Svelte detects changes
 export const undoActionsWithTick = derived(
   [undoActionsStore, tickStore],
-  ([$actions]) => $actions
+  ([$actions, $tick]) => ({
+    actions: $actions,
+    tick: $tick,
+  })
 );
