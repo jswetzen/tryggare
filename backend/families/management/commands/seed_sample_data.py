@@ -5,7 +5,7 @@ from django.core.management.base import BaseCommand
 from django.utils import timezone
 
 from checkins.models import AuditLog, CheckInRecord
-from events.models import Event, Session, Ticket
+from events.models import Event, Session, SessionTicket
 from families.models import Child, Family, Parent
 
 
@@ -55,7 +55,7 @@ class Command(BaseCommand):
             },
         )
 
-        Ticket.objects.get_or_create(child=child, session=session, defaults={"type": Ticket.SESSION_TICKET})
+        SessionTicket.objects.get_or_create(child=child, session=session)
 
         checkin, _ = CheckInRecord.objects.get_or_create(
             child=child,

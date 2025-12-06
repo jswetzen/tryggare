@@ -4832,3 +4832,89 @@
 2025-12-06T09:40:08.491728329+00:00 stdout F 
 2025-12-06T09:40:08.491898560+00:00 stdout F   ➜  Local:   http://localhost:5173/
 2025-12-06T09:40:08.491951795+00:00 stdout F   ➜  Network: http://10.89.1.5:5173/
+2025-12-06T10:30:03.354057036+00:00 stderr F 
+2025-12-06T10:30:03.354057036+00:00 stderr F [1;31m[404] GET /favicon.png[0m
+2025-12-06T13:13:16.879252241+00:00 stdout F Lockfile is up to date, resolution step is skipped
+2025-12-06T13:13:16.950774569+00:00 stdout F Already up to date
+2025-12-06T13:13:17.259295561+00:00 stdout F 
+2025-12-06T13:13:17.259295561+00:00 stdout F ╭ Warning ─────────────────────────────────────────────────────────────────────╮
+2025-12-06T13:13:17.259295561+00:00 stdout F │                                                                              │
+2025-12-06T13:13:17.259295561+00:00 stdout F │   Ignored build scripts: esbuild.                                            │
+2025-12-06T13:13:17.259295561+00:00 stdout F │   Run "pnpm approve-builds" to pick which dependencies should be allowed     │
+2025-12-06T13:13:17.259295561+00:00 stdout F │   to run scripts.                                                            │
+2025-12-06T13:13:17.259295561+00:00 stdout F │                                                                              │
+2025-12-06T13:13:17.259295561+00:00 stdout F ╰──────────────────────────────────────────────────────────────────────────────╯
+2025-12-06T13:13:17.259295561+00:00 stdout F 
+2025-12-06T13:13:17.275345357+00:00 stdout F Done in 786ms using pnpm v10.24.0
+2025-12-06T13:13:17.653679760+00:00 stdout F 
+2025-12-06T13:13:17.653679760+00:00 stdout F > check-ins-frontend@0.0.1 dev /app
+2025-12-06T13:13:17.653679760+00:00 stdout F > vite dev --host --host 0.0.0.0 --port 5173
+2025-12-06T13:13:17.653679760+00:00 stdout F 
+2025-12-06T13:13:18.771666758+00:00 stdout F 
+2025-12-06T13:13:18.771666758+00:00 stdout F   VITE v5.4.21  ready in 1089 ms
+2025-12-06T13:13:18.771666758+00:00 stdout F 
+2025-12-06T13:13:18.771909865+00:00 stdout F   ➜  Local:   http://localhost:5173/
+2025-12-06T13:13:18.771993840+00:00 stdout F   ➜  Network: http://10.89.1.5:5173/
+2025-12-06T13:17:27.040062941+00:00 stdout F Lockfile is up to date, resolution step is skipped
+2025-12-06T13:17:27.102361318+00:00 stdout F Already up to date
+2025-12-06T13:17:27.363214583+00:00 stdout F 
+2025-12-06T13:17:27.363214583+00:00 stdout F ╭ Warning ─────────────────────────────────────────────────────────────────────╮
+2025-12-06T13:17:27.363214583+00:00 stdout F │                                                                              │
+2025-12-06T13:17:27.363214583+00:00 stdout F │   Ignored build scripts: esbuild.                                            │
+2025-12-06T13:17:27.363214583+00:00 stdout F │   Run "pnpm approve-builds" to pick which dependencies should be allowed     │
+2025-12-06T13:17:27.363214583+00:00 stdout F │   to run scripts.                                                            │
+2025-12-06T13:17:27.363214583+00:00 stdout F │                                                                              │
+2025-12-06T13:17:27.363214583+00:00 stdout F ╰──────────────────────────────────────────────────────────────────────────────╯
+2025-12-06T13:17:27.363214583+00:00 stdout F 
+2025-12-06T13:17:27.379881933+00:00 stdout F Done in 787ms using pnpm v10.24.0
+2025-12-06T13:17:27.764297930+00:00 stdout F 
+2025-12-06T13:17:27.764297930+00:00 stdout F > check-ins-frontend@0.0.1 dev /app
+2025-12-06T13:17:27.764297930+00:00 stdout F > vite dev --host --host 0.0.0.0 --port 5173
+2025-12-06T13:17:27.764297930+00:00 stdout F 
+2025-12-06T13:17:29.217374689+00:00 stdout F 
+2025-12-06T13:17:29.217374689+00:00 stdout F   VITE v5.4.21  ready in 1422 ms
+2025-12-06T13:17:29.217374689+00:00 stdout F 
+2025-12-06T13:17:29.217692778+00:00 stdout F   ➜  Local:   http://localhost:5173/
+2025-12-06T13:17:29.217692778+00:00 stdout F   ➜  Network: http://10.89.1.5:5173/
+2025-12-06T17:28:01.822586122+00:00 stdout F Lockfile is up to date, resolution step is skipped
+2025-12-06T17:28:01.887941515+00:00 stdout F Already up to date
+2025-12-06T17:28:02.131012407+00:00 stdout F 
+2025-12-06T17:28:02.131012407+00:00 stdout F ╭ Warning ─────────────────────────────────────────────────────────────────────╮
+2025-12-06T17:28:02.131012407+00:00 stdout F │                                                                              │
+2025-12-06T17:28:02.131012407+00:00 stdout F │   Ignored build scripts: esbuild.                                            │
+2025-12-06T17:28:02.131012407+00:00 stdout F │   Run "pnpm approve-builds" to pick which dependencies should be allowed     │
+2025-12-06T17:28:02.131012407+00:00 stdout F │   to run scripts.                                                            │
+2025-12-06T17:28:02.131012407+00:00 stdout F │                                                                              │
+2025-12-06T17:28:02.131012407+00:00 stdout F ╰──────────────────────────────────────────────────────────────────────────────╯
+2025-12-06T17:28:02.131012407+00:00 stdout F 
+2025-12-06T17:28:02.146869753+00:00 stdout F Done in 688ms using pnpm v10.24.0
+2025-12-06T17:28:02.531821034+00:00 stdout F 
+2025-12-06T17:28:02.531821034+00:00 stdout F > check-ins-frontend@0.0.1 dev /app
+2025-12-06T17:28:02.531821034+00:00 stdout F > vite dev --host --host 0.0.0.0 --port 5173
+2025-12-06T17:28:02.531821034+00:00 stdout F 
+2025-12-06T17:28:03.500503561+00:00 stdout F 
+2025-12-06T17:28:03.500503561+00:00 stdout F   VITE v5.4.21  ready in 940 ms
+2025-12-06T17:28:03.500503561+00:00 stdout F 
+2025-12-06T17:28:03.500914688+00:00 stdout F   ➜  Local:   http://localhost:5173/
+2025-12-06T17:28:03.500924861+00:00 stdout F   ➜  Network: http://10.89.0.5:5173/
+2025-12-06T17:31:48.095472880+00:00 stdout F Lockfile is up to date, resolution step is skipped
+2025-12-06T17:31:48.160755544+00:00 stdout F Already up to date
+2025-12-06T17:31:48.487746355+00:00 stdout F 
+2025-12-06T17:31:48.487746355+00:00 stdout F ╭ Warning ─────────────────────────────────────────────────────────────────────╮
+2025-12-06T17:31:48.487746355+00:00 stdout F │                                                                              │
+2025-12-06T17:31:48.487746355+00:00 stdout F │   Ignored build scripts: esbuild.                                            │
+2025-12-06T17:31:48.487746355+00:00 stdout F │   Run "pnpm approve-builds" to pick which dependencies should be allowed     │
+2025-12-06T17:31:48.487746355+00:00 stdout F │   to run scripts.                                                            │
+2025-12-06T17:31:48.487746355+00:00 stdout F │                                                                              │
+2025-12-06T17:31:48.487746355+00:00 stdout F ╰──────────────────────────────────────────────────────────────────────────────╯
+2025-12-06T17:31:48.487746355+00:00 stdout F 
+2025-12-06T17:31:48.511373785+00:00 stdout F Done in 903ms using pnpm v10.24.0
+2025-12-06T17:31:48.906424716+00:00 stdout F 
+2025-12-06T17:31:48.906424716+00:00 stdout F > check-ins-frontend@0.0.1 dev /app
+2025-12-06T17:31:48.906424716+00:00 stdout F > vite dev --host --host 0.0.0.0 --port 5173
+2025-12-06T17:31:48.906424716+00:00 stdout F 
+2025-12-06T17:31:51.470496308+00:00 stdout F 
+2025-12-06T17:31:51.470496308+00:00 stdout F   VITE v5.4.21  ready in 2525 ms
+2025-12-06T17:31:51.470496308+00:00 stdout F 
+2025-12-06T17:31:51.470695595+00:00 stdout F   ➜  Local:   http://localhost:5173/
+2025-12-06T17:31:51.470794868+00:00 stdout F   ➜  Network: http://10.89.0.5:5173/

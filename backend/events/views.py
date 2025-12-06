@@ -3,8 +3,14 @@ from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
-from .models import Event, Session, Ticket
-from .serializers import EventSerializer, SessionSerializer, TicketSerializer
+from .models import Event, EventTicket, Session, SessionTicket, Ticket
+from .serializers import (
+    EventSerializer,
+    EventTicketSerializer,
+    SessionSerializer,
+    SessionTicketSerializer,
+    TicketSerializer,
+)
 
 
 class EventViewSet(viewsets.ModelViewSet):
@@ -69,7 +75,8 @@ class SessionViewSet(viewsets.ModelViewSet):
 
 class TicketViewSet(viewsets.ModelViewSet):
     """
-    ViewSet for managing tickets/passes.
+    DEPRECATED: Use EventTicketViewSet or SessionTicketViewSet instead.
+    ViewSet for managing tickets/passes (legacy).
     Requires authentication.
     """
 
@@ -77,3 +84,31 @@ class TicketViewSet(viewsets.ModelViewSet):
     serializer_class = TicketSerializer
     permission_classes = [IsAuthenticated]
     filterset_fields = ["type", "child", "session"]
+
+
+class EventTicketViewSet(viewsets.ModelViewSet):
+    """
+    ViewSet for managing event tickets (passes).
+    Event tickets grant access to all sessions within an event.
+    Requires authentication.
+    """
+
+    queryset = EventTicket.objects.select_related("child", "event").all()
+    serializer_class = EventTicketSerializer
+    permission_classes = [IsAuthenticated]
+    filterset_fields = ["child", "event"]
+    ordering = ["event__start_date"]
+
+
+class SessionTicketViewSet(viewsets.ModelViewSet):
+    """
+    ViewSet for managing session tickets.
+    Session tickets grant access to a specific session only.
+    Requires authentication.
+    """
+
+    queryset = SessionTicket.objects.select_related("child", "session", "session__event").all()
+    serializer_class = SessionTicketSerializer
+    permission_classes = [IsAuthenticated]
+    filterset_fields = ["child", "session"]
+    ordering = ["session__start_time"]

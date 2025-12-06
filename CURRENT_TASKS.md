@@ -487,68 +487,136 @@ Added complete i18n support to all checkin page components using the existing sv
 - Makes family name a first-class concept
 - Simpler frontend code (no name parsing needed)
 
-### 3.7.2 Refactor Ticket Model (Polymorphic Approach)
-**Problem**: Current Ticket model has ambiguous relationships:
+### 3.7.2 Refactor Ticket Model (Polymorphic Approach) ✅ **COMPLETED 2025-12-06**
+**Problem**: Current Ticket model had ambiguous relationships:
 - `type` field ('EVENT_PASS' | 'SESSION_TICKET' | 'NONE')
-- `session` field is nullable
+- `session` field was nullable
 - Unclear if event passes link to events or sessions
 - No enforcement that SESSION_TICKET must have a session
 
-**Solution**: Use polymorphic ticket model with explicit Event and Session ticket types
+**Solution**: Implemented polymorphic ticket model with explicit Event and Session ticket types
 
-**Current Model:**
+**Implementation:**
 ```python
 class Ticket(models.Model):
-    type = models.CharField(...)  # EVENT_PASS | SESSION_TICKET | NONE
-    child = models.ForeignKey(Child, ...)
-    session = models.ForeignKey(Session, ..., null=True, blank=True)  # Ambiguous!
-```
-
-**Proposed Model:**
-```python
-class Ticket(models.Model):
-    # Base ticket class (abstract or concrete)
-    id = models.UUIDField(...)
-    child = models.ForeignKey(Child, ...)
-    created_at = models.DateTimeField(auto_now_add=True)
-
-    class Meta:
-        abstract = False  # Keep as concrete for polymorphic queries
+    # DEPRECATED: Kept for backwards compatibility, marked as deprecated
+    type = models.CharField(...)
+    child = models.ForeignKey(Child, related_name="tickets", ...)
+    session = models.ForeignKey(Session, ..., null=True, blank=True)
 
 class EventTicket(models.Model):
-    ticket = models.OneToOneField(Ticket, on_delete=models.CASCADE, related_name='event_ticket')
-    event = models.ForeignKey(Event, on_delete=models.CASCADE)
+    id = models.UUIDField(primary_key=True, ...)
+    child = models.ForeignKey(Child, related_name="event_tickets", ...)
+    event = models.ForeignKey(Event, related_name="event_tickets", ...)
+    # unique_together on (child, event)
 
 class SessionTicket(models.Model):
-    ticket = models.OneToOneField(Ticket, on_delete=models.CASCADE, related_name='session_ticket')
-    session = models.ForeignKey(Session, on_delete=models.CASCADE)  # NOT nullable!
+    id = models.UUIDField(primary_key=True, ...)
+    child = models.ForeignKey(Child, related_name="session_tickets", ...)
+    session = models.ForeignKey(Session, related_name="session_tickets", ...)  # NOT nullable!
+    # unique_together on (child, session)
 ```
 
-**Tasks:**
-- [ ] Design final polymorphic model structure
-- [ ] Create new EventTicket and SessionTicket models in `backend/events/models.py`
-- [ ] Create migration to split existing Ticket records
-- [ ] Update TicketSerializer to handle polymorphic types
-- [ ] Update check-in logic to work with new ticket types
-- [ ] Update admin interface for new models
-- [ ] Write data migration to convert existing tickets
-- [ ] Update all tests to use new ticket structure
-- [ ] Update API documentation
+**Completed Tasks:**
+- [x] Designed polymorphic model structure with separate EventTicket and SessionTicket models
+- [x] Created EventTicket and SessionTicket models in `backend/events/models.py`
+- [x] Created schema migration (0003_eventticket_sessionticket.py)
+- [x] Wrote data migration to convert existing tickets (0004_migrate_old_tickets_to_polymorphic.py)
+- [x] Created EventTicketSerializer and SessionTicketSerializer
+- [x] Added EventTicketViewSet and SessionTicketViewSet
+- [x] Updated admin interface with EventTicketAdmin and SessionTicketAdmin
+- [x] Registered new API endpoints (/api/event-tickets/, /api/session-tickets/)
+- [x] Updated seed data script to use SessionTicket
+- [x] Added django-filter package to dependencies (pyproject.toml)
+- [x] Configured DjangoFilterBackend in REST_FRAMEWORK settings
+- [x] Wrote comprehensive test suite (11 tests, all passing)
+- [x] Verification: All backend tests passing (`uv run python verify.py`)
 
-**Benefits:**
+**Migrations Created:**
+- `0003_eventticket_sessionticket.py` - Creates new tables
+- `0004_migrate_old_tickets_to_polymorphic.py` - Migrates existing data with reversible operations
+
+**New API Endpoints:**
+- `GET/POST /api/event-tickets/` - Manage event tickets (passes)
+- `GET/POST /api/session-tickets/` - Manage session tickets
+- Both support filtering by `child`, `event`/`session`
+- Legacy `/api/tickets/` endpoint preserved (marked as deprecated)
+
+**Dependencies Added:**
+- `django-filter>=24.0,<25.0` - For proper queryset filtering
+
+**Benefits Achieved:**
 - Crystal clear relationships (event tickets → events, session tickets → sessions)
 - Type safety at database level (session tickets MUST have a session)
 - Easier to query (get all event tickets, get all session tickets)
 - Future extensibility (add other ticket types if needed)
 - No more ambiguous null checks in business logic
+- Unique constraints prevent duplicate tickets for same child+event/session
 
-### 3.7.3 Update API Serializers
-**Tasks:**
-- [ ] Update `ChildSerializer` to include ticket information
-- [ ] Add computed `ticket_type` field to Child API response
-- [ ] Update `FamilySerializer` to include `display_name` computed from `last_name`
-- [ ] Add API endpoint for ticket management
-- [ ] Update WebSocket messages to include ticket updates
+### 3.7.3 Update API Serializers ✅ **COMPLETED 2025-12-06**
+**Goal**: Enhance serializers to include ticket information and improve API usability for the frontend.
+
+**Completed Tasks:**
+- [x] Updated `ChildSerializer` to include ticket information
+  - Added `ticket_type` computed field ('event', 'session', or 'none')
+  - Added `ticket_details` field with full ticket information
+  - Both fields are read-only and cannot be modified via API
+- [x] Added convenience methods to Child model
+  - `has_ticket` property - returns True/False
+  - `get_ticket_type()` method - returns ticket type as string
+  - `get_ticket_details()` method - returns structured ticket data
+- [x] Updated `FamilySerializer` to include `display_name` field
+  - Computed from `last_name` property on Family model
+  - Read-only field
+- [x] Added `display_name` property to Family model
+  - Returns "{last_name} Family" format
+  - Falls back to family ID or parent name if no last_name
+- [x] Optimized ViewSet queries to avoid N+1 problems
+  - Used Prefetch objects in FamilyViewSet and ChildViewSet
+  - Implemented select_related for event/session relationships
+  - Verified with performance tests (3 queries for child list regardless of size)
+- [x] Reviewed WebSocket consumer compatibility
+  - No changes needed - serializer enhancements automatically included
+- [x] Created comprehensive test suite (23 tests, all passing)
+  - Model tests for Child and Family properties
+  - Serializer tests for API responses
+  - Integration tests for query performance
+  - All tests pass with `uv run python manage.py test families.tests --noinput`
+- [x] Verification: Backend verification passing (`uv run python verify.py`)
+
+**Files Modified:**
+- `/workspace/check-ins/backend/families/models.py` - Added properties and methods
+- `/workspace/check-ins/backend/families/serializers.py` - Enhanced serializers
+- `/workspace/check-ins/backend/families/views.py` - Optimized queries
+- `/workspace/check-ins/backend/families/tests.py` - Comprehensive test suite
+
+**Example API Response (Child with Event Ticket):**
+```json
+{
+  "id": "...",
+  "first_name": "Alice",
+  "last_name": "Demo",
+  "ticket_type": "event",
+  "ticket_details": {
+    "ticket_type": "event",
+    "event_tickets": [
+      {
+        "id": "...",
+        "event": "Summer Conference 2025",
+        "event_id": "..."
+      }
+    ],
+    "session_tickets": []
+  }
+}
+```
+
+**Benefits Achieved:**
+- Frontend can easily determine ticket status without multiple API calls
+- Efficient queries prevent N+1 performance problems
+- Clear distinction between event passes and session tickets
+- Family display names easily accessible
+- All fields properly documented and type-hinted
 
 ### 3.7.4 Testing & Verification
 **Tasks:**
