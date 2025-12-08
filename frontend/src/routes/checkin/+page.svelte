@@ -236,15 +236,15 @@
     }
 
     try {
+      // Create undo action
+      const actionId = createUndoAction(familyId, [childId]);
+      const checkInTime = getCurrentTime();
+
       // Call API to check in the child
       const checkInRecord = await checkinApi.checkIn({
         child: childId,
         session: activeSession.id,
       });
-
-      // Create undo action
-      const actionId = createUndoAction(familyId, [childId]);
-      const checkInTime = getCurrentTime();
 
       // Update local state optimistically
       families = families.map((fam) => {
@@ -670,14 +670,13 @@
         </div>
       {:else}
         {#each visibleFamilies as family (family.id)}
-          {@const _tick = undoActionsData.tick}
           {@const familyActions = getFamilyUndoActions(family.id)}
           {@const familyAction = familyActions.find((a) => a.childIds.length > 1)}
-          {@const familyUndoSeconds = familyAction && _tick >= 0 ? getRemainingTime(familyAction.id) : null}
+          {@const familyUndoSeconds = familyAction ? getRemainingTime(familyAction.id) : null}
           {@const childRemainingTimes = new Map(
             family.children
               .filter(c => c.checkInActionId)
-              .map(c => [c.id, _tick >= 0 ? getRemainingTime(c.checkInActionId!) : null])
+              .map(c => [c.id, getRemainingTime(c.checkInActionId!)])
           )}
           <FamilyCard
             {family}
