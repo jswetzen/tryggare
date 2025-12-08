@@ -13,8 +13,6 @@
   import ChildCheckInButton from './ChildCheckInButton.svelte';
   import { _ } from 'svelte-i18n';
 
-  import { undoActionsWithTick } from '$lib/checkin/stores/undoTimer';
-
   let {
     family,
     expanded,
@@ -42,12 +40,6 @@
     childRemainingTimes: Map<string, number | null>;
     familyUndoSeconds: number | null;
   } = $props();
-
-  // Subscribe to tick store for reactive countdown
-  // Subscribe to undo timer store for reactivity
-  // undoActionsWithTick returns { actions: UndoAction[], tick: number }
-  let undoActionsData = $derived($undoActionsWithTick);
-  let undoActions = $derived(undoActionsData.actions);
 
   const totalChildren = $derived(family.children.length);
   const checkedInCount = $derived(family.children.filter((c) => c.checkedIn).length);
