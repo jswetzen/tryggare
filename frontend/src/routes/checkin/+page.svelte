@@ -72,10 +72,16 @@
   let successToast = $state<string | null>(null);
 
   // Subscribe to undo timer store for reactivity
-  // The $ prefix makes this reactive to store updates
-  // undoActionsWithTick returns { actions: UndoAction[], tick: number }
-  let undoActionsData = $derived($undoActionsWithTick);
+  let undoActionsData = $state({ actions: [], tick: 0 });
   let undoActions = $derived(undoActionsData.actions);
+
+  // Manual store subscription to ensure proper reactivity
+  onMount(() => {
+    const unsubscribe = undoActionsWithTick.subscribe((value) => {
+      undoActionsData = value;
+    });
+    return unsubscribe;
+  });
 
   // ============================================================================
   // DATA LOADING
@@ -169,6 +175,28 @@
         family.children.some((child) => child.name.toLowerCase().includes(query))
     );
   });
+
+  // Helper function to compute timer data for a family
+  // This function is pure and doesn't depend on reactive state
+  function computeFamilyTimerData(family: Family, actions: UndoAction[]): { familyUndoSeconds: number | null, childRemainingTimes: Map<string, number> } {
+    const now = Date.now();
+    const familyActions = actions.filter(a => a.familyId === family.id);
+    const familyAction = familyActions.find((a) => a.childIds.length > 1);
+    const familyUndoSeconds = familyAction ? Math.max(0, Math.ceil((familyAction.expiresAt - now) / 1000)) : null;
+
+    const childRemainingTimes = new Map<string, number>();
+    for (const child of family.children) {
+      if (child.checkInActionId) {
+        const action = actions.find(a => a.id === child.checkInActionId);
+        if (action) {
+          const remaining = Math.max(0, Math.ceil((action.expiresAt - now) / 1000));
+          childRemainingTimes.set(child.id, remaining);
+        }
+      }
+    }
+
+    return { familyUndoSeconds, childRemainingTimes };
+  }
 
   // ============================================================================
   // EFFECTS
@@ -670,14 +698,8 @@
         </div>
       {:else}
         {#each visibleFamilies as family (family.id)}
-          {@const familyActions = getFamilyUndoActions(family.id)}
-          {@const familyAction = familyActions.find((a) => a.childIds.length > 1)}
-          {@const familyUndoSeconds = familyAction ? getRemainingTime(familyAction.id) : null}
-          {@const childRemainingTimes = new Map(
-            family.children
-              .filter(c => c.checkInActionId)
-              .map(c => [c.id, getRemainingTime(c.checkInActionId!)])
-          )}
+          {@const _tick = undoActionsData.tick}
+          {@const timerData = computeFamilyTimerData(family, undoActions)}
           <FamilyCard
             {family}
             expanded={expandedFamilies.has(family.id)}
@@ -692,8 +714,8 @@
             onToggleChildExpansion={(childId) => {
               expandedChildId = childId;
             }}
-            {childRemainingTimes}
-            {familyUndoSeconds}
+            childRemainingTimes={timerData.childRemainingTimes}
+            familyUndoSeconds={timerData.familyUndoSeconds}
           />
         {/each}
       {/if}

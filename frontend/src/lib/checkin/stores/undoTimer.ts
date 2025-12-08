@@ -35,19 +35,12 @@ function initializeTickInterval() {
   }
   subscriptionInitialized = true;
 
-  console.log('[undoTimer] Initializing tick interval subscription');
-
   undoActionsStore.subscribe((actions) => {
-    console.log('[undoTimer] Store update - actions count:', actions.length, 'tickInterval:', tickInterval);
     if (actions.length > 0 && !tickInterval) {
       // Start tick interval when we have actions
       // Keep it running until manually stopped (don't auto-stop when actions become empty)
-      console.log('[undoTimer] Starting tick interval');
       tickInterval = setInterval(() => {
-        tickStore.update((t) => {
-          console.log('[undoTimer] Tick update:', t + 1);
-          return t + 1;
-        });
+        tickStore.update((t) => t + 1);
       }, 1000);
     }
     // Note: We intentionally DO NOT stop the interval when actions become empty
