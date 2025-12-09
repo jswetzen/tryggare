@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Print Label - {{ checkin.child.first_name }} {{ checkin.child.last_name }}</title>
+    <style>
+        @page {
+            size: 29mm 90mm; /* Width x Length (content-dependent) */
+            margin: 0;
+        }
+
+        @media print {
+            body {
+                margin: 0;
+                padding: 0;
+            }
+            .no-print {
+                display: none;
+            }
+        }
+
+        body {
+            margin: 0;
+            padding: 2mm;
+            font-family: Arial, sans-serif;
+            width: 29mm;
+        }
+
+        .label {
+            width: 25mm; /* Accounting for padding */
+            text-align: center;
+        }
+
+        .child-name {
+            font-size: 8pt;
+            font-weight: bold;
+            margin-bottom: 1mm;
+            word-wrap: break-word;
+        }
+
+        .session-name {
+            font-size: 6pt;
+            margin-bottom: 1mm;
+            word-wrap: break-word;
+        }
+
+        .allergies {
+            font-size: 6pt;
+            font-weight: bold;
+            color: #cc0000;
+            margin-bottom: 2mm;
+            word-wrap: break-word;
+        }
+
+        .qr-code {
+            width: 20mm;
+            height: 20mm;
+            margin: 0 auto;
+            display: block;
+        }
+
+        .no-print {
+            margin-top: 10mm;
+            text-align: center;
+            font-size: 10pt;
+        }
+
+        .no-print button {
+            padding: 8px 16px;
+            font-size: 10pt;
+            cursor: pointer;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+        }
+
+        .no-print button:hover {
+            background-color: #0056b3;
+        }
+    </style>
+</head>
+<body>
+    <div class="label">
+        <div class="child-name">{{ checkin.child.first_name }} {{ checkin.child.last_name }}</div>
+        <div class="session-name">{{ checkin.session.name }}</div>
+        {% if checkin.child.allergies %}
+        <div class="allergies">ALLERGIES: {{ checkin.child.allergies }}</div>
+        {% endif %}
+        <img src="{{ qr_url }}" alt="QR Code" class="qr-code">
+    </div>
+
+    <div class="no-print">
+        <button onclick="window.print()">Print Label</button>
+    </div>
+
+    <script>
+        // Auto-print after a short delay to let page render
+        setTimeout(function() {
+            window.print();
+        }, 500);
+    </script>
+</body>
+</html>

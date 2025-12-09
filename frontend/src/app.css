@@ -1,0 +1,75 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: light;
+}
+
+body {
+  margin: 0;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  background: theme('colors.neutral.100');
+  color: theme('colors.neutral.700');
+}
+
+/* Form Controls - Using design tokens */
+.form-input,
+.form-select,
+.form-textarea,
+.form-checkbox {
+  @apply border-neutral-300 rounded-input shadow-sm focus:border-primary-500 focus:ring-primary-500;
+}
+
+.form-input,
+.form-select,
+.form-textarea {
+  @apply w-full px-3 py-2 text-neutral-700;
+}
+
+.form-checkbox {
+  @apply h-4 w-4 text-primary-600;
+}
+
+/* Buttons - Using design tokens (for backwards compatibility) */
+.btn {
+  @apply px-4 py-2 rounded-button font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed;
+}
+
+.btn-primary {
+  @apply bg-primary-600 text-white hover:bg-primary-700;
+}
+
+.btn-secondary {
+  @apply bg-neutral-600 text-white hover:bg-neutral-700;
+}
+
+.btn-ghost {
+  @apply bg-transparent text-neutral-700 hover:bg-neutral-100;
+}
+
+.btn-sm {
+  @apply px-3 py-1 text-sm;
+}
+
+.btn-lg {
+  @apply px-6 py-3 text-lg;
+}
+
+/* Alerts - Using design tokens */
+.alert {
+  @apply p-4 rounded-card;
+}
+
+.alert-error {
+  @apply bg-danger-50 text-danger-800 border border-danger-200;
+}
+
+.alert-success {
+  @apply bg-success-50 text-success-700 border border-success-600;
+}
+
+/* Container */
+.container {
+  @apply max-w-7xl mx-auto px-4 sm:px-6 lg:px-8;
+}

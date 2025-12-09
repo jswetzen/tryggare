@@ -1,0 +1,61 @@
+# Stage 1: Build frontend
+FROM docker.io/node:22-alpine AS frontend-builder
+
+WORKDIR /app
+
+# Enable pnpm
+RUN corepack enable
+
+# Copy frontend files
+COPY frontend/package.json frontend/pnpm-lock.yaml ./
+RUN pnpm install --frozen-lockfile
+
+COPY frontend ./
+
+# Build frontend with BUILDING=true to skip auth during prerender
+ENV BUILDING=true
+RUN pnpm build
+
+# Stage 2: Build backend with frontend assets
+FROM ghcr.io/astral-sh/uv:python3.14-trixie-slim AS base
+
+WORKDIR /app
+
+# Copy backend files
+COPY backend/pyproject.toml backend/uv.lock backend/README.md ./
+RUN uv sync --frozen --no-dev
+
+COPY backend/manage.py ./
+COPY backend/config ./config
+COPY backend/accounts ./accounts
+COPY backend/families ./families
+COPY backend/events ./events
+COPY backend/checkins ./checkins
+COPY backend/printing ./printing
+
+# Copy frontend build from frontend-builder stage
+COPY --from=frontend-builder /app/build /app/staticfiles/
+
+ENV DJANGO_SETTINGS_MODULE=config.settings.prod
+ENV PYTHONUNBUFFERED=1
+
+EXPOSE 8000
+
+# Entrypoint script to run migrations and start server
+RUN echo '#!/bin/sh\n\
+set -e\n\
+\n\
+# Run collectstatic to gather Django static files\n\
+echo "Collecting static files..."\n\
+uv run python manage.py collectstatic --noinput\n\
+\n\
+# Run migrations\n\
+echo "Running migrations..."\n\
+uv run python manage.py migrate --noinput\n\
+\n\
+# Start daphne\n\
+echo "Starting daphne..."\n\
+exec uv run python -m daphne -b 0.0.0.0 -p 8000 config.asgi:application\n\
+' > /entrypoint.sh && chmod +x /entrypoint.sh
+
+ENTRYPOINT ["/entrypoint.sh"]
