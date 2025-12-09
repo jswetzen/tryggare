@@ -22,7 +22,7 @@
   import { getVisibleFamilies } from '$lib/checkin/utils/familyVisibility';
 
   // Import API services
-  import { checkinApi, ticketApi } from '$lib/api/services';
+  import { checkinApi, checkInApi, ticketApi } from '$lib/api/services';
   import type { ApiError } from '$lib/api/client';
   import { websocketStore } from '$lib/stores/websocket';
   import type { WebSocketMessage } from '$lib/api/types';
@@ -72,16 +72,9 @@
   let successToast = $state<string | null>(null);
 
   // Subscribe to undo timer store for reactivity
-  let undoActionsData = $state({ actions: [], tick: 0 });
+  // Use $derived with $ prefix for proper Svelte 5 store auto-subscription
+  let undoActionsData = $derived($undoActionsWithTick);
   let undoActions = $derived(undoActionsData.actions);
-
-  // Manual store subscription to ensure proper reactivity
-  onMount(() => {
-    const unsubscribe = undoActionsWithTick.subscribe((value) => {
-      undoActionsData = value;
-    });
-    return unsubscribe;
-  });
 
   // ============================================================================
   // DATA LOADING
@@ -146,12 +139,23 @@
     });
   }
 
+  // Track children we've recently checked in to avoid reloading on our own actions
+  let recentlyCheckedInChildren = $state<Set<string>>(new Set());
+
   // Handle WebSocket messages for real-time updates
   function handleWebSocketMessage(message: WebSocketMessage) {
     if (message.type === 'child_checked_in') {
-      // Another station checked in a child - reload family list to update UI
-      // This ensures we show the latest check-in state across all stations
-      loadFamilies();
+      const childId = message.data?.child_id;
+      // Only reload if this wasn't our own check-in action
+      // This preserves local checkInActionId for undo timers
+      if (childId && recentlyCheckedInChildren.has(childId)) {
+        // We triggered this - remove from our tracking set
+        recentlyCheckedInChildren.delete(childId);
+        recentlyCheckedInChildren = new Set(recentlyCheckedInChildren);
+      } else {
+        // Another station checked in a child - reload family list to update UI
+        loadFamilies();
+      }
     } else if (message.type === 'child_checked_out') {
       // Child was checked out - reload family list
       loadFamilies();
@@ -175,28 +179,6 @@
         family.children.some((child) => child.name.toLowerCase().includes(query))
     );
   });
-
-  // Helper function to compute timer data for a family
-  // This function is pure and doesn't depend on reactive state
-  function computeFamilyTimerData(family: Family, actions: UndoAction[]): { familyUndoSeconds: number | null, childRemainingTimes: Map<string, number> } {
-    const now = Date.now();
-    const familyActions = actions.filter(a => a.familyId === family.id);
-    const familyAction = familyActions.find((a) => a.childIds.length > 1);
-    const familyUndoSeconds = familyAction ? Math.max(0, Math.ceil((familyAction.expiresAt - now) / 1000)) : null;
-
-    const childRemainingTimes = new Map<string, number>();
-    for (const child of family.children) {
-      if (child.checkInActionId) {
-        const action = actions.find(a => a.id === child.checkInActionId);
-        if (action) {
-          const remaining = Math.max(0, Math.ceil((action.expiresAt - now) / 1000));
-          childRemainingTimes.set(child.id, remaining);
-        }
-      }
-    }
-
-    return { familyUndoSeconds, childRemainingTimes };
-  }
 
   // ============================================================================
   // EFFECTS
@@ -264,6 +246,10 @@
     }
 
     try {
+      // Track this child to prevent WebSocket reload from clobbering local state
+      recentlyCheckedInChildren.add(childId);
+      recentlyCheckedInChildren = new Set(recentlyCheckedInChildren);
+
       // Create undo action
       const actionId = createUndoAction(familyId, [childId]);
       const checkInTime = getCurrentTime();
@@ -324,6 +310,12 @@
     if (childIdsToCheckIn.length === 0) return;
 
     try {
+      // Track all children to prevent WebSocket reload from clobbering local state
+      for (const childId of childIdsToCheckIn) {
+        recentlyCheckedInChildren.add(childId);
+      }
+      recentlyCheckedInChildren = new Set(recentlyCheckedInChildren);
+
       // Check in all children and collect their record IDs
       const checkInRecords = await Promise.all(
         childIdsToCheckIn.map((childId) =>
@@ -699,7 +691,9 @@
       {:else}
         {#each visibleFamilies as family (family.id)}
           {@const _tick = undoActionsData.tick}
-          {@const timerData = computeFamilyTimerData(family, undoActions)}
+          {@const familyActions = getFamilyUndoActions(family.id)}
+          {@const familyAction = familyActions.find((a) => a.childIds.length > 1)}
+          {@const familyUndoSeconds = familyAction && _tick >= 0 ? getRemainingTime(familyAction.id) : null}
           <FamilyCard
             {family}
             expanded={expandedFamilies.has(family.id)}
@@ -714,8 +708,8 @@
             onToggleChildExpansion={(childId) => {
               expandedChildId = childId;
             }}
-            childRemainingTimes={timerData.childRemainingTimes}
-            familyUndoSeconds={timerData.familyUndoSeconds}
+            {getRemainingTime}
+            {familyUndoSeconds}
           />
         {/each}
       {/if}
