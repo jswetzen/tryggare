@@ -13,6 +13,8 @@
   import ChildCheckInButton from './ChildCheckInButton.svelte';
   import { _ } from 'svelte-i18n';
 
+  import { undoActionsWithTick } from '$lib/checkin/stores/undoTimer';
+
   let {
     family,
     expanded,
@@ -24,7 +26,7 @@
     onAssignTicket,
     expandedChildId,
     onToggleChildExpansion,
-    childRemainingTimes,
+    getRemainingTime,
     familyUndoSeconds
   }: {
     family: Family;
@@ -37,9 +39,13 @@
     onAssignTicket: (childId: string, ticketType: TicketType) => void;
     expandedChildId: string | null;
     onToggleChildExpansion: (childId: string | null) => void;
-    childRemainingTimes: Map<string, number | null>;
+    getRemainingTime: (actionId: string) => number | null;
     familyUndoSeconds: number | null;
   } = $props();
+
+  // Subscribe to tick store for reactive countdown
+  // Use $derived with $ prefix for proper Svelte 5 store auto-subscription
+  let undoActionsData = $derived($undoActionsWithTick);
 
   const totalChildren = $derived(family.children.length);
   const checkedInCount = $derived(family.children.filter((c) => c.checkedIn).length);
@@ -129,7 +135,8 @@
     <div class="p-3 space-y-2">
       {#each family.children as child (child.id)}
         {@const isExpanded = expandedChildId === child.id}
-        {@const childRemainingSeconds = childRemainingTimes.get(child.id) ?? null}
+        {@const _tick = undoActionsData.tick}
+        {@const childRemainingSeconds = child.checkInActionId && _tick >= 0 ? getRemainingTime(child.checkInActionId) : null}
 
         <div
           class="flex flex-col gap-2 p-2 bg-slate-50 rounded border border-slate-200"
