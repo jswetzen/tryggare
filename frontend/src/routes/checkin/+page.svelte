@@ -20,6 +20,7 @@
     cleanup as cleanupUndoTimer,
   } from '$lib/checkin/stores/undoTimer';
   import { getVisibleFamilies } from '$lib/checkin/utils/familyVisibility';
+  import { mergeFamilies } from '$lib/checkin/utils/mergeFamilies';
 
   // Import API services
   import { checkinApi, checkInApi, ticketApi } from '$lib/api/services';
@@ -85,7 +86,7 @@
       loading = true;
       error = null;
       const response = await checkinApi.getFamilies();
-      families = response.map(transformFamilyResponse);
+      families = mergeFamilies(families, response);
     } catch (err) {
       const apiError = err as ApiError;
       error = apiError.message || 'Failed to load families';
