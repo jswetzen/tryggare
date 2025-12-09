@@ -9,6 +9,7 @@
   import SuccessToast from '$lib/components/checkin/SuccessToast.svelte';
   import FamilyCard from '$lib/components/checkin/FamilyCard.svelte';
   import AddFamilyPanel from '$lib/components/checkin/AddFamilyPanel.svelte';
+  import SearchBox from '$lib/components/SearchBox.svelte';
 
   // Import stores and utilities
   import {
@@ -722,32 +723,10 @@
     </div>
 
     <!-- Search Box -->
-    <div class="mb-4">
-      <div class="relative">
-        <Icon
-          name="search"
-          size="sm"
-          class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
-        />
-        <input
-          type="text"
-          bind:value={searchQuery}
-          placeholder={$_('checkin.searchPlaceholder')}
-          class="w-full pl-10 pr-10 py-3 border-2 border-blue-500 rounded-lg bg-blue-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
-          data-testid="search-input"
-        />
-        {#if searchQuery}
-          <button
-            onclick={() => (searchQuery = '')}
-            class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
-            aria-label={$_('checkin.clearSearch')}
-            data-testid="clear-search-button"
-          >
-            <Icon name="x" size="sm" />
-          </button>
-        {/if}
-      </div>
-    </div>
+    <SearchBox
+      bind:value={searchQuery}
+      placeholder={$_('checkin.searchPlaceholder')}
+    />
 
     <!-- Stats Header -->
     <div class="mb-4 flex items-center justify-between text-sm">
