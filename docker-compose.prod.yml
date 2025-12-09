@@ -1,119 +1,65 @@
 version: '3.9'
 
+name: check-in-prod
 services:
-  # PostgreSQL Database Service
-  db:
-    image: docker.io/postgres:16-alpine
-    container_name: conference-db-prod
-    restart: always
+  # Django backend serving both API and frontend
+  # Frontend is built in the Dockerfile's first stage
+  web:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile.prod
     environment:
-      POSTGRES_DB: conference-child-mgmt
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: password
+      # Empty strings = use relative paths (browser uses current host/port)
+      - VITE_PUBLIC_API_BASE_URL=  # Client-side (Browser -> Django)
+      - VITE_PUBLIC_WS_BASE_URL=
+      - DJANGO_SETTINGS_MODULE=config.settings.prod
+      - SECRET_KEY=${SECRET_KEY}
+      - ALLOWED_HOSTS=${ALLOWED_HOSTS}
+      - DATABASE_URL=postgresql://postgres:postgres@db-prod:5432/checkins
+      - VALKEY_URL=redis://valkey-prod:6379/0
+      - CORS_ALLOWED_ORIGINS=${CORS_ALLOWED_ORIGINS:-}
+      - CSRF_TRUSTED_ORIGINS=${CSRF_TRUSTED_ORIGINS:-}
+      # Cookie security: set to 'false' for HTTP testing, 'true' for HTTPS/reverse proxy
+      - SESSION_COOKIE_SECURE=${SESSION_COOKIE_SECURE:-false}
+      - CSRF_COOKIE_SECURE=${CSRF_COOKIE_SECURE:-false}
     ports:
-      - "${DB_PORT:-5432}:5432"
+      - "8080:8000"
+    depends_on:
+      db-prod:
+        condition: service_healthy
+      valkey-prod:
+        condition: service_healthy
+    restart: unless-stopped
+    logging:
+      options:
+        max-size: "50m"
+        path: /home/johan/git/check-ins/web.log
+
+  db-prod:
+    image: docker.io/postgres:16-alpine
+    environment:
+      POSTGRES_DB: checkins
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5433:5432"  # Expose for testing (different port than dev DB)
     volumes:
-      - postgres_data_prod:/var/lib/postgresql/data
+      - pg_data_prod:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      test: ["CMD-SHELL", "pg_isready -d $${POSTGRES_DB} -U $${POSTGRES_USER}"]
       interval: 10s
       timeout: 5s
       retries: 5
-    networks:
-      - conference-network
+    restart: unless-stopped
 
-  # Init container - runs migrations and seeding once
-  init:
-    build:
-      context: .
-      dockerfile: Dockerfile
-      target: init
-    container_name: conference-init-prod
-    environment:
-      # Database connection
-      DATABASE_URL: "postgresql://postgres:password@db:5432/conference-child-mgmt"
-
-      # Initial admin credentials
-      INITIAL_ADMIN_USERNAME: "${INITIAL_ADMIN_USERNAME:-admin}"
-      INITIAL_ADMIN_PASSWORD: "${INITIAL_ADMIN_PASSWORD:-changeme123}"
-    depends_on:
-      db:
-        condition: service_healthy
-    networks:
-      - conference-network
-    restart: "no"  # Only run once
-
-  # Next.js Application Service - Production Mode
-  app:
-    build:
-      context: .
-      dockerfile: Dockerfile
-      target: runner
-      args:
-        # Build-time arguments - allow pre-rendering with database access
-        NODE_ENV: production
-        DATABASE_URL: "postgresql://postgres:password@db:5432/conference-child-mgmt"
-        AUTH_SECRET: "${AUTH_SECRET:-build-time-dummy-secret}"
-    container_name: conference-app-prod
-    restart: always
-    environment:
-      # Database connection
-      DATABASE_URL: "postgresql://postgres:password@db:5432/conference-child-mgmt"
-
-      # Authentication - MUST be set in production
-      NEXTAUTH_URL: "${NEXTAUTH_URL:-http://localhost:3000}"
-      AUTH_SECRET: "${AUTH_SECRET:-your-secret-key-here-replace-with-random-string}"
-      NEXTAUTH_SECRET: "${NEXTAUTH_SECRET:-your-secret-key-here-replace-with-random-string}"
-      AUTH_TRUST_HOST: "true"
-
-      # Initial admin credentials
-      INITIAL_ADMIN_USERNAME: "${INITIAL_ADMIN_USERNAME:-admin}"
-      INITIAL_ADMIN_PASSWORD: "${INITIAL_ADMIN_PASSWORD:-changeme123}"
-
-      # Production environment
-      NODE_ENV: production
-      NEXT_TELEMETRY_DISABLED: 1
-
-      # Server configuration
-      HOSTNAME: "0.0.0.0"
-      PORT: 3000
-    ports:
-      - "${APP_PORT:-3000}:3000"
-    depends_on:
-      db:
-        condition: service_healthy
-      init:
-        condition: service_completed_successfully
+  valkey-prod:
+    image: docker.io/valkey/valkey:7-alpine
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/api/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
-    networks:
-      - conference-network
-    # Security: read-only root filesystem (uncomment if your app supports it)
-    # read_only: true
-    # tmpfs:
-    #   - /tmp
-    #   - /app/.next/cache
+      test: ["CMD", "valkey-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
 
-    # Resource limits (adjust based on your needs)
-    deploy:
-      resources:
-        limits:
-          cpus: '2'
-          memory: 2G
-        reservations:
-          cpus: '0.5'
-          memory: 512M
-
-# Named volumes for data persistence
 volumes:
-  postgres_data_prod:
-    driver: local
-
-# Network for service communication
-networks:
-  conference-network:
-    driver: bridge
+  pg_data_prod:

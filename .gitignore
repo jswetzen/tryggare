@@ -2,9 +2,12 @@
 
 # dependencies
 /node_modules
+**/node_modules
 /.pnp
 .pnp.js
 .pnpm-store
+__pycache__/
+*.pyc
 
 # testing
 /coverage
@@ -21,6 +24,14 @@ next-env.d.ts
 
 # production
 /build
+frontend/build
+frontend/.svelte-kit
+
+# logs
+*.log
+web.log
+frontend.log
+restart.txt
 
 # misc
 .DS_Store
@@ -36,6 +47,8 @@ yarn-error.log*
 # do not commit any .env files to git, except for the .env.example file. https://create.t3.gg/en/usage/env-variables#using-environment-variables
 .env
 .env*.local
+.env.prod
+.venv
 
 # vercel
 .vercel

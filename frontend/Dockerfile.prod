@@ -1,0 +1,22 @@
+FROM docker.io/node:22-alpine AS builder
+
+WORKDIR /app
+
+# Enable pnpm
+RUN corepack enable
+
+# Copy package files
+COPY package.json pnpm-lock.yaml ./
+
+# Install dependencies
+RUN pnpm install --frozen-lockfile
+
+# Copy source files
+COPY . .
+
+# Build the app
+# Set BUILDING=true to skip authentication during prerendering
+ENV BUILDING=true
+RUN pnpm build
+
+# The built files will be in /app/build
