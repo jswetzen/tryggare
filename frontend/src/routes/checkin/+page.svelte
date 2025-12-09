@@ -140,6 +140,14 @@
     });
   }
 
+  // Helper to format ISO timestamp to local time string
+  function formatTime(isoTimestamp: string): string {
+    return new Date(isoTimestamp).toLocaleTimeString('en-US', {
+      hour: 'numeric',
+      minute: '2-digit',
+    });
+  }
+
   // Track children we've recently checked in to avoid reloading on our own actions
   let recentlyCheckedInChildren = $state<Set<string>>(new Set());
 
@@ -147,19 +155,93 @@
   function handleWebSocketMessage(message: WebSocketMessage) {
     if (message.type === 'child_checked_in') {
       const childId = message.data?.child_id;
+
       // Only reload if this wasn't our own check-in action
       // This preserves local checkInActionId for undo timers
       if (childId && recentlyCheckedInChildren.has(childId)) {
         // We triggered this - remove from our tracking set
         recentlyCheckedInChildren.delete(childId);
         recentlyCheckedInChildren = new Set(recentlyCheckedInChildren);
-      } else {
-        // Another station checked in a child - reload family list to update UI
-        loadFamilies();
+        return;
+      }
+
+      // Another station checked in a child - update incrementally
+      if (childId && message.data?.record_id && message.data?.check_in_time) {
+        // Try to find and update the child locally
+        let childFound = false;
+        families = families.map((fam) => {
+          let updated = false;
+          const updatedChildren = fam.children.map((child) => {
+            if (child.id === childId) {
+              childFound = true;
+              updated = true;
+              // Only update if there's no local undo action
+              // (don't overwrite our own check-ins that have active undo)
+              if (!child.checkInActionId) {
+                return {
+                  ...child,
+                  checkedIn: true,
+                  checkInTime: formatTime(message.data.check_in_time),
+                  checkInRecordId: message.data.record_id,
+                  // checkInActionId: intentionally undefined - no undo for remote actions
+                };
+              }
+            }
+            return child;
+          });
+
+          if (updated) {
+            return { ...fam, children: updatedChildren };
+          }
+          return fam;
+        });
+
+        // Fallback: if child not found, reload all data
+        if (!childFound) {
+          console.warn(`Child ${childId} not found locally, reloading families`);
+          loadFamilies();
+        }
       }
     } else if (message.type === 'child_checked_out') {
-      // Child was checked out - reload family list
+      const childId = message.data?.child_id;
+
+      if (childId) {
+        // Try to find and update the child locally
+        let childFound = false;
+        families = families.map((fam) => {
+          let updated = false;
+          const updatedChildren = fam.children.map((child) => {
+            if (child.id === childId) {
+              childFound = true;
+              updated = true;
+              // Clear check-in state
+              return {
+                ...child,
+                checkedIn: false,
+                checkInTime: undefined,
+                checkInActionId: undefined,
+                checkInRecordId: undefined,
+              };
+            }
+            return child;
+          });
+
+          if (updated) {
+            return { ...fam, children: updatedChildren };
+          }
+          return fam;
+        });
+
+        // Fallback: if child not found, reload all data
+        if (!childFound) {
+          console.warn(`Child ${childId} not found locally, reloading families`);
+          loadFamilies();
+        }
+      }
+    } else if (message.type === 'session_started' || message.type === 'session_ended') {
+      // Session changes are rare and affect overall state, reload everything
       loadFamilies();
+      loadActiveSession();
     }
   }
 
