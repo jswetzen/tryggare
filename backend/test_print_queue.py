@@ -263,7 +263,7 @@ class PrintQueueTests(TestCase):
         self.assertEqual(data[1]["id"], str(checkin1.id))
 
     def test_print_page_html_generation(self):
-        """Test print page HTML template renders correctly"""
+        """Test print page HTML template renders correctly with new simplified design"""
         # Create check-in with QR token
         self.child1.qr_token = "test-qr-token-123"
         self.child1.save()
@@ -284,9 +284,19 @@ class PrintQueueTests(TestCase):
         content = response.content.decode("utf-8")
         self.assertIn("Alice", content)  # Child name
         self.assertIn("Smith", content)  # Last name
-        self.assertIn("Test Session", content)  # Session name
-        self.assertIn("Peanuts", content)  # Allergies
-        self.assertIn("/api/qr/test-qr-token-123/", content)  # QR code URL
+
+        # New simplified design: NO session name or allergies in label
+        self.assertNotIn("Test Session", content.split('<div class="label">')[1] if '<div class="label">' in content else "")
+        self.assertNotIn("Peanuts", content)  # No allergies
+        self.assertNotIn("ALLERGIES", content)  # No allergies section
+
+        # QR code should be base64 data URL, not API endpoint
+        self.assertIn("data:image/png;base64,", content)
+        self.assertNotIn("/api/qr/", content)
+
+        # Check new dimensions (54.3mm x 17mm portrait)
+        self.assertIn("54.3mm", content)
+        self.assertIn("17mm", content)
 
     def test_mark_single_printed(self):
         """Test marking single check-in as printed"""

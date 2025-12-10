@@ -443,22 +443,31 @@ class PrintQueueViewSet(viewsets.ReadOnlyModelViewSet):
     @action(detail=True, methods=['get'])
     def print_page(self, request, pk=None):
         """
-        Returns HTML page optimized for printing a single label on Brother QL-29mm.
+        Returns HTML page optimized for printing a single label on Brother QL-54.3mm.
         Opens in browser for direct printing.
         """
         from django.shortcuts import render, get_object_or_404
+        import qrcode
+        import io
+        import base64
 
         checkin = get_object_or_404(
             CheckInRecord.objects.select_related('child', 'session'),
             pk=pk
         )
 
-        # Build QR code URL (using child's QR token)
-        qr_url = request.build_absolute_uri(f'/api/qr/{checkin.child.qr_token}/')
+        # Generate QR code as base64 data URL
+        qr = qrcode.QRCode()
+        qr.add_data(f'http://{request.get_host()}/qr/{checkin.child.qr_token}')
+        qr.make()
+        img = qr.make_image()
+        buf = io.BytesIO()
+        img.save(buf, format='PNG')
+        qr_data_url = f'data:image/png;base64,{base64.b64encode(buf.getvalue()).decode()}'
 
         return render(request, 'print_label.html', {
             'checkin': checkin,
-            'qr_url': qr_url
+            'qr_url': qr_data_url
         })
 
     @action(detail=True, methods=['post'])

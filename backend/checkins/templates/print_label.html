@@ -6,7 +6,7 @@
     <title>Print Label - {{ checkin.child.first_name }} {{ checkin.child.last_name }}</title>
     <style>
         @page {
-            size: 29mm 90mm; /* Width x Length (content-dependent) */
+            size: 54.3mm 17mm; /* Width x Height (portrait) */
             margin: 0;
         }
 
@@ -22,42 +22,38 @@
 
         body {
             margin: 0;
-            padding: 2mm;
+            padding: 0;
             font-family: Arial, sans-serif;
-            width: 29mm;
+            width: 54.3mm;
+            height: 17mm;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
 
         .label {
-            width: 25mm; /* Accounting for padding */
-            text-align: center;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 1mm 2mm;
+            box-sizing: border-box;
         }
 
         .child-name {
-            font-size: 8pt;
-            font-weight: bold;
-            margin-bottom: 1mm;
-            word-wrap: break-word;
-        }
-
-        .session-name {
-            font-size: 6pt;
-            margin-bottom: 1mm;
-            word-wrap: break-word;
-        }
-
-        .allergies {
             font-size: 6pt;
             font-weight: bold;
-            color: #cc0000;
-            margin-bottom: 2mm;
             word-wrap: break-word;
+            flex: 1;
+            text-align: left;
+            padding-right: 2mm;
         }
 
         .qr-code {
-            width: 20mm;
-            height: 20mm;
-            margin: 0 auto;
-            display: block;
+            width: 15mm;
+            height: 15mm;
+            flex-shrink: 0;
         }
 
         .no-print {
@@ -84,10 +80,6 @@
 <body>
     <div class="label">
         <div class="child-name">{{ checkin.child.first_name }} {{ checkin.child.last_name }}</div>
-        <div class="session-name">{{ checkin.session.name }}</div>
-        {% if checkin.child.allergies %}
-        <div class="allergies">ALLERGIES: {{ checkin.child.allergies }}</div>
-        {% endif %}
         <img src="{{ qr_url }}" alt="QR Code" class="qr-code">
     </div>
 
