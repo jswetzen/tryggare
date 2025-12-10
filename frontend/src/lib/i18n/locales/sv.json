@@ -112,7 +112,13 @@
     "atLeastOneParent": "Minst en förälder krävs",
     "atLeastOneChild": "Minst ett barn krävs",
     "successCheckedIn": "{name} incheckad!",
-    "successFamilyCheckedIn": "{family} familjen incheckad ({count} {childrenLabel})!"
+    "successFamilyCheckedIn": "{family} familjen incheckad ({count} {childrenLabel})!",
+    "checkInUndone": "{name} incheckning ångrad",
+    "familyCheckInUndone": "{name} incheckning ångrad",
+    "familyAdded": "{familyName} familjen tillagd med {count} {childrenLabel}!",
+    "checkInAll": "Checka in alla",
+    "showCheckedInFamilies": "Visa incheckade familjer",
+    "allCheckedIn": "Alla incheckade"
   },
   "checkout": {
     "pageTitle": "Utcheckningsstation",
@@ -131,6 +137,7 @@
     "notes": "Anteckningar:",
     "pickedUpBy": "Hämtas av:",
     "pickedUpByPlaceholder": "Välj...",
+    "selectPerson": "Välj person...",
     "pickedUpByMom": "Mamma",
     "pickedUpByDad": "Pappa",
     "pickedUpByGrandma": "Mormor/Farmor",
@@ -147,7 +154,9 @@
     "checkedInChildren": "Incheckade barn",
     "familyChild": "Familj / Barn",
     "checkOut": "Checka ut",
-    "checkOutFamily": "Checka ut {family} ({count})"
+    "checkOutFamily": "Checka ut {family} ({count})",
+    "familyCheckOutSuccess": "{family} familjen utcheckad ({count} {childrenLabel})!",
+    "familyCheckOutError": "Kunde inte checka ut familj"
   },
   "qr": {
     "pageTitle": "Barninformation",
@@ -196,7 +205,9 @@
     "cancel": "Avbryt",
     "loading": "Laddar...",
     "close": "Stäng",
-    "refresh": "Uppdatera"
+    "refresh": "Uppdatera",
+    "family": "familj",
+    "families": "familjer"
   },
   "printQueue": {
     "pageTitle": "Etikettutskriftskö",

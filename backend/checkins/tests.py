@@ -215,3 +215,90 @@ class UndoCheckInTest(TestCase):
 
         # Verify only one audit log entry
         self.assertEqual(AuditLog.objects.filter(action='undo_checkin').count(), 1)
+
+
+class PrintLabelTest(TestCase):
+    """Test the print label functionality."""
+
+    def setUp(self):
+        """Set up test data and authentication."""
+        self.client = APIClient()
+        self.user = AdminUser.objects.create_user(
+            username="testuser",
+            password="testpass123",
+            name="Test User"
+        )
+        self.client.force_authenticate(user=self.user)
+
+        self.family = Family.objects.create()
+        self.child = Child.objects.create(
+            family=self.family,
+            first_name="Test",
+            last_name="Child",
+            birthdate=timezone.now().date()
+        )
+        self.event = Event.objects.create(
+            name="Test Event",
+            start_date=timezone.now().date(),
+            end_date=timezone.now().date()
+        )
+        self.session = Session.objects.create(
+            event=self.event,
+            name="Test Session",
+            start_time=timezone.now(),
+            end_time=timezone.now() + timedelta(hours=2),
+            is_active=True
+        )
+        self.checkin = CheckInRecord.objects.create(
+            child=self.child,
+            session=self.session,
+            check_in_staff=self.user
+        )
+
+    def test_print_page_returns_html(self):
+        """Test that print_page endpoint returns HTML."""
+        response = self.client.get(f'/api/print-queue/{self.checkin.id}/print_page/')
+        self.assertEqual(response.status_code, 200)
+        self.assertIn('text/html', response['Content-Type'])
+
+    def test_print_page_contains_child_name(self):
+        """Test that print label contains child's name."""
+        response = self.client.get(f'/api/print-queue/{self.checkin.id}/print_page/')
+        content = response.content.decode('utf-8')
+        self.assertIn('Test', content)
+        self.assertIn('Child', content)
+
+    def test_print_page_contains_qr_code_as_data_url(self):
+        """Test that print label contains QR code as base64 data URL."""
+        response = self.client.get(f'/api/print-queue/{self.checkin.id}/print_page/')
+        content = response.content.decode('utf-8')
+        # Should contain base64 encoded image
+        self.assertIn('data:image/png;base64,', content)
+        # Should NOT contain API URL
+        self.assertNotIn('/api/qr/', content)
+
+    def test_print_page_has_correct_dimensions(self):
+        """Test that print label has correct page dimensions (54.3mm x 17mm)."""
+        response = self.client.get(f'/api/print-queue/{self.checkin.id}/print_page/')
+        content = response.content.decode('utf-8')
+        self.assertIn('54.3mm', content)
+        self.assertIn('17mm', content)
+
+    def test_print_page_does_not_contain_session_or_allergies(self):
+        """Test that simplified label doesn't contain session name or allergies."""
+        # Add allergies to child
+        self.child.allergies = "Peanuts, Dairy"
+        self.child.save()
+
+        response = self.client.get(f'/api/print-queue/{self.checkin.id}/print_page/')
+        content = response.content.decode('utf-8')
+
+        # Get the label div content
+        if '<div class="label">' in content:
+            label_content = content.split('<div class="label">')[1].split('</div>')[0]
+            # Should NOT contain session name in label content
+            self.assertNotIn('Test Session', label_content)
+
+        # Should NOT contain allergies anywhere
+        self.assertNotIn('ALLERGIES', content)
+        self.assertNotIn('Peanuts', content)

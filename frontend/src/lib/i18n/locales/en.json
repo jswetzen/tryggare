@@ -112,7 +112,13 @@
     "atLeastOneParent": "At least one parent is required",
     "atLeastOneChild": "At least one child is required",
     "successCheckedIn": "{name} checked in!",
-    "successFamilyCheckedIn": "{family} family checked in ({count} {childrenLabel})!"
+    "successFamilyCheckedIn": "{family} family checked in ({count} {childrenLabel})!",
+    "checkInUndone": "{name} check-in undone",
+    "familyCheckInUndone": "{name} check-in undone",
+    "familyAdded": "{familyName} family added with {count} {childrenLabel}!",
+    "checkInAll": "Check In All",
+    "showCheckedInFamilies": "Show checked-in families",
+    "allCheckedIn": "All Checked In"
   },
   "checkout": {
     "pageTitle": "Check-Out Station",
@@ -131,6 +137,7 @@
     "notes": "Notes:",
     "pickedUpBy": "Picked up by:",
     "pickedUpByPlaceholder": "Select...",
+    "selectPerson": "Select person...",
     "pickedUpByMom": "Mom",
     "pickedUpByDad": "Dad",
     "pickedUpByGrandma": "Grandma",
@@ -147,7 +154,9 @@
     "checkedInChildren": "Checked-In Children",
     "familyChild": "Family / Child",
     "checkOut": "Check Out",
-    "checkOutFamily": "Check out {family} ({count})"
+    "checkOutFamily": "Check out {family} ({count})",
+    "familyCheckOutSuccess": "{family} family checked out ({count} {childrenLabel})!",
+    "familyCheckOutError": "Failed to check out family"
   },
   "qr": {
     "pageTitle": "Child Information",
@@ -196,7 +205,9 @@
     "cancel": "Cancel",
     "loading": "Loading...",
     "close": "Close",
-    "refresh": "Refresh"
+    "refresh": "Refresh",
+    "family": "family",
+    "families": "families"
   },
   "printQueue": {
     "pageTitle": "Label Printing Queue",

@@ -1,27 +1,60 @@
 <script lang="ts">
-  import { t } from 'svelte-i18n';
+  /**
+   * SessionIndicator Component
+   *
+   * Displays current event and session information with optional buttons to:
+   * - Change the current session (only shown when onChangeSession provided AND showChangeSession is true)
+   * - Add a new family (only shown when onAddFamily provided AND showAddFamily is true)
+   */
 
-  interface Props {
+  import { _ } from 'svelte-i18n';
+
+  let {
+    eventName,
+    sessionName,
+    sessionTime,
+    onChangeSession = undefined,
+    onAddFamily = undefined,
+    showAddFamily = true,
+    showChangeSession = true,
+  }: {
     eventName: string;
     sessionName: string;
     sessionTime: string;
-    onChangeSession?: () => void;
-  }
-
-  let { eventName, sessionName, sessionTime, onChangeSession }: Props = $props();
+    onChangeSession?: (() => void) | undefined;
+    onAddFamily?: (() => void) | undefined;
+    showAddFamily?: boolean;
+    showChangeSession?: boolean;
+  } = $props();
 </script>
 
-<div class="bg-neutral-50 border border-neutral-300 rounded-card px-3 py-2 mb-4 flex flex-wrap justify-between items-center gap-2 text-sm">
-  <div class="text-neutral-600">
-    <span class="font-semibold text-primary-900">{$t('session.event')}</span> {eventName} •
-    <span class="font-semibold text-primary-900 ml-1">{$t('session.session')}</span> {sessionName} ({sessionTime})
+<div
+  class="bg-slate-50 border border-slate-300 rounded px-3 py-2 mb-4 flex flex-wrap justify-between items-center gap-2 text-sm"
+  data-testid="session-indicator"
+>
+  <div class="text-slate-600">
+    <span class="font-semibold text-blue-900">{$_('session.event')}</span> {eventName} •
+    <span class="font-semibold text-blue-900 ml-1">{$_('session.session')}</span> {sessionName} ({sessionTime})
   </div>
-  {#if onChangeSession}
-    <button
-      onclick={onChangeSession}
-      class="text-primary-600 font-semibold hover:underline"
-    >
-      {$t('session.changeSession')}
-    </button>
-  {/if}
+  <div class="flex gap-2">
+    {#if showChangeSession && onChangeSession}
+      <button
+        on:click={onChangeSession}
+        class="px-3 py-1.5 text-blue-600 font-semibold hover:underline"
+        data-testid="change-session-button"
+      >
+        {$_('session.changeSession')}
+      </button>
+    {/if}
+
+    {#if showAddFamily && onAddFamily}
+      <button
+        on:click={onAddFamily}
+        class="px-3 py-1.5 bg-blue-600 text-white font-semibold rounded hover:bg-blue-700 transition-colors"
+        data-testid="add-family-button"
+      >
+        {$_('checkin.addNewFamily')}
+      </button>
+    {/if}
+  </div>
 </div>

@@ -16,9 +16,8 @@
     name: string;
     children?: DisplayChild[];
     parents?: Array<{
-      firstName: string;
-      lastName: string;
-      relationshipType: string;
+      name: string;
+      relationship_type: string;
     }>;
   }
 
@@ -44,8 +43,8 @@
     onCheckOut,
     isChildDisabled,
     formatTime = (iso) => new Date(iso).toLocaleTimeString('en-US', {
-      hour: 'numeric',
-      minute: '2-digit'
+      hour: "2-digit",
+      minute: "2-digit", hour12: false
     }),
     pickedUpBy = {},
     onPickedUpByChange
@@ -150,8 +149,8 @@
                 >
                   <option value="">{$t('checkout.selectPerson')}</option>
                   {#each family.parents || [] as parent}
-                    <option value="{parent.firstName} {parent.lastName}">
-                      {parent.firstName} {parent.lastName} ({parent.relationshipType})
+                    <option value="{parent.name}">
+                      {parent.name} ({parent.relationship_type})
                     </option>
                   {/each}
                 </select>

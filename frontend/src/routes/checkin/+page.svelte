@@ -139,16 +139,18 @@
   // Helper to get current time formatted
   function getCurrentTime(): string {
     return new Date().toLocaleTimeString('en-US', {
-      hour: 'numeric',
+      hour: '2-digit',
       minute: '2-digit',
+      hour12: false,
     });
   }
 
   // Helper to format ISO timestamp to local time string
   function formatTime(isoTimestamp: string): string {
     return new Date(isoTimestamp).toLocaleTimeString('en-US', {
-      hour: 'numeric',
+      hour: '2-digit',
       minute: '2-digit',
+      hour12: false,
     });
   }
 
@@ -533,7 +535,7 @@
       });
 
       if (child) {
-        successToast = `${child.name} check-in undone`;
+        successToast = $_('checkin.checkInUndone', { values: { name: child.name } });
       }
     } catch (err) {
       const apiError = err as ApiError;
@@ -594,7 +596,7 @@
         };
       });
 
-      successToast = `${family.name} check-in undone`;
+      successToast = $_('checkin.familyCheckInUndone', { values: { name: family.name } });
     } catch (err) {
       const apiError = err as ApiError;
       error = apiError.message || 'Failed to undo family check-in';
@@ -710,7 +712,13 @@
 
       const count = transformedFamily.children.length;
       const childrenLabel = count === 1 ? $_('checkin.child') : $_('checkin.children');
-      successToast = `${data.familyName} family added with ${count} ${childrenLabel}!`;
+      successToast = $_('checkin.familyAdded', {
+        values: {
+          familyName: data.familyName,
+          count: count,
+          childrenLabel: childrenLabel,
+        },
+      });
 
       // Auto-expand the new family
       expandedFamilies.add(transformedFamily.id);
@@ -753,11 +761,13 @@
         sessionName={activeSession?.name || 'No Active Session'}
         sessionTime={activeSession
           ? `${new Date(activeSession.start_time).toLocaleTimeString('en-US', {
-              hour: 'numeric',
+              hour: '2-digit',
               minute: '2-digit',
+              hour12: false,
             })} - ${activeSession.end_time ? new Date(activeSession.end_time).toLocaleTimeString('en-US', {
-              hour: 'numeric',
+              hour: '2-digit',
               minute: '2-digit',
+              hour12: false,
             }) : 'Open'}`
           : ''}
         showChangeSession={activeSessions.length > 1}
@@ -800,7 +810,7 @@
     <div class="mb-4 flex items-center justify-between text-sm">
       <span class="text-slate-600" data-testid="family-count-text">
         {visibleFamilies.length}{' '}
-        {visibleFamilies.length === 1 ? 'family' : 'families'}
+        {visibleFamilies.length === 1 ? $_('common.family') : $_('common.families')}
         {searchQuery && ' matching search'}
       </span>
     </div>

@@ -70,6 +70,8 @@
 
 <div
   class="bg-white border border-slate-300 rounded-lg overflow-hidden mb-3 hover:shadow-md transition-shadow"
+  class:opacity-60={allCheckedIn}
+  class:bg-slate-50={allCheckedIn}
   data-testid={`family-card-${family.id}`}
 >
   <!-- Family Header -->
@@ -86,9 +88,16 @@
         </span>
       </div>
       <div class="flex-1 min-w-0">
-        <h3 class="font-bold text-blue-900 text-lg truncate">
-          {family.name} Family
-        </h3>
+        <div class="flex items-center gap-2">
+          <h3 class="font-bold text-blue-900 text-lg truncate">
+            {family.name} Family
+          </h3>
+          {#if allCheckedIn}
+            <span class="px-2 py-0.5 text-xs font-semibold bg-green-100 text-green-800 rounded">
+              {$_('checkin.allCheckedIn')}
+            </span>
+          {/if}
+        </div>
         <p class="text-sm text-slate-600">
           {totalChildren} {totalChildren === 1 ? $_('checkin.child') : $_('checkin.children')} •
           {checkedInCount} checked in

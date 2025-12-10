@@ -2,9 +2,9 @@
   /**
    * SessionIndicator Component
    *
-   * Displays current event and session information with buttons to:
-   * - Change the current session
-   * - Add a new family
+   * Displays current event and session information with optional buttons to:
+   * - Change the current session (only shown when onChangeSession provided AND showChangeSession is true)
+   * - Add a new family (only shown when onAddFamily provided AND showAddFamily is true)
    */
 
   import { _ } from 'svelte-i18n';
@@ -13,14 +13,18 @@
     eventName,
     sessionName,
     sessionTime,
-    onChangeSession,
-    onAddFamily
+    onChangeSession = undefined,
+    onAddFamily = undefined,
+    showAddFamily = true,
+    showChangeSession = true,
   }: {
     eventName: string;
     sessionName: string;
     sessionTime: string;
-    onChangeSession: () => void;
-    onAddFamily: () => void;
+    onChangeSession?: (() => void) | undefined;
+    onAddFamily?: (() => void) | undefined;
+    showAddFamily?: boolean;
+    showChangeSession?: boolean;
   } = $props();
 </script>
 
@@ -33,19 +37,24 @@
     <span class="font-semibold text-blue-900 ml-1">{$_('session.session')}</span> {sessionName} ({sessionTime})
   </div>
   <div class="flex gap-2">
-    <button
-      on:click={onChangeSession}
-      class="px-3 py-1.5 text-blue-600 font-semibold hover:underline"
-      data-testid="change-session-button"
-    >
-      {$_('session.changeSession')}
-    </button>
-    <button
-      on:click={onAddFamily}
-      class="px-3 py-1.5 bg-blue-600 text-white font-semibold rounded hover:bg-blue-700 transition-colors"
-      data-testid="add-family-button"
-    >
-      {$_('checkin.addNewFamily')}
-    </button>
+    {#if showChangeSession && onChangeSession}
+      <button
+        on:click={onChangeSession}
+        class="px-3 py-1.5 text-blue-600 font-semibold hover:underline"
+        data-testid="change-session-button"
+      >
+        {$_('session.changeSession')}
+      </button>
+    {/if}
+
+    {#if showAddFamily && onAddFamily}
+      <button
+        on:click={onAddFamily}
+        class="px-3 py-1.5 bg-blue-600 text-white font-semibold rounded hover:bg-blue-700 transition-colors"
+        data-testid="add-family-button"
+      >
+        {$_('checkin.addNewFamily')}
+      </button>
+    {/if}
   </div>
 </div>

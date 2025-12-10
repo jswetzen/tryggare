@@ -120,7 +120,7 @@ This phase addresses multiple UI improvements:
 ---
 
 ### 2.2 Implement Conditional Session Switcher Visibility
-**Status**: 🔴 NOT STARTED
+**Status**: ✅ COMPLETED
 
 **Problem**: "Change Session" link always shows, even with only one session
 
@@ -129,16 +129,15 @@ This phase addresses multiple UI improvements:
 - Pass `showChangeSession={activeSessions.length > 1}` to SessionIndicator
 - Replace placeholder alert with actual functionality
 
-**Files to modify**:
-- `/frontend/src/routes/checkin/+page.svelte` - Add session count logic
-- `/frontend/src/lib/components/checkin/SessionIndicator.svelte` - Already supports conditional rendering
+**Files modified**:
+- `/frontend/src/routes/checkin/+page.svelte` - Added session count logic and conditional prop
 
 **Agent assignment**: Frontend agent
 
 ---
 
 ### 2.3 Add "Show Checked-In Families" Toggle
-**Status**: 🔴 NOT STARTED
+**Status**: ✅ COMPLETED
 
 **Requirements**:
 - Add checkbox at top of check-in page
@@ -146,8 +145,11 @@ This phase addresses multiple UI improvements:
 - Bypass `shouldShowFamily()` filtering when ON
 - Show checked-in families with visual indicator
 
-**Files to modify**:
-- `/frontend/src/routes/checkin/+page.svelte` - Add toggle UI and filtering logic
+**Files modified**:
+- `/frontend/src/routes/checkin/+page.svelte` - Added toggle UI and filtering logic
+- `/frontend/src/lib/components/checkin/FamilyCard.svelte` - Added visual indicators (grayed out + badge)
+- `/frontend/src/lib/i18n/locales/en.json` - Added translation keys
+- `/frontend/src/lib/i18n/locales/sv.json` - Added Swedish translations
 
 **Agent assignment**: Frontend agent
 
@@ -156,7 +158,7 @@ This phase addresses multiple UI improvements:
 ## Phase 3: Checkout Enhancements (2-3 hours) ⏳
 
 ### 3.1 Add Family Check-Out Button
-**Status**: 🔴 NOT STARTED
+**Status**: ✅ COMPLETED
 
 **Requirements**:
 - Add "Check Out Family" button in family row
@@ -164,51 +166,52 @@ This phase addresses multiple UI improvements:
 - Skip children already checked out
 - Use single "picked up by" value for all
 
-**Files to modify**:
-- `/frontend/src/routes/checkout/+page.svelte` - Add `performFamilyCheckOut()` function
-- `/frontend/src/lib/components/domain/FamilyTable.svelte` - Add family button UI
+**Files modified**:
+- `/frontend/src/routes/checkout/+page.svelte` - Added `performFamilyCheckOut()` function
+- FamilyTable already had `onToggleFamily` prop support, just needed to wire it up
+- `/frontend/src/lib/i18n/locales/en.json` - Added translation keys
+- `/frontend/src/lib/i18n/locales/sv.json` - Added Swedish translations
 
 **Agent assignment**: Frontend agent
 
 ---
 
-## Phase 4: Print Label Overhaul (2-3 hours) ⏳
+## Phase 4: Print Label Overhaul (2-3 hours) ✅ COMPLETE
 
 ### 4.1 Add qrcode Library Dependency
-**Status**: 🔴 NOT STARTED
+**Status**: ✅ COMPLETE
 
-**Files to modify**:
-- `/backend/pyproject.toml` - Add `qrcode>=7.4,<8.0`
-- Run: `uv add qrcode` in backend directory
+**Files modified**:
+- `/backend/pyproject.toml` - Added `qrcode>=7.4,<8.0`
+- Ran: `uv add qrcode` in backend directory
 
 **Agent assignment**: Backend agent
 
 ---
 
 ### 4.2 Update Print Label Dimensions & Design
-**Status**: 🔴 NOT STARTED
+**Status**: ✅ COMPLETE
 
-**Required changes**:
-1. Dimensions: 17mm × 54.3mm portrait (currently 29mm × 90mm)
-2. Simplify: QR code + name only (remove session, allergies)
-3. Fix QR code: Generate as base64 data URL
-4. QR code should link to `/qr/{token}` (not `/api/qr/{token}`)
+**Changes completed**:
+1. ✅ Dimensions: Updated to 54.3mm × 17mm portrait (was 29mm × 90mm)
+2. ✅ Simplified design: QR code + name only (removed session, allergies)
+3. ✅ Fixed QR code: Now generates as base64 data URL
+4. ✅ QR code links to `/qr/{token}` (not `/api/qr/{token}`)
 
-**Files to modify**:
-- `/backend/checkins/templates/print_label.html` - Update dimensions, layout, styles
-- `/backend/checkins/views.py` (lines 455-462) - Fix QR generation with base64
+**Files modified**:
+- `/backend/checkins/templates/print_label.html` - Updated dimensions, layout, styles (flexbox horizontal layout)
+- `/backend/checkins/views.py` (lines 443-471) - Implemented QR generation with base64
+- `/backend/checkins/tests.py` - Added comprehensive test suite (5 tests)
+- `/backend/test_print_queue.py` - Updated existing test to match new design
 
-**Implementation**:
-```python
-import qrcode, io, base64
-qr = qrcode.QRCode()
-qr.add_data(f'http://{request.get_host()}/qr/{token}')
-qr.make()
-img = qr.make_image()
-buf = io.BytesIO()
-img.save(buf, format='PNG')
-qr_data_url = f'data:image/png;base64,{base64.b64encode(buf.getvalue()).decode()}'
-```
+**Tests added**:
+- `test_print_page_returns_html` - Verifies HTML response
+- `test_print_page_contains_child_name` - Verifies name is present
+- `test_print_page_contains_qr_code_as_data_url` - Verifies base64 QR code
+- `test_print_page_has_correct_dimensions` - Verifies 54.3mm × 17mm
+- `test_print_page_does_not_contain_session_or_allergies` - Verifies simplified design
+
+**Verification**: All tests pass ✅
 
 **Agent assignment**: Backend agent
 
