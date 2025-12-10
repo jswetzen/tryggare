@@ -25,7 +25,8 @@ next-env.d.ts
 # production
 /build
 frontend/build
-frontend/.svelte-kit
+frontend/.svelte-kit/output
+frontend/.svelte-kit/generated
 
 # logs
 *.log
@@ -34,7 +35,6 @@ frontend.log
 restart.txt
 build*.txt
 build*.log
-build*.logg
 verification_output.log
 
 # misc
