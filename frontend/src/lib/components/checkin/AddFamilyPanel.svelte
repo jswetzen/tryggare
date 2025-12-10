@@ -9,13 +9,21 @@
   import { _ } from 'svelte-i18n';
   import type { TicketType } from '$lib/checkin/types';
 
+  interface Child {
+    first_name: string;
+    last_name: string;
+    birthdate: string;
+    allergies: string;
+    notes: string;
+  }
+
   let {
     onAdd,
     onClose
   }: {
     onAdd: (data: {
       familyName: string;
-      childrenNames: string[];
+      children: Child[];
       ticketType: TicketType;
       parents: Array<{
         name: string;
@@ -28,7 +36,9 @@
   } = $props();
 
   let familyName = $state('');
-  let childrenNames = $state(['']);
+  let children = $state<Child[]>([
+    { first_name: '', last_name: '', birthdate: '', allergies: '', notes: '' }
+  ]);
   let ticketType = $state<TicketType>('none');
   let parents = $state([
     {
@@ -54,17 +64,13 @@
   }
 
   function handleAddChild() {
-    childrenNames = [...childrenNames, ''];
+    children = [...children, { first_name: '', last_name: '', birthdate: '', allergies: '', notes: '' }];
   }
 
   function handleRemoveChild(index: number) {
-    childrenNames = childrenNames.filter((_, i) => i !== index);
-  }
-
-  function handleChildNameChange(index: number, value: string) {
-    const newNames = [...childrenNames];
-    newNames[index] = value;
-    childrenNames = newNames;
+    if (children.length > 1) {
+      children = children.filter((_, i) => i !== index);
+    }
   }
 
   function handleAddParent() {
@@ -103,14 +109,17 @@
       return;
     }
 
-    // Filter out empty child names and validate
-    const validChildren = childrenNames
-      .map((name) => name.trim())
-      .filter((name) => name.length > 0);
-
-    if (validChildren.length === 0) {
+    // Validate children - check required fields
+    if (children.length === 0) {
       error = $_('checkin.atLeastOneChildRequired');
       return;
+    }
+
+    for (const child of children) {
+      if (!child.first_name.trim() || !child.last_name.trim() || !child.birthdate.trim()) {
+        error = 'All children must have first name, last name, and birthdate';
+        return;
+      }
     }
 
     // Filter out parents with empty names and validate
@@ -131,7 +140,7 @@
     // Submit
     onAdd({
       familyName: familyName.trim(),
-      childrenNames: validChildren,
+      children: children,
       ticketType,
       parents: validParents,
     });
@@ -297,25 +306,90 @@
       <div class="block text-sm font-semibold text-slate-700 mb-2">
         {$_('checkin.children')}:
       </div>
-      <div class="space-y-2">
-        {#each childrenNames as name, index (index)}
-          <div class="flex items-center gap-2">
-            <input
-              type="text"
-              bind:value={childrenNames[index]}
-              placeholder={$_('checkin.childNamePlaceholder')}
-              class="flex-1 px-3 py-2 border border-slate-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-            {#if index > 0}
-              <button
-                type="button"
-                on:click={() => handleRemoveChild(index)}
-                aria-label={$_('checkin.removeChildLabel')}
-                class="text-red-600 hover:text-red-700 text-sm font-medium px-2 py-1"
-              >
-                {$_('common.remove')}
-              </button>
-            {/if}
+      <div class="space-y-3">
+        {#each children as child, index (index)}
+          <div class="border border-slate-200 rounded p-3 bg-slate-50">
+            <div class="flex justify-between items-center mb-2">
+              <span class="text-sm font-semibold text-slate-700">Child {index + 1}</span>
+              {#if children.length > 1}
+                <button
+                  type="button"
+                  on:click={() => handleRemoveChild(index)}
+                  class="text-red-600 hover:text-red-700 text-xs font-medium"
+                >
+                  Remove Child
+                </button>
+              {/if}
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
+              <div>
+                <label for={`child-first-name-${index}`} class="block text-xs text-slate-600 mb-1">
+                  First Name <span class="text-red-600">*</span>
+                </label>
+                <input
+                  id={`child-first-name-${index}`}
+                  type="text"
+                  bind:value={child.first_name}
+                  placeholder="First name"
+                  class="w-full px-2 py-1.5 text-sm border border-slate-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  required
+                />
+              </div>
+
+              <div>
+                <label for={`child-last-name-${index}`} class="block text-xs text-slate-600 mb-1">
+                  Last Name <span class="text-red-600">*</span>
+                </label>
+                <input
+                  id={`child-last-name-${index}`}
+                  type="text"
+                  bind:value={child.last_name}
+                  placeholder="Last name"
+                  class="w-full px-2 py-1.5 text-sm border border-slate-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  required
+                />
+              </div>
+
+              <div>
+                <label for={`child-birthdate-${index}`} class="block text-xs text-slate-600 mb-1">
+                  Birthdate <span class="text-red-600">*</span>
+                </label>
+                <input
+                  id={`child-birthdate-${index}`}
+                  type="date"
+                  bind:value={child.birthdate}
+                  class="w-full px-2 py-1.5 text-sm border border-slate-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  required
+                />
+              </div>
+
+              <div>
+                <label for={`child-allergies-${index}`} class="block text-xs text-slate-600 mb-1">
+                  Allergies <span class="text-slate-400 text-xs">(optional)</span>
+                </label>
+                <input
+                  id={`child-allergies-${index}`}
+                  type="text"
+                  bind:value={child.allergies}
+                  placeholder="Any allergies"
+                  class="w-full px-2 py-1.5 text-sm border border-slate-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              <div class="md:col-span-2">
+                <label for={`child-notes-${index}`} class="block text-xs text-slate-600 mb-1">
+                  Notes <span class="text-slate-400 text-xs">(optional)</span>
+                </label>
+                <textarea
+                  id={`child-notes-${index}`}
+                  bind:value={child.notes}
+                  placeholder="Any additional notes"
+                  rows="2"
+                  class="w-full px-2 py-1.5 text-sm border border-slate-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                ></textarea>
+              </div>
+            </div>
           </div>
         {/each}
       </div>
@@ -324,7 +398,7 @@
         on:click={handleAddChild}
         class="mt-2 text-blue-600 hover:text-blue-700 text-sm font-semibold"
       >
-        {$_('checkin.addAnotherChild')}
+        + {$_('checkin.addAnotherChild')}
       </button>
     </div>
 

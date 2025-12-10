@@ -605,7 +605,13 @@
   // Add new family
   async function handleAddFamily(data: {
     familyName: string;
-    childrenNames: string[];
+    children: Array<{
+      first_name: string;
+      last_name: string;
+      birthdate: string;
+      allergies: string;
+      notes: string;
+    }>;
     ticketType: TicketType;
     parents: Array<{
       name: string;
@@ -619,9 +625,12 @@
       const newFamily = await checkinApi.createFamily({
         last_name: data.familyName,
         parents: data.parents,
-        children: data.childrenNames.map((name) => ({
-          first_name: name,
-          last_name: data.familyName,
+        children: data.children.map((c) => ({
+          first_name: c.first_name.trim(),
+          last_name: c.last_name.trim(),
+          birthdate: c.birthdate.trim(),
+          allergies: c.allergies.trim() || undefined,
+          notes: c.notes.trim() || undefined,
         })),
       });
 
