@@ -16,10 +16,10 @@ This phase addresses multiple UI improvements:
 
 ---
 
-## Phase 1: Critical Fixes (1-2 hours) ⏳
+## Phase 1: Critical Fixes (1-2 hours) ✅
 
 ### 1.1 Fix "Picked Up By" Field - Parent Name Display
-**Status**: 🔴 NOT STARTED
+**Status**: ✅ COMPLETED
 
 **Problem**: Options show "()" instead of parent names
 - Backend returns: `parent.name`, `parent.relationship_type` (snake_case)
@@ -35,7 +35,7 @@ This phase addresses multiple UI improvements:
 ---
 
 ### 1.2 Fix Untranslated Strings - Check-in Page
-**Status**: 🔴 NOT STARTED
+**Status**: ✅ COMPLETED
 
 **Hardcoded strings** (in `/frontend/src/routes/checkin/+page.svelte`):
 1. Line 490: `${child.name} check-in undone`
@@ -59,7 +59,7 @@ This phase addresses multiple UI improvements:
 ---
 
 ### 1.3 Fix Untranslated Strings - Checkout Page
-**Status**: 🔴 NOT STARTED
+**Status**: ✅ COMPLETED
 
 **Hardcoded strings** (in `/frontend/src/routes/checkout/+page.svelte`):
 - Line 344: `'family' : 'families'` singular/plural
@@ -74,7 +74,7 @@ This phase addresses multiple UI improvements:
 ---
 
 ### 1.4 Fix 24-Hour Time Format
-**Status**: 🔴 NOT STARTED
+**Status**: ✅ COMPLETED
 
 **Current**: Shows "10:16 AM" format
 **Required**: 24-hour format "10:16"
@@ -91,7 +91,7 @@ This phase addresses multiple UI improvements:
 ---
 
 ### 1.5 Remove White Box Wrapper from Checkout
-**Status**: 🔴 NOT STARTED
+**Status**: ✅ COMPLETED
 
 **Problem**: Checkout has white box wrapper, check-in doesn't. Should match.
 
