@@ -154,8 +154,8 @@
   <title>{$t('checkout.pageTitle')}</title>
 </svelte:head>
 
-<div class="max-w-4xl mx-auto">
-  <div class="max-w-3xl mx-auto bg-white border-2 border-neutral-300 rounded-card p-5 shadow-lg">
+<div class="min-h-screen bg-slate-100">
+  <div class="max-w-4xl mx-auto p-5">
     <PageHeader title={$t('checkout.title')} />
 
     <!-- Alerts -->
