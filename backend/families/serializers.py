@@ -128,14 +128,16 @@ class ParentCreateSerializer(serializers.ModelSerializer):
     """Serializer for creating parents (without family field)"""
     class Meta:
         model = Parent
-        fields = ["name", "phone", "email", "relationship_type"]
+        fields = ["id", "name", "phone", "email", "relationship_type"]
+        read_only_fields = ["id"]
 
 
 class ChildCreateSerializer(serializers.ModelSerializer):
     """Serializer for creating children (without family field)"""
     class Meta:
         model = Child
-        fields = ["first_name", "last_name", "birthdate", "allergies", "notes"]
+        fields = ["id", "first_name", "last_name", "birthdate", "allergies", "notes"]
+        read_only_fields = ["id"]
 
 
 class FamilyCreateSerializer(serializers.ModelSerializer):
@@ -143,11 +145,12 @@ class FamilyCreateSerializer(serializers.ModelSerializer):
 
     parents = ParentCreateSerializer(many=True)
     children = ChildCreateSerializer(many=True)
+    display_name = serializers.ReadOnlyField()
 
     class Meta:
         model = Family
-        fields = ["id", "last_name", "parents", "children"]
-        read_only_fields = ["id"]
+        fields = ["id", "last_name", "parents", "children", "display_name"]
+        read_only_fields = ["id", "display_name"]
 
     def validate_parents(self, value):
         """Ensure at least one parent is provided"""

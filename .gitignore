@@ -32,6 +32,10 @@ frontend/.svelte-kit
 web.log
 frontend.log
 restart.txt
+build*.txt
+build*.log
+build*.logg
+verification_output.log
 
 # misc
 .DS_Store

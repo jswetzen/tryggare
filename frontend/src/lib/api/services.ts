@@ -161,7 +161,7 @@ export const checkinApi = {
     children: Array<{
       first_name: string;
       last_name: string;
-      birthdate?: string;
+      birthdate: string;
       allergies?: string;
       notes?: string;
     }>;
