@@ -12,12 +12,15 @@
     checkInTime?: string;
   }
 
-  interface DisplayFamily extends Omit<Family, 'children'> {
+  interface DisplayFamily extends Omit<Family, 'children' | 'parents'> {
     name: string;
     children?: DisplayChild[];
     parents?: Array<{
+      id?: string;
       name: string;
       relationship_type: string;
+      phone?: string;
+      email?: string;
     }>;
   }
 
