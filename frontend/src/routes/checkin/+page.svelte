@@ -65,6 +65,7 @@
 
   let families = $state<Family[]>([]);
   let activeSession = $state<Session | null>(null);
+  let activeSessions = $state<Session[]>([]);
   let loading = $state(true);
   let error = $state<string | null>(null);
   let searchQuery = $state('');
@@ -72,6 +73,7 @@
   let expandedChildId = $state<string | null>(null);
   let showAddPanel = $state(false);
   let successToast = $state<string | null>(null);
+  let showCheckedInFamilies = $state(false);
 
   // Subscribe to undo timer store for reactivity
   // Use $derived with $ prefix for proper Svelte 5 store auto-subscription
@@ -100,6 +102,7 @@
   async function loadActiveSession() {
     try {
       const sessions = await checkinApi.getActiveSessions();
+      activeSessions = sessions;
       if (sessions.length > 0) {
         activeSession = sessions[0]; // Use the first active session
       } else {
@@ -239,6 +242,45 @@
           loadFamilies();
         }
       }
+    } else if (message.type === 'checkin_undone') {
+      const childId = message.data?.child_id;
+
+      if (childId) {
+        // Another station undid a check-in - update incrementally
+        let childFound = false;
+        families = families.map((fam) => {
+          let updated = false;
+          const updatedChildren = fam.children.map((child) => {
+            if (child.id === childId) {
+              childFound = true;
+              updated = true;
+              // Clear check-in state if this wasn't our own undo action
+              // (don't overwrite local undos that are in progress)
+              if (!child.checkInActionId) {
+                return {
+                  ...child,
+                  checkedIn: false,
+                  checkInTime: undefined,
+                  checkInActionId: undefined,
+                  checkInRecordId: undefined,
+                };
+              }
+            }
+            return child;
+          });
+
+          if (updated) {
+            return { ...fam, children: updatedChildren };
+          }
+          return fam;
+        });
+
+        // Fallback: if child not found, reload all data
+        if (!childFound) {
+          console.warn(`Child ${childId} not found locally, reloading families`);
+          loadFamilies();
+        }
+      }
     } else if (message.type === 'session_started' || message.type === 'session_ended') {
       // Session changes are rare and affect overall state, reload everything
       loadFamilies();
@@ -252,7 +294,11 @@
 
   // Filter visible families based on search and visibility rules
   const visibleFamilies = $derived.by(() => {
-    const filtered = getVisibleFamilies(families, undoActions);
+    // If showCheckedInFamilies is enabled, show all families (sorted alphabetically)
+    // Otherwise, apply the standard visibility filtering
+    const filtered = showCheckedInFamilies
+      ? [...families].sort((a, b) => a.name.localeCompare(b.name))
+      : getVisibleFamilies(families, undoActions);
 
     if (!searchQuery) return filtered;
 
@@ -714,6 +760,7 @@
               minute: '2-digit',
             }) : 'Open'}`
           : ''}
+        showChangeSession={activeSessions.length > 1}
         onChangeSession={() => alert('Change session functionality')}
         onAddFamily={() => (showAddPanel = true)}
       />
@@ -736,6 +783,18 @@
       bind:value={searchQuery}
       placeholder={$_('checkin.searchPlaceholder')}
     />
+
+    <!-- Show Checked-In Families Toggle -->
+    <div class="mb-4">
+      <label class="flex items-center gap-2 text-sm cursor-pointer">
+        <input
+          type="checkbox"
+          bind:checked={showCheckedInFamilies}
+          class="w-4 h-4 text-blue-600 bg-white border-slate-300 rounded focus:ring-blue-500 focus:ring-2"
+        />
+        <span class="text-slate-700">{$_('checkin.showCheckedInFamilies')}</span>
+      </label>
+    </div>
 
     <!-- Stats Header -->
     <div class="mb-4 flex items-center justify-between text-sm">

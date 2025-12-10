@@ -13,6 +13,7 @@ class CheckInConsumer(AsyncWebsocketConsumer):
     Message types:
     - child_checked_in: A child was checked into a session
     - child_checked_out: A child was checked out from a session
+    - checkin_undone: A check-in was undone
     - session_started: A new session was activated
     - session_ended: A session was closed
     """
@@ -81,5 +82,12 @@ class CheckInConsumer(AsyncWebsocketConsumer):
         """Broadcast session end event to client"""
         await self.send(text_data=json.dumps({
             "type": "session_ended",
+            "data": event["data"]
+        }))
+
+    async def checkin_undone(self, event):
+        """Broadcast check-in undo event to client"""
+        await self.send(text_data=json.dumps({
+            "type": "checkin_undone",
             "data": event["data"]
         }))
