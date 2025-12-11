@@ -1,11 +1,12 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { printQueueApi } from '$lib/api/services';
-	import type { PrintQueueItem } from '$lib/api/types';
+	import { printQueueApi, sessionApi } from '$lib/api/services';
+	import type { PrintQueueItem, Session } from '$lib/api/types';
 	import { t } from 'svelte-i18n';
 	import { EmptyState, Icon, Button, ExpandableSection, Alert } from '$lib/components/ui';
 	import { PageContainer } from '$lib/components/layout';
 	import PrintQueueTable from '$lib/components/domain/PrintQueueTable.svelte';
+	import SessionIndicator from '$lib/components/checkin/SessionIndicator.svelte';
 
 	let queueItems: PrintQueueItem[] = [];
 	let recentlyPrintedItems: PrintQueueItem[] = [];
@@ -15,24 +16,57 @@
 	let error = '';
 	let successMessage = '';
 	let recentlyPrintedExpanded = false;
+	let activeSession: Session | null = null;
+	let activeSessions: Session[] = [];
+	let showSessionSelector = false;
 
 	onMount(async () => {
+		await loadActiveSession();
 		await loadQueue();
 		await loadRecentlyPrintedCount();
 	});
+
+	async function loadActiveSession() {
+		try {
+			const sessions = await sessionApi.active();
+			activeSessions = sessions;
+			if (sessions.length > 0) {
+				activeSession = sessions[0]; // Use the first active session
+			}
+		} catch (e) {
+			console.error('Failed to load active session:', e);
+			// Don't set error state here, as it's not critical for print queue
+		}
+	}
 
 	async function loadQueue() {
 		loading = true;
 		error = '';
 		successMessage = '';
 		try {
-			queueItems = await printQueueApi.getQueue();
+			const allItems = await printQueueApi.getQueue();
+			// Filter by session if one is selected
+			if (activeSession) {
+				queueItems = allItems.filter(item => item.session === activeSession.id);
+			} else {
+				queueItems = allItems;
+			}
 		} catch (e) {
 			error = $t('printQueue.loadError');
 			console.error('Failed to load print queue:', e);
 		} finally {
 			loading = false;
 		}
+	}
+
+	function handleChangeSession() {
+		showSessionSelector = true;
+	}
+
+	function handleSessionSelect(session: Session) {
+		activeSession = session;
+		showSessionSelector = false;
+		loadQueue();
 	}
 
 	async function loadRecentlyPrintedCount() {
@@ -125,6 +159,69 @@
 
 <div class="container mx-auto p-4 max-w-7xl">
 	<h1 class="text-3xl font-bold mb-6">{$t('printQueue.title')}</h1>
+
+	<!-- Session Indicator -->
+	{#if activeSession}
+		<SessionIndicator
+			eventName={activeSession.event_name || 'No Event'}
+			sessionName={activeSession.name || 'No Active Session'}
+			sessionTime={activeSession
+				? `${new Date(activeSession.start_time).toLocaleTimeString('en-US', {
+						hour: '2-digit',
+						minute: '2-digit',
+						hour12: false,
+					})} - ${activeSession.end_time ? new Date(activeSession.end_time).toLocaleTimeString('en-US', {
+						hour: '2-digit',
+						minute: '2-digit',
+						hour12: false,
+					}) : 'Open'}`
+				: ''}
+			showAddFamily={false}
+			showChangeSession={activeSessions.length > 1}
+			onChangeSession={handleChangeSession}
+		/>
+	{/if}
+
+	<!-- Session Selector Modal -->
+	{#if showSessionSelector}
+		<div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onclick={() => showSessionSelector = false}>
+			<div class="bg-white rounded-lg shadow-xl max-w-md w-full mx-4" onclick={(e) => e.stopPropagation()}>
+				<div class="p-6">
+					<h2 class="text-xl font-bold text-slate-900 mb-4">{$t('session.changeSession')}</h2>
+					<div class="space-y-2">
+						{#each activeSessions as session}
+							<button
+								onclick={() => handleSessionSelect(session)}
+								class="w-full text-left p-4 rounded-lg border-2 transition-colors
+									{activeSession?.id === session.id
+										? 'border-blue-500 bg-blue-50'
+										: 'border-slate-200 hover:border-blue-300 hover:bg-slate-50'}"
+							>
+								<div class="font-semibold text-slate-900">{session.name}</div>
+								<div class="text-sm text-slate-600">{session.event_name}</div>
+								<div class="text-sm text-slate-500">
+									{new Date(session.start_time).toLocaleTimeString('en-US', {
+										hour: '2-digit',
+										minute: '2-digit',
+										hour12: false,
+									})} - {session.end_time ? new Date(session.end_time).toLocaleTimeString('en-US', {
+										hour: '2-digit',
+										minute: '2-digit',
+										hour12: false,
+									}) : 'Open'}
+								</div>
+							</button>
+						{/each}
+					</div>
+					<div class="mt-4 flex justify-end">
+						<Button variant="ghost" onclick={() => showSessionSelector = false}>
+							{$t('common.cancel')}
+						</Button>
+					</div>
+				</div>
+			</div>
+		</div>
+	{/if}
 
 	<!-- Error and Success Messages -->
 	{#if error}
