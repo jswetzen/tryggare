@@ -39,7 +39,7 @@
   <div class="flex gap-2">
     {#if showChangeSession && onChangeSession}
       <button
-        on:click={onChangeSession}
+        onclick={onChangeSession}
         class="px-3 py-1.5 text-blue-600 font-semibold hover:underline"
         data-testid="change-session-button"
       >
@@ -49,7 +49,7 @@
 
     {#if showAddFamily && onAddFamily}
       <button
-        on:click={onAddFamily}
+        onclick={onAddFamily}
         class="px-3 py-1.5 bg-blue-600 text-white font-semibold rounded hover:bg-blue-700 transition-colors"
         data-testid="add-family-button"
       >
