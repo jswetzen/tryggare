@@ -157,6 +157,9 @@
   // Track children we've recently checked in to avoid reloading on our own actions
   let recentlyCheckedInChildren = $state<Set<string>>(new Set());
 
+  // Track children we've recently undone to avoid reloading on our own actions
+  let recentlyUndoneChildren = $state<Set<string>>(new Set());
+
   // Handle WebSocket messages for real-time updates
   function handleWebSocketMessage(message: WebSocketMessage) {
     if (message.type === 'child_checked_in') {
@@ -247,6 +250,15 @@
     } else if (message.type === 'checkin_undone') {
       const childId = message.data?.child_id;
 
+      // Only process if this wasn't our own undo action
+      // This preserves local state for our own undos
+      if (childId && recentlyUndoneChildren.has(childId)) {
+        // We triggered this - remove from our tracking set
+        recentlyUndoneChildren.delete(childId);
+        recentlyUndoneChildren = new Set(recentlyUndoneChildren);
+        return;
+      }
+
       if (childId) {
         // Another station undid a check-in - update incrementally
         let childFound = false;
@@ -256,17 +268,14 @@
             if (child.id === childId) {
               childFound = true;
               updated = true;
-              // Clear check-in state if this wasn't our own undo action
-              // (don't overwrite local undos that are in progress)
-              if (!child.checkInActionId) {
-                return {
-                  ...child,
-                  checkedIn: false,
-                  checkInTime: undefined,
-                  checkInActionId: undefined,
-                  checkInRecordId: undefined,
-                };
-              }
+              // Clear check-in state unconditionally for remote undo events
+              return {
+                ...child,
+                checkedIn: false,
+                checkInTime: undefined,
+                checkInActionId: undefined,
+                checkInRecordId: undefined,
+              };
             }
             return child;
           });
@@ -510,6 +519,10 @@
     }
 
     try {
+      // Track this child to prevent WebSocket reload from clobbering local state
+      recentlyUndoneChildren.add(childId);
+      recentlyUndoneChildren = new Set(recentlyUndoneChildren);
+
       // Call backend undo endpoint
       await checkInApi.undo(child.checkInRecordId);
 
@@ -562,6 +575,12 @@
       const affectedChildren = family.children.filter(
         (c) => familyAction.childIds.includes(c.id) && c.checkInActionId === familyAction.id
       );
+
+      // Track all children to prevent WebSocket reload from clobbering local state
+      for (const child of affectedChildren) {
+        recentlyUndoneChildren.add(child.id);
+      }
+      recentlyUndoneChildren = new Set(recentlyUndoneChildren);
 
       // Call backend undo endpoint for each child
       await Promise.all(
