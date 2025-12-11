@@ -1,13 +1,11 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { printQueueApi, sessionApi } from '$lib/api/services';
-	import type { PrintQueueItem, Session } from '$lib/api/types';
+	import { printQueueApi } from '$lib/api/services';
+	import type { PrintQueueItem } from '$lib/api/types';
 	import { t } from 'svelte-i18n';
 	import { EmptyState, Icon, Button, ExpandableSection, Alert } from '$lib/components/ui';
 	import { PageContainer } from '$lib/components/layout';
 	import PrintQueueTable from '$lib/components/domain/PrintQueueTable.svelte';
-	import SessionIndicator from '$lib/components/checkin/SessionIndicator.svelte';
-	import SessionSelector from '$lib/components/SessionSelector.svelte';
 
 	let queueItems: PrintQueueItem[] = [];
 	let recentlyPrintedItems: PrintQueueItem[] = [];
@@ -17,41 +15,19 @@
 	let error = '';
 	let successMessage = '';
 	let recentlyPrintedExpanded = false;
-	let activeSession: Session | null = null;
-	let activeSessions: Session[] = [];
-	let showSessionSelector = false;
 
 	onMount(async () => {
-		await loadActiveSession();
 		await loadQueue();
 		await loadRecentlyPrintedCount();
 	});
-
-	async function loadActiveSession() {
-		try {
-			const sessions = await sessionApi.active();
-			activeSessions = sessions;
-			if (sessions.length > 0) {
-				activeSession = sessions[0]; // Use the first active session
-			}
-		} catch (e) {
-			console.error('Failed to load active session:', e);
-			// Don't set error state here, as it's not critical for print queue
-		}
-	}
 
 	async function loadQueue() {
 		loading = true;
 		error = '';
 		successMessage = '';
 		try {
-			const allItems = await printQueueApi.getQueue();
-			// Filter by session if one is selected
-			if (activeSession) {
-				queueItems = allItems.filter(item => item.session === activeSession.id);
-			} else {
-				queueItems = allItems;
-			}
+			queueItems = await printQueueApi.getQueue();
+			// Show all items regardless of session - staff need to see all pending labels
 		} catch (e) {
 			error = $t('printQueue.loadError');
 			console.error('Failed to load print queue:', e);
@@ -60,15 +36,7 @@
 		}
 	}
 
-	function handleChangeSession() {
-		showSessionSelector = true;
-	}
-
-	function handleSessionSelect(session: Session) {
-		activeSession = session;
-		showSessionSelector = false;
-		loadQueue();
-	}
+	// Session selector removed - print queue shows all sessions
 
 	async function loadRecentlyPrintedCount() {
 		try {
@@ -160,37 +128,6 @@
 
 <div class="container mx-auto p-4 max-w-7xl">
 	<h1 class="text-3xl font-bold mb-6">{$t('printQueue.title')}</h1>
-
-	<!-- Session Indicator -->
-	{#if activeSession}
-		<SessionIndicator
-			eventName={activeSession.event_name || 'No Event'}
-			sessionName={activeSession.name || 'No Active Session'}
-			sessionTime={activeSession
-				? `${new Date(activeSession.start_time).toLocaleTimeString('en-US', {
-						hour: '2-digit',
-						minute: '2-digit',
-						hour12: false,
-					})} - ${activeSession.end_time ? new Date(activeSession.end_time).toLocaleTimeString('en-US', {
-						hour: '2-digit',
-						minute: '2-digit',
-						hour12: false,
-					}) : 'Open'}`
-				: ''}
-			showAddFamily={false}
-			showChangeSession={activeSessions.length > 1}
-			onChangeSession={handleChangeSession}
-		/>
-	{/if}
-
-	<!-- Session Selector Modal -->
-	<SessionSelector
-		show={showSessionSelector}
-		sessions={activeSessions}
-		currentSession={activeSession}
-		onSelect={handleSessionSelect}
-		onClose={() => showSessionSelector = false}
-	/>
 
 	<!-- Error and Success Messages -->
 	{#if error}
