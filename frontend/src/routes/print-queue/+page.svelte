@@ -7,6 +7,7 @@
 	import { PageContainer } from '$lib/components/layout';
 	import PrintQueueTable from '$lib/components/domain/PrintQueueTable.svelte';
 	import SessionIndicator from '$lib/components/checkin/SessionIndicator.svelte';
+	import SessionSelector from '$lib/components/SessionSelector.svelte';
 
 	let queueItems: PrintQueueItem[] = [];
 	let recentlyPrintedItems: PrintQueueItem[] = [];
@@ -183,45 +184,13 @@
 	{/if}
 
 	<!-- Session Selector Modal -->
-	{#if showSessionSelector}
-		<div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onclick={() => showSessionSelector = false}>
-			<div class="bg-white rounded-lg shadow-xl max-w-md w-full mx-4" onclick={(e) => e.stopPropagation()}>
-				<div class="p-6">
-					<h2 class="text-xl font-bold text-slate-900 mb-4">{$t('session.changeSession')}</h2>
-					<div class="space-y-2">
-						{#each activeSessions as session}
-							<button
-								onclick={() => handleSessionSelect(session)}
-								class="w-full text-left p-4 rounded-lg border-2 transition-colors
-									{activeSession?.id === session.id
-										? 'border-blue-500 bg-blue-50'
-										: 'border-slate-200 hover:border-blue-300 hover:bg-slate-50'}"
-							>
-								<div class="font-semibold text-slate-900">{session.name}</div>
-								<div class="text-sm text-slate-600">{session.event_name}</div>
-								<div class="text-sm text-slate-500">
-									{new Date(session.start_time).toLocaleTimeString('en-US', {
-										hour: '2-digit',
-										minute: '2-digit',
-										hour12: false,
-									})} - {session.end_time ? new Date(session.end_time).toLocaleTimeString('en-US', {
-										hour: '2-digit',
-										minute: '2-digit',
-										hour12: false,
-									}) : 'Open'}
-								</div>
-							</button>
-						{/each}
-					</div>
-					<div class="mt-4 flex justify-end">
-						<Button variant="ghost" onclick={() => showSessionSelector = false}>
-							{$t('common.cancel')}
-						</Button>
-					</div>
-				</div>
-			</div>
-		</div>
-	{/if}
+	<SessionSelector
+		show={showSessionSelector}
+		sessions={activeSessions}
+		currentSession={activeSession}
+		onSelect={handleSessionSelect}
+		onClose={() => showSessionSelector = false}
+	/>
 
 	<!-- Error and Success Messages -->
 	{#if error}
