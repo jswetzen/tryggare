@@ -10,6 +10,7 @@
   import FamilyCard from '$lib/components/checkin/FamilyCard.svelte';
   import AddFamilyPanel from '$lib/components/checkin/AddFamilyPanel.svelte';
   import SearchBox from '$lib/components/SearchBox.svelte';
+  import SessionSelector from '$lib/components/SessionSelector.svelte';
 
   // Import stores and utilities
   import {
@@ -74,6 +75,7 @@
   let showAddPanel = $state(false);
   let successToast = $state<string | null>(null);
   let showCheckedInFamilies = $state(false);
+  let showSessionSelector = $state(false);
 
   // Subscribe to undo timer store for reactivity
   // Use $derived with $ prefix for proper Svelte 5 store auto-subscription
@@ -116,9 +118,9 @@
   }
 
   // Load data on mount
-  onMount(() => {
-    // Load initial data
-    Promise.all([loadFamilies(), loadActiveSession()]);
+  onMount(async () => {
+    // Load initial data - await to ensure loading state is properly managed
+    await Promise.all([loadFamilies(), loadActiveSession()]);
 
     // Connect to WebSocket for real-time updates
     websocketStore.connect();
@@ -815,48 +817,13 @@
     {/if}
 
     <!-- Session Selector Modal -->
-    {#if showSessionSelector}
-      <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onclick={() => showSessionSelector = false}>
-        <div class="bg-white rounded-lg shadow-xl max-w-md w-full mx-4" onclick={(e) => e.stopPropagation()}>
-          <div class="p-6">
-            <h2 class="text-xl font-bold text-slate-900 mb-4">{$_('session.changeSession')}</h2>
-            <div class="space-y-2">
-              {#each activeSessions as session}
-                <button
-                  onclick={() => handleSessionSelect(session)}
-                  class="w-full text-left p-4 rounded-lg border-2 transition-colors
-                    {activeSession?.id === session.id
-                      ? 'border-blue-500 bg-blue-50'
-                      : 'border-slate-200 hover:border-blue-300 hover:bg-slate-50'}"
-                >
-                  <div class="font-semibold text-slate-900">{session.name}</div>
-                  <div class="text-sm text-slate-600">{session.event_name}</div>
-                  <div class="text-sm text-slate-500">
-                    {new Date(session.start_time).toLocaleTimeString('en-US', {
-                      hour: '2-digit',
-                      minute: '2-digit',
-                      hour12: false,
-                    })} - {session.end_time ? new Date(session.end_time).toLocaleTimeString('en-US', {
-                      hour: '2-digit',
-                      minute: '2-digit',
-                      hour12: false,
-                    }) : 'Open'}
-                  </div>
-                </button>
-              {/each}
-            </div>
-            <div class="mt-4 flex justify-end">
-              <button
-                onclick={() => showSessionSelector = false}
-                class="px-4 py-2 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded transition-colors"
-              >
-                {$_('common.cancel')}
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-    {/if}
+    <SessionSelector
+      show={showSessionSelector}
+      sessions={activeSessions}
+      currentSession={activeSession}
+      onSelect={handleSessionSelect}
+      onClose={() => showSessionSelector = false}
+    />
 
     <!-- Header -->
     <div class="mb-5">
