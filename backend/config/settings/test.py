@@ -1,18 +1,25 @@
 """
 Test settings for Selenium and other E2E tests.
 
-This configuration ensures tests run in complete isolation from the development
-database, preventing data loss and ensuring reproducible test results.
+E2E tests use the live development database since they interact with running
+frontend/backend services via Selenium. Test cleanup ensures data isolation.
 """
 
 from .base import *  # noqa
 
-# Use a separate SQLite database for tests
-# This will be automatically created and destroyed by Django's test runner
+# E2E tests use the same database as the dev environment
+# since they test against the running frontend/backend services.
+# Tests use unique test data and comprehensive cleanup to avoid conflicts.
+# For unit/integration tests, pytest-django can use --reuse-db or transactions.
 DATABASES = {
     "default": {
-        "ENGINE": "django.db.backends.sqlite3",
-        "NAME": BASE_DIR / "test_db.sqlite3",
+        "ENGINE": "django.db.backends.postgresql",
+        "NAME": os.getenv("POSTGRES_DB", "checkins"),
+        "USER": os.getenv("POSTGRES_USER", "postgres"),
+        "PASSWORD": os.getenv("POSTGRES_PASSWORD", "postgres"),
+        "HOST": os.getenv("POSTGRES_HOST", "localhost"),
+        "PORT": int(os.getenv("POSTGRES_PORT", "5432")),
+        "ATOMIC_REQUESTS": False,
     }
 }
 
@@ -34,7 +41,7 @@ PASSWORD_HASHERS = [
 # In-memory cache for tests
 CACHES = {
     'default': {
-        'BACKEND': 'django.core.cache.backends.locmem.LocMemBackend',
+        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
     }
 }
 

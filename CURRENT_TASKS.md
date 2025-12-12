@@ -1,291 +1,439 @@
-# Current Tasks - UI Fixes and Enhancements (Phase 8)
+# Supervised Check-In Feature - Implementation Tasks
 
-**Started**: 2025-12-10
-**Goal**: Fix UI issues across check-in, check-out, and print queue pages
+**Feature:** Add support for supervised check-ins where children with guardians present don't require explicit checkout but can still be checked into subsequent sessions.
 
----
-
-## 📋 Overview
-
-This phase addresses multiple UI improvements:
-- **Check-in page**: Session switcher visibility, WebSocket events, translations, show checked-in families toggle
-- **Check-out page**: Layout consistency, family checkout button, 24-hour time format, "picked up by" field fixes
-- **Print queue**: Label dimensions, simplified design, QR code generation fix
-
-**Total Estimated Time**: 7-11 hours
+**Date Started:** 2025-12-11
 
 ---
 
-## Phase 1: Critical Fixes (1-2 hours) ✅
+## Recent Completion (2025-12-12)
 
-### 1.1 Fix "Picked Up By" Field - Parent Name Display
-**Status**: ✅ COMPLETED
-
-**Problem**: Options show "()" instead of parent names
-- Backend returns: `parent.name`, `parent.relationship_type` (snake_case)
-- Frontend expects: `parent.firstName`, `parent.lastName`, `parent.relationshipType` (camelCase)
-
-**Files to modify**:
-- `/frontend/src/lib/components/domain/FamilyTable.svelte` (lines 18-22, 152-156)
-- `/frontend/src/lib/i18n/locales/en.json` - Add `checkout.selectPerson`
-- `/frontend/src/lib/i18n/locales/sv.json` - Add Swedish translation
-
-**Agent assignment**: Frontend agent
+**E2E Test Database Configuration Fixed:**
+- Fixed E2E authentication tests that were failing due to database mismatch
+- Reconfigured tests to use live development PostgreSQL database instead of isolated SQLite
+- All 4 authentication tests now pass successfully
+- See `docs/E2E_DATABASE_CONFIGURATION.md` for details
 
 ---
 
-### 1.2 Fix Untranslated Strings - Check-in Page
-**Status**: ✅ COMPLETED
+## Design Decisions Summary
 
-**Hardcoded strings** (in `/frontend/src/routes/checkin/+page.svelte`):
-1. Line 490: `${child.name} check-in undone`
-2. Line 551: `${family.name} check-in undone`
-3. Line 667: `${data.familyName} family added with ${count} ${childrenLabel}!`
-4. Line 744: `'family' : 'families'`
-
-**Translation keys needed**:
-- `checkin.checkInUndone` (with `{name}` param)
-- `checkin.familyCheckInUndone` (with `{name}` param)
-- `checkin.familyAdded` (with multiple params)
-- `common.family` and `common.families`
-
-**Files to modify**:
-- `/frontend/src/routes/checkin/+page.svelte`
-- `/frontend/src/lib/i18n/locales/en.json`
-- `/frontend/src/lib/i18n/locales/sv.json`
-
-**Agent assignment**: Frontend agent
+- **Data Model:** Add `supervised` boolean field to `CheckInRecord` model
+- **Session Validation:** Block supervised check-in to new session only if BOTH `is_active=True` AND `end_time > now()` (Option D)
+- **Print Queue:** Show supervised check-ins only from active sessions (not past sessions)
+- **Checkout Page:** Show supervised children with "Supervised" badge, allow manual checkout
+- **UI Placement:** Per-child supervised checkbox in family check-in flow
+- **No Checkout Requirement:** Supervised children can transition to new session after old session ends without explicit checkout
+- **Migration:** No backfill needed for existing data
 
 ---
 
-### 1.3 Fix Untranslated Strings - Checkout Page
-**Status**: ✅ COMPLETED
+## Phase 1: Backend Implementation
 
-**Hardcoded strings** (in `/frontend/src/routes/checkout/+page.svelte`):
-- Line 344: `'family' : 'families'` singular/plural
+### 1.1 Database Model Changes
 
-**Solution**: Use `common.family` and `common.families` keys
+- [ ] Add `supervised` field to `CheckInRecord` model in `backend/checkins/models.py:7-65`
+  ```python
+  supervised = models.BooleanField(
+      default=False,
+      help_text="Child is supervised by guardian, no explicit checkout required",
+      verbose_name=_("Supervised")
+  )
+  ```
+- [ ] Add database index for supervised field (optional, for query optimization)
+- [ ] Create and run migration: `uv run python backend/manage.py makemigrations`
+- [ ] Apply migration: `uv run python backend/manage.py migrate`
+- [ ] Verify migration with: `uv run python backend/verify.py`
 
-**Files to modify**:
-- `/frontend/src/routes/checkout/+page.svelte` (line 344)
+### 1.2 Serializer Updates
 
-**Agent assignment**: Frontend agent
+- [ ] Add `supervised` to `CheckInRecordSerializer` fields in `backend/checkins/serializers.py`
+- [ ] Update validation logic in `CheckInRecordSerializer.validate()` (lines 37-53) to handle supervised session transitions:
+  ```python
+  def validate(self, data):
+      child = data.get("child")
+      session = data.get("session")
 
----
+      if child and session:
+          # Check for active check-in to SAME session
+          same_session = CheckInRecord.objects.filter(
+              child=child,
+              session=session,
+              check_out_time__isnull=True
+          ).exclude(id=self.instance.id if self.instance else None)
 
-### 1.4 Fix 24-Hour Time Format
-**Status**: ✅ COMPLETED
+          if same_session.exists():
+              raise serializers.ValidationError(
+                  _("This child is already checked in to this session.")
+              )
 
-**Current**: Shows "10:16 AM" format
-**Required**: 24-hour format "10:16"
+          # Check for active check-ins to OTHER sessions
+          other_sessions = CheckInRecord.objects.filter(
+              child=child,
+              check_out_time__isnull=True
+          ).exclude(session=session).select_related('session')
 
-**Change**: `{ hour: '2-digit', minute: '2-digit', hour12: false }`
+          for record in other_sessions:
+              # Standard check-ins always block
+              if not record.supervised:
+                  raise serializers.ValidationError(
+                      _("Child has active check-in to another session.")
+                  )
 
-**Files to modify**:
-- `/frontend/src/routes/checkout/+page.svelte` (lines 282-288)
-- `/frontend/src/routes/checkin/+page.svelte` (lines 137-150)
-- `/frontend/src/lib/components/domain/FamilyTable.svelte` (default formatTime function)
+              # Supervised: only block if BOTH is_active AND end_time not passed
+              if record.session.is_active and record.session.end_time > timezone.now():
+                  raise serializers.ValidationError(
+                      _("Child still in active supervised session.")
+                  )
 
-**Agent assignment**: Frontend agent
+      return data
+  ```
 
----
+### 1.3 View Logic Updates
 
-### 1.5 Remove White Box Wrapper from Checkout
-**Status**: ✅ COMPLETED
+- [ ] Update `check_in` view in `backend/checkins/views.py:32-127` to:
+  - Accept `supervised` parameter from request data
+  - Pass `supervised` to `CheckInRecord.objects.create()` (line 80-85)
+  - Include `supervised` in audit log details (line 95-106)
 
-**Problem**: Checkout has white box wrapper, check-in doesn't. Should match.
+- [ ] Update session overlap validation in `check_in` view (lines 63-72):
+  ```python
+  # Check for same-session active check-in
+  existing = CheckInRecord.objects.filter(
+      child=child, session=session, check_out_time__isnull=True
+  ).first()
 
-**Files to modify**:
-- `/frontend/src/routes/checkout/+page.svelte` (line 326) - Remove wrapper div
+  if existing:
+      return Response(
+          {"error": _("Child is already checked in to this session")},
+          status=status.HTTP_400_BAD_REQUEST,
+      )
 
-**Agent assignment**: Frontend agent
+  # Check for other-session active check-ins
+  other_sessions = CheckInRecord.objects.filter(
+      child=child,
+      check_out_time__isnull=True
+  ).exclude(session=session).select_related('session')
 
----
+  for record in other_sessions:
+      # Standard check-ins always block
+      if not record.supervised:
+          return Response(
+              {"error": _("Child has active check-in to another session")},
+              status=status.HTTP_400_BAD_REQUEST,
+          )
 
-## Phase 2: WebSocket & Session Features (2-3 hours) ⏳
+      # Supervised: only block if BOTH conditions true
+      if record.session.is_active and record.session.end_time > timezone.now():
+          return Response(
+              {"error": _("Child still in active supervised session")},
+              status=status.HTTP_400_BAD_REQUEST,
+          )
+  ```
 
-### 2.1 Add checkin_undone WebSocket Handler
-**Status**: ✅ COMPLETE
+- [ ] Update print queue filtering in `print_queue` view (lines 343-530):
+  ```python
+  # In get_queryset() or filter logic (around line 354-356)
+  queryset = CheckInRecord.objects.filter(
+      label_printed=False,
+      models.Q(
+          # Standard check-in still active
+          check_out_time__isnull=True,
+          supervised=False
+      ) | models.Q(
+          # Supervised check-in in active session only
+          supervised=True,
+          check_out_time__isnull=True,
+          session__is_active=True,
+          session__end_time__gt=timezone.now()
+      )
+  ).select_related('child', 'session', 'check_in_staff')
+  ```
 
-**Problem**: Backend broadcasts `checkin_undone` event but frontend doesn't handle it
+- [ ] Verify `check_out` view works with supervised records (no changes needed, but test it)
+- [ ] Verify `undo` view works with supervised records (no changes needed, but test it)
+- [ ] Verify `active` view (lines 322-327) includes supervised check-ins correctly
 
-**Files modified**:
-- `/backend/checkins/consumers.py` - Added `checkin_undone` handler method and updated docstring
-- `/frontend/src/routes/checkin/+page.svelte` (lines 242-280) - Added WebSocket event handler
+### 1.4 WebSocket Updates
 
-**Implementation**: When a check-in is undone on another station, the frontend now receives the `checkin_undone` event and updates the child's state to reflect that they are no longer checked in. The handler only updates children that don't have a local undo action in progress to avoid conflicts.
+- [ ] Update WebSocket broadcast in `check_in` view (lines 109-124) to include `supervised` field:
+  ```python
+  async_to_sync(channel_layer.group_send)(
+      "checkins_broadcast",
+      {
+          "type": "checkin_broadcast",
+          "message": {
+              "type": "child_checked_in",
+              "child_id": str(child.id),
+              "family_id": str(child.family.id),
+              "record_id": str(record.id),
+              "supervised": record.supervised,  # NEW
+          },
+      },
+  )
+  ```
 
-**Agent assignment**: Full-stack agent
+- [ ] Verify WebSocket consumer in `backend/checkins/consumers.py` forwards the supervised field (likely no changes needed)
 
----
+### 1.5 Backend Testing
 
-### 2.2 Implement Conditional Session Switcher Visibility
-**Status**: ✅ COMPLETED
-
-**Problem**: "Change Session" link always shows, even with only one session
-
-**Solution**:
-- Fetch active session count from API: `GET /api/sessions/?is_active=true`
-- Pass `showChangeSession={activeSessions.length > 1}` to SessionIndicator
-- Replace placeholder alert with actual functionality
-
-**Files modified**:
-- `/frontend/src/routes/checkin/+page.svelte` - Added session count logic and conditional prop
-
-**Agent assignment**: Frontend agent
-
----
-
-### 2.3 Add "Show Checked-In Families" Toggle
-**Status**: ✅ COMPLETED
-
-**Requirements**:
-- Add checkbox at top of check-in page
-- Session-only toggle (no localStorage persistence)
-- Bypass `shouldShowFamily()` filtering when ON
-- Show checked-in families with visual indicator
-
-**Files modified**:
-- `/frontend/src/routes/checkin/+page.svelte` - Added toggle UI and filtering logic
-- `/frontend/src/lib/components/checkin/FamilyCard.svelte` - Added visual indicators (grayed out + badge)
-- `/frontend/src/lib/i18n/locales/en.json` - Added translation keys
-- `/frontend/src/lib/i18n/locales/sv.json` - Added Swedish translations
-
-**Agent assignment**: Frontend agent
-
----
-
-## Phase 3: Checkout Enhancements (2-3 hours) ⏳
-
-### 3.1 Add Family Check-Out Button
-**Status**: ✅ COMPLETED
-
-**Requirements**:
-- Add "Check Out Family" button in family row
-- Check out all checked-in children at once
-- Skip children already checked out
-- Use single "picked up by" value for all
-
-**Files modified**:
-- `/frontend/src/routes/checkout/+page.svelte` - Added `performFamilyCheckOut()` function
-- FamilyTable already had `onToggleFamily` prop support, just needed to wire it up
-- `/frontend/src/lib/i18n/locales/en.json` - Added translation keys
-- `/frontend/src/lib/i18n/locales/sv.json` - Added Swedish translations
-
-**Agent assignment**: Frontend agent
-
----
-
-## Phase 4: Print Label Overhaul (2-3 hours) ✅ COMPLETE
-
-### 4.1 Add qrcode Library Dependency
-**Status**: ✅ COMPLETE
-
-**Files modified**:
-- `/backend/pyproject.toml` - Added `qrcode>=7.4,<8.0`
-- Ran: `uv add qrcode` in backend directory
-
-**Agent assignment**: Backend agent
-
----
-
-### 4.2 Update Print Label Dimensions & Design
-**Status**: ✅ COMPLETE
-
-**Changes completed**:
-1. ✅ Dimensions: Updated to 54.3mm × 17mm portrait (was 29mm × 90mm)
-2. ✅ Simplified design: QR code + name only (removed session, allergies)
-3. ✅ Fixed QR code: Now generates as base64 data URL
-4. ✅ QR code links to `/qr/{token}` (not `/api/qr/{token}`)
-
-**Files modified**:
-- `/backend/checkins/templates/print_label.html` - Updated dimensions, layout, styles (flexbox horizontal layout)
-- `/backend/checkins/views.py` (lines 443-471) - Implemented QR generation with base64
-- `/backend/checkins/tests.py` - Added comprehensive test suite (5 tests)
-- `/backend/test_print_queue.py` - Updated existing test to match new design
-
-**Tests added**:
-- `test_print_page_returns_html` - Verifies HTML response
-- `test_print_page_contains_child_name` - Verifies name is present
-- `test_print_page_contains_qr_code_as_data_url` - Verifies base64 QR code
-- `test_print_page_has_correct_dimensions` - Verifies 54.3mm × 17mm
-- `test_print_page_does_not_contain_session_or_allergies` - Verifies simplified design
-
-**Verification**: All tests pass ✅
-
-**Agent assignment**: Backend agent
-
----
-
-## 🎯 Success Criteria
-
-**Phase 1 Complete When**:
-- ✅ Parent names display correctly in "picked up by" dropdown
-- ✅ All hardcoded strings translated (English + Swedish)
-- ✅ Time displays in 24-hour format everywhere
-- ✅ Checkout page layout matches check-in page
-
-**Phase 2 Complete When**:
-- ✅ Undo check-in updates visible on all stations (WebSocket)
-- ✅ Session switcher only shows with multiple active sessions
-- ✅ "Show checked-in families" toggle works
-
-**Phase 3 Complete When**:
-- ✅ Family checkout button checks out all children at once
-- ✅ Handles partial families (some children already checked out)
-
-**Phase 4 Complete When**:
-- ✅ Labels print at correct dimensions (17mm × 54.3mm)
-- ✅ QR code displays and scans to correct URL
-- ✅ Layout is simplified (name + QR only)
+- [ ] Write test: Standard check-in works as before (no supervised flag)
+- [ ] Write test: Supervised check-in creates record with `supervised=True`
+- [ ] Write test: Supervised check-in to ended session allows check-in to new session
+- [ ] Write test: Supervised check-in to active session (is_active=True, end_time in future) blocks new check-in
+- [ ] Write test: Supervised check-in with is_active=True but end_time passed allows new check-in
+- [ ] Write test: Supervised check-in with is_active=False but end_time in future allows new check-in
+- [ ] Write test: Standard check-in always blocks new check-in regardless of session status
+- [ ] Write test: Print queue shows supervised from active sessions only
+- [ ] Write test: Print queue excludes supervised from ended sessions
+- [ ] Write test: Checkout works for supervised records
+- [ ] Write test: Undo works for supervised records within 5-minute window
+- [ ] Write test: WebSocket message includes supervised field
+- [ ] Run full test suite: `uv run python backend/manage.py test`
+- [ ] Run verification: `uv run python backend/verify.py`
 
 ---
 
-## 🧪 Testing Plan
+## Phase 2: Frontend Implementation
 
-**Functional Testing**:
-- [ ] Test with multiple browser tabs (WebSocket updates)
-- [ ] Test session switcher with 1 vs. multiple active sessions
-- [ ] Test family checkout with partial families
-- [ ] Test "show checked-in families" toggle
-- [ ] Verify parent names in "picked up by" dropdown
+### 2.1 Type Definitions
 
-**Localization Testing**:
-- [ ] Switch language English ↔ Swedish
-- [ ] Verify all new translation keys work
-- [ ] Check singular/plural forms
+- [ ] Add `supervised` field to `CheckInRecord` type in `frontend/src/lib/api/types.ts` or `frontend/src/lib/checkin/types.ts`
+  ```typescript
+  export interface CheckInRecord {
+      id: string;
+      child: string;
+      session: string;
+      check_in_time: string;
+      check_out_time: string | null;
+      picked_up_by: string | null;
+      supervised: boolean;  // NEW
+      // ... other fields
+  }
+  ```
 
-**Print Testing**:
-- [ ] Print label on Brother QL printer
-- [ ] Scan QR code → verify URL
-- [ ] Test with long child names
+- [ ] Add `supervised` field to Child type if needed for local state tracking
+
+### 2.2 Check-In Page Updates
+
+- [ ] Add state to track supervised checkbox per child in `frontend/src/routes/checkin/+page.svelte`:
+  ```typescript
+  let supervisedState = $state<Record<string, boolean>>({});
+  ```
+
+- [ ] Update `checkInChild()` function (line 385) to pass supervised parameter:
+  ```typescript
+  const checkInRecord = await checkinApi.checkIn({
+      child: childId,
+      session: activeSession.id,
+      supervised: supervisedState[childId] || false,  // NEW
+  });
+  ```
+
+- [ ] Update `checkInFamily()` function (line 440) to pass supervised per child:
+  ```typescript
+  const checkInRecords = await Promise.all(
+      childIdsToCheckIn.map((childId) =>
+          checkinApi.checkIn({
+              child: childId,
+              session: activeSession.id,
+              supervised: supervisedState[childId] || false,  // NEW
+          })
+      )
+  );
+  ```
+
+- [ ] Update WebSocket handler `handleWebSocketMessage()` (around lines 165-302) to handle supervised field:
+  ```typescript
+  if (message.type === 'child_checked_in') {
+      const { child_id, family_id, supervised } = message;
+      // Update local state with supervised status if needed
+      // (likely no changes needed, but verify)
+  }
+  ```
+
+### 2.3 FamilyCard Component Updates
+
+- [ ] Add supervised checkbox UI to `FamilyCard.svelte` child rows (around line 145-173):
+  ```svelte
+  <!-- In the child row, before or after ChildCheckInButton -->
+  {#if !child.checkedIn && child.ticket !== 'none'}
+    <div class="flex items-center gap-2 text-sm">
+      <input
+        type="checkbox"
+        id="supervised-{child.id}"
+        bind:checked={supervisedState[child.id]}
+        class="rounded border-slate-300"
+      />
+      <label for="supervised-{child.id}" class="text-slate-600 cursor-pointer">
+        {$_('checkin.guardianPresent')}
+      </label>
+    </div>
+  {/if}
+  ```
+
+- [ ] Pass `supervisedState` as prop to FamilyCard from parent page:
+  ```typescript
+  // In checkin/+page.svelte
+  <FamilyCard
+    {family}
+    bind:supervisedState={supervisedState}
+    // ... other props
+  />
+  ```
+
+- [ ] Update FamilyCard props interface to accept `supervisedState`
+
+### 2.4 Checkout Page Updates
+
+- [ ] Update checkout record display in `frontend/src/routes/checkout/+page.svelte` to show supervised badge
+- [ ] Add badge rendering (find the checkout table/list rendering, likely around line 100+):
+  ```svelte
+  {#each filteredCheckIns as record}
+    <div class="checkout-row">
+      <div class="child-info">
+        {record.child_name}
+        {#if record.supervised}
+          <span class="px-2 py-0.5 ml-2 text-xs font-semibold bg-blue-100 text-blue-800 rounded">
+            {$_('checkout.supervised')}
+          </span>
+        {/if}
+      </div>
+      <!-- ... rest of checkout UI -->
+    </div>
+  {/each}
+  ```
+
+- [ ] Verify checkout functionality works for supervised records (allow manual checkout)
+
+### 2.5 Translation Strings
+
+- [ ] Add translation keys to `frontend/src/lib/i18n/locales/en.json`:
+  ```json
+  {
+    "checkin": {
+      "guardianPresent": "Guardian present",
+      // ... existing keys
+    },
+    "checkout": {
+      "supervised": "Supervised",
+      // ... existing keys
+    }
+  }
+  ```
+
+- [ ] Add same keys to Norwegian translation `frontend/src/lib/i18n/locales/nb.json`:
+  ```json
+  {
+    "checkin": {
+      "guardianPresent": "Foresatt til stede",
+      // ... existing keys
+    },
+    "checkout": {
+      "supervised": "Under tilsyn",
+      // ... existing keys
+    }
+  }
+  ```
+
+### 2.6 Frontend Testing
+
+- [ ] Manual test: Check-in child with supervised checkbox checked
+- [ ] Manual test: Check-in child without supervised checkbox (standard)
+- [ ] Manual test: Bulk family check-in with mixed supervised/standard
+- [ ] Manual test: Supervised child in ended session can check into new session
+- [ ] Manual test: Supervised child in active session blocked from new session
+- [ ] Manual test: Supervised badge appears on checkout page
+- [ ] Manual test: Supervised child can be manually checked out from checkout page
+- [ ] Manual test: Undo supervised check-in within 5 minutes
+- [ ] Manual test: WebSocket updates show supervised status across multiple stations
+- [ ] Manual test: Print queue shows supervised children from active sessions only
 
 ---
 
-## 📁 Critical Files
+## Phase 3: Integration Testing
 
-**Frontend**:
-- `/frontend/src/routes/checkin/+page.svelte`
-- `/frontend/src/routes/checkout/+page.svelte`
-- `/frontend/src/lib/components/checkin/SessionIndicator.svelte`
-- `/frontend/src/lib/components/domain/FamilyTable.svelte`
-- `/frontend/src/lib/i18n/locales/en.json`
-- `/frontend/src/lib/i18n/locales/sv.json`
+### 3.1 Development Environment Testing
 
-**Backend**:
-- `/backend/checkins/consumers.py`
-- `/backend/checkins/views.py`
-- `/backend/checkins/templates/print_label.html`
-- `/backend/pyproject.toml`
+- [ ] Restart development containers: `echo "restart" > restart.txt`
+- [ ] Verify backend server starts without errors (check `web.log`)
+- [ ] Verify frontend dev server starts (check `frontend.log`)
+- [ ] Test full user flow:
+  - [ ] Log in as admin
+  - [ ] Create/select active session
+  - [ ] Check in child with "Guardian present" checked → Supervised check-in
+  - [ ] Check in another child without checkbox → Standard check-in
+  - [ ] Verify both appear in print queue
+  - [ ] End session
+  - [ ] Verify supervised child disappears from print queue
+  - [ ] Verify supervised child can check into new session without checkout
+  - [ ] Verify standard child blocked from new session until checkout
+
+### 3.2 Production Environment Testing
+
+- [ ] Trigger production rebuild: `echo "restart" > restart.txt`
+- [ ] Wait for build to complete (check `build.prod.log`)
+- [ ] Run verification script: `./verification.sh --test`
+- [ ] Test same user flows as dev environment on production (localhost:8080)
+- [ ] Verify static file serving works
+- [ ] Verify WebSocket connections work
+
+### 3.3 Multi-Station Testing
+
+- [ ] Open check-in page in two browser windows/tabs
+- [ ] Check in supervised child in window 1
+- [ ] Verify window 2 receives WebSocket update with supervised status
+- [ ] Verify supervised badge appears correctly in both windows
+- [ ] Check out supervised child in window 1
+- [ ] Verify window 2 updates immediately
 
 ---
 
-## 🚀 Agent Coordination Strategy
+## Phase 4: Documentation & Cleanup
 
-**Parallel work streams**:
-1. **Frontend Agent 1**: Phase 1 critical fixes (tasks 1.1-1.5)
-2. **Frontend Agent 2**: Phase 2 & 3 features (tasks 2.2, 2.3, 3.1)
-3. **Full-stack Agent**: WebSocket handler (task 2.1)
-4. **Backend Agent**: Print label overhaul (tasks 4.1-4.2)
+- [ ] Update `IMPLEMENTATION_PLAN.md` to mark supervised check-in feature complete
+- [ ] Document supervised check-in feature in user-facing docs (if any)
+- [ ] Update `PROJECT_SPECIFICATION.md` if needed
+- [ ] Move this file to `ARCHIVED_TASKS/CURRENT_TASKS_SUPERVISED_CHECKIN_<date>.md`
+- [ ] Create git commit with clear message describing the feature
+- [ ] Consider creating documentation in `docs/` folder explaining:
+  - What supervised check-in is
+  - When to use it
+  - How session transitions work
+  - Edge cases and limitations
 
-All agents can work in parallel with minimal conflicts.
+---
+
+## Rollback Plan
+
+If issues arise during implementation:
+
+1. **Database rollback:** `uv run python backend/manage.py migrate checkins <previous_migration_number>`
+2. **Code rollback:** `git revert <commit_hash>` or `git reset --hard <previous_commit>`
+3. **Frontend state:** Clear localStorage in browser if needed
+4. **Production:** Restore from backup if database changes were applied
+
+---
+
+## Notes & Decisions Log
+
+- **2025-12-11:** Initial planning completed
+- **2025-12-11:** Decided on Option D for session validation (both is_active AND end_time must be true to block)
+- **2025-12-11:** Decided on per-child supervised checkboxes in family check-in flow
+- **2025-12-11:** Decided supervised children appear in print queue only during active sessions
+- **2025-12-11:** Decided supervised children visible on checkout page with badge, can be manually checked out
+
+---
+
+## Success Criteria
+
+- [ ] Supervised check-ins can be created via UI
+- [ ] Supervised children can transition to new session after old session ends (both is_active=False OR end_time passed)
+- [ ] Standard check-ins still block session transitions as before
+- [ ] Print queue shows supervised children only from active sessions
+- [ ] Checkout page displays supervised badge correctly
+- [ ] Manual checkout works for supervised children
+- [ ] WebSocket updates include supervised status
+- [ ] All existing tests pass
+- [ ] New tests cover supervised check-in scenarios
+- [ ] No regressions in standard check-in/checkout functionality
