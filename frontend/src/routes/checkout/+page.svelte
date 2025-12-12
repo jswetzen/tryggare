@@ -258,6 +258,7 @@
             firstName: record.child_name?.split(' ')[0] || '',
             lastName: record.child_name?.split(' ').slice(1).join(' ') || '',
             checkInTime: record.check_in_time,
+            supervised: record.supervised,
             date_of_birth: '',
             created_at: '',
             updated_at: ''
@@ -289,6 +290,7 @@
             firstName: child?.first_name || record.child_name?.split(' ')[0] || '',
             lastName: child?.last_name || record.child_name?.split(' ').slice(1).join(' ') || '',
             checkInTime: record.check_in_time,
+            supervised: record.supervised,
             date_of_birth: child?.birthdate || '',
             created_at: '',
             updated_at: ''

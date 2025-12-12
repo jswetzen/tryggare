@@ -76,6 +76,7 @@
   let successToast = $state<string | null>(null);
   let showCheckedInFamilies = $state(false);
   let showSessionSelector = $state(false);
+  let supervisedState = $state<Record<string, boolean>>({});
 
   // Subscribe to undo timer store for reactivity
   // Use $derived with $ prefix for proper Svelte 5 store auto-subscription
@@ -401,6 +402,7 @@
       const checkInRecord = await checkinApi.checkIn({
         child: childId,
         session: activeSession.id,
+        supervised: supervisedState[childId] || false,
       });
 
       // Update local state optimistically
@@ -465,6 +467,7 @@
           checkinApi.checkIn({
             child: childId,
             session: activeSession.id,
+            supervised: supervisedState[childId] || false,
           })
         )
       );
@@ -889,6 +892,7 @@
             }}
             {getRemainingTime}
             {familyUndoSeconds}
+            bind:supervisedState={supervisedState}
           />
         {/each}
       {/if}

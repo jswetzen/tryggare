@@ -27,7 +27,8 @@
     expandedChildId,
     onToggleChildExpansion,
     getRemainingTime,
-    familyUndoSeconds
+    familyUndoSeconds,
+    supervisedState = $bindable()
   }: {
     family: Family;
     expanded: boolean;
@@ -41,6 +42,7 @@
     onToggleChildExpansion: (childId: string | null) => void;
     getRemainingTime: (actionId: string) => number | null;
     familyUndoSeconds: number | null;
+    supervisedState?: Record<string, boolean>;
   } = $props();
 
   // Subscribe to tick store for reactive countdown
@@ -162,14 +164,29 @@
               </div>
             </div>
 
-            <ChildCheckInButton
-              {child}
-              onCheckIn={() => onCheckInChild(child.id)}
-              onUndo={() => onUndoChild(child.id)}
-              onNoTicketClick={() => onToggleChildExpansion(isExpanded ? null : child.id)}
-              remainingSeconds={childRemainingSeconds}
-              expanded={isExpanded}
-            />
+            <div class="flex items-center gap-2">
+              {#if !child.checkedIn && child.ticket !== 'none' && supervisedState}
+                <label class="flex items-center gap-1.5 text-xs cursor-pointer whitespace-nowrap">
+                  <input
+                    type="checkbox"
+                    id="supervised-{child.id}"
+                    bind:checked={supervisedState[child.id]}
+                    class="w-4 h-4 text-blue-600 bg-white border-slate-300 rounded focus:ring-blue-500 focus:ring-2"
+                    data-testid={`supervised-checkbox-${child.id}`}
+                  />
+                  <span class="text-slate-600">{$_('checkin.guardianPresent')}</span>
+                </label>
+              {/if}
+
+              <ChildCheckInButton
+                {child}
+                onCheckIn={() => onCheckInChild(child.id)}
+                onUndo={() => onUndoChild(child.id)}
+                onNoTicketClick={() => onToggleChildExpansion(isExpanded ? null : child.id)}
+                remainingSeconds={childRemainingSeconds}
+                expanded={isExpanded}
+              />
+            </div>
           </div>
 
           <!-- Ticket assignment expansion (for "No Ticket" children) -->
