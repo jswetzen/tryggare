@@ -95,7 +95,7 @@ test-navigation:
 
 test-supervised:
 	@echo "Running supervised check-in tests..."
-	@uv run --group test pytest tests/e2e/test_supervised_checkin.py -v
+	@uv run --group test pytest tests/e2e/test_supervised_checkin_simple.py -v
 
 # Utility commands
 clean:
