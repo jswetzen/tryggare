@@ -68,9 +68,15 @@ class ChildSerializer(serializers.ModelSerializer):
         Returns:
             bool: True if child has an active check-in, False otherwise
         """
-        # Use prefetched active_checkins if available to avoid N+1 queries
+        # Use prefetched active_checkins if available (Family viewset uses this)
         if hasattr(obj, 'active_checkins'):
             return len(obj.active_checkins) > 0
+
+        # Use prefetched checkin_records if available (Child viewset uses this)
+        # This uses the standard relationship name and filters in Python
+        if hasattr(obj, '_prefetched_objects_cache') and 'checkin_records' in obj._prefetched_objects_cache:
+            checkin_records = obj.checkin_records.all()
+            return any(record.check_out_time is None for record in checkin_records)
 
         # Fallback: query if not prefetched
         from checkins.models import CheckInRecord
@@ -87,9 +93,18 @@ class ChildSerializer(serializers.ModelSerializer):
         Returns:
             str: The check-in record ID, or None if not checked in
         """
-        # Use prefetched active_checkins if available to avoid N+1 queries
+        # Use prefetched active_checkins if available (Family viewset uses this)
         if hasattr(obj, 'active_checkins') and len(obj.active_checkins) > 0:
             return str(obj.active_checkins[0].id)
+
+        # Use prefetched checkin_records if available (Child viewset uses this)
+        # This uses the standard relationship name and filters in Python
+        if hasattr(obj, '_prefetched_objects_cache') and 'checkin_records' in obj._prefetched_objects_cache:
+            checkin_records = obj.checkin_records.all()
+            for record in checkin_records:
+                if record.check_out_time is None:
+                    return str(record.id)
+            return None
 
         # Fallback: query if not prefetched
         from checkins.models import CheckInRecord

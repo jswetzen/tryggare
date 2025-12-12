@@ -105,8 +105,10 @@ class ChildViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         """
         Optimize queries with select_related and prefetch_related.
-        Includes ticket information to avoid N+1 queries.
+        Includes ticket information and check-in status to avoid N+1 queries.
         """
+        from checkins.models import CheckInRecord
+
         event_ticket_prefetch = Prefetch(
             'event_tickets',
             queryset=EventTicket.objects.select_related('event')
@@ -115,10 +117,17 @@ class ChildViewSet(viewsets.ModelViewSet):
             'session_tickets',
             queryset=SessionTicket.objects.select_related('session', 'session__event')
         )
+        # Prefetch all check-in records to avoid N+1 queries when checking is_checked_in
+        # We prefetch all records (not just active ones) so the relationship name stays the same
+        checkin_prefetch = Prefetch(
+            'checkin_records',
+            queryset=CheckInRecord.objects.all()
+        )
 
         return Child.objects.select_related("family").prefetch_related(
             event_ticket_prefetch,
             session_ticket_prefetch,
+            checkin_prefetch,
         ).all()
 
     def perform_update(self, serializer):
