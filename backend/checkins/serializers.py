@@ -1,3 +1,4 @@
+from django.utils import timezone
 from django.utils.translation import gettext as _
 from rest_framework import serializers
 
@@ -28,6 +29,7 @@ class CheckInRecordSerializer(serializers.ModelSerializer):
             "check_in_staff_name",
             "check_out_staff",
             "check_out_staff_name",
+            "supervised",
         ]
         read_only_fields = ["id", "check_in_time"]
 
@@ -35,20 +37,41 @@ class CheckInRecordSerializer(serializers.ModelSerializer):
         return f"{obj.child.first_name} {obj.child.last_name}"
 
     def validate(self, data):
-        """Validate one child in one session at a time rule"""
+        """Validate one child in one session at a time rule with supervised check-in support"""
         child = data.get("child")
         session = data.get("session")
 
         if child and session:
-            # Check if child already has an active check-in for this session
-            active_checkin = CheckInRecord.objects.filter(
-                child=child, session=session, check_out_time__isnull=True
+            # Check for active check-in to SAME session
+            same_session = CheckInRecord.objects.filter(
+                child=child,
+                session=session,
+                check_out_time__isnull=True
             ).exclude(id=self.instance.id if self.instance else None)
 
-            if active_checkin.exists():
+            if same_session.exists():
                 raise serializers.ValidationError(
                     _("This child is already checked in to this session.")
                 )
+
+            # Check for active check-ins to OTHER sessions
+            other_sessions = CheckInRecord.objects.filter(
+                child=child,
+                check_out_time__isnull=True
+            ).exclude(session=session).select_related('session')
+
+            for record in other_sessions:
+                # Standard check-ins always block
+                if not record.supervised:
+                    raise serializers.ValidationError(
+                        _("Child has active check-in to another session.")
+                    )
+
+                # Supervised: only block if BOTH is_active AND end_time not passed
+                if record.session.is_active and record.session.end_time > timezone.now():
+                    raise serializers.ValidationError(
+                        _("Child still in active supervised session.")
+                    )
 
         return data
 

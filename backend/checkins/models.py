@@ -26,6 +26,13 @@ class CheckInRecord(models.Model):
         verbose_name=_("Check-Out Staff"),
     )
 
+    # Supervised check-in field
+    supervised = models.BooleanField(
+        default=False,
+        help_text="Child is supervised by guardian, no explicit checkout required",
+        verbose_name=_("Supervised")
+    )
+
     # Print tracking fields
     label_printed = models.BooleanField(
         default=False,
@@ -58,6 +65,7 @@ class CheckInRecord(models.Model):
             models.Index(fields=["check_in_staff"]),
             models.Index(fields=["check_out_staff"]),
             models.Index(fields=["label_printed"]),
+            models.Index(fields=["supervised"]),
         ]
 
     def __str__(self) -> str:
