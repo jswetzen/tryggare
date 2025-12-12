@@ -44,6 +44,7 @@ class CheckInRecordViewSet(viewsets.ModelViewSet):
 
         child_id = request.data.get("child")
         session_id = request.data.get("session")
+        supervised = request.data.get("supervised", False)
 
         if not child_id or not session_id:
             return Response(
@@ -60,7 +61,7 @@ class CheckInRecordViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_404_NOT_FOUND,
             )
 
-        # Check if child is already checked in
+        # Check for same-session active check-in
         existing = CheckInRecord.objects.filter(
             child=child, session=session, check_out_time__isnull=True
         ).first()
@@ -70,6 +71,27 @@ class CheckInRecordViewSet(viewsets.ModelViewSet):
                 {"error": _("Child is already checked in to this session")},
                 status=status.HTTP_400_BAD_REQUEST,
             )
+
+        # Check for other-session active check-ins
+        other_sessions = CheckInRecord.objects.filter(
+            child=child,
+            check_out_time__isnull=True
+        ).exclude(session=session).select_related('session')
+
+        for record in other_sessions:
+            # Standard check-ins always block
+            if not record.supervised:
+                return Response(
+                    {"error": _("Child has active check-in to another session")},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            # Supervised: only block if BOTH conditions true
+            if record.session.is_active and record.session.end_time > timezone.now():
+                return Response(
+                    {"error": _("Child still in active supervised session")},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
 
         # Generate QR token if needed
         if not child.qr_token:
@@ -81,7 +103,8 @@ class CheckInRecordViewSet(viewsets.ModelViewSet):
             child=child,
             session=session,
             check_in_staff=request.user,
-            label_printed=False
+            label_printed=False,
+            supervised=supervised
         )
 
         # Update last participation dates
@@ -102,6 +125,7 @@ class CheckInRecordViewSet(viewsets.ModelViewSet):
                 "child_name": f"{child.first_name} {child.last_name}",
                 "session_id": str(session.id),
                 "session_name": session.name,
+                "supervised": supervised,
             },
         )
 
@@ -119,6 +143,7 @@ class CheckInRecordViewSet(viewsets.ModelViewSet):
                     "session_name": session.name,
                     "check_in_time": record.check_in_time.isoformat(),
                     "qr_token": child.qr_token,
+                    "supervised": supervised,
                 }
             }
         )
@@ -351,9 +376,19 @@ class PrintQueueViewSet(viewsets.ReadOnlyModelViewSet):
 
     def get_queryset(self):
         """Get all unprintable check-ins (checked in, not printed, not checked out)"""
+        from django.db import models as db_models
+
         return CheckInRecord.objects.filter(
             label_printed=False,
             check_out_time__isnull=True,  # Still checked in
+        ).filter(
+            # Standard check-ins (not supervised) OR supervised in active session
+            db_models.Q(supervised=False) |
+            db_models.Q(
+                supervised=True,
+                session__is_active=True,
+                session__end_time__gt=timezone.now()
+            )
         ).select_related(
             'child',
             'child__family',
@@ -513,9 +548,19 @@ class PrintQueueViewSet(viewsets.ReadOnlyModelViewSet):
         Get recently printed labels (last 50).
         Shows only checked-in (not checked out) records.
         """
+        from django.db import models as db_models
+
         recent = CheckInRecord.objects.filter(
             label_printed=True,
             check_out_time__isnull=True,  # Still checked in
+        ).filter(
+            # Standard check-ins (not supervised) OR supervised in active session
+            db_models.Q(supervised=False) |
+            db_models.Q(
+                supervised=True,
+                session__is_active=True,
+                session__end_time__gt=timezone.now()
+            )
         ).select_related(
             'child',
             'child__family',

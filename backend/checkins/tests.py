@@ -302,3 +302,347 @@ class PrintLabelTest(TestCase):
         # Should NOT contain allergies anywhere
         self.assertNotIn('ALLERGIES', content)
         self.assertNotIn('Peanuts', content)
+
+
+class SupervisedCheckInTest(TestCase):
+    """Test supervised check-in functionality."""
+
+    def setUp(self):
+        """Set up test data and authentication."""
+        self.client = APIClient()
+        self.user = AdminUser.objects.create_user(
+            username="testuser",
+            password="testpass123",
+            name="Test User"
+        )
+        self.client.force_authenticate(user=self.user)
+
+        self.family = Family.objects.create()
+        self.child = Child.objects.create(
+            family=self.family,
+            first_name="Test",
+            last_name="Child",
+            birthdate=timezone.now().date()
+        )
+        self.event = Event.objects.create(
+            name="Test Event",
+            start_date=timezone.now().date(),
+            end_date=timezone.now().date()
+        )
+
+        # Create multiple sessions for testing transitions
+        self.session1 = Session.objects.create(
+            event=self.event,
+            name="Session 1",
+            start_time=timezone.now() - timedelta(hours=2),
+            end_time=timezone.now() - timedelta(hours=1),
+            is_active=False  # Ended session
+        )
+
+        self.session2 = Session.objects.create(
+            event=self.event,
+            name="Session 2",
+            start_time=timezone.now(),
+            end_time=timezone.now() + timedelta(hours=2),
+            is_active=True  # Active session
+        )
+
+        self.session3 = Session.objects.create(
+            event=self.event,
+            name="Session 3",
+            start_time=timezone.now() + timedelta(hours=3),
+            end_time=timezone.now() + timedelta(hours=5),
+            is_active=False  # Future session (not started yet)
+        )
+
+    def test_standard_check_in_without_supervised_flag(self):
+        """Test that standard check-in works as before (no supervised flag)."""
+        response = self.client.post('/api/checkins/check_in/', {
+            'child': str(self.child.id),
+            'session': str(self.session2.id)
+        })
+
+        self.assertEqual(response.status_code, 201)
+        self.assertFalse(response.data['supervised'])
+
+        record = CheckInRecord.objects.get(id=response.data['id'])
+        self.assertFalse(record.supervised)
+
+    def test_supervised_check_in_creates_record_with_flag(self):
+        """Test that supervised check-in creates record with supervised=True."""
+        response = self.client.post('/api/checkins/check_in/', {
+            'child': str(self.child.id),
+            'session': str(self.session2.id),
+            'supervised': True
+        })
+
+        self.assertEqual(response.status_code, 201)
+        self.assertTrue(response.data['supervised'])
+
+        record = CheckInRecord.objects.get(id=response.data['id'])
+        self.assertTrue(record.supervised)
+
+    def test_supervised_check_in_to_ended_session_allows_new_check_in(self):
+        """Test supervised check-in to ended session allows check-in to new session."""
+        # Create supervised check-in to ended session (session1)
+        CheckInRecord.objects.create(
+            child=self.child,
+            session=self.session1,
+            check_in_staff=self.user,
+            supervised=True
+        )
+
+        # Should be able to check into new session (session2)
+        response = self.client.post('/api/checkins/check_in/', {
+            'child': str(self.child.id),
+            'session': str(self.session2.id),
+            'supervised': True
+        })
+
+        self.assertEqual(response.status_code, 201)
+        # Verify both records exist
+        self.assertEqual(CheckInRecord.objects.filter(child=self.child).count(), 2)
+
+    def test_supervised_check_in_to_active_session_blocks_new_check_in(self):
+        """Test supervised check-in to active session blocks check-in to new session."""
+        # Create supervised check-in to active session (session2)
+        CheckInRecord.objects.create(
+            child=self.child,
+            session=self.session2,
+            check_in_staff=self.user,
+            supervised=True
+        )
+
+        # Should NOT be able to check into another session (session3)
+        response = self.client.post('/api/checkins/check_in/', {
+            'child': str(self.child.id),
+            'session': str(self.session3.id),
+            'supervised': True
+        })
+
+        self.assertEqual(response.status_code, 400)
+        self.assertIn('active supervised session', response.data['error'])
+
+    def test_supervised_check_in_with_is_active_true_but_end_time_passed(self):
+        """Test supervised check-in with is_active=True but end_time passed allows new check-in."""
+        # Create session that is marked active but time has passed
+        past_session = Session.objects.create(
+            event=self.event,
+            name="Past Active Session",
+            start_time=timezone.now() - timedelta(hours=3),
+            end_time=timezone.now() - timedelta(minutes=1),  # Just ended
+            is_active=True  # Still marked active
+        )
+
+        # Create supervised check-in to this session
+        CheckInRecord.objects.create(
+            child=self.child,
+            session=past_session,
+            check_in_staff=self.user,
+            supervised=True
+        )
+
+        # Should be able to check into new session since end_time has passed
+        response = self.client.post('/api/checkins/check_in/', {
+            'child': str(self.child.id),
+            'session': str(self.session2.id),
+            'supervised': True
+        })
+
+        self.assertEqual(response.status_code, 201)
+
+    def test_supervised_check_in_with_is_active_false_but_end_time_future(self):
+        """Test supervised check-in with is_active=False but end_time in future allows new check-in."""
+        # Create session that is not active but time hasn't passed
+        inactive_session = Session.objects.create(
+            event=self.event,
+            name="Inactive Session",
+            start_time=timezone.now() - timedelta(hours=1),
+            end_time=timezone.now() + timedelta(hours=1),  # Still going
+            is_active=False  # Manually deactivated
+        )
+
+        # Create supervised check-in to this session
+        CheckInRecord.objects.create(
+            child=self.child,
+            session=inactive_session,
+            check_in_staff=self.user,
+            supervised=True
+        )
+
+        # Should be able to check into new session since is_active=False
+        response = self.client.post('/api/checkins/check_in/', {
+            'child': str(self.child.id),
+            'session': str(self.session2.id),
+            'supervised': True
+        })
+
+        self.assertEqual(response.status_code, 201)
+
+    def test_standard_check_in_always_blocks_regardless_of_session_status(self):
+        """Test standard (non-supervised) check-in always blocks new check-in."""
+        # Create standard check-in to ended session
+        CheckInRecord.objects.create(
+            child=self.child,
+            session=self.session1,
+            check_in_staff=self.user,
+            supervised=False
+        )
+
+        # Should NOT be able to check into new session
+        response = self.client.post('/api/checkins/check_in/', {
+            'child': str(self.child.id),
+            'session': str(self.session2.id)
+        })
+
+        self.assertEqual(response.status_code, 400)
+        self.assertIn('active check-in to another session', response.data['error'])
+
+    def test_print_queue_shows_supervised_from_active_sessions_only(self):
+        """Test print queue shows supervised check-ins only from active sessions."""
+        # Create supervised check-in to ended session
+        ended_checkin = CheckInRecord.objects.create(
+            child=self.child,
+            session=self.session1,
+            check_in_staff=self.user,
+            supervised=True,
+            label_printed=False
+        )
+
+        # Create another child for active session
+        child2 = Child.objects.create(
+            family=self.family,
+            first_name="Active",
+            last_name="Child",
+            birthdate=timezone.now().date()
+        )
+
+        # Create supervised check-in to active session
+        active_checkin = CheckInRecord.objects.create(
+            child=child2,
+            session=self.session2,
+            check_in_staff=self.user,
+            supervised=True,
+            label_printed=False
+        )
+
+        # Get print queue
+        response = self.client.get('/api/print-queue/')
+
+        self.assertEqual(response.status_code, 200)
+        # Should only show check-in from active session
+        results = response.data if isinstance(response.data, list) else response.data.get('results', [])
+        self.assertEqual(len(results), 1)
+        self.assertEqual(results[0]['id'], str(active_checkin.id))
+
+    def test_print_queue_excludes_supervised_from_ended_sessions(self):
+        """Test print queue excludes supervised check-ins from ended sessions."""
+        # Create supervised check-in to ended session
+        CheckInRecord.objects.create(
+            child=self.child,
+            session=self.session1,
+            check_in_staff=self.user,
+            supervised=True,
+            label_printed=False
+        )
+
+        # Get print queue
+        response = self.client.get('/api/print-queue/')
+
+        self.assertEqual(response.status_code, 200)
+        results = response.data if isinstance(response.data, list) else response.data.get('results', [])
+        self.assertEqual(len(results), 0)
+
+    def test_print_queue_shows_standard_check_ins_regardless_of_session(self):
+        """Test print queue shows standard check-ins regardless of session status."""
+        # Create standard check-in to ended session
+        ended_checkin = CheckInRecord.objects.create(
+            child=self.child,
+            session=self.session1,
+            check_in_staff=self.user,
+            supervised=False,
+            label_printed=False
+        )
+
+        # Get print queue
+        response = self.client.get('/api/print-queue/')
+
+        self.assertEqual(response.status_code, 200)
+        # Should show standard check-in even though session ended
+        results = response.data if isinstance(response.data, list) else response.data.get('results', [])
+        self.assertEqual(len(results), 1)
+        self.assertEqual(results[0]['id'], str(ended_checkin.id))
+
+    def test_checkout_works_for_supervised_records(self):
+        """Test that checkout functionality works for supervised records."""
+        # Create supervised check-in
+        checkin = CheckInRecord.objects.create(
+            child=self.child,
+            session=self.session2,
+            check_in_staff=self.user,
+            supervised=True
+        )
+
+        # Checkout
+        response = self.client.post(f'/api/checkins/{checkin.id}/check_out/', {
+            'picked_up_by': 'Parent Name'
+        })
+
+        self.assertEqual(response.status_code, 200)
+
+        # Verify checkout
+        checkin.refresh_from_db()
+        self.assertIsNotNone(checkin.check_out_time)
+        self.assertEqual(checkin.picked_up_by, 'Parent Name')
+
+    def test_undo_works_for_supervised_records(self):
+        """Test that undo functionality works for supervised records within time window."""
+        # Create supervised check-in
+        checkin = CheckInRecord.objects.create(
+            child=self.child,
+            session=self.session2,
+            check_in_staff=self.user,
+            supervised=True
+        )
+
+        # Undo check-in
+        response = self.client.post(f'/api/checkins/{checkin.id}/undo/')
+
+        self.assertEqual(response.status_code, 200)
+        # Verify record was deleted
+        self.assertEqual(CheckInRecord.objects.filter(id=checkin.id).count(), 0)
+
+    def test_audit_log_includes_supervised_field(self):
+        """Test that audit log includes supervised field in details."""
+        response = self.client.post('/api/checkins/check_in/', {
+            'child': str(self.child.id),
+            'session': str(self.session2.id),
+            'supervised': True
+        })
+
+        self.assertEqual(response.status_code, 201)
+
+        # Check audit log
+        audit_log = AuditLog.objects.filter(action='check_in').first()
+        self.assertIsNotNone(audit_log)
+        self.assertTrue(audit_log.details['supervised'])
+
+    def test_same_session_check_in_blocked_for_supervised(self):
+        """Test that supervised child cannot be checked into same session twice."""
+        # Create supervised check-in
+        CheckInRecord.objects.create(
+            child=self.child,
+            session=self.session2,
+            check_in_staff=self.user,
+            supervised=True
+        )
+
+        # Try to check into same session again
+        response = self.client.post('/api/checkins/check_in/', {
+            'child': str(self.child.id),
+            'session': str(self.session2.id),
+            'supervised': True
+        })
+
+        self.assertEqual(response.status_code, 400)
+        self.assertIn('already checked in to this session', response.data['error'])

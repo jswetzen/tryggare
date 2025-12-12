@@ -42,11 +42,11 @@ test: test-unit test-e2e
 
 test-unit:
 	@echo "Running unit tests..."
-	@uv run python manage.py test accounts checkins events families printing
+	@uv run --group test python manage.py test accounts checkins events families printing
 
 test-integration:
 	@echo "Running integration tests..."
-	@uv run pytest tests/integration/ -v -m integration
+	@uv run --group test pytest tests/integration/ -v -m integration
 
 test-e2e: test-e2e-dev
 
@@ -55,42 +55,42 @@ test-e2e-dev:
 	@echo "Frontend: http://localhost:5173"
 	@echo "Backend:  http://localhost:8000"
 	@FRONTEND_URL=http://localhost:5173 BACKEND_URL=http://localhost:8000 \
-		uv run pytest tests/e2e/ -v -m e2e
+		uv run --group test pytest tests/e2e/ -v -m e2e
 
 test-e2e-prod:
 	@echo "Running E2E tests against production environment..."
 	@echo "Frontend & Backend: http://localhost:8080"
 	@FRONTEND_URL=http://localhost:8080 BACKEND_URL=http://localhost:8080 \
-		uv run pytest tests/e2e/ -v -m e2e
+		uv run --group test pytest tests/e2e/ -v -m e2e
 
 # Specific test suites
 test-auth:
 	@echo "Running authentication tests..."
-	@uv run pytest tests/e2e/test_auth.py -v
+	@uv run --group test pytest tests/e2e/test_auth.py -v
 
 test-checkin:
 	@echo "Running check-in flow tests..."
-	@uv run pytest tests/e2e/test_checkin_flow.py -v
+	@uv run --group test pytest tests/e2e/test_checkin_flow.py -v
 
 test-checkout:
 	@echo "Running check-out flow tests..."
-	@uv run pytest tests/e2e/test_checkout_flow.py -v
+	@uv run --group test pytest tests/e2e/test_checkout_flow.py -v
 
 test-qr:
 	@echo "Running QR page tests..."
-	@uv run pytest tests/e2e/test_qr_page.py -v
+	@uv run --group test pytest tests/e2e/test_qr_page.py -v
 
 test-print:
 	@echo "Running print queue tests..."
-	@uv run pytest tests/e2e/test_print_queue.py -v
+	@uv run --group test pytest tests/e2e/test_print_queue.py -v
 
 test-i18n:
 	@echo "Running i18n tests..."
-	@uv run pytest tests/e2e/test_i18n.py -v
+	@uv run --group test pytest tests/e2e/test_i18n.py -v
 
 test-navigation:
 	@echo "Running navigation tests..."
-	@uv run pytest tests/e2e/test_navigation.py -v
+	@uv run --group test pytest tests/e2e/test_navigation.py -v
 
 # Utility commands
 clean:
@@ -105,8 +105,8 @@ clean:
 
 coverage:
 	@echo "Running tests with coverage..."
-	@uv run pytest tests/ --cov=. --cov-report=html --cov-report=term-missing
+	@uv run --group test pytest tests/ --cov=. --cov-report=html --cov-report=term-missing
 
 verify:
 	@echo "Running quick backend verification..."
-	@uv run python verify.py
+	@uv run --group test python verify.py
