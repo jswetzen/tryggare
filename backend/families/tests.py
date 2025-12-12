@@ -351,11 +351,13 @@ class TicketIntegrationTests(TestCase):
                 SessionTicket.objects.create(child=child, session=self.session)
 
         # The query should be efficient due to prefetch_related
-        # Expecting: 1 child query + 1 event ticket prefetch + 1 session ticket prefetch
-        with self.assertNumQueries(3):
+        # Expecting: 1 child query + 1 event ticket prefetch + 1 session ticket prefetch + 1 check-in record prefetch
+        with self.assertNumQueries(4):
             response = self.client.get('/api/children/')
             self.assertEqual(response.status_code, 200)
-            # Ensure all children are returned with ticket info
+            # Ensure all children are returned with ticket info and check-in status
             for child_data in response.data:
                 self.assertIn('ticket_type', child_data)
                 self.assertIn('ticket_details', child_data)
+                self.assertIn('is_checked_in', child_data)
+                self.assertIn('active_checkin_id', child_data)
