@@ -10,6 +10,7 @@
     lastName: string;
     ticketType?: 'event' | 'session' | 'none';
     checkInTime?: string;
+    supervised?: boolean;
   }
 
   interface DisplayFamily extends Omit<Family, 'children' | 'parents'> {
@@ -108,7 +109,14 @@
 
           <tr class="{bgColor} border-b border-neutral-200">
             <td class="p-3 pl-8 font-medium text-neutral-700">
-              {child.firstName} {child.lastName}
+              <div class="flex items-center gap-2">
+                <span>{child.firstName} {child.lastName}</span>
+                {#if mode === 'checkout' && child.supervised}
+                  <span class="px-2 py-0.5 text-xs font-semibold bg-blue-100 text-blue-800 rounded">
+                    {$t('checkout.supervised')}
+                  </span>
+                {/if}
+              </div>
             </td>
             <td class="p-3">
               {#if mode === 'checkin'}

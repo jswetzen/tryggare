@@ -1,0 +1,8 @@
+{
+  "checkin": {
+    "guardianPresent": "Foresatt til stede"
+  },
+  "checkout": {
+    "supervised": "Under tilsyn"
+  }
+}

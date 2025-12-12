@@ -118,7 +118,8 @@
     "familyAdded": "{familyName} family added with {count} {childrenLabel}!",
     "checkInAll": "Check In All",
     "showCheckedInFamilies": "Show checked-in families",
-    "allCheckedIn": "All Checked In"
+    "allCheckedIn": "All Checked In",
+    "guardianPresent": "Guardian present"
   },
   "checkout": {
     "pageTitle": "Check-Out Station",
@@ -156,7 +157,8 @@
     "checkOut": "Check Out",
     "checkOutFamily": "Check out {family} ({count})",
     "familyCheckOutSuccess": "{family} family checked out ({count} {childrenLabel})!",
-    "familyCheckOutError": "Failed to check out family"
+    "familyCheckOutError": "Failed to check out family",
+    "supervised": "Supervised"
   },
   "qr": {
     "pageTitle": "Child Information",

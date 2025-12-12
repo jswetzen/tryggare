@@ -74,6 +74,7 @@ export interface CheckInRecord {
   check_out_time?: string;
   notes?: string;
   picked_up_by?: string;
+  supervised: boolean;
 }
 
 export interface AuditLog {
