@@ -836,8 +836,14 @@
       placeholder={$_('checkin.searchPlaceholder')}
     />
 
-    <!-- Show Checked-In Families Toggle -->
-    <div class="mb-4">
+    <div class="mb-4 flex items-left justify-between text-sm">
+    <!-- Stats Header -->
+      <span class="text-slate-600" data-testid="family-count-text">
+        {visibleFamilies.length}{' '}
+        {visibleFamilies.length === 1 ? $_('common.family') : $_('common.families')}
+        {searchQuery && ' matching search'}
+      </span>
+      <!-- Show Checked-In Families Toggle -->
       <label class="flex items-center gap-2 text-sm cursor-pointer">
         <input
           type="checkbox"
@@ -846,15 +852,6 @@
         />
         <span class="text-slate-700">{$_('checkin.showCheckedInFamilies')}</span>
       </label>
-    </div>
-
-    <!-- Stats Header -->
-    <div class="mb-4 flex items-center justify-between text-sm">
-      <span class="text-slate-600" data-testid="family-count-text">
-        {visibleFamilies.length}{' '}
-        {visibleFamilies.length === 1 ? $_('common.family') : $_('common.families')}
-        {searchQuery && ' matching search'}
-      </span>
     </div>
 
     <!-- Family Cards -->

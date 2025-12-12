@@ -36,12 +36,57 @@ Any tools and scripts you create for ad-hoc testing shall be stored under agent-
   - Development builds: `build.dev.log` (captured from podman compose)
   - Production builds: `build.prod.log` (captured from podman compose)
 
-## Full test running
+## Testing
 
+**Two types of tests exist:**
+1. **Django Unit Tests** - Fast, isolated tests of backend models/views
+2. **E2E (Selenium) Tests** - Browser-based tests that interact with the actual running frontend/backend using the live development database
+
+**Root-level commands** (from `/workspace/check-ins/`):
 ```bash
-# Production deployment test
-./verification.sh --no-restart --test    # Tests only, no restart
-./verification.sh --test                 # Restart + tests
+make help              # Show all available commands
+make test              # Run all tests (unit + E2E against dev)
+make test-e2e-dev      # Run E2E tests against dev (localhost:5173/8000)
+make test-e2e-prod     # Run E2E tests against production (localhost:8080)
+make rebuild-dev       # Rebuild dev environment
+make rebuild-prod      # Rebuild production
+```
+
+**Backend test commands** (from `backend/`):
+```bash
+make help              # Show backend-specific commands
+make test              # Run all tests (unit + E2E)
+make test-e2e-dev      # Run all E2E tests against dev
+make test-e2e-prod     # Run all E2E tests against production
+
+# Individual E2E test suites (run against dev by default):
+make test-auth         # Authentication tests (login, logout, sessions)
+make test-checkin      # Check-in flow tests
+make test-checkout     # Check-out flow tests
+make test-qr           # QR page tests
+make test-print        # Print queue tests
+make test-i18n         # Internationalization tests
+make test-navigation   # Navigation and UI tests
+
+# Utilities:
+make verify            # Quick backend verification
+make clean             # Clean test artifacts (screenshots, cache, etc.)
+```
+
+**Typical test workflow:**
+```bash
+# 1. Run specific test suite while developing
+cd backend
+make test-auth         # Fast feedback on auth changes
+
+# 2. Run all E2E tests before committing
+make test-e2e-dev      # Verify dev environment (17/20 passing as of 2025-12-12)
+
+# 3. Test production build
+cd ..
+make rebuild-prod      # Trigger production rebuild
+sleep 15               # Wait for build to complete
+make test-e2e-prod     # Test against production (needs DB config fix)
 ```
 
 **Backend model changes:**
@@ -49,27 +94,46 @@ Any tools and scripts you create for ad-hoc testing shall be stored under agent-
 cd /workspace/check-ins/backend
 uv run python manage.py makemigrations
 uv run python manage.py migrate
-uv run python verify.py  # Quick verification
+make verify            # Quick verification
 ```
 
-**Debugging failures:**
-- Backend runtime: Check `/workspace/check-ins/web.log`
-- Frontend dev: Check `/workspace/check-ins/frontend.log`
-- Production builds: Check `/workspace/check-ins/build.prod.log`
-- Selenium tests: Check screenshots in `/tmp/`
-- Build errors: The verification script now automatically checks build.prod.log for:
-  - "no space left on device" → Run `podman system prune -a`
-  - "Build command failed" → Check full log with `less build.log`
-  - Frontend build failures → Look for npm/vite errors in build.log
+**Debugging test failures:**
 
-**For detailed testing workflows, see [VERIFICATION_GUIDE.md](./VERIFICATION_GUIDE.md)**
+When E2E tests fail:
+1. **Check screenshots**: `ls -lt /tmp/*.png | head -5` - Selenium saves screenshots on failure
+2. **Check logs**:
+   - Backend runtime: `tail -50 /workspace/check-ins/web.log`
+   - Frontend dev: `tail -50 /workspace/check-ins/frontend.log`
+   - Production builds: `tail -50 /workspace/check-ins/build.prod.log`
+3. **Run with verbose output**: `cd backend && uv run pytest tests/e2e/test_auth.py -v -s`
+4. **Check test coverage**: `cat backend/tests/e2e/TEST_COVERAGE.md`
+
+Common issues:
+- **TimeoutException** - Element not found, check screenshot to see actual page state
+- **Login failures** - User not in database, check if test cleanup is working
+- **Database errors** - E2E tests use live dev database (port 5432), ensure migrations ran
+- **Build errors** - Check build logs for:
+  - "no space left on device" → Run `make clean-docker` or `podman system prune -a`
+  - "Build command failed" → Check full log with `less build.prod.log`
+
+**E2E Test Database Configuration:**
+- E2E tests use the **live development database** (PostgreSQL on port 5432)
+- Tests create/cleanup their own data with unique names (e.g., "authtest", "checkintest")
+- Production tests currently fail due to database mismatch (need to use port 5433)
+- See `backend/tests/e2e/conftest.py` for database configuration
+
+**For detailed testing guide, see `backend/TESTING_QUICKSTART.md`**
 
 ## Task Completion Checklist
 
 Before considering an implementation phase complete, make sure to:
-- Write tests that cover your new functionality
-- IMPORTANT: Run `uv run python backend/verify.py` for backend changes
-- Run the full test suite: `uv run python manage.py test` (for production testing)
+- Write tests that cover your new functionality (see `backend/tests/e2e/TEST_COVERAGE.md`)
+- Run `make verify` for backend changes
+- Run appropriate test suite:
+  - Backend changes: `cd backend && make test-auth` (or relevant suite)
+  - Before committing: `cd backend && make test-e2e-dev` (should pass 17/20+ tests)
+  - Production deployment: `make test-e2e-prod` (after fixing DB config)
+- Verify tests pass (at least as well as baseline: 17/20 on dev as of 2025-12-12)
 - Update CURRENT_TASKS.md so everything that you actually finished is checked off
 - Commit all your changes to git with clear commit messages
 
