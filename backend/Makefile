@@ -20,6 +20,7 @@ help:
 	@echo "  make test-print        Run print queue tests only"
 	@echo "  make test-i18n         Run internationalization tests only"
 	@echo "  make test-navigation   Run navigation tests only"
+	@echo "  make test-supervised   Run supervised check-in tests only"
 	@echo ""
 	@echo "Build & Restart Commands:"
 	@echo "  make rebuild-dev       Trigger dev environment rebuild"
@@ -91,6 +92,10 @@ test-i18n:
 test-navigation:
 	@echo "Running navigation tests..."
 	@uv run --group test pytest tests/e2e/test_navigation.py -v
+
+test-supervised:
+	@echo "Running supervised check-in tests..."
+	@uv run --group test pytest tests/e2e/test_supervised_checkin.py -v
 
 # Utility commands
 clean:
