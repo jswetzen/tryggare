@@ -3,10 +3,19 @@ from django.middleware.csrf import get_token
 from django.utils.translation import gettext as _
 from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.http import require_http_methods
-from rest_framework.decorators import api_view, permission_classes
+from rest_framework.decorators import api_view, permission_classes, throttle_classes
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework import status
+from rest_framework.throttling import AnonRateThrottle
+
+
+class LoginRateThrottle(AnonRateThrottle):
+    """
+    Rate throttle specifically for login attempts.
+    Limits to 5 login attempts per minute per IP address.
+    """
+    rate = '5/minute'
 
 
 @require_http_methods(["GET"])
@@ -45,11 +54,13 @@ def check_auth(request):
 
 @api_view(["POST"])
 @permission_classes([AllowAny])
+@throttle_classes([LoginRateThrottle])
 def login_view(request):
     """
     Authenticates user and creates session.
     Accepts {username, password} JSON.
     Sets session cookie automatically.
+    Rate limited to 5 attempts per minute per IP address.
     """
     username = request.data.get("username")
     password = request.data.get("password")
