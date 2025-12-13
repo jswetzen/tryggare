@@ -1,439 +1,362 @@
-# Supervised Check-In Feature - Implementation Tasks
+# Production Security Review & Deployment Readiness
 
-**Feature:** Add support for supervised check-ins where children with guardians present don't require explicit checkout but can still be checked into subsequent sessions.
+**Objective:** Conduct comprehensive security review of Django backend and SvelteKit frontend, validate production Docker Compose configuration, and ensure system is ready for online deployment.
 
-**Date Started:** 2025-12-11
-
----
-
-## Recent Completion (2025-12-12)
-
-**E2E Test Database Configuration Fixed:**
-- Fixed E2E authentication tests that were failing due to database mismatch
-- Reconfigured tests to use live development PostgreSQL database instead of isolated SQLite
-- All 4 authentication tests now pass successfully
-- See `docs/E2E_DATABASE_CONFIGURATION.md` for details
+**Date Started:** 2025-12-13
 
 ---
 
-## Design Decisions Summary
+## Phase 1: Django Backend Security Review ✅
 
-- **Data Model:** Add `supervised` boolean field to `CheckInRecord` model
-- **Session Validation:** Block supervised check-in to new session only if BOTH `is_active=True` AND `end_time > now()` (Option D)
-- **Print Queue:** Show supervised check-ins only from active sessions (not past sessions)
-- **Checkout Page:** Show supervised children with "Supervised" badge, allow manual checkout
-- **UI Placement:** Per-child supervised checkbox in family check-in flow
-- **No Checkout Requirement:** Supervised children can transition to new session after old session ends without explicit checkout
-- **Migration:** No backfill needed for existing data
+### 1.1 Authentication & Authorization Security
+- [ ] Review `backend/accounts/models.py` - AdminUser model, password hashing
+- [ ] Review `backend/accounts/views.py` - Login/logout endpoints, session handling
+- [ ] Check password validation settings in `backend/config/settings/base.py:106-111`
+- [ ] Verify session security settings (SESSION_COOKIE_HTTPONLY, SESSION_COOKIE_SECURE, SESSION_COOKIE_SAMESITE)
+- [ ] Confirm no hardcoded credentials in codebase
+- [ ] Review permission classes in DRF views (`IsAuthenticated` enforcement)
+- [ ] Check for authentication bypass vulnerabilities
+- [ ] Verify admin panel access is properly secured
 
----
+### 1.2 CSRF & CORS Protection
+- [ ] Review CSRF middleware configuration in `backend/config/settings/base.py:42-53`
+- [ ] Verify CSRF token handling in API endpoints
+- [ ] Check CORS_ALLOWED_ORIGINS configuration in `.env.prod`
+- [ ] Verify CSRF_TRUSTED_ORIGINS matches deployment URLs
+- [ ] Ensure CORS_ALLOW_CREDENTIALS is appropriate for use case
+- [ ] Test CSRF protection on state-changing endpoints (POST, PUT, DELETE)
+- [ ] Verify SameSite cookie settings prevent CSRF attacks
 
-## Phase 1: Backend Implementation ✅ COMPLETED (2025-12-12)
+### 1.3 Input Validation & SQL Injection Prevention
+- [ ] Review all serializers in `backend/checkins/serializers.py`
+- [ ] Review serializers in `backend/families/serializers.py`
+- [ ] Review serializers in `backend/events/serializers.py`
+- [ ] Check for raw SQL queries (should use Django ORM)
+- [ ] Verify all user inputs are validated and sanitized
+- [ ] Check file upload handling (if any)
+- [ ] Review URL parameter validation
+- [ ] Test for NoSQL injection in any filter operations
 
-### 1.1 Database Model Changes
+### 1.4 API Security & Rate Limiting
+- [ ] Review all view endpoints in `backend/checkins/views.py`
+- [ ] Review endpoints in `backend/families/views.py`
+- [ ] Review endpoints in `backend/events/views.py`
+- [ ] Review endpoints in `backend/printing/views.py`
+- [ ] Check for sensitive data exposure in API responses
+- [ ] Verify proper HTTP methods are enforced (GET vs POST)
+- [ ] Assess need for rate limiting on authentication endpoints
+- [ ] Review pagination to prevent resource exhaustion
+- [ ] Check for mass assignment vulnerabilities in serializers
 
-- [x] Add `supervised` field to `CheckInRecord` model in `backend/checkins/models.py:7-65`
-  ```python
-  supervised = models.BooleanField(
-      default=False,
-      help_text="Child is supervised by guardian, no explicit checkout required",
-      verbose_name=_("Supervised")
-  )
-  ```
-- [x] Add database index for supervised field (optional, for query optimization)
-- [x] Create and run migration: `uv run python backend/manage.py makemigrations`
-- [x] Apply migration: `uv run python backend/manage.py migrate`
-- [x] Verify migration with: `uv run python backend/verify.py`
+### 1.5 WebSocket Security
+- [ ] Review WebSocket consumer in `backend/checkins/consumers.py`
+- [ ] Verify WebSocket authentication/authorization
+- [ ] Check for authorization on channel subscriptions
+- [ ] Review message broadcasting logic for data leakage
+- [ ] Test WebSocket connections require valid session
+- [ ] Verify Redis/Valkey channel layer security
 
-### 1.2 Serializer Updates
+### 1.6 Data Exposure & Privacy
+- [ ] Review what data is logged in audit logs
+- [ ] Check for sensitive data in error messages
+- [ ] Verify DEBUG=False in production settings
+- [ ] Review model `__str__` methods for data exposure
+- [ ] Check serializer fields exclude sensitive data
+- [ ] Verify no PII in URLs or query parameters
+- [ ] Review print queue for data privacy concerns
 
-- [x] Add `supervised` to `CheckInRecordSerializer` fields in `backend/checkins/serializers.py`
-- [x] Update validation logic in `CheckInRecordSerializer.validate()` (lines 37-53) to handle supervised session transitions:
-  ```python
-  def validate(self, data):
-      child = data.get("child")
-      session = data.get("session")
-
-      if child and session:
-          # Check for active check-in to SAME session
-          same_session = CheckInRecord.objects.filter(
-              child=child,
-              session=session,
-              check_out_time__isnull=True
-          ).exclude(id=self.instance.id if self.instance else None)
-
-          if same_session.exists():
-              raise serializers.ValidationError(
-                  _("This child is already checked in to this session.")
-              )
-
-          # Check for active check-ins to OTHER sessions
-          other_sessions = CheckInRecord.objects.filter(
-              child=child,
-              check_out_time__isnull=True
-          ).exclude(session=session).select_related('session')
-
-          for record in other_sessions:
-              # Standard check-ins always block
-              if not record.supervised:
-                  raise serializers.ValidationError(
-                      _("Child has active check-in to another session.")
-                  )
-
-              # Supervised: only block if BOTH is_active AND end_time not passed
-              if record.session.is_active and record.session.end_time > timezone.now():
-                  raise serializers.ValidationError(
-                      _("Child still in active supervised session.")
-                  )
-
-      return data
-  ```
-
-### 1.3 View Logic Updates
-
-- [x] Update `check_in` view in `backend/checkins/views.py:32-127` to:
-  - Accept `supervised` parameter from request data
-  - Pass `supervised` to `CheckInRecord.objects.create()` (line 80-85)
-  - Include `supervised` in audit log details (line 95-106)
-
-- [x] Update session overlap validation in `check_in` view (lines 63-72):
-  ```python
-  # Check for same-session active check-in
-  existing = CheckInRecord.objects.filter(
-      child=child, session=session, check_out_time__isnull=True
-  ).first()
-
-  if existing:
-      return Response(
-          {"error": _("Child is already checked in to this session")},
-          status=status.HTTP_400_BAD_REQUEST,
-      )
-
-  # Check for other-session active check-ins
-  other_sessions = CheckInRecord.objects.filter(
-      child=child,
-      check_out_time__isnull=True
-  ).exclude(session=session).select_related('session')
-
-  for record in other_sessions:
-      # Standard check-ins always block
-      if not record.supervised:
-          return Response(
-              {"error": _("Child has active check-in to another session")},
-              status=status.HTTP_400_BAD_REQUEST,
-          )
-
-      # Supervised: only block if BOTH conditions true
-      if record.session.is_active and record.session.end_time > timezone.now():
-          return Response(
-              {"error": _("Child still in active supervised session")},
-              status=status.HTTP_400_BAD_REQUEST,
-          )
-  ```
-
-- [x] Update print queue filtering in `print_queue` view (lines 343-530):
-  ```python
-  # In get_queryset() or filter logic (around line 354-356)
-  queryset = CheckInRecord.objects.filter(
-      label_printed=False,
-      models.Q(
-          # Standard check-in still active
-          check_out_time__isnull=True,
-          supervised=False
-      ) | models.Q(
-          # Supervised check-in in active session only
-          supervised=True,
-          check_out_time__isnull=True,
-          session__is_active=True,
-          session__end_time__gt=timezone.now()
-      )
-  ).select_related('child', 'session', 'check_in_staff')
-  ```
-
-- [x] Verify `check_out` view works with supervised records (no changes needed, but test it)
-- [x] Verify `undo` view works with supervised records (no changes needed, but test it)
-- [x] Verify `active` view (lines 322-327) includes supervised check-ins correctly
-
-### 1.4 WebSocket Updates
-
-- [x] Update WebSocket broadcast in `check_in` view (lines 109-124) to include `supervised` field:
-  ```python
-  async_to_sync(channel_layer.group_send)(
-      "checkins_broadcast",
-      {
-          "type": "checkin_broadcast",
-          "message": {
-              "type": "child_checked_in",
-              "child_id": str(child.id),
-              "family_id": str(child.family.id),
-              "record_id": str(record.id),
-              "supervised": record.supervised,  # NEW
-          },
-      },
-  )
-  ```
-
-- [x] Verify WebSocket consumer in `backend/checkins/consumers.py` forwards the supervised field (likely no changes needed)
-
-### 1.5 Backend Testing
-
-- [x] Write test: Standard check-in works as before (no supervised flag)
-- [x] Write test: Supervised check-in creates record with `supervised=True`
-- [x] Write test: Supervised check-in to ended session allows check-in to new session
-- [x] Write test: Supervised check-in to active session (is_active=True, end_time in future) blocks new check-in
-- [x] Write test: Supervised check-in with is_active=True but end_time passed allows new check-in
-- [x] Write test: Supervised check-in with is_active=False but end_time in future allows new check-in
-- [x] Write test: Standard check-in always blocks new check-in regardless of session status
-- [x] Write test: Print queue shows supervised from active sessions only
-- [x] Write test: Print queue excludes supervised from ended sessions
-- [x] Write test: Checkout works for supervised records
-- [x] Write test: Undo works for supervised records within 5-minute window
-- [x] Write test: WebSocket message includes supervised field
-- [x] Run full test suite: `uv run python backend/manage.py test` (27 tests, all passing)
-- [x] Run verification: `uv run python backend/verify.py` (all checks passed)
+### 1.7 Dependency & Django Security
+- [ ] Check Django version is up-to-date and patched
+- [ ] Review `backend/requirements.txt` for known vulnerabilities
+- [ ] Check for deprecated Django features
+- [ ] Verify ALLOWED_HOSTS is properly configured
+- [ ] Review SECURE_PROXY_SSL_HEADER configuration
+- [ ] Check SecurityMiddleware is enabled
+- [ ] Verify X-Frame-Options protection (ClickjackingMiddleware)
 
 ---
 
-## Phase 2: Frontend Implementation ✅ COMPLETED (2025-12-12)
+## Phase 2: SvelteKit Frontend Security Review
 
-### 2.1 Type Definitions
+### 2.1 XSS Prevention
+- [ ] Review data binding in `frontend/src/routes/checkin/+page.svelte`
+- [ ] Review `frontend/src/routes/checkout/+page.svelte`
+- [ ] Review `frontend/src/routes/print-queue/+page.svelte`
+- [ ] Review `frontend/src/lib/components/checkin/FamilyCard.svelte`
+- [ ] Check all user input rendering uses proper escaping
+- [ ] Verify no `{@html}` tags with unsanitized content
+- [ ] Review dynamic component rendering
+- [ ] Check third-party component usage
 
-- [x] Add `supervised` field to `CheckInRecord` type in `frontend/src/lib/api/types.ts` or `frontend/src/lib/checkin/types.ts`
-  ```typescript
-  export interface CheckInRecord {
-      id: string;
-      child: string;
-      session: string;
-      check_in_time: string;
-      check_out_time: string | null;
-      picked_up_by: string | null;
-      supervised: boolean;  // NEW
-      // ... other fields
-  }
-  ```
+### 2.2 Client-Side Authentication & Session Handling
+- [ ] Review auth store in `frontend/src/lib/stores/auth.ts`
+- [ ] Verify session token storage (cookies vs localStorage)
+- [ ] Check for token exposure in client-side code
+- [ ] Review login flow in `frontend/src/routes/login/+page.svelte`
+- [ ] Verify logout properly clears all session data
+- [ ] Check for session fixation vulnerabilities
+- [ ] Review automatic session timeout handling
 
-- [x] Add `supervised` field to Child type if needed for local state tracking (not needed - handled via supervisedState record)
+### 2.3 API Client Security
+- [ ] Review API client in `frontend/src/lib/api/client.ts`
+- [ ] Verify CSRF token is sent with requests
+- [ ] Check credentials are included in fetch requests
+- [ ] Review error handling doesn't leak sensitive info
+- [ ] Verify API base URL configuration
+- [ ] Check for hardcoded secrets or API keys
+- [ ] Review request/response interceptors
 
-### 2.2 Check-In Page Updates
+### 2.4 WebSocket Client Security
+- [ ] Review WebSocket store in `frontend/src/lib/stores/websocket.ts`
+- [ ] Verify WebSocket URL is constructed securely
+- [ ] Check WebSocket authentication mechanism
+- [ ] Review message handling for injection attacks
+- [ ] Verify connection only to trusted backend
+- [ ] Check for sensitive data in WebSocket messages
 
-- [x] Add state to track supervised checkbox per child in `frontend/src/routes/checkin/+page.svelte`:
-  ```typescript
-  let supervisedState = $state<Record<string, boolean>>({});
-  ```
+### 2.5 Client-Side Data Validation
+- [ ] Review form validation in check-in page
+- [ ] Review form validation in checkout page
+- [ ] Verify client-side validation doesn't bypass server validation
+- [ ] Check for type safety in TypeScript definitions
+- [ ] Review `frontend/src/lib/api/types.ts`
+- [ ] Review `frontend/src/lib/checkin/types.ts`
 
-- [x] Update `checkInChild()` function (line 385) to pass supervised parameter:
-  ```typescript
-  const checkInRecord = await checkinApi.checkIn({
-      child: childId,
-      session: activeSession.id,
-      supervised: supervisedState[childId] || false,  // NEW
-  });
-  ```
-
-- [x] Update `checkInFamily()` function (line 440) to pass supervised per child:
-  ```typescript
-  const checkInRecords = await Promise.all(
-      childIdsToCheckIn.map((childId) =>
-          checkinApi.checkIn({
-              child: childId,
-              session: activeSession.id,
-              supervised: supervisedState[childId] || false,  // NEW
-          })
-      )
-  );
-  ```
-
-- [x] Update WebSocket handler `handleWebSocketMessage()` (around lines 165-302) to handle supervised field (no changes needed - field is part of the record):
-  ```typescript
-  if (message.type === 'child_checked_in') {
-      const { child_id, family_id, supervised } = message;
-      // Update local state with supervised status if needed
-      // (likely no changes needed, but verify)
-  }
-  ```
-
-### 2.3 FamilyCard Component Updates
-
-- [x] Add supervised checkbox UI to `FamilyCard.svelte` child rows (around line 145-173):
-  ```svelte
-  <!-- In the child row, before or after ChildCheckInButton -->
-  {#if !child.checkedIn && child.ticket !== 'none'}
-    <div class="flex items-center gap-2 text-sm">
-      <input
-        type="checkbox"
-        id="supervised-{child.id}"
-        bind:checked={supervisedState[child.id]}
-        class="rounded border-slate-300"
-      />
-      <label for="supervised-{child.id}" class="text-slate-600 cursor-pointer">
-        {$_('checkin.guardianPresent')}
-      </label>
-    </div>
-  {/if}
-  ```
-
-- [x] Pass `supervisedState` as prop to FamilyCard from parent page:
-  ```typescript
-  // In checkin/+page.svelte
-  <FamilyCard
-    {family}
-    bind:supervisedState={supervisedState}
-    // ... other props
-  />
-  ```
-
-- [x] Update FamilyCard props interface to accept `supervisedState`
-
-### 2.4 Checkout Page Updates
-
-- [x] Update checkout record display in `frontend/src/routes/checkout/+page.svelte` to show supervised badge
-- [x] Add badge rendering (find the checkout table/list rendering, likely around line 100+):
-  ```svelte
-  {#each filteredCheckIns as record}
-    <div class="checkout-row">
-      <div class="child-info">
-        {record.child_name}
-        {#if record.supervised}
-          <span class="px-2 py-0.5 ml-2 text-xs font-semibold bg-blue-100 text-blue-800 rounded">
-            {$_('checkout.supervised')}
-          </span>
-        {/if}
-      </div>
-      <!-- ... rest of checkout UI -->
-    </div>
-  {/each}
-  ```
-
-- [x] Verify checkout functionality works for supervised records (allow manual checkout - verified working)
-
-### 2.5 Translation Strings
-
-- [x] Add translation keys to `frontend/src/lib/i18n/locales/en.json`:
-  ```json
-  {
-    "checkin": {
-      "guardianPresent": "Guardian present",
-      // ... existing keys
-    },
-    "checkout": {
-      "supervised": "Supervised",
-      // ... existing keys
-    }
-  }
-  ```
-
-- [x] Add same keys to Norwegian translation `frontend/src/lib/i18n/locales/nb.json`:
-  ```json
-  {
-    "checkin": {
-      "guardianPresent": "Foresatt til stede",
-      // ... existing keys
-    },
-    "checkout": {
-      "supervised": "Under tilsyn",
-      // ... existing keys
-    }
-  }
-  ```
-
-### 2.6 Frontend Testing
-
-- [x] Manual test: Check-in child with supervised checkbox checked (✅ verified with Playwright)
-- [x] Manual test: Check-in child without supervised checkbox (standard) (✅ verified with Playwright)
-- [ ] Manual test: Bulk family check-in with mixed supervised/standard
-- [ ] Manual test: Supervised child in ended session can check into new session (backend feature)
-- [ ] Manual test: Supervised child in active session blocked from new session (backend feature)
-- [x] Manual test: Supervised badge appears on checkout page (✅ verified with Playwright - blue badge visible)
-- [x] Manual test: Supervised child can be manually checked out from checkout page (✅ verified working)
-- [x] Manual test: Undo supervised check-in within 30 seconds (✅ verified with Playwright)
-- [ ] Manual test: WebSocket updates show supervised status across multiple stations
-- [ ] Manual test: Print queue shows supervised children from active sessions only (backend feature)
+### 2.6 Dependencies & Build Security
+- [ ] Review `frontend/package.json` for vulnerable dependencies
+- [ ] Check for outdated packages
+- [ ] Verify build output doesn't include source maps in production
+- [ ] Review `.env` handling and variable exposure
+- [ ] Check for secrets in environment variables
+- [ ] Verify static asset integrity
 
 ---
 
-## Phase 3: Integration Testing
+## Phase 3: Production Docker Compose Review
 
-### 3.1 Development Environment Testing
+### 3.1 Container Configuration
+- [ ] Review `docker-compose.prod.yml` service definitions
+- [ ] Verify non-root user in containers (check Dockerfiles)
+- [ ] Review `backend/Dockerfile.prod`
+- [ ] Check resource limits (memory, CPU) - consider adding
+- [ ] Verify restart policies are appropriate
+- [ ] Review health check configurations
+- [ ] Check container networking isolation
 
-- [ ] Restart development containers: `echo "restart" > restart.txt`
-- [ ] Verify backend server starts without errors (check `web.log`)
-- [ ] Verify frontend dev server starts (check `frontend.log`)
-- [ ] Test full user flow:
-  - [ ] Log in as admin
-  - [ ] Create/select active session
-  - [ ] Check in child with "Guardian present" checked → Supervised check-in
-  - [ ] Check in another child without checkbox → Standard check-in
-  - [ ] Verify both appear in print queue
-  - [ ] End session
-  - [ ] Verify supervised child disappears from print queue
-  - [ ] Verify supervised child can check into new session without checkout
-  - [ ] Verify standard child blocked from new session until checkout
+### 3.2 Environment Variables & Secrets
+- [ ] Review `.env.prod` file structure
+- [ ] Verify SECRET_KEY is strong and unique
+- [ ] Check DATABASE_URL doesn't have default passwords
+- [ ] Verify all sensitive values use env vars, not hardcoded
+- [ ] Check .env.prod is in .gitignore
+- [ ] Document required environment variables
+- [ ] Verify no secrets in docker-compose.yml
 
-### 3.2 Production Environment Testing
+### 3.3 Database Security
+- [ ] Review PostgreSQL configuration in docker-compose.prod.yml
+- [ ] Verify database password is not default `postgres:postgres`
+- [ ] Check database is not exposed on 0.0.0.0
+- [ ] Review database volume permissions
+- [ ] Verify database backups are configured
+- [ ] Check for SQL injection protection (covered in backend review)
+- [ ] Review connection pooling settings
 
+### 3.4 Redis/Valkey Security
+- [ ] Review Valkey configuration in docker-compose.prod.yml
+- [ ] Check if password authentication is needed
+- [ ] Verify Redis is not publicly accessible
+- [ ] Review channel layer security
+- [ ] Check for sensitive data in Redis cache
+
+### 3.5 Network & Firewall Configuration
+- [ ] Review port exposures (8080, 5433)
+- [ ] Verify only necessary ports are exposed
+- [ ] Check internal network isolation
+- [ ] Review ALLOWED_HOSTS configuration
+- [ ] Verify CORS_ALLOWED_ORIGINS matches deployment domain
+- [ ] Document firewall rules needed for deployment
+
+### 3.6 SSL/TLS & HTTPS Configuration
+- [ ] Review SESSION_COOKIE_SECURE setting
+- [ ] Review CSRF_COOKIE_SECURE setting
+- [ ] Verify SECURE_PROXY_SSL_HEADER is correct for reverse proxy
+- [ ] Check CSRF_TRUSTED_ORIGINS uses https:// for production
+- [ ] Document reverse proxy SSL termination requirements
+- [ ] Verify HTTP to HTTPS redirect (if applicable)
+
+### 3.7 Logging & Monitoring
+- [ ] Review logging configuration in docker-compose.prod.yml
+- [ ] Verify log rotation is configured (max-size: 50m)
+- [ ] Check logs don't contain sensitive data
+- [ ] Review error reporting (sentry/monitoring)
+- [ ] Verify audit logging is comprehensive
+- [ ] Check log file permissions
+
+---
+
+## Phase 4: Deployment Configuration Testing
+
+### 4.1 Production Build Validation
 - [ ] Trigger production rebuild: `echo "restart" > restart.txt`
-- [ ] Wait for build to complete (check `build.prod.log`)
+- [ ] Wait for build completion, check `build.prod.log`
+- [ ] Verify no build errors or warnings
+- [ ] Check staticfiles are collected properly
+- [ ] Verify frontend assets are built and served
+- [ ] Test production container starts successfully
+- [ ] Confirm all services are healthy
+
+### 4.2 Production Environment Testing
 - [ ] Run verification script: `./verification.sh --test`
-- [ ] Test same user flows as dev environment on production (localhost:8080)
+- [ ] Test login at `http://localhost:8080`
 - [ ] Verify static file serving works
-- [ ] Verify WebSocket connections work
+- [ ] Test WebSocket connections work
+- [ ] Verify database migrations applied
+- [ ] Check CSRF tokens are generated and validated
+- [ ] Test all main user flows in production build
 
-### 3.3 Multi-Station Testing
+### 4.3 Security Headers Testing
+- [ ] Test X-Frame-Options header present
+- [ ] Test X-Content-Type-Options header
+- [ ] Verify Content-Security-Policy (if configured)
+- [ ] Check HTTPS redirect (if applicable)
+- [ ] Test HSTS header (if using HTTPS)
+- [ ] Verify Referrer-Policy header
 
-- [ ] Open check-in page in two browser windows/tabs
-- [ ] Check in supervised child in window 1
-- [ ] Verify window 2 receives WebSocket update with supervised status
-- [ ] Verify supervised badge appears correctly in both windows
-- [ ] Check out supervised child in window 1
-- [ ] Verify window 2 updates immediately
-
----
-
-## Phase 4: Documentation & Cleanup
-
-- [ ] Update `IMPLEMENTATION_PLAN.md` to mark supervised check-in feature complete
-- [ ] Document supervised check-in feature in user-facing docs (if any)
-- [ ] Update `PROJECT_SPECIFICATION.md` if needed
-- [ ] Move this file to `ARCHIVED_TASKS/CURRENT_TASKS_SUPERVISED_CHECKIN_<date>.md`
-- [ ] Create git commit with clear message describing the feature
-- [ ] Consider creating documentation in `docs/` folder explaining:
-  - What supervised check-in is
-  - When to use it
-  - How session transitions work
-  - Edge cases and limitations
+### 4.4 SSL/TLS Testing (if applicable)
+- [ ] Test SSL certificate is valid
+- [ ] Verify TLS version (1.2+ required)
+- [ ] Test cipher suites are secure
+- [ ] Check for mixed content warnings
+- [ ] Verify certificate chain is complete
+- [ ] Test automatic HTTP to HTTPS redirect
 
 ---
 
-## Rollback Plan
+## Phase 5: Penetration Testing Checklist
 
-If issues arise during implementation:
+### 5.1 Authentication Testing
+- [ ] Test brute force protection on login
+- [ ] Test password reset functionality (if exists)
+- [ ] Test session fixation attacks
+- [ ] Test concurrent session handling
+- [ ] Test logout properly invalidates session
+- [ ] Test authentication bypass attempts
 
-1. **Database rollback:** `uv run python backend/manage.py migrate checkins <previous_migration_number>`
-2. **Code rollback:** `git revert <commit_hash>` or `git reset --hard <previous_commit>`
-3. **Frontend state:** Clear localStorage in browser if needed
-4. **Production:** Restore from backup if database changes were applied
+### 5.2 Authorization Testing
+- [ ] Test horizontal privilege escalation (access other users' data)
+- [ ] Test vertical privilege escalation (access admin functions)
+- [ ] Test direct object reference vulnerabilities
+- [ ] Test API endpoints without authentication
+- [ ] Test bypassing permission checks
+
+### 5.3 Injection Testing
+- [ ] Test SQL injection on all inputs
+- [ ] Test XSS on text inputs and search
+- [ ] Test command injection (if any system calls)
+- [ ] Test template injection
+- [ ] Test XML/JSON injection
+- [ ] Test LDAP injection (if applicable)
+
+### 5.4 CSRF & Session Testing
+- [ ] Test CSRF protection on all state-changing operations
+- [ ] Test CSRF token validation
+- [ ] Test SameSite cookie protection
+- [ ] Test session timeout
+- [ ] Test session hijacking resistance
+
+### 5.5 Business Logic Testing
+- [ ] Test check-in/check-out flow for race conditions
+- [ ] Test supervised check-in logic for bypass
+- [ ] Test print queue manipulation
+- [ ] Test undo functionality for unauthorized access
+- [ ] Test session state manipulation
+- [ ] Test WebSocket message injection
 
 ---
 
-## Notes & Decisions Log
+## Phase 6: Documentation & Deployment Preparation
 
-- **2025-12-11:** Initial planning completed
-- **2025-12-11:** Decided on Option D for session validation (both is_active AND end_time must be true to block)
-- **2025-12-11:** Decided on per-child supervised checkboxes in family check-in flow
-- **2025-12-11:** Decided supervised children appear in print queue only during active sessions
-- **2025-12-11:** Decided supervised children visible on checkout page with badge, can be manually checked out
+### 6.1 Security Documentation
+- [ ] Document all security findings in `docs/SECURITY_REVIEW_REPORT.md`
+- [ ] Create security incident response plan
+- [ ] Document authentication flow
+- [ ] Document authorization model
+- [ ] Create security configuration checklist
+- [ ] Document secure deployment procedures
+
+### 6.2 Deployment Documentation
+- [ ] Update deployment instructions in README
+- [ ] Document environment variable requirements
+- [ ] Create production deployment checklist
+- [ ] Document backup and recovery procedures
+- [ ] Document SSL/TLS setup requirements
+- [ ] Create rollback procedures
+
+### 6.3 Configuration Hardening
+- [ ] Generate strong SECRET_KEY for production
+- [ ] Change all default passwords
+- [ ] Configure proper ALLOWED_HOSTS
+- [ ] Set up proper CORS origins
+- [ ] Configure rate limiting (if needed)
+- [ ] Enable security headers
+- [ ] Configure database backups
+
+### 6.4 Final Testing
+- [ ] Run full test suite: `make test`
+- [ ] Run E2E tests against production: `make test-e2e-prod`
+- [ ] Perform manual security testing
+- [ ] Test from external network (if applicable)
+- [ ] Test on mobile devices
+- [ ] Performance testing under load
+
+### 6.5 Pre-Deployment Checklist
+- [ ] All security issues resolved or documented
+- [ ] All tests passing
+- [ ] Documentation complete
+- [ ] Backup procedures in place
+- [ ] Monitoring configured
+- [ ] Rollback plan ready
+- [ ] Team trained on security procedures
+
+---
+
+## Phase 7: Execute Security Review
+
+### 7.1 Run Automated Security Scans
+- [ ] Run `safety check` on Python dependencies
+- [ ] Run `npm audit` on frontend dependencies
+- [ ] Scan for secrets in git history
+- [ ] Run static analysis tools
+- [ ] Check for common misconfigurations
+
+### 7.2 Generate Security Report
+- [ ] Compile all findings
+- [ ] Categorize by severity (Critical, High, Medium, Low)
+- [ ] Provide remediation recommendations
+- [ ] Create action plan for fixes
+- [ ] Document accepted risks (if any)
 
 ---
 
 ## Success Criteria
 
-- [ ] Supervised check-ins can be created via UI
-- [ ] Supervised children can transition to new session after old session ends (both is_active=False OR end_time passed)
-- [ ] Standard check-ins still block session transitions as before
-- [ ] Print queue shows supervised children only from active sessions
-- [ ] Checkout page displays supervised badge correctly
-- [ ] Manual checkout works for supervised children
-- [ ] WebSocket updates include supervised status
-- [ ] All existing tests pass
-- [ ] New tests cover supervised check-in scenarios
-- [ ] No regressions in standard check-in/checkout functionality
+- [ ] No critical or high severity security vulnerabilities
+- [ ] All authentication and authorization properly secured
+- [ ] CSRF and CORS properly configured
+- [ ] Input validation comprehensive
+- [ ] Production Docker Compose configuration secure
+- [ ] SSL/TLS properly configured (if applicable)
+- [ ] Environment variables properly secured
+- [ ] All tests passing
+- [ ] Security documentation complete
+- [ ] Deployment checklist ready
+
+---
+
+## Notes
+
+- This review is comprehensive and may take several hours to complete
+- Each section should be thorough - security is critical before public deployment
+- Document all findings, even minor issues
+- Prioritize fixes: Critical → High → Medium → Low
+- Some items may not apply depending on deployment scenario

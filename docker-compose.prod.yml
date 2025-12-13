@@ -15,8 +15,8 @@ services:
       - DJANGO_SETTINGS_MODULE=config.settings.prod
       - SECRET_KEY=${SECRET_KEY}
       - ALLOWED_HOSTS=${ALLOWED_HOSTS}
-      - DATABASE_URL=postgresql://postgres:postgres@db-prod:5432/checkins
-      - VALKEY_URL=redis://valkey-prod:6379/0
+      - DATABASE_URL=postgresql://${DB_USER}:${DB_PASSWORD}@db-prod:5432/checkins
+      - VALKEY_URL=${VALKEY_URL}
       - CORS_ALLOWED_ORIGINS=${CORS_ALLOWED_ORIGINS:-}
       - CSRF_TRUSTED_ORIGINS=${CSRF_TRUSTED_ORIGINS:-}
       # Cookie security: set to 'false' for HTTP testing, 'true' for HTTPS/reverse proxy
@@ -29,22 +29,44 @@ services:
         condition: service_healthy
       valkey-prod:
         condition: service_healthy
+    networks:
+      - frontend
+      - backend
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
     restart: unless-stopped
     logging:
+      driver: "json-file"
       options:
         max-size: "50m"
-        path: /home/johan/git/check-ins/web.log
+        max-file: "3"
 
   db-prod:
     image: docker.io/postgres:16-alpine
     environment:
       POSTGRES_DB: checkins
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-    ports:
-      - "5433:5432"  # Expose for testing (different port than dev DB)
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    # Port exposure removed for security - use Docker network for access
+    # For testing, use: podman exec -it <container> psql -U ${DB_USER} checkins
     volumes:
       - pg_data_prod:/var/lib/postgresql/data
+    networks:
+      - backend
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.25'
+          memory: 256M
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -d $${POSTGRES_DB} -U $${POSTGRES_USER}"]
       interval: 10s
@@ -54,12 +76,32 @@ services:
 
   valkey-prod:
     image: docker.io/valkey/valkey:7-alpine
+    command: valkey-server --requirepass "${REDIS_PASSWORD}"
+    environment:
+      - REDIS_PASSWORD=${REDIS_PASSWORD}
+    networks:
+      - backend
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+        reservations:
+          cpus: '0.1'
+          memory: 128M
     healthcheck:
-      test: ["CMD", "valkey-cli", "ping"]
+      test: ["CMD", "sh", "-c", "valkey-cli -a $$REDIS_PASSWORD ping"]
       interval: 10s
       timeout: 3s
       retries: 5
     restart: unless-stopped
+
+networks:
+  frontend:
+    driver: bridge
+  backend:
+    driver: bridge
+    internal: true  # Backend network has no external access
 
 volumes:
   pg_data_prod:

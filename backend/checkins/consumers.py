@@ -20,13 +20,13 @@ class CheckInConsumer(AsyncWebsocketConsumer):
 
     async def connect(self):
         """Accept WebSocket connection and add to broadcast group"""
-        # Check if user is authenticated
+        # SECURITY: Enforce authentication for WebSocket connections
         user = self.scope.get("user")
 
-        # For now, allow anonymous connections (will implement auth later if needed)
-        # if not user or not user.is_authenticated:
-        #     await self.close()
-        #     return
+        if not user or not user.is_authenticated:
+            # Reject unauthenticated connections
+            await self.close(code=4401)  # Custom close code for unauthorized
+            return
 
         # Add this connection to the checkins broadcast group
         self.room_group_name = "checkins_broadcast"

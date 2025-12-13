@@ -21,6 +21,9 @@ FROM ghcr.io/astral-sh/uv:python3.14-trixie-slim AS base
 
 WORKDIR /app
 
+# Create non-root user for security
+RUN groupadd -r django && useradd -r -g django django
+
 # Copy backend files
 COPY backend/pyproject.toml backend/uv.lock backend/README.md ./
 RUN uv sync --frozen --no-dev
@@ -35,6 +38,9 @@ COPY backend/printing ./printing
 
 # Copy frontend build from frontend-builder stage
 COPY --from=frontend-builder /app/build /app/staticfiles/
+
+# Set ownership to non-root user
+RUN chown -R django:django /app
 
 ENV DJANGO_SETTINGS_MODULE=config.settings.prod
 ENV PYTHONUNBUFFERED=1
@@ -56,6 +62,9 @@ uv run python manage.py migrate --noinput\n\
 # Start daphne\n\
 echo "Starting daphne..."\n\
 exec uv run python -m daphne -b 0.0.0.0 -p 8000 config.asgi:application\n\
-' > /entrypoint.sh && chmod +x /entrypoint.sh
+' > /entrypoint.sh && chmod +x /entrypoint.sh && chown django:django /entrypoint.sh
+
+# Switch to non-root user
+USER django
 
 ENTRYPOINT ["/entrypoint.sh"]

@@ -155,6 +155,15 @@ REST_FRAMEWORK = {
         "rest_framework.filters.SearchFilter",
         "rest_framework.filters.OrderingFilter",
     ],
+    "DEFAULT_THROTTLE_CLASSES": [
+        "rest_framework.throttling.AnonRateThrottle",
+        "rest_framework.throttling.UserRateThrottle",
+    ],
+    "DEFAULT_THROTTLE_RATES": {
+        "anon": "10/minute",  # Anonymous users
+        "user": "100/minute",  # Authenticated users
+        "login": "5/minute",  # Login attempts
+    },
 }
 
 CHANNEL_LAYERS = {
