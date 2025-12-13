@@ -5,5 +5,8 @@ export default defineConfig({
   plugins: [sveltekit()],
   server: {
     port: 5173
+  },
+  build: {
+    sourcemap: false  // Disable source maps in production builds
   }
 });
