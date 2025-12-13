@@ -92,7 +92,7 @@
       <div class="flex-1 min-w-0">
         <div class="flex items-center gap-2">
           <h3 class="font-bold text-blue-900 text-lg truncate">
-            {family.name} Family
+            {family.name}
           </h3>
           {#if allCheckedIn}
             <span class="px-2 py-0.5 text-xs font-semibold bg-green-100 text-green-800 rounded">
