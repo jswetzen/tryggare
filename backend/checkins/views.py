@@ -375,7 +375,13 @@ class PrintQueueViewSet(viewsets.ReadOnlyModelViewSet):
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        """Get all unprintable check-ins (checked in, not printed, not checked out)"""
+        """
+        Get all unprintable check-ins (checked in, not printed, not checked out).
+
+        For supervised check-ins, only the is_active flag matters - administrators
+        have full control to keep printing labels as long as the session is marked
+        active, regardless of the scheduled end_time.
+        """
         from django.db import models as db_models
 
         return CheckInRecord.objects.filter(
@@ -386,8 +392,7 @@ class PrintQueueViewSet(viewsets.ReadOnlyModelViewSet):
             db_models.Q(supervised=False) |
             db_models.Q(
                 supervised=True,
-                session__is_active=True,
-                session__end_time__gt=timezone.now()
+                session__is_active=True
             )
         ).select_related(
             'child',

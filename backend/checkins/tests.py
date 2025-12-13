@@ -499,8 +499,11 @@ class SupervisedCheckInTest(TestCase):
         self.assertIn('active check-in to another session', response.data['error'])
 
     def test_print_queue_shows_supervised_from_active_sessions_only(self):
-        """Test print queue shows supervised check-ins only from active sessions."""
-        # Create supervised check-in to ended session
+        """
+        Test print queue shows supervised check-ins only from sessions marked as active.
+        The is_active flag is the single source of truth - end_time doesn't matter.
+        """
+        # Create supervised check-in to inactive session (is_active=False)
         ended_checkin = CheckInRecord.objects.create(
             child=self.child,
             session=self.session1,
@@ -517,7 +520,7 @@ class SupervisedCheckInTest(TestCase):
             birthdate=timezone.now().date()
         )
 
-        # Create supervised check-in to active session
+        # Create supervised check-in to active session (is_active=True)
         active_checkin = CheckInRecord.objects.create(
             child=child2,
             session=self.session2,
@@ -530,14 +533,17 @@ class SupervisedCheckInTest(TestCase):
         response = self.client.get('/api/print-queue/')
 
         self.assertEqual(response.status_code, 200)
-        # Should only show check-in from active session
+        # Should only show check-in from session with is_active=True
         results = response.data if isinstance(response.data, list) else response.data.get('results', [])
         self.assertEqual(len(results), 1)
         self.assertEqual(results[0]['id'], str(active_checkin.id))
 
-    def test_print_queue_excludes_supervised_from_ended_sessions(self):
-        """Test print queue excludes supervised check-ins from ended sessions."""
-        # Create supervised check-in to ended session
+    def test_print_queue_excludes_supervised_from_inactive_sessions(self):
+        """
+        Test print queue excludes supervised check-ins from sessions marked as inactive.
+        Only the is_active flag matters, not the end_time.
+        """
+        # Create supervised check-in to inactive session (is_active=False)
         CheckInRecord.objects.create(
             child=self.child,
             session=self.session1,
@@ -552,6 +558,39 @@ class SupervisedCheckInTest(TestCase):
         self.assertEqual(response.status_code, 200)
         results = response.data if isinstance(response.data, list) else response.data.get('results', [])
         self.assertEqual(len(results), 0)
+
+    def test_print_queue_shows_supervised_past_end_time_if_session_active(self):
+        """
+        Test print queue shows supervised check-ins even after end_time has passed,
+        as long as the session is still marked as active (is_active=True).
+        This gives administrators maximum flexibility.
+        """
+        # Create a session that has ended (end_time in past) but is still active
+        past_but_active_session = Session.objects.create(
+            event=self.event,
+            name="Extended Session",
+            start_time=timezone.now() - timedelta(hours=3),
+            end_time=timezone.now() - timedelta(minutes=30),  # Ended 30 min ago
+            is_active=True  # But still marked as active - admin's choice!
+        )
+
+        # Create supervised check-in to this session
+        checkin = CheckInRecord.objects.create(
+            child=self.child,
+            session=past_but_active_session,
+            check_in_staff=self.user,
+            supervised=True,
+            label_printed=False
+        )
+
+        # Get print queue
+        response = self.client.get('/api/print-queue/')
+
+        self.assertEqual(response.status_code, 200)
+        results = response.data if isinstance(response.data, list) else response.data.get('results', [])
+        # Should show the check-in because is_active=True, regardless of end_time
+        self.assertEqual(len(results), 1)
+        self.assertEqual(results[0]['id'], str(checkin.id))
 
     def test_print_queue_shows_standard_check_ins_regardless_of_session(self):
         """Test print queue shows standard check-ins regardless of session status."""
