@@ -21,34 +21,40 @@ FROM ghcr.io/astral-sh/uv:python3.14-trixie-slim AS base
 
 WORKDIR /app
 
-# Copy backend files
-COPY backend/pyproject.toml backend/uv.lock backend/README.md ./
-
-# Install dependencies as root (creates .venv)
-RUN uv sync --frozen --no-dev
-
-COPY backend/manage.py ./
-COPY backend/config ./config
-COPY backend/accounts ./accounts
-COPY backend/families ./families
-COPY backend/events ./events
-COPY backend/checkins ./checkins
-COPY backend/printing ./printing
-
-# Copy frontend build from frontend-builder stage
-COPY --from=frontend-builder /app/build /app/staticfiles/
-
-# Create non-root user and set ownership of everything including .venv
+# Create non-root user first
 RUN groupadd -r django && \
     useradd -m -r -g django django && \
     chown -R django:django /app
+
+# Copy backend files
+COPY --chown=django:django backend/pyproject.toml backend/uv.lock backend/README.md ./
+
+# Switch to non-root user BEFORE installing dependencies
+USER django
+
+# Install dependencies as django user (creates .venv owned by django)
+RUN uv sync --frozen --no-dev
+
+# Switch back to root to copy files with correct ownership
+USER root
+
+COPY --chown=django:django backend/manage.py ./
+COPY --chown=django:django backend/config ./config
+COPY --chown=django:django backend/accounts ./accounts
+COPY --chown=django:django backend/families ./families
+COPY --chown=django:django backend/events ./events
+COPY --chown=django:django backend/checkins ./checkins
+COPY --chown=django:django backend/printing ./printing
+
+# Copy frontend build from frontend-builder stage
+COPY --from=frontend-builder --chown=django:django /app/build /app/staticfiles/
 
 ENV DJANGO_SETTINGS_MODULE=config.settings.prod
 ENV PYTHONUNBUFFERED=1
 
 EXPOSE 8000
 
-# Entrypoint script to run migrations and start server
+# Create entrypoint script with correct ownership
 RUN echo '#!/bin/sh\n\
 set -e\n\
 \n\
@@ -63,9 +69,11 @@ uv run python manage.py migrate --noinput\n\
 # Start daphne\n\
 echo "Starting daphne..."\n\
 exec uv run python -m daphne -b 0.0.0.0 -p 8000 config.asgi:application\n\
-' > /entrypoint.sh && chmod +x /entrypoint.sh && chown django:django /entrypoint.sh
+' > /entrypoint.sh && \
+    chmod +x /entrypoint.sh && \
+    chown django:django /entrypoint.sh
 
-# Switch to non-root user
+# Switch to non-root user for runtime
 USER django
 
 ENTRYPOINT ["/entrypoint.sh"]
