@@ -21,11 +21,10 @@ FROM ghcr.io/astral-sh/uv:python3.14-trixie-slim AS base
 
 WORKDIR /app
 
-# Create non-root user for security
-RUN groupadd -r django && useradd -r -g django django
-
 # Copy backend files
 COPY backend/pyproject.toml backend/uv.lock backend/README.md ./
+
+# Install dependencies as root (creates .venv)
 RUN uv sync --frozen --no-dev
 
 COPY backend/manage.py ./
@@ -39,8 +38,10 @@ COPY backend/printing ./printing
 # Copy frontend build from frontend-builder stage
 COPY --from=frontend-builder /app/build /app/staticfiles/
 
-# Set ownership to non-root user
-RUN chown -R django:django /app
+# Create non-root user and set ownership of everything including .venv
+RUN groupadd -r django && \
+    useradd -m -r -g django django && \
+    chown -R django:django /app
 
 ENV DJANGO_SETTINGS_MODULE=config.settings.prod
 ENV PYTHONUNBUFFERED=1
