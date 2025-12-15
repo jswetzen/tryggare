@@ -772,7 +772,7 @@
 </svelte:head>
 
 <div class="min-h-screen bg-slate-100">
-  <div class="max-w-4xl mx-auto p-5">
+  <div class="max-w-4xl mx-auto p-3 md:p-5">
     {#if loading}
       <div class="text-center py-12">
         <p class="text-slate-600">{$_('common.loading')}</p>
@@ -828,16 +828,18 @@
       onClose={() => showSessionSelector = false}
     />
 
-    <!-- Header -->
+    <!-- Header (scrollable) -->
     <div class="mb-5">
       <h1 class="text-3xl font-bold text-blue-900">{$_('checkin.title')}</h1>
     </div>
 
-    <!-- Search Box -->
-    <SearchBox
-      bind:value={searchQuery}
-      placeholder={$_('checkin.searchPlaceholder')}
-    />
+    <!-- Sticky Search Box -->
+    <div class="sticky top-0 z-10 bg-slate-100 pb-2 -mx-3 px-3 md:-mx-5 md:px-5">
+      <SearchBox
+        bind:value={searchQuery}
+        placeholder={$_('checkin.searchPlaceholder')}
+      />
+    </div>
 
     <div class="mb-4 flex items-left justify-between text-sm">
     <!-- Stats Header -->

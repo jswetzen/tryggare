@@ -52,7 +52,7 @@
   </div>
 {/if}
 
-<div class="relative mb-4">
+<div class="relative mb-2">
   <Icon
     name="search"
     size="sm"
