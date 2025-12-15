@@ -131,12 +131,25 @@ class CheckInRecordViewSet(viewsets.ModelViewSet):
                 "data": {
                     "record_id": str(record.id),
                     "child_id": str(child.id),
-                    "child_name": f"{child.first_name} {child.last_name}",
+                    "child_name": child.first_name,
+                    "child_last_name": child.last_name,
                     "session_id": str(session.id),
                     "session_name": session.name,
                     "check_in_time": record.check_in_time.isoformat(),
                     "qr_token": child.qr_token,
                     "supervised": supervised,
+                    "allergies": child.allergies or "",
+                    "notes": child.notes or "",
+                    "parents": [
+                        {
+                            "id": str(p.id),
+                            "name": p.name,
+                            "phone": p.phone or "",
+                            "email": p.email or "",
+                            "relationship_type": p.relationship_type,
+                        }
+                        for p in child.family.parents.all()
+                    ],
                 }
             }
         )

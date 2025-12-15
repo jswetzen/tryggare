@@ -91,3 +91,10 @@ class CheckInConsumer(AsyncWebsocketConsumer):
             "type": "checkin_undone",
             "data": event["data"]
         }))
+
+    async def checkout_undone(self, event):
+        """Broadcast checkout undo event to client"""
+        await self.send(text_data=json.dumps({
+            "type": "checkout_undone",
+            "data": event["data"]
+        }))

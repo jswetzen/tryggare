@@ -115,10 +115,15 @@ export interface CheckInMessage {
     record_id: string;
     child_id: string;
     child_name: string;
+    child_last_name: string;
     session_id: string;
     session_name: string;
     check_in_time: string;
     qr_token: string;
+    supervised: boolean;
+    allergies?: string;
+    notes?: string;
+    parents?: Parent[];
   };
 }
 
@@ -132,6 +137,28 @@ export interface CheckOutMessage {
     session_name: string;
     check_out_time: string;
     picked_up_by: string;
+  };
+}
+
+export interface CheckInUndoneMessage {
+  type: 'checkin_undone';
+  data: {
+    record_id: string;
+    child_id: string;
+    child_name: string;
+    session_id: string;
+    session_name: string;
+  };
+}
+
+export interface CheckOutUndoneMessage {
+  type: 'checkout_undone';
+  data: {
+    record_id: string;
+    child_id: string;
+    child_name: string;
+    session_id: string;
+    session_name: string;
   };
 }
 
@@ -159,6 +186,8 @@ export interface ConnectionEstablishedMessage {
 export type WebSocketMessage =
   | CheckInMessage
   | CheckOutMessage
+  | CheckInUndoneMessage
+  | CheckOutUndoneMessage
   | SessionStartedMessage
   | SessionEndedMessage
   | ConnectionEstablishedMessage;
