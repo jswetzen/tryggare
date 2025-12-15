@@ -26,6 +26,9 @@
   let families = $state<Family[]>([]);
   let showSessionSelector = $state(false);
 
+  // Track recently checked-out records to prevent self-triggered WebSocket updates
+  let recentlyCheckedOutRecords = $state<Set<string>>(new Set());
+
   let unsubscribe: (() => void) | null = null;
 
   // Get reference to the websocket state store
@@ -51,9 +54,78 @@
   });
 
   function handleWebSocketMessage(message: WebSocketMessage) {
-    if (message.type === 'child_checked_in' || message.type === 'child_checked_out') {
-      // Reload active check-ins when someone checks in or out
-      loadActiveCheckIns();
+    // Check if message matches active session filter
+    const matchesSession = !activeSession || message.data?.session_id === activeSession.id;
+
+    if (message.type === 'child_checked_in') {
+      // Skip if doesn't match current session filter
+      if (!matchesSession) return;
+
+      // Add new check-in to list
+      const data = message.data;
+      const newRecord: CheckInRecord = {
+        id: data.record_id,
+        child: data.child_id,
+        child_name: `${data.child_name} ${data.child_last_name}`,
+        session: data.session_id,
+        session_name: data.session_name,
+        check_in_time: data.check_in_time,
+        supervised: data.supervised,
+        check_in_staff: '',
+        check_in_staff_name: '',
+      };
+
+      // Avoid duplicates
+      if (!activeCheckIns.find(r => r.id === newRecord.id)) {
+        activeCheckIns = [...activeCheckIns, newRecord];
+        filterCheckIns();
+      }
+    }
+    else if (message.type === 'child_checked_out') {
+      const recordId = message.data?.record_id;
+
+      // Skip if this was our own action
+      if (recordId && recentlyCheckedOutRecords.has(recordId)) {
+        recentlyCheckedOutRecords.delete(recordId);
+        recentlyCheckedOutRecords = new Set(recentlyCheckedOutRecords);
+        return;
+      }
+
+      // Remove from list
+      activeCheckIns = activeCheckIns.filter(r => r.id !== recordId);
+      filterCheckIns();
+    }
+    else if (message.type === 'checkin_undone') {
+      // Remove from checkout list (no longer checked in)
+      const recordId = message.data?.record_id;
+      activeCheckIns = activeCheckIns.filter(r => r.id !== recordId);
+      filterCheckIns();
+    }
+    else if (message.type === 'checkout_undone') {
+      // Child was re-checked-in after checkout undo
+      // Fetch the record from API since we don't have full data
+      if (matchesSession) {
+        fetchSingleCheckIn(message.data.record_id);
+      }
+    }
+  }
+
+  async function fetchSingleCheckIn(recordId: string) {
+    try {
+      // Note: We need a single record endpoint. For now, reload all
+      const allCheckIns = await checkInApi.active();
+      const record = allCheckIns.find(r => r.id === recordId);
+
+      // Only add if still active and matches session
+      if (record && !record.check_out_time && (!activeSession || record.session === activeSession.id)) {
+        // Avoid duplicates
+        if (!activeCheckIns.find(r => r.id === record.id)) {
+          activeCheckIns = [...activeCheckIns, record];
+          filterCheckIns();
+        }
+      }
+    } catch (err) {
+      console.error('Failed to fetch check-in record:', err);
     }
   }
 
@@ -137,6 +209,10 @@
     successMessage = null;
 
     try {
+      // Track to prevent WebSocket from re-removing
+      recentlyCheckedOutRecords.add(recordId);
+      recentlyCheckedOutRecords = new Set(recentlyCheckedOutRecords);
+
       await checkInApi.checkOut(recordId, pickedUpBy[recordId] || '');
 
       successMessage = $t('checkout.success');
@@ -144,16 +220,22 @@
       // Clear the picked up by field
       delete pickedUpBy[recordId];
 
-      // Reload active check-ins
-      await loadActiveCheckIns();
+      // Optimistic update - remove from local state immediately
+      activeCheckIns = activeCheckIns.filter(r => r.id !== recordId);
+      filterCheckIns();
 
       // Clear success message after 3 seconds
       setTimeout(() => {
         successMessage = null;
       }, 3000);
     } catch (err) {
+      // Rollback on error
+      recentlyCheckedOutRecords.delete(recordId);
+      recentlyCheckedOutRecords = new Set(recentlyCheckedOutRecords);
       console.error('Check-out failed:', err);
       error = $t('checkout.error');
+      // Reload to get accurate state
+      await loadActiveCheckIns();
     } finally {
       loading = false;
     }
@@ -173,6 +255,12 @@
         return family?.id === familyId;
       });
 
+      // Track all records to prevent WebSocket from re-removing
+      familyRecords.forEach(record => {
+        recentlyCheckedOutRecords.add(record.id);
+      });
+      recentlyCheckedOutRecords = new Set(recentlyCheckedOutRecords);
+
       // Check out all children in the family
       await Promise.all(
         familyRecords.map(record =>
@@ -185,16 +273,31 @@
       // Clear the picked up by field
       delete pickedUpBy[familyId];
 
-      // Reload active check-ins
-      await loadActiveCheckIns();
+      // Optimistic update - remove all family records from local state
+      const recordIds = new Set(familyRecords.map(r => r.id));
+      activeCheckIns = activeCheckIns.filter(r => !recordIds.has(r.id));
+      filterCheckIns();
 
       // Clear success message after 3 seconds
       setTimeout(() => {
         successMessage = null;
       }, 3000);
     } catch (err) {
+      // Rollback on error
+      const familyRecords = activeCheckIns.filter(record => {
+        const family = families.find(f =>
+          f.children.some(c => c.id === record.child)
+        );
+        return family?.id === familyId;
+      });
+      familyRecords.forEach(record => {
+        recentlyCheckedOutRecords.delete(record.id);
+      });
+      recentlyCheckedOutRecords = new Set(recentlyCheckedOutRecords);
       console.error('Family check-out failed:', err);
       error = $t('checkout.familyError');
+      // Reload to get accurate state
+      await loadActiveCheckIns();
     } finally {
       loading = false;
     }
