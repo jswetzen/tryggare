@@ -33,7 +33,6 @@ class ChildSerializer(serializers.ModelSerializer):
             "birthdate",
             "allergies",
             "notes",
-            "qr_token",
             "last_participation_date",
             "family",
             "ticket_type",
@@ -41,7 +40,7 @@ class ChildSerializer(serializers.ModelSerializer):
             "is_checked_in",
             "active_checkin_id",
         ]
-        read_only_fields = ["id", "qr_token", "last_participation_date", "ticket_type", "ticket_details", "is_checked_in", "active_checkin_id"]
+        read_only_fields = ["id", "last_participation_date", "ticket_type", "ticket_details", "is_checked_in", "active_checkin_id"]
 
     def get_ticket_type(self, obj: Child) -> str:
         """

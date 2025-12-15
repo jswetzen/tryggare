@@ -1,5 +1,6 @@
 """
-Public QR code endpoint - does not require authentication
+Public QR code endpoint - does not require authentication.
+Only returns data when child is actively checked in (privacy-first).
 """
 from django.utils.translation import gettext as _
 from rest_framework import status
@@ -7,60 +8,68 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 
-from .models import Child
+from checkins.qr_utils import get_code_for_active_checkin
 
 
 @api_view(["GET"])
 @permission_classes([AllowAny])
-def qr_info(request, token):
+def qr_info(request, code):
     """
-    Public endpoint to retrieve child information by QR token.
-    Used by check-in kiosks to scan QR codes.
+    Public endpoint to retrieve child information by QR code.
+
+    Privacy: Only returns data when child is ACTIVELY checked in.
+    If checked out or code invalid, returns 404.
+
+    Args:
+        code: The short alphanumeric QR code (e.g., "A3B7K")
 
     Returns:
-        - Child information (name, family, allergies, notes)
-        - Current check-in status (if checked in, which session, etc.)
+        - Child information if actively checked in
+        - 404 if code invalid or child not checked in
     """
-    try:
-        child = Child.objects.select_related("family").prefetch_related(
-            "checkin_records__session"
-        ).get(qr_token=token)
-    except Child.DoesNotExist:
+    qr_code = get_code_for_active_checkin(code)
+
+    if qr_code is None:
         return Response(
-            {"error": _("Invalid QR code")},
+            {"error": _("QR code not found or child is not currently checked in")},
             status=status.HTTP_404_NOT_FOUND,
         )
 
-    # Get current active check-in if any
-    active_checkin = child.checkin_records.filter(check_out_time__isnull=True).select_related(
-        "session"
-    ).first()
+    checkin = qr_code.checkin_record
+    child = checkin.child
 
-    # Get parent names
+    # Get parent information
     parents = child.family.parents.all()
-    parent_names = [p.name for p in parents]
+    parent_info = [
+        {
+            "id": str(p.id),
+            "name": p.name,
+            "phone": p.phone or "",
+            "email": p.email or "",
+            "relationship_type": p.relationship_type,
+        }
+        for p in parents
+    ]
 
     data = {
-        "id": str(child.id),
-        "first_name": child.first_name,
-        "last_name": child.last_name,
-        "date_of_birth": str(child.birthdate) if child.birthdate else None,
-        "allergies": child.allergies,
-        "medical_conditions": child.notes,  # Map notes to medical_conditions for frontend
-        "special_needs": None,  # Not yet implemented in backend model
-        "qr_token": child.qr_token,
-        "family": str(child.family.id),
-        "parent_names": parent_names,
-        "is_checked_in": active_checkin is not None,
-        "created_at": child.last_participation_date.isoformat() if child.last_participation_date else None,
-        "updated_at": child.last_participation_date.isoformat() if child.last_participation_date else None,
+        "qr_code": qr_code.code,
+        "checkin_record_id": str(checkin.id),
+        "child": {
+            "id": str(child.id),
+            "first_name": child.first_name,
+            "last_name": child.last_name,
+            "birthdate": str(child.birthdate) if child.birthdate else None,
+            "allergies": child.allergies or "",
+            "notes": child.notes or "",
+        },
+        "current_session": {
+            "id": str(checkin.session.id),
+            "name": checkin.session.name,
+            "check_in_time": checkin.check_in_time.isoformat(),
+        },
+        "parents": parent_info,
+        "family_id": str(child.family.id),
+        "supervised": checkin.supervised,
     }
-
-    if active_checkin:
-        data["current_session"] = {
-            "id": str(active_checkin.session.id),
-            "name": active_checkin.session.name,
-            "check_in_time": active_checkin.check_in_time,
-        }
 
     return Response(data)

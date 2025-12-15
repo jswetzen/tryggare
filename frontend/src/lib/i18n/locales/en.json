@@ -177,6 +177,7 @@
     "session": "Session:",
     "since": "Since:",
     "notCheckedIn": "Not Currently Checked In",
+    "notCheckedInHelp": "This QR code is not active. The child may not be checked in, or the code may have expired.",
     "emergencyContact": "Emergency Contact",
     "emergencyContactHelp": "For emergency contact information, please see a staff member.",
     "familyId": "Family ID:",

@@ -3,7 +3,7 @@
  */
 
 import { apiClient } from './client';
-import type { Family, Child, Session, CheckInRecord, AuditLog, PrintQueueItem } from './types';
+import type { Family, Child, Session, CheckInRecord, AuditLog, PrintQueueItem, QRInfoResponse } from './types';
 
 /**
  * Family API endpoints
@@ -38,7 +38,17 @@ export const childApi = {
     return apiClient.get<Child[]>(url);
   },
   get: (id: string) => apiClient.get<Child>(`/children/${id}/`),
-  getByQrToken: (token: string) => apiClient.get<Child>(`/qr/${token}/`),
+};
+
+/**
+ * QR code info endpoint (privacy-first - only returns data when checked in)
+ */
+export const qrApi = {
+  /**
+   * Get child info by QR code. Returns data only when actively checked in.
+   * Returns 404 if code is invalid or child is not currently checked in.
+   */
+  getInfo: (code: string) => apiClient.get<QRInfoResponse>(`/qr/${code}/`),
 };
 
 /**

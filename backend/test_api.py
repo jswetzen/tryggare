@@ -11,6 +11,9 @@ django.setup()
 from django.test import Client
 from accounts.models import AdminUser
 from families.models import Family, Child
+from events.models import Event, Session
+from checkins.models import CheckInRecord
+from checkins.qr_utils import get_code_for_active_checkin
 from django.utils import timezone
 import uuid
 import json
@@ -76,7 +79,7 @@ assert response.status_code == 201, f"Expected 201, got {response.status_code}: 
 child_id = response.json()['id']
 child_data = response.json()
 print(f"✓ Created child: {child_id}")
-print(f"  QR token (should be null): {child_data.get('qr_token')}\n")
+print(f"  (QR codes are now generated on check-in, not on child creation)\n")
 
 # Test 5: List children
 print("Test 5: List children")
@@ -93,58 +96,70 @@ child_detail = response.json()
 assert child_detail['first_name'] == 'Test'
 print(f"✓ Retrieved child: {child_detail['first_name']} {child_detail['last_name']}\n")
 
-# Test 7: QR endpoint (public, no auth required)
-print("Test 7: QR endpoint (public, no auth)")
-# Create child with QR token
+# Test 7: QR endpoint (privacy-first - only works when checked in)
+print("Test 7: QR endpoint - privacy-first behavior")
+
+# First, create event and session for check-in
+event = Event.objects.create(
+    name="Test Event",
+    start_date="2025-01-01",
+    end_date="2025-01-02"
+)
+session = Session.objects.create(
+    event=event,
+    name="Test Session",
+    start_time=timezone.now(),
+    end_time=timezone.now() + timezone.timedelta(hours=3),
+    is_active=True
+)
+
+# Check in the child via the API
 child = Child.objects.get(id=child_id)
-child.qr_token = str(uuid.uuid4())
-child.save()
+response = client.post('/api/checkins/check_in/', {
+    'child': str(child.id),
+    'session': str(session.id)
+}, content_type='application/json')
+assert response.status_code == 201, f"Check-in failed: {response.content}"
+checkin = CheckInRecord.objects.get(id=response.json()['id'])
+print(f"✓ Checked in child to session")
 
-# Test without authentication
+# Get the allocated QR code
+assert hasattr(checkin, 'qr_code') and checkin.qr_code, "QR code should be allocated on check-in"
+qr_code = checkin.qr_code.code
+print(f"✓ QR code allocated: {qr_code}")
+
+# Test QR endpoint (public, no auth) - should work when checked in
 client.logout()
-response = client.get(f'/api/qr/{child.qr_token}/')
-assert response.status_code == 200, f"Expected 200, got {response.status_code}"
+response = client.get(f'/api/qr/{qr_code}/')
+assert response.status_code == 200, f"Expected 200, got {response.status_code}: {response.content}"
 data = response.json()
-assert data['first_name'] == 'Test', "QR endpoint should return child data"
-assert 'is_checked_in' in data, "Should include check-in status"
-print(f"✓ QR endpoint working: {data['first_name']} {data['last_name']}")
-print(f"  Checked in: {data['is_checked_in']}")
-print(f"  Parent names: {data['parent_names']}\n")
+assert data['child']['first_name'] == 'Test', "QR endpoint should return child data"
+assert 'current_session' in data, "Should include session info when checked in"
+print(f"✓ QR endpoint working: {data['child']['first_name']} {data['child']['last_name']}")
+print(f"  Session: {data['current_session']['name']}\n")
 
-# Test 8: Invalid QR token
-print("Test 8: Invalid QR token")
-response = client.get('/api/qr/invalid-token-12345/')
+# Test 8: Invalid QR code
+print("Test 8: Invalid QR code")
+response = client.get('/api/qr/ZZZZZ/')
 assert response.status_code == 404, f"Expected 404, got {response.status_code}"
-print("✓ Invalid QR token returns 404\n")
+print("✓ Invalid QR code returns 404\n")
 
-# Test 9: Create event and session
-print("Test 9: Create event and session")
+# Test 9: QR code after checkout (should be 404 - privacy first)
+print("Test 9: QR code privacy after checkout")
 client.force_login(admin)
-response = client.post('/api/events/', {
-    'name': 'Test Conference',
-    'start_date': '2025-11-23',
-    'end_date': '2025-11-24'
-}, content_type='application/json')
-assert response.status_code == 201, f"Expected 201, got {response.status_code}: {response.content}"
-event_id = response.json()['id']
-print(f"✓ Created event: {event_id}")
+response = client.post(f'/api/checkins/{checkin.id}/check_out/', {}, content_type='application/json')
+assert response.status_code == 200, f"Checkout failed: {response.content}"
 
-response = client.post('/api/sessions/', {
-    'event': event_id,
-    'name': 'Morning Session',
-    'start_time': timezone.now().isoformat(),
-    'end_time': (timezone.now() + timezone.timedelta(hours=3)).isoformat(),
-    'requires_ticket': False
-}, content_type='application/json')
-assert response.status_code == 201, f"Expected 201, got {response.status_code}: {response.content}"
-session_id = response.json()['id']
-print(f"✓ Created session: {session_id}\n")
+client.logout()
+response = client.get(f'/api/qr/{qr_code}/')
+assert response.status_code == 404, f"Expected 404 after checkout, got {response.status_code}"
+print("✓ QR code returns 404 after checkout (privacy working)\n")
 
 print("=" * 50)
 print("✅ All API tests passed!")
 print("=" * 50)
 print()
-print("Test URLs:")
-print(f"  QR API endpoint: http://localhost:8000/api/qr/{child.qr_token}/")
-print(f"  Admin: http://localhost:8000/admin/")
+print("Privacy-first QR codes:")
+print(f"  - QR codes only work when child is actively checked in")
+print(f"  - After checkout, QR code returns 404 for privacy")
 print()

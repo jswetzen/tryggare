@@ -27,7 +27,6 @@ export interface Child {
   birthdate?: string;
   allergies?: string;
   notes?: string;
-  qr_token?: string;
   last_participation_date?: string;
   ticket_type: 'event' | 'session' | 'none';
   ticket_details?: {
@@ -99,7 +98,7 @@ export interface PrintQueueItem {
   id: string;
   child_name: string;
   child_last_name: string;
-  qr_token: string;
+  qr_code: string | null;
   session_name: string;
   check_in_time: string;
   parents: Parent[];
@@ -119,12 +118,40 @@ export interface CheckInMessage {
     session_id: string;
     session_name: string;
     check_in_time: string;
-    qr_token: string;
+    qr_code: string;
     supervised: boolean;
     allergies?: string;
     notes?: string;
     parents?: Parent[];
   };
+}
+
+// QR page response type (new privacy-first API)
+export interface QRInfoResponse {
+  qr_code: string;
+  checkin_record_id: string;
+  child: {
+    id: string;
+    first_name: string;
+    last_name: string;
+    birthdate?: string;
+    allergies?: string;
+    notes?: string;
+  };
+  current_session: {
+    id: string;
+    name: string;
+    check_in_time: string;
+  };
+  parents: Array<{
+    id: string;
+    name: string;
+    phone?: string;
+    email?: string;
+    relationship_type: string;
+  }>;
+  family_id: string;
+  supervised: boolean;
 }
 
 export interface CheckOutMessage {

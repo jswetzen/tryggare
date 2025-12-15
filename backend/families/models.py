@@ -63,7 +63,6 @@ class Child(models.Model):
     birthdate = models.DateField(verbose_name=_("Birthdate"))
     allergies = models.TextField(null=True, blank=True, verbose_name=_("Allergies"))
     notes = models.TextField(null=True, blank=True, verbose_name=_("Notes"))
-    qr_token = models.CharField(max_length=255, unique=True, null=True, blank=True, verbose_name=_("QR Token"))
     last_participation_date = models.DateTimeField(null=True, blank=True, verbose_name=_("Last Participation Date"))
     family = models.ForeignKey(Family, related_name="children", on_delete=models.CASCADE, verbose_name=_("Family"))
 
@@ -72,7 +71,6 @@ class Child(models.Model):
         verbose_name = _("Child")
         verbose_name_plural = _("Children")
         indexes = [
-            models.Index(fields=["qr_token"]),
             models.Index(fields=["last_name"]),
             models.Index(fields=["family"]),
         ]
