@@ -6,11 +6,10 @@
   import type { CheckInRecord, WebSocketMessage, Family, Session } from '$lib/api/types';
 
   // Import new components
-  import PageHeader from '$lib/components/PageHeader.svelte';
   import SearchBox from '$lib/components/SearchBox.svelte';
   import Alert from '$lib/components/ui/Alert.svelte';
+  import SuccessToast from '$lib/components/checkin/SuccessToast.svelte';
   import { EmptyState, Button, Icon } from '$lib/components/ui';
-  import { PageContainer } from '$lib/components/layout';
   import CheckoutExpandableTable from '$lib/components/checkout/CheckoutExpandableTable.svelte';
   import SessionIndicator from '$lib/components/checkin/SessionIndicator.svelte';
   import SessionSelector from '$lib/components/SessionSelector.svelte';
@@ -311,63 +310,42 @@
   <title>{$t('checkout.pageTitle')}</title>
 </svelte:head>
 
-<div class="min-h-screen bg-gray-50">
-  <!-- Sticky header with search -->
-  <div class="bg-white border-b border-gray-200 px-4 py-3 sticky top-0 z-10">
-    <div class="max-w-6xl mx-auto">
-      <h1 class="text-lg font-semibold text-gray-900 mb-3">
-        {$t('checkout.searchLabel')}
-      </h1>
-
-      <!-- Search bar -->
-      <div class="relative">
-        <input
-          type="text"
-          bind:value={searchQuery}
-          placeholder={$t('checkout.searchPlaceholder')}
-          class="w-full h-12 pl-4 pr-10 border border-blue-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-        />
-        <!-- Clear button appears when there's text -->
-        {#if searchQuery}
-          <button
-            onclick={() => searchQuery = ''}
-            class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-            aria-label="Clear search"
-          >
-            <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
-              <path d="M6 6l8 8M14 6l-8 8"/>
-            </svg>
-          </button>
-        {/if}
-      </div>
-    </div>
-  </div>
-
-  <!-- Main content area -->
-  <div class="max-w-6xl mx-auto p-4">
+<div class="min-h-screen bg-slate-100">
+  <div class="max-w-4xl mx-auto p-3 md:p-5">
     <!-- Session Indicator -->
     {#if activeSession}
-      <div class="mb-4">
-        <SessionIndicator
-          eventName={activeSession.event_name || 'No Event'}
-          sessionName={activeSession.name || 'No Active Session'}
-          sessionTime={activeSession
-            ? `${new Date(activeSession.start_time).toLocaleTimeString('en-US', {
-                hour: '2-digit',
-                minute: '2-digit',
-                hour12: false,
-              })} - ${activeSession.end_time ? new Date(activeSession.end_time).toLocaleTimeString('en-US', {
-                hour: '2-digit',
-                minute: '2-digit',
-                hour12: false,
-              }) : 'Open'}`
-            : ''}
-          showAddFamily={false}
-          showChangeSession={activeSessions.length > 1}
-          onChangeSession={handleChangeSession}
-        />
-      </div>
+      <SessionIndicator
+        eventName={activeSession.event_name || 'No Event'}
+        sessionName={activeSession.name || 'No Active Session'}
+        sessionTime={activeSession
+          ? `${new Date(activeSession.start_time).toLocaleTimeString('en-US', {
+              hour: '2-digit',
+              minute: '2-digit',
+              hour12: false,
+            })} - ${activeSession.end_time ? new Date(activeSession.end_time).toLocaleTimeString('en-US', {
+              hour: '2-digit',
+              minute: '2-digit',
+              hour12: false,
+            }) : 'Open'}`
+          : ''}
+        showAddFamily={false}
+        showChangeSession={activeSessions.length > 1}
+        onChangeSession={handleChangeSession}
+      />
     {/if}
+
+    <!-- Header (scrollable) -->
+    <div class="mb-5">
+      <h1 class="text-3xl font-bold text-blue-900">{$t('checkout.title')}</h1>
+    </div>
+
+    <!-- Sticky Search Box -->
+    <div class="sticky top-0 z-10 bg-slate-100 pb-2 -mx-3 px-3 md:-mx-5 md:px-5">
+      <SearchBox
+        bind:value={searchQuery}
+        placeholder={$t('checkout.searchPlaceholder')}
+      />
+    </div>
 
     <!-- Session Selector Modal -->
     <SessionSelector
@@ -378,16 +356,10 @@
       onClose={() => showSessionSelector = false}
     />
 
-    <!-- Alerts -->
+    <!-- Error Alert -->
     {#if error}
       <Alert type="error" dismissible ondismiss={() => error = null} class="mb-4">
         {error}
-      </Alert>
-    {/if}
-
-    {#if successMessage}
-      <Alert type="success" dismissible ondismiss={() => successMessage = null} class="mb-4">
-        {successMessage}
       </Alert>
     {/if}
 
@@ -399,11 +371,16 @@
     {/if}
 
     {#if !loading && filteredCheckIns.length === 0}
-      <div class="text-center py-12 text-gray-500">
+      <div class="text-center py-12 bg-white rounded-lg border-2 border-dashed border-slate-300">
+        <p class="text-slate-500 mb-2">
+          {#if searchQuery}
+            {$t('checkout.noChildrenFiltered', { values: { query: searchQuery } })}
+          {:else}
+            {$t('checkout.noChildren')}
+          {/if}
+        </p>
         {#if searchQuery}
-          No families found matching "{searchQuery}"
-        {:else}
-          {$t('checkout.noChildren')}
+          <p class="text-sm text-slate-400">{$t('checkin.tryDifferentSearch')}</p>
         {/if}
       </div>
     {/if}
@@ -429,3 +406,13 @@
     </div>
   </div>
 </div>
+
+<!-- Success Toast -->
+{#if successMessage}
+  <SuccessToast
+    message={successMessage}
+    onClose={() => {
+      successMessage = null;
+    }}
+  />
+{/if}
