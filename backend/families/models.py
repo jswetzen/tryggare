@@ -19,7 +19,7 @@ class Family(models.Model):
 
     def __str__(self) -> str:
         if self.last_name:
-            return f"{self.last_name} Family"
+            return self.last_name
         return f"Family {self.id}" if not self.parents.exists() else f"{self.parents.first().name}'s family"
 
     @property
@@ -28,10 +28,10 @@ class Family(models.Model):
         Returns a formatted display name for the family.
 
         Returns:
-            str: "{last_name} Family" or a fallback based on family ID or parent name
+            str: "{last_name}" or a fallback based on family ID or parent name
         """
         if self.last_name:
-            return f"{self.last_name} Family"
+            return self.last_name
         return f"Family {self.id}" if not self.parents.exists() else f"{self.parents.first().name}'s family"
 
 

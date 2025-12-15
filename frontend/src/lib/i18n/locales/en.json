@@ -155,6 +155,7 @@
     "checkedInChildren": "Checked-In Children",
     "familyChild": "Family / Child",
     "checkOut": "Check Out",
+    "checkOutAll": "Check Out All",
     "checkOutFamily": "Check out {family} ({count})",
     "familyCheckOutSuccess": "{family} family checked out ({count} {childrenLabel})!",
     "familyCheckOutError": "Failed to check out family",

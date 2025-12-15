@@ -154,9 +154,11 @@
     "checkedInChildren": "Incheckade barn",
     "familyChild": "Familj / Barn",
     "checkOut": "Checka ut",
+    "checkOutAll": "Checka ut alla",
     "checkOutFamily": "Checka ut {family} ({count})",
     "familyCheckOutSuccess": "{family} familjen utcheckad ({count} {childrenLabel})!",
-    "familyCheckOutError": "Kunde inte checka ut familj"
+    "familyCheckOutError": "Kunde inte checka ut familj",
+    "supervised": "Övervakad"
   },
   "qr": {
     "pageTitle": "Barninformation",

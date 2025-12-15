@@ -77,73 +77,76 @@
   data-testid={`family-card-${family.id}`}
 >
   <!-- Family Header -->
-  <div class="bg-slate-50 p-3 flex items-center justify-between gap-3">
-    <button
-      on:click={onToggle}
-      class="flex items-center gap-2 flex-1 min-w-0 text-left hover:bg-slate-100 rounded px-2 py-1 -mx-2 -my-1 transition-colors"
-      aria-label={`${expanded ? 'Collapse' : 'Expand'} ${family.name} family`}
-      data-testid={`family-toggle-button-${family.id}`}
-    >
-      <div class="text-slate-600 flex-shrink-0">
-        <span class="chevron" class:expanded>
-          {expanded ? '▼' : '▶'}
-        </span>
-      </div>
-      <div class="flex-1 min-w-0">
-        <div class="flex items-center gap-2">
-          <h3 class="font-bold text-blue-900 text-lg truncate">
-            {family.name}
-          </h3>
-          {#if allCheckedIn}
-            <span class="px-2 py-0.5 text-xs font-semibold bg-green-100 text-green-800 rounded">
-              {$_('checkin.allCheckedIn')}
-            </span>
-          {/if}
+  <div class="bg-slate-50 p-2.5 sm:p-3">
+    <div class="flex items-start justify-between gap-2">
+      <!-- Left side: Toggle button and family info -->
+      <button
+        on:click={onToggle}
+        class="flex items-start gap-2 flex-1 min-w-0 text-left hover:bg-slate-100 rounded px-2 py-1.5 -mx-2 -my-1.5 transition-colors"
+        aria-label={`${expanded ? 'Collapse' : 'Expand'} ${family.name} family`}
+        data-testid={`family-toggle-button-${family.id}`}
+      >
+        <div class="text-slate-600 flex-shrink-0 pt-0.5">
+          <span class="chevron" class:expanded>
+            {expanded ? '▼' : '▶'}
+          </span>
         </div>
-        <p class="text-sm text-slate-600">
-          {totalChildren} {totalChildren === 1 ? $_('checkin.child') : $_('checkin.children')} •
-          {checkedInCount} checked in
-        </p>
-      </div>
-    </button>
+        <div class="flex-1 min-w-0">
+          <div class="flex items-center gap-2 flex-wrap">
+            <h3 class="font-bold text-blue-900 text-base sm:text-lg truncate">
+              {family.name}
+            </h3>
+            {#if allCheckedIn}
+              <span class="px-1.5 py-0.5 text-xs font-semibold bg-green-100 text-green-800 rounded whitespace-nowrap">
+                {$_('checkin.allCheckedIn')}
+              </span>
+            {/if}
+          </div>
+          <p class="text-xs sm:text-sm text-slate-600 mt-0.5">
+            {totalChildren} {totalChildren === 1 ? $_('checkin.child') : $_('checkin.children')} •
+            {checkedInCount} checked in
+          </p>
+        </div>
+      </button>
 
-    <!-- Family Action Button -->
-    <!-- svelte-ignore a11y-click-events-have-key-events -->
-    <!-- svelte-ignore a11y-no-static-element-interactions -->
-    <div class="flex-shrink-0" on:click|stopPropagation={() => {}}>
-      {#if familyUndoSeconds !== null}
-        <!-- Undo Family button during grace period -->
-        <button
-          on:click={onUndoFamily}
-          class="px-4 py-2 bg-amber-600 text-white font-semibold rounded-lg hover:bg-amber-700 transition-colors text-sm whitespace-nowrap"
-          aria-label={`Undo family check-in, ${familyUndoSeconds} seconds remaining`}
-          data-testid={`family-undo-button-${family.id}`}
-        >
-          {$_('checkin.undoSeconds', { values: { seconds: familyUndoSeconds } })}
-        </button>
-      {:else if !allCheckedIn && canCheckInCount > 0 && !hasNoTicketChildren}
-        <!-- Check In Family button -->
-        <button
-          type="button"
-          on:click={onCheckInFamily}
-          class="px-4 py-2 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition-colors text-sm whitespace-nowrap"
-          aria-label={`Check in ${canCheckInCount} children from ${family.name} family`}
-          data-testid={`family-check-in-button-${family.id}`}
-        >
-          {$_('checkin.checkInCount', { values: { count: canCheckInCount } })}
-        </button>
-      {:else if allCheckedIn}
-        <!-- All checked in -->
-        <span class="px-4 py-2 bg-slate-200 text-slate-600 font-semibold rounded-lg text-sm whitespace-nowrap">
-          {$_('checkin.alreadyCheckedIn')}
-        </span>
-      {/if}
+      <!-- Right side: Action button -->
+      <!-- svelte-ignore a11y-click-events-have-key-events -->
+      <!-- svelte-ignore a11y-no-static-element-interactions -->
+      <div class="flex-shrink-0" on:click|stopPropagation={() => {}}>
+        {#if familyUndoSeconds !== null}
+          <!-- Undo Family button during grace period -->
+          <button
+            on:click={onUndoFamily}
+            class="px-3 py-1.5 sm:px-4 sm:py-2 bg-amber-600 text-white font-semibold rounded-lg hover:bg-amber-700 transition-colors text-xs sm:text-sm whitespace-nowrap"
+            aria-label={`Undo family check-in, ${familyUndoSeconds} seconds remaining`}
+            data-testid={`family-undo-button-${family.id}`}
+          >
+            {$_('checkin.undoSeconds', { values: { seconds: familyUndoSeconds } })}
+          </button>
+        {:else if !allCheckedIn && canCheckInCount > 0 && !hasNoTicketChildren}
+          <!-- Check In Family button -->
+          <button
+            type="button"
+            on:click={onCheckInFamily}
+            class="px-3 py-1.5 sm:px-4 sm:py-2 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition-colors text-xs sm:text-sm whitespace-nowrap"
+            aria-label={`Check in ${canCheckInCount} children from ${family.name} family`}
+            data-testid={`family-check-in-button-${family.id}`}
+          >
+            {$_('checkin.checkInCount', { values: { count: canCheckInCount } })}
+          </button>
+        {:else if allCheckedIn}
+          <!-- All checked in -->
+          <span class="px-3 py-1.5 sm:px-4 sm:py-2 bg-slate-200 text-slate-600 font-semibold rounded-lg text-xs sm:text-sm whitespace-nowrap inline-block">
+            {$_('checkin.alreadyCheckedIn')}
+          </span>
+        {/if}
+      </div>
     </div>
   </div>
 
   <!-- Children List (when expanded) -->
   {#if expanded}
-    <div class="p-3 space-y-2">
+    <div class="p-2 sm:p-3 space-y-2">
       {#each family.children as child (child.id)}
         {@const isExpanded = expandedChildId === child.id}
         {@const _tick = undoActionsData.tick}
@@ -153,9 +156,10 @@
           class="flex flex-col gap-2 p-2 bg-slate-50 rounded border border-slate-200"
           data-testid={`child-row-${child.id}`}
         >
-          <div class="flex items-center justify-between gap-3">
+          <div class="flex flex-col sm:flex-row sm:items-center gap-2">
+            <!-- Child info -->
             <div class="flex-1 min-w-0">
-              <div class="font-medium text-slate-700">{child.name}</div>
+              <div class="font-medium text-slate-700 text-sm sm:text-base">{child.name}</div>
               <div class="text-xs text-slate-500 mt-0.5">
                 {getTicketDisplay(child.ticket)}
                 {#if child.checkedIn && child.checkInTime}
@@ -164,7 +168,8 @@
               </div>
             </div>
 
-            <div class="flex items-center gap-2">
+            <!-- Actions -->
+            <div class="flex items-center gap-2 flex-wrap">
               {#if !child.checkedIn && child.ticket !== 'none' && supervisedState}
                 <label class="flex items-center gap-1.5 text-xs cursor-pointer whitespace-nowrap">
                   <input

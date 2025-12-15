@@ -1,6 +1,6 @@
 version: '3.9'
 
-name: check-in-prod
+name: ${COMPOSE_PROJECT_NAME:-check-in-prod}
 services:
   # Django backend serving both API and frontend
   # Frontend is built in the Dockerfile's first stage
@@ -10,21 +10,20 @@ services:
       dockerfile: backend/Dockerfile.prod
     environment:
       # Empty strings = use relative paths (browser uses current host/port)
-      - VITE_PUBLIC_API_BASE_URL=  # Client-side (Browser -> Django)
-      - VITE_PUBLIC_WS_BASE_URL=
+      - VITE_PUBLIC_API_BASE_URL=${VITE_PUBLIC_API_BASE_URL:-}  # Client-side (Browser -> Django)
+      - VITE_PUBLIC_WS_BASE_URL=${VITE_PUBLIC_WS_BASE_URL:-}
       - DJANGO_SETTINGS_MODULE=config.settings.prod
       - SECRET_KEY=${SECRET_KEY}
       - ALLOWED_HOSTS=${ALLOWED_HOSTS}
-      # Using simple password to match existing database volume
-      - DATABASE_URL=postgresql://postgres:password@db-prod:5432/checkins
-      - VALKEY_URL=redis://:qfONulCAjKP3ugs4yaQn26SLSSTNG%2FYMRDPZe4bs%2BUc%3D@valkey-prod:6379/0
+      - DATABASE_URL=${DATABASE_URL}
+      - VALKEY_URL=${VALKEY_URL}
       - CORS_ALLOWED_ORIGINS=${CORS_ALLOWED_ORIGINS:-}
       - CSRF_TRUSTED_ORIGINS=${CSRF_TRUSTED_ORIGINS:-}
       # Cookie security: set to 'false' for HTTP testing, 'true' for HTTPS/reverse proxy
       - SESSION_COOKIE_SECURE=${SESSION_COOKIE_SECURE:-false}
       - CSRF_COOKIE_SECURE=${CSRF_COOKIE_SECURE:-false}
     ports:
-      - "8080:8000"
+      - "${WEB_HOST_PORT:-8080}:8000"
     depends_on:
       db-prod:
         condition: service_healthy
@@ -36,24 +35,23 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '2.0'
-          memory: 2G
+          cpus: ${WEB_CPU_LIMIT:-2.0}
+          memory: ${WEB_MEMORY_LIMIT:-2G}
         reservations:
-          cpus: '0.5'
-          memory: 512M
+          cpus: ${WEB_CPU_RESERVATION:-0.5}
+          memory: ${WEB_MEMORY_RESERVATION:-512M}
     restart: unless-stopped
     logging:
       options:
-        max-size: "5m"
-        max-file: "3"
-        path: /home/johan/git/check-ins/web.prod.log
+        max-size: "${LOG_MAX_SIZE:-5m}"
+        max-file: "${LOG_MAX_FILES:-3}"
 
   db-prod:
-    image: docker.io/postgres:16-alpine
+    image: ${POSTGRES_IMAGE:-docker.io/postgres:16-alpine}
     environment:
-      POSTGRES_DB: checkins
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: password
+      POSTGRES_DB: ${POSTGRES_DB:-checkins}
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
     # Port exposure removed for security - use Docker network for access
     # For testing, use: podman exec -it <container> psql -U ${DB_USER} checkins
     volumes:
@@ -63,11 +61,11 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '1.0'
-          memory: 1G
+          cpus: ${DB_CPU_LIMIT:-1.0}
+          memory: ${DB_MEMORY_LIMIT:-1G}
         reservations:
-          cpus: '0.25'
-          memory: 256M
+          cpus: ${DB_CPU_RESERVATION:-0.25}
+          memory: ${DB_MEMORY_RESERVATION:-256M}
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -d $${POSTGRES_DB} -U $${POSTGRES_USER}"]
       interval: 10s
@@ -76,12 +74,11 @@ services:
     restart: unless-stopped
     logging:
       options:
-        max-size: "5m"
-        max-file: "3"
-        path: /home/johan/git/check-ins/db.prod.log
+        max-size: "${LOG_MAX_SIZE:-5m}"
+        max-file: "${LOG_MAX_FILES:-3}"
 
   valkey-prod:
-    image: docker.io/valkey/valkey:7-alpine
+    image: ${VALKEY_IMAGE:-docker.io/valkey/valkey:7-alpine}
     command: valkey-server --requirepass "${REDIS_PASSWORD}"
     environment:
       - REDIS_PASSWORD=${REDIS_PASSWORD}
@@ -90,11 +87,11 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '0.5'
-          memory: 512M
+          cpus: ${VALKEY_CPU_LIMIT:-0.5}
+          memory: ${VALKEY_MEMORY_LIMIT:-512M}
         reservations:
-          cpus: '0.1'
-          memory: 128M
+          cpus: ${VALKEY_CPU_RESERVATION:-0.1}
+          memory: ${VALKEY_MEMORY_RESERVATION:-128M}
     healthcheck:
       test: ["CMD", "sh", "-c", "valkey-cli -a $$REDIS_PASSWORD ping"]
       interval: 10s

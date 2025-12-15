@@ -10,6 +10,9 @@
 	"/checkin": [
 		"src/routes/+layout.ts"
 	],
+	"/checkout-compare": [
+		"src/routes/+layout.ts"
+	],
 	"/checkout": [
 		"src/routes/+layout.ts"
 	],
