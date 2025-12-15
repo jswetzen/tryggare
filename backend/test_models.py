@@ -12,8 +12,8 @@ from django.utils import timezone
 from accounts.models import AdminUser
 from families.models import Family, Parent, Child
 from events.models import Event, Session
-from checkins.models import CheckInRecord
-import uuid
+from checkins.models import CheckInRecord, QRCode
+from checkins.qr_utils import allocate_code_for_checkin, get_code_for_active_checkin
 
 print("🔍 Quick Model Verification\n")
 
@@ -57,16 +57,27 @@ checkin = CheckInRecord.objects.create(
 
 print("✓ All models created\n")
 
-# Test business logic
-print("Testing business logic...")
-child.qr_token = str(uuid.uuid4())
+# Test QR code allocation
+print("Testing QR code allocation...")
+qr_code = allocate_code_for_checkin(checkin)
+assert qr_code is not None, "QR code should be allocated"
+assert len(qr_code.code) == 5, "QR code should be 5 characters"
+assert qr_code.checkin_record == checkin, "QR code should be linked to check-in"
+print(f"✓ QR code allocated: {qr_code.code}")
+
+# Test QR code lookup
+print("\nTesting QR code lookup...")
+found_qr = get_code_for_active_checkin(qr_code.code)
+assert found_qr is not None, "Should find QR code for active check-in"
+assert found_qr.checkin_record.child.id == child.id, "QR lookup should find correct child"
+print("✓ QR code lookup working")
+
+# Test last participation date
+print("\nTesting business logic...")
 child.last_participation_date = timezone.now()
 child.save()
-
 child.refresh_from_db()
-assert child.qr_token is not None, "QR token should be set"
 assert child.last_participation_date is not None, "Last participation date should be set"
-print("✓ QR token generation working")
 print("✓ Last participation date tracking working\n")
 
 # Test relationships
@@ -83,11 +94,15 @@ active_checkins = CheckInRecord.objects.filter(check_out_time__isnull=True).coun
 assert active_checkins >= 1, "Should have at least 1 active check-in"
 print(f"✓ Found {active_checkins} active check-in(s)\n")
 
-# Test QR lookup
-print("Testing QR lookup...")
-found_child = Child.objects.get(qr_token=child.qr_token)
-assert found_child.id == child.id, "QR token lookup should find correct child"
-print("✓ QR token lookup working\n")
+# Test QR code privacy (after checkout, code should not be found)
+print("Testing QR code privacy...")
+checkin.check_out_time = timezone.now()
+checkin.save()
+qr_code.released_at = timezone.now()
+qr_code.save()
+not_found_qr = get_code_for_active_checkin(qr_code.code)
+assert not_found_qr is None, "Should not find QR code after checkout"
+print("✓ QR code privacy working (code not found after checkout)\n")
 
 print("=" * 50)
 print("✅ All model tests passed!")
@@ -97,7 +112,7 @@ print("Test data created:")
 print(f"  Family ID: {family.id}")
 print(f"  Parent: {parent.name}")
 print(f"  Child: {child.first_name} {child.last_name}")
-print(f"  QR Token: {child.qr_token}")
+print(f"  QR Code: {qr_code.code}")
 print(f"  Event: {event.name}")
 print(f"  Session: {session.name}")
 print()

@@ -1,4 +1,3 @@
-import uuid
 from asgiref.sync import async_to_sync
 from channels.layers import get_channel_layer
 from django.utils import timezone
@@ -86,11 +85,6 @@ class CheckInRecordViewSet(viewsets.ModelViewSet):
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
-        # Generate QR token if needed
-        if not child.qr_token:
-            child.qr_token = str(uuid.uuid4())
-            child.save()
-
         # Create check-in record
         record = CheckInRecord.objects.create(
             child=child,
@@ -99,6 +93,10 @@ class CheckInRecordViewSet(viewsets.ModelViewSet):
             label_printed=False,
             supervised=supervised
         )
+
+        # Allocate QR code for this check-in
+        from .qr_utils import allocate_code_for_checkin
+        qr_code = allocate_code_for_checkin(record)
 
         # Update last participation dates
         now = timezone.now()
@@ -136,7 +134,7 @@ class CheckInRecordViewSet(viewsets.ModelViewSet):
                     "session_id": str(session.id),
                     "session_name": session.name,
                     "check_in_time": record.check_in_time.isoformat(),
-                    "qr_token": child.qr_token,
+                    "qr_code": qr_code.code,
                     "supervised": supervised,
                     "allergies": child.allergies or "",
                     "notes": child.notes or "",
@@ -174,6 +172,10 @@ class CheckInRecordViewSet(viewsets.ModelViewSet):
         record.check_out_staff = request.user
         record.picked_up_by = picked_up_by
         record.save()
+
+        # Release the QR code (starts 24h grace period)
+        from .qr_utils import release_code_for_checkout
+        release_code_for_checkout(record)
 
         # Log the action
         AuditLog.objects.create(
@@ -237,6 +239,11 @@ class CheckInRecordViewSet(viewsets.ModelViewSet):
         record.check_out_staff = None
         record.picked_up_by = ""
         record.save()
+
+        # Re-activate the QR code if it exists
+        if hasattr(record, 'qr_code') and record.qr_code:
+            record.qr_code.released_at = None
+            record.qr_code.save()
 
         # Log the action
         AuditLog.objects.create(
@@ -396,7 +403,8 @@ class PrintQueueViewSet(viewsets.ReadOnlyModelViewSet):
             'child',
             'child__family',
             'session',
-            'check_in_staff'
+            'check_in_staff',
+            'qr_code'
         ).prefetch_related(
             'child__family__parents'
         ).order_by('-check_in_time')
@@ -490,13 +498,16 @@ class PrintQueueViewSet(viewsets.ReadOnlyModelViewSet):
         import base64
 
         checkin = get_object_or_404(
-            CheckInRecord.objects.select_related('child', 'session'),
+            CheckInRecord.objects.select_related('child', 'session', 'qr_code'),
             pk=pk
         )
 
+        # Get the QR code string
+        qr_code_str = checkin.qr_code.code if hasattr(checkin, 'qr_code') and checkin.qr_code else "INVALID"
+
         # Generate QR code as base64 data URL
         qr = qrcode.QRCode()
-        qr.add_data(f'http://{request.get_host()}/qr/{checkin.child.qr_token}')
+        qr.add_data(f'http://{request.get_host()}/qr/{qr_code_str}')
         qr.make()
         img = qr.make_image()
         buf = io.BytesIO()
@@ -568,7 +579,8 @@ class PrintQueueViewSet(viewsets.ReadOnlyModelViewSet):
             'child',
             'child__family',
             'session',
-            'check_in_staff'
+            'check_in_staff',
+            'qr_code'
         ).prefetch_related(
             'child__family__parents'
         ).order_by('-check_in_time')[:50]

@@ -45,7 +45,7 @@
 					id: data.record_id,
 					child_name: data.child_name,
 					child_last_name: data.child_last_name,
-					qr_token: data.qr_token,
+					qr_code: data.qr_code,
 					session_name: data.session_name,
 					check_in_time: data.check_in_time,
 					parents: data.parents || [],
@@ -188,7 +188,7 @@
 			sessionName: item.session_name,
 			checkInTime: item.check_in_time,
 			allergies: item.allergies,
-			qrToken: item.qr_token
+			qrCode: item.qr_code
 		};
 	}
 </script>
@@ -239,7 +239,7 @@
 			items={queueItems.map(transformItem)}
 			columns={['childName', 'session', 'actions']}
 			onPrint={printLabel}
-			onViewQR={(token) => window.open(`/qr/${token}`, '_blank')}
+			onViewQR={(code) => window.open(`/qr/${code}`, '_blank')}
 			formatTime={formatTime}
 		/>
 
@@ -267,7 +267,7 @@
 				items={recentlyPrintedItems.map(transformItem)}
 				columns={['childName', 'actions']}
 				onPrint={printLabel}
-				onViewQR={(token) => window.open(`/qr/${token}`, '_blank')}
+				onViewQR={(code) => window.open(`/qr/${code}`, '_blank')}
 			/>
 		{/if}
 	</ExpandableSection>

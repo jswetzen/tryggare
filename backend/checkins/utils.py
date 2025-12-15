@@ -87,7 +87,8 @@ def generate_label_pdf(checkin_records):
 
         # Generate QR code
         # Use production URL or localhost for dev - adjust as needed
-        qr_url = f"http://localhost:8080/qr/{record.child.qr_token}"
+        qr_code_str = record.qr_code.code if hasattr(record, 'qr_code') and record.qr_code else "INVALID"
+        qr_url = f"http://localhost:8080/qr/{qr_code_str}"
 
         qr = QrCodeWidget(qr_url)
         qr.barWidth = 1.1 * inch

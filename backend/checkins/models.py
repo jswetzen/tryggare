@@ -72,6 +72,69 @@ class CheckInRecord(models.Model):
         return f"{self.child} @ {self.session}"
 
 
+class QRCode(models.Model):
+    """
+    Short alphanumeric codes for active check-ins.
+    Codes are allocated on check-in and returned to pool after checkout + 24h grace period.
+    """
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    code = models.CharField(
+        max_length=6,
+        unique=True,
+        db_index=True,
+        verbose_name=_("QR Code")
+    )
+
+    # Current assignment (null = available in pool)
+    checkin_record = models.OneToOneField(
+        "CheckInRecord",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="qr_code",
+        verbose_name=_("Check-In Record")
+    )
+
+    # Timestamps for pool management
+    allocated_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        verbose_name=_("Allocated At")
+    )
+    released_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        verbose_name=_("Released At"),
+        help_text="When checkout occurred. Code returns to pool 24h after this."
+    )
+
+    class Meta:
+        db_table = "qr_codes"
+        verbose_name = _("QR Code")
+        verbose_name_plural = _("QR Codes")
+        indexes = [
+            models.Index(fields=["code"]),
+            models.Index(fields=["released_at"]),
+        ]
+
+    def __str__(self) -> str:
+        status = "allocated" if self.checkin_record else "available"
+        return f"{self.code} ({status})"
+
+    @property
+    def is_available(self) -> bool:
+        """Check if code is available for allocation."""
+        from datetime import timedelta
+        from django.utils import timezone
+
+        if self.checkin_record is not None:
+            return False
+        if self.released_at is None:
+            return True  # Never used or pre-generated
+        # Available if released > 24 hours ago
+        return timezone.now() - self.released_at > timedelta(hours=24)
+
+
 class AuditLog(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     timestamp = models.DateTimeField(auto_now_add=True)

@@ -10,14 +10,14 @@
     sessionName: string;
     checkInTime: string;
     allergies?: string;
-    qrToken: string;
+    qrCode: string | null;
   }
 
   interface Props {
     items: PrintQueueDisplayItem[];
     columns?: ('childName' | 'session' | 'checkInTime' | 'allergies' | 'actions')[];
     onPrint: (id: string) => void;
-    onViewQR: (token: string) => void;
+    onViewQR: (code: string) => void;
     formatTime?: (isoString: string) => string;
   }
 
@@ -99,14 +99,16 @@
                   <Icon name="printer" size="sm" class="mr-1" />
                   {$t('printQueue.print')}
                 </Button>
+                {#if item.qrCode}
                 <Button
                   size="sm"
                   variant="ghost"
-                  onclick={() => onViewQR(item.qrToken)}
+                  onclick={() => onViewQR(item.qrCode!)}
                 >
                   <Icon name="qr-code" size="sm" class="mr-1" />
                   {$t('printQueue.viewQR')}
                 </Button>
+                {/if}
               </div>
             </td>
           {/if}

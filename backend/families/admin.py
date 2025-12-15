@@ -19,6 +19,6 @@ class ParentAdmin(admin.ModelAdmin):
 
 @admin.register(Child)
 class ChildAdmin(admin.ModelAdmin):
-    list_display = ("first_name", "last_name", "family", "qr_token")
-    search_fields = ("first_name", "last_name", "qr_token")
+    list_display = ("first_name", "last_name", "family", "birthdate")
+    search_fields = ("first_name", "last_name")
     list_filter = ("last_participation_date",)

@@ -99,7 +99,7 @@ class ChildViewSet(viewsets.ModelViewSet):
 
     serializer_class = ChildSerializer
     permission_classes = [IsAuthenticated]
-    search_fields = ["first_name", "last_name", "qr_token"]
+    search_fields = ["first_name", "last_name"]
     filterset_fields = ["family"]
 
     def get_queryset(self):

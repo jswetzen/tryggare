@@ -41,7 +41,7 @@ urlpatterns = [
     path("api/auth/check/", check_auth, name="auth-check"),
     path("api/auth/login/", login_view, name="auth-login"),
     path("api/auth/logout/", logout_view, name="auth-logout"),
-    path("api/qr/<str:token>/", qr_info, name="qr-info"),  # Public QR code endpoint
+    path("api/qr/<str:code>/", qr_info, name="qr-info"),  # Public QR code endpoint (privacy-first)
     # Serve frontend SPA - catch-all for client-side routing (must be last)
     # Exclude admin/, api/, and SvelteKit's __data.json endpoints from catch-all
     # WhiteNoise middleware serves static files (_app/*) before this is reached
