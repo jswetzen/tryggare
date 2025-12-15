@@ -11,7 +11,7 @@
   import Alert from '$lib/components/ui/Alert.svelte';
   import { EmptyState, Button, Icon } from '$lib/components/ui';
   import { PageContainer } from '$lib/components/layout';
-  import FamilyTable from '$lib/components/domain/FamilyTable.svelte';
+  import CheckoutExpandableTable from '$lib/components/checkout/CheckoutExpandableTable.svelte';
   import SessionIndicator from '$lib/components/checkin/SessionIndicator.svelte';
   import SessionSelector from '$lib/components/SessionSelector.svelte';
 
@@ -311,30 +311,62 @@
   <title>{$t('checkout.pageTitle')}</title>
 </svelte:head>
 
-<div class="min-h-screen bg-slate-100">
-  <div class="max-w-4xl mx-auto p-5">
-    <PageHeader title={$t('checkout.title')} />
+<div class="min-h-screen bg-gray-50">
+  <!-- Sticky header with search -->
+  <div class="bg-white border-b border-gray-200 px-4 py-3 sticky top-0 z-10">
+    <div class="max-w-6xl mx-auto">
+      <h1 class="text-lg font-semibold text-gray-900 mb-3">
+        {$t('checkout.searchLabel')}
+      </h1>
 
+      <!-- Search bar -->
+      <div class="relative">
+        <input
+          type="text"
+          bind:value={searchQuery}
+          placeholder={$t('checkout.searchPlaceholder')}
+          class="w-full h-12 pl-4 pr-10 border border-blue-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+        />
+        <!-- Clear button appears when there's text -->
+        {#if searchQuery}
+          <button
+            onclick={() => searchQuery = ''}
+            class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+            aria-label="Clear search"
+          >
+            <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+              <path d="M6 6l8 8M14 6l-8 8"/>
+            </svg>
+          </button>
+        {/if}
+      </div>
+    </div>
+  </div>
+
+  <!-- Main content area -->
+  <div class="max-w-6xl mx-auto p-4">
     <!-- Session Indicator -->
     {#if activeSession}
-      <SessionIndicator
-        eventName={activeSession.event_name || 'No Event'}
-        sessionName={activeSession.name || 'No Active Session'}
-        sessionTime={activeSession
-          ? `${new Date(activeSession.start_time).toLocaleTimeString('en-US', {
-              hour: '2-digit',
-              minute: '2-digit',
-              hour12: false,
-            })} - ${activeSession.end_time ? new Date(activeSession.end_time).toLocaleTimeString('en-US', {
-              hour: '2-digit',
-              minute: '2-digit',
-              hour12: false,
-            }) : 'Open'}`
-          : ''}
-        showAddFamily={false}
-        showChangeSession={activeSessions.length > 1}
-        onChangeSession={handleChangeSession}
-      />
+      <div class="mb-4">
+        <SessionIndicator
+          eventName={activeSession.event_name || 'No Event'}
+          sessionName={activeSession.name || 'No Active Session'}
+          sessionTime={activeSession
+            ? `${new Date(activeSession.start_time).toLocaleTimeString('en-US', {
+                hour: '2-digit',
+                minute: '2-digit',
+                hour12: false,
+              })} - ${activeSession.end_time ? new Date(activeSession.end_time).toLocaleTimeString('en-US', {
+                hour: '2-digit',
+                minute: '2-digit',
+                hour12: false,
+              }) : 'Open'}`
+            : ''}
+          showAddFamily={false}
+          showChangeSession={activeSessions.length > 1}
+          onChangeSession={handleChangeSession}
+        />
+      </div>
     {/if}
 
     <!-- Session Selector Modal -->
@@ -359,12 +391,6 @@
       </Alert>
     {/if}
 
-    <SearchBox
-      bind:value={searchQuery}
-      placeholder={$t('checkout.searchPlaceholder')}
-      label={$t('checkout.searchLabel')}
-    />
-
     {#if loading && activeCheckIns.length === 0}
       <EmptyState
         type="loading"
@@ -373,28 +399,25 @@
     {/if}
 
     {#if !loading && filteredCheckIns.length === 0}
-      <EmptyState
-        type="empty"
-        title={searchQuery ? $t('checkout.noChildrenFiltered', { values: { query: searchQuery } }) : $t('checkout.noChildren')}
-        description={$t('checkout.noChildrenDescription')}
-      >
-        {#snippet icon()}
-          <Icon name="check-circle" size="xl" />
-        {/snippet}
-      </EmptyState>
+      <div class="text-center py-12 text-gray-500">
+        {#if searchQuery}
+          No families found matching "{searchQuery}"
+        {:else}
+          {$t('checkout.noChildren')}
+        {/if}
+      </div>
     {/if}
 
     {#if filteredCheckIns.length > 0 && !loading}
-      <FamilyTable
+      <CheckoutExpandableTable
         families={transformedFamilies}
-        mode="checkout"
+        {pickedUpBy}
         onCheckOut={performCheckOut}
-        onToggleFamily={performFamilyCheckOut}
-        formatTime={formatTime}
-        bind:pickedUpBy={pickedUpBy}
+        onCheckOutFamily={performFamilyCheckOut}
         onPickedUpByChange={(familyId, value) => {
           pickedUpBy = { ...pickedUpBy, [familyId]: value };
         }}
+        {formatTime}
       />
     {/if}
 
