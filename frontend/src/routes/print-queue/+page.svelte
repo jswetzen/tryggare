@@ -3,7 +3,7 @@
 	import { printQueueApi } from '$lib/api/services';
 	import type { PrintQueueItem, WebSocketMessage } from '$lib/api/types';
 	import { t } from 'svelte-i18n';
-	import { EmptyState, Icon, Button, ExpandableSection, Alert } from '$lib/components/ui';
+	import { EmptyState, Icon, Button, ExpandableSection, Alert, PageHeader } from '$lib/components/ui';
 	import { PageContainer } from '$lib/components/layout';
 	import PrintQueueTable from '$lib/components/domain/PrintQueueTable.svelte';
 	import { websocketStore } from '$lib/stores/websocket';
@@ -197,10 +197,11 @@
 	<title>{$t('printQueue.pageTitle')}</title>
 </svelte:head>
 
-<div class="container mx-auto p-4 max-w-7xl">
-	<h1 class="text-3xl font-bold mb-6">{$t('printQueue.title')}</h1>
+<div class="min-h-screen bg-slate-100">
+	<div class="max-w-4xl mx-auto p-3 md:p-5">
+		<PageHeader title={$t('printQueue.title')} />
 
-	<!-- Error and Success Messages -->
+		<!-- Error and Success Messages -->
 	{#if error}
 		<Alert type="error" dismissible ondismiss={() => error = ''}>
 			{error}
@@ -271,4 +272,5 @@
 			/>
 		{/if}
 	</ExpandableSection>
+	</div>
 </div>

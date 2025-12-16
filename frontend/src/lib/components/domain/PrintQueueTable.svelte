@@ -37,30 +37,30 @@
 
 <div class="overflow-x-auto rounded-card">
   <table class="w-full">
-    <thead class="bg-neutral-50 border-b-2 border-neutral-200">
+    <thead class="bg-slate-50 border-b-2 border-slate-200">
       <tr>
         {#if showColumn('childName')}
-          <th class="text-left p-3 text-sm font-semibold text-neutral-700">
+          <th class="text-left p-3 text-sm font-semibold text-slate-700">
             {$t('printQueue.childName')}
           </th>
         {/if}
         {#if showColumn('session')}
-          <th class="text-left p-3 text-sm font-semibold text-neutral-700">
+          <th class="text-left p-3 text-sm font-semibold text-slate-700">
             {$t('printQueue.session')}
           </th>
         {/if}
         {#if showColumn('checkInTime')}
-          <th class="text-left p-3 text-sm font-semibold text-neutral-700">
+          <th class="text-left p-3 text-sm font-semibold text-slate-700">
             {$t('printQueue.time')}
           </th>
         {/if}
         {#if showColumn('allergies')}
-          <th class="text-left p-3 text-sm font-semibold text-neutral-700">
+          <th class="text-left p-3 text-sm font-semibold text-slate-700">
             {$t('printQueue.allergies')}
           </th>
         {/if}
         {#if showColumn('actions')}
-          <th class="text-center p-3 text-sm font-semibold text-neutral-700">
+          <th class="text-center p-3 text-sm font-semibold text-slate-700">
             {$t('printQueue.actions')}
           </th>
         {/if}
@@ -68,18 +68,18 @@
     </thead>
     <tbody>
       {#each items as item, index}
-        <tr class:bg-neutral-50={index % 2 === 0} class="border-b border-neutral-200">
+        <tr class:bg-slate-50={index % 2 === 0} class="border-b border-slate-200">
           {#if showColumn('childName')}
             <td class="p-3">
-              <div class="font-semibold text-neutral-700">{item.childName}</div>
-              <div class="text-sm text-neutral-500">{item.parentNames}</div>
+              <div class="font-semibold text-slate-700">{item.childName}</div>
+              <div class="text-sm text-slate-500">{item.parentNames}</div>
             </td>
           {/if}
           {#if showColumn('session')}
-            <td class="p-3 text-sm text-neutral-700">{item.sessionName}</td>
+            <td class="p-3 text-sm text-slate-700">{item.sessionName}</td>
           {/if}
           {#if showColumn('checkInTime')}
-            <td class="p-3 text-sm text-neutral-700">{formatTime(item.checkInTime)}</td>
+            <td class="p-3 text-sm text-slate-700">{formatTime(item.checkInTime)}</td>
           {/if}
           {#if showColumn('allergies')}
             <td class="p-3">
@@ -88,7 +88,7 @@
                   {item.allergies}
                 </Badge>
               {:else}
-                <span class="text-neutral-400 text-sm">{$t('printQueue.none')}</span>
+                <span class="text-slate-400 text-sm">{$t('printQueue.none')}</span>
               {/if}
             </td>
           {/if}
