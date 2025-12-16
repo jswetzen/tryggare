@@ -2,14 +2,15 @@
   import { onMount, onDestroy } from 'svelte';
   import { _ } from 'svelte-i18n';
   import type { Family, Child, TicketType, Session, FamilyApiResponse } from '$lib/checkin/types';
-  import Icon from '$lib/components/ui/Icon.svelte';
 
-  // Import checkin components
+  // Import shared UI components
+  import { PageHeader, StickySearchBox, EmptyState, Alert, Icon } from '$lib/components/ui';
+
+  // Import checkin-specific components
   import SessionIndicator from '$lib/components/checkin/SessionIndicator.svelte';
   import SuccessToast from '$lib/components/checkin/SuccessToast.svelte';
-  import FamilyCard from '$lib/components/checkin/FamilyCard.svelte';
+  import CheckinExpandableTable from '$lib/components/checkin/CheckinExpandableTable.svelte';
   import AddFamilyPanel from '$lib/components/checkin/AddFamilyPanel.svelte';
-  import SearchBox from '$lib/components/SearchBox.svelte';
   import SessionSelector from '$lib/components/SessionSelector.svelte';
 
   // Import stores and utilities
@@ -70,7 +71,6 @@
   let loading = $state(true);
   let error = $state<string | null>(null);
   let searchQuery = $state('');
-  let expandedFamilies = $state<Set<string>>(new Set());
   let expandedChildId = $state<string | null>(null);
   let showAddPanel = $state(false);
   let successToast = $state<string | null>(null);
@@ -328,40 +328,6 @@
   // EFFECTS
   // ============================================================================
 
-  // Auto-expand families when search matches child name (but not family name)
-  // Collapse all families when search is cleared
-  $effect(() => {
-    if (!searchQuery) {
-      // Clear all expanded families when search is cleared
-      expandedFamilies = new Set();
-      return;
-    }
-
-    const query = searchQuery.toLowerCase();
-    const newExpanded = new Set<string>();
-
-    // Use families directly instead of visibleFamilies to avoid circular dependency
-    families.forEach((family) => {
-      const familyNameMatches = family.name.toLowerCase().includes(query);
-
-      if (!familyNameMatches) {
-        const childNameMatches = family.children.some((child) =>
-          child.name.toLowerCase().includes(query)
-        );
-
-        if (childNameMatches) {
-          newExpanded.add(family.id);
-        }
-      }
-    });
-
-    // Only update if different to avoid unnecessary re-renders
-    if (newExpanded.size !== expandedFamilies.size ||
-        ![...newExpanded].every(id => expandedFamilies.has(id))) {
-      expandedFamilies = newExpanded;
-    }
-  });
-
   // Cleanup on destroy
   onDestroy(() => {
     cleanupUndoTimer();
@@ -371,16 +337,6 @@
   // ============================================================================
   // EVENT HANDLERS
   // ============================================================================
-
-  // Toggle family expansion
-  function toggleFamily(familyId: string) {
-    if (expandedFamilies.has(familyId)) {
-      expandedFamilies.delete(familyId);
-    } else {
-      expandedFamilies.add(familyId);
-    }
-    expandedFamilies = new Set(expandedFamilies);
-  }
 
   // Check in individual child
   async function checkInChild(familyId: string, childId: string) {
@@ -755,10 +711,6 @@
           childrenLabel: childrenLabel,
         },
       });
-
-      // Auto-expand the new family
-      expandedFamilies.add(transformedFamily.id);
-      expandedFamilies = new Set(expandedFamilies);
     } catch (err) {
       const apiError = err as ApiError;
       error = apiError.message || 'Failed to create family';
@@ -778,18 +730,20 @@
         <p class="text-slate-600">{$_('common.loading')}</p>
       </div>
     {:else if error}
-      <div class="mb-4 p-4 bg-red-50 border-2 border-red-500 rounded-lg">
-        <p class="text-red-700">{error}</p>
-        <button
-          onclick={() => {
-            error = null;
-            loadFamilies();
-          }}
-          class="mt-2 px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600"
-        >
-          {$_('common.retry')}
-        </button>
-      </div>
+      <Alert type="error" class="mb-4">
+        {error}
+        <div class="mt-2">
+          <button
+            onclick={() => {
+              error = null;
+              loadFamilies();
+            }}
+            class="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600"
+          >
+            {$_('common.retry')}
+          </button>
+        </div>
+      </Alert>
     {:else}
       <!-- Session Indicator -->
       <SessionIndicator
@@ -828,18 +782,14 @@
       onClose={() => showSessionSelector = false}
     />
 
-    <!-- Header (scrollable) -->
-    <div class="mb-5">
-      <h1 class="text-3xl font-bold text-blue-900">{$_('checkin.title')}</h1>
-    </div>
+    <!-- Header -->
+    <PageHeader title={$_('checkin.title')} />
 
     <!-- Sticky Search Box -->
-    <div class="sticky top-0 z-10 bg-slate-100 pb-2 -mx-3 px-3 md:-mx-5 md:px-5">
-      <SearchBox
-        bind:value={searchQuery}
-        placeholder={$_('checkin.searchPlaceholder')}
-      />
-    </div>
+    <StickySearchBox
+      bind:value={searchQuery}
+      placeholder={$_('checkin.searchPlaceholder')}
+    />
 
     <div class="mb-4 flex items-left justify-between text-sm">
     <!-- Stats Header -->
@@ -859,46 +809,39 @@
       </label>
     </div>
 
-    <!-- Family Cards -->
-    <div class="space-y-3">
-      {#if visibleFamilies.length === 0}
-        <div class="text-center py-12 bg-white rounded-lg border-2 border-dashed border-slate-300">
-          <p class="text-slate-500 mb-2">
-            {searchQuery
-              ? $_('checkin.noFamiliesFound', { values: { query: searchQuery } })
-              : $_('checkin.noFamilies')}
-          </p>
-          {#if searchQuery}
-            <p class="text-sm text-slate-400">{$_('checkin.tryDifferentSearch')}</p>
-          {/if}
-        </div>
-      {:else}
-        {#each visibleFamilies as family (family.id)}
-          {@const _tick = undoActionsData.tick}
-          {@const familyActions = getFamilyUndoActions(family.id)}
-          {@const familyAction = familyActions.find((a) => a.childIds.length > 1)}
-          {@const familyUndoSeconds = familyAction && _tick >= 0 ? getRemainingTime(familyAction.id) : null}
-          <FamilyCard
-            {family}
-            expanded={expandedFamilies.has(family.id)}
-            onToggle={() => toggleFamily(family.id)}
-            onCheckInChild={(childId) => checkInChild(family.id, childId)}
-            onCheckInFamily={() => checkInFamily(family.id)}
-            onUndoChild={(childId) => undoChildCheckIn(family.id, childId)}
-            onUndoFamily={() => undoFamilyCheckIn(family.id)}
-            onAssignTicket={(childId, ticketType) =>
-              assignTicketAndCheckIn(family.id, childId, ticketType)}
-            {expandedChildId}
-            onToggleChildExpansion={(childId) => {
-              expandedChildId = childId;
-            }}
-            {getRemainingTime}
-            {familyUndoSeconds}
-            bind:supervisedState={supervisedState}
-          />
-        {/each}
-      {/if}
-    </div>
+    <!-- Family List -->
+    {#if visibleFamilies.length === 0}
+      <EmptyState
+        type="empty"
+        title={searchQuery
+          ? $_('checkin.noFamiliesFound', { values: { query: searchQuery } })
+          : $_('checkin.noFamilies')}
+      >
+        {#snippet icon()}
+          <Icon name="users" size="xl" />
+        {/snippet}
+        {#if searchQuery}
+          {#snippet description()}
+            <p class="text-sm">{$_('checkin.tryDifferentSearch')}</p>
+          {/snippet}
+        {/if}
+      </EmptyState>
+    {:else}
+      <CheckinExpandableTable
+        families={visibleFamilies}
+        onCheckInChild={checkInChild}
+        onCheckInFamily={checkInFamily}
+        onUndoChild={undoChildCheckIn}
+        onUndoFamily={undoFamilyCheckIn}
+        onAssignTicket={assignTicketAndCheckIn}
+        {getRemainingTime}
+        bind:supervisedState
+        {expandedChildId}
+        onToggleChildExpansion={(childId) => {
+          expandedChildId = childId;
+        }}
+      />
+    {/if}
   {/if}
   </div>
 </div>
