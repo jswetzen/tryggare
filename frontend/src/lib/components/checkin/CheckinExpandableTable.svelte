@@ -149,22 +149,24 @@
       class:bg-slate-50={allCheckedIn}
       data-testid={`family-card-${family.id}`}
     >
-      <!-- Family Header -->
-      <div class="bg-slate-50 p-2.5 sm:p-3">
+      <!-- Family Header - ENTIRE DIV CLICKABLE -->
+      <div
+        class="bg-slate-50 p-2.5 sm:p-3 cursor-pointer active:bg-slate-100"
+        onclick={(e) => toggleFamily(family.id, e)}
+        role="button"
+        tabindex="0"
+        onkeydown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            toggleFamily(family.id, e);
+          }
+        }}
+        aria-label={`${expanded ? 'Collapse' : 'Expand'} ${family.name} family`}
+        data-testid={`family-toggle-button-${family.id}`}
+      >
         <div class="flex items-start justify-between gap-2">
-          <!-- Left side: Toggle button and family info -->
-          <button
-            onclick={(e) => toggleFamily(family.id, e)}
-            onkeydown={(e) => {
-              if (e.key === 'Enter' || e.key === ' ') {
-                e.preventDefault();
-                toggleFamily(family.id, e);
-              }
-            }}
-            class="flex items-start gap-2 flex-1 min-w-0 text-left hover:bg-slate-100 rounded px-2 py-1.5 -mx-2 -my-1.5 transition-colors"
-            aria-label={`${expanded ? 'Collapse' : 'Expand'} ${family.name} family`}
-            data-testid={`family-toggle-button-${family.id}`}
-          >
+          <!-- Left side: Chevron and family info -->
+          <div class="flex items-start gap-2 flex-1 min-w-0">
             <!-- Chevron icon -->
             <div class="flex-shrink-0 pt-0.5">
               {#if expanded}
@@ -195,15 +197,14 @@
                 {checkedInCount} checked in
               </p>
             </div>
-          </button>
+          </div>
 
           <!-- Right side: Action button -->
-          <!-- svelte-ignore a11y-click-events-have-key-events -->
-          <!-- svelte-ignore a11y-no-static-element-interactions -->
-          <div class="flex-shrink-0" onclick={(e) => e.stopPropagation()}>
+          <div class="flex-shrink-0">
             {#if familyUndoSeconds !== null}
               <!-- Undo Family button during grace period -->
               <button
+                type="button"
                 onclick={() => onUndoFamily(family.id)}
                 class="px-3 py-1.5 sm:px-4 sm:py-2 bg-amber-600 text-white font-semibold rounded-lg hover:bg-amber-700 transition-colors text-xs sm:text-sm whitespace-nowrap"
                 aria-label={`Undo family check-in, ${familyUndoSeconds} seconds remaining`}
