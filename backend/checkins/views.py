@@ -506,10 +506,16 @@ class PrintQueueViewSet(viewsets.ReadOnlyModelViewSet):
         qr_code_str = checkin.qr_code.code if hasattr(checkin, 'qr_code') and checkin.qr_code else "INVALID"
 
         # Generate QR code as base64 data URL
-        qr = qrcode.QRCode()
+        # Use Level L (7% error correction) for minimal complexity
+        # Labels are printed in controlled environment, high redundancy not needed
+        qr = qrcode.QRCode(
+            error_correction=qrcode.constants.ERROR_CORRECT_L,
+            box_size=10,
+            border=1,
+        )
         qr.add_data(f'http://{request.get_host()}/qr/{qr_code_str}')
-        qr.make()
-        img = qr.make_image()
+        qr.make(fit=True)
+        img = qr.make_image(fill_color="black", back_color="white")
         buf = io.BytesIO()
         img.save(buf, format='PNG')
         qr_data_url = f'data:image/png;base64,{base64.b64encode(buf.getvalue()).decode()}'

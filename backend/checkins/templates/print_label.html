@@ -3,10 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Print Label - {{ checkin.child.first_name }} {{ checkin.child.last_name }}</title>
+    <title>Print Label - {{ checkin.child.first_name }}</title>
     <style>
         @page {
-            size: 54.3mm 17mm; /* Width x Height (portrait) */
+            size: 54.3mm 17mm; /* Width x Height for Brother QL-54.3mm */
             margin: 0;
         }
 
@@ -23,12 +23,13 @@
         body {
             margin: 0;
             padding: 0;
-            font-family: Arial, sans-serif;
+            font-family: 'Helvetica Neue', 'Segoe UI', Arial, sans-serif;
             width: 54.3mm;
             height: 17mm;
             display: flex;
             align-items: center;
             justify-content: center;
+            background: white;
         }
 
         .label {
@@ -37,49 +38,85 @@
             display: flex;
             align-items: center;
             justify-content: space-between;
-            padding: 1mm 2mm;
+            padding: 1.5mm 2.5mm;
             box-sizing: border-box;
+            gap: 2mm;
         }
 
         .child-name {
-            font-size: 6pt;
-            font-weight: bold;
+            /* Dynamic font sizing - will scale with available space */
+            font-size: clamp(16pt, 5vw, 24pt);
+            font-weight: 900; /* Extra bold for thermal printing */
+            text-transform: uppercase;
+            letter-spacing: 0.5pt;
             word-wrap: break-word;
+            overflow-wrap: break-word;
+            hyphens: auto;
             flex: 1;
-            text-align: left;
-            padding-right: 2mm;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            line-height: 1.1;
+            color: #000;
+            /* Ensures text is crisp on thermal printer */
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
         }
 
         .qr-code {
             width: 15mm;
             height: 15mm;
             flex-shrink: 0;
+            image-rendering: crisp-edges;
+            image-rendering: pixelated;
         }
 
         .no-print {
-            margin-top: 10mm;
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
             text-align: center;
             font-size: 10pt;
+            z-index: 1000;
         }
 
         .no-print button {
-            padding: 8px 16px;
-            font-size: 10pt;
+            padding: 12px 24px;
+            font-size: 11pt;
+            font-weight: 600;
             cursor: pointer;
-            background-color: #007bff;
+            background-color: #2563eb;
             color: white;
             border: none;
-            border-radius: 4px;
+            border-radius: 6px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            transition: all 0.2s;
         }
 
         .no-print button:hover {
-            background-color: #0056b3;
+            background-color: #1d4ed8;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.15);
+            transform: translateY(-1px);
+        }
+
+        .no-print button:active {
+            transform: translateY(0);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        /* Fallback for very long names */
+        @media print {
+            .child-name {
+                font-size: 18pt;
+            }
         }
     </style>
 </head>
 <body>
     <div class="label">
-        <div class="child-name">{{ checkin.child.first_name }} {{ checkin.child.last_name }}</div>
+        <div class="child-name">{{ checkin.child.first_name }}</div>
         <img src="{{ qr_url }}" alt="QR Code" class="qr-code">
     </div>
 
