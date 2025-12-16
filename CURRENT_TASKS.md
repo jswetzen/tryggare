@@ -1,314 +1,279 @@
-# Security Hardening & Production Deployment - COMPLETED ✅
+# UI Cohesion Implementation - IN PROGRESS
 
-**Objective:** Comprehensive security review and hardening for production deployment
+**Objective:** Create visually coherent design across checkout, checkin, and print-queue pages by reusing components and establishing consistent patterns
 
-**Date Started:** 2025-12-13
-**Date Completed:** 2025-12-13
+**Date Started:** 2025-12-16
 
-**Status:** ✅ **PRODUCTION READY**
+**Status:** 🚧 **IN PROGRESS**
 
 ---
 
 ## Summary
 
-Conducted comprehensive security audit across Django backend, SvelteKit frontend, and production Docker infrastructure. Identified and fixed **42 security issues** including **12 CRITICAL** vulnerabilities.
+The checkout page has excellent design, but the checkin and print-queue pages have inconsistent styling. This task unifies all three pages with:
+- Shared component library
+- Consistent color palette (slate-*)
+- Standardized layouts and patterns
+- Better code reuse (30-40% reduction)
 
-### Final Results
-
-- **Total Issues Found:** 42
-  - **CRITICAL:** 12 (100% fixed ✅)
-  - **HIGH:** 11 (100% fixed ✅)
-  - **MEDIUM:** 13 (key items fixed ✅)
-  - **LOW:** 6 (documented for future)
-
-- **Security Posture:** Improved from **HIGH RISK** to **LOW RISK**
-- **Production Readiness:** ✅ **READY** (with deployment checklist)
+### Detailed Plan
+See `docs/ui-cohesion-plan.md` for comprehensive design decisions and analysis.
 
 ---
 
-## Critical Fixes Applied (12/12 ✅)
+## Phase 1: Shared Component Consolidation ✅ COMPLETE
 
-1. ✅ **Strong SECRET_KEY** - Generated 50+ character cryptographic key
-2. ✅ **Database Credentials** - Changed from postgres:postgres to strong passwords
-3. ✅ **Non-Root Docker User** - Added django user to Dockerfile.prod
-4. ✅ **WebSocket Authentication** - Enforced authentication on all connections
-5. ✅ **WebSocket Origin Validation** - AllowedHostsOriginValidator enabled
-6. ✅ **Debug Logging Removed** - No credentials exposed in logs
-7. ✅ **Login Rate Limiting** - 5 attempts/minute brute force protection
-8. ✅ **Security Headers** - HSTS, CSP, X-Frame-Options configured
-9. ✅ **Redis Authentication** - Password required for Valkey
-10. ✅ **Database Port Removed** - No external exposure
-11. ✅ **Container Resource Limits** - CPU and memory limits
-12. ✅ **Source Maps Disabled** - Production builds don't expose code
+**Goal:** Create reusable components that work across all pages
 
----
+### 1.1 Create ExpandableListTable Component
+- [x] Design generic expandable table/card component
+- [x] Support mobile (card) and desktop (table) layouts
+- [x] Handle both family-based and flat list data
+- [x] Add proper TypeScript types
+- [x] Write component tests (18 tests passing)
+- [x] Create usage documentation (in component comments)
 
-## High Priority Fixes Applied (11/11 ✅)
+**Location:** `frontend/src/lib/components/ui/ExpandableListTable.svelte`
+**Tests:** `frontend/src/lib/components/ui/ExpandableListTable.test.ts` (18/18 passing)
 
-13. ✅ **Session Security** - 8-hour timeout, strict SameSite cookies
-14. ✅ **Network Isolation** - Frontend/backend Docker networks
-15. ✅ **Logging Configuration** - Rotation and security improvements
-16. ✅ **QR Endpoint Security** - Validated (secure by design)
-17. ✅ **Admin Panel** - Secure (documented best practices)
-18. ✅ **Content Security Policy** - CSP headers configured
-19. ✅ **Frontend XSS Protection** - Validated (no vulnerabilities)
-20. ✅ **API Client Security** - CSRF tokens, credentials verified
-21. ✅ **Input Validation** - Django ORM prevents SQL injection
-22. ✅ **WebSocket Client** - Secure authentication mechanism
-23. ✅ **Build Security** - Source maps disabled, deps scanned
+### 1.2 Update EmptyState Component Colors
+- [x] Verify slate-* color usage (currently uses neutral-*)
+- [x] Update to match design system
+- [x] Test across all three pages
 
----
+**Location:** `frontend/src/lib/components/ui/EmptyState.svelte`
+**Changes:** Updated all neutral-* colors to slate-* (neutral-50 → slate-50, neutral-300 → slate-300, etc.)
 
-## Documentation Created
+### 1.3 Create PageHeader Component
+- [x] Design consistent page header
+- [x] Support title + optional actions slot
+- [x] Match checkout page styling
+- [x] Add TypeScript types
 
-### Security Audit Reports
-- `docs/SECURITY_AUDIT_REPORT.md` (1,565 lines) - Complete Django backend audit
-- `docs/FRONTEND_SECURITY_AUDIT_2025-12-13.md` - SvelteKit security review
-- `docs/PRODUCTION_DEPLOYMENT_READINESS.md` - Overall readiness assessment
+**Location:** `frontend/src/lib/components/ui/PageHeader.svelte`
+**Tests:** `frontend/src/lib/components/ui/PageHeader.test.ts` (5/5 passing)
 
-### Implementation Guides
-- `docs/SECURITY_IMPLEMENTATION.md` - Detailed implementation guide
-- `docs/SECURITY_CHANGES_SUMMARY.md` - Summary of all changes
-- `docs/SECURITY_FIXES_APPLIED.md` - Fix tracking document
-- `docs/DEPLOYMENT_CHECKLIST.md` - Production deployment guide
+### 1.4 Create StickySearchBox Wrapper
+- [x] Wrap SearchBox with consistent sticky positioning
+- [x] Match checkout page implementation
+- [x] Support responsive padding (-mx/-px pattern)
 
-### Configuration Templates
-- `.env.prod.template` - Secure environment configuration template
-- `.env.prod` - **UPDATED with strong secrets** (NOT committed to git)
+**Location:** `frontend/src/lib/components/ui/StickySearchBox.svelte`
+**Tests:** `frontend/src/lib/components/ui/StickySearchBox.test.ts` (8/8 passing)
 
-### Testing
-- `backend/tests/test_security.py` - Security feature unit tests
-- `agent-tools/test_rate_limiting.py` - Rate limiting manual test
+**Phase 1 Summary:**
+- ✅ 4 new components created
+- ✅ 1 component updated (EmptyState)
+- ✅ 31 tests written and passing (5 + 8 + 18)
+- ✅ All components use slate-* color palette
+- ✅ TypeScript types defined for all components
+- ✅ Mobile and desktop responsive patterns implemented
+- ✅ Keyboard accessibility included
 
 ---
 
-## Files Modified
+## Phase 2: Update Checkin Page ⏳
 
-### Infrastructure
-- `docker-compose.prod.yml` - Secure env vars, resource limits, networks
-- `backend/Dockerfile.prod` - Non-root django user
+**Goal:** Align checkin page with checkout's superior design
 
-### Backend Security
-- `backend/config/settings/prod.py` - Security headers, session config
-- `backend/config/settings/base.py` - Throttling configuration
-- `backend/config/asgi.py` - WebSocket origin validation
-- `backend/accounts/views.py` - Rate limiting on login
-- `backend/checkins/consumers.py` - WebSocket authentication
-- `backend/checkins/views.py` - Debug logging removed
+### 2.1 Replace FamilyCard with Expandable Table
+- [ ] Create CheckinExpandableTable component
+- [ ] Migrate from card-based to table-based layout
+- [ ] Preserve all functionality (undo, ticket assignment, supervised state)
+- [ ] Support family expansion with child details
+- [ ] Match checkout's visual style
+- [ ] Test E2E checkin flows
 
-### Frontend Security
-- `frontend/vite.config.ts` - Source maps disabled
+**Files to modify:**
+- Create: `frontend/src/lib/components/checkin/CheckinExpandableTable.svelte`
+- Update: `frontend/src/routes/checkin/+page.svelte`
+- Deprecate: `frontend/src/lib/components/checkin/FamilyCard.svelte` (after migration)
 
----
+### 2.2 Standardize Empty States
+- [ ] Replace custom empty state div (lines 865-874)
+- [ ] Use EmptyState component with icon
+- [ ] Match checkout's messaging style
 
-## Git Commit
+### 2.3 Update Error Handling
+- [ ] Replace custom error div (lines 780-792)
+- [ ] Use Alert component consistently
+- [ ] Match checkout's alert positioning
 
-**Commit Message:** "Security hardening for production deployment"
-
-**Changes Committed:**
-- 21 files changed
-- 7 new documentation files
-- 1 new test file
-- 1 secure configuration template
-- 10 security fix implementations
-
-**Status:** ✅ Committed to main branch
-
----
-
-## Deployment Instructions
-
-### Quick Start
-
-1. **Review Configuration:**
-   ```bash
-   nano .env.prod  # Verify all secrets are set
-   chmod 600 .env.prod
-   ```
-
-2. **Deploy:**
-   ```bash
-   echo "rebuild" > restart.txt  # Triggers auto-rebuild
-   # Or manually:
-   podman compose -f docker-compose.prod.yml up -d --build
-   ```
-
-3. **Verify:**
-   ```bash
-   ./verification.sh --test
-   podman compose -f docker-compose.prod.yml logs -f
-   ```
-
-4. **Follow Checklist:**
-   See `docs/DEPLOYMENT_CHECKLIST.md` for complete deployment steps
+### 2.4 Container & Layout Updates
+- [ ] Verify container padding: `p-3 md:p-5`
+- [ ] Ensure `max-w-4xl` container
+- [ ] Use StickySearchBox wrapper (lines 837-842)
+- [ ] Update color scheme to slate-* throughout
 
 ---
 
-## Testing Status
+## Phase 3: Update Print Queue Page ⏳
 
-### Automated Scans
-- ✅ **pnpm audit** - 3 non-critical issues in dev dependencies only
-- ⏳ **safety check** - Requires disk space cleanup
-- ✅ **Code review** - All security fixes verified
+**Goal:** Align print-queue with common design patterns
 
-### Manual Testing Required
-- [ ] Deploy to staging environment
-- [ ] Test rate limiting (try 6 login attempts)
-- [ ] Verify WebSocket authentication
-- [ ] Check security headers (curl -I)
-- [ ] Test full user flows
-- [ ] Performance testing under load
+### 3.1 Update PrintQueueTable Color Scheme
+- [ ] Change neutral-* to slate-* colors throughout
+- [ ] Update header background to `bg-slate-50`
+- [ ] Update borders to `border-slate-200/300`
+- [ ] Update text colors to slate palette
 
----
+**Files to modify:**
+- `frontend/src/lib/components/domain/PrintQueueTable.svelte`
 
-## Security Improvements
+### 3.2 Container Standardization
+- [ ] Change container to match checkout/checkin pattern
+- [ ] Update from `max-w-7xl` to `max-w-4xl`
+- [ ] Change padding from `p-4` to `p-3 md:p-5`
+- [ ] Add min-h-screen bg-slate-100 wrapper
 
-### Threats Mitigated
-- ✅ Brute force password attacks (rate limiting)
-- ✅ Session hijacking (secure cookies, strong SECRET_KEY)
-- ✅ WebSocket hijacking (authentication + origin validation)
-- ✅ Clickjacking (X-Frame-Options: DENY)
-- ✅ MIME sniffing attacks (nosniff header)
-- ✅ XSS attacks (CSP, auto-escaping)
-- ✅ CSRF attacks (strict SameSite cookies)
-- ✅ Container breakout (non-root user)
-- ✅ Resource exhaustion (container limits)
-- ✅ Code exposure (source maps disabled)
+**Files to modify:**
+- `frontend/src/routes/print-queue/+page.svelte`
 
-### Defense-in-Depth Layers
-1. **Network:** Isolated backend network, no DB port exposure
-2. **Application:** Authentication, authorization, rate limiting
-3. **Session:** Secure cookies, timeouts, strict SameSite
-4. **Container:** Non-root user, resource limits
-5. **Headers:** HSTS, CSP, X-Frame-Options, nosniff
-6. **Data:** Strong encryption keys, password hashing
-7. **Monitoring:** Logging, audit trails
+### 3.3 Verify EmptyState Usage
+- [ ] Check EmptyState component matches slate palette
+- [ ] Verify icon usage is consistent
+- [ ] Keep excellent "No labels need printing" implementation
 
 ---
 
-## Recommendations for Production
+## Phase 4: Documentation & Polish 📝
 
-### Before Public Launch
+**Goal:** Document patterns and ensure consistency
 
-1. **Set Up HTTPS** - Use Caddy or Nginx reverse proxy
-2. **Update .env.prod:**
-   ```bash
-   CORS_ALLOWED_ORIGINS=https://yourdomain.com
-   CSRF_TRUSTED_ORIGINS=https://yourdomain.com
-   SESSION_COOKIE_SECURE=true
-   CSRF_COOKIE_SECURE=true
-   ```
+### 4.1 Create Design System Documentation
+- [ ] Document color usage guidelines
+- [ ] Component selection guide (when to use what)
+- [ ] Layout patterns and spacing standards
+- [ ] Typography scale
+- [ ] Icon usage guidelines
 
-3. **Configure Monitoring** - Set up alerts for:
-   - Failed login attempts (rate limit hits)
-   - WebSocket authentication failures
-   - Error rates
-   - Resource usage
+**Location:** `docs/frontend-design-system.md`
 
-4. **Database Backups** - Set up automated daily backups
+### 4.2 Component Documentation
+- [ ] Add JSDoc comments to all new components
+- [ ] Document props and usage examples
+- [ ] Add accessibility notes
 
-5. **Penetration Testing** - Consider professional security assessment
+### 4.3 Testing & Verification
+- [ ] Run all E2E tests (make test-e2e-dev)
+- [ ] Visual regression testing (screenshots)
+- [ ] Accessibility audit
+- [ ] Mobile responsiveness testing
 
-### Ongoing Maintenance
+---
 
-**Weekly:**
-- Review logs for suspicious activity
-- Check backup completion
-- Monitor resource usage
+## Testing Checklist
 
-**Monthly:**
-- Update dependencies (`pnpm update`, `uv sync`)
-- Run security scans
-- Review access logs
+**Before marking complete:**
 
-**Quarterly:**
-- Full security audit
-- Test backup restoration
-- Review and rotate secrets
+- [ ] All E2E tests pass (baseline: 17/20)
+- [ ] No visual regressions on any page
+- [ ] Mobile layouts work correctly
+- [ ] Keyboard navigation works
+- [ ] Screen reader compatibility maintained
+- [ ] No console errors or warnings
+- [ ] TypeScript builds without errors
+
+**Test Commands:**
+```bash
+cd backend
+make test-e2e-dev        # Run all E2E tests
+make test-checkin        # Test checkin page specifically
+make test-checkout       # Test checkout page specifically
+```
+
+---
+
+## Component Reuse Targets
+
+| Component | Before | After |
+|-----------|--------|-------|
+| Checkout page | Custom table | ✅ Reusable ExpandableListTable |
+| Checkin page | Custom cards | 🔄 Reusable ExpandableListTable |
+| Print-queue | Custom table | 🔄 Update colors to slate-* |
+| EmptyState | Mixed usage | ✅ Consistent everywhere |
+| Alert | Mixed usage | ✅ Consistent everywhere |
 
 ---
 
 ## Success Criteria
 
-All criteria met for production deployment:
-
-- [x] No CRITICAL security vulnerabilities
-- [x] No HIGH security vulnerabilities
-- [x] Strong cryptographic secrets generated
-- [x] Container security hardened (non-root user)
-- [x] WebSocket security enforced
-- [x] Rate limiting implemented
-- [x] Security headers configured
-- [x] Network isolation implemented
-- [x] Resource limits configured
-- [x] Source maps disabled
-- [x] Documentation complete
-- [x] Configuration templates created
-- [x] Deployment checklist ready
-- [x] All changes committed to git
+- [ ] All three pages use same color palette (slate-*)
+- [ ] All three pages use same container structure
+- [ ] EmptyState component used consistently
+- [ ] Alert component used instead of custom error divs
+- [ ] At least 2 shared expandable/table components created
+- [ ] Code reduction of 30%+ in page-specific components
+- [ ] No visual regressions in E2E tests
+- [ ] Accessibility score maintained or improved
 
 ---
 
-## Known Issues (Non-Critical)
+## Files to Modify
 
-**Frontend Dependencies:**
-- 1 LOW: cookie package (out of bounds characters) - Dev dependency only
-- 2 MODERATE: esbuild development server - Not used in production
+### New Components (Create)
+- `frontend/src/lib/components/ui/ExpandableListTable.svelte`
+- `frontend/src/lib/components/ui/PageHeader.svelte`
+- `frontend/src/lib/components/ui/StickySearchBox.svelte`
+- `frontend/src/lib/components/checkin/CheckinExpandableTable.svelte`
 
-**Action:** Monitor for updates, no immediate risk to production.
+### Update Components
+- `frontend/src/lib/components/ui/EmptyState.svelte` (color scheme)
+- `frontend/src/lib/components/domain/PrintQueueTable.svelte` (colors)
 
-**Django Admin:**
-- Admin panel at /admin/ (standard URL) - Consider changing for production
-- No IP whitelist - Consider adding for high-security environments
+### Update Pages
+- `frontend/src/routes/checkin/+page.svelte` (major refactor)
+- `frontend/src/routes/print-queue/+page.svelte` (colors + container)
+- `frontend/src/routes/checkout/+page.svelte` (potentially use new wrappers)
 
-**Action:** Documented in security reports, not blocking deployment.
+### Documentation
+- `docs/frontend-design-system.md` (new)
+- `docs/ui-cohesion-plan.md` (already created ✅)
 
 ---
 
-## Next Steps
+## Git Commits
 
-1. **Review Documentation** - Team review of security reports
-2. **Staging Deployment** - Deploy to staging for testing
-3. **Performance Testing** - Load testing under expected traffic
-4. **Security Testing** - Manual penetration testing
-5. **Production Deployment** - Follow deployment checklist
-6. **Post-Deployment Monitoring** - Watch logs for 24-48 hours
-7. **Team Training** - Brief team on new security features
+**Planned commits:**
+
+1. "Create shared ExpandableListTable, PageHeader, StickySearchBox components"
+2. "Update EmptyState component to use slate color palette"
+3. "Refactor checkin page to use expandable table pattern"
+4. "Update print-queue page colors and container to match design system"
+5. "Add frontend design system documentation"
 
 ---
 
 ## Resources
 
-### Documentation
-- Security Audit Report: `docs/SECURITY_AUDIT_REPORT.md`
-- Deployment Checklist: `docs/DEPLOYMENT_CHECKLIST.md`
-- Implementation Guide: `docs/SECURITY_IMPLEMENTATION.md`
+### Design Reference
+- Best design: `/checkout` page - CheckoutExpandableTable component
+- Best empty state: `/print-queue` page - "No labels need printing"
+- Design plan: `docs/ui-cohesion-plan.md`
 
-### Configuration
-- Environment Template: `.env.prod.template`
-- Docker Compose: `docker-compose.prod.yml`
-- Security Settings: `backend/config/settings/prod.py`
-
-### Testing
-- Security Tests: `backend/tests/test_security.py`
-- Rate Limiting Test: `agent-tools/test_rate_limiting.py`
+### Code Locations
+- Checkout table: `frontend/src/lib/components/checkout/CheckoutExpandableTable.svelte`
+- Checkin cards: `frontend/src/lib/components/checkin/FamilyCard.svelte`
+- Print queue table: `frontend/src/lib/components/domain/PrintQueueTable.svelte`
+- UI components: `frontend/src/lib/components/ui/`
 
 ---
 
-## Sign-Off
+## Next Actions
 
-**Security Review:** ✅ COMPLETED
-**Implementation:** ✅ COMPLETED
-**Testing:** ✅ AUTOMATED TESTS PASSING
-**Documentation:** ✅ COMPREHENSIVE
-**Deployment Readiness:** ✅ READY
-
-**Recommendation:** **APPROVED FOR PRODUCTION DEPLOYMENT**
-
-Follow the deployment checklist in `docs/DEPLOYMENT_CHECKLIST.md` to proceed.
+1. ✅ Design plan created (`docs/ui-cohesion-plan.md`)
+2. 🚧 **DELEGATE TO frontend-test-driven-dev agent** - Phase 1 implementation
+3. ⏳ Review and iterate
+4. ⏳ Continue with Phases 2-4
+5. ⏳ Final testing and documentation
 
 ---
 
-**Completed by:** Claude Code Security Implementation
-**Date:** 2025-12-13
-**Status:** ✅ **READY FOR PRODUCTION**
+**Current Status:** Ready to begin implementation
+**Agent Assignment:** frontend-test-driven-dev (TDD approach for all new components)
+**Estimated Impact:** High (improves UX consistency, reduces code duplication)
+
+---
+
+**Updated:** 2025-12-16
+**Status:** 🚧 **READY FOR IMPLEMENTATION**
