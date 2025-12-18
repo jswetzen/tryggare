@@ -140,7 +140,7 @@
         <button
           type="button"
           onclick={() => onCheckOutFamily(family.id)}
-          class="flex-shrink-0 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded hover:bg-blue-700 active:bg-blue-800 transition-colors"
+          class="flex-shrink-0 px-3 py-1.5 sm:px-4 sm:py-2 bg-blue-600 text-white text-xs sm:text-sm font-medium rounded hover:bg-blue-700 active:bg-blue-800 transition-colors"
           aria-label={`${$_('checkout.checkOutAll')} ${family.display_name}`}
         >
           {$_('checkout.checkOutAll')}
@@ -170,7 +170,7 @@
                 <button
                   type="button"
                   onclick={() => onCheckOut(child.id)}
-                  class="px-3 py-1.5 bg-blue-600 text-white text-sm font-medium rounded hover:bg-blue-700 transition-colors"
+                  class="px-3 py-1.5 bg-blue-600 text-white text-xs sm:text-sm font-medium rounded hover:bg-blue-700 transition-colors"
                   aria-label={`${$_('checkout.checkOut')} ${child.firstName} {child.lastName}`}
                 >
                   {$_('checkout.checkOut')}
@@ -184,7 +184,7 @@
             <select
               value={pickedUpBy[family.id] || ''}
               onchange={(e) => onPickedUpByChange(family.id, (e.target as HTMLSelectElement).value)}
-              class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+              class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-xs sm:text-sm"
             >
               <option value="">{$_('checkout.pickedUpBy')}...</option>
               {#each family.parents as parent}
@@ -273,7 +273,7 @@
             <button
               type="button"
               onclick={() => onCheckOutFamily(family.id)}
-              class="px-4 py-1.5 bg-blue-600 text-white text-sm font-medium rounded hover:bg-blue-700 transition-colors"
+              class="px-3 py-1.5 sm:px-4 sm:py-1.5 bg-blue-600 text-white text-xs sm:text-sm font-medium rounded hover:bg-blue-700 transition-colors"
               aria-label={`${$_('checkout.checkOutAll')} ${family.display_name}`}
             >
               {$_('checkout.checkOutAll')}
@@ -301,7 +301,7 @@
                   <button
                     type="button"
                     onclick={() => onCheckOut(child.id)}
-                    class="px-3 py-1.5 bg-blue-600 text-white text-sm font-medium rounded hover:bg-blue-700 transition-colors"
+                    class="px-3 py-1.5 bg-blue-600 text-white text-xs sm:text-sm font-medium rounded hover:bg-blue-700 transition-colors"
                     aria-label={`${$_('checkout.checkOut')} ${child.firstName} ${child.lastName}`}
                   >
                     {$_('checkout.checkOut')}
@@ -317,7 +317,7 @@
               <select
                 value={pickedUpBy[family.id] || ''}
                 onchange={(e) => onPickedUpByChange(family.id, (e.target as HTMLSelectElement).value)}
-                class="w-full px-3 py-1.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                class="w-full px-3 py-1.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-xs sm:text-sm"
               >
                 <option value="">{$_('checkout.pickedUpBy')}...</option>
                 {#each family.parents as parent}

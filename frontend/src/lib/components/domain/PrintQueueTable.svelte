@@ -35,54 +35,54 @@
   const showColumn = (col: string) => columns.includes(col as any);
 </script>
 
-<div class="overflow-x-auto rounded-card">
+<div class="bg-white rounded-lg border-2 border-slate-300 overflow-hidden">
   <table class="w-full">
-    <thead class="bg-slate-50 border-b-2 border-slate-200">
+    <thead class="bg-slate-50 border-b-2 border-slate-300">
       <tr>
         {#if showColumn('childName')}
-          <th class="text-left p-3 text-sm font-semibold text-slate-700">
+          <th class="px-4 py-3 text-left text-sm font-medium text-slate-700">
             {$t('printQueue.childName')}
           </th>
         {/if}
         {#if showColumn('session')}
-          <th class="text-left p-3 text-sm font-semibold text-slate-700">
+          <th class="px-4 py-3 text-left text-sm font-medium text-slate-700">
             {$t('printQueue.session')}
           </th>
         {/if}
         {#if showColumn('checkInTime')}
-          <th class="text-left p-3 text-sm font-semibold text-slate-700">
+          <th class="px-4 py-3 text-left text-sm font-medium text-slate-700">
             {$t('printQueue.time')}
           </th>
         {/if}
         {#if showColumn('allergies')}
-          <th class="text-left p-3 text-sm font-semibold text-slate-700">
+          <th class="px-4 py-3 text-left text-sm font-medium text-slate-700">
             {$t('printQueue.allergies')}
           </th>
         {/if}
         {#if showColumn('actions')}
-          <th class="text-center p-3 text-sm font-semibold text-slate-700">
+          <th class="px-4 py-3 text-center text-sm font-medium text-slate-700">
             {$t('printQueue.actions')}
           </th>
         {/if}
       </tr>
     </thead>
     <tbody>
-      {#each items as item, index}
-        <tr class:bg-slate-50={index % 2 === 0} class="border-b border-slate-200">
+      {#each items as item}
+        <tr class="border-b border-slate-200 hover:bg-slate-50">
           {#if showColumn('childName')}
-            <td class="p-3">
-              <div class="font-semibold text-slate-700">{item.childName}</div>
+            <td class="px-4 py-3">
+              <div class="font-semibold text-slate-900">{item.childName}</div>
               <div class="text-sm text-slate-500">{item.parentNames}</div>
             </td>
           {/if}
           {#if showColumn('session')}
-            <td class="p-3 text-sm text-slate-700">{item.sessionName}</td>
+            <td class="px-4 py-3 text-sm text-slate-700">{item.sessionName}</td>
           {/if}
           {#if showColumn('checkInTime')}
-            <td class="p-3 text-sm text-slate-700">{formatTime(item.checkInTime)}</td>
+            <td class="px-4 py-3 text-sm text-slate-700">{formatTime(item.checkInTime)}</td>
           {/if}
           {#if showColumn('allergies')}
-            <td class="p-3">
+            <td class="px-4 py-3">
               {#if item.allergies}
                 <Badge color="danger" variant="soft" size="sm">
                   {item.allergies}
@@ -93,7 +93,7 @@
             </td>
           {/if}
           {#if showColumn('actions')}
-            <td class="p-3">
+            <td class="px-4 py-3">
               <div class="flex gap-2 justify-center">
                 <Button size="sm" variant="primary" onclick={() => onPrint(item.id)}>
                   <Icon name="printer" size="sm" class="mr-1" />
