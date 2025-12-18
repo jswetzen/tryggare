@@ -423,6 +423,40 @@ SESSION_COOKIE_SECURE=true
 CSRF_COOKIE_SECURE=true
 ```
 
+### Traefik Example (Recommended for Container Environments)
+
+Traefik integration is built into `docker-compose.prod.yml` and can be enabled via environment variables.
+
+**Configuration in `.env.prod` or Portainer environment variables:**
+```env
+# Enable Traefik
+TRAEFIK_ENABLE=true
+TRAEFIK_HOST=checkins.yourdomain.com
+TRAEFIK_ENTRYPOINT=websecure
+TRAEFIK_CERTRESOLVER=le
+TRAEFIK_NETWORK=traefik
+
+# Django settings for HTTPS
+ALLOWED_HOSTS=checkins.yourdomain.com,localhost
+CORS_ALLOWED_ORIGINS=https://checkins.yourdomain.com
+CSRF_TRUSTED_ORIGINS=https://checkins.yourdomain.com
+SESSION_COOKIE_SECURE=true
+CSRF_COOKIE_SECURE=true
+```
+
+**What it does:**
+- Automatically routes traffic from your domain to the container
+- Handles SSL/TLS with Let's Encrypt (or your configured cert resolver)
+- WebSocket support is automatic
+- No manual reverse proxy configuration needed
+
+**Requirements:**
+- Traefik must be running with a network named `traefik` (or set `TRAEFIK_NETWORK` to your network name)
+- Your Traefik instance should have the certificate resolver configured (e.g., `le` for Let's Encrypt)
+
+**For Portainer GitOps:**
+Point Portainer to this repository and set the environment variables above. The stack will automatically integrate with your existing Traefik instance.
+
 ### Caddy Example (Recommended - Auto SSL)
 
 ```caddy

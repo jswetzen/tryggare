@@ -24,6 +24,12 @@ services:
       - CSRF_COOKIE_SECURE=${CSRF_COOKIE_SECURE:-false}
     ports:
       - "${WEB_HOST_PORT:-8080}:8000"
+    labels:
+      traefik.enable: "${TRAEFIK_ENABLE:-false}"
+      traefik.http.routers.checkins.rule: "Host(`${TRAEFIK_HOST:-checkins.example.com}`)"
+      traefik.http.routers.checkins.entrypoints: "${TRAEFIK_ENTRYPOINT:-websecure}"
+      traefik.http.routers.checkins.tls.certresolver: "${TRAEFIK_CERTRESOLVER:-le}"
+      traefik.docker.network: "${TRAEFIK_NETWORK:-traefik}"
     depends_on:
       db-prod:
         condition: service_healthy
@@ -32,6 +38,7 @@ services:
     networks:
       - frontend
       - backend
+      - traefik
     deploy:
       resources:
         limits:
@@ -105,6 +112,9 @@ networks:
   backend:
     driver: bridge
     internal: true  # Backend network has no external access
+  traefik:
+    external: true
+    name: ${TRAEFIK_NETWORK:-traefik}
 
 volumes:
   pg_data_prod:
