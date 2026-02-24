@@ -1,213 +1,126 @@
 # Conference Child Management System
 
-A comprehensive check-in/check-out system for managing children at conference events.
+A check-in/check-out system for managing children at conference events. Staff can check children in and out across multiple stations, print name labels, and track attendance in real time.
 
-## Getting Started
+## Stack
 
-### Prerequisites
+- **Backend:** Django 5.x + Django REST Framework + Django Channels (WebSockets)
+- **Frontend:** SvelteKit (Svelte 5) + Tailwind CSS 3 + svelte-i18n
+- **Database:** PostgreSQL 16
+- **Message broker:** Valkey (Redis-compatible, for WebSocket broadcast)
+- **Runtime:** Python via `uv`, Node via `pnpm`
 
-- Docker and Docker Compose installed
-- Node.js 20+ (for local development without Docker)
-- pnpm (package manager)
+## Environments
 
-### Environment Setup
+### Development (`docker-compose.yml`)
 
-1. Copy the environment variables template:
-   ```bash
-   cp .env.example .env
-   ```
+| Service | URL |
+|---|---|
+| Frontend (SvelteKit dev server) | http://localhost:5173 |
+| Backend (Django/Daphne) | http://localhost:8000 |
+| PostgreSQL | port 5432 |
 
-2. Update the `.env` file with your configuration (especially in production):
-   - Generate a secure `NEXTAUTH_SECRET`: `openssl rand -base64 32`
-   - Set appropriate admin credentials
-   - Configure database connection string if not using Docker
+Auto-rebuild on file change via hot reload. To force restart, write to `restart.txt`.
 
-## Docker Development
+### Production (`docker-compose.prod.yml`)
 
-### Start Services
+| Service | URL |
+|---|---|
+| Django (serves API + built SPA) | http://localhost:8080 |
+| PostgreSQL | port 5433 (internal) |
 
-Start all services (PostgreSQL database + Next.js application):
+Auto-rebuild triggered by writing to `restart.txt`. Build log: `build.prod.log`.
+
+## Quick Start (Dev)
+
 ```bash
-docker-compose up -d
+# Start dev environment
+podman compose up -d
+
+# Run backend migrations
+cd backend && uv run python manage.py migrate
+
+# View logs
+tail -f web.log          # Django backend
+tail -f frontend.log     # SvelteKit frontend
+tail -f build.dev.log    # Container build output
 ```
 
-The application will be available at: http://localhost:3000
-
-### View Logs
-
-View application logs:
-```bash
-docker-compose logs -f app
-```
-
-View database logs:
-```bash
-docker-compose logs -f db
-```
-
-View all logs:
-```bash
-docker-compose logs -f
-```
-
-### Stop Services
-
-Stop all services:
-```bash
-docker-compose down
-```
-
-Stop services and remove volumes (⚠️ this will delete all data):
-```bash
-docker-compose down -v
-```
-
-### Database Operations in Docker
-
-#### Access PostgreSQL Database
-
-Connect to the PostgreSQL container:
-```bash
-docker exec -it conference-db psql -U postgres -d conference-child-mgmt
-```
-
-#### Run Prisma Migrations
-
-Run migrations:
-```bash
-docker-compose exec app pnpm prisma migrate dev
-```
-
-Generate Prisma client:
-```bash
-docker-compose exec app pnpm prisma generate
-```
-
-#### Seed Database
-
-Seed the database with initial data:
-```bash
-docker-compose exec app pnpm prisma db seed
-```
-
-Reset database and re-seed:
-```bash
-docker-compose exec app pnpm prisma migrate reset
-```
-
-## Database Migration Strategy
-
-### Development Workflow
-
-1. **Create migrations** when you change the Prisma schema:
-   ```bash
-   # In Docker
-   docker-compose exec app pnpm prisma migrate dev --name descriptive_name
-
-   # Or locally
-   pnpm prisma migrate dev --name descriptive_name
-   ```
-
-2. **Commit migration files** to version control:
-   - Migration files are in `prisma/migrations/`
-   - Always commit these files alongside schema changes
-
-3. **Automatic application**: Migrations run automatically when the Docker container starts via the entrypoint script
-
-### Production Deployment
-
-**Migrations are automatically applied** when the application starts:
-
-1. The Docker entrypoint script runs `prisma migrate deploy`
-2. This applies any pending migrations from `prisma/migrations/`
-3. Only after successful migration, the application starts
-
-**Important**: Never run `prisma migrate dev` in production. Only `prisma migrate deploy` is used, which:
-- Applies pending migrations
-- Does not create new migrations
-- Does not prompt for input
-- Fails safely if there are issues
-
-### Migration Files
-
-- **Location**: `prisma/migrations/`
-- **Version control**: Always commit migration files
-- **Created by**: `prisma migrate dev` (development only)
-- **Applied by**: Automatic on container startup (`prisma migrate deploy`)
-
-### Rollback Strategy
-
-If you need to rollback a migration:
-
-1. **Development**: Use `prisma migrate reset` (⚠️ destroys all data)
-2. **Production**: Create a new migration that reverses the changes
-3. **Emergency**: Restore from database backup
-
-## Local Development (Without Docker)
-
-If you prefer to develop without Docker:
-
-1. Ensure PostgreSQL is running locally on port 5432
-2. Update `.env` with your local database connection string
-3. Install dependencies:
-   ```bash
-   pnpm install
-   ```
-4. Generate Prisma client:
-   ```bash
-   pnpm prisma generate
-   ```
-5. Run migrations:
-   ```bash
-   pnpm prisma migrate dev
-   ```
-6. Seed database:
-   ```bash
-   pnpm prisma db seed
-   ```
-7. Start development server:
-   ```bash
-   pnpm dev
-   ```
-
-## Tech Stack
-
-- **Framework:** Next.js 15 with App Router
-- **Language:** TypeScript
-- **API Layer:** tRPC
-- **Database:** PostgreSQL with Prisma ORM
-- **Authentication:** NextAuth.js
-- **Styling:** Tailwind CSS + shadcn/ui
-- **Internationalization:** next-intl
+Login: `admin` / `admin123`
 
 ## Project Structure
 
 ```
-src/
-├── features/          # Feature-based modules
-│   ├── auth/         # Authentication
-│   ├── families/     # Family management
-│   ├── children/     # Child management
-│   ├── sessions/     # Session management
-│   ├── check-in/     # Check-in functionality
-│   ├── check-out/    # Check-out functionality
-│   └── admin/        # Admin features
-├── components/        # React components
-│   ├── ui/           # shadcn/ui components
-│   └── shared/       # Shared components
-├── lib/              # Utility functions
-└── server/           # Server-side code
-    └── api/          # tRPC routers
+backend/              Django project
+  config/             Settings, ASGI/WSGI, URL routing
+  accounts/           Admin user auth
+  families/           Family, Parent, Child models + REST API
+  checkins/           Check-in/out logic, WebSocket consumer
+  events/             Events, Sessions, Tickets
+  printing/           Label print queue
+  tests/
+    unit/             Django unit tests
+    e2e/              Selenium browser tests
+
+frontend/             SvelteKit project
+  src/routes/         Pages: login, checkin, checkout, print-queue, qr/[id]
+  src/lib/
+    components/
+      ui/             Generic components (Button, Card, Alert, etc.)
+      checkin/        Check-in specific components
+      checkout/       Check-out specific components
+      domain/         Print queue table, family table
+    api/              API client layer
+    stores/           Svelte stores
+    i18n/             Translation JSON (en, sv)
+
+docs/                 Design documents, implementation notes
+agent-tools/          Ad-hoc test/verification scripts
 ```
+
+## Testing
+
+```bash
+make help              # All available commands
+
+# From repo root
+make test              # All tests (unit + E2E)
+make test-e2e-dev      # E2E against dev (localhost:5173/8000)
+make test-e2e-prod     # E2E against production (localhost:8080)
+
+# From backend/
+make test-auth         # Auth flow tests
+make test-checkin      # Check-in flow tests
+make test-checkout     # Check-out flow tests
+make test-qr           # QR page tests
+make test-print        # Print queue tests
+make test-i18n         # i18n tests
+make test-navigation   # Navigation tests
+```
+
+Baseline: ~20/23 E2E tests passing. 3 known gaps (WebSocket real-time, undo checkout, bulk check-in) - not regressions.
+
+## Backend Model Changes
+
+```bash
+cd backend
+uv run python manage.py makemigrations
+uv run python manage.py migrate
+make verify
+```
+
+## Key Design Decisions
+
+- **One child = one session**: a child can only be checked in to one session at a time (enforced)
+- **UUID QR tokens**: cryptographically secure, public read-only QR pages; actions require login
+- **Real-time sync**: WebSocket via Django Channels broadcasts check-in/out events to all stations
+- **i18n**: Swedish + English throughout (Django i18n backend + svelte-i18n frontend)
+- **SPA in production**: SvelteKit builds to static files served by Django/WhiteNoise
 
 ## Documentation
 
-- [Project Specification](./PROJECT_SPECIFICATION.md) - Detailed requirements
-- [Technical Design](./TECHNICAL_DESIGN.md) - Architecture and technical details
-- [Implementation Plan](./IMPLEMENTATION_PLAN.md) - Development roadmap
-
-## License
-
-Private project - All rights reserved
-
-<!-- Permission check test -->
+- [Project Specification](./PROJECT_SPECIFICATION.md) - Requirements and data model
+- [Technical Design](./TECHNICAL_DESIGN.md) - Architecture decisions
+- [Implementation Plan](./IMPLEMENTATION_PLAN.md) - Development roadmap and status
+- [Current Tasks](./CURRENT_TASKS.md) - Active work
+- [docs/](./docs/) - Design docs, API notes, deployment guides
