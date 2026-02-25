@@ -840,6 +840,7 @@
         onToggleChildExpansion={(childId) => {
           expandedChildId = childId;
         }}
+        {searchQuery}
       />
     {/if}
   {/if}

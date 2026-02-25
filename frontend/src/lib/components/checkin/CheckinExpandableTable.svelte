@@ -33,6 +33,7 @@
     supervisedState: Record<string, boolean>;
     expandedChildId: string | null;
     onToggleChildExpansion: (childId: string | null) => void;
+    searchQuery?: string;
   }
 
   let {
@@ -45,11 +46,41 @@
     getRemainingTime,
     supervisedState = $bindable(),
     expandedChildId,
-    onToggleChildExpansion
+    onToggleChildExpansion,
+    searchQuery = ''
   }: Props = $props();
 
-  // Track which families are expanded
-  let expandedFamilies = $state<Set<string>>(new Set());
+  // Track which families are manually toggled by the user
+  let manuallyExpanded = $state<Set<string>>(new Set());
+  // Track families explicitly collapsed by the user (to override search auto-expand)
+  let manuallyCollapsed = $state<Set<string>>(new Set());
+
+  // Families that should be auto-expanded because a child's name matches the search query
+  // (only when the family name itself does NOT match — if the family name matches, it's already shown without needing expansion)
+  const searchAutoExpanded = $derived.by(() => {
+    const query = searchQuery.trim().toLowerCase();
+    if (!query) return new Set<string>();
+    const result = new Set<string>();
+    for (const family of families) {
+      const familyNameMatches = family.name.toLowerCase().includes(query);
+      const childMatches = family.children.some((child) =>
+        child.name.toLowerCase().includes(query)
+      );
+      if (childMatches && !familyNameMatches) {
+        result.add(family.id);
+      }
+    }
+    return result;
+  });
+
+  // Combined expansion state: (manually expanded OR search-auto-expanded) AND NOT manually collapsed
+  const expandedFamilies = $derived.by(() => {
+    const result = new Set([...manuallyExpanded, ...searchAutoExpanded]);
+    for (const id of manuallyCollapsed) {
+      result.delete(id);
+    }
+    return result;
+  });
 
   // Subscribe to undo timer store for reactivity
   let undoActionsData = $derived($undoActionsWithTick);
@@ -61,13 +92,23 @@
       return;
     }
 
-    const newExpanded = new Set(expandedFamilies);
-    if (newExpanded.has(familyId)) {
-      newExpanded.delete(familyId);
+    if (expandedFamilies.has(familyId)) {
+      // Currently expanded — collapse it
+      const newManual = new Set(manuallyExpanded);
+      newManual.delete(familyId);
+      manuallyExpanded = newManual;
+      const newCollapsed = new Set(manuallyCollapsed);
+      newCollapsed.add(familyId);
+      manuallyCollapsed = newCollapsed;
     } else {
-      newExpanded.add(familyId);
+      // Currently collapsed — expand it
+      const newManual = new Set(manuallyExpanded);
+      newManual.add(familyId);
+      manuallyExpanded = newManual;
+      const newCollapsed = new Set(manuallyCollapsed);
+      newCollapsed.delete(familyId);
+      manuallyCollapsed = newCollapsed;
     }
-    expandedFamilies = newExpanded;
   }
 
   function isExpanded(familyId: string): boolean {
