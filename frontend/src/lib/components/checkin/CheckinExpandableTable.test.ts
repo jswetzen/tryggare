@@ -21,6 +21,7 @@ vi.mock('svelte-i18n', () => ({
           'checkin.allCheckedIn': 'All Checked In',
           'checkin.alreadyCheckedIn': 'Already Checked In',
           'checkin.checkInCount': 'Check In {count}',
+          'checkin.checkedInCount': '{count} checked in',
           'checkin.undoSeconds': 'Undo ({seconds}s)',
           'checkin.ticketEvent': 'Event',
           'checkin.ticketSession': 'Session',

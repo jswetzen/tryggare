@@ -119,7 +119,13 @@
     "checkInAll": "Check In All",
     "showCheckedInFamilies": "Show checked-in families",
     "allCheckedIn": "All Checked In",
-    "guardianPresent": "Guardian present"
+    "guardianPresent": "Guardian present",
+    "checkedInCount": "{count} checked in",
+    "matchingSearch": "matching search",
+    "relationshipGuardian": "Guardian",
+    "childNumber": "Child {number}",
+    "optional": "optional",
+    "allChildrenRequired": "All children must have first name, last name, and birthdate"
   },
   "checkout": {
     "pageTitle": "Check-Out Station",
@@ -178,6 +184,7 @@
     "since": "Since:",
     "notCheckedIn": "Not Currently Checked In",
     "notCheckedInHelp": "This QR code is not active. The child may not be checked in, or the code may have expired.",
+    "parentsGuardians": "Parents/Guardians:",
     "emergencyContact": "Emergency Contact",
     "emergencyContactHelp": "For emergency contact information, please see a staff member.",
     "familyId": "Family ID:",

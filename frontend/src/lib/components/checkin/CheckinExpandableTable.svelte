@@ -235,7 +235,7 @@
               </div>
               <p class="text-xs sm:text-sm text-slate-600 mt-0.5">
                 {totalChildren} {totalChildren === 1 ? $_('checkin.child') : $_('checkin.children')} •
-                {checkedInCount} checked in
+                {$_('checkin.checkedInCount', { values: { count: checkedInCount } })}
               </p>
             </div>
           </div>
@@ -424,7 +424,7 @@
           </td>
           <td class="px-4 py-3 text-sm text-slate-600">
             {totalChildren} {totalChildren === 1 ? $_('checkin.child') : $_('checkin.children')} •
-            {checkedInCount} checked in
+            {$_('checkin.checkedInCount', { values: { count: checkedInCount } })}
           </td>
           <td class="px-4 py-3 text-right">
             <!-- svelte-ignore a11y-click-events-have-key-events -->
