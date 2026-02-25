@@ -117,7 +117,7 @@
 
     for (const child of children) {
       if (!child.first_name.trim() || !child.last_name.trim() || !child.birthdate.trim()) {
-        error = 'All children must have first name, last name, and birthdate';
+        error = $_('checkin.allChildrenRequired');
         return;
       }
     }
@@ -133,7 +133,7 @@
       }));
 
     if (validParents.length === 0) {
-      error = 'At least one parent is required';
+      error = $_('checkin.atLeastOneParent');
       return;
     }
 
@@ -197,7 +197,7 @@
     <!-- Parents -->
     <div class="mb-4">
       <div class="block text-sm font-semibold text-slate-700 mb-2">
-        Parents:
+        {$_('checkin.parentInfo')}:
       </div>
       <div class="space-y-3">
         {#each parents as parent, index (index)}
@@ -205,20 +205,20 @@
             <div class="grid grid-cols-2 gap-2 mb-2">
               <div>
                 <label for={`parent-name-${index}`} class="block text-xs text-slate-600 mb-1">
-                  Name *
+                  {$_('checkin.parentName')} *
                 </label>
                 <input
                   id={`parent-name-${index}`}
                   type="text"
                   value={parent.name}
                   on:input={(e) => handleParentChange(index, 'name', e.currentTarget.value)}
-                  placeholder="Parent name"
+                  placeholder={$_('checkin.parentNamePlaceholder')}
                   class="w-full px-2 py-1.5 text-sm border border-slate-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
               <div>
                 <label for={`parent-relationship-${index}`} class="block text-xs text-slate-600 mb-1">
-                  Relationship
+                  {$_('checkin.relationshipType')}
                 </label>
                 <select
                   id={`parent-relationship-${index}`}
@@ -226,37 +226,37 @@
                   on:change={(e) => handleParentChange(index, 'relationship_type', e.currentTarget.value)}
                   class="w-full px-2 py-1.5 text-sm border border-slate-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
-                  <option value="MOM">Mom</option>
-                  <option value="DAD">Dad</option>
-                  <option value="GUARDIAN">Guardian</option>
-                  <option value="OTHER">Other</option>
+                  <option value="MOM">{$_('checkin.relationshipMom')}</option>
+                  <option value="DAD">{$_('checkin.relationshipDad')}</option>
+                  <option value="GUARDIAN">{$_('checkin.relationshipGuardian')}</option>
+                  <option value="OTHER">{$_('checkin.relationshipOther')}</option>
                 </select>
               </div>
             </div>
             <div class="grid grid-cols-2 gap-2">
               <div>
                 <label for={`parent-phone-${index}`} class="block text-xs text-slate-600 mb-1">
-                  Phone
+                  {$_('checkin.parentPhone')}
                 </label>
                 <input
                   id={`parent-phone-${index}`}
                   type="tel"
                   value={parent.phone}
                   on:input={(e) => handleParentChange(index, 'phone', e.currentTarget.value)}
-                  placeholder="555-1234"
+                  placeholder={$_('checkin.parentPhonePlaceholder')}
                   class="w-full px-2 py-1.5 text-sm border border-slate-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
               <div>
                 <label for={`parent-email-${index}`} class="block text-xs text-slate-600 mb-1">
-                  Email
+                  {$_('checkin.parentEmail')}
                 </label>
                 <input
                   id={`parent-email-${index}`}
                   type="email"
                   value={parent.email}
                   on:input={(e) => handleParentChange(index, 'email', e.currentTarget.value)}
-                  placeholder="email@example.com"
+                  placeholder={$_('checkin.parentEmailPlaceholder')}
                   class="w-full px-2 py-1.5 text-sm border border-slate-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
@@ -267,7 +267,7 @@
                 on:click={() => handleRemoveParent(index)}
                 class="mt-2 text-red-600 hover:text-red-700 text-xs font-medium"
               >
-                Remove Parent
+                {$_('checkin.removeParent')}
               </button>
             {/if}
           </div>
@@ -278,7 +278,7 @@
         on:click={handleAddParent}
         class="mt-2 text-blue-600 hover:text-blue-700 text-sm font-semibold"
       >
-        + Add Another Parent
+        + {$_('checkin.addParent')}
       </button>
     </div>
 
@@ -310,14 +310,14 @@
         {#each children as child, index (index)}
           <div class="border border-slate-200 rounded p-3 bg-slate-50">
             <div class="flex justify-between items-center mb-2">
-              <span class="text-sm font-semibold text-slate-700">Child {index + 1}</span>
+              <span class="text-sm font-semibold text-slate-700">{$_('checkin.childNumber', { values: { number: index + 1 } })}</span>
               {#if children.length > 1}
                 <button
                   type="button"
                   on:click={() => handleRemoveChild(index)}
                   class="text-red-600 hover:text-red-700 text-xs font-medium"
                 >
-                  Remove Child
+                  {$_('checkin.removeChild')}
                 </button>
               {/if}
             </div>
@@ -325,13 +325,13 @@
             <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
               <div>
                 <label for={`child-first-name-${index}`} class="block text-xs text-slate-600 mb-1">
-                  First Name <span class="text-red-600">*</span>
+                  {$_('checkin.childFirstName')} <span class="text-red-600">*</span>
                 </label>
                 <input
                   id={`child-first-name-${index}`}
                   type="text"
                   bind:value={child.first_name}
-                  placeholder="First name"
+                  placeholder={$_('checkin.childFirstNamePlaceholder')}
                   class="w-full px-2 py-1.5 text-sm border border-slate-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
                   required
                 />
@@ -339,13 +339,13 @@
 
               <div>
                 <label for={`child-last-name-${index}`} class="block text-xs text-slate-600 mb-1">
-                  Last Name <span class="text-red-600">*</span>
+                  {$_('checkin.childLastName')} <span class="text-red-600">*</span>
                 </label>
                 <input
                   id={`child-last-name-${index}`}
                   type="text"
                   bind:value={child.last_name}
-                  placeholder="Last name"
+                  placeholder={$_('checkin.childLastNamePlaceholder')}
                   class="w-full px-2 py-1.5 text-sm border border-slate-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
                   required
                 />
@@ -353,7 +353,7 @@
 
               <div>
                 <label for={`child-birthdate-${index}`} class="block text-xs text-slate-600 mb-1">
-                  Birthdate <span class="text-red-600">*</span>
+                  {$_('checkin.childBirthdate')} <span class="text-red-600">*</span>
                 </label>
                 <input
                   id={`child-birthdate-${index}`}
@@ -366,25 +366,25 @@
 
               <div>
                 <label for={`child-allergies-${index}`} class="block text-xs text-slate-600 mb-1">
-                  Allergies <span class="text-slate-400 text-xs">(optional)</span>
+                  {$_('checkin.childAllergies')} <span class="text-slate-400 text-xs">({$_('checkin.optional')})</span>
                 </label>
                 <input
                   id={`child-allergies-${index}`}
                   type="text"
                   bind:value={child.allergies}
-                  placeholder="Any allergies"
+                  placeholder={$_('checkin.childAllergiesPlaceholder')}
                   class="w-full px-2 py-1.5 text-sm border border-slate-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
 
               <div class="md:col-span-2">
                 <label for={`child-notes-${index}`} class="block text-xs text-slate-600 mb-1">
-                  Notes <span class="text-slate-400 text-xs">(optional)</span>
+                  {$_('checkin.childNotes')} <span class="text-slate-400 text-xs">({$_('checkin.optional')})</span>
                 </label>
                 <textarea
                   id={`child-notes-${index}`}
                   bind:value={child.notes}
-                  placeholder="Any additional notes"
+                  placeholder={$_('checkin.childNotesPlaceholder')}
                   rows="2"
                   class="w-full px-2 py-1.5 text-sm border border-slate-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
                 ></textarea>

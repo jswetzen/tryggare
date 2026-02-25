@@ -118,7 +118,14 @@
     "familyAdded": "{familyName} familjen tillagd med {count} {childrenLabel}!",
     "checkInAll": "Checka in alla",
     "showCheckedInFamilies": "Visa incheckade familjer",
-    "allCheckedIn": "Alla incheckade"
+    "allCheckedIn": "Alla incheckade",
+    "guardianPresent": "Vårdnadshavare närvarande",
+    "checkedInCount": "{count} incheckade",
+    "matchingSearch": "matchar sökning",
+    "relationshipGuardian": "Vårdnadshavare",
+    "childNumber": "Barn {number}",
+    "optional": "valfritt",
+    "allChildrenRequired": "Alla barn måste ha förnamn, efternamn och födelsedatum"
   },
   "checkout": {
     "pageTitle": "Utcheckningsstation",
@@ -176,6 +183,8 @@
     "session": "Session:",
     "since": "Sedan:",
     "notCheckedIn": "Ej incheckad",
+    "notCheckedInHelp": "Den här QR-koden är inte aktiv. Barnet kanske inte är incheckad, eller så kan koden ha gått ut.",
+    "parentsGuardians": "Föräldrar/Vårdnadshavare:",
     "emergencyContact": "Nödkontakt",
     "emergencyContactHelp": "För nödkontaktinformation, kontakta en personalmedlem.",
     "familyId": "Familje-ID:",

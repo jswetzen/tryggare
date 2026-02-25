@@ -61,7 +61,7 @@
           {family.name}
         </h3>
         <p class="text-xs sm:text-sm text-slate-600 mt-0.5">
-          {childCount} {childCount === 1 ? $_('checkin.child') : $_('checkin.children')} checked in
+          {$_('checkin.checkedInCount', { values: { count: childCount } })}
         </p>
       </div>
 

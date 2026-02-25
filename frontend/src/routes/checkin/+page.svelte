@@ -796,7 +796,7 @@
       <span class="text-slate-600" data-testid="family-count-text">
         {visibleFamilies.length}{' '}
         {visibleFamilies.length === 1 ? $_('common.family') : $_('common.families')}
-        {searchQuery && ' matching search'}
+        {searchQuery && ` ${$_('checkin.matchingSearch')}`}
       </span>
       <!-- Show Checked-In Families Toggle -->
       <label class="flex items-center gap-2 text-sm cursor-pointer">

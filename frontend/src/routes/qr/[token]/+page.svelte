@@ -226,7 +226,7 @@
       </div>
       {#if data.parents && data.parents.length > 0}
         <div class="mb-2">
-          <div class="text-sm font-semibold text-neutral-700">Parents/Guardians:</div>
+          <div class="text-sm font-semibold text-neutral-700">{$t('qr.parentsGuardians')}</div>
           {#each data.parents as parent}
             <div class="text-lg">
               {parent.name}
