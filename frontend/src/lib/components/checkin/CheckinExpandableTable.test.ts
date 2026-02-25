@@ -354,6 +354,118 @@ describe('CheckinExpandableTable', () => {
     });
   });
 
+  describe('Search Auto-Expand', () => {
+    const twoFamilies: Family[] = [
+      {
+        id: 'family-1',
+        last_name: 'Smith',
+        display_name: 'Smith Family',
+        name: 'Smith Family',
+        children: [
+          {
+            id: 'child-1',
+            first_name: 'John',
+            last_name: 'Smith',
+            name: 'John Smith',
+            ticket: 'event',
+            ticket_type: 'event',
+            checkedIn: false,
+            family: 'family-1'
+          }
+        ],
+        parents: []
+      },
+      {
+        id: 'family-2',
+        last_name: 'Jones',
+        display_name: 'Jones Family',
+        name: 'Jones Family',
+        children: [
+          {
+            id: 'child-3',
+            first_name: 'Alice',
+            last_name: 'Jones',
+            name: 'Alice Jones',
+            ticket: 'session',
+            ticket_type: 'session',
+            checkedIn: false,
+            family: 'family-2'
+          }
+        ],
+        parents: []
+      }
+    ];
+
+    it('should auto-expand family when search matches a child name', async () => {
+      const { rerender } = render(CheckinExpandableTable, {
+        props: { ...defaultProps, families: twoFamilies, searchQuery: '' }
+      });
+
+      // Initially collapsed — no child rows visible
+      expect(screen.queryByText('John Smith')).not.toBeInTheDocument();
+
+      // Search for child by first name
+      await rerender({ ...defaultProps, families: twoFamilies, searchQuery: 'John' });
+
+      // Family with matching child should be expanded
+      expect(screen.queryAllByText('John Smith').length).toBeGreaterThanOrEqual(1);
+
+      // Non-matching family's children should not be visible
+      expect(screen.queryByText('Alice Jones')).not.toBeInTheDocument();
+    });
+
+    it('should collapse auto-expanded family when search is cleared', async () => {
+      const { rerender } = render(CheckinExpandableTable, {
+        props: { ...defaultProps, families: twoFamilies, searchQuery: 'John' }
+      });
+
+      // Should be expanded due to search
+      expect(screen.queryAllByText('John Smith').length).toBeGreaterThanOrEqual(1);
+
+      // Clear search
+      await rerender({ ...defaultProps, families: twoFamilies, searchQuery: '' });
+
+      // Should collapse back
+      expect(screen.queryByText('John Smith')).not.toBeInTheDocument();
+    });
+
+    it('should not auto-expand when search matches only the family name', async () => {
+      const { rerender } = render(CheckinExpandableTable, {
+        props: { ...defaultProps, families: twoFamilies, searchQuery: '' }
+      });
+
+      // Search for family name (not child name)
+      await rerender({ ...defaultProps, families: twoFamilies, searchQuery: 'Smith' });
+
+      // Smith family matches by name but should NOT be auto-expanded
+      expect(screen.queryByText('John Smith')).not.toBeInTheDocument();
+    });
+
+    it('should keep manually expanded families expanded when search is cleared', async () => {
+      const user = userEvent.setup();
+      const { rerender } = render(CheckinExpandableTable, {
+        props: { ...defaultProps, families: twoFamilies, searchQuery: '' }
+      });
+
+      // Manually expand Smith family
+      const toggleButtons = screen.getAllByTestId('family-toggle-button-family-1');
+      await user.click(toggleButtons[0]);
+      expect(screen.queryAllByText('John Smith').length).toBeGreaterThanOrEqual(1);
+
+      // Search for something unrelated to Smith family's children
+      await rerender({ ...defaultProps, families: twoFamilies, searchQuery: 'Alice' });
+
+      // Manually expanded family should still be expanded
+      expect(screen.queryAllByText('John Smith').length).toBeGreaterThanOrEqual(1);
+
+      // Clear search
+      await rerender({ ...defaultProps, families: twoFamilies, searchQuery: '' });
+
+      // Manually expanded family should still be expanded (not collapsed by search clear)
+      expect(screen.queryAllByText('John Smith').length).toBeGreaterThanOrEqual(1);
+    });
+  });
+
   describe('Edge Cases', () => {
     it('should handle empty families array', () => {
       render(CheckinExpandableTable, {
