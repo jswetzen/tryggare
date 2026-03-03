@@ -37,6 +37,7 @@ INSTALLED_APPS = [
     "events",
     "checkins",
     "printing",
+    "imports",
 ]
 
 MIDDLEWARE = [

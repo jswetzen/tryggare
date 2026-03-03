@@ -8,6 +8,14 @@ class Family(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     last_name = models.CharField(max_length=255, verbose_name=_("Last Name"), blank=True, default="")
     last_participation_date = models.DateTimeField(null=True, blank=True, verbose_name=_("Last Participation Date"))
+    external_booking_id = models.CharField(
+        max_length=255,
+        null=True,
+        blank=True,
+        unique=True,
+        verbose_name=_("External Booking ID"),
+        help_text=_("Booking ID from the external registration system (e.g. '10869')."),
+    )
 
     class Meta:
         db_table = "families"

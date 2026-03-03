@@ -1,3 +1,20 @@
+# Family Data Import Feature - COMPLETE ✅
+
+**Completed:** 2026-03-03
+**Commit:** f742629
+
+## What was implemented
+- New `imports` Django app with EventImportConfig + ImportRun models
+- JSON parser (`parser.py`) — discovers child ticket prefixes, handles arrays, pipe-separated birthdates
+- Idempotent import engine (`importer.py`) — deduplicates by external_booking_id + (family, name, birthdate)
+- API endpoints: discover-prefixes, get/save config, run import, history
+- `Family.external_booking_id` and `EventTicket/SessionTicket.external_ticket_code` fields added
+- Frontend: `/import` event picker + `/import/[eventId]` 3-step wizard
+- 36 unit tests passing (parser + importer)
+- i18n: en/sv/nb translations
+
+---
+
 # UI Cohesion Implementation - IN PROGRESS
 
 **Objective:** Create visually coherent design across checkout, checkin, and print-queue pages by reusing components and establishing consistent patterns

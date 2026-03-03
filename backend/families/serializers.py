@@ -121,8 +121,8 @@ class FamilySerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Family
-        fields = ["id", "last_name", "last_participation_date", "parents", "children", "display_name"]
-        read_only_fields = ["id", "last_participation_date", "display_name"]
+        fields = ["id", "last_name", "last_participation_date", "parents", "children", "display_name", "external_booking_id"]
+        read_only_fields = ["id", "last_participation_date", "display_name", "external_booking_id"]
 
 
 class FamilyDetailSerializer(serializers.ModelSerializer):
@@ -134,8 +134,8 @@ class FamilyDetailSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Family
-        fields = ["id", "last_name", "last_participation_date", "parents", "children", "display_name"]
-        read_only_fields = ["id", "last_participation_date", "display_name"]
+        fields = ["id", "last_name", "last_participation_date", "parents", "children", "display_name", "external_booking_id"]
+        read_only_fields = ["id", "last_participation_date", "display_name", "external_booking_id"]
 
 
 class ParentCreateSerializer(serializers.ModelSerializer):
