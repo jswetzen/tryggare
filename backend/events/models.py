@@ -95,6 +95,13 @@ class EventTicket(models.Model):
         on_delete=models.CASCADE,
         verbose_name=_("Event")
     )
+    external_ticket_code = models.CharField(
+        max_length=255,
+        null=True,
+        blank=True,
+        verbose_name=_("External Ticket Code"),
+        help_text=_("ETicket code from the external registration system."),
+    )
 
     class Meta:
         db_table = "event_tickets"
@@ -127,6 +134,13 @@ class SessionTicket(models.Model):
         related_name="session_tickets",
         on_delete=models.CASCADE,
         verbose_name=_("Session")
+    )
+    external_ticket_code = models.CharField(
+        max_length=255,
+        null=True,
+        blank=True,
+        verbose_name=_("External Ticket Code"),
+        help_text=_("ETicket code from the external registration system."),
     )
 
     class Meta:

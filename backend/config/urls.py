@@ -12,6 +12,7 @@ from families.qr_views import qr_info
 from events.views import EventViewSet, EventTicketViewSet, SessionViewSet, SessionTicketViewSet, TicketViewSet
 from checkins.views import AuditLogViewSet, CheckInRecordViewSet, PrintQueueViewSet
 from accounts.views import csrf_token, check_auth, login_view, logout_view
+from imports.views import discover_prefixes_view, get_import_config, run_import_view, import_history
 
 # Create API router
 router = DefaultRouter()
@@ -42,6 +43,11 @@ urlpatterns = [
     path("api/auth/login/", login_view, name="auth-login"),
     path("api/auth/logout/", logout_view, name="auth-logout"),
     path("api/qr/<str:code>/", qr_info, name="qr-info"),  # Public QR code endpoint (privacy-first)
+    # Import endpoints (must be before the catch-all)
+    path("api/imports/discover-prefixes/", discover_prefixes_view, name="import-discover-prefixes"),
+    path("api/imports/events/<uuid:event_id>/config/", get_import_config, name="import-config"),
+    path("api/imports/events/<uuid:event_id>/run/", run_import_view, name="import-run"),
+    path("api/imports/events/<uuid:event_id>/history/", import_history, name="import-history"),
     # Serve frontend SPA - catch-all for client-side routing (must be last)
     # Exclude admin/, api/, and SvelteKit's __data.json endpoints from catch-all
     # WhiteNoise middleware serves static files (_app/*) before this is reached

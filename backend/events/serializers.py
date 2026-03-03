@@ -55,8 +55,8 @@ class EventTicketSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = EventTicket
-        fields = ["id", "child", "child_name", "event", "event_name", "ticket_type"]
-        read_only_fields = ["id"]
+        fields = ["id", "child", "child_name", "event", "event_name", "ticket_type", "external_ticket_code"]
+        read_only_fields = ["id", "external_ticket_code"]
 
     def get_child_name(self, obj) -> str:
         return f"{obj.child.first_name} {obj.child.last_name}"
@@ -76,8 +76,8 @@ class SessionTicketSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = SessionTicket
-        fields = ["id", "child", "child_name", "session", "session_name", "event_name", "ticket_type"]
-        read_only_fields = ["id"]
+        fields = ["id", "child", "child_name", "session", "session_name", "event_name", "ticket_type", "external_ticket_code"]
+        read_only_fields = ["id", "external_ticket_code"]
 
     def get_child_name(self, obj) -> str:
         return f"{obj.child.first_name} {obj.child.last_name}"

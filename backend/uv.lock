@@ -152,6 +152,8 @@ dependencies = [
 dev = [
     { name = "django-stubs" },
     { name = "djangorestframework-stubs" },
+    { name = "pytest" },
+    { name = "pytest-django" },
     { name = "ruff" },
 ]
 test = [
@@ -182,6 +184,8 @@ requires-dist = [
 dev = [
     { name = "django-stubs", specifier = ">=5.0.4" },
     { name = "djangorestframework-stubs", specifier = ">=3.15" },
+    { name = "pytest", specifier = ">=8.4.2" },
+    { name = "pytest-django", specifier = ">=4.11.1" },
     { name = "ruff", specifier = ">=0.6.9" },
 ]
 test = [

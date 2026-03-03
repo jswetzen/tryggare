@@ -218,3 +218,52 @@ export type WebSocketMessage =
   | SessionStartedMessage
   | SessionEndedMessage
   | ConnectionEstablishedMessage;
+
+export interface DiscoveredPrefix {
+  prefix: string;
+  sample_children: string[];
+  booking_count: number;
+}
+
+export interface DiscoverPrefixesResponse {
+  prefixes: DiscoveredPrefix[];
+  total_bookings: number;
+}
+
+export interface EventImportConfig {
+  id: string;
+  event: string;
+  field_mappings: Record<string, string>;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ImportRunSummary {
+  total_bookings?: number;
+  families_created?: number;
+  families_skipped?: number;
+  children_created?: number;
+  children_skipped?: number;
+  tickets_created?: number;
+  errors?: string[];
+  warnings?: string[];
+}
+
+export interface ImportRunLog {
+  booking_key: string;
+  action: string;
+  details: string;
+}
+
+export interface ImportRun {
+  id: string;
+  config: string;
+  triggered_by: string | null;
+  triggered_by_name: string | null;
+  status: 'pending' | 'running' | 'completed' | 'failed';
+  started_at: string | null;
+  finished_at: string | null;
+  source_file_name: string;
+  summary: ImportRunSummary;
+  log?: ImportRunLog[];
+}
