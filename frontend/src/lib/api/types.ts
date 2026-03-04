@@ -230,10 +230,32 @@ export interface DiscoverPrefixesResponse {
   total_bookings: number;
 }
 
+export interface ImportProvider {
+  id: string;
+  name: string;
+  login_url: string;
+  export_url: string;
+  export_body: string;
+  has_credentials: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ImportProviderWrite {
+  name: string;
+  login_url: string;
+  export_url: string;
+  export_body: string;
+  username?: string;
+  password?: string;
+}
+
 export interface EventImportConfig {
   id: string;
   event: string;
   field_mappings: Record<string, string>;
+  provider_id: string | null;
+  provider_name: string | null;
   created_at: string;
   updated_at: string;
 }

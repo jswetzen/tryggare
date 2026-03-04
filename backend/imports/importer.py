@@ -20,6 +20,88 @@ from .parser import parse_booking
 logger = logging.getLogger(__name__)
 
 
+class ProviderLoginError(Exception):
+    """Login POST to provider failed or returned no session cookie."""
+
+
+class ProviderFetchError(Exception):
+    """Export POST to provider failed after successful login."""
+
+
+class _NoChildrenError(Exception):
+    """Raised when a booking maps to zero children (after applying prefix mappings)."""
+
+
+def fetch_from_provider(provider) -> str:
+    """
+    Authenticate with a festivalpro-style booking system and fetch the JSON export.
+
+    Login: POST form-encoded to provider.login_url
+    - Fields: USERNAME, PASSWORD, CODESAVED=CODE%3D, TZ=1, checker=on, X=
+    - Expect HTTP 302; session established via TARCH cookie in response
+
+    Export: POST provider.export_url with stored export_body plus session cookies
+    - Returns raw JSON string
+
+    Raises ProviderLoginError, ProviderFetchError, ValueError (bad credentials blob).
+    """
+    import requests
+    from .encryption import decrypt_credentials
+    from cryptography.fernet import InvalidToken
+
+    try:
+        creds = decrypt_credentials(bytes(provider.credentials))
+    except (InvalidToken, TypeError) as exc:
+        raise ValueError(f"Cannot decrypt credentials for provider {provider.id}") from exc
+
+    session = requests.Session()
+
+    # Login — form-encoded, do NOT follow redirect (cookies are set before the 302)
+    try:
+        login_resp = session.post(
+            provider.login_url,
+            data={
+                "USERNAME": creds["username"],
+                "PASSWORD": creds["password"],
+                "CODESAVED": "CODE=",
+                "TZ": "1",
+                "checker": "on",
+                "X": "",
+            },
+            headers={"Content-Type": "application/x-www-form-urlencoded"},
+            allow_redirects=False,
+            timeout=30,
+        )
+    except requests.RequestException as exc:
+        raise ProviderLoginError(f"Network error during login: {exc}") from exc
+
+    # Expect 302 with TARCH cookie; any non-redirect is a failure
+    if login_resp.status_code not in (301, 302, 303):
+        raise ProviderLoginError(
+            f"Login returned HTTP {login_resp.status_code} (expected redirect)"
+        )
+    if "TARCH" not in session.cookies:
+        raise ProviderLoginError("Login succeeded but no TARCH session cookie was returned")
+
+    # Export fetch — POST with the stored form-encoded body (contains QUERYQ, EVENTID, etc.)
+    try:
+        export_resp = session.post(
+            provider.export_url,
+            data=provider.export_body,  # raw form-encoded string, sent as-is
+            headers={"Content-Type": "application/x-www-form-urlencoded"},
+            timeout=60,
+        )
+    except requests.RequestException as exc:
+        raise ProviderFetchError(f"Network error fetching export: {exc}") from exc
+
+    if not export_resp.ok:
+        raise ProviderFetchError(
+            f"Export fetch returned HTTP {export_resp.status_code}"
+        )
+
+    return export_resp.text
+
+
 def run_import(raw_json: dict, config: EventImportConfig, user) -> ImportRun:
     """
     Main entry point. Process all bookings in raw_json using config.field_mappings.
@@ -105,11 +187,21 @@ def run_import(raw_json: dict, config: EventImportConfig, user) -> ImportRun:
                 summary=summary,
                 log_entries=log_entries,
             )
+        except _NoChildrenError:
+            summary["bookings_skipped_no_children"] = (
+                summary.get("bookings_skipped_no_children", 0) + 1
+            )
         except Exception as exc:
             msg = f"Import error for booking {booking_id} ({booking_key}): {exc}"
             logger.exception(msg)
             summary["errors"].append(msg)
             log_entries.append({"booking_key": booking_key, "action": "error", "details": msg})
+
+    skipped = summary.pop("bookings_skipped_no_children", 0)
+    if skipped:
+        summary["warnings"].append(
+            f"{skipped} booking(s) skipped — no children matched the selected prefix mappings"
+        )
 
     run.status = ImportRun.STATUS_COMPLETED
     run.finished_at = timezone.now()
@@ -134,6 +226,12 @@ def _process_booking(
     contact = parsed["contact"]
     extra_guardian = parsed["extra_guardian"]
     children_data = parsed["children"]
+
+    # Skip bookings with no children across all mapped prefixes (check before DB writes)
+    if not children_data:
+        log_entries.append({"booking_key": booking_key, "action": "warning",
+                             "details": f"No children in booking {booking_id} — skipping"})
+        raise _NoChildrenError()
 
     with transaction.atomic():
         # Family resolution
@@ -215,10 +313,16 @@ def _process_child(
     if not first_name:
         return
 
-    # Look up child by (family, first_name, last_name, birthdate)
+    # Look up child by (family, first_name, last_name) and optionally birthdate.
+    # When birthdate is known, include it to avoid false dedup across siblings.
+    # When birthdate is None, match on name only — prevents duplicate children
+    # on re-import while still being idempotent.
     lookup: dict = {"family": family, "first_name": first_name, "last_name": last_name}
     if birthdate is not None:
         lookup["birthdate"] = birthdate
+    else:
+        # Restrict to children without a birthdate to avoid false positives
+        lookup["birthdate__isnull"] = True
 
     existing = Child.objects.filter(**lookup).first()
     if existing is not None:
@@ -230,21 +334,24 @@ def _process_child(
         })
         return
 
-    # Need a birthdate to create the child — it's a required field
-    if birthdate is None:
-        msg = f"Missing birthdate for child {first_name} {last_name} in booking {booking_key} — skipping"
-        summary["warnings"].append(msg)
-        log_entries.append({"booking_key": booking_key, "action": "warning", "details": msg})
-        return
-
     child = Child.objects.create(
         family=family,
         first_name=first_name,
         last_name=last_name,
-        birthdate=birthdate,
+        birthdate=birthdate,  # May be None — model field is nullable
         allergies=allergies,
     )
     summary["children_created"] += 1
+
+    if birthdate is None:
+        msg = f"Child {first_name} {last_name} (booking {booking_key}) imported without birthdate — no ticket assigned"
+        summary["warnings"].append(msg)
+        log_entries.append({
+            "booking_key": booking_key,
+            "action": "child_created_no_birthdate",
+            "details": f"Created child {child.id} ({first_name} {last_name}) without birthdate; no ticket",
+        })
+        return
 
     # Create ticket
     if mapping == "full_event":

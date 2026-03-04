@@ -44,9 +44,17 @@
 
 <div class="max-w-4xl mx-auto">
   <!-- Page header -->
-  <div class="mb-6">
-    <h1 class="text-2xl font-bold text-neutral-900">{$t('import.title')}</h1>
-    <p class="mt-1 text-neutral-600">{$t('import.selectEventDescription')}</p>
+  <div class="mb-6 flex items-start justify-between">
+    <div>
+      <h1 class="text-2xl font-bold text-neutral-900">{$t('import.title')}</h1>
+      <p class="mt-1 text-neutral-600">{$t('import.selectEventDescription')}</p>
+    </div>
+    <a
+      href="/import/providers"
+      class="mt-1 text-sm text-primary-600 hover:underline font-medium whitespace-nowrap"
+    >
+      Manage Providers
+    </a>
   </div>
 
   {#if loading}

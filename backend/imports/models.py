@@ -5,6 +5,42 @@ from django.db import models
 from django.utils.translation import gettext_lazy as _
 
 
+class ImportProvider(models.Model):
+    """
+    Stores connection details and encrypted credentials for an external booking system.
+    One provider can be shared across multiple events.
+    """
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    name = models.CharField(max_length=255, verbose_name=_("Name"))
+    login_url = models.URLField(max_length=2048, verbose_name=_("Login URL"))
+    export_url = models.URLField(max_length=2048, verbose_name=_("Export URL"))
+    # Full form-encoded body for the export POST request (event-specific params, no credentials)
+    # e.g. "QUERYQ=CODE*__EQ__*...&EVENTID=5781&EXPORT=JSON&ETICKETS=1&..."
+    export_body = models.TextField(
+        blank=True,
+        default="",
+        verbose_name=_("Export POST Body"),
+        help_text=_(
+            "Raw form-encoded body to POST to export_url. Paste from browser network capture."
+        ),
+    )
+    credentials = models.BinaryField(null=True, blank=True, verbose_name=_("Credentials"))
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "import_providers"
+        ordering = ["name"]
+
+    def __str__(self) -> str:
+        return self.name
+
+    @property
+    def has_credentials(self) -> bool:
+        return bool(self.credentials)
+
+
 class EventImportConfig(models.Model):
     """
     Stores the field/prefix mapping configuration for importing bookings
@@ -24,6 +60,14 @@ class EventImportConfig(models.Model):
         on_delete=models.CASCADE,
         related_name="import_config",
         verbose_name=_("Event"),
+    )
+    provider = models.ForeignKey(
+        "imports.ImportProvider",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="configs",
+        verbose_name=_("Import Provider"),
     )
     field_mappings = models.JSONField(
         default=dict,

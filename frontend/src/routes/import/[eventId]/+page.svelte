@@ -4,7 +4,7 @@
   import { page } from '$app/stores';
   import { apiClient } from '$lib/api/client';
   import { importApi } from '$lib/api/importService';
-  import type { DiscoveredPrefix, EventImportConfig, ImportRun } from '$lib/api/types';
+  import type { DiscoveredPrefix, EventImportConfig, ImportProvider, ImportRun } from '$lib/api/types';
 
   // ---------------------------------------------------------------------------
   // Types
@@ -29,7 +29,7 @@
   let eventId = $derived($page.params.eventId);
 
   let step = $state(1); // 1=upload, 2=map, 3=results
-  let jsonData = $state<unknown>(null);
+  let jsonString = $state<string | null>(null); // Raw JSON text (preserves duplicate keys)
   let fileName = $state('');
   let totalBookings = $state(0);
   let discoveredPrefixes = $state<DiscoveredPrefix[]>([]);
@@ -45,8 +45,17 @@
   let showLogDetails = $state(false);
   let isDragOver = $state(false);
 
+  // Provider-related state
+  let providerInfo = $state<ImportProvider | null>(null);
+  let providerLoading = $state(false);
+
   // Hidden file input element reference
   let fileInput = $state<HTMLInputElement>(null!);
+
+  // Auto-fetch is enabled when a config with a provider exists
+  let autoFetchMode = $derived(savedConfig !== null && savedConfig.provider_id !== null);
+  let providerHasNoCredentials = $derived(autoFetchMode && providerInfo !== null && !providerInfo.has_credentials);
+  let hasSavedMappings = $derived(savedConfig !== null && Object.keys(savedConfig.field_mappings).length > 0);
 
   // ---------------------------------------------------------------------------
   // Lifecycle
@@ -82,7 +91,18 @@
   async function loadSavedConfig(id: string) {
     try {
       savedConfig = await importApi.getConfig(id);
-    } catch (e: unknown) {
+      // If config has a provider, fetch provider details to check credentials
+      if (savedConfig?.provider_id) {
+        providerLoading = true;
+        try {
+          providerInfo = await importApi.getProvider(savedConfig.provider_id);
+        } catch {
+          providerInfo = null;
+        } finally {
+          providerLoading = false;
+        }
+      }
+    } catch {
       // 404 is expected when no config exists yet
       savedConfig = null;
     }
@@ -134,10 +154,9 @@
     reader.onload = async (e) => {
       try {
         const text = e.target?.result as string;
-        const parsed = JSON.parse(text);
-        jsonData = parsed;
+        jsonString = text; // Keep raw string — backend parses with duplicate-key support
 
-        const result = await importApi.discoverPrefixes(parsed);
+        const result = await importApi.discoverPrefixes(text);
         discoveredPrefixes = result.prefixes;
         totalBookings = result.total_bookings;
 
@@ -153,7 +172,7 @@
         fieldMappings = mappings;
       } catch {
         error = $t('import.fileReadError');
-        jsonData = null;
+        jsonString = null;
         discoveredPrefixes = [];
         totalBookings = 0;
       } finally {
@@ -168,6 +187,55 @@
   }
 
   // ---------------------------------------------------------------------------
+  // Provider auto-fetch
+  // ---------------------------------------------------------------------------
+
+  async function fetchFromProvider() {
+    error = '';
+    analyzing = true;
+    try {
+      const result = await importApi.discoverPrefixesFromProvider(eventId);
+      discoveredPrefixes = result.prefixes;
+      totalBookings = result.total_bookings;
+
+      // Initialize mappings with saved config values where available
+      const mappings: Record<string, string> = {};
+      for (const p of result.prefixes) {
+        if (savedConfig?.field_mappings[p.prefix]) {
+          mappings[p.prefix] = savedConfig.field_mappings[p.prefix];
+        } else {
+          mappings[p.prefix] = 'full_event';
+        }
+      }
+      fieldMappings = mappings;
+      jsonString = null; // No local JSON — will use auto-fetch path on run
+      step = 2;
+    } catch (e: unknown) {
+      const err = e as { details?: { detail?: string } };
+      error = err?.details?.detail ?? 'Failed to fetch data from provider.';
+    } finally {
+      analyzing = false;
+    }
+  }
+
+  async function runImportAutoFetch() {
+    // One-click re-sync: uses saved mappings, skips mapping step
+    error = '';
+    importing = true;
+    try {
+      const result = await importApi.runImportAutoFetch(eventId, savedConfig!.field_mappings);
+      importResult = result;
+      step = 3;
+      await loadHistory(eventId);
+    } catch (e: unknown) {
+      const err = e as { details?: { detail?: string } };
+      error = err?.details?.detail ?? $t('import.importError');
+    } finally {
+      importing = false;
+    }
+  }
+
+  // ---------------------------------------------------------------------------
   // Navigation between steps
   // ---------------------------------------------------------------------------
 
@@ -177,14 +245,14 @@
   }
 
   async function runImport() {
-    if (!jsonData) return;
+    if (!jsonString) return;
     error = '';
     importing = true;
 
     try {
       const result = await importApi.runImport(
         eventId,
-        jsonData,
+        jsonString,
         fieldMappings,
         fileName
       );
@@ -199,9 +267,31 @@
     }
   }
 
+  async function runImportFromStep2() {
+    // Step 2 run — could be manual file or auto-fetch path
+    if (jsonString) {
+      await runImport();
+    } else {
+      // Auto-fetch path: re-fetch + import with current fieldMappings
+      error = '';
+      importing = true;
+      try {
+        const result = await importApi.runImportAutoFetch(eventId, fieldMappings);
+        importResult = result;
+        step = 3;
+        await loadHistory(eventId);
+      } catch (e: unknown) {
+        const err = e as { details?: { detail?: string } };
+        error = err?.details?.detail ?? $t('import.importError');
+      } finally {
+        importing = false;
+      }
+    }
+  }
+
   function resetWizard() {
     step = 1;
-    jsonData = null;
+    jsonString = null;
     fileName = '';
     totalBookings = 0;
     discoveredPrefixes = [];
@@ -253,7 +343,7 @@
   }
 
   function canProceedToMapping(): boolean {
-    return !analyzing && jsonData !== null && discoveredPrefixes.length > 0;
+    return !analyzing && jsonString !== null && discoveredPrefixes.length > 0;
   }
 </script>
 
@@ -304,11 +394,52 @@
   </div>
 
   <!-- =========================================================
-       STEP 1 — Upload
+       STEP 1 — Upload / Auto-fetch
        ========================================================= -->
   {#if step === 1}
     <div class="bg-white rounded-lg border border-neutral-200 shadow-sm p-6">
       <h2 class="text-lg font-semibold text-neutral-900 mb-4">{$t('import.step1Title')}</h2>
+
+      <!-- Provider banner -->
+      {#if autoFetchMode && !providerLoading}
+        {#if providerHasNoCredentials}
+          <div class="mb-4 p-3 bg-warning-50 border border-warning-200 rounded text-warning-700 text-sm">
+            <strong>Provider has no credentials set</strong> — upload a file manually or
+            <a href="/import/providers" class="underline font-medium">configure credentials in Manage Providers</a>.
+          </div>
+        {:else if providerInfo}
+          <div class="mb-4 p-3 bg-blue-50 border border-blue-200 rounded text-blue-700 text-sm flex items-center justify-between gap-4 flex-wrap">
+            <span>
+              <strong>Auto-fetch configured:</strong> {savedConfig?.provider_name ?? providerInfo.name}
+            </span>
+            {#if hasSavedMappings}
+              <!-- One-click re-sync: skip mapping step entirely -->
+              <button
+                onclick={runImportAutoFetch}
+                disabled={importing}
+                class="px-4 py-1.5 bg-blue-600 text-white text-sm font-semibold rounded-button hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors whitespace-nowrap"
+              >
+                {importing ? 'Importing…' : 'Re-sync from provider'}
+              </button>
+            {:else}
+              <!-- First run: fetch prefixes then go to mapping step -->
+              <button
+                onclick={fetchFromProvider}
+                disabled={analyzing}
+                class="px-4 py-1.5 bg-blue-600 text-white text-sm font-semibold rounded-button hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors whitespace-nowrap"
+              >
+                {analyzing ? 'Fetching…' : 'Fetch from provider'}
+              </button>
+            {/if}
+          </div>
+        {/if}
+      {/if}
+
+      {#if error}
+        <div class="mb-4 p-3 bg-danger-50 border border-danger-200 rounded text-danger-700 text-sm">
+          {error}
+        </div>
+      {/if}
 
       <!-- Drop zone -->
       <!-- svelte-ignore a11y_interactive_supports_focus -->
@@ -330,7 +461,9 @@
             d="M9 13h6m-3-3v6m5 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
         </svg>
 
-        {#if analyzing}
+        {#if analyzing && !fileName}
+          <p class="text-primary-600 font-medium">Fetching from provider…</p>
+        {:else if analyzing}
           <p class="text-primary-600 font-medium">{$t('import.analyzing')}</p>
         {:else if fileName}
           <p class="text-neutral-800 font-medium">{fileName}</p>
@@ -340,7 +473,7 @@
               &middot;
               {$t('import.prefixesFound', { values: { count: discoveredPrefixes.length } })}
             </p>
-          {:else if jsonData !== null}
+          {:else if jsonString !== null}
             <p class="mt-1 text-sm text-warning-700">{$t('import.noPrefixesFound')}</p>
           {/if}
           <p class="mt-2 text-xs text-neutral-400">{$t('import.dropOrClick')}</p>
@@ -358,12 +491,6 @@
         class="hidden"
         onchange={handleFileInputChange}
       />
-
-      {#if error}
-        <div class="mt-3 p-3 bg-danger-50 border border-danger-200 rounded text-danger-700 text-sm">
-          {error}
-        </div>
-      {/if}
 
       {#if !fileName && !analyzing}
         <p class="mt-4 text-sm text-neutral-400 text-center">{$t('import.loadFileFirst')}</p>
@@ -460,7 +587,7 @@
           &larr; {$t('import.backToEvents').replace('← ', '')}
         </button>
         <button
-          onclick={runImport}
+          onclick={runImportFromStep2}
           disabled={importing}
           class="
             px-5 py-2 bg-primary-600 text-white font-semibold rounded-button transition-colors
