@@ -1,7 +1,47 @@
+# Automated Import Provider Feature - COMPLETE ✅
+
+**Completed:** 2026-03-04
+
+## What was implemented
+- `ImportProvider` model with encrypted credentials (`BinaryField`, Fernet via SECRET_KEY-derived key)
+- `encryption.py` — `encrypt_credentials()` / `decrypt_credentials()` helpers
+- `fetch_from_provider()` in `importer.py` — login POST → 302+TARCH cookie → export POST with stored body
+- `ProviderLoginError` / `ProviderFetchError` exception classes
+- `ImportProviderSerializer` — write-only `username`/`password`, `has_credentials` read-only computed field
+- `EventImportConfig.provider` FK (`SET_NULL`) + `provider_id`/`provider_name` in serializer
+- Provider CRUD views: `list_create_provider_view`, `provider_detail_view`, `set_config_provider_view`
+- `discover_prefixes_from_provider_view` — live-fetch then discover prefixes (for first-time mapping)
+- `run_import_view` updated — two modes: manual `json_string` vs auto-fetch (provider FK required)
+- Migration `0002_importprovider_eventimportconfig_provider`
+- Frontend: `/import/providers` — full CRUD page (create/edit/delete, inline form)
+- Frontend: `/import` page — "Manage Providers" link added
+- Frontend: `/import/[eventId]` — auto-fetch mode: provider banner, "Re-sync from provider" (one-click when mappings saved), "Fetch from provider" (first run), fallback to file upload always available
+- `requests>=2.31,<3.0` added to `pyproject.toml` production deps
+- All 58 unit tests still passing
+
+---
+
+# Import Parser Fix + Session-Aware Ticket Display - COMPLETE ✅
+
+**Completed:** 2026-03-04
+
+## What was fixed
+- **Parser (Bug 1):** Duplicate `Ålder` keys in source JSON now preserved via `parse_json_with_duplicate_keys()` + `_DuplicateList` sentinel class. Children like Barn22 who share a prefix group with a sibling no longer lose their birthdate.
+- **Parser:** `build_alder_map()` pre-assigns Ålder values in document order using cursor tracking, correctly handling the case where all `"Ålder"` occurrences collapse into one `_DuplicateList` at the first occurrence's dict position.
+- **Importer:** Children with missing birthdates are now imported (with `birthdate=NULL`) and get no ticket, rather than being skipped entirely. Staff can assign a ticket manually.
+- **Importer:** Bookings with no mappable children (all prefixes ignored) are now skipped — no empty families created. A single consolidated warning is added to the summary (not one per booking).
+- **Importer:** `families.Child.birthdate` made nullable via migration `0007_allow_null_birthdate`.
+- **Frontend import wizard:** Sends raw JSON string (`json_string`) instead of pre-parsed object, so the backend can apply the duplicate-key-preserving parser.
+- **Checkin (Bug 2):** `effectiveTicketType()` helper in `+page.svelte` — a SessionTicket for a different session now correctly shows as `🔴 No Ticket` instead of `🔵 Session Ticket`.
+- **Checkin:** `getTicketDisplay()` now shows the specific session name (e.g. `🔵 Dagsbiljett barn (torsdag 25 juni)`) instead of the generic "Session Ticket".
+- **Tests:** 58 import unit tests passing (34 parser + 24 importer), including 6 new duplicate-key tests, `TestRealFormatBooking` suite, and 9 new importer tests.
+
+---
+
 # Family Data Import Feature - COMPLETE ✅
 
 **Completed:** 2026-03-03
-**Commit:** f742629
+**Commit:** f742629 (initial), patched 2026-03-04
 
 ## What was implemented
 - New `imports` Django app with EventImportConfig + ImportRun models
@@ -10,7 +50,7 @@
 - API endpoints: discover-prefixes, get/save config, run import, history
 - `Family.external_booking_id` and `EventTicket/SessionTicket.external_ticket_code` fields added
 - Frontend: `/import` event picker + `/import/[eventId]` 3-step wizard
-- 36 unit tests passing (parser + importer)
+- 51 unit tests passing (parser + importer)
 - i18n: en/sv/nb translations
 
 ---
