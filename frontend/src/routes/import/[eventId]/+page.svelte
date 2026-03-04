@@ -48,6 +48,9 @@
   // Provider-related state
   let providerInfo = $state<ImportProvider | null>(null);
   let providerLoading = $state(false);
+  let allProviders = $state<ImportProvider[]>([]);
+  let selectedProviderId = $state<string>('');  // '' = none
+  let providerSaving = $state(false);
 
   // Hidden file input element reference
   let fileInput = $state<HTMLInputElement>(null!);
@@ -68,8 +71,17 @@
       loadSessions(id),
       loadSavedConfig(id),
       loadHistory(id),
+      loadAllProviders(),
     ]);
   });
+
+  async function loadAllProviders() {
+    try {
+      allProviders = await importApi.listProviders();
+    } catch {
+      allProviders = [];
+    }
+  }
 
   async function loadEventInfo(id: string) {
     try {
@@ -91,6 +103,7 @@
   async function loadSavedConfig(id: string) {
     try {
       savedConfig = await importApi.getConfig(id);
+      selectedProviderId = savedConfig.provider_id ?? '';
       // If config has a provider, fetch provider details to check credentials
       if (savedConfig?.provider_id) {
         providerLoading = true;
@@ -105,6 +118,26 @@
     } catch {
       // 404 is expected when no config exists yet
       savedConfig = null;
+      selectedProviderId = '';
+    }
+  }
+
+  async function saveProviderLink() {
+    providerSaving = true;
+    error = '';
+    try {
+      const updated = await importApi.setConfigProvider(eventId, selectedProviderId || null);
+      savedConfig = updated;
+      // Reload provider info
+      if (updated.provider_id) {
+        providerInfo = allProviders.find(p => p.id === updated.provider_id) ?? null;
+      } else {
+        providerInfo = null;
+      }
+    } catch {
+      error = 'Failed to link provider.';
+    } finally {
+      providerSaving = false;
     }
   }
 
@@ -399,6 +432,44 @@
   {#if step === 1}
     <div class="bg-white rounded-lg border border-neutral-200 shadow-sm p-6">
       <h2 class="text-lg font-semibold text-neutral-900 mb-4">{$t('import.step1Title')}</h2>
+
+      <!-- Provider selector -->
+      {#if allProviders.length > 0}
+        <div class="mb-5 flex items-end gap-3 flex-wrap">
+          <div class="flex-1 min-w-48">
+            <label class="block text-sm font-medium text-neutral-700 mb-1" for="provider-select">
+              Import Provider
+            </label>
+            <select
+              id="provider-select"
+              bind:value={selectedProviderId}
+              class="w-full border border-neutral-300 rounded px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary-400"
+            >
+              <option value="">— Manual file upload only —</option>
+              {#each allProviders as p (p.id)}
+                <option value={p.id}>{p.name}</option>
+              {/each}
+            </select>
+          </div>
+          <button
+            onclick={saveProviderLink}
+            disabled={providerSaving || selectedProviderId === (savedConfig?.provider_id ?? '')}
+            class="px-4 py-2 bg-primary-600 text-white text-sm font-semibold rounded-button hover:bg-primary-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors whitespace-nowrap"
+          >
+            {providerSaving ? 'Saving…' : 'Save'}
+          </button>
+          <a href="/import/providers" class="text-sm text-primary-600 hover:underline whitespace-nowrap py-2">
+            Manage providers
+          </a>
+        </div>
+      {:else}
+        <div class="mb-4 p-3 bg-neutral-50 border border-neutral-200 rounded text-neutral-600 text-sm flex items-center justify-between gap-3">
+          <span>No providers configured — using manual file upload.</span>
+          <a href="/import/providers" class="text-primary-600 hover:underline font-medium whitespace-nowrap">
+            Add a provider →
+          </a>
+        </div>
+      {/if}
 
       <!-- Provider banner -->
       {#if autoFetchMode && !providerLoading}
