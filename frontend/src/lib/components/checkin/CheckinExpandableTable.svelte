@@ -18,7 +18,7 @@
    * - Blue-600 action buttons
    */
   import { _ } from 'svelte-i18n';
-  import type { Family, TicketType } from '$lib/checkin/types';
+  import type { Child, Family, TicketType } from '$lib/checkin/types';
   import ChildCheckInButton from './ChildCheckInButton.svelte';
   import { undoActionsWithTick } from '$lib/checkin/stores/undoTimer';
 
@@ -137,13 +137,16 @@
     return null;
   }
 
-  // Helper to get ticket type display
-  function getTicketDisplay(ticketType: string): string {
-    switch (ticketType) {
+  // Helper to get ticket type display (shows specific session name for session tickets)
+  function getTicketDisplay(child: Child): string {
+    switch (child.ticket) {
       case 'event':
         return `🟢 ${$_('checkin.ticketEvent')}`;
-      case 'session':
-        return `🔵 ${$_('checkin.ticketSession')}`;
+      case 'session': {
+        const sessionTicket = child.ticket_details?.session_tickets[0];
+        const label = sessionTicket?.session_name ?? $_('checkin.ticketSession');
+        return `🔵 ${label}`;
+      }
       case 'none':
         return `🔴 ${$_('checkin.ticketNone')}`;
       default:
@@ -291,7 +294,7 @@
                 <div class="flex-1 min-w-0">
                   <div class="font-medium text-slate-700 text-sm sm:text-base">{child.name}</div>
                   <div class="text-xs text-slate-500 mt-0.5">
-                    {getTicketDisplay(child.ticket)}
+                    {getTicketDisplay(child)}
                     {#if child.checkedIn && child.checkInTime}
                       • {$_('checkin.checkedInAt', { values: { time: child.checkInTime } })}
                     {/if}
@@ -469,7 +472,7 @@
                   <div class="flex-1">
                     <div class="font-medium text-slate-700">{child.name}</div>
                     <div class="text-xs text-slate-500 mt-0.5">
-                      {getTicketDisplay(child.ticket)}
+                      {getTicketDisplay(child)}
                       {#if child.checkedIn && child.checkInTime}
                         • {$_('checkin.checkedInAt', { values: { time: child.checkInTime } })}
                       {/if}

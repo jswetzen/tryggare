@@ -35,27 +35,60 @@
   // HELPER FUNCTIONS - Transform API responses to frontend types
   // ============================================================================
 
+  /**
+   * Compute the effective ticket type for a child relative to the active session.
+   *
+   * The backend returns a child's ticket_type based on whether they have *any*
+   * ticket in the database.  But for the checkin page we need to know whether
+   * their ticket is valid for the *currently selected* session:
+   *
+   * - EventTicket: valid for all sessions of the same event → 'event'
+   * - SessionTicket that matches activeSession.id exactly → 'session'
+   * - SessionTicket for a different session → 'none'  (child shows as red)
+   * - No ticket at all → 'none'
+   */
+  function effectiveTicketType(
+    child: FamilyApiResponse['children'][number],
+    session: Session | null
+  ): TicketType {
+    if (!session) return (child.ticket_type as TicketType) || 'none';
+
+    const details = child.ticket_details;
+    if (!details) return 'none';
+
+    // EventTicket covers all sessions of the event
+    if (details.event_tickets.some((t) => t.event === session.event)) return 'event';
+
+    // SessionTicket must match the active session exactly
+    if (details.session_tickets.some((t) => t.session === session.id)) return 'session';
+
+    return 'none';
+  }
+
   function transformFamilyResponse(apiFamily: FamilyApiResponse): Family {
     return {
       id: apiFamily.id,
       last_name: apiFamily.last_name,
       display_name: apiFamily.display_name,
       name: apiFamily.display_name, // Use display_name for backward compatibility
-      children: apiFamily.children.map((child) => ({
-        id: child.id,
-        first_name: child.first_name,
-        last_name: child.last_name,
-        name: `${child.first_name} ${child.last_name}`,
-        ticket: (child.ticket_type as TicketType) || 'none',
-        ticket_type: (child.ticket_type as TicketType) || 'none',
-        ticket_details: child.ticket_details,
-        checkedIn: child.is_checked_in || false, // Use backend check-in status
-        family: child.family,
-        birthdate: child.birthdate,
-        allergies: child.allergies,
-        notes: child.notes,
-        qr_token: child.qr_token,
-      })),
+      children: apiFamily.children.map((child) => {
+        const effectiveType = effectiveTicketType(child, activeSession);
+        return {
+          id: child.id,
+          first_name: child.first_name,
+          last_name: child.last_name,
+          name: `${child.first_name} ${child.last_name}`,
+          ticket: effectiveType,
+          ticket_type: effectiveType,
+          ticket_details: child.ticket_details,
+          checkedIn: child.is_checked_in || false, // Use backend check-in status
+          family: child.family,
+          birthdate: child.birthdate,
+          allergies: child.allergies,
+          notes: child.notes,
+          qr_token: child.qr_token,
+        };
+      }),
       parents: apiFamily.parents,
       last_participation_date: apiFamily.last_participation_date,
     };
