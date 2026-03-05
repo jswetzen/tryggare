@@ -68,7 +68,7 @@ class Child(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     first_name = models.CharField(max_length=255, verbose_name=_("First Name"))
     last_name = models.CharField(max_length=255, verbose_name=_("Last Name"))
-    birthdate = models.DateField(verbose_name=_("Birthdate"))
+    birthdate = models.DateField(null=True, blank=True, verbose_name=_("Birthdate"))
     allergies = models.TextField(null=True, blank=True, verbose_name=_("Allergies"))
     notes = models.TextField(null=True, blank=True, verbose_name=_("Notes"))
     last_participation_date = models.DateTimeField(null=True, blank=True, verbose_name=_("Last Participation Date"))
