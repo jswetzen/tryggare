@@ -204,6 +204,90 @@ class SessionTicketImportTest(TestCase):
         assert not EventTicket.objects.filter(child=child, event=self.event).exists()
 
 
+class MissingBirthdateTest(TestCase):
+    """Children with no parseable birthdate are imported without a ticket."""
+
+    def setUp(self):
+        self.user = make_user()
+        self.event = make_event()
+        self.config = make_config(
+            self.event,
+            field_mappings={"SK26 Barnkonferens": "full_event"},
+        )
+
+    def _run(self, alder_val):
+        data = {
+            "contact1": {
+                "Booking ID": "99010",
+                "Contact First Name": "Test",
+                "Contact Last Name": "Parent",
+                "Contact Email": "test@example.com",
+                "Cell/Mobile": "0700000010",
+                "Extra vårdnadshavare kontaktinformation First Name": "",
+                "Extra vårdnadshavare kontaktinformation Last Name": "",
+                "Extra vårdnadshavare kontaktinformation Email": "",
+                "Extra vårdnadshavare kontaktinformation Phone": "",
+                "SK26 Barnkonferens First Name": "NoDate",
+                "SK26 Barnkonferens Last Name": "Child",
+                "SK26 Barnkonferens Ålder": alder_val,
+            }
+        }
+        return run_import(data, self.config, self.user)
+
+    def test_child_created_when_birthdate_missing(self):
+        run = self._run("")
+        assert Child.objects.filter(first_name="NoDate").exists()
+
+    def test_no_ticket_when_birthdate_missing(self):
+        self._run("")
+        child = Child.objects.get(first_name="NoDate")
+        assert not EventTicket.objects.filter(child=child).exists()
+
+    def test_birthdate_is_null(self):
+        self._run("")
+        child = Child.objects.get(first_name="NoDate")
+        assert child.birthdate is None
+
+    def test_warning_logged_for_missing_birthdate(self):
+        run = self._run("")
+        assert any("without birthdate" in w for w in run.summary["warnings"])
+
+    def test_child_created_count(self):
+        run = self._run("")
+        assert run.summary["children_created"] == 1
+        assert run.summary["tickets_created"] == 0
+
+    def test_reimport_does_not_duplicate_no_birthdate_child(self):
+        self._run("")
+        self._run("")
+        assert Child.objects.filter(first_name="NoDate").count() == 1
+
+
+class NoChildrenFamilySkipTest(TestCase):
+    """Bookings that produce zero children (all prefixes ignored) are skipped."""
+
+    def setUp(self):
+        self.user = make_user()
+        self.event = make_event()
+        # Config maps the only child prefix to "ignore" — no children will parse
+        self.config = make_config(
+            self.event,
+            field_mappings={"SK26 Barnkonferens": "ignore"},
+        )
+
+    def test_family_not_created_when_no_children(self):
+        run_import(MINIMAL_JSON, self.config, self.user)
+        assert not Family.objects.filter(external_booking_id="99001").exists()
+
+    def test_warning_logged_for_no_children(self):
+        run = run_import(MINIMAL_JSON, self.config, self.user)
+        assert any("skipped" in w and "no children" in w.lower() for w in run.summary["warnings"])
+
+    def test_families_created_count_is_zero(self):
+        run = run_import(MINIMAL_JSON, self.config, self.user)
+        assert run.summary["families_created"] == 0
+
+
 class ErrorHandlingTest(TestCase):
     def setUp(self):
         self.user = make_user()

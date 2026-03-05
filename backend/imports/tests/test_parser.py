@@ -7,11 +7,14 @@ from datetime import date
 import pytest
 
 from imports.parser import (
+    _DuplicateList,
+    build_alder_map,
     discover_child_prefixes,
     parse_booking,
     parse_children_from_prefix,
     parse_contact,
     parse_extra_guardian,
+    parse_json_with_duplicate_keys,
 )
 
 # ---------------------------------------------------------------------------
@@ -60,6 +63,50 @@ SAMPLE_BOOKING = {
 # Full data dict with one booking
 SAMPLE_DATA = {"contact13": SAMPLE_BOOKING}
 
+
+# ---------------------------------------------------------------------------
+# Realistic booking matching the ACTUAL export format from the real file.
+#
+# Key differences from SAMPLE_BOOKING:
+#   - SK26 Barnkonferens uses "Ålder " (trailing space, standalone)
+#   - Dagsbiljett prefixes use "Ålder"  (no space, standalone) ×3
+#   - Both standalone variants coexist in the same booking object
+#   - This dict is built via parse_json_with_duplicate_keys() to preserve them
+# ---------------------------------------------------------------------------
+
+_REAL_FORMAT_JSON = (
+    '{"contact13": {'
+    '"Booking ID": "10869",'
+    '"Contact First Name": "Jtest",'
+    '"Contact Last Name": "Enamn",'
+    '"Contact Email": "mail@exempel.se",'
+    '"Cell/Mobile": "070730403030",'
+    '"SK26 Barnkonferens  First Name": "Barn1",'
+    '"SK26 Barnkonferens  Last Name": "Enamn",'
+    '"ETicket SK26 Barnkonferens ": "ICCEQUGOWB",'
+    '"Ålder ": "04/02/2020",'
+    '"Allergier": "",'
+    '"Dagsbiljett barn (torsdag 26 juni) First Name": ["Barn2", "Barn22"],'
+    '"Dagsbiljett barn (torsdag 26 juni) Last Name": ["Enamn", "Enamn"],'
+    '"ETicket Dagsbiljett barn (torsdag 26 juni)": "EDMKIOBKJX",'
+    '"Ålder": "15/01/2019|07/03/2014",'
+    '"Allergier": "Inget",'
+    '"Dagsbiljett barn (fredag 27 juni) First Name": "Barn3",'
+    '"Dagsbiljett barn (fredag 27 juni) Last Name": "Enman",'
+    '"ETicket Dagsbiljett barn (fredag 27 juni)": "UIWRMAAOTB",'
+    '"Ålder": "21/02/2017",'
+    '"Allergier": "",'
+    '"Dagsbiljett barn (lördag 26 juni) First Name": "Barn4",'
+    '"Dagsbiljett barn (lördag 26 juni) Last Name": "Enamn",'
+    '"ETicket Dagsbiljett barn (lördag 26 juni)": "EPUYSASVCQ",'
+    '"Ålder": "12/02/2019",'
+    '"Allergier": ""'
+    "}}"
+)
+
+_REAL_FORMAT_DATA = parse_json_with_duplicate_keys(_REAL_FORMAT_JSON)
+REAL_BOOKING = _REAL_FORMAT_DATA["contact13"]
+REAL_DATA = _REAL_FORMAT_DATA
 
 # ---------------------------------------------------------------------------
 # discover_child_prefixes
@@ -247,3 +294,204 @@ class TestParseBooking:
         for child in result["children"]:
             assert "mapping" in child
             assert child["mapping"] == "full_event"
+
+
+# ---------------------------------------------------------------------------
+# parse_json_with_duplicate_keys
+# ---------------------------------------------------------------------------
+
+
+class TestParseJsonWithDuplicateKeys:
+    def test_normal_json_unchanged(self):
+        """Non-duplicate keys parse identically to json.loads."""
+        import json
+        text = '{"a": 1, "b": "hello", "c": [1, 2, 3]}'
+        result = parse_json_with_duplicate_keys(text)
+        assert result == json.loads(text)
+
+    def test_duplicate_scalar_values_become_duplicate_list(self):
+        """When the same key appears twice, both values are preserved."""
+        text = '{"key": "first", "key": "second"}'
+        result = parse_json_with_duplicate_keys(text)
+        assert isinstance(result["key"], _DuplicateList)
+        assert list(result["key"]) == ["first", "second"]
+
+    def test_three_duplicate_values(self):
+        """All occurrences are collected in order."""
+        text = '{"k": "a", "k": "b", "k": "c"}'
+        result = parse_json_with_duplicate_keys(text)
+        assert isinstance(result["k"], _DuplicateList)
+        assert list(result["k"]) == ["a", "b", "c"]
+
+    def test_genuine_array_value_not_wrapped(self):
+        """A key whose single value is an array is NOT wrapped in _DuplicateList."""
+        text = '{"names": ["Alice", "Bob"]}'
+        result = parse_json_with_duplicate_keys(text)
+        assert not isinstance(result["names"], _DuplicateList)
+        assert result["names"] == ["Alice", "Bob"]
+
+    def test_duplicate_alder_keys_real_shape(self):
+        """
+        Simulate the real booking JSON: three consecutive 'Ålder' keys, one
+        after each child-prefix group.  All three values must survive.
+        """
+        # Build the JSON string manually (Python dict literals collapse duplicates)
+        json_text = (
+            '{"contact1": {'
+            '"Dagsbiljett barn (torsdag) First Name": ["Barn2", "Barn22"],'
+            '"Dagsbiljett barn (torsdag) Last Name": ["Enamn", "Enamn"],'
+            '"Ålder": "15/01/2019|07/03/2014",'
+            '"Dagsbiljett barn (fredag) First Name": "Barn3",'
+            '"Dagsbiljett barn (fredag) Last Name": "Enman",'
+            '"Ålder": "21/02/2017",'
+            '"Dagsbiljett barn (lördag) First Name": "Barn4",'
+            '"Dagsbiljett barn (lördag) Last Name": "Enman",'
+            '"Ålder": "12/02/2019"'
+            "}}"
+        )
+        data = parse_json_with_duplicate_keys(json_text)
+        booking = data["contact1"]
+        alder = booking["Ålder"]
+        assert isinstance(alder, _DuplicateList)
+        assert list(alder) == ["15/01/2019|07/03/2014", "21/02/2017", "12/02/2019"]
+
+    def test_real_format_trailing_space_key_isolated(self):
+        """
+        "Ålder " (trailing space) and "Ålder" (no space) are stored under
+        separate dict keys — the parser must not merge them.
+        """
+        data = parse_json_with_duplicate_keys(
+            '{"b": {"Ålder ": "04/02/2020", "Ålder": "15/01/2019"}}'
+        )
+        booking = data["b"]
+        assert "Ålder " in booking
+        assert "Ålder" in booking
+        assert booking["Ålder "] == "04/02/2020"
+        assert booking["Ålder"] == "15/01/2019"
+
+    def test_build_alder_map_assigns_values_in_document_order(self):
+        """
+        build_alder_map() correctly assigns each standalone Ålder value to
+        the right prefix by document order, even when all occurrences are
+        merged into a single _DuplicateList.
+        """
+        json_text = (
+            '{"contact1": {'
+            '"Dagsbiljett barn (torsdag) First Name": ["Barn2", "Barn22"],'
+            '"Dagsbiljett barn (torsdag) Last Name": ["Enamn", "Enamn"],'
+            '"Ålder": "15/01/2019|07/03/2014",'
+            '"Dagsbiljett barn (fredag) First Name": "Barn3",'
+            '"Dagsbiljett barn (fredag) Last Name": "Enman",'
+            '"Ålder": "21/02/2017",'
+            '"Dagsbiljett barn (lördag) First Name": "Barn4",'
+            '"Dagsbiljett barn (lördag) Last Name": "Enman",'
+            '"Ålder": "12/02/2019"'
+            "}}"
+        )
+        data = parse_json_with_duplicate_keys(json_text)
+        booking = data["contact1"]
+
+        prefixes = [
+            "Dagsbiljett barn (torsdag)",
+            "Dagsbiljett barn (fredag)",
+            "Dagsbiljett barn (lördag)",
+        ]
+        amap = build_alder_map(booking, prefixes)
+
+        assert amap["Dagsbiljett barn (torsdag)"] == "15/01/2019|07/03/2014"
+        assert amap["Dagsbiljett barn (fredag)"] == "21/02/2017"
+        assert amap["Dagsbiljett barn (lördag)"] == "12/02/2019"
+
+        # Verify children parse correctly when alder_value is supplied
+        thu = parse_children_from_prefix(booking, "Dagsbiljett barn (torsdag)",
+                                         alder_value=amap["Dagsbiljett barn (torsdag)"])
+        assert len(thu) == 2
+        assert thu[0]["birthdate"] == date(2019, 1, 15)
+        assert thu[1]["birthdate"] == date(2014, 3, 7)
+
+        fri = parse_children_from_prefix(booking, "Dagsbiljett barn (fredag)",
+                                         alder_value=amap["Dagsbiljett barn (fredag)"])
+        assert len(fri) == 1
+        assert fri[0]["first_name"] == "Barn3"
+        assert fri[0]["birthdate"] == date(2017, 2, 21)
+
+        sat = parse_children_from_prefix(booking, "Dagsbiljett barn (lördag)",
+                                         alder_value=amap["Dagsbiljett barn (lördag)"])
+        assert len(sat) == 1
+        assert sat[0]["first_name"] == "Barn4"
+        assert sat[0]["birthdate"] == date(2019, 2, 12)
+
+
+# ---------------------------------------------------------------------------
+# Real export format: mixed "Ålder " (trailing space) + standalone "Ålder"
+# This is the actual shape from the production booking system.
+# ---------------------------------------------------------------------------
+
+
+class TestRealFormatBooking:
+    """
+    Tests against REAL_BOOKING — a booking parsed from JSON that matches the
+    exact field layout of the production export, including:
+      - "Ålder " (trailing space) for SK26 Barnkonferens
+      - standalone "Ålder" (no space) × 3 for the three Dagsbiljett prefixes
+      - SK26 prefix has a trailing double-space in its name
+    """
+
+    ALL_PREFIXES = [
+        "SK26 Barnkonferens ",
+        "Dagsbiljett barn (torsdag 26 juni)",
+        "Dagsbiljett barn (fredag 27 juni)",
+        "Dagsbiljett barn (lördag 26 juni)",
+    ]
+
+    def _parse(self, prefix):
+        """Helper: parse one prefix using the pre-built alder map."""
+        amap = build_alder_map(REAL_BOOKING, self.ALL_PREFIXES)
+        return parse_children_from_prefix(REAL_BOOKING, prefix, alder_value=amap.get(prefix))
+
+    def test_sk26_gets_correct_birthdate(self):
+        """SK26 Barnkonferens  must pick up "Ålder " (trailing space), not "Ålder"."""
+        children = self._parse("SK26 Barnkonferens ")
+        assert len(children) == 1
+        assert children[0]["first_name"] == "Barn1"
+        assert children[0]["birthdate"] == date(2020, 2, 4)
+
+    def test_thursday_barn2_gets_birthdate(self):
+        children = self._parse("Dagsbiljett barn (torsdag 26 juni)")
+        assert len(children) == 2
+        assert children[0]["first_name"] == "Barn2"
+        assert children[0]["birthdate"] == date(2019, 1, 15)
+
+    def test_thursday_barn22_gets_birthdate(self):
+        """The original bug: Barn22 (index 1) must get its birthdate from the pipe-delimited string."""
+        children = self._parse("Dagsbiljett barn (torsdag 26 juni)")
+        assert len(children) == 2
+        assert children[1]["first_name"] == "Barn22"
+        assert children[1]["birthdate"] == date(2014, 3, 7)
+
+    def test_friday_gets_correct_birthdate(self):
+        children = self._parse("Dagsbiljett barn (fredag 27 juni)")
+        assert len(children) == 1
+        assert children[0]["first_name"] == "Barn3"
+        assert children[0]["birthdate"] == date(2017, 2, 21)
+
+    def test_saturday_gets_correct_birthdate(self):
+        children = self._parse("Dagsbiljett barn (lördag 26 juni)")
+        assert len(children) == 1
+        assert children[0]["first_name"] == "Barn4"
+        assert children[0]["birthdate"] == date(2019, 2, 12)
+
+    def test_all_four_prefixes_via_parse_booking(self):
+        """End-to-end parse with all four prefixes — total 5 children, all with birthdates."""
+        mappings = {
+            "SK26 Barnkonferens ": "full_event",
+            "Dagsbiljett barn (torsdag 26 juni)": "session-thu",
+            "Dagsbiljett barn (fredag 27 juni)": "session-fri",
+            "Dagsbiljett barn (lördag 26 juni)": "session-sat",
+        }
+        result = parse_booking(REAL_BOOKING, mappings)
+        assert len(result["children"]) == 5
+        for child in result["children"]:
+            assert child["birthdate"] is not None, (
+                f"{child['first_name']} {child['last_name']} has no birthdate"
+            )
