@@ -135,7 +135,7 @@
         providerInfo = null;
       }
     } catch {
-      error = 'Failed to link provider.';
+      error = $t('import.linkProviderError');
     } finally {
       providerSaving = false;
     }
@@ -438,14 +438,14 @@
         <div class="mb-5 flex items-end gap-3 flex-wrap">
           <div class="flex-1 min-w-48">
             <label class="block text-sm font-medium text-neutral-700 mb-1" for="provider-select">
-              Import Provider
+              {$t('import.providerLabel')}
             </label>
             <select
               id="provider-select"
               bind:value={selectedProviderId}
               class="w-full border border-neutral-300 rounded px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary-400"
             >
-              <option value="">— Manual file upload only —</option>
+              <option value="">{$t('import.manualUploadOption')}</option>
               {#each allProviders as p (p.id)}
                 <option value={p.id}>{p.name}</option>
               {/each}
@@ -456,17 +456,17 @@
             disabled={providerSaving || selectedProviderId === (savedConfig?.provider_id ?? '')}
             class="px-4 py-2 bg-primary-600 text-white text-sm font-semibold rounded-button hover:bg-primary-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors whitespace-nowrap"
           >
-            {providerSaving ? 'Saving…' : 'Save'}
+            {providerSaving ? $t('import.savingProvider') : $t('import.saveProvider')}
           </button>
           <a href="/import/providers" class="text-sm text-primary-600 hover:underline whitespace-nowrap py-2">
-            Manage providers
+            {$t('import.manageProvidersLink')}
           </a>
         </div>
       {:else}
         <div class="mb-4 p-3 bg-neutral-50 border border-neutral-200 rounded text-neutral-600 text-sm flex items-center justify-between gap-3">
-          <span>No providers configured — using manual file upload.</span>
+          <span>{$t('import.noProviders')}</span>
           <a href="/import/providers" class="text-primary-600 hover:underline font-medium whitespace-nowrap">
-            Add a provider →
+            {$t('import.addProvider')}
           </a>
         </div>
       {/if}
@@ -475,13 +475,13 @@
       {#if autoFetchMode && !providerLoading}
         {#if providerHasNoCredentials}
           <div class="mb-4 p-3 bg-warning-50 border border-warning-200 rounded text-warning-700 text-sm">
-            <strong>Provider has no credentials set</strong> — upload a file manually or
-            <a href="/import/providers" class="underline font-medium">configure credentials in Manage Providers</a>.
+            <strong>{$t('import.providerNoCredentials')}</strong> — {$t('import.providerNoCredentialsHelp')}
+            <a href="/import/providers" class="underline font-medium">{$t('import.providerNoCredentialsLink')}</a>.
           </div>
         {:else if providerInfo}
           <div class="mb-4 p-3 bg-blue-50 border border-blue-200 rounded text-blue-700 text-sm flex items-center justify-between gap-4 flex-wrap">
             <span>
-              <strong>Auto-fetch configured:</strong> {savedConfig?.provider_name ?? providerInfo.name}
+              <strong>{$t('import.autoFetchConfigured')}</strong> {savedConfig?.provider_name ?? providerInfo.name}
             </span>
             {#if hasSavedMappings}
               <!-- One-click re-sync: skip mapping step entirely -->
@@ -490,7 +490,7 @@
                 disabled={importing}
                 class="px-4 py-1.5 bg-blue-600 text-white text-sm font-semibold rounded-button hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors whitespace-nowrap"
               >
-                {importing ? 'Importing…' : 'Re-sync from provider'}
+                {importing ? $t('import.importing') : $t('import.resync')}
               </button>
             {:else}
               <!-- First run: fetch prefixes then go to mapping step -->
@@ -499,7 +499,7 @@
                 disabled={analyzing}
                 class="px-4 py-1.5 bg-blue-600 text-white text-sm font-semibold rounded-button hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors whitespace-nowrap"
               >
-                {analyzing ? 'Fetching…' : 'Fetch from provider'}
+                {analyzing ? $t('import.fetching') : $t('import.fetchFromProvider')}
               </button>
             {/if}
           </div>
@@ -533,7 +533,7 @@
         </svg>
 
         {#if analyzing && !fileName}
-          <p class="text-primary-600 font-medium">Fetching from provider…</p>
+          <p class="text-primary-600 font-medium">{$t('import.fetchingFromProvider')}</p>
         {:else if analyzing}
           <p class="text-primary-600 font-medium">{$t('import.analyzing')}</p>
         {:else if fileName}
@@ -655,7 +655,7 @@
           onclick={() => { step = 1; error = ''; }}
           class="px-4 py-2 text-neutral-600 font-semibold hover:text-neutral-900 transition-colors"
         >
-          &larr; {$t('import.backToEvents').replace('← ', '')}
+          &larr; {$t('import.backToUpload')}
         </button>
         <button
           onclick={runImportFromStep2}
@@ -815,7 +815,7 @@
                   {#if run.summary?.families_created !== undefined}
                     <span class="text-success-700">+{run.summary.families_created}</span>
                     {#if run.summary.families_skipped}
-                      <span class="text-neutral-400 text-xs"> / {run.summary.families_skipped} skipped</span>
+                      <span class="text-neutral-400 text-xs"> / {run.summary.families_skipped} {$t('import.skipped')}</span>
                     {/if}
                   {:else}
                     —
@@ -825,7 +825,7 @@
                   {#if run.summary?.children_created !== undefined}
                     <span class="text-success-700">+{run.summary.children_created}</span>
                     {#if run.summary.children_skipped}
-                      <span class="text-neutral-400 text-xs"> / {run.summary.children_skipped} skipped</span>
+                      <span class="text-neutral-400 text-xs"> / {run.summary.children_skipped} {$t('import.skipped')}</span>
                     {/if}
                   {:else}
                     —

@@ -6,19 +6,19 @@ import { browser } from '$app/environment';
 register('en', () => import('./locales/en.json'));
 register('sv', () => import('./locales/sv.json'));
 
-// Initialize with English as default (will be updated on client-side)
+// Initialize with Swedish as default (will be updated on client-side)
 init({
   fallbackLocale: 'en',
-  initialLocale: 'en',
+  initialLocale: 'sv',
 });
 
 // Export a derived store that indicates when translations are ready
 export const translationsReady = derived(isLoading, ($isLoading) => !$isLoading);
 
-// Get saved language from localStorage or cookie, fallback to 'en'
+// Get saved language from localStorage or cookie, fallback to 'sv'
 function getSavedLocale(): string {
   if (!browser) {
-    return 'en';
+    return 'sv';
   }
 
   // Try localStorage first
@@ -46,9 +46,9 @@ function getSavedLocale(): string {
     console.warn('[i18n] Could not read cookies:', e);
   }
 
-  // Default to English
-  console.log('[i18n] Using default language: en');
-  return 'en';
+  // Default to Swedish
+  console.log('[i18n] Using default language: sv');
+  return 'sv';
 }
 
 // On client-side, load saved locale and set it

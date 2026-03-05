@@ -18,7 +18,7 @@
     try {
       events = await apiClient.get<EventSummary[]>('/events/');
     } catch (e) {
-      error = 'Failed to load events';
+      error = $t('import.loadEventsError');
     } finally {
       loading = false;
     }
@@ -53,7 +53,7 @@
       href="/import/providers"
       class="mt-1 text-sm text-primary-600 hover:underline font-medium whitespace-nowrap"
     >
-      Manage Providers
+      {$t('import.manageProviders')}
     </a>
   </div>
 
