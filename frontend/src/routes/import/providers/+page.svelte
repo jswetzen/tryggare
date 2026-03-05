@@ -40,7 +40,7 @@
     try {
       providers = await importApi.listProviders();
     } catch {
-      error = 'Failed to load providers.';
+      error = $t('import.providers.loadError');
     } finally {
       loading = false;
     }
@@ -81,9 +81,9 @@
 
   async function saveProvider() {
     formError = '';
-    if (!formName.trim()) { formError = 'Name is required.'; return; }
-    if (!formLoginUrl.trim()) { formError = 'Login URL is required.'; return; }
-    if (!formExportUrl.trim()) { formError = 'Export URL is required.'; return; }
+    if (!formName.trim()) { formError = $t('import.providers.nameRequired'); return; }
+    if (!formLoginUrl.trim()) { formError = $t('import.providers.loginUrlRequired'); return; }
+    if (!formExportUrl.trim()) { formError = $t('import.providers.exportUrlRequired'); return; }
 
     saving = true;
     try {
@@ -105,19 +105,19 @@
       await loadProviders();
     } catch (e: unknown) {
       const err = e as { details?: { name?: string[]; login_url?: string[] } };
-      formError = err?.details?.name?.[0] ?? err?.details?.login_url?.[0] ?? 'Save failed.';
+      formError = err?.details?.name?.[0] ?? err?.details?.login_url?.[0] ?? $t('import.providers.saveError');
     } finally {
       saving = false;
     }
   }
 
   async function deleteProvider(provider: ImportProvider) {
-    if (!confirm(`Delete provider "${provider.name}"? This cannot be undone.`)) return;
+    if (!confirm($t('import.providers.deleteConfirm', { values: { name: provider.name } }))) return;
     try {
       await importApi.deleteProvider(provider.id);
       await loadProviders();
     } catch {
-      error = 'Failed to delete provider.';
+      error = $t('import.providers.deleteError');
     }
   }
 
@@ -135,7 +135,7 @@
 </script>
 
 <svelte:head>
-  <title>Import Providers — {$t('import.pageTitle')}</title>
+  <title>{$t('import.providers.pageTitle')} — {$t('import.pageTitle')}</title>
 </svelte:head>
 
 <div class="max-w-4xl mx-auto">
@@ -145,8 +145,8 @@
     <a href="/import" class="text-sm text-primary-600 hover:underline font-medium">
       ← {$t('import.backToEvents')}
     </a>
-    <h1 class="mt-2 text-2xl font-bold text-neutral-900">Import Providers</h1>
-    <p class="mt-1 text-neutral-600">Configure external booking system connections for automatic data fetching.</p>
+    <h1 class="mt-2 text-2xl font-bold text-neutral-900">{$t('import.providers.pageTitle')}</h1>
+    <p class="mt-1 text-neutral-600">{$t('import.providers.description')}</p>
   </div>
 
   <!-- Global error -->
@@ -160,7 +160,7 @@
   {#if showForm}
     <div class="mb-6 bg-white rounded-lg border border-neutral-200 shadow-sm p-6">
       <h2 class="text-base font-semibold text-neutral-900 mb-4">
-        {editingId ? 'Edit Provider' : 'New Provider'}
+        {editingId ? $t('import.providers.editProvider') : $t('import.providers.newProvider')}
       </h2>
 
       {#if formError}
@@ -172,7 +172,7 @@
       <div class="grid gap-4 sm:grid-cols-2">
         <div class="sm:col-span-2">
           <label class="block text-sm font-medium text-neutral-700 mb-1" for="prov-name">
-            Name <span class="text-danger-500">*</span>
+            {$t('import.providers.fieldName')} <span class="text-danger-500">*</span>
           </label>
           <input
             id="prov-name"
@@ -185,7 +185,7 @@
 
         <div>
           <label class="block text-sm font-medium text-neutral-700 mb-1" for="prov-login-url">
-            Login URL <span class="text-danger-500">*</span>
+            {$t('import.providers.fieldLoginUrl')} <span class="text-danger-500">*</span>
           </label>
           <input
             id="prov-login-url"
@@ -198,7 +198,7 @@
 
         <div>
           <label class="block text-sm font-medium text-neutral-700 mb-1" for="prov-export-url">
-            Export URL <span class="text-danger-500">*</span>
+            {$t('import.providers.fieldExportUrl')} <span class="text-danger-500">*</span>
           </label>
           <input
             id="prov-export-url"
@@ -211,8 +211,8 @@
 
         <div class="sm:col-span-2">
           <label class="block text-sm font-medium text-neutral-700 mb-1" for="prov-export-body">
-            Export POST Body
-            <span class="text-neutral-400 font-normal">(paste from browser network capture)</span>
+            {$t('import.providers.fieldExportBody')}
+            <span class="text-neutral-400 font-normal">({$t('import.providers.fieldExportBodyHint')})</span>
           </label>
           <textarea
             id="prov-export-body"
@@ -222,16 +222,15 @@
             class="w-full border border-neutral-300 rounded px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-primary-400 resize-y"
           ></textarea>
           <p class="mt-1 text-xs text-neutral-400">
-            Raw form-encoded body for the export POST request. Contains event-specific parameters
-            (EVENTID, QUERYQ, etc.) but no credentials.
+            {$t('import.providers.fieldExportBodyHelp')}
           </p>
         </div>
 
         <div>
           <label class="block text-sm font-medium text-neutral-700 mb-1" for="prov-username">
-            Username
+            {$t('import.providers.fieldUsername')}
             {#if editingId}
-              <span class="text-neutral-400 font-normal">(leave blank to keep existing)</span>
+              <span class="text-neutral-400 font-normal">({$t('import.providers.fieldKeepExisting')})</span>
             {/if}
           </label>
           <input
@@ -246,9 +245,9 @@
 
         <div>
           <label class="block text-sm font-medium text-neutral-700 mb-1" for="prov-password">
-            Password
+            {$t('import.providers.fieldPassword')}
             {#if editingId}
-              <span class="text-neutral-400 font-normal">(leave blank to keep existing)</span>
+              <span class="text-neutral-400 font-normal">({$t('import.providers.fieldKeepExisting')})</span>
             {/if}
           </label>
           <input
@@ -267,14 +266,14 @@
           onclick={resetForm}
           class="px-4 py-2 text-neutral-600 font-semibold hover:text-neutral-900 transition-colors"
         >
-          Cancel
+          {$t('import.providers.cancel')}
         </button>
         <button
           onclick={saveProvider}
           disabled={saving}
           class="px-5 py-2 bg-primary-600 text-white font-semibold rounded-button hover:bg-primary-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
         >
-          {saving ? 'Saving…' : (editingId ? 'Save Changes' : 'Create Provider')}
+          {saving ? $t('import.providers.saving') : (editingId ? $t('import.providers.saveChanges') : $t('import.providers.createProvider'))}
         </button>
       </div>
     </div>
@@ -283,34 +282,34 @@
   <!-- Providers table -->
   <div class="bg-white rounded-lg border border-neutral-200 shadow-sm">
     <div class="px-6 py-4 border-b border-neutral-200 flex items-center justify-between">
-      <h2 class="text-base font-semibold text-neutral-900">Providers</h2>
+      <h2 class="text-base font-semibold text-neutral-900">{$t('import.providers.tableTitle')}</h2>
       {#if !showForm}
         <button
           onclick={startCreate}
           class="px-4 py-1.5 bg-primary-600 text-white text-sm font-semibold rounded-button hover:bg-primary-700 transition-colors"
         >
-          + New Provider
+          {$t('import.providers.addNew')}
         </button>
       {/if}
     </div>
 
     {#if loading}
-      <div class="px-6 py-8 text-center text-neutral-400 text-sm">Loading…</div>
+      <div class="px-6 py-8 text-center text-neutral-400 text-sm">{$t('import.providers.loading')}</div>
     {:else if providers.length === 0}
       <div class="px-6 py-8 text-center text-neutral-400 text-sm">
-        No providers configured yet. Create one to enable automatic data fetching.
+        {$t('import.providers.noProviders')}
       </div>
     {:else}
       <div class="overflow-x-auto">
         <table class="w-full text-sm">
           <thead class="bg-neutral-50 border-b border-neutral-200">
             <tr>
-              <th class="text-left px-4 py-3 font-semibold text-neutral-700">Name</th>
-              <th class="text-left px-4 py-3 font-semibold text-neutral-700">Login URL</th>
-              <th class="text-left px-4 py-3 font-semibold text-neutral-700">Export URL</th>
-              <th class="text-center px-4 py-3 font-semibold text-neutral-700">Credentials</th>
-              <th class="text-left px-4 py-3 font-semibold text-neutral-700">Created</th>
-              <th class="text-right px-4 py-3 font-semibold text-neutral-700">Actions</th>
+              <th class="text-left px-4 py-3 font-semibold text-neutral-700">{$t('import.providers.colName')}</th>
+              <th class="text-left px-4 py-3 font-semibold text-neutral-700">{$t('import.providers.colLoginUrl')}</th>
+              <th class="text-left px-4 py-3 font-semibold text-neutral-700">{$t('import.providers.colExportUrl')}</th>
+              <th class="text-center px-4 py-3 font-semibold text-neutral-700">{$t('import.providers.colCredentials')}</th>
+              <th class="text-left px-4 py-3 font-semibold text-neutral-700">{$t('import.providers.colCreated')}</th>
+              <th class="text-right px-4 py-3 font-semibold text-neutral-700">{$t('import.providers.colActions')}</th>
             </tr>
           </thead>
           <tbody>
@@ -326,11 +325,11 @@
                 <td class="px-4 py-3 text-center">
                   {#if provider.has_credentials}
                     <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-success-100 text-success-800">
-                      Set
+                      {$t('import.providers.credentialsSet')}
                     </span>
                   {:else}
                     <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-warning-100 text-warning-700">
-                      Not set
+                      {$t('import.providers.credentialsNotSet')}
                     </span>
                   {/if}
                 </td>
@@ -340,13 +339,13 @@
                     onclick={() => startEdit(provider)}
                     class="text-primary-600 hover:text-primary-800 font-medium text-sm mr-3"
                   >
-                    Edit
+                    {$t('import.providers.edit')}
                   </button>
                   <button
                     onclick={() => deleteProvider(provider)}
                     class="text-danger-600 hover:text-danger-800 font-medium text-sm"
                   >
-                    Delete
+                    {$t('import.providers.delete')}
                   </button>
                 </td>
               </tr>
