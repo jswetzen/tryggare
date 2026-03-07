@@ -14,13 +14,11 @@ from checkins.views import AuditLogViewSet, CheckInRecordViewSet, PrintQueueView
 from accounts.views import csrf_token, check_auth, login_view, logout_view
 from imports.views import (
     discover_prefixes_view,
-    discover_prefixes_from_provider_view,
-    get_import_config,
-    import_history,
-    list_create_provider_view,
-    provider_detail_view,
-    run_import_view,
-    set_config_provider_view,
+    discover_prefixes_from_source_view,
+    import_history_source_view,
+    list_create_source_view,
+    run_import_source_view,
+    source_detail_view,
 )
 
 # Create API router
@@ -54,13 +52,11 @@ urlpatterns = [
     path("api/qr/<str:code>/", qr_info, name="qr-info"),  # Public QR code endpoint (privacy-first)
     # Import endpoints (must be before the catch-all)
     path("api/imports/discover-prefixes/", discover_prefixes_view, name="import-discover-prefixes"),
-    path("api/imports/providers/", list_create_provider_view, name="import-providers"),
-    path("api/imports/providers/<uuid:provider_id>/", provider_detail_view, name="import-provider-detail"),
-    path("api/imports/events/<uuid:event_id>/config/", get_import_config, name="import-config"),
-    path("api/imports/events/<uuid:event_id>/config/provider/", set_config_provider_view, name="import-config-provider"),
-    path("api/imports/events/<uuid:event_id>/run/", run_import_view, name="import-run"),
-    path("api/imports/events/<uuid:event_id>/history/", import_history, name="import-history"),
-    path("api/imports/events/<uuid:event_id>/discover-prefixes/", discover_prefixes_from_provider_view, name="import-discover-prefixes-from-provider"),
+    path("api/imports/sources/", list_create_source_view, name="import-sources"),
+    path("api/imports/sources/<uuid:source_id>/", source_detail_view, name="import-source-detail"),
+    path("api/imports/sources/<uuid:source_id>/run/", run_import_source_view, name="import-source-run"),
+    path("api/imports/sources/<uuid:source_id>/history/", import_history_source_view, name="import-source-history"),
+    path("api/imports/sources/<uuid:source_id>/discover-prefixes/", discover_prefixes_from_source_view, name="import-source-discover-prefixes"),
     # Serve frontend SPA - catch-all for client-side routing (must be last)
     # Exclude admin/, api/, and SvelteKit's __data.json endpoints from catch-all
     # WhiteNoise middleware serves static files (_app/*) before this is reached

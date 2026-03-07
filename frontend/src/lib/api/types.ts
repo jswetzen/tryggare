@@ -230,34 +230,31 @@ export interface DiscoverPrefixesResponse {
   total_bookings: number;
 }
 
-export interface ImportProvider {
-  id: string;
-  name: string;
+export interface FestivalProConfig {
   login_url: string;
   export_url: string;
   export_body: string;
+  field_mappings: Record<string, string>;
+}
+
+export interface ImportSource {
+  id: string;
+  name: string;
+  provider_type: 'festivalpro' | 'planningcenter';
+  event: string | null;
   has_credentials: boolean;
+  festivalpro_config?: FestivalProConfig;
   created_at: string;
   updated_at: string;
 }
 
-export interface ImportProviderWrite {
+export interface ImportSourceWrite {
   name: string;
-  login_url: string;
-  export_url: string;
-  export_body: string;
+  provider_type: 'festivalpro' | 'planningcenter';
+  event?: string | null;
   username?: string;
   password?: string;
-}
-
-export interface EventImportConfig {
-  id: string;
-  event: string;
-  field_mappings: Record<string, string>;
-  provider_id: string | null;
-  provider_name: string | null;
-  created_at: string;
-  updated_at: string;
+  festivalpro_config?: Partial<FestivalProConfig>;
 }
 
 export interface ImportRunSummary {
@@ -279,7 +276,7 @@ export interface ImportRunLog {
 
 export interface ImportRun {
   id: string;
-  config: string;
+  source: string;
   triggered_by: string | null;
   triggered_by_name: string | null;
   status: 'pending' | 'running' | 'completed' | 'failed';

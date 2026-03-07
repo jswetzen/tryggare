@@ -6,14 +6,11 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework import status
 
-from events.models import Event
-
-from .importer import ProviderFetchError, ProviderLoginError, fetch_from_provider, run_import
-from .models import EventImportConfig, ImportProvider, ImportRun
+from .importer import ProviderFetchError, ProviderLoginError, run_import
+from .models import FestivalProImportSource, ImportRun, ImportSource
 from .parser import discover_child_prefixes, parse_json_with_duplicate_keys
 from .serializers import (
-    EventImportConfigSerializer,
-    ImportProviderSerializer,
+    ImportSourceSerializer,
     ImportRunListSerializer,
     ImportRunSerializer,
 )
@@ -68,38 +65,64 @@ def discover_prefixes_view(request):
     )
 
 
-@api_view(["GET"])
-@permission_classes([IsAuthenticated])
-def get_import_config(request, event_id):
-    """
-    GET /api/imports/events/<event_id>/config/
+# ── Source CRUD ────────────────────────────────────────────────────────────────
 
-    Returns the saved EventImportConfig for this event, or 404 if none exists.
-    """
-    event = get_object_or_404(Event, pk=event_id)
-    config = EventImportConfig.objects.filter(event=event).first()
-    if config is None:
-        return Response({"detail": "No import config for this event."}, status=status.HTTP_404_NOT_FOUND)
-    return Response(EventImportConfigSerializer(config).data)
+@api_view(["GET", "POST"])
+@permission_classes([IsAuthenticated])
+def list_create_source_view(request):
+    """GET /api/imports/sources/ or POST /api/imports/sources/"""
+    if request.method == "GET":
+        sources = ImportSource.objects.select_related("festivalpro_config", "event").all()
+        return Response(ImportSourceSerializer(sources, many=True).data)
+    serializer = ImportSourceSerializer(data=request.data)
+    serializer.is_valid(raise_exception=True)
+    source = serializer.save()
+    return Response(
+        ImportSourceSerializer(source).data,
+        status=status.HTTP_201_CREATED,
+    )
+
+
+@api_view(["GET", "PUT", "DELETE"])
+@permission_classes([IsAuthenticated])
+def source_detail_view(request, source_id):
+    """GET/PUT/DELETE /api/imports/sources/<source_id>/"""
+    source = get_object_or_404(
+        ImportSource.objects.select_related("festivalpro_config", "event"),
+        pk=source_id,
+    )
+    if request.method == "GET":
+        return Response(ImportSourceSerializer(source).data)
+    if request.method == "PUT":
+        serializer = ImportSourceSerializer(source, data=request.data)
+        serializer.is_valid(raise_exception=True)
+        updated = serializer.save()
+        return Response(
+            ImportSourceSerializer(
+                ImportSource.objects.select_related("festivalpro_config", "event").get(pk=updated.pk)
+            ).data
+        )
+    source.delete()
+    return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])
-def run_import_view(request, event_id):
+def run_import_source_view(request, source_id):
     """
-    POST /api/imports/events/<event_id>/run/
+    POST /api/imports/sources/<source_id>/run/
 
     Two modes:
     1. Manual file upload:
        Body: {"json_string": "...", "field_mappings": {...}, "source_file_name": "..."}
-    2. Auto-fetch from provider (json_string omitted):
+    2. Auto-fetch from source (json_string omitted):
        Body: {"field_mappings": {...}}
-       Requires EventImportConfig with a linked provider that has credentials.
-
-    Creates or updates EventImportConfig (field_mappings only), runs import synchronously,
-    returns the ImportRun with full results.
+       Requires FestivalProImportSource with credentials.
     """
-    event = get_object_or_404(Event, pk=event_id)
+    source = get_object_or_404(
+        ImportSource.objects.select_related("festivalpro_config"),
+        pk=source_id,
+    )
 
     json_string = request.data.get("json_string")
     field_mappings = request.data.get("field_mappings")
@@ -137,29 +160,34 @@ def run_import_view(request, event_id):
                 {"detail": "field_mappings must be a JSON object."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
-        config_qs = EventImportConfig.objects.filter(event=event).select_related("provider")
-        config_obj = config_qs.first()
-        if config_obj is None or config_obj.provider is None:
+        if source.provider_type != ImportSource.PROVIDER_FESTIVALPRO:
             return Response(
-                {"detail": "No import provider configured for this event."},
+                {"detail": "Auto-fetch is only supported for FestivalPro sources."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
-        provider = config_obj.provider
-        if not provider.has_credentials:
+        fp_config = getattr(source, "festivalpro_config", None)
+        if fp_config is None:
             return Response(
-                {"detail": "Provider has no credentials stored."},
+                {"detail": "No FestivalPro config found for this source."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
+        if not source.has_credentials:
+            return Response(
+                {"detail": "Source has no credentials stored."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        from .providers import get_provider
+        provider = get_provider(source)
         try:
-            raw_text = fetch_from_provider(provider)
+            raw_text = provider.fetch(source)
         except ProviderLoginError as exc:
-            logger.warning("Provider login error for event %s: %s", event_id, exc)
+            logger.warning("Provider login error for source %s: %s", source_id, exc)
             return Response(
                 {"detail": f"Provider login failed: {exc}"},
                 status=status.HTTP_502_BAD_GATEWAY,
             )
         except ProviderFetchError as exc:
-            logger.warning("Provider fetch error for event %s: %s", event_id, exc)
+            logger.warning("Provider fetch error for source %s: %s", source_id, exc)
             return Response(
                 {"detail": f"Provider fetch failed: {exc}"},
                 status=status.HTTP_502_BAD_GATEWAY,
@@ -182,20 +210,21 @@ def run_import_view(request, event_id):
                 {"detail": "Provider JSON must be an object at the top level."},
                 status=status.HTTP_502_BAD_GATEWAY,
             )
-        source_file_name = f"auto-fetch:{provider.name}"
+        source_file_name = f"auto-fetch:{source.name}"
 
-    # Create or update the config (field_mappings only; provider FK is not touched here)
-    config, _ = EventImportConfig.objects.get_or_create(event=event)
-    config.field_mappings = field_mappings
-    config.save(update_fields=["field_mappings", "updated_at"])
+    # Save field_mappings to FestivalPro config if applicable
+    if source.provider_type == ImportSource.PROVIDER_FESTIVALPRO:
+        fp_config, _ = FestivalProImportSource.objects.get_or_create(source=source)
+        fp_config.field_mappings = field_mappings
+        fp_config.save(update_fields=["field_mappings"])
 
     # Run the import synchronously
     try:
-        import_run = run_import(json_data, config, request.user)
+        import_run = run_import(json_data, source, field_mappings, request.user)
         import_run.source_file_name = source_file_name
         import_run.save(update_fields=["source_file_name"])
     except Exception as exc:
-        logger.exception("Unhandled error during import for event %s", event_id)
+        logger.exception("Unhandled error during import for source %s", source_id)
         return Response(
             {"detail": f"Import failed: {exc}"},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -206,87 +235,50 @@ def run_import_view(request, event_id):
 
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
-def import_history(request, event_id):
+def import_history_source_view(request, source_id):
     """
-    GET /api/imports/events/<event_id>/history/
+    GET /api/imports/sources/<source_id>/history/
 
-    Returns ImportRun list for this event's config, newest first.
+    Returns ImportRun list for this source, newest first.
     """
-    event = get_object_or_404(Event, pk=event_id)
-    config = EventImportConfig.objects.filter(event=event).first()
-    if config is None:
-        return Response([])
-
-    runs = ImportRun.objects.filter(config=config).order_by("-started_at")
+    source = get_object_or_404(ImportSource, pk=source_id)
+    runs = ImportRun.objects.filter(source=source).order_by("-started_at")
     return Response(ImportRunListSerializer(runs, many=True).data)
-
-
-# ── Provider CRUD ─────────────────────────────────────────────────────────────
-
-@api_view(["GET", "POST"])
-@permission_classes([IsAuthenticated])
-def list_create_provider_view(request):
-    """GET /api/imports/providers/ or POST /api/imports/providers/"""
-    if request.method == "GET":
-        providers = ImportProvider.objects.all()
-        return Response(ImportProviderSerializer(providers, many=True).data)
-    serializer = ImportProviderSerializer(data=request.data)
-    serializer.is_valid(raise_exception=True)
-    provider = serializer.save()
-    return Response(ImportProviderSerializer(provider).data, status=status.HTTP_201_CREATED)
-
-
-@api_view(["GET", "PUT", "DELETE"])
-@permission_classes([IsAuthenticated])
-def provider_detail_view(request, provider_id):
-    """GET/PUT/DELETE /api/imports/providers/<provider_id>/"""
-    provider = get_object_or_404(ImportProvider, pk=provider_id)
-    if request.method == "GET":
-        return Response(ImportProviderSerializer(provider).data)
-    if request.method == "PUT":
-        serializer = ImportProviderSerializer(provider, data=request.data)
-        serializer.is_valid(raise_exception=True)
-        return Response(ImportProviderSerializer(serializer.save()).data)
-    provider.delete()
-    return Response(status=status.HTTP_204_NO_CONTENT)
-
-
-@api_view(["PATCH"])
-@permission_classes([IsAuthenticated])
-def set_config_provider_view(request, event_id):
-    """PATCH /api/imports/events/<event_id>/config/provider/"""
-    event = get_object_or_404(Event, pk=event_id)
-    config, _ = EventImportConfig.objects.get_or_create(event=event)
-    provider_id = request.data.get("provider_id")
-    config.provider = get_object_or_404(ImportProvider, pk=provider_id) if provider_id else None
-    config.save(update_fields=["provider"])
-    return Response(EventImportConfigSerializer(config).data)
 
 
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])
-def discover_prefixes_from_provider_view(request, event_id):
+def discover_prefixes_from_source_view(request, source_id):
     """
-    POST /api/imports/events/<event_id>/discover-prefixes/
+    POST /api/imports/sources/<source_id>/discover-prefixes/
 
-    Fetches data from the event's linked provider and runs discover_child_prefixes.
+    Fetches data from the source's provider and runs discover_child_prefixes.
     Returns {prefixes, total_bookings} — same shape as the top-level discover-prefixes endpoint.
     """
-    event = get_object_or_404(Event, pk=event_id)
-    config = EventImportConfig.objects.filter(event=event).select_related("provider").first()
-    if config is None or config.provider is None:
+    source = get_object_or_404(
+        ImportSource.objects.select_related("festivalpro_config"),
+        pk=source_id,
+    )
+    if source.provider_type != ImportSource.PROVIDER_FESTIVALPRO:
         return Response(
-            {"detail": "No import provider configured for this event."},
+            {"detail": "Auto-fetch is only supported for FestivalPro sources."},
             status=status.HTTP_400_BAD_REQUEST,
         )
-    provider = config.provider
-    if not provider.has_credentials:
+    fp_config = getattr(source, "festivalpro_config", None)
+    if fp_config is None:
         return Response(
-            {"detail": "Provider has no credentials stored."},
+            {"detail": "No FestivalPro config found for this source."},
             status=status.HTTP_400_BAD_REQUEST,
         )
+    if not source.has_credentials:
+        return Response(
+            {"detail": "Source has no credentials stored."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+    from .providers import get_provider
+    provider = get_provider(source)
     try:
-        raw_text = fetch_from_provider(provider)
+        raw_text = provider.fetch(source)
     except ProviderLoginError as exc:
         return Response(
             {"detail": f"Provider login failed: {exc}"},

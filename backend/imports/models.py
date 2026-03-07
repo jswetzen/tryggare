@@ -5,32 +5,42 @@ from django.db import models
 from django.utils.translation import gettext_lazy as _
 
 
-class ImportProvider(models.Model):
+class ImportSource(models.Model):
     """
-    Stores connection details and encrypted credentials for an external booking system.
-    One provider can be shared across multiple events.
+    Unified import source that replaces ImportProvider + EventImportConfig.
+    Represents one configured connection to an external booking system.
     """
+
+    PROVIDER_FESTIVALPRO = "festivalpro"
+    PROVIDER_PLANNINGCENTER = "planningcenter"
+
+    PROVIDER_CHOICES = [
+        (PROVIDER_FESTIVALPRO, "FestivalPro"),
+        (PROVIDER_PLANNINGCENTER, "Planning Center"),
+    ]
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     name = models.CharField(max_length=255, verbose_name=_("Name"))
-    login_url = models.URLField(max_length=2048, verbose_name=_("Login URL"))
-    export_url = models.URLField(max_length=2048, verbose_name=_("Export URL"))
-    # Full form-encoded body for the export POST request (event-specific params, no credentials)
-    # e.g. "QUERYQ=CODE*__EQ__*...&EVENTID=5781&EXPORT=JSON&ETICKETS=1&..."
-    export_body = models.TextField(
+    provider_type = models.CharField(
+        max_length=50,
+        choices=PROVIDER_CHOICES,
+        default=PROVIDER_FESTIVALPRO,
+        verbose_name=_("Provider Type"),
+    )
+    event = models.ForeignKey(
+        "events.Event",
+        on_delete=models.SET_NULL,
+        null=True,
         blank=True,
-        default="",
-        verbose_name=_("Export POST Body"),
-        help_text=_(
-            "Raw form-encoded body to POST to export_url. Paste from browser network capture."
-        ),
+        related_name="import_sources",
+        verbose_name=_("Event"),
     )
     credentials = models.BinaryField(null=True, blank=True, verbose_name=_("Credentials"))
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        db_table = "import_providers"
+        db_table = "import_sources"
         ordering = ["name"]
 
     def __str__(self) -> str:
@@ -41,33 +51,29 @@ class ImportProvider(models.Model):
         return bool(self.credentials)
 
 
-class EventImportConfig(models.Model):
+class FestivalProImportSource(models.Model):
     """
-    Stores the field/prefix mapping configuration for importing bookings
-    into a specific event. One config per event.
-
-    field_mappings stores a dict like:
-    {
-        "SK26 Barnkonferens ": "full_event",
-        "Dagsbiljett barn fredag ": "<session_uuid>",
-        "SK26 Helkonferens ": "ignore"
-    }
+    FestivalPro-specific configuration for an ImportSource.
+    One-to-one extension: only exists when source.provider_type == 'festivalpro'.
     """
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    event = models.OneToOneField(
-        "events.Event",
+    source = models.OneToOneField(
+        ImportSource,
         on_delete=models.CASCADE,
-        related_name="import_config",
-        verbose_name=_("Event"),
+        related_name="festivalpro_config",
+        verbose_name=_("Import Source"),
     )
-    provider = models.ForeignKey(
-        "imports.ImportProvider",
-        on_delete=models.SET_NULL,
-        null=True,
+    login_url = models.URLField(max_length=2048, verbose_name=_("Login URL"))
+    export_url = models.URLField(max_length=2048, verbose_name=_("Export URL"))
+    # Full form-encoded body for the export POST request (event-specific params, no credentials)
+    export_body = models.TextField(
         blank=True,
-        related_name="configs",
-        verbose_name=_("Import Provider"),
+        default="",
+        verbose_name=_("Export POST Body"),
+        help_text=_(
+            "Raw form-encoded body to POST to export_url. Paste from browser network capture."
+        ),
     )
     field_mappings = models.JSONField(
         default=dict,
@@ -76,21 +82,19 @@ class EventImportConfig(models.Model):
             "Maps booking prefix keys to 'full_event', a session UUID, or 'ignore'."
         ),
     )
-    created_at = models.DateTimeField(auto_now_add=True, verbose_name=_("Created At"))
-    updated_at = models.DateTimeField(auto_now=True, verbose_name=_("Updated At"))
 
     class Meta:
-        db_table = "import_configs"
-        verbose_name = _("Event Import Config")
-        verbose_name_plural = _("Event Import Configs")
+        db_table = "festivalpro_import_sources"
+        verbose_name = _("FestivalPro Import Source")
+        verbose_name_plural = _("FestivalPro Import Sources")
 
     def __str__(self) -> str:
-        return f"Import config for {self.event}"
+        return f"FestivalPro config for {self.source.name}"
 
 
 class ImportRun(models.Model):
     """
-    Records a single execution of the import process for an event config.
+    Records a single execution of the import process for an import source.
 
     log is an array of dicts: [{"booking_id": str, "action": str, "details": str}]
 
@@ -120,11 +124,11 @@ class ImportRun(models.Model):
     ]
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    config = models.ForeignKey(
-        EventImportConfig,
+    source = models.ForeignKey(
+        ImportSource,
         on_delete=models.CASCADE,
         related_name="runs",
-        verbose_name=_("Import Config"),
+        verbose_name=_("Import Source"),
     )
     triggered_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
@@ -166,4 +170,5 @@ class ImportRun(models.Model):
         ordering = ["-started_at"]
 
     def __str__(self) -> str:
-        return f"ImportRun [{self.status}] for {self.config.event} at {self.started_at}"
+        event_str = self.source.event.name if self.source.event else "no event"
+        return f"ImportRun [{self.status}] for {event_str} at {self.started_at}"

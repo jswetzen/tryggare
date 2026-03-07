@@ -1,9 +1,8 @@
 import { apiClient } from './client';
 import type {
   DiscoverPrefixesResponse,
-  EventImportConfig,
-  ImportProvider,
-  ImportProviderWrite,
+  ImportSource,
+  ImportSourceWrite,
   ImportRun,
 } from './types';
 
@@ -11,16 +10,30 @@ export const importApi = {
   discoverPrefixes: (jsonString: string): Promise<DiscoverPrefixesResponse> =>
     apiClient.post('/imports/discover-prefixes/', { json_string: jsonString }),
 
-  getConfig: (eventId: string): Promise<EventImportConfig> =>
-    apiClient.get(`/imports/events/${eventId}/config/`),
+  // Source CRUD
+  listSources: (): Promise<ImportSource[]> =>
+    apiClient.get('/imports/sources/'),
 
+  createSource: (data: ImportSourceWrite): Promise<ImportSource> =>
+    apiClient.post('/imports/sources/', data),
+
+  updateSource: (id: string, data: ImportSourceWrite): Promise<ImportSource> =>
+    apiClient.put(`/imports/sources/${id}/`, data),
+
+  deleteSource: (id: string): Promise<void> =>
+    apiClient.delete(`/imports/sources/${id}/`),
+
+  getSource: (id: string): Promise<ImportSource> =>
+    apiClient.get(`/imports/sources/${id}/`),
+
+  // Run import from a source (manual upload)
   runImport: (
-    eventId: string,
+    sourceId: string,
     jsonString: string,
     fieldMappings: Record<string, string>,
     sourceFileName: string
   ): Promise<ImportRun> =>
-    apiClient.post(`/imports/events/${eventId}/run/`, {
+    apiClient.post(`/imports/sources/${sourceId}/run/`, {
       json_string: jsonString,
       field_mappings: fieldMappings,
       source_file_name: sourceFileName,
@@ -28,36 +41,17 @@ export const importApi = {
 
   // Run without json_string — server-side auto-fetch from linked provider
   runImportAutoFetch: (
-    eventId: string,
+    sourceId: string,
     fieldMappings: Record<string, string>
   ): Promise<ImportRun> =>
-    apiClient.post(`/imports/events/${eventId}/run/`, {
+    apiClient.post(`/imports/sources/${sourceId}/run/`, {
       field_mappings: fieldMappings,
     }),
 
-  getHistory: (eventId: string): Promise<ImportRun[]> =>
-    apiClient.get(`/imports/events/${eventId}/history/`),
+  getHistory: (sourceId: string): Promise<ImportRun[]> =>
+    apiClient.get(`/imports/sources/${sourceId}/history/`),
 
-  // Provider CRUD
-  listProviders: (): Promise<ImportProvider[]> =>
-    apiClient.get('/imports/providers/'),
-
-  createProvider: (data: ImportProviderWrite): Promise<ImportProvider> =>
-    apiClient.post('/imports/providers/', data),
-
-  updateProvider: (id: string, data: ImportProviderWrite): Promise<ImportProvider> =>
-    apiClient.put(`/imports/providers/${id}/`, data),
-
-  deleteProvider: (id: string): Promise<void> =>
-    apiClient.delete(`/imports/providers/${id}/`),
-
-  getProvider: (id: string): Promise<ImportProvider> =>
-    apiClient.get(`/imports/providers/${id}/`),
-
-  setConfigProvider: (eventId: string, providerId: string | null): Promise<EventImportConfig> =>
-    apiClient.patch(`/imports/events/${eventId}/config/provider/`, { provider_id: providerId }),
-
-  // Discover prefixes via provider live-fetch (for first-time mapping)
-  discoverPrefixesFromProvider: (eventId: string): Promise<DiscoverPrefixesResponse> =>
-    apiClient.post(`/imports/events/${eventId}/discover-prefixes/`),
+  // Discover prefixes via source live-fetch (for first-time mapping)
+  discoverPrefixesFromSource: (sourceId: string): Promise<DiscoverPrefixesResponse> =>
+    apiClient.post(`/imports/sources/${sourceId}/discover-prefixes/`),
 };
