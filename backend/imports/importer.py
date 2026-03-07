@@ -14,7 +14,7 @@ from django.utils import timezone
 from events.models import Event, EventTicket, Session, SessionTicket
 from families.models import Child, Family, Parent
 
-from .models import EventImportConfig, ImportRun
+from .models import ImportRun, ImportSource
 from .parser import parse_booking
 
 logger = logging.getLogger(__name__)
@@ -32,77 +32,7 @@ class _NoChildrenError(Exception):
     """Raised when a booking maps to zero children (after applying prefix mappings)."""
 
 
-def fetch_from_provider(provider) -> str:
-    """
-    Authenticate with a festivalpro-style booking system and fetch the JSON export.
-
-    Login: POST form-encoded to provider.login_url
-    - Fields: USERNAME, PASSWORD, CODESAVED=CODE%3D, TZ=1, checker=on, X=
-    - Expect HTTP 302; session established via TARCH cookie in response
-
-    Export: POST provider.export_url with stored export_body plus session cookies
-    - Returns raw JSON string
-
-    Raises ProviderLoginError, ProviderFetchError, ValueError (bad credentials blob).
-    """
-    import requests
-    from .encryption import decrypt_credentials
-    from cryptography.fernet import InvalidToken
-
-    try:
-        creds = decrypt_credentials(bytes(provider.credentials))
-    except (InvalidToken, TypeError) as exc:
-        raise ValueError(f"Cannot decrypt credentials for provider {provider.id}") from exc
-
-    session = requests.Session()
-
-    # Login — form-encoded, do NOT follow redirect (cookies are set before the 302)
-    try:
-        login_resp = session.post(
-            provider.login_url,
-            data={
-                "USERNAME": creds["username"],
-                "PASSWORD": creds["password"],
-                "CODESAVED": "CODE=",
-                "TZ": "1",
-                "checker": "on",
-                "X": "",
-            },
-            headers={"Content-Type": "application/x-www-form-urlencoded"},
-            allow_redirects=False,
-            timeout=30,
-        )
-    except requests.RequestException as exc:
-        raise ProviderLoginError(f"Network error during login: {exc}") from exc
-
-    # Expect 302 with TARCH cookie; any non-redirect is a failure
-    if login_resp.status_code not in (301, 302, 303):
-        raise ProviderLoginError(
-            f"Login returned HTTP {login_resp.status_code} (expected redirect)"
-        )
-    if "TARCH" not in session.cookies:
-        raise ProviderLoginError("Login succeeded but no TARCH session cookie was returned")
-
-    # Export fetch — POST with the stored form-encoded body (contains QUERYQ, EVENTID, etc.)
-    try:
-        export_resp = session.post(
-            provider.export_url,
-            data=provider.export_body,  # raw form-encoded string, sent as-is
-            headers={"Content-Type": "application/x-www-form-urlencoded"},
-            timeout=60,
-        )
-    except requests.RequestException as exc:
-        raise ProviderFetchError(f"Network error fetching export: {exc}") from exc
-
-    if not export_resp.ok:
-        raise ProviderFetchError(
-            f"Export fetch returned HTTP {export_resp.status_code}"
-        )
-
-    return export_resp.text
-
-
-def run_import(raw_json: dict, config: EventImportConfig, user) -> ImportRun:
+def run_import(raw_json: dict, source: ImportSource, field_mappings: dict, user) -> ImportRun:
     """
     Main entry point. Process all bookings in raw_json using config.field_mappings.
 
@@ -122,7 +52,7 @@ def run_import(raw_json: dict, config: EventImportConfig, user) -> ImportRun:
     Returns the completed ImportRun instance.
     """
     run = ImportRun.objects.create(
-        config=config,
+        source=source,
         triggered_by=user,
         status=ImportRun.STATUS_RUNNING,
         started_at=timezone.now(),
@@ -140,8 +70,8 @@ def run_import(raw_json: dict, config: EventImportConfig, user) -> ImportRun:
         "warnings": [],
     }
 
-    event: Event = config.event
-    prefix_mappings: dict = config.field_mappings
+    event: Event = source.event
+    prefix_mappings: dict = field_mappings
 
     # Pre-fetch sessions referenced in mappings (avoid repeated queries)
     session_cache: dict[str, Session] = {}

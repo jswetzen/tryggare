@@ -1,24 +1,36 @@
 from rest_framework import serializers
 
-from .models import EventImportConfig, ImportProvider, ImportRun
+from .models import FestivalProImportSource, ImportRun, ImportSource
 
 
-class ImportProviderSerializer(serializers.ModelSerializer):
-    username = serializers.CharField(write_only=True, required=False, allow_blank=True)
-    password = serializers.CharField(write_only=True, required=False, allow_blank=True)
-    has_credentials = serializers.BooleanField(read_only=True)
-
+class FestivalProImportSourceSerializer(serializers.ModelSerializer):
     class Meta:
-        model = ImportProvider
+        model = FestivalProImportSource
         fields = [
-            "id",
-            "name",
             "login_url",
             "export_url",
             "export_body",
+            "field_mappings",
+        ]
+
+
+class ImportSourceSerializer(serializers.ModelSerializer):
+    username = serializers.CharField(write_only=True, required=False, allow_blank=True)
+    password = serializers.CharField(write_only=True, required=False, allow_blank=True)
+    has_credentials = serializers.BooleanField(read_only=True)
+    festivalpro_config = FestivalProImportSourceSerializer(required=False)
+
+    class Meta:
+        model = ImportSource
+        fields = [
+            "id",
+            "name",
+            "provider_type",
+            "event",
             "has_credentials",
             "username",
             "password",
+            "festivalpro_config",
             "created_at",
             "updated_at",
         ]
@@ -27,46 +39,44 @@ class ImportProviderSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         username = validated_data.pop("username", "")
         password = validated_data.pop("password", "")
-        provider = ImportProvider(**validated_data)
+        fp_data = validated_data.pop("festivalpro_config", None)
+
+        source = ImportSource(**validated_data)
         if username or password:
             from .encryption import encrypt_credentials
-            provider.credentials = encrypt_credentials(username, password)
-        provider.save()
-        return provider
+            source.credentials = encrypt_credentials(username, password)
+        source.save()
+
+        if fp_data is not None:
+            FestivalProImportSource.objects.create(source=source, **fp_data)
+        elif source.provider_type == ImportSource.PROVIDER_FESTIVALPRO:
+            # Create empty FP config automatically for FestivalPro sources
+            FestivalProImportSource.objects.create(source=source)
+
+        return source
 
     def update(self, instance, validated_data):
         username = validated_data.pop("username", None)
         password = validated_data.pop("password", None)
+        fp_data = validated_data.pop("festivalpro_config", None)
+
         for attr, value in validated_data.items():
             setattr(instance, attr, value)
+
         # Only update credentials if both fields explicitly provided
         if username is not None and password is not None:
             from .encryption import encrypt_credentials
             instance.credentials = encrypt_credentials(username, password)
         instance.save()
+
+        # Update or create FP config
+        if fp_data is not None:
+            fp_config, _ = FestivalProImportSource.objects.get_or_create(source=instance)
+            for attr, value in fp_data.items():
+                setattr(fp_config, attr, value)
+            fp_config.save()
+
         return instance
-
-
-class EventImportConfigSerializer(serializers.ModelSerializer):
-    provider_id = serializers.UUIDField(
-        source="provider.id", read_only=True, allow_null=True, default=None
-    )
-    provider_name = serializers.CharField(
-        source="provider.name", read_only=True, allow_null=True, default=None
-    )
-
-    class Meta:
-        model = EventImportConfig
-        fields = [
-            "id",
-            "event",
-            "field_mappings",
-            "provider_id",
-            "provider_name",
-            "created_at",
-            "updated_at",
-        ]
-        read_only_fields = ["id", "provider_id", "provider_name", "created_at", "updated_at"]
 
 
 class ImportRunListSerializer(serializers.ModelSerializer):
@@ -78,7 +88,7 @@ class ImportRunListSerializer(serializers.ModelSerializer):
         model = ImportRun
         fields = [
             "id",
-            "config",
+            "source",
             "triggered_by",
             "triggered_by_name",
             "status",

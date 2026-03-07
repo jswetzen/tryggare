@@ -4,7 +4,7 @@
   import { page } from '$app/stores';
   import { apiClient } from '$lib/api/client';
   import { importApi } from '$lib/api/importService';
-  import type { DiscoveredPrefix, EventImportConfig, ImportProvider, ImportRun } from '$lib/api/types';
+  import type { DiscoveredPrefix, ImportSource, ImportRun } from '$lib/api/types';
 
   // ---------------------------------------------------------------------------
   // Types
@@ -15,18 +15,11 @@
     name: string;
   }
 
-  interface EventInfo {
-    id: string;
-    name: string;
-    start_date: string;
-    end_date: string;
-  }
-
   // ---------------------------------------------------------------------------
   // State
   // ---------------------------------------------------------------------------
 
-  let eventId = $derived($page.params.eventId);
+  let sourceId = $derived($page.params.sourceId);
 
   let step = $state(1); // 1=upload, 2=map, 3=results
   let jsonString = $state<string | null>(null); // Raw JSON text (preserves duplicate keys)
@@ -35,8 +28,7 @@
   let discoveredPrefixes = $state<DiscoveredPrefix[]>([]);
   let fieldMappings = $state<Record<string, string>>({});
   let sessions = $state<SessionSummary[]>([]);
-  let savedConfig = $state<EventImportConfig | null>(null);
-  let eventInfo = $state<EventInfo | null>(null);
+  let sourceInfo = $state<ImportSource | null>(null);
   let importResult = $state<ImportRun | null>(null);
   let importHistory = $state<ImportRun[]>([]);
   let analyzing = $state(false);
@@ -45,99 +37,50 @@
   let showLogDetails = $state(false);
   let isDragOver = $state(false);
 
-  // Provider-related state
-  let providerInfo = $state<ImportProvider | null>(null);
-  let providerLoading = $state(false);
-  let allProviders = $state<ImportProvider[]>([]);
-  let selectedProviderId = $state<string>('');  // '' = none
-  let providerSaving = $state(false);
-
   // Hidden file input element reference
   let fileInput = $state<HTMLInputElement>(null!);
 
-  // Auto-fetch is enabled when a config with a provider exists
-  let autoFetchMode = $derived(savedConfig !== null && savedConfig.provider_id !== null);
-  let providerHasNoCredentials = $derived(autoFetchMode && providerInfo !== null && !providerInfo.has_credentials);
-  let hasSavedMappings = $derived(savedConfig !== null && Object.keys(savedConfig.field_mappings).length > 0);
+  // Auto-fetch mode: source is FestivalPro with credentials
+  let autoFetchMode = $derived(
+    sourceInfo !== null &&
+    sourceInfo.provider_type === 'festivalpro' &&
+    sourceInfo.has_credentials
+  );
+  let hasSavedMappings = $derived(
+    sourceInfo?.festivalpro_config !== undefined &&
+    Object.keys(sourceInfo.festivalpro_config.field_mappings).length > 0
+  );
 
   // ---------------------------------------------------------------------------
   // Lifecycle
   // ---------------------------------------------------------------------------
 
   onMount(async () => {
-    const id = $page.params.eventId;
+    const id = $page.params.sourceId;
     await Promise.all([
-      loadEventInfo(id),
-      loadSessions(id),
-      loadSavedConfig(id),
+      loadSourceInfo(id),
       loadHistory(id),
-      loadAllProviders(),
     ]);
+    // Load sessions after we know the event
+    if (sourceInfo?.event) {
+      await loadSessions(sourceInfo.event);
+    }
   });
 
-  async function loadAllProviders() {
+  async function loadSourceInfo(id: string) {
     try {
-      allProviders = await importApi.listProviders();
+      sourceInfo = await importApi.getSource(id);
     } catch {
-      allProviders = [];
+      // Non-fatal
     }
   }
 
-  async function loadEventInfo(id: string) {
+  async function loadSessions(eventId: string) {
     try {
-      eventInfo = await apiClient.get<EventInfo>(`/events/${id}/`);
-    } catch {
-      // Non-fatal: page still works without event name
-    }
-  }
-
-  async function loadSessions(id: string) {
-    try {
-      const result = await apiClient.get<SessionSummary[]>(`/sessions/?event=${id}`);
+      const result = await apiClient.get<SessionSummary[]>(`/sessions/?event=${eventId}`);
       sessions = result;
     } catch {
       sessions = [];
-    }
-  }
-
-  async function loadSavedConfig(id: string) {
-    try {
-      savedConfig = await importApi.getConfig(id);
-      selectedProviderId = savedConfig.provider_id ?? '';
-      // If config has a provider, fetch provider details to check credentials
-      if (savedConfig?.provider_id) {
-        providerLoading = true;
-        try {
-          providerInfo = await importApi.getProvider(savedConfig.provider_id);
-        } catch {
-          providerInfo = null;
-        } finally {
-          providerLoading = false;
-        }
-      }
-    } catch {
-      // 404 is expected when no config exists yet
-      savedConfig = null;
-      selectedProviderId = '';
-    }
-  }
-
-  async function saveProviderLink() {
-    providerSaving = true;
-    error = '';
-    try {
-      const updated = await importApi.setConfigProvider(eventId, selectedProviderId || null);
-      savedConfig = updated;
-      // Reload provider info
-      if (updated.provider_id) {
-        providerInfo = allProviders.find(p => p.id === updated.provider_id) ?? null;
-      } else {
-        providerInfo = null;
-      }
-    } catch {
-      error = $t('import.linkProviderError');
-    } finally {
-      providerSaving = false;
     }
   }
 
@@ -194,10 +137,11 @@
         totalBookings = result.total_bookings;
 
         // Initialize field mappings — default to "full_event", apply saved config if available
+        const savedMappings = sourceInfo?.festivalpro_config?.field_mappings ?? {};
         const mappings: Record<string, string> = {};
         for (const p of result.prefixes) {
-          if (savedConfig?.field_mappings[p.prefix]) {
-            mappings[p.prefix] = savedConfig.field_mappings[p.prefix];
+          if (savedMappings[p.prefix]) {
+            mappings[p.prefix] = savedMappings[p.prefix];
           } else {
             mappings[p.prefix] = 'full_event';
           }
@@ -220,22 +164,23 @@
   }
 
   // ---------------------------------------------------------------------------
-  // Provider auto-fetch
+  // Auto-fetch
   // ---------------------------------------------------------------------------
 
-  async function fetchFromProvider() {
+  async function fetchFromSource() {
     error = '';
     analyzing = true;
     try {
-      const result = await importApi.discoverPrefixesFromProvider(eventId);
+      const result = await importApi.discoverPrefixesFromSource(sourceId);
       discoveredPrefixes = result.prefixes;
       totalBookings = result.total_bookings;
 
       // Initialize mappings with saved config values where available
+      const savedMappings = sourceInfo?.festivalpro_config?.field_mappings ?? {};
       const mappings: Record<string, string> = {};
       for (const p of result.prefixes) {
-        if (savedConfig?.field_mappings[p.prefix]) {
-          mappings[p.prefix] = savedConfig.field_mappings[p.prefix];
+        if (savedMappings[p.prefix]) {
+          mappings[p.prefix] = savedMappings[p.prefix];
         } else {
           mappings[p.prefix] = 'full_event';
         }
@@ -245,7 +190,7 @@
       step = 2;
     } catch (e: unknown) {
       const err = e as { details?: { detail?: string } };
-      error = err?.details?.detail ?? 'Failed to fetch data from provider.';
+      error = err?.details?.detail ?? $t('import.fetchError');
     } finally {
       analyzing = false;
     }
@@ -256,10 +201,11 @@
     error = '';
     importing = true;
     try {
-      const result = await importApi.runImportAutoFetch(eventId, savedConfig!.field_mappings);
+      const savedMappings = sourceInfo!.festivalpro_config!.field_mappings;
+      const result = await importApi.runImportAutoFetch(sourceId, savedMappings);
       importResult = result;
       step = 3;
-      await loadHistory(eventId);
+      await loadHistory(sourceId);
     } catch (e: unknown) {
       const err = e as { details?: { detail?: string } };
       error = err?.details?.detail ?? $t('import.importError');
@@ -284,7 +230,7 @@
 
     try {
       const result = await importApi.runImport(
-        eventId,
+        sourceId,
         jsonString,
         fieldMappings,
         fileName
@@ -292,7 +238,7 @@
       importResult = result;
       step = 3;
       // Refresh history after import
-      await loadHistory(eventId);
+      await loadHistory(sourceId);
     } catch {
       error = $t('import.importError');
     } finally {
@@ -309,10 +255,10 @@
       error = '';
       importing = true;
       try {
-        const result = await importApi.runImportAutoFetch(eventId, fieldMappings);
+        const result = await importApi.runImportAutoFetch(sourceId, fieldMappings);
         importResult = result;
         step = 3;
-        await loadHistory(eventId);
+        await loadHistory(sourceId);
       } catch (e: unknown) {
         const err = e as { details?: { detail?: string } };
         error = err?.details?.detail ?? $t('import.importError');
@@ -381,20 +327,20 @@
 </script>
 
 <svelte:head>
-  <title>{$t('import.pageTitle')}{eventInfo ? ` — ${eventInfo.name}` : ''}</title>
+  <title>{$t('import.pageTitle')}{sourceInfo ? ` — ${sourceInfo.name}` : ''}</title>
 </svelte:head>
 
 <div class="max-w-4xl mx-auto">
 
   <!-- Page header / breadcrumb -->
   <div class="mb-6">
-    <a href="/import" class="text-sm text-primary-600 hover:underline font-medium">
-      {$t('import.backToEvents')}
+    <a href="/import/sources" class="text-sm text-primary-600 hover:underline font-medium">
+      {$t('import.backToSources')}
     </a>
     <h1 class="mt-2 text-2xl font-bold text-neutral-900">
       {$t('import.title')}
-      {#if eventInfo}
-        <span class="text-neutral-400 font-normal">— {eventInfo.name}</span>
+      {#if sourceInfo}
+        <span class="text-neutral-400 font-normal">— {sourceInfo.name}</span>
       {/if}
     </h1>
   </div>
@@ -433,77 +379,37 @@
     <div class="bg-white rounded-lg border border-neutral-200 shadow-sm p-6">
       <h2 class="text-lg font-semibold text-neutral-900 mb-4">{$t('import.step1Title')}</h2>
 
-      <!-- Provider selector -->
-      {#if allProviders.length > 0}
-        <div class="mb-5 flex items-end gap-3 flex-wrap">
-          <div class="flex-1 min-w-48">
-            <label class="block text-sm font-medium text-neutral-700 mb-1" for="provider-select">
-              {$t('import.providerLabel')}
-            </label>
-            <select
-              id="provider-select"
-              bind:value={selectedProviderId}
-              class="w-full border border-neutral-300 rounded px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary-400"
+      <!-- Auto-fetch banner (FestivalPro with credentials) -->
+      {#if autoFetchMode}
+        <div class="mb-5 p-3 bg-blue-50 border border-blue-200 rounded text-blue-700 text-sm flex items-center justify-between gap-4 flex-wrap">
+          <span>
+            <strong>{$t('import.autoFetchConfigured')}</strong> {sourceInfo?.name}
+          </span>
+          {#if hasSavedMappings}
+            <!-- One-click re-sync: skip mapping step entirely -->
+            <button
+              onclick={runImportAutoFetch}
+              disabled={importing}
+              class="px-4 py-1.5 bg-blue-600 text-white text-sm font-semibold rounded-button hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors whitespace-nowrap"
             >
-              <option value="">{$t('import.manualUploadOption')}</option>
-              {#each allProviders as p (p.id)}
-                <option value={p.id}>{p.name}</option>
-              {/each}
-            </select>
-          </div>
-          <button
-            onclick={saveProviderLink}
-            disabled={providerSaving || selectedProviderId === (savedConfig?.provider_id ?? '')}
-            class="px-4 py-2 bg-primary-600 text-white text-sm font-semibold rounded-button hover:bg-primary-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors whitespace-nowrap"
-          >
-            {providerSaving ? $t('import.savingProvider') : $t('import.saveProvider')}
-          </button>
-          <a href="/import/providers" class="text-sm text-primary-600 hover:underline whitespace-nowrap py-2">
-            {$t('import.manageProvidersLink')}
-          </a>
+              {importing ? $t('import.importing') : $t('import.resync')}
+            </button>
+          {:else}
+            <!-- First run: fetch prefixes then go to mapping step -->
+            <button
+              onclick={fetchFromSource}
+              disabled={analyzing}
+              class="px-4 py-1.5 bg-blue-600 text-white text-sm font-semibold rounded-button hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors whitespace-nowrap"
+            >
+              {analyzing ? $t('import.fetching') : $t('import.fetchFromSource')}
+            </button>
+          {/if}
         </div>
-      {:else}
-        <div class="mb-4 p-3 bg-neutral-50 border border-neutral-200 rounded text-neutral-600 text-sm flex items-center justify-between gap-3">
-          <span>{$t('import.noProviders')}</span>
-          <a href="/import/providers" class="text-primary-600 hover:underline font-medium whitespace-nowrap">
-            {$t('import.addProvider')}
-          </a>
+      {:else if sourceInfo?.provider_type === 'festivalpro' && !sourceInfo.has_credentials}
+        <div class="mb-5 p-3 bg-warning-50 border border-warning-200 rounded text-warning-700 text-sm">
+          <strong>{$t('import.sourceNoCredentials')}</strong> — {$t('import.sourceNoCredentialsHelp')}
+          <a href="/import/sources" class="underline font-medium">{$t('import.sourceNoCredentialsLink')}</a>.
         </div>
-      {/if}
-
-      <!-- Provider banner -->
-      {#if autoFetchMode && !providerLoading}
-        {#if providerHasNoCredentials}
-          <div class="mb-4 p-3 bg-warning-50 border border-warning-200 rounded text-warning-700 text-sm">
-            <strong>{$t('import.providerNoCredentials')}</strong> — {$t('import.providerNoCredentialsHelp')}
-            <a href="/import/providers" class="underline font-medium">{$t('import.providerNoCredentialsLink')}</a>.
-          </div>
-        {:else if providerInfo}
-          <div class="mb-4 p-3 bg-blue-50 border border-blue-200 rounded text-blue-700 text-sm flex items-center justify-between gap-4 flex-wrap">
-            <span>
-              <strong>{$t('import.autoFetchConfigured')}</strong> {savedConfig?.provider_name ?? providerInfo.name}
-            </span>
-            {#if hasSavedMappings}
-              <!-- One-click re-sync: skip mapping step entirely -->
-              <button
-                onclick={runImportAutoFetch}
-                disabled={importing}
-                class="px-4 py-1.5 bg-blue-600 text-white text-sm font-semibold rounded-button hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors whitespace-nowrap"
-              >
-                {importing ? $t('import.importing') : $t('import.resync')}
-              </button>
-            {:else}
-              <!-- First run: fetch prefixes then go to mapping step -->
-              <button
-                onclick={fetchFromProvider}
-                disabled={analyzing}
-                class="px-4 py-1.5 bg-blue-600 text-white text-sm font-semibold rounded-button hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors whitespace-nowrap"
-              >
-                {analyzing ? $t('import.fetching') : $t('import.fetchFromProvider')}
-              </button>
-            {/if}
-          </div>
-        {/if}
       {/if}
 
       {#if error}
@@ -533,7 +439,7 @@
         </svg>
 
         {#if analyzing && !fileName}
-          <p class="text-primary-600 font-medium">{$t('import.fetchingFromProvider')}</p>
+          <p class="text-primary-600 font-medium">{$t('import.fetchingFromSource')}</p>
         {:else if analyzing}
           <p class="text-primary-600 font-medium">{$t('import.analyzing')}</p>
         {:else if fileName}
@@ -591,7 +497,7 @@
       <h2 class="text-lg font-semibold text-neutral-900 mb-1">{$t('import.step2Title')}</h2>
       <p class="text-sm text-neutral-500 mb-4">{$t('import.mappingNote')}</p>
 
-      {#if savedConfig}
+      {#if hasSavedMappings}
         <div class="mb-4 p-3 bg-blue-50 border border-blue-200 rounded text-blue-700 text-sm">
           {$t('import.savedConfigFound')}
         </div>
