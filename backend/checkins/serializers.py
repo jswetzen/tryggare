@@ -85,6 +85,7 @@ class PrintQueueSerializer(serializers.ModelSerializer):
     parents = ParentSerializer(source='child.family.parents', many=True, read_only=True)
     allergies = serializers.CharField(source='child.allergies', read_only=True)
     notes = serializers.CharField(source='child.notes', read_only=True)
+    print_job = serializers.SerializerMethodField()
 
     class Meta:
         model = CheckInRecord
@@ -99,6 +100,7 @@ class PrintQueueSerializer(serializers.ModelSerializer):
             'allergies',
             'notes',
             'label_printed',
+            'print_job',
         ]
 
     def get_qr_code(self, obj):
@@ -106,6 +108,18 @@ class PrintQueueSerializer(serializers.ModelSerializer):
         if hasattr(obj, 'qr_code') and obj.qr_code:
             return obj.qr_code.code
         return None
+
+    def get_print_job(self, obj):
+        """Get the most recent print job for this check-in, if any."""
+        job = obj.print_jobs.select_related('printer').first()
+        if not job:
+            return None
+        return {
+            'id': str(job.id),
+            'printer': str(job.printer.id) if job.printer else None,
+            'printer_name': job.printer.name if job.printer else None,
+            'status': job.status,
+        }
 
 
 class AuditLogSerializer(serializers.ModelSerializer):

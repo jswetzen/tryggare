@@ -105,6 +105,31 @@ export interface PrintQueueItem {
   allergies?: string;
   notes?: string;
   label_printed: boolean;
+  print_job?: {
+    id: string;
+    printer: string | null;
+    printer_name: string | null;
+    status: string;
+  } | null;
+}
+
+export interface Printer {
+  id: string;
+  name: string;
+  is_online: boolean;
+  last_seen_at?: string | null;
+  created_at?: string;
+}
+
+export interface PrintJob {
+  id: string;
+  checkin: string;
+  printer: string | null;
+  printer_name: string | null;
+  status: 'pending' | 'sent' | 'completed' | 'failed';
+  created_at?: string;
+  sent_at?: string | null;
+  completed_at?: string | null;
 }
 
 // WebSocket message types
@@ -210,6 +235,33 @@ export interface ConnectionEstablishedMessage {
   message: string;
 }
 
+export interface PrinterStatusChangedMessage {
+  type: 'printer_status_changed';
+  data: {
+    uuid: string;
+    name: string;
+    is_online: boolean;
+  };
+}
+
+export interface PrinterRegisteredMessage {
+  type: 'printer_registered';
+  data: {
+    uuid: string;
+    name: string;
+    is_online: boolean;
+  };
+}
+
+export interface PrintJobMessage {
+  type: 'print_job';
+  data: {
+    job_id: string;
+    printer_id: string;
+    label_url: string;
+  };
+}
+
 export type WebSocketMessage =
   | CheckInMessage
   | CheckOutMessage
@@ -217,7 +269,10 @@ export type WebSocketMessage =
   | CheckOutUndoneMessage
   | SessionStartedMessage
   | SessionEndedMessage
-  | ConnectionEstablishedMessage;
+  | ConnectionEstablishedMessage
+  | PrinterStatusChangedMessage
+  | PrinterRegisteredMessage
+  | PrintJobMessage;
 
 export interface DiscoveredPrefix {
   prefix: string;

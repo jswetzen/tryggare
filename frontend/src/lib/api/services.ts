@@ -3,7 +3,7 @@
  */
 
 import { apiClient } from './client';
-import type { Family, Child, Session, CheckInRecord, AuditLog, PrintQueueItem, QRInfoResponse } from './types';
+import type { Family, Child, Session, CheckInRecord, AuditLog, PrintQueueItem, QRInfoResponse, Printer, PrintJob } from './types';
 
 /**
  * Family API endpoints
@@ -176,6 +176,28 @@ export const checkinApi = {
       notes?: string;
     }>;
   }) => apiClient.post<Family>('/families/', data),
+};
+
+/**
+ * Printing API endpoints
+ */
+export const printingApi = {
+  /**
+   * List all printers
+   */
+  getPrinters: () => apiClient.get<Printer[]>('/printing/printers/'),
+
+  /**
+   * Create a print job for a check-in record
+   */
+  createJob: (data: { checkin_id: string; printer_id?: string }) =>
+    apiClient.post<PrintJob>('/printing/jobs/', data),
+
+  /**
+   * Assign or reassign a printer to an existing job
+   */
+  assignJob: (jobId: string, printerId: string) =>
+    apiClient.post<PrintJob>(`/printing/jobs/${jobId}/assign/`, { printer_id: printerId }),
 };
 
 /**

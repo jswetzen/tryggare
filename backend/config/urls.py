@@ -20,6 +20,7 @@ from imports.views import (
     run_import_source_view,
     source_detail_view,
 )
+from printing.views import label_page_view
 
 # Create API router
 router = DefaultRouter()
@@ -57,6 +58,9 @@ urlpatterns = [
     path("api/imports/sources/<uuid:source_id>/run/", run_import_source_view, name="import-source-run"),
     path("api/imports/sources/<uuid:source_id>/history/", import_history_source_view, name="import-source-history"),
     path("api/imports/sources/<uuid:source_id>/discover-prefixes/", discover_prefixes_from_source_view, name="import-source-discover-prefixes"),
+    # Printing app
+    path("api/printing/", include("printing.urls")),
+    path("print-job/<uuid:job_uuid>/label/", label_page_view, name="print-job-label"),
     # Serve frontend SPA - catch-all for client-side routing (must be last)
     # Exclude admin/, api/, and SvelteKit's __data.json endpoints from catch-all
     # WhiteNoise middleware serves static files (_app/*) before this is reached

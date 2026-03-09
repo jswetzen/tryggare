@@ -406,7 +406,8 @@ class PrintQueueViewSet(viewsets.ReadOnlyModelViewSet):
             'check_in_staff',
             'qr_code'
         ).prefetch_related(
-            'child__family__parents'
+            'child__family__parents',
+            'print_jobs__printer',
         ).order_by('-check_in_time')
 
     @action(detail=False, methods=['post'])

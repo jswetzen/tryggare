@@ -124,11 +124,13 @@
         <button onclick="window.print()">Print Label</button>
     </div>
 
+    {% if not no_autoprint %}
     <script>
         // Auto-print after a short delay to let page render
         setTimeout(function() {
             window.print();
         }, 500);
     </script>
+    {% endif %}
 </body>
 </html>
