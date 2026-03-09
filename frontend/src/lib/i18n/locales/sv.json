@@ -361,5 +361,13 @@
       "loginUrlRequired": "Inloggnings-URL krävs.",
       "exportUrlRequired": "Export-URL krävs."
     }
+  },
+  "printing": {
+    "autoPrint": "Skriv ut etikett automatiskt",
+    "assignPrinter": "Tilldela skrivare",
+    "sentTo": "Skickad till {name}",
+    "resend": "Skicka igen",
+    "offline": "offline",
+    "noPrinters": "Inga skrivare tillgängliga"
   }
 }

@@ -361,5 +361,13 @@
       "loginUrlRequired": "Login URL is required.",
       "exportUrlRequired": "Export URL is required."
     }
+  },
+  "printing": {
+    "autoPrint": "Auto-print label",
+    "assignPrinter": "Assign printer",
+    "sentTo": "Sent to {name}",
+    "resend": "Resend",
+    "offline": "offline",
+    "noPrinters": "No printers available"
   }
 }

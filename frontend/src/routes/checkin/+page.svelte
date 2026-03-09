@@ -26,10 +26,10 @@
   import { mergeFamilies } from '$lib/checkin/utils/mergeFamilies';
 
   // Import API services
-  import { checkinApi, checkInApi, ticketApi } from '$lib/api/services';
+  import { checkinApi, checkInApi, ticketApi, printingApi } from '$lib/api/services';
   import type { ApiError } from '$lib/api/client';
   import { websocketStore } from '$lib/stores/websocket';
-  import type { WebSocketMessage } from '$lib/api/types';
+  import type { WebSocketMessage, Printer } from '$lib/api/types';
 
   // ============================================================================
   // HELPER FUNCTIONS - Transform API responses to frontend types
@@ -111,6 +111,12 @@
   let showSessionSelector = $state(false);
   let supervisedState = $state<Record<string, boolean>>({});
 
+  // Printer / auto-print state
+  let printers = $state<Printer[]>([]);
+  let selectedPrinterUUID = $state<string>('');
+  let autoPrintEnabled = $state<boolean>(false);
+  let printersLoaded = $state(false);
+
   // Subscribe to undo timer store for reactivity
   // Use $derived with $ prefix for proper Svelte 5 store auto-subscription
   let undoActionsData = $derived($undoActionsWithTick);
@@ -151,10 +157,29 @@
     }
   }
 
+  async function loadPrinters() {
+    try {
+      const result = await printingApi.getPrinters();
+      printers = result;
+      // Restore saved selection if still valid
+      const saved = localStorage.getItem('selectedPrinterUUID') || '';
+      if (saved && result.some((p) => p.id === saved)) {
+        selectedPrinterUUID = saved;
+      } else if (result.length > 0) {
+        selectedPrinterUUID = result[0].id;
+      }
+      autoPrintEnabled = localStorage.getItem('autoPrintEnabled') === 'true';
+    } catch (err) {
+      console.error('Error loading printers:', err);
+    } finally {
+      printersLoaded = true;
+    }
+  }
+
   // Load data on mount
   onMount(async () => {
     // Load initial data - await to ensure loading state is properly managed
-    await Promise.all([loadFamilies(), loadActiveSession()]);
+    await Promise.all([loadFamilies(), loadActiveSession(), loadPrinters()]);
 
     // Connect to WebSocket for real-time updates
     websocketStore.connect();
@@ -332,6 +357,16 @@
       // Session changes are rare and affect overall state, reload everything
       loadFamilies();
       loadActiveSession();
+    } else if (message.type === 'printer_status_changed' || message.type === 'printer_registered') {
+      const { uuid, name, is_online } = message.data;
+      const existing = printers.find((p) => p.id === uuid);
+      if (existing) {
+        printers = printers.map((p) =>
+          p.id === uuid ? { ...p, name, is_online } : p
+        );
+      } else if (is_online) {
+        printers = [...printers, { id: uuid, name, is_online }];
+      }
     }
   }
 
@@ -393,6 +428,18 @@
         session: activeSession.id,
         supervised: supervisedState[childId] || false,
       });
+
+      // Auto-print label if enabled
+      if (autoPrintEnabled && printers.length > 0) {
+        try {
+          await printingApi.createJob({
+            checkin_id: checkInRecord.id,
+            printer_id: selectedPrinterUUID || undefined,
+          });
+        } catch (printErr) {
+          console.error('Auto-print job creation failed:', printErr);
+        }
+      }
 
       // Update local state optimistically
       families = families.map((fam) => {
@@ -465,6 +512,20 @@
       const recordIdMap = new Map(
         checkInRecords.map((record) => [record.child, record.id])
       );
+
+      // Auto-print labels if enabled
+      if (autoPrintEnabled && printers.length > 0) {
+        for (const record of checkInRecords) {
+          try {
+            await printingApi.createJob({
+              checkin_id: record.id,
+              printer_id: selectedPrinterUUID || undefined,
+            });
+          } catch (printErr) {
+            console.error('Auto-print job creation failed:', printErr);
+          }
+        }
+      }
 
       const actionId = createUndoAction(familyId, childIdsToCheckIn);
       const checkInTime = getCurrentTime();
@@ -797,6 +858,34 @@
         onChangeSession={handleChangeSession}
         onAddFamily={() => (showAddPanel = true)}
       />
+
+    <!-- Printer Selector (only shown when printers exist) -->
+    {#if printersLoaded && printers.length > 0}
+      <div class="mb-3 flex items-center gap-3 bg-white rounded-lg border border-slate-200 px-4 py-2 text-sm">
+        <label class="flex items-center gap-2 cursor-pointer flex-1">
+          <input
+            type="checkbox"
+            bind:checked={autoPrintEnabled}
+            onchange={() => localStorage.setItem('autoPrintEnabled', String(autoPrintEnabled))}
+            class="w-4 h-4 text-blue-600 border-slate-300 rounded focus:ring-blue-500"
+          />
+          <span class="font-medium text-slate-700">{$_('printing.autoPrint')}</span>
+        </label>
+        {#if autoPrintEnabled}
+          <select
+            bind:value={selectedPrinterUUID}
+            onchange={() => localStorage.setItem('selectedPrinterUUID', selectedPrinterUUID)}
+            class="text-sm border border-slate-300 rounded px-2 py-1 bg-white focus:ring-blue-500 focus:border-blue-500"
+          >
+            {#each printers as printer}
+              <option value={printer.id}>
+                {printer.name}{printer.is_online ? '' : ' (offline)'}
+              </option>
+            {/each}
+          </select>
+        {/if}
+      </div>
+    {/if}
 
     <!-- Add Family Panel -->
     {#if showAddPanel}

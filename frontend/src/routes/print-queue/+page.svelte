@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { onMount, onDestroy } from 'svelte';
-	import { printQueueApi } from '$lib/api/services';
-	import type { PrintQueueItem, WebSocketMessage } from '$lib/api/types';
+	import { printQueueApi, printingApi } from '$lib/api/services';
+	import type { PrintQueueItem, WebSocketMessage, Printer } from '$lib/api/types';
 	import { t } from 'svelte-i18n';
 	import { EmptyState, Icon, Button, ExpandableSection, Alert, PageHeader } from '$lib/components/ui';
 	import { PageContainer } from '$lib/components/layout';
@@ -16,12 +16,13 @@
 	let error = '';
 	let successMessage = '';
 	let recentlyPrintedExpanded = false;
+	let printers: Printer[] = [];
 
 	let unsubscribe: (() => void) | null = null;
 
 	onMount(async () => {
 		await loadQueue();
-		await loadRecentlyPrintedCount();
+		await Promise.all([loadRecentlyPrintedCount(), loadPrinters()]);
 
 		// Connect to WebSocket for real-time updates
 		websocketStore.connect();
@@ -33,6 +34,14 @@
 			unsubscribe();
 		}
 	});
+
+	async function loadPrinters() {
+		try {
+			printers = await printingApi.getPrinters();
+		} catch (e) {
+			console.error('Failed to load printers:', e);
+		}
+	}
 
 	function handleWebSocketMessage(message: WebSocketMessage) {
 		if (message.type === 'child_checked_in') {
@@ -52,6 +61,7 @@
 					allergies: data.allergies || undefined,
 					notes: data.notes || undefined,
 					label_printed: false,
+					print_job: null,
 				};
 
 				// Add to queue (at beginning for most recent first)
@@ -73,6 +83,17 @@
 			if (recentlyPrintedExpanded) {
 				recentlyPrintedItems = recentlyPrintedItems.filter(item => item.id !== recordId);
 				recentlyPrintedCount = recentlyPrintedItems.length;
+			}
+		}
+		else if (message.type === 'printer_status_changed' || message.type === 'printer_registered') {
+			const { uuid, name, is_online } = message.data;
+			const existing = printers.find((p) => p.id === uuid);
+			if (existing) {
+				printers = printers.map((p) =>
+					p.id === uuid ? { ...p, name, is_online } : p
+				);
+			} else if (is_online) {
+				printers = [...printers, { id: uuid, name, is_online }];
 			}
 		}
 	}
@@ -103,8 +124,6 @@
 			loading = false;
 		}
 	}
-
-	// Session selector removed - print queue shows all sessions
 
 	async function loadRecentlyPrintedCount() {
 		try {
@@ -159,8 +178,38 @@
 		}
 	}
 
+	async function assignPrinter(checkinId: string, printerId: string) {
+		try {
+			const item = queueItems.find(i => i.id === checkinId);
+			let job;
+			if (item?.print_job?.id) {
+				job = await printingApi.assignJob(item.print_job.id, printerId);
+			} else {
+				job = await printingApi.createJob({ checkin_id: checkinId, printer_id: printerId });
+			}
+			// Update queue item with new job info
+			queueItems = queueItems.map(i =>
+				i.id === checkinId
+					? {
+							...i,
+							print_job: {
+								id: job.id,
+								printer: job.printer,
+								printer_name: job.printer_name,
+								status: job.status,
+							},
+					  }
+					: i
+			);
+			successMessage = $t('printQueue.printSuccess');
+			setTimeout(() => { successMessage = ''; }, 3000);
+		} catch (e) {
+			error = String(e);
+			console.error('Failed to assign printer:', e);
+		}
+	}
+
 	async function toggleRecentlyPrinted() {
-		// The bind:open already handles the toggle, we just need to load when opened
 		if (recentlyPrintedExpanded) {
 			await loadRecentlyPrinted();
 		}
@@ -169,6 +218,7 @@
 	async function refreshAll() {
 		await loadQueue();
 		await loadRecentlyPrintedCount();
+		await loadPrinters();
 		if (recentlyPrintedExpanded) {
 			recentlyPrintedItems = await printQueueApi.getRecentlyPrinted();
 		}
@@ -188,7 +238,8 @@
 			sessionName: item.session_name,
 			checkInTime: item.check_in_time,
 			allergies: item.allergies,
-			qrCode: item.qr_code
+			qrCode: item.qr_code,
+			printJob: item.print_job,
 		};
 	}
 </script>
@@ -241,7 +292,9 @@
 			columns={['childName', 'session', 'actions']}
 			onPrint={printLabel}
 			onViewQR={(code) => window.open(`/qr/${code}`, '_blank')}
-			formatTime={formatTime}
+			onAssignPrinter={printers.length > 0 ? assignPrinter : undefined}
+			{printers}
+			{formatTime}
 		/>
 
 		<!-- Helper Text -->

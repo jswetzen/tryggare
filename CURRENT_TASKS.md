@@ -1,3 +1,40 @@
+# Automated Label Printing - COMPLETE ✅
+
+**Completed:** 2026-03-09
+
+## What was implemented
+
+### Backend
+- `printing/models.py` — `Printer` (UUID PK, name, is_online, last_seen_at) and `PrintJob` (UUID PK, checkin FK, printer FK nullable, status, timestamps) models
+- `printing/migrations/0001_initial.py` — database migration
+- `printing/admin.py` — Django admin registration for both models
+- `printing/serializers.py` — `PrinterSerializer` + `PrintJobSerializer`
+- `printing/views.py` — `PrinterViewSet` (list), `PrintJobViewSet` (create + assign action), `label_page_view` (unauthenticated label HTML endpoint)
+- `printing/urls.py` — DRF router for `/api/printing/printers/` and `/api/printing/jobs/`
+- `config/urls.py` — includes printing URLs + `print-job/<uuid>/label/` unauthenticated endpoint
+- `checkins/consumers.py` — WebSocket consumer extended with printer_register/heartbeat/job_completed/job_failed message handling; offline detection with 30s coroutine; broadcasts printer_status_changed/printer_registered
+- `checkins/serializers.py` — `PrintQueueSerializer` now includes `print_job` (most recent job status/printer)
+- `checkins/views.py` — `PrintQueueViewSet.get_queryset()` prefetches `print_jobs__printer`
+- `checkins/templates/print_label.html` — `{% if not no_autoprint %}` guard added
+
+### Printer Client (`printer-client/`)
+- `client.py` — Python async WS client; authenticates, registers, processes print jobs with Playwright rendering + brother_ql printing; exponential backoff reconnect
+- `requirements.txt` — websockets, playwright, brother_ql, requests, Pillow, python-dotenv
+- `.env.example` — config template
+- `README.md` — setup and usage docs
+
+### Frontend
+- `lib/api/types.ts` — `Printer`, `PrintJob`, `PrinterStatusChangedMessage`, `PrinterRegisteredMessage`, `PrintJobMessage` types; `WebSocketMessage` union extended
+- `lib/api/services.ts` — `printingApi` (getPrinters, createJob, assignJob)
+- `routes/checkin/+page.svelte` — printer selector (persisted in localStorage), auto-print toggle, auto-print on check-in/family check-in, live update on printer_status_changed WS
+- `routes/print-queue/+page.svelte` — loads printers, passes to table, handles printer_status_changed WS, assignPrinter handler
+- `lib/components/domain/PrintQueueTable.svelte` — assign printer button with popover (shows current job status or "Assign printer"), live printer list
+
+### Tests
+- `printing/tests/test_models.py` — 14 unit tests: Printer model, PrintJob model, status transitions, CASCADE/SET_NULL, reassignment logic on offline
+
+---
+
 # Automated Import Provider Feature - COMPLETE ✅
 
 **Completed:** 2026-03-04
