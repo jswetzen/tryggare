@@ -44,6 +44,7 @@ def check_auth(request):
                 "id": str(request.user.id),
                 "username": request.user.username,
                 "name": request.user.name,
+                "is_staff": request.user.is_staff,
             }
         })
     return Response({
@@ -81,6 +82,7 @@ def login_view(request):
                 "id": str(user.id),
                 "username": user.username,
                 "name": user.name,
+                "is_staff": user.is_staff,
             }
         })
 

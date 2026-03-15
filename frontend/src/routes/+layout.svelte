@@ -18,7 +18,7 @@
   </div>
 {:else}
   {#if data.user}
-    <TopNav userName={data.user.username} />
+    <TopNav userName={data.user.username} isAdmin={data.user.is_staff ?? false} />
   {/if}
 
   <main class="min-h-screen bg-neutral-100 p-5">

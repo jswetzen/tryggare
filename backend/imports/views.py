@@ -2,7 +2,7 @@ import logging
 
 from django.shortcuts import get_object_or_404
 from rest_framework.decorators import api_view, permission_classes
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAdminUser
 from rest_framework.response import Response
 from rest_framework import status
 
@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 
 
 @api_view(["POST"])
-@permission_classes([IsAuthenticated])
+@permission_classes([IsAdminUser])
 def discover_prefixes_view(request):
     """
     POST /api/imports/discover-prefixes/
@@ -68,7 +68,7 @@ def discover_prefixes_view(request):
 # ── Source CRUD ────────────────────────────────────────────────────────────────
 
 @api_view(["GET", "POST"])
-@permission_classes([IsAuthenticated])
+@permission_classes([IsAdminUser])
 def list_create_source_view(request):
     """GET /api/imports/sources/ or POST /api/imports/sources/"""
     if request.method == "GET":
@@ -84,7 +84,7 @@ def list_create_source_view(request):
 
 
 @api_view(["GET", "PUT", "DELETE"])
-@permission_classes([IsAuthenticated])
+@permission_classes([IsAdminUser])
 def source_detail_view(request, source_id):
     """GET/PUT/DELETE /api/imports/sources/<source_id>/"""
     source = get_object_or_404(
@@ -107,7 +107,7 @@ def source_detail_view(request, source_id):
 
 
 @api_view(["POST"])
-@permission_classes([IsAuthenticated])
+@permission_classes([IsAdminUser])
 def run_import_source_view(request, source_id):
     """
     POST /api/imports/sources/<source_id>/run/
@@ -234,7 +234,7 @@ def run_import_source_view(request, source_id):
 
 
 @api_view(["GET"])
-@permission_classes([IsAuthenticated])
+@permission_classes([IsAdminUser])
 def import_history_source_view(request, source_id):
     """
     GET /api/imports/sources/<source_id>/history/
@@ -247,7 +247,7 @@ def import_history_source_view(request, source_id):
 
 
 @api_view(["POST"])
-@permission_classes([IsAuthenticated])
+@permission_classes([IsAdminUser])
 def discover_prefixes_from_source_view(request, source_id):
     """
     POST /api/imports/sources/<source_id>/discover-prefixes/

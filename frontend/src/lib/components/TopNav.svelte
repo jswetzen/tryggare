@@ -7,6 +7,7 @@
 
   interface Props {
     userName?: string;
+    isAdmin?: boolean;
     currentEvent?: string;
     currentSession?: string;
     sessionTime?: string;
@@ -15,6 +16,7 @@
 
   let {
     userName = 'User',
+    isAdmin = false,
     currentEvent,
     currentSession,
     sessionTime,
@@ -76,14 +78,16 @@
         >
           {$t('nav.printQueue')}
         </a>
-        <a
-          href="/import"
-          class="px-4 py-2 rounded-button font-semibold transition-colors {currentPath.startsWith('/import')
-            ? 'bg-primary-600 text-white'
-            : 'text-neutral-700 hover:bg-neutral-100'}"
-        >
-          {$t('import.nav')}
-        </a>
+        {#if isAdmin}
+          <a
+            href="/import"
+            class="px-4 py-2 rounded-button font-semibold transition-colors {currentPath.startsWith('/import')
+              ? 'bg-primary-600 text-white'
+              : 'text-neutral-700 hover:bg-neutral-100'}"
+          >
+            {$t('import.nav')}
+          </a>
+        {/if}
 
         <div class="border-l border-neutral-300 pl-6 ml-2 flex items-center space-x-4">
           <LanguageSwitcher />
@@ -166,15 +170,17 @@
         >
           {$t('nav.printQueue')}
         </a>
-        <a
-          href="/import"
-          onclick={closeMobileMenu}
-          class="block px-3 py-2 rounded-button font-semibold {currentPath.startsWith('/import')
-            ? 'bg-primary-600 text-white'
-            : 'text-neutral-700 hover:bg-neutral-100'}"
-        >
-          {$t('import.nav')}
-        </a>
+        {#if isAdmin}
+          <a
+            href="/import"
+            onclick={closeMobileMenu}
+            class="block px-3 py-2 rounded-button font-semibold {currentPath.startsWith('/import')
+              ? 'bg-primary-600 text-white'
+              : 'text-neutral-700 hover:bg-neutral-100'}"
+          >
+            {$t('import.nav')}
+          </a>
+        {/if}
       </div>
       <div class="pt-4 pb-3 border-t border-neutral-200">
         <div class="px-5">

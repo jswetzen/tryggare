@@ -123,9 +123,12 @@ class PrintQueueSerializer(serializers.ModelSerializer):
 
 
 class AuditLogSerializer(serializers.ModelSerializer):
-    user_name = serializers.CharField(source="user.name", read_only=True)
+    user_name = serializers.SerializerMethodField()
 
     class Meta:
         model = AuditLog
         fields = ["id", "timestamp", "user", "user_name", "action", "entity_type", "entity_id", "details"]
         read_only_fields = ["id", "timestamp"]
+
+    def get_user_name(self, obj):
+        return obj.user.name if obj.user else None

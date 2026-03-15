@@ -1,6 +1,8 @@
 """
 Tests for event ticket models and API endpoints.
 """
+from unittest.mock import patch, MagicMock
+
 from django.test import TestCase
 from django.utils import timezone
 from rest_framework.test import APIClient
@@ -185,3 +187,162 @@ class TicketAPITest(TestCase):
         
         response = self.client.get('/api/session-tickets/')
         self.assertEqual(response.status_code, 403)
+
+
+class AutoCheckoutOnDeactivateTest(TestCase):
+    """Test that deactivating a session auto-checks out all open check-ins."""
+
+    def setUp(self):
+        self.staff = AdminUser.objects.create_user(
+            username="autotest_staff",
+            password="testpass123",
+            name="Auto Test Staff",
+        )
+        self.family = Family.objects.create()
+        self.child1 = Child.objects.create(
+            family=self.family,
+            first_name="Alice",
+            last_name="Test",
+            birthdate=timezone.now().date(),
+        )
+        self.child2 = Child.objects.create(
+            family=self.family,
+            first_name="Bob",
+            last_name="Test",
+            birthdate=timezone.now().date(),
+        )
+        self.event = Event.objects.create(
+            name="Auto Test Event",
+            start_date=timezone.now().date(),
+            end_date=timezone.now().date(),
+        )
+        self.session = Session.objects.create(
+            event=self.event,
+            name="Auto Test Session",
+            start_time=timezone.now(),
+            end_time=timezone.now() + timezone.timedelta(hours=2),
+            is_active=True,
+        )
+
+    def _make_checkin(self, child):
+        from checkins.models import CheckInRecord
+        return CheckInRecord.objects.create(
+            child=child,
+            session=self.session,
+            check_in_staff=self.staff,
+        )
+
+    @patch("events.signals.get_channel_layer")
+    def test_deactivating_session_checks_out_all_open_records(self, mock_get_layer):
+        """Deactivating an active session auto-checks out open check-in records."""
+        mock_layer = MagicMock()
+        mock_get_layer.return_value = mock_layer
+
+        from checkins.models import CheckInRecord
+        record1 = self._make_checkin(self.child1)
+        record2 = self._make_checkin(self.child2)
+
+        self.session.is_active = False
+        self.session.save()
+
+        record1.refresh_from_db()
+        record2.refresh_from_db()
+
+        self.assertIsNotNone(record1.check_out_time)
+        self.assertIsNotNone(record2.check_out_time)
+        self.assertIsNone(record1.check_out_staff)
+        self.assertIsNone(record2.check_out_staff)
+
+    @patch("events.signals.get_channel_layer")
+    def test_deactivating_session_creates_audit_logs(self, mock_get_layer):
+        """Auto-checkout creates AuditLog entries with user=None."""
+        mock_layer = MagicMock()
+        mock_get_layer.return_value = mock_layer
+
+        from checkins.models import AuditLog
+        self._make_checkin(self.child1)
+
+        self.session.is_active = False
+        self.session.save()
+
+        log = AuditLog.objects.filter(action="auto_check_out").first()
+        self.assertIsNotNone(log)
+        self.assertIsNone(log.user)
+        self.assertEqual(log.details["reason"], "session_deactivated")
+
+    @patch("events.signals.get_channel_layer")
+    def test_deactivating_session_with_no_open_checkins_is_safe(self, mock_get_layer):
+        """Deactivating a session with no open check-ins does not raise an error."""
+        mock_layer = MagicMock()
+        mock_get_layer.return_value = mock_layer
+
+        # No check-ins created — should not raise
+        self.session.is_active = False
+        self.session.save()
+
+    @patch("events.signals.get_channel_layer")
+    def test_already_inactive_session_save_does_not_trigger(self, mock_get_layer):
+        """Saving an already-inactive session does not double-checkout."""
+        mock_layer = MagicMock()
+        mock_get_layer.return_value = mock_layer
+
+        from checkins.models import CheckInRecord, AuditLog
+        self._make_checkin(self.child1)
+
+        # First deactivation
+        self.session.is_active = False
+        self.session.save()
+
+        audit_count_after_first = AuditLog.objects.filter(action="auto_check_out").count()
+
+        # Second save of same inactive session (e.g. other field change)
+        self.session.name = "Renamed"
+        self.session.save()
+
+        audit_count_after_second = AuditLog.objects.filter(action="auto_check_out").count()
+        self.assertEqual(audit_count_after_first, audit_count_after_second)
+
+    @patch("events.signals.get_channel_layer")
+    def test_reactivating_session_does_not_checkout(self, mock_get_layer):
+        """Activating (True) or re-activating a session does not trigger checkout."""
+        mock_layer = MagicMock()
+        mock_get_layer.return_value = mock_layer
+
+        from checkins.models import AuditLog
+        self._make_checkin(self.child1)
+
+        # Save without changing is_active (still True)
+        self.session.name = "Renamed Active"
+        self.session.save()
+
+        self.assertEqual(AuditLog.objects.filter(action="auto_check_out").count(), 0)
+
+    @patch("events.signals.get_channel_layer")
+    def test_standard_checkin_can_move_to_new_session_after_auto_checkout(self, mock_get_layer):
+        """After auto-checkout, a standard check-in can check into another session."""
+        mock_layer = MagicMock()
+        mock_get_layer.return_value = mock_layer
+
+        from checkins.models import CheckInRecord
+        self._make_checkin(self.child1)
+
+        # Deactivate the session → triggers auto-checkout
+        self.session.is_active = False
+        self.session.save()
+
+        # Create a new active session
+        new_session = Session.objects.create(
+            event=self.event,
+            name="New Session",
+            start_time=timezone.now(),
+            end_time=timezone.now() + timezone.timedelta(hours=2),
+            is_active=True,
+        )
+
+        # child1 should now be checkable into the new session (no open records)
+        open_standard = CheckInRecord.objects.filter(
+            child=self.child1,
+            check_out_time__isnull=True,
+            supervised=False,
+        ).exclude(session=new_session)
+        self.assertFalse(open_standard.exists())

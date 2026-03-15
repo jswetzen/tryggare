@@ -14,9 +14,10 @@ export const prerender = false;
 interface AuthCheckResponse {
   authenticated: boolean;
   user?: {
-    id: number;
+    id: string;
     username: string;
-    full_name: string;
+    name: string;
+    is_staff: boolean;
   };
 }
 
