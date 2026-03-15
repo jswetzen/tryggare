@@ -138,7 +138,13 @@ class QRCode(models.Model):
 class AuditLog(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     timestamp = models.DateTimeField(auto_now_add=True)
-    user = models.ForeignKey("accounts.AdminUser", on_delete=models.PROTECT)
+    user = models.ForeignKey(
+        "accounts.AdminUser",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        verbose_name=_("User"),
+    )
     action = models.CharField(max_length=64)
     entity_type = models.CharField(max_length=64)
     entity_id = models.CharField(max_length=255)

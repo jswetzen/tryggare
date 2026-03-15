@@ -127,6 +127,7 @@ Common issues:
 ## Task Completion Checklist
 
 Before considering an implementation phase complete, make sure to:
+- **Trigger a rebuild** by writing to `restart.txt`: `date > /workspace/check-ins/restart.txt`
 - Write tests that cover your new functionality (see `backend/tests/e2e/TEST_COVERAGE.md`)
 - Run `make verify` for backend changes
 - Run appropriate test suite:

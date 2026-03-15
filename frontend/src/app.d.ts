@@ -9,6 +9,7 @@ declare global {
         id: string;
         username: string;
         name: string;
+        is_staff: boolean;
       } | null;
     }
   }
