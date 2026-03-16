@@ -8,7 +8,8 @@
     "checkout": "Utcheckning",
     "printQueue": "Utskriftskö",
     "logout": "Logga ut",
-    "openMenu": "Öppna huvudmeny"
+    "openMenu": "Öppna huvudmeny",
+    "admin": "Admin"
   },
   "login": {
     "pageTitle": "Logga in - Incheckningssystem",
@@ -19,7 +20,9 @@
     "password": "Lösenord",
     "passwordPlaceholder": "Ange ditt lösenord",
     "submit": "Logga in",
-    "loggingIn": "Loggar in..."
+    "loggingIn": "Loggar in...",
+    "fieldsRequired": "Användarnamn och lösenord krävs",
+    "loginFailed": "Inloggning misslyckades. Försök igen."
   },
   "checkin": {
     "pageTitle": "Incheckningsstation",
@@ -359,7 +362,8 @@
       "saveError": "Sparningen misslyckades.",
       "nameRequired": "Namn krävs.",
       "loginUrlRequired": "Inloggnings-URL krävs.",
-      "exportUrlRequired": "Export-URL krävs."
+      "exportUrlRequired": "Export-URL krävs.",
+      "fieldNamePlaceholder": "t.ex. FestivalPro SK27"
     }
   },
   "printing": {

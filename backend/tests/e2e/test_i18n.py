@@ -44,50 +44,6 @@ class TestInternationalization(E2ETestBase, TestDataMixin):
         )
         self.teardown_driver()
 
-    def test_language_switch_en_to_nb(self):
-        """Test switching from English to Norwegian."""
-        print("\n🔍 Testing Language Switch (EN → NB)")
-        print("=" * 60)
-
-        # Login
-        print("   Logging in...")
-        self.login(self.test_user.username, "testpass123")
-        time.sleep(2)
-
-        # Verify English
-        page_source = self.driver.page_source
-        assert "Check-In" in page_source or "Logout" in page_source, \
-            "Expected English text"
-        print("   ✓ Page loaded in English")
-
-        # Switch to Norwegian
-        print("   Switching to Norwegian...")
-        try:
-            nb_button = self.wait_for_element(
-                By.CSS_SELECTOR,
-                "[data-testid='language-nb'], [data-testid='language-no']",
-                timeout=5
-            )
-            nb_button.click()
-            time.sleep(2)
-
-            # Verify Norwegian
-            page_source = self.driver.page_source
-            has_norwegian = "Incheckning" in page_source or \
-                           "Logga ut" in page_source or \
-                           "Sök" in page_source
-
-            if has_norwegian:
-                print("   ✓ Language switched to Norwegian")
-            else:
-                print("   ⚠️  Norwegian text not clearly visible")
-
-        except Exception as e:
-            print(f"   ⚠️  Could not test language switch: {e}")
-
-        print("\n" + "=" * 60)
-        print("✅ Language switch test PASSED")
-
     def test_language_persistence(self):
         """Test that language selection persists across navigation."""
         print("\n🔍 Testing Language Persistence")

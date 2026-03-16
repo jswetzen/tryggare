@@ -22,7 +22,7 @@ services:
     logging:
       options:
         max-size: "50m"
-        path: /home/johan/git/check-ins/web.log
+        path: ./web.log
 
   frontend:
     build: ./frontend
@@ -43,7 +43,7 @@ services:
     logging:
       options:
         max-size: "50m"
-        path: /home/johan/git/check-ins/frontend.log
+        path: ./frontend.log
 
   db:
     image: docker.io/postgres:16-alpine

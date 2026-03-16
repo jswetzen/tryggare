@@ -1,4 +1,4 @@
-.PHONY: help test test-e2e test-unit test-integration rebuild-dev rebuild-prod clean coverage
+.PHONY: help test test-e2e test-unit test-integration rebuild-dev rebuild-prod clean coverage ping
 
 # Default target
 help:
@@ -32,6 +32,7 @@ help:
 	@echo "  make clean             Clean up test artifacts"
 	@echo "  make coverage          Run tests with coverage report"
 	@echo "  make verify            Run backend verification (quick sanity check)"
+	@echo "  make ping              Check health of dev/prod backend endpoints"
 	@echo ""
 	@echo "Examples:"
 	@echo "  make rebuild-prod && sleep 10 && make test-e2e-prod"
@@ -64,38 +65,46 @@ test-e2e-prod:
 	@FRONTEND_URL=http://localhost:8080 BACKEND_URL=http://localhost:8080 \
 		uv run --group test pytest tests/e2e/ -v -m e2e
 
-# Specific test suites
+# Specific test suites (default to dev environment)
 test-auth:
 	@echo "Running authentication tests..."
-	@uv run --group test pytest tests/e2e/test_auth.py -v
+	@FRONTEND_URL=http://localhost:5173 BACKEND_URL=http://localhost:8000 \
+		uv run --group test pytest tests/e2e/test_auth.py -v
 
 test-checkin:
 	@echo "Running check-in flow tests..."
-	@uv run --group test pytest tests/e2e/test_checkin_flow.py -v
+	@FRONTEND_URL=http://localhost:5173 BACKEND_URL=http://localhost:8000 \
+		uv run --group test pytest tests/e2e/test_checkin_flow.py -v
 
 test-checkout:
 	@echo "Running check-out flow tests..."
-	@uv run --group test pytest tests/e2e/test_checkout_flow.py -v
+	@FRONTEND_URL=http://localhost:5173 BACKEND_URL=http://localhost:8000 \
+		uv run --group test pytest tests/e2e/test_checkout_flow.py -v
 
 test-qr:
 	@echo "Running QR page tests..."
-	@uv run --group test pytest tests/e2e/test_qr_page.py -v
+	@FRONTEND_URL=http://localhost:5173 BACKEND_URL=http://localhost:8000 \
+		uv run --group test pytest tests/e2e/test_qr_page.py -v
 
 test-print:
 	@echo "Running print queue tests..."
-	@uv run --group test pytest tests/e2e/test_print_queue.py -v
+	@FRONTEND_URL=http://localhost:5173 BACKEND_URL=http://localhost:8000 \
+		uv run --group test pytest tests/e2e/test_print_queue.py -v
 
 test-i18n:
 	@echo "Running i18n tests..."
-	@uv run --group test pytest tests/e2e/test_i18n.py -v
+	@FRONTEND_URL=http://localhost:5173 BACKEND_URL=http://localhost:8000 \
+		uv run --group test pytest tests/e2e/test_i18n.py -v
 
 test-navigation:
 	@echo "Running navigation tests..."
-	@uv run --group test pytest tests/e2e/test_navigation.py -v
+	@FRONTEND_URL=http://localhost:5173 BACKEND_URL=http://localhost:8000 \
+		uv run --group test pytest tests/e2e/test_navigation.py -v
 
 test-supervised:
 	@echo "Running supervised check-in tests..."
-	@uv run --group test pytest tests/e2e/test_supervised_checkin_simple.py -v
+	@FRONTEND_URL=http://localhost:5173 BACKEND_URL=http://localhost:8000 \
+		uv run --group test pytest tests/e2e/test_supervised_checkin_simple.py -v
 
 # Utility commands
 clean:
@@ -115,3 +124,7 @@ coverage:
 verify:
 	@echo "Running quick backend verification..."
 	@uv run --group test python verify.py
+
+ping:
+	@curl -s -o /dev/null -w "Dev backend (8000): %{http_code}\n" http://localhost:8000/api/auth/check/ || echo "Dev backend (8000): UNREACHABLE"
+	@curl -s -o /dev/null -w "Prod        (8080): %{http_code}\n" http://localhost:8080/api/auth/check/ || echo "Prod        (8080): UNREACHABLE"
