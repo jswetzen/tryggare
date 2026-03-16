@@ -101,8 +101,8 @@ class ImportRunListSerializer(serializers.ModelSerializer):
 
 
 class ImportRunSerializer(ImportRunListSerializer):
-    """Full detail including per-booking log entries."""
+    """Full detail including per-booking log entries and raw source data."""
 
     class Meta(ImportRunListSerializer.Meta):
-        fields = ImportRunListSerializer.Meta.fields + ["log"]
+        fields = ImportRunListSerializer.Meta.fields + ["log", "raw_data"]
         read_only_fields = fields

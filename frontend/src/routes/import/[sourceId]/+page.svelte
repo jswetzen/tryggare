@@ -664,6 +664,24 @@
         </div>
       {/if}
 
+      <!-- Raw source data -->
+      {#if importResult.raw_data}
+        <div class="mt-6 border-t border-neutral-200 pt-4">
+          <button
+            onclick={() => showLogDetails = !showLogDetails}
+            class="flex items-center gap-2 text-sm text-neutral-500 hover:text-neutral-700 font-medium"
+          >
+            <svg class="w-4 h-4 transition-transform {showLogDetails ? 'rotate-90' : ''}" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+            </svg>
+            Raw source data ({Object.keys(importResult.raw_data).length} bookings)
+          </button>
+          {#if showLogDetails}
+            <pre class="mt-3 p-4 bg-neutral-900 text-neutral-100 text-xs rounded-lg overflow-x-auto max-h-96 overflow-y-auto leading-relaxed">{JSON.stringify(importResult.raw_data, null, 2)}</pre>
+          {/if}
+        </div>
+      {/if}
+
       <!-- Import Again button -->
       <div class="mt-6 flex justify-end">
         <button

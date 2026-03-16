@@ -222,7 +222,8 @@ def run_import_source_view(request, source_id):
     try:
         import_run = run_import(json_data, source, field_mappings, request.user)
         import_run.source_file_name = source_file_name
-        import_run.save(update_fields=["source_file_name"])
+        import_run.raw_data = json_data
+        import_run.save(update_fields=["source_file_name", "raw_data"])
     except Exception as exc:
         logger.exception("Unhandled error during import for source %s", source_id)
         return Response(

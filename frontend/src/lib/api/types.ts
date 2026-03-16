@@ -340,4 +340,5 @@ export interface ImportRun {
   source_file_name: string;
   summary: ImportRunSummary;
   log?: ImportRunLog[];
+  raw_data?: Record<string, unknown> | null;
 }
