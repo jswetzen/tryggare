@@ -3,6 +3,7 @@
   import { goto } from '$app/navigation';
   import { t } from 'svelte-i18n';
   import { apiClient } from '$lib/api/client';
+  import LanguageSwitcher from '$lib/components/LanguageSwitcher.svelte';
 
   let errorMessage = $state('');
   let isLoading = $state(false);
@@ -15,7 +16,7 @@
     const password = formData.get('password') as string;
 
     if (!username || !password) {
-      errorMessage = 'Username and password are required';
+      errorMessage = $t('login.fieldsRequired');
       return;
     }
 
@@ -35,7 +36,7 @@
       } else if (error.message) {
         errorMessage = error.message;
       } else {
-        errorMessage = 'Login failed. Please try again.';
+        errorMessage = $t('login.loginFailed');
       }
     }
   }
@@ -47,6 +48,9 @@
 
 <div class="fixed inset-0 flex items-center justify-center bg-neutral-100">
   <div class="bg-white p-8 rounded-card shadow-elevation-3 w-full max-w-md z-10">
+    <div class="flex justify-end mb-4">
+      <LanguageSwitcher />
+    </div>
     <h1 class="text-h1 mb-6 text-center">{$t('login.title')}</h1>
 
     {#if errorMessage}

@@ -8,7 +8,8 @@
     "checkout": "Check-Out",
     "printQueue": "Print Queue",
     "logout": "Logout",
-    "openMenu": "Open main menu"
+    "openMenu": "Open main menu",
+    "admin": "Admin"
   },
   "login": {
     "pageTitle": "Login - Check-In System",
@@ -19,7 +20,9 @@
     "password": "Password",
     "passwordPlaceholder": "Enter your password",
     "submit": "Login",
-    "loggingIn": "Logging in..."
+    "loggingIn": "Logging in...",
+    "fieldsRequired": "Username and password are required",
+    "loginFailed": "Login failed. Please try again."
   },
   "checkin": {
     "pageTitle": "Check-In Station",
@@ -359,7 +362,8 @@
       "saveError": "Save failed.",
       "nameRequired": "Name is required.",
       "loginUrlRequired": "Login URL is required.",
-      "exportUrlRequired": "Export URL is required."
+      "exportUrlRequired": "Export URL is required.",
+      "fieldNamePlaceholder": "e.g. FestivalPro SK27"
     }
   },
   "printing": {

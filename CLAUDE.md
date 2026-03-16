@@ -2,12 +2,14 @@ The Conference Child Management System has a detailed specification in the file 
 
 Update IMPLEMENTATION_PLAN.md to check off items that are done. Also keep CURRENT_TASKS.md up-to-date as you complete items.
 
+`DEFERRED_TASKS/` contains lightweight stubs for low-priority work to revisit later. Each file is one topic. `DEFERRED_TASKS/README.md` has the index. Prototypes (exploratory code, not production) live in `prototypes/`.
+
 If you really have to write on-the fly documentation or markdown summaries, store them under docs/
 Any tools and scripts you create for ad-hoc testing shall be stored under agent-tools/
 
 ## Deployment Environments
 
-**Two deployment modes exist. Both should be running:**
+**Two deployment modes exist. Dev may not always be up — use `make status` to check.**
 
 ### Production Deployment (docker-compose.prod.yml)
 - **Single container**: Django serves both API and built frontend static files
@@ -45,6 +47,10 @@ Any tools and scripts you create for ad-hoc testing shall be stored under agent-
 **Root-level commands** (from `/workspace/check-ins/`):
 ```bash
 make help              # Show all available commands
+make status            # Show health of all environments (dev + prod)
+make ping              # Alias for status
+make wait-dev          # Poll until dev is ready (after rebuild)
+make wait-prod         # Poll until prod is ready (after rebuild)
 make test              # Run all tests (unit + E2E against dev)
 make test-e2e-dev      # Run E2E tests against dev (localhost:5173/8000)
 make test-e2e-prod     # Run E2E tests against production (localhost:8080)
@@ -85,8 +91,8 @@ make test-e2e-dev      # Verify dev environment (17/20 passing as of 2025-12-12)
 # 3. Test production build
 cd ..
 make rebuild-prod      # Trigger production rebuild
-sleep 15               # Wait for build to complete
-make test-e2e-prod     # Test against production (needs DB config fix)
+make wait-prod         # Wait until prod is ready (polls /api/auth/check/)
+make test-e2e-prod     # Test against production
 ```
 
 **Backend model changes:**
@@ -119,7 +125,6 @@ Common issues:
 **E2E Test Database Configuration:**
 - E2E tests use the **live development database** (PostgreSQL on port 5432)
 - Tests create/cleanup their own data with unique names (e.g., "authtest", "checkintest")
-- Production tests currently fail due to database mismatch (need to use port 5433)
 - See `backend/tests/e2e/conftest.py` for database configuration
 
 **For detailed testing guide, see `backend/TESTING_QUICKSTART.md`**

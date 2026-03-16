@@ -87,6 +87,12 @@
           >
             {$t('import.nav')}
           </a>
+          <a
+            href="/admin/"
+            class="px-4 py-2 rounded-button font-semibold transition-colors text-neutral-700 hover:bg-neutral-100"
+          >
+            {$t('nav.admin')}
+          </a>
         {/if}
 
         <div class="border-l border-neutral-300 pl-6 ml-2 flex items-center space-x-4">
@@ -179,6 +185,13 @@
               : 'text-neutral-700 hover:bg-neutral-100'}"
           >
             {$t('import.nav')}
+          </a>
+          <a
+            href="/admin/"
+            onclick={closeMobileMenu}
+            class="block px-3 py-2 rounded-button font-semibold text-neutral-700 hover:bg-neutral-100"
+          >
+            {$t('nav.admin')}
           </a>
         {/if}
       </div>

@@ -1,4 +1,4 @@
-.PHONY: help rebuild-dev rebuild-prod restart-dev restart-prod test test-e2e test-e2e-dev test-e2e-prod clean-docker
+.PHONY: help rebuild-dev rebuild-prod restart-dev restart-prod test test-e2e test-e2e-dev test-e2e-prod clean-docker status ping wait-dev wait-prod
 
 # Default target
 help:
@@ -16,6 +16,12 @@ help:
 	@echo "  make test-e2e-dev      Run E2E tests against dev"
 	@echo "  make test-e2e-prod     Run E2E tests against production"
 	@echo ""
+	@echo "Status Commands:"
+	@echo "  make status            Show health of all environments"
+	@echo "  make ping              Alias for status"
+	@echo "  make wait-dev          Wait until dev environment is ready"
+	@echo "  make wait-prod         Wait until prod environment is ready"
+	@echo ""
 	@echo "Docker Cleanup:"
 	@echo "  make clean-docker      Clean up Docker/Podman resources"
 	@echo ""
@@ -23,7 +29,7 @@ help:
 	@echo "  cd backend && make help    Show all backend-specific test commands"
 	@echo ""
 	@echo "Examples:"
-	@echo "  make rebuild-prod && sleep 10 && make test-e2e-prod"
+	@echo "  make rebuild-prod && make wait-prod && make test-e2e-prod"
 	@echo "  make restart-dev"
 	@echo "  cd backend && make test-auth"
 
@@ -41,7 +47,7 @@ rebuild-prod:
 	@echo "  tail -f build.prod.log"
 	@echo ""
 	@echo "⏳ Waiting for rebuild to complete (this may take 30-60 seconds)..."
-	@echo "   You can run 'make test-e2e-prod' after the build completes"
+	@echo "   Run: make wait-prod && make test-e2e-prod"
 
 restart-dev:
 	@echo "Restarting development environment (hot reload)..."
@@ -67,6 +73,34 @@ test-e2e-dev:
 test-e2e-prod:
 	@echo "Running E2E tests against production environment..."
 	@cd backend && $(MAKE) test-e2e-prod
+
+# Status and health checks
+status:
+	@echo "=== Environment Status ==="
+	@curl -s -o /dev/null -w "Dev frontend  (5173): %{http_code}\n" http://localhost:5173/ || echo "Dev frontend  (5173): UNREACHABLE"
+	@curl -s -o /dev/null -w "Dev backend   (8000): %{http_code}\n" http://localhost:8000/api/auth/check/ || echo "Dev backend   (8000): UNREACHABLE"
+	@curl -s -o /dev/null -w "Prod          (8080): %{http_code}\n" http://localhost:8080/api/auth/check/ || echo "Prod          (8080): UNREACHABLE"
+
+ping: status
+
+wait-dev:
+	@echo "Waiting for dev environment..."
+	@for i in $$(seq 1 30); do \
+		if curl -s http://localhost:5173/ > /dev/null 2>&1 && \
+		   curl -s http://localhost:8000/api/auth/check/ > /dev/null 2>&1; then \
+			echo "✓ Dev environment ready"; exit 0; \
+		fi; \
+		echo "  ... ($$i/30)"; sleep 2; \
+	done; echo "✗ Timeout waiting for dev environment"; exit 1
+
+wait-prod:
+	@echo "Waiting for prod environment..."
+	@for i in $$(seq 1 30); do \
+		if curl -s http://localhost:8080/api/auth/check/ > /dev/null 2>&1; then \
+			echo "✓ Prod environment ready"; exit 0; \
+		fi; \
+		echo "  ... ($$i/30)"; sleep 2; \
+	done; echo "✗ Timeout waiting for prod environment"; exit 1
 
 # Docker cleanup
 clean-docker:
