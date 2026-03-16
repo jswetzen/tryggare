@@ -152,6 +152,13 @@ class ImportRun(models.Model):
         default="",
         verbose_name=_("Source File Name"),
     )
+    raw_data = models.JSONField(
+        default=None,
+        null=True,
+        blank=True,
+        verbose_name=_("Raw Data"),
+        help_text=_("Raw parsed JSON from the import source, for debugging."),
+    )
     log = models.JSONField(
         default=list,
         verbose_name=_("Log"),
