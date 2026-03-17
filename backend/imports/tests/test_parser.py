@@ -257,6 +257,46 @@ class TestParseExtraGuardian:
         guardian = parse_extra_guardian({})
         assert guardian is None
 
+    def test_array_one_filled_slot(self):
+        booking = {
+            "Extra vårdnadshavare kontaktinformation First Name": ["Mark ", ""],
+            "Extra vårdnadshavare kontaktinformation Last Name": ["Psson ", ""],
+        }
+        guardian = parse_extra_guardian(booking)
+        assert guardian is not None
+        assert guardian["first_name"] == "Mark"
+        assert guardian["last_name"] == "Psson"
+
+    def test_array_both_filled_slots(self):
+        booking = {
+            "Extra vårdnadshavare kontaktinformation First Name": ["Mark ", "Jane"],
+            "Extra vårdnadshavare kontaktinformation Last Name": ["Psson ", "Doe"],
+        }
+        guardian = parse_extra_guardian(booking)
+        assert guardian is not None
+        assert guardian["first_name"] == "Mark"
+        assert guardian["last_name"] == "Psson"
+
+    def test_array_all_empty(self):
+        booking = {
+            "Extra vårdnadshavare kontaktinformation First Name": ["", ""],
+            "Extra vårdnadshavare kontaktinformation Last Name": ["", ""],
+            "Extra vårdnadshavare kontaktinformation Email": ["", ""],
+            "Extra vårdnadshavare kontaktinformation Phone": ["", ""],
+        }
+        guardian = parse_extra_guardian(booking)
+        assert guardian is None
+
+    def test_plain_string_regression(self):
+        booking = {
+            "Extra vårdnadshavare kontaktinformation First Name": "Mark",
+            "Extra vårdnadshavare kontaktinformation Last Name": "Psson",
+        }
+        guardian = parse_extra_guardian(booking)
+        assert guardian is not None
+        assert guardian["first_name"] == "Mark"
+        assert guardian["last_name"] == "Psson"
+
 
 # ---------------------------------------------------------------------------
 # parse_booking

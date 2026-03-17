@@ -378,6 +378,17 @@ def parse_contact(booking: dict) -> dict:
     }
 
 
+def _first_nonempty(val) -> str:
+    """Return the first non-empty string from a value that may be a list or plain string."""
+    if isinstance(val, list):
+        for item in val:
+            s = str(item).strip()
+            if s:
+                return s
+        return ""
+    return str(val or "").strip()
+
+
 def parse_extra_guardian(booking: dict) -> dict | None:
     """
     Extract extra guardian info if present.
@@ -385,10 +396,10 @@ def parse_extra_guardian(booking: dict) -> dict | None:
     Returns None if all relevant fields are empty.
     """
     prefix = "Extra vårdnadshavare kontaktinformation"
-    first = str(booking.get(f"{prefix} First Name", "") or "").strip()
-    last = str(booking.get(f"{prefix} Last Name", "") or "").strip()
-    email = str(booking.get(f"{prefix} Email", "") or "").strip() or None
-    phone = str(booking.get(f"{prefix} Phone", "") or "").strip() or None
+    first = _first_nonempty(booking.get(f"{prefix} First Name", ""))
+    last  = _first_nonempty(booking.get(f"{prefix} Last Name", ""))
+    email = _first_nonempty(booking.get(f"{prefix} Email", "")) or None
+    phone = _first_nonempty(booking.get(f"{prefix} Phone", "")) or None
 
     if not first and not last and not email and not phone:
         return None

@@ -274,14 +274,9 @@ def _process_child(
     summary["children_created"] += 1
 
     if birthdate is None:
-        msg = f"Child {first_name} {last_name} (booking {booking_key}) imported without birthdate — no ticket assigned"
-        summary["warnings"].append(msg)
-        log_entries.append({
-            "booking_key": booking_key,
-            "action": "child_created_no_birthdate",
-            "details": f"Created child {child.id} ({first_name} {last_name}) without birthdate; no ticket",
-        })
-        return
+        summary["warnings"].append(
+            f"Child {first_name} {last_name} (booking {booking_key}) imported without birthdate"
+        )
 
     # Create ticket
     if mapping == "full_event":
