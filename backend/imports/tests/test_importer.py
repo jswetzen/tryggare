@@ -221,7 +221,7 @@ class SessionTicketImportTest(TestCase):
 
 
 class MissingBirthdateTest(TestCase):
-    """Children with no parseable birthdate are imported without a ticket."""
+    """Children with no parseable birthdate are imported with a ticket but no birthdate."""
 
     def setUp(self):
         self.user = make_user()
@@ -255,10 +255,10 @@ class MissingBirthdateTest(TestCase):
         run = self._run("")
         assert Child.objects.filter(first_name="NoDate").exists()
 
-    def test_no_ticket_when_birthdate_missing(self):
+    def test_ticket_created_when_birthdate_missing(self):
         self._run("")
         child = Child.objects.get(first_name="NoDate")
-        assert not EventTicket.objects.filter(child=child).exists()
+        assert EventTicket.objects.filter(child=child).exists()
 
     def test_birthdate_is_null(self):
         self._run("")
@@ -272,7 +272,7 @@ class MissingBirthdateTest(TestCase):
     def test_child_created_count(self):
         run = self._run("")
         assert run.summary["children_created"] == 1
-        assert run.summary["tickets_created"] == 0
+        assert run.summary["tickets_created"] == 1
 
     def test_reimport_does_not_duplicate_no_birthdate_child(self):
         self._run("")
