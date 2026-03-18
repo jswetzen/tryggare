@@ -128,7 +128,13 @@
     "relationshipGuardian": "Vårdnadshavare",
     "childNumber": "Barn {number}",
     "optional": "valfritt",
-    "allChildrenRequired": "Alla barn måste ha förnamn, efternamn och födelsedatum"
+    "allChildrenRequired": "Alla barn måste ha förnamn, efternamn och födelsedatum",
+    "qrScanButton": "Skanna QR-kod",
+    "qrScanTitle": "Skanna biljett-QR",
+    "qrClose": "Stäng",
+    "qrCameraPermissionDenied": "Kameråtkomst nekad. Tillåt kameran i webbläsarens inställningar.",
+    "qrCameraInsecureContext": "Kameråtkomst kräver HTTPS. Använd appen via en säker (https://) anslutning.",
+    "qrCameraUnavailable": "Ingen kamera hittades eller kameran används av en annan app."
   },
   "checkout": {
     "pageTitle": "Utcheckningsstation",
@@ -322,6 +328,14 @@
     "sourceNoCredentials": "Källan har inga inloggningsuppgifter inställda",
     "sourceNoCredentialsHelp": "ladda upp en fil manuellt eller",
     "sourceNoCredentialsLink": "konfigurera inloggningsuppgifter i Hantera källor",
+    "totalHouseholds": "Totalt antal hushåll",
+    "parentsCreated": "Föräldrar skapade",
+    "pco": {
+      "title": "Importera från Planning Center",
+      "description": "Hämtar alla hushåll och medlemmar från din Planning Center-organisation.",
+      "importButton": "Hämta och importera från Planning Center",
+      "noCredentials": "Inga inloggningsuppgifter konfigurerade för denna Planning Center-källa."
+    },
     "sources": {
       "pageTitle": "Importkällor",
       "description": "Konfigurera anslutningar till externa bokningssystem för automatisk datahämtning.",
@@ -363,7 +377,12 @@
       "nameRequired": "Namn krävs.",
       "loginUrlRequired": "Inloggnings-URL krävs.",
       "exportUrlRequired": "Export-URL krävs.",
-      "fieldNamePlaceholder": "t.ex. FestivalPro SK27"
+      "fieldNamePlaceholder": "t.ex. FestivalPro SK27",
+      "fieldAppId": "App-ID",
+      "fieldSecret": "Hemlighet",
+      "pcoInstructions": "Ange dina Planning Center Personal Access Token-uppgifter (planningcenteronline.com → Mitt konto → Personliga åtkomsttokens).",
+      "appIdRequired": "App-ID krävs.",
+      "secretRequired": "Hemlighet krävs."
     }
   },
   "printing": {

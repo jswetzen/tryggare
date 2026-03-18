@@ -6,6 +6,7 @@
     placeholder?: string;
     label?: string;
     onInput?: (value: string) => void;
+    onQrScan?: () => void;
     class?: string;
   }
 
@@ -14,6 +15,7 @@
     placeholder,
     label,
     onInput,
+    onQrScan,
     class: className = ''
   }: Props = $props();
 </script>
@@ -24,5 +26,6 @@
     placeholder={placeholder}
     label={label}
     onInput={onInput}
+    onQrScan={onQrScan}
   />
 </div>

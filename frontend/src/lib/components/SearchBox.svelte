@@ -7,13 +7,15 @@
     placeholder?: string;
     label?: string;
     onInput?: (value: string) => void;
+    onQrScan?: () => void;
   }
 
   let {
     value = $bindable(''),
     placeholder,
     label,
-    onInput
+    onInput,
+    onQrScan
   }: Props = $props();
 
   // Use translation keys as defaults if not provided
@@ -65,17 +67,30 @@
     oninput={handleInput}
     onkeydown={handleKeyDown}
     placeholder={displayPlaceholder}
-    class="w-full pl-10 pr-10 py-3 border-2 border-blue-500 rounded-lg bg-blue-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
+    class="w-full pl-10 py-3 border-2 border-blue-500 rounded-lg bg-blue-50 focus:outline-none focus:ring-2 focus:ring-blue-500 {onQrScan ? 'pr-20' : 'pr-10'}"
     data-testid="family-search"
   />
   {#if value}
     <button
       onclick={clearSearch}
-      class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+      class="absolute top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 {onQrScan ? 'right-10' : 'right-3'}"
       aria-label="Clear search"
       data-testid="clear-search-button"
     >
       <Icon name="x" size="sm" />
+    </button>
+  {/if}
+  {#if onQrScan}
+    <button
+      onclick={onQrScan}
+      class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-blue-600"
+      aria-label={$t('checkin.qrScanButton')}
+      data-testid="qr-scan-button"
+    >
+      <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/>
+        <rect x="14" y="14" width="3" height="3"/><rect x="19" y="14" width="2" height="2"/><rect x="14" y="19" width="2" height="2"/><rect x="19" y="19" width="2" height="2"/>
+      </svg>
     </button>
   {/if}
 </div>

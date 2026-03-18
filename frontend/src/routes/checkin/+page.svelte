@@ -12,6 +12,7 @@
   import CheckinExpandableTable from '$lib/components/checkin/CheckinExpandableTable.svelte';
   import AddFamilyPanel from '$lib/components/checkin/AddFamilyPanel.svelte';
   import SessionSelector from '$lib/components/SessionSelector.svelte';
+  import QrScannerOverlay from '$lib/components/checkin/QrScannerOverlay.svelte';
 
   // Import stores and utilities
   import {
@@ -109,6 +110,7 @@
   let successToast = $state<string | null>(null);
   let showCheckedInFamilies = $state(false);
   let showSessionSelector = $state(false);
+  let showQrScanner = $state(false);
   let supervisedState = $state<Record<string, boolean>>({});
 
   // Printer / auto-print state
@@ -678,6 +680,11 @@
     }
   }
 
+  function handleQrScan(code: string) {
+    showQrScanner = false;
+    successToast = `Skannad: ${code}`; // Phase 1 stub — replaced in Phase 2
+  }
+
   // Handle session change button click
   function handleChangeSession() {
     showSessionSelector = true;
@@ -911,6 +918,7 @@
     <StickySearchBox
       bind:value={searchQuery}
       placeholder={$_('checkin.searchPlaceholder')}
+      onQrScan={() => (showQrScanner = true)}
     />
 
     <div class="mb-4 flex items-left justify-between text-sm">
@@ -968,6 +976,11 @@
   {/if}
   </div>
 </div>
+
+<!-- QR Scanner Overlay -->
+{#if showQrScanner}
+  <QrScannerOverlay onScan={handleQrScan} onClose={() => (showQrScanner = false)} />
+{/if}
 
 <!-- Success Toast -->
 {#if successToast}
