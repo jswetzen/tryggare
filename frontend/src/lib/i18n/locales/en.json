@@ -128,7 +128,13 @@
     "relationshipGuardian": "Guardian",
     "childNumber": "Child {number}",
     "optional": "optional",
-    "allChildrenRequired": "All children must have first name, last name, and birthdate"
+    "allChildrenRequired": "All children must have first name, last name, and birthdate",
+    "qrScanButton": "Scan QR code",
+    "qrScanTitle": "Scan ticket QR",
+    "qrClose": "Close",
+    "qrCameraPermissionDenied": "Camera access denied. Allow camera access in your browser settings.",
+    "qrCameraInsecureContext": "Camera access requires HTTPS. Please use the app via a secure (https://) connection.",
+    "qrCameraUnavailable": "No camera found or camera is in use by another app."
   },
   "checkout": {
     "pageTitle": "Check-Out Station",
@@ -322,6 +328,14 @@
     "sourceNoCredentials": "Source has no credentials set",
     "sourceNoCredentialsHelp": "upload a file manually or",
     "sourceNoCredentialsLink": "configure credentials in Manage Sources",
+    "totalHouseholds": "Total Households",
+    "parentsCreated": "Parents Created",
+    "pco": {
+      "title": "Import from Planning Center",
+      "description": "Fetches all households and members from your Planning Center organization.",
+      "importButton": "Fetch & Import from Planning Center",
+      "noCredentials": "No credentials configured for this Planning Center source."
+    },
     "sources": {
       "pageTitle": "Import Sources",
       "description": "Configure external booking system connections for automatic data fetching.",
@@ -363,7 +377,12 @@
       "nameRequired": "Name is required.",
       "loginUrlRequired": "Login URL is required.",
       "exportUrlRequired": "Export URL is required.",
-      "fieldNamePlaceholder": "e.g. FestivalPro SK27"
+      "fieldNamePlaceholder": "e.g. FestivalPro SK27",
+      "fieldAppId": "App ID",
+      "fieldSecret": "Secret",
+      "pcoInstructions": "Enter your Planning Center Personal Access Token credentials (planningcenteronline.com → My Account → Personal Access Tokens).",
+      "appIdRequired": "App ID is required.",
+      "secretRequired": "Secret is required."
     }
   },
   "printing": {
