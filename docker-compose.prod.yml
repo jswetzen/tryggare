@@ -1,3 +1,4 @@
+# Do I need a dummy change here for portainer?
 name: ${COMPOSE_PROJECT_NAME:-check-in-prod}
 services:
   # Django backend serving both API and frontend
