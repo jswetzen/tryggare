@@ -89,6 +89,10 @@
       if (!formLoginUrl.trim()) { formError = $t('import.sources.loginUrlRequired'); return; }
       if (!formExportUrl.trim()) { formError = $t('import.sources.exportUrlRequired'); return; }
     }
+    if (formProviderType === 'planningcenter' && !editingId) {
+      if (!formUsername.trim()) { formError = $t('import.sources.appIdRequired'); return; }
+      if (!formPassword) { formError = $t('import.sources.secretRequired'); return; }
+    }
 
     saving = true;
     try {
@@ -294,9 +298,47 @@
           </div>
 
         {:else}
-          <!-- Planning Center placeholder -->
-          <div class="sm:col-span-2 p-4 bg-neutral-50 border border-neutral-200 rounded text-neutral-600 text-sm">
-            {$t('import.sources.planningCenterPlaceholder')}
+          <!-- Planning Center credentials -->
+          <div class="sm:col-span-2">
+            <p class="text-sm text-neutral-500 mb-3">{$t('import.sources.pcoInstructions')}</p>
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium text-neutral-700 mb-1" for="src-app-id">
+              {$t('import.sources.fieldAppId')}
+              {#if editingId}
+                <span class="text-neutral-400 font-normal">({$t('import.sources.fieldKeepExisting')})</span>
+              {:else}
+                <span class="text-danger-500">*</span>
+              {/if}
+            </label>
+            <input
+              id="src-app-id"
+              type="text"
+              autocomplete="off"
+              bind:value={formUsername}
+              placeholder={editingId ? '(unchanged)' : 'App ID'}
+              class="w-full border border-neutral-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-400"
+            />
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium text-neutral-700 mb-1" for="src-secret">
+              {$t('import.sources.fieldSecret')}
+              {#if editingId}
+                <span class="text-neutral-400 font-normal">({$t('import.sources.fieldKeepExisting')})</span>
+              {:else}
+                <span class="text-danger-500">*</span>
+              {/if}
+            </label>
+            <input
+              id="src-secret"
+              type="password"
+              autocomplete="new-password"
+              bind:value={formPassword}
+              placeholder={editingId ? '(unchanged)' : 'Secret'}
+              class="w-full border border-neutral-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-400"
+            />
           </div>
         {/if}
       </div>

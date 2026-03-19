@@ -17,6 +17,7 @@ from imports.views import (
     discover_prefixes_from_source_view,
     import_history_source_view,
     list_create_source_view,
+    run_import_planningcenter_view,
     run_import_source_view,
     source_detail_view,
 )
@@ -57,6 +58,7 @@ urlpatterns = [
     path("api/imports/sources/<uuid:source_id>/", source_detail_view, name="import-source-detail"),
     path("api/imports/sources/<uuid:source_id>/run/", run_import_source_view, name="import-source-run"),
     path("api/imports/sources/<uuid:source_id>/history/", import_history_source_view, name="import-source-history"),
+    path("api/imports/sources/<uuid:source_id>/run-planningcenter/", run_import_planningcenter_view, name="import-source-run-planningcenter"),
     path("api/imports/sources/<uuid:source_id>/discover-prefixes/", discover_prefixes_from_source_view, name="import-source-discover-prefixes"),
     # Printing app
     path("api/printing/", include("printing.urls")),

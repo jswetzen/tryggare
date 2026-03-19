@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import logging
 import uuid
+from datetime import date
 
 from django.db import transaction
 from django.utils import timezone
@@ -220,6 +221,181 @@ def _create_parent(family: Family, contact: dict) -> Parent:
         phone=contact.get("phone") or None,
         relationship_type="OTHER",
     )
+
+
+def run_import_planningcenter(
+    households: list[dict], source: ImportSource, user
+) -> ImportRun:
+    """
+    Import households from Planning Center People API data.
+
+    Maps: Household → Family, non-child Person → Parent, child Person → Child.
+    No tickets are created (PCO has no ticket concept).
+    Idempotent: uses external_booking_id = 'pco-household-{id}' to skip existing families,
+    and (family, first_name, last_name, birthdate) to skip existing children.
+
+    Returns the completed ImportRun instance.
+    """
+    run = ImportRun.objects.create(
+        source=source,
+        triggered_by=user,
+        status=ImportRun.STATUS_RUNNING,
+        started_at=timezone.now(),
+    )
+
+    log_entries: list[dict] = []
+    summary: dict = {
+        "total_households": 0,
+        "families_created": 0,
+        "families_skipped": 0,
+        "parents_created": 0,
+        "children_created": 0,
+        "children_skipped": 0,
+        "errors": [],
+        "warnings": [],
+    }
+
+    for household in households:
+        summary["total_households"] += 1
+        household_id = household.get("id", "")
+        external_booking_id = f"pco-household-{household_id}"
+
+        try:
+            with transaction.atomic():
+                family = Family.objects.filter(external_booking_id=external_booking_id).first()
+                if family is None:
+                    last_name = household.get("name", "") or ""
+                    family = Family.objects.create(
+                        external_booking_id=external_booking_id,
+                        last_name=last_name,
+                    )
+                    summary["families_created"] += 1
+
+                    # Create parent records for non-child members
+                    for member in household.get("members", []):
+                        if not member.get("child", False):
+                            _create_parent_pco(family, member)
+                            summary["parents_created"] += 1
+
+                    log_entries.append({
+                        "booking_key": external_booking_id,
+                        "action": "family_created",
+                        "details": f"Created family {family.id} for household {household_id}",
+                    })
+                else:
+                    summary["families_skipped"] += 1
+                    log_entries.append({
+                        "booking_key": external_booking_id,
+                        "action": "family_skipped",
+                        "details": f"Family {family.id} already exists for household {household_id}",
+                    })
+
+                # Always reconcile children (idempotent)
+                for member in household.get("members", []):
+                    if member.get("child", False):
+                        _process_child_pco(
+                            member=member,
+                            family=family,
+                            summary=summary,
+                            log_entries=log_entries,
+                            household_id=household_id,
+                        )
+
+        except Exception as exc:
+            msg = f"Import error for household {household_id}: {exc}"
+            logger.exception(msg)
+            summary["errors"].append(msg)
+            log_entries.append({
+                "booking_key": external_booking_id,
+                "action": "error",
+                "details": msg,
+            })
+
+    run.status = ImportRun.STATUS_COMPLETED
+    run.finished_at = timezone.now()
+    run.log = log_entries
+    run.summary = summary
+    run.save()
+
+    return run
+
+
+def _create_parent_pco(family: Family, member: dict) -> Parent:
+    """Create a Parent record from a PCO member dict."""
+    first = member.get("first_name", "")
+    last = member.get("last_name", "")
+    name = f"{first} {last}".strip() or first or last or "Unknown"
+    return Parent.objects.create(
+        family=family,
+        name=name,
+        email=member.get("email") or None,
+        phone=member.get("phone") or None,
+        relationship_type="OTHER",
+    )
+
+
+def _process_child_pco(
+    *,
+    member: dict,
+    family: Family,
+    summary: dict,
+    log_entries: list[dict],
+    household_id: str,
+) -> None:
+    """Create or skip a child from a PCO member dict."""
+    first_name = member.get("first_name", "")
+    last_name = member.get("last_name", "")
+    birthdate_str = member.get("birthdate")
+    allergies = member.get("medical_notes") or None
+
+    if not first_name:
+        return
+
+    birthdate: date | None = None
+    if birthdate_str:
+        try:
+            birthdate = date.fromisoformat(birthdate_str)
+        except (ValueError, TypeError):
+            summary["warnings"].append(
+                f"Invalid birthdate '{birthdate_str}' for {first_name} {last_name} "
+                f"(household {household_id}) — imported without birthdate"
+            )
+
+    lookup: dict = {"family": family, "first_name": first_name, "last_name": last_name}
+    if birthdate is not None:
+        lookup["birthdate"] = birthdate
+    else:
+        lookup["birthdate__isnull"] = True
+
+    existing = Child.objects.filter(**lookup).first()
+    if existing is not None:
+        summary["children_skipped"] += 1
+        log_entries.append({
+            "booking_key": f"pco-household-{household_id}",
+            "action": "child_skipped",
+            "details": f"Child {first_name} {last_name} already exists (id={existing.id})",
+        })
+        return
+
+    child = Child.objects.create(
+        family=family,
+        first_name=first_name,
+        last_name=last_name,
+        birthdate=birthdate,
+        allergies=allergies,
+    )
+    summary["children_created"] += 1
+
+    if birthdate is None and not birthdate_str:
+        summary["warnings"].append(
+            f"Child {first_name} {last_name} (household {household_id}) imported without birthdate"
+        )
+
+    log_entries.append({
+        "booking_key": f"pco-household-{household_id}",
+        "action": "child_created",
+        "details": f"Created child {child.id} ({first_name} {last_name})",
+    })
 
 
 def _process_child(

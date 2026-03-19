@@ -314,8 +314,10 @@ export interface ImportSourceWrite {
 
 export interface ImportRunSummary {
   total_bookings?: number;
+  total_households?: number;
   families_created?: number;
   families_skipped?: number;
+  parents_created?: number;
   children_created?: number;
   children_skipped?: number;
   tickets_created?: number;
