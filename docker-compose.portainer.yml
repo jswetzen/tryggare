@@ -1,11 +1,9 @@
 name: ${COMPOSE_PROJECT_NAME:-check-in-prod}
 services:
   # Django backend serving both API and frontend
-  # Frontend is built in the Dockerfile's first stage
+  # Image is built by GitHub Actions and pushed to GHCR on every push to main
   web:
-    build:
-      context: .
-      dockerfile: backend/Dockerfile.prod
+    image: ghcr.io/jswetzen/check-ins:latest
     environment:
       # Empty strings = use relative paths (browser uses current host/port)
       - VITE_PUBLIC_API_BASE_URL=${VITE_PUBLIC_API_BASE_URL:-}  # Client-side (Browser -> Django)
@@ -37,14 +35,6 @@ services:
       - frontend
       - backend
       - traefik
-#    deploy:
-#      resources:
-#        limits:
-#          cpus: ${WEB_CPU_LIMIT:-2.0}
-#          memory: ${WEB_MEMORY_LIMIT:-2G}
-#        reservations:
-#          cpus: ${WEB_CPU_RESERVATION:-0.5}
-#          memory: ${WEB_MEMORY_RESERVATION:-512M}
     restart: unless-stopped
     logging:
       options:
@@ -57,20 +47,10 @@ services:
       POSTGRES_DB: ${POSTGRES_DB:-checkins}
       POSTGRES_USER: ${DB_USER}
       POSTGRES_PASSWORD: ${DB_PASSWORD}
-    # Port exposure removed for security - use Docker network for access
-    # For testing, use: podman exec -it <container> psql -U ${DB_USER} checkins
     volumes:
       - pg_data_prod:/var/lib/postgresql/data
     networks:
       - backend
-#    deploy:
-#      resources:
-#        limits:
-#          cpus: ${DB_CPU_LIMIT:-1.0}
-#          memory: ${DB_MEMORY_LIMIT:-1G}
-#        reservations:
-#          cpus: ${DB_CPU_RESERVATION:-0.25}
-#          memory: ${DB_MEMORY_RESERVATION:-256M}
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -d $${POSTGRES_DB} -U $${POSTGRES_USER}"]
       interval: 10s
@@ -89,14 +69,6 @@ services:
       - REDIS_PASSWORD=${REDIS_PASSWORD}
     networks:
       - backend
-#    deploy:
-#      resources:
-#        limits:
-#          cpus: ${VALKEY_CPU_LIMIT:-0.5}
-#          memory: ${VALKEY_MEMORY_LIMIT:-512M}
-#        reservations:
-#          cpus: ${VALKEY_CPU_RESERVATION:-0.1}
-#          memory: ${VALKEY_MEMORY_RESERVATION:-128M}
     healthcheck:
       test: ["CMD", "sh", "-c", "valkey-cli -a $$REDIS_PASSWORD ping"]
       interval: 10s
