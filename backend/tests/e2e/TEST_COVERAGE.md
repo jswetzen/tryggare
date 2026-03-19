@@ -62,6 +62,13 @@ Use this to quickly understand test coverage and identify gaps.
 - [ ] Print queue navigation link
 - [ ] Back button behavior
 
+## QR Scan Check-In (test_qr_scan_checkin.py)
+- [x] `/api/families/by-ticket/` returns correct family for known EventTicket code (camera bypass)
+- [x] `/api/families/by-ticket/` returns 404 for unknown code
+- [x] `/api/families/by-ticket/` returns 403 for unauthenticated browser request
+- [x] Family card expands/collapses via toggle button (foundational for QR scan UX)
+- [x] Family with unchecked-in children is visible on initial page load
+
 ## WebSocket / Real-time Updates (not yet migrated)
 - [ ] Check-in broadcasts to other clients
 - [ ] Multi-station synchronization
@@ -86,6 +93,7 @@ When adding a new feature, add tests to the appropriate file:
 5. **Print queue changes?** → `test_print_queue.py`
 6. **Translation/i18n?** → `test_i18n.py`
 7. **Navigation/UI?** → `test_navigation.py`
+8. **QR scan / ticket lookup?** → `test_qr_scan_checkin.py`
 
 Update this document when adding tests!
 

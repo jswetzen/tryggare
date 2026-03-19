@@ -17,6 +17,7 @@
    * - Slate-* color palette throughout
    * - Blue-600 action buttons
    */
+  import { tick, untrack } from 'svelte';
   import { _ } from 'svelte-i18n';
   import type { Child, Family, TicketType } from '$lib/checkin/types';
   import ChildCheckInButton from './ChildCheckInButton.svelte';
@@ -34,6 +35,7 @@
     expandedChildId: string | null;
     onToggleChildExpansion: (childId: string | null) => void;
     searchQuery?: string;
+    highlightedFamilyId?: string | null;
   }
 
   let {
@@ -47,13 +49,40 @@
     supervisedState = $bindable(),
     expandedChildId,
     onToggleChildExpansion,
-    searchQuery = ''
+    searchQuery = '',
+    highlightedFamilyId = null
   }: Props = $props();
 
   // Track which families are manually toggled by the user
   let manuallyExpanded = $state<Set<string>>(new Set());
   // Track families explicitly collapsed by the user (to override search auto-expand)
   let manuallyCollapsed = $state<Set<string>>(new Set());
+
+  // Track which family is currently flashing the highlight ring
+  let highlightActive = $state<string | null>(null);
+
+  $effect(() => {
+    if (!highlightedFamilyId) return;
+    const id = highlightedFamilyId;
+    // Auto-expand the highlighted family.
+    // Use untrack to read manuallyExpanded/manuallyCollapsed without
+    // creating a dependency — otherwise writing back to them would
+    // re-trigger this effect in an infinite loop.
+    untrack(() => {
+      const newManual = new Set(manuallyExpanded);
+      newManual.add(id);
+      manuallyExpanded = newManual;
+      const newCollapsed = new Set(manuallyCollapsed);
+      newCollapsed.delete(id);
+      manuallyCollapsed = newCollapsed;
+    });
+    // Scroll to it after DOM update
+    tick().then(() => {
+      document.getElementById(`family-${id}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      highlightActive = id;
+      setTimeout(() => { highlightActive = null; }, 2000);
+    });
+  });
 
   // Families that should be auto-expanded because a child's name matches the search query
   // (only when the family name itself does NOT match — if the family name matches, it's already shown without needing expansion)
@@ -188,9 +217,15 @@
     {@const familyUndoSeconds = getFamilyUndoSeconds(family)}
 
     <div
-      class="bg-white border-2 border-slate-300 rounded-lg overflow-hidden"
-      class:opacity-60={allCheckedIn}
-      class:bg-slate-50={allCheckedIn}
+      id={`family-${family.id}`}
+      class="bg-white border-2 rounded-lg overflow-hidden transition-colors duration-300"
+      class:border-slate-300={highlightActive !== family.id}
+      class:border-blue-400={highlightActive === family.id}
+      class:ring-2={highlightActive === family.id}
+      class:ring-blue-400={highlightActive === family.id}
+      class:bg-blue-50={highlightActive === family.id}
+      class:opacity-60={allCheckedIn && highlightActive !== family.id}
+      class:bg-slate-50={allCheckedIn && highlightActive !== family.id}
       data-testid={`family-card-${family.id}`}
     >
       <!-- Family Header - ENTIRE DIV CLICKABLE -->
@@ -389,9 +424,13 @@
 
         <!-- Family header row -->
         <tr
-          class="border-b border-slate-200 hover:bg-slate-50 cursor-pointer"
-          class:opacity-60={allCheckedIn}
-          class:bg-slate-50={allCheckedIn}
+          id={`family-${family.id}`}
+          class="border-b border-slate-200 hover:bg-slate-50 cursor-pointer transition-colors duration-300"
+          class:opacity-60={allCheckedIn && highlightActive !== family.id}
+          class:bg-slate-50={allCheckedIn && highlightActive !== family.id}
+          class:bg-blue-50={highlightActive === family.id}
+          class:outline={highlightActive === family.id}
+          class:outline-blue-400={highlightActive === family.id}
           onclick={(e) => toggleFamily(family.id, e)}
           role="button"
           tabindex="0"

@@ -21,6 +21,7 @@ help:
 	@echo "  make test-i18n         Run internationalization tests only"
 	@echo "  make test-navigation   Run navigation tests only"
 	@echo "  make test-supervised   Run supervised check-in tests only"
+	@echo "  make test-qr-scan      Run QR scan check-in tests only"
 	@echo ""
 	@echo "Build & Restart Commands:"
 	@echo "  make rebuild-dev       Trigger dev environment rebuild"
@@ -105,6 +106,11 @@ test-supervised:
 	@echo "Running supervised check-in tests..."
 	@FRONTEND_URL=http://localhost:5173 BACKEND_URL=http://localhost:8000 \
 		uv run --group test pytest tests/e2e/test_supervised_checkin_simple.py -v
+
+test-qr-scan:
+	@echo "Running QR scan check-in tests..."
+	@FRONTEND_URL=http://localhost:5173 BACKEND_URL=http://localhost:8000 \
+		uv run --group test pytest tests/e2e/test_qr_scan_checkin.py -v -s
 
 # Utility commands
 clean:

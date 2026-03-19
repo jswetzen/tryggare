@@ -17,12 +17,11 @@
   let rafId: number;
 
   onMount(async () => {
-    // Camera API requires a secure context (HTTPS or localhost)
-    if (!navigator.mediaDevices || !window.isSecureContext) {
-      cameraError = 'insecure';
-      return;
-    }
     try {
+      if (!navigator.mediaDevices) {
+        cameraError = 'insecure';
+        return;
+      }
       stream = await navigator.mediaDevices.getUserMedia({
         video: { facingMode: 'environment' }
       });
@@ -36,6 +35,8 @@
       const name = (err as DOMException)?.name;
       if (name === 'NotAllowedError' || name === 'PermissionDeniedError') {
         cameraError = 'denied';
+      } else if (name === 'SecurityError') {
+        cameraError = 'insecure';
       } else {
         cameraError = 'unavailable';
       }
@@ -76,8 +77,7 @@
     const jsQR = (await import('jsqr')).default;
     const result = jsQR(imageData.data, w, h);
     if (result) {
-      scanning = false;
-      stopCamera();
+      handleClose();
       onScan(result.data);
       return;
     }

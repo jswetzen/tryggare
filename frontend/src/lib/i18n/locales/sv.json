@@ -134,7 +134,9 @@
     "qrClose": "Stäng",
     "qrCameraPermissionDenied": "Kameråtkomst nekad. Tillåt kameran i webbläsarens inställningar.",
     "qrCameraInsecureContext": "Kameråtkomst kräver HTTPS. Använd appen via en säker (https://) anslutning.",
-    "qrCameraUnavailable": "Ingen kamera hittades eller kameran används av en annan app."
+    "qrCameraUnavailable": "Ingen kamera hittades eller kameran används av en annan app.",
+    "qrNotFound": "Biljett hittades inte. Sök på namn istället.",
+    "qrLookupError": "Biljettsökning misslyckades. Sök på namn istället."
   },
   "checkout": {
     "pageTitle": "Utcheckningsstation",
