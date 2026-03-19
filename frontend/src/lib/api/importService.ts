@@ -51,6 +51,10 @@ export const importApi = {
   getHistory: (sourceId: string): Promise<ImportRun[]> =>
     apiClient.get(`/imports/sources/${sourceId}/history/`),
 
+  // Planning Center: single-step fetch & import
+  runImportPlanningCenter: (sourceId: string): Promise<ImportRun> =>
+    apiClient.post(`/imports/sources/${sourceId}/run-planningcenter/`, {}),
+
   // Discover prefixes via source live-fetch (for first-time mapping)
   discoverPrefixesFromSource: (sourceId: string): Promise<DiscoverPrefixesResponse> =>
     apiClient.post(`/imports/sources/${sourceId}/discover-prefixes/`),

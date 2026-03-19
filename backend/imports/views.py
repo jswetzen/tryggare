@@ -6,7 +6,7 @@ from rest_framework.permissions import IsAdminUser
 from rest_framework.response import Response
 from rest_framework import status
 
-from .importer import ProviderFetchError, ProviderLoginError, run_import
+from .importer import ProviderFetchError, ProviderLoginError, run_import, run_import_planningcenter
 from .models import FestivalProImportSource, ImportRun, ImportSource
 from .parser import discover_child_prefixes, parse_json_with_duplicate_keys
 from .serializers import (
@@ -226,6 +226,72 @@ def run_import_source_view(request, source_id):
         import_run.save(update_fields=["source_file_name", "raw_data"])
     except Exception as exc:
         logger.exception("Unhandled error during import for source %s", source_id)
+        return Response(
+            {"detail": f"Import failed: {exc}"},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
+
+    return Response(ImportRunSerializer(import_run).data, status=status.HTTP_201_CREATED)
+
+
+@api_view(["POST"])
+@permission_classes([IsAdminUser])
+def run_import_planningcenter_view(request, source_id):
+    """
+    POST /api/imports/sources/<source_id>/run-planningcenter/
+
+    Fetches all households from Planning Center via the PCO People API,
+    then imports them into the database as Families, Parents, and Children.
+    No field mapping step required.
+    """
+    import json
+
+    source = get_object_or_404(ImportSource, pk=source_id)
+
+    if source.provider_type != ImportSource.PROVIDER_PLANNINGCENTER:
+        return Response(
+            {"detail": "This endpoint is only for Planning Center sources."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+    if not source.has_credentials:
+        return Response(
+            {"detail": "Source has no credentials stored."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    from .providers import get_provider
+    provider = get_provider(source)
+    try:
+        raw_text = provider.fetch(source)
+    except ProviderFetchError as exc:
+        logger.warning("PCO fetch error for source %s: %s", source_id, exc)
+        return Response(
+            {"detail": f"Planning Center fetch failed: {exc}"},
+            status=status.HTTP_502_BAD_GATEWAY,
+        )
+    except ValueError as exc:
+        return Response({"detail": str(exc)}, status=status.HTTP_502_BAD_GATEWAY)
+
+    try:
+        households = json.loads(raw_text)
+    except (ValueError, TypeError) as exc:
+        return Response(
+            {"detail": f"Provider returned invalid JSON: {exc}"},
+            status=status.HTTP_502_BAD_GATEWAY,
+        )
+
+    if not isinstance(households, list):
+        return Response(
+            {"detail": "Provider data must be a list of households."},
+            status=status.HTTP_502_BAD_GATEWAY,
+        )
+
+    try:
+        import_run = run_import_planningcenter(households, source, request.user)
+        import_run.source_file_name = f"pco-api:{source.name}"
+        import_run.save(update_fields=["source_file_name"])
+    except Exception as exc:
+        logger.exception("Unhandled error during PCO import for source %s", source_id)
         return Response(
             {"detail": f"Import failed: {exc}"},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR,

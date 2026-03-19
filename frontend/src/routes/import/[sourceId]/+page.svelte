@@ -51,6 +51,10 @@
     Object.keys(sourceInfo.festivalpro_config.field_mappings).length > 0
   );
 
+  // Planning Center mode: single-button import, no file upload or mapping step
+  let isPlanningCenter = $derived(sourceInfo?.provider_type === 'planningcenter');
+  let pcoReady = $derived(isPlanningCenter && sourceInfo?.has_credentials === true);
+
   // ---------------------------------------------------------------------------
   // Lifecycle
   // ---------------------------------------------------------------------------
@@ -268,6 +272,22 @@
     }
   }
 
+  async function runImportPCO() {
+    error = '';
+    importing = true;
+    try {
+      const result = await importApi.runImportPlanningCenter(sourceId);
+      importResult = result;
+      step = 3;
+      await loadHistory(sourceId);
+    } catch (e: unknown) {
+      const err = e as { details?: { detail?: string } };
+      error = err?.details?.detail ?? $t('import.importError');
+    } finally {
+      importing = false;
+    }
+  }
+
   function resetWizard() {
     step = 1;
     jsonString = null;
@@ -345,8 +365,8 @@
     </h1>
   </div>
 
-  <!-- Step indicator -->
-  <div class="flex items-center gap-2 mb-6">
+  <!-- Step indicator (hidden for Planning Center — single-step flow) -->
+  <div class="flex items-center gap-2 mb-6 {isPlanningCenter ? 'hidden' : ''}">
     {#each [
       { n: 1, label: $t('import.step1Title') },
       { n: 2, label: $t('import.step2Title') },
@@ -377,6 +397,35 @@
        ========================================================= -->
   {#if step === 1}
     <div class="bg-white rounded-lg border border-neutral-200 shadow-sm p-6">
+
+      <!-- ── Planning Center single-step panel ── -->
+      {#if isPlanningCenter}
+        <h2 class="text-lg font-semibold text-neutral-900 mb-2">{$t('import.pco.title')}</h2>
+        <p class="text-sm text-neutral-500 mb-5">{$t('import.pco.description')}</p>
+
+        {#if error}
+          <div class="mb-4 p-3 bg-danger-50 border border-danger-200 rounded text-danger-700 text-sm">
+            {error}
+          </div>
+        {/if}
+
+        {#if pcoReady}
+          <button
+            onclick={runImportPCO}
+            disabled={importing}
+            class="px-5 py-2 bg-primary-600 text-white font-semibold rounded-button hover:bg-primary-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+          >
+            {importing ? $t('import.importing') : $t('import.pco.importButton')}
+          </button>
+        {:else}
+          <div class="p-3 bg-warning-50 border border-warning-200 rounded text-warning-700 text-sm">
+            {$t('import.pco.noCredentials')}
+            <a href="/import/sources" class="underline font-medium ml-1">{$t('import.sourceNoCredentialsLink')}</a>.
+          </div>
+        {/if}
+
+      {:else}
+      <!-- ── FestivalPro / file-upload flow ── -->
       <h2 class="text-lg font-semibold text-neutral-900 mb-4">{$t('import.step1Title')}</h2>
 
       <!-- Auto-fetch banner (FestivalPro with credentials) -->
@@ -486,13 +535,14 @@
           {$t('import.continueToMapping')}
         </button>
       </div>
+      {/if}
     </div>
   {/if}
 
   <!-- =========================================================
        STEP 2 — Map prefixes
        ========================================================= -->
-  {#if step === 2}
+  {#if step === 2 && !isPlanningCenter}
     <div class="bg-white rounded-lg border border-neutral-200 shadow-sm p-6">
       <h2 class="text-lg font-semibold text-neutral-900 mb-1">{$t('import.step2Title')}</h2>
       <p class="text-sm text-neutral-500 mb-4">{$t('import.mappingNote')}</p>
@@ -602,6 +652,12 @@
 
       <!-- Summary stats -->
       <div class="grid grid-cols-2 sm:grid-cols-3 gap-4 mb-6">
+        {#if importResult.summary.total_households !== undefined}
+          <div class="bg-neutral-50 rounded-lg p-4 text-center border border-neutral-200">
+            <div class="text-2xl font-bold text-neutral-900">{importResult.summary.total_households}</div>
+            <div class="text-xs text-neutral-500 mt-1">{$t('import.totalHouseholds')}</div>
+          </div>
+        {/if}
         {#if importResult.summary.total_bookings !== undefined}
           <div class="bg-neutral-50 rounded-lg p-4 text-center border border-neutral-200">
             <div class="text-2xl font-bold text-neutral-900">{importResult.summary.total_bookings}</div>
@@ -630,6 +686,12 @@
           <div class="bg-neutral-50 rounded-lg p-4 text-center border border-neutral-200">
             <div class="text-2xl font-bold text-neutral-700">{importResult.summary.children_skipped}</div>
             <div class="text-xs text-neutral-500 mt-1">{$t('import.childrenSkipped')}</div>
+          </div>
+        {/if}
+        {#if importResult.summary.parents_created !== undefined}
+          <div class="bg-success-50 rounded-lg p-4 text-center border border-success-200">
+            <div class="text-2xl font-bold text-success-800">{importResult.summary.parents_created}</div>
+            <div class="text-xs text-success-700 mt-1">{$t('import.parentsCreated')}</div>
           </div>
         {/if}
         {#if importResult.summary.tickets_created !== undefined}

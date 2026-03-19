@@ -14,4 +14,7 @@ def get_provider(source: "ImportSource") -> ImportSourceProvider:
     if source.provider_type == IS.PROVIDER_FESTIVALPRO:
         from .festivalpro import FestivalProProvider
         return FestivalProProvider()
+    if source.provider_type == IS.PROVIDER_PLANNINGCENTER:
+        from .planningcenter import PlanningCenterProvider
+        return PlanningCenterProvider()
     raise NotImplementedError(f"No provider implemented for type: {source.provider_type!r}")
