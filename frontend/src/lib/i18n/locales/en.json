@@ -134,7 +134,9 @@
     "qrClose": "Close",
     "qrCameraPermissionDenied": "Camera access denied. Allow camera access in your browser settings.",
     "qrCameraInsecureContext": "Camera access requires HTTPS. Please use the app via a secure (https://) connection.",
-    "qrCameraUnavailable": "No camera found or camera is in use by another app."
+    "qrCameraUnavailable": "No camera found or camera is in use by another app.",
+    "qrNotFound": "Ticket not found. Try searching by name.",
+    "qrLookupError": "Ticket lookup failed. Try searching by name."
   },
   "checkout": {
     "pageTitle": "Check-Out Station",

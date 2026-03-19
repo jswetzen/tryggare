@@ -61,6 +61,32 @@ class FamilyViewSet(viewsets.ModelViewSet):
             return FamilyDetailSerializer
         return FamilySerializer
 
+    @action(detail=False, methods=["get"], url_path="by-ticket")
+    def ticket_lookup(self, request):
+        code = request.query_params.get("code", "").strip()
+        if not code:
+            return Response({"error": "code required"}, status=400)
+
+        family = None
+        ticket = EventTicket.objects.filter(external_ticket_code=code).select_related("child__family").first()
+        if ticket:
+            family = ticket.child.family
+        else:
+            ticket = SessionTicket.objects.filter(external_ticket_code=code).select_related("child__family").first()
+            if ticket:
+                family = ticket.child.family
+
+        if not family:
+            return Response({"error": "not_found"}, status=404)
+
+        # Use the full queryset to get the family with all prefetches
+        family_qs = self.get_queryset().filter(pk=family.pk).first()
+        if not family_qs:
+            return Response({"error": "not_found"}, status=404)
+
+        serializer = self.get_serializer(family_qs)
+        return Response(serializer.data)
+
     @action(detail=True, methods=["get"])
     def children(self, request, pk=None):
         """Get all children for a specific family"""

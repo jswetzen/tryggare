@@ -108,9 +108,11 @@
   let expandedChildId = $state<string | null>(null);
   let showAddPanel = $state(false);
   let successToast = $state<string | null>(null);
+  let errorToast = $state<string | null>(null);
   let showCheckedInFamilies = $state(false);
   let showSessionSelector = $state(false);
   let showQrScanner = $state(false);
+  let highlightedFamilyId = $state<string | null>(null);
   let supervisedState = $state<Record<string, boolean>>({});
 
   // Printer / auto-print state
@@ -380,9 +382,17 @@
   const visibleFamilies = $derived.by(() => {
     // If showCheckedInFamilies is enabled, show all families (sorted alphabetically)
     // Otherwise, apply the standard visibility filtering
-    const filtered = showCheckedInFamilies
+    let filtered = showCheckedInFamilies
       ? [...families].sort((a, b) => a.name.localeCompare(b.name))
       : getVisibleFamilies(families, undoActions);
+
+    // Always include a highlighted family (e.g. QR-scanned) even if it would normally be hidden
+    if (highlightedFamilyId && !filtered.some((f) => f.id === highlightedFamilyId)) {
+      const highlightedFamily = families.find((f) => f.id === highlightedFamilyId);
+      if (highlightedFamily) {
+        filtered = [highlightedFamily, ...filtered];
+      }
+    }
 
     if (!searchQuery) return filtered;
 
@@ -680,9 +690,24 @@
     }
   }
 
-  function handleQrScan(code: string) {
+  async function handleQrScan(code: string) {
     showQrScanner = false;
-    successToast = `Skannad: ${code}`; // Phase 1 stub — replaced in Phase 2
+    try {
+      const apiFamily = await checkinApi.lookupByTicket(code);
+      const found = families.find((f) => f.id === apiFamily.id);
+      if (found) {
+        highlightedFamilyId = found.id;
+      } else {
+        families = mergeFamilies(families, [apiFamily]);
+        highlightedFamilyId = apiFamily.id;
+      }
+      setTimeout(() => { highlightedFamilyId = null; }, 3000);
+    } catch (err) {
+      const apiError = err as ApiError;
+      const msg = apiError.status === 404 ? $_('checkin.qrNotFound') : $_('checkin.qrLookupError');
+      errorToast = msg;
+      setTimeout(() => { if (errorToast === msg) errorToast = null; }, 4000);
+    }
   }
 
   // Handle session change button click
@@ -971,6 +996,7 @@
           expandedChildId = childId;
         }}
         {searchQuery}
+        {highlightedFamilyId}
       />
     {/if}
   {/if}
@@ -990,6 +1016,28 @@
       successToast = null;
     }}
   />
+{/if}
+
+<!-- Error Toast (QR scan misses, etc.) -->
+{#if errorToast}
+  <div
+    class="fixed top-4 right-4 bg-red-50 text-red-700 border border-red-400 px-4 py-3 rounded-md shadow-lg flex items-center gap-3 z-50 animate-slide-in"
+    role="alert"
+    aria-live="assertive"
+  >
+    <span class="text-xl flex-shrink-0">✕</span>
+    <span class="font-semibold flex-1">{errorToast}</span>
+    <button
+      type="button"
+      class="flex-shrink-0 text-current hover:opacity-70 transition-opacity"
+      onclick={() => { errorToast = null; }}
+      aria-label="Dismiss"
+    >
+      <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+        <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
+      </svg>
+    </button>
+  </div>
 {/if}
 
 <!-- Animations -->

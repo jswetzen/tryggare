@@ -4,6 +4,7 @@
 
 import { apiClient } from './client';
 import type { Family, Child, Session, CheckInRecord, AuditLog, PrintQueueItem, QRInfoResponse, Printer, PrintJob } from './types';
+import type { FamilyApiResponse } from '$lib/checkin/types';
 
 /**
  * Family API endpoints
@@ -156,6 +157,12 @@ export const checkinApi = {
    * Get all families with nested children and parents
    */
   getFamilies: () => apiClient.get<Family[]>('/families/'),
+
+  /**
+   * Look up a family by ticket QR code (external_ticket_code)
+   */
+  lookupByTicket: (code: string) =>
+    apiClient.get<FamilyApiResponse>(`/families/by-ticket/?code=${encodeURIComponent(code)}`),
 
   /**
    * Create a new family with parents and children
