@@ -85,6 +85,19 @@
 				recentlyPrintedCount = recentlyPrintedItems.length;
 			}
 		}
+		else if (message.type === 'print_job_completed') {
+			const recordId = message.data?.record_id;
+			if (recordId) {
+				const printedItem = queueItems.find(item => item.id === recordId);
+				queueItems = queueItems.filter(item => item.id !== recordId);
+				if (printedItem) {
+					recentlyPrintedCount += 1;
+					if (recentlyPrintedExpanded) {
+						recentlyPrintedItems = [{ ...printedItem, label_printed: true }, ...recentlyPrintedItems];
+					}
+				}
+			}
+		}
 		else if (message.type === 'printer_status_changed' || message.type === 'printer_registered') {
 			const { uuid, name, is_online } = message.data;
 			const existing = printers.find((p) => p.id === uuid);

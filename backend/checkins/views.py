@@ -521,9 +521,15 @@ class PrintQueueViewSet(viewsets.ReadOnlyModelViewSet):
         img.save(buf, format='PNG')
         qr_data_url = f'data:image/png;base64,{base64.b64encode(buf.getvalue()).decode()}'
 
+        from printing.views import LABEL_DIMENSIONS, DEFAULT_LABEL_DIMENSIONS
+        label = request.GET.get("label", "")
+        dims = LABEL_DIMENSIONS.get(label, DEFAULT_LABEL_DIMENSIONS)
+
         return render(request, 'print_label.html', {
             'checkin': checkin,
-            'qr_url': qr_data_url
+            'qr_url': qr_data_url,
+            'w_mm': dims['w_mm'],
+            'h_mm': dims['h_mm'],
         })
 
     @action(detail=True, methods=['post'])

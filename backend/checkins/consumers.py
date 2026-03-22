@@ -206,16 +206,40 @@ class CheckInConsumer(AsyncWebsocketConsumer):
         job_id = data.get("job_id")
         if not job_id:
             return
-        await self._set_job_completed(job_id)
+        checkin_id = await self._set_job_completed(job_id)
+        if checkin_id:
+            await self.channel_layer.group_send(
+                "checkins_broadcast",
+                {
+                    "type": "print_job_completed",
+                    "data": {
+                        "job_id": job_id,
+                        "record_id": checkin_id,
+                    },
+                },
+            )
 
     @database_sync_to_async
     def _set_job_completed(self, job_id):
         from django.utils import timezone
         from printing.models import PrintJob
-        PrintJob.objects.filter(pk=job_id).update(
+        from checkins.models import CheckInRecord
+        now = timezone.now()
+        updated = PrintJob.objects.filter(pk=job_id).update(
             status=PrintJob.STATUS_COMPLETED,
-            completed_at=timezone.now(),
+            completed_at=now,
         )
+        if not updated:
+            return None
+        try:
+            job = PrintJob.objects.select_related("checkin").get(pk=job_id)
+            CheckInRecord.objects.filter(pk=job.checkin_id).update(
+                label_printed=True,
+                label_printed_at=now,
+            )
+            return str(job.checkin_id)
+        except PrintJob.DoesNotExist:
+            return None
 
     async def _handle_print_job_failed(self, data):
         """Handle print job failure."""
@@ -280,6 +304,13 @@ class CheckInConsumer(AsyncWebsocketConsumer):
         """Forward print job to connected printer clients."""
         await self.send(text_data=json.dumps({
             "type": "print_job",
+            "data": event["data"]
+        }))
+
+    async def print_job_completed(self, event):
+        """Broadcast print job completion to all clients."""
+        await self.send(text_data=json.dumps({
+            "type": "print_job_completed",
             "data": event["data"]
         }))
 

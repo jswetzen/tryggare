@@ -262,6 +262,14 @@ export interface PrintJobMessage {
   };
 }
 
+export interface PrintJobCompletedMessage {
+  type: 'print_job_completed';
+  data: {
+    job_id: string;
+    record_id: string;
+  };
+}
+
 export type WebSocketMessage =
   | CheckInMessage
   | CheckOutMessage
@@ -272,7 +280,8 @@ export type WebSocketMessage =
   | ConnectionEstablishedMessage
   | PrinterStatusChangedMessage
   | PrinterRegisteredMessage
-  | PrintJobMessage;
+  | PrintJobMessage
+  | PrintJobCompletedMessage;
 
 export interface DiscoveredPrefix {
   prefix: string;
