@@ -5,8 +5,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Print Label - {{ checkin.child.first_name }}</title>
     <style>
+        :root {
+            --label-w: {{ w_mm|default:"54.3" }}mm;
+            --label-h: {{ h_mm|default:"17.0" }}mm;
+        }
+
         @page {
-            size: 54.3mm 17mm; /* Width x Height for Brother QL-54.3mm */
+            size: var(--label-w) var(--label-h);
             margin: 0;
         }
 
@@ -24,8 +29,8 @@
             margin: 0;
             padding: 0;
             font-family: 'Helvetica Neue', 'Segoe UI', Arial, sans-serif;
-            width: 54.3mm;
-            height: 17mm;
+            width: var(--label-w);
+            height: var(--label-h);
             display: flex;
             align-items: center;
             justify-content: center;
@@ -44,9 +49,8 @@
         }
 
         .child-name {
-            /* Dynamic font sizing - will scale with available space */
             font-size: clamp(16pt, 5vw, 24pt);
-            font-weight: 900; /* Extra bold for thermal printing */
+            font-weight: 900;
             text-transform: uppercase;
             letter-spacing: 0.5pt;
             word-wrap: break-word;
@@ -59,14 +63,13 @@
             text-align: center;
             line-height: 1.1;
             color: #000;
-            /* Ensures text is crisp on thermal printer */
             -webkit-font-smoothing: antialiased;
             -moz-osx-font-smoothing: grayscale;
         }
 
         .qr-code {
-            width: 15mm;
-            height: 15mm;
+            width: calc(var(--label-h) - 3mm);
+            height: calc(var(--label-h) - 3mm);
             flex-shrink: 0;
             image-rendering: crisp-edges;
             image-rendering: pixelated;

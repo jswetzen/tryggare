@@ -5,7 +5,7 @@ Each file is a lightweight stub — enough context to pick up the work later.
 
 | File | Topic | Priority |
 |------|-------|----------|
-| `printer_client_improvements.md` | USB support, auto-detect, dynamic label sizing | Medium |
+| `archive/printer_client_improvements.md` | ~~USB support, auto-detect, dynamic label sizing~~ **Done** (remaining: Mac/Windows USB docs) | Low |
 | `qr_scan_checkin.md` | Scan ticket QR codes at check-in | Medium |
 | `planning_center_import.md` | Import from Planning.Center (church use case) | Low |
 | `festivalpro_import_verification.md` | Manual verification of FestivalPro import | Operational |

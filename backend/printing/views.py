@@ -14,6 +14,18 @@ from checkins.models import CheckInRecord
 from .models import Printer, PrintJob
 from .serializers import PrinterSerializer, PrintJobSerializer
 
+# Label dimensions mapping: brother_ql dots_printable → mm at 300 DPI.
+# Displayed landscape: width = label length, height = label width.
+LABEL_DIMENSIONS = {
+    "29x90":  {"w_mm": 83.8, "h_mm": 25.9},
+    "62":     {"w_mm": 54.3, "h_mm": 52.5},
+    "62x100": {"w_mm": 93.0, "h_mm": 52.5},
+    "29x42":  {"w_mm": 36.0, "h_mm": 25.9},
+    "29":     {"w_mm": 54.3, "h_mm": 25.9},
+    "17x54":  {"w_mm": 51.0, "h_mm": 12.7},
+}
+DEFAULT_LABEL_DIMENSIONS = {"w_mm": 54.3, "h_mm": 17.0}
+
 
 class PrinterViewSet(viewsets.ReadOnlyModelViewSet):
     """
@@ -147,6 +159,9 @@ def label_page_view(request, job_uuid):
     img.save(buf, format="PNG")
     qr_data_url = f"data:image/png;base64,{base64.b64encode(buf.getvalue()).decode()}"
 
+    label = request.GET.get("label", "")
+    dims = LABEL_DIMENSIONS.get(label, DEFAULT_LABEL_DIMENSIONS)
+
     return render(
         request,
         "print_label.html",
@@ -154,5 +169,7 @@ def label_page_view(request, job_uuid):
             "checkin": checkin,
             "qr_url": qr_data_url,
             "no_autoprint": True,
+            "w_mm": dims["w_mm"],
+            "h_mm": dims["h_mm"],
         },
     )
