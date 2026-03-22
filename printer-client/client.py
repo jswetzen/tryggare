@@ -12,8 +12,8 @@ import asyncio
 import json
 import logging
 import os
-import subprocess
 import sys
+import time
 import uuid
 from pathlib import Path
 
@@ -35,10 +35,10 @@ STAFF_PASSWORD = os.environ.get("STAFF_PASSWORD", "admin123")
 
 PRINTER_UUID = os.environ.get("PRINTER_UUID", str(uuid.uuid4()))
 PRINTER_NAME = os.environ.get("PRINTER_NAME", "Label Printer")
-PRINTER_IDENTIFIER = os.environ.get("PRINTER_IDENTIFIER", "")  # e.g. usb://0x04f9:0x209c
+PRINTER_IDENTIFIER = os.environ.get("PRINTER_IDENTIFIER", "")  # e.g. usb://0x04f9:0x2042
 PRINTER_BACKEND = os.environ.get("PRINTER_BACKEND", "pyusb")   # pyusb | network | linux_kernel
-PRINTER_MODEL = os.environ.get("PRINTER_MODEL", "QL-810W")
-LABEL_SIZE = os.environ.get("LABEL_SIZE", "29x90")  # die-cut: 29x90, 62x100 | endless: 29, 62
+PRINTER_MODEL = os.environ.get("PRINTER_MODEL", "QL-700")
+LABEL_SIZE = os.environ.get("LABEL_SIZE", "62")  # mm width: 29, 38, 50, 54, 62, 102
 
 # Dry-run: skip actual printing (useful for testing)
 DRY_RUN = os.environ.get("DRY_RUN", "false").lower() in ("1", "true", "yes")
@@ -113,10 +113,6 @@ async def render_label(label_url: str) -> bytes:
     Render the label page with Playwright and screenshot the .label div.
     Returns PNG bytes.
     """
-    # Tell the server to render at the correct dimensions for our label size
-    sep = "&" if "?" in label_url else "?"
-    label_url = f"{label_url}{sep}label={LABEL_SIZE}"
-
     async with async_playwright() as p:
         browser = await p.chromium.launch(headless=True)
         page = await browser.new_page(device_scale_factor=SCREENSHOT_DPI / 96)
@@ -132,38 +128,12 @@ async def render_label(label_url: str) -> bytes:
 
         png_bytes = await element.screenshot()
         await browser.close()
-        with open('label.png', 'wb') as f:
-            f.write(png_bytes)
         return png_bytes
 
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Printing
 # ─────────────────────────────────────────────────────────────────────────────
-
-def get_label_target_size() -> tuple[int, int]:
-    """
-    Return the expected (width, height) in pixels for the Playwright screenshot
-    based on LABEL_SIZE. This is the landscape orientation (length x width).
-    brother_ql's rotate="90" will rotate it to portrait for printing.
-    """
-    try:
-        from brother_ql.labels import ALL_LABELS
-        for label in ALL_LABELS:
-            if label.identifier == LABEL_SIZE:
-                # dots_printable is (width, length) in portrait
-                # We render landscape: (length, width)
-                return (label.dots_printable[1], label.dots_printable[0])
-    except ImportError:
-        pass
-    # Fallback for common sizes
-    KNOWN_SIZES = {
-        "29x90": (991, 306),
-        "62x100": (1164, 618),
-        "29x42": (425, 306),
-    }
-    return KNOWN_SIZES.get(LABEL_SIZE, (991, 306))
-
 
 def print_label(png_bytes: bytes) -> None:
     """
@@ -181,17 +151,7 @@ def print_label(png_bytes: bytes) -> None:
         from PIL import Image
         import io
 
-        if not hasattr(Image, "ANTIALIAS"):
-            Image.ANTIALIAS = Image.LANCZOS
-
         image = Image.open(io.BytesIO(png_bytes))
-        target_w, target_h = get_label_target_size()
-
-        log.info("Screenshot %dx%d, target %dx%d (landscape)",
-                 image.size[0], image.size[1], target_w, target_h)
-
-        if image.size != (target_w, target_h):
-            image = image.resize((target_w, target_h), Image.LANCZOS)
 
         qlr = BrotherQLRaster(PRINTER_MODEL)
         qlr.exception_on_warning = True
@@ -200,14 +160,14 @@ def print_label(png_bytes: bytes) -> None:
             qlr=qlr,
             images=[image],
             label=LABEL_SIZE,
-            rotate="90",
+            rotate="auto",
             threshold=70.0,
             dither=False,
             compress=False,
             red=False,
             dpi_600=False,
             hq=True,
-            cut=False,
+            cut=True,
         )
 
         send(
@@ -232,7 +192,7 @@ async def run_client(http_session: requests.Session) -> None:
     headers = build_ws_headers(http_session)
 
     log.info("Connecting to %s", ws_url)
-    async with websockets.connect(ws_url, additional_headers=headers, origin=BACKEND_URL.rstrip("/")) as ws:
+    async with websockets.connect(ws_url, additional_headers=headers) as ws:
         log.info("Connected")
 
         # Register printer
@@ -309,101 +269,10 @@ async def handle_print_job(ws, job_id: str, label_url: str) -> None:
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Startup checks
-# ─────────────────────────────────────────────────────────────────────────────
-
-def check_ipp_usb() -> None:
-    """Warn if ipp-usb service is active — it causes USB reset loops."""
-    try:
-        result = subprocess.run(
-            ["systemctl", "is-active", "ipp-usb.service"],
-            capture_output=True, text=True, timeout=5,
-        )
-        if result.stdout.strip() == "active":
-            log.warning("=" * 60)
-            log.warning("ipp-usb.service is ACTIVE — this causes USB reset loops!")
-            log.warning("Run: sudo systemctl stop ipp-usb.service")
-            log.warning("=" * 60)
-    except (FileNotFoundError, subprocess.TimeoutExpired):
-        pass  # systemctl not available (e.g. macOS/Windows)
-
-
-def discover_and_check_printer() -> str:
-    """
-    Auto-discover printer if PRINTER_IDENTIFIER is empty.
-    Query printer status and log model/label info.
-    Returns the printer identifier to use.
-    """
-    global PRINTER_IDENTIFIER
-
-    if PRINTER_BACKEND == "network":
-        if not PRINTER_IDENTIFIER:
-            log.error("PRINTER_IDENTIFIER is required for network backend (e.g. tcp://192.168.1.50)")
-            sys.exit(1)
-        log.info("Network backend: %s", PRINTER_IDENTIFIER)
-        try:
-            from brother_ql.backends.helpers import get_network_status
-            status_info = get_network_status(PRINTER_IDENTIFIER)
-            if status_info:
-                log.info("Printer status via SNMP: %s", status_info)
-            else:
-                log.warning("Could not query printer status via SNMP (puresnmp not installed?)")
-        except Exception as exc:
-            log.warning("Could not query printer status: %s", exc)
-        return PRINTER_IDENTIFIER
-
-    try:
-        from brother_ql.backends.helpers import discover
-        printers = discover(PRINTER_BACKEND)
-    except Exception as exc:
-        log.warning("Printer discovery failed: %s", exc)
-        if not PRINTER_IDENTIFIER:
-            log.error("No PRINTER_IDENTIFIER set and discovery failed")
-            sys.exit(1)
-        return PRINTER_IDENTIFIER
-
-    if not PRINTER_IDENTIFIER:
-        if len(printers) == 1:
-            PRINTER_IDENTIFIER = printers[0]["identifier"]
-            log.info("Auto-discovered printer: %s", PRINTER_IDENTIFIER)
-        elif len(printers) == 0:
-            log.error("No printers found via %s backend. Is the printer connected?", PRINTER_BACKEND)
-            sys.exit(1)
-        else:
-            identifiers = [p["identifier"] for p in printers]
-            log.error("Multiple printers found — set PRINTER_IDENTIFIER: %s", identifiers)
-            sys.exit(1)
-    else:
-        log.info("Using configured printer: %s", PRINTER_IDENTIFIER)
-
-    # Query printer status
-    try:
-        from brother_ql.backends.helpers import get_printer, get_status
-        printer = get_printer(PRINTER_IDENTIFIER, PRINTER_BACKEND)
-        status_info = get_status(printer)
-        log.info("Printer status: %s", status_info)
-        printer.dispose()
-    except Exception as exc:
-        log.warning("Could not query printer status: %s", exc)
-
-    return PRINTER_IDENTIFIER
-
-
-# ─────────────────────────────────────────────────────────────────────────────
 # Entry point with reconnect logic
 # ─────────────────────────────────────────────────────────────────────────────
 
 async def main() -> None:
-    log.info("Printer client starting — model=%s, label=%s, backend=%s",
-             PRINTER_MODEL, LABEL_SIZE, PRINTER_BACKEND)
-
-    check_ipp_usb()
-    discover_and_check_printer()
-
-    log.info("Printer: %s via %s", PRINTER_IDENTIFIER, PRINTER_BACKEND)
-    if DRY_RUN:
-        log.info("DRY RUN mode — printing will be skipped")
-
     backoff = 1
     http_session = None
 
@@ -414,8 +283,8 @@ async def main() -> None:
             await run_client(http_session)
             # If we reach here without exception, WS closed cleanly
             backoff = 1
-        except (websockets.ConnectionClosed,
-                websockets.WebSocketException) as exc:
+        except (websockets.exceptions.ConnectionClosed,
+                websockets.exceptions.WebSocketException) as exc:
             log.warning("WebSocket disconnected: %s — reconnecting in %ds", exc, backoff)
         except requests.exceptions.HTTPError as exc:
             if exc.response is not None and exc.response.status_code in (401, 403):
