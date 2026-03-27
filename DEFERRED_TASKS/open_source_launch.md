@@ -5,32 +5,34 @@ Goal: Make this project ready to go public and get traction in the church/org co
 ## Priority Order
 
 ### 1. Repo Cleanup (quick wins)
-- [ ] `.gitignore` the remaining untracked noise: `oom`, `import_examples.json`, `printer-client/` scratch files
-- [ ] Add `printer-client/` scratch files to `.gitignore` or commit the useful ones
-- [ ] Verify `.claude/` is gitignored (no personal permission configs in public repo)
-- [ ] Move `import_examples.json` to `prototypes/` or `.gitignore` it
+- [x] `.gitignore` the remaining untracked noise: `oom`, `import_examples.json`, `printer-client/` scratch files
+- [x] Add `printer-client/` scratch files to `.gitignore` or commit the useful ones
+- [x] Verify `.claude/` is gitignored (no personal permission configs in public repo)
+- [x] Move `import_examples.json` to `prototypes/` or `.gitignore` it
 
 ### 2. Security Hardening
-- [ ] Change `SECRET_KEY` default from `"insecure-change-me"` to raise an error in prod settings (already correct in prod, but worth making explicit)
-- [ ] Add `SECURITY.md` — how to report vulnerabilities privately
-- [ ] Audit all `.env*.example` files to ensure no real values snuck in
+- [x] Change `SECRET_KEY` default from `"insecure-change-me"` to raise an error in prod settings
+- [x] Add `SECURITY.md` — how to report vulnerabilities privately
+- [x] Audit all `.env*.example` files to ensure no real values snuck in
+- [ ] Update placeholder emails in `SECURITY.md` and `CODE_OF_CONDUCT.md` before publishing
 
 ### 3. OSS Governance Docs
-- [ ] `CONTRIBUTING.md` — fork, branch, PR, code style (Django PEP8, Svelte conventions), test requirements
-- [ ] `CODE_OF_CONDUCT.md` — use Contributor Covenant boilerplate
-- [ ] `CHANGELOG.md` — retroactive summary of major milestones (MVP, printer, i18n, Planning Center import)
-- [ ] Update `README.md` — add license badge, feature list with screenshots, "Deploy to..." button
+- [x] `CONTRIBUTING.md` — fork, branch, PR, code style (Django PEP8, Svelte conventions), test requirements
+- [x] `CODE_OF_CONDUCT.md` — use Contributor Covenant boilerplate
+- [x] `CHANGELOG.md` — retroactive summary of major milestones (MVP, printer, i18n, Planning Center import)
+- [x] Update `README.md` — add license badge, feature list, Contributing/License sections
+- [ ] Add screenshot to README (shows the UI in action — highest-impact visual)
 
 ### 4. CI/CD
-- [ ] GitHub Actions workflow: run Django unit tests on every PR
-- [ ] Optionally: lint (ruff for Python, eslint for Svelte)
-- [ ] Add issue templates (bug report, feature request)
-- [ ] Add PR template with checklist
+- [x] GitHub Actions workflow: run Django unit tests on every PR (`.github/workflows/test.yml`)
+- [x] Lint: ruff for Python (included in test workflow)
+- [x] Add issue templates (bug report, feature request)
+- [x] Add PR template with checklist
 
 ### 5. Deployment Story
-- [ ] One-click deploy option (Railway, Render, or Coolify) — biggest friction reducer for churches
-- [ ] Document backup/restore of PostgreSQL database
-- [ ] Document how to update (git pull + restart.txt pattern)
+- [x] Coolify deployment guide (`docs/deploy-coolify.md`)
+- [x] Document backup/restore of PostgreSQL database (in Coolify guide)
+- [x] Document how to update (in Coolify guide)
 
 ### 6. Visibility / Marketing
 - [ ] Record a 3-minute demo video showing: login → check in a child → label prints → check out

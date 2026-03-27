@@ -1,6 +1,21 @@
-# Conference Child Management System
+# Check-ins
 
-A check-in/check-out system for managing children at conference events. Staff can check children in and out across multiple stations, print name labels, and track attendance in real time.
+[![License: AGPL-3.0](https://img.shields.io/badge/License-AGPL%20v3-blue.svg)](LICENSE)
+[![Build](https://github.com/jswetzen/check-ins/actions/workflows/build-push.yml/badge.svg)](../../actions/workflows/build-push.yml)
+[![Self-hosted](https://img.shields.io/badge/deployment-self--hosted-green)]()
+
+A self-hosted child check-in system for churches and organizations. Staff check children in and out across multiple stations simultaneously, labels print automatically, and every action is tracked in real time.
+
+## Features
+
+- **Multi-station check-in/out** — any number of staff can work in parallel from any browser on the local network
+- **Real-time sync** — WebSocket broadcasts keep all stations up to date instantly
+- **Label printing** — automatic label printing via Brother QL printers; print queue with job tracking
+- **QR codes** — each child gets a unique QR token for quick lookup; public QR page requires no login
+- **Data import** — import families from FestivalPro and Planning Center
+- **Audit log** — every action attributed to a staff member with timestamp
+- **Internationalization** — Swedish and English built-in; easy to add languages
+- **Self-hosted** — runs entirely on your own hardware, no cloud dependency, no per-child fees
 
 ## Stack
 
@@ -124,3 +139,12 @@ make verify
 - [Implementation Plan](./IMPLEMENTATION_PLAN.md) - Development roadmap and status
 - [Current Tasks](./CURRENT_TASKS.md) - Active work
 - [docs/](./docs/) - Design docs, API notes, deployment guides
+- [Coolify Deployment Guide](./docs/deploy-coolify.md) - Step-by-step self-hosted deployment
+
+## Contributing
+
+Bug reports, feature requests, and pull requests are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md) for details on how to get started — whether you are a church volunteer or an experienced developer.
+
+## License
+
+[AGPL-3.0](LICENSE) — free to use, modify, and self-host. If you distribute a modified version (including running it as a service for others), you must release your changes under the same license.
