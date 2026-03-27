@@ -1,6 +1,13 @@
 from .base import *  # noqa
 
 DEBUG = False
+
+# Require SECRET_KEY to be explicitly set in production
+if SECRET_KEY == "insecure-change-me":
+    raise ValueError(
+        "SECRET_KEY must be set to a secure value in production. "
+        "Generate one with: openssl rand -hex 32"
+    )
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 
 # Allow overriding via env vars (base.py already reads these, but prod defaults to True)
