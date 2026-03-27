@@ -62,3 +62,18 @@ yarn-error.log*
 
 # idea files
 .idea
+
+# claude code local config (tool permissions, no secrets but still personal)
+.claude/settings.local.json
+
+# scratch/temp files
+oom
+import_examples.json
+
+# printer-client development scratch files
+printer-client/brother_ql-inventree/
+printer-client/get_it_printing.md
+printer-client/label.png
+printer-client/label_rotated.png
+printer-client/label_sized.png
+printer-client/test_print.py

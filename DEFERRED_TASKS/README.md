@@ -10,6 +10,7 @@ Each file is a lightweight stub — enough context to pick up the work later.
 | `planning_center_import.md` | Import from Planning.Center (church use case) | Low |
 | `festivalpro_import_verification.md` | Manual verification of FestivalPro import | Operational |
 | `print_queue_stale_on_checkout.md` | Cancel pending print queue entries on checkout | Low |
+| `open_source_launch.md` | Repo cleanup, governance docs, CI/CD, and marketing for public launch | Medium |
 
 ## Prototypes
 
