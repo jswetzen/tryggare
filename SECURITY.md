@@ -12,7 +12,7 @@ This project is currently pre-1.0. Security fixes are applied to the latest vers
 
 **Please do not report security vulnerabilities via public GitHub issues.**
 
-Report vulnerabilities privately by emailing **security@example.com** (replace with your actual contact before publishing).
+Report vulnerabilities privately by emailing **security@swetzen.com**.
 
 Include:
 - Description of the vulnerability

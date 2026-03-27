@@ -19,7 +19,7 @@ Examples of unacceptable behavior:
 
 ## Enforcement
 
-Instances of unacceptable behavior may be reported to **conduct@example.com** (update this before publishing). All complaints will be reviewed and investigated promptly and fairly.
+Instances of unacceptable behavior may be reported to **security@swetzen.com**. All complaints will be reviewed and investigated promptly and fairly.
 
 Project maintainers have the right to remove, edit, or reject contributions that do not align with this Code of Conduct.
 
