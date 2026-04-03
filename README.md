@@ -17,6 +17,8 @@ A self-hosted child check-in system for churches and organizations. Staff check 
 - **Internationalization** — Swedish and English built-in; easy to add languages
 - **Self-hosted** — runs entirely on your own hardware, no cloud dependency, no per-child fees
 
+![Check-in screen showing families with mixed check-in status](docs/screenshots/checkin-desktop.png)
+
 ## Stack
 
 - **Backend:** Django 5.x + Django REST Framework + Django Channels (WebSockets)
