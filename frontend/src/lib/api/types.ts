@@ -57,6 +57,7 @@ export interface Session {
   max_age_months?: number;
   description?: string;
   is_active: boolean;
+  requires_ticket: boolean;
 }
 
 export interface CheckInRecord {

@@ -62,6 +62,7 @@ export interface Session {
   end_time?: string;
   is_active: boolean;
   event_name: string;
+  requires_ticket: boolean;
 }
 
 export interface UndoAction {

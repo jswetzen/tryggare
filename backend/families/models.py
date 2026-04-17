@@ -142,22 +142,18 @@ class Child(models.Model):
         event_tickets_data = []
         session_tickets_data = []
 
-        # Gather event ticket information (uses prefetched data if available)
         for event_ticket in self.event_tickets.all():
             event_tickets_data.append({
                 'id': str(event_ticket.id),
-                'event': event_ticket.event.name,
-                'event_id': str(event_ticket.event.id),
+                'event': str(event_ticket.event.id),
+                'event_name': event_ticket.event.name,
             })
 
-        # Gather session ticket information (uses prefetched data if available)
         for session_ticket in self.session_tickets.all():
             session_tickets_data.append({
                 'id': str(session_ticket.id),
-                'session': session_ticket.session.name,
-                'session_id': str(session_ticket.session.id),
-                'event': session_ticket.session.event.name,
-                'event_id': str(session_ticket.session.event.id),
+                'session': str(session_ticket.session.id),
+                'session_name': session_ticket.session.name,
             })
 
         return {
