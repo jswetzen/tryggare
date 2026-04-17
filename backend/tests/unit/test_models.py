@@ -95,7 +95,8 @@ class TestChildTicketType:
         details = child.get_ticket_details()
         assert details["ticket_type"] == "session"
         assert len(details["session_tickets"]) == 1
-        assert details["session_tickets"][0]["session"] == "Unit Session"
+        assert details["session_tickets"][0]["session"] == str(session.id)
+        assert details["session_tickets"][0]["session_name"] == "Unit Session"
         assert details["event_tickets"] == []
 
 

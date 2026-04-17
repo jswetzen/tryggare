@@ -82,7 +82,8 @@ class ChildModelTests(TestCase):
 
         self.assertEqual(details['ticket_type'], 'event')
         self.assertEqual(len(details['event_tickets']), 1)
-        self.assertEqual(details['event_tickets'][0]['event'], 'Conference 2025')
+        self.assertEqual(details['event_tickets'][0]['event'], str(self.event.id))
+        self.assertEqual(details['event_tickets'][0]['event_name'], 'Conference 2025')
         self.assertEqual(details['event_tickets'][0]['id'], str(event_ticket.id))
         self.assertEqual(details['session_tickets'], [])
 
@@ -93,8 +94,8 @@ class ChildModelTests(TestCase):
 
         self.assertEqual(details['ticket_type'], 'session')
         self.assertEqual(len(details['session_tickets']), 1)
-        self.assertEqual(details['session_tickets'][0]['session'], 'Morning Session')
-        self.assertEqual(details['session_tickets'][0]['event'], 'Conference 2025')
+        self.assertEqual(details['session_tickets'][0]['session'], str(self.session.id))
+        self.assertEqual(details['session_tickets'][0]['session_name'], 'Morning Session')
         self.assertEqual(details['session_tickets'][0]['id'], str(session_ticket.id))
         self.assertEqual(details['event_tickets'], [])
 
@@ -181,6 +182,10 @@ class ChildSerializerTests(TestCase):
         self.assertEqual(len(response.data['ticket_details']['event_tickets']), 1)
         self.assertEqual(
             response.data['ticket_details']['event_tickets'][0]['event'],
+            str(self.event.id)
+        )
+        self.assertEqual(
+            response.data['ticket_details']['event_tickets'][0]['event_name'],
             'Summer Camp 2025'
         )
 
@@ -194,11 +199,11 @@ class ChildSerializerTests(TestCase):
         self.assertEqual(len(response.data['ticket_details']['session_tickets']), 1)
         self.assertEqual(
             response.data['ticket_details']['session_tickets'][0]['session'],
-            'Afternoon Session'
+            str(self.session.id)
         )
         self.assertEqual(
-            response.data['ticket_details']['session_tickets'][0]['event'],
-            'Summer Camp 2025'
+            response.data['ticket_details']['session_tickets'][0]['session_name'],
+            'Afternoon Session'
         )
 
     def test_child_serializer_ticket_fields_readonly(self):
