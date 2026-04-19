@@ -10,13 +10,10 @@ django.setup()
 
 from django.test import Client
 from accounts.models import AdminUser
-from families.models import Family, Child
+from families.models import Child
 from events.models import Event, Session
 from checkins.models import CheckInRecord
-from checkins.qr_utils import get_code_for_active_checkin
 from django.utils import timezone
-import uuid
-import json
 
 print("🔍 API Endpoint Verification\n")
 
@@ -79,7 +76,7 @@ assert response.status_code == 201, f"Expected 201, got {response.status_code}: 
 child_id = response.json()['id']
 child_data = response.json()
 print(f"✓ Created child: {child_id}")
-print(f"  (QR codes are now generated on check-in, not on child creation)\n")
+print("  (QR codes are now generated on check-in, not on child creation)\n")
 
 # Test 5: List children
 print("Test 5: List children")
@@ -121,7 +118,7 @@ response = client.post('/api/checkins/check_in/', {
 }, content_type='application/json')
 assert response.status_code == 201, f"Check-in failed: {response.content}"
 checkin = CheckInRecord.objects.get(id=response.json()['id'])
-print(f"✓ Checked in child to session")
+print("✓ Checked in child to session")
 
 # Get the allocated QR code
 assert hasattr(checkin, 'qr_code') and checkin.qr_code, "QR code should be allocated on check-in"
@@ -160,6 +157,6 @@ print("✅ All API tests passed!")
 print("=" * 50)
 print()
 print("Privacy-first QR codes:")
-print(f"  - QR codes only work when child is actively checked in")
-print(f"  - After checkout, QR code returns 404 for privacy")
+print("  - QR codes only work when child is actively checked in")
+print("  - After checkout, QR code returns 404 for privacy")
 print()

@@ -14,10 +14,8 @@ import time
 from selenium.webdriver.common.by import By
 
 from tests.e2e.base import E2ETestBase, TestDataMixin
-from accounts.models import AdminUser
-from checkins.models import CheckInRecord, AuditLog
+from checkins.models import CheckInRecord
 from checkins.qr_utils import allocate_code_for_checkin
-from django.utils import timezone
 
 
 @pytest.mark.e2e

@@ -5,7 +5,6 @@ This module provides shared functionality for all Selenium-based end-to-end test
 including WebDriver setup, common actions, and test data creation.
 """
 import os
-import time
 from typing import Optional, Tuple
 from selenium import webdriver
 from selenium.webdriver.common.by import By
@@ -53,7 +52,7 @@ class E2ETestBase:
         self.driver: Optional[webdriver.Remote] = None
         self.config = self.get_test_config()
 
-        print(f"\n🔧 Test Configuration:")
+        print("\n🔧 Test Configuration:")
         print(f"   Frontend: {self.config['frontend_url']}")
         print(f"   Backend: {self.config['backend_url']}")
         print(f"   Production mode: {self.config['is_production']}")

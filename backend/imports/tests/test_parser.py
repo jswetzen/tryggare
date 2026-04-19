@@ -4,7 +4,6 @@ Unit tests for imports/parser.py — pure parsing logic with no DB access.
 
 from datetime import date
 
-import pytest
 
 from imports.parser import (
     _DuplicateList,

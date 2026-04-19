@@ -6,9 +6,13 @@ Codes are 5-character random alphanumeric strings from a safe alphabet
 """
 import secrets
 from datetime import timedelta
+from typing import TYPE_CHECKING
 
 from django.db import models, transaction
 from django.utils import timezone
+
+if TYPE_CHECKING:
+    from .models import QRCode
 
 # Alphabet without confusable characters (0/O, 1/I/l removed)
 QR_ALPHABET = "23456789ABCDEFGHJKLMNPQRSTUVWXYZ"

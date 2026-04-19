@@ -13,11 +13,7 @@ Run with:
 """
 import pytest
 import time
-from datetime import datetime, timedelta
-from django.utils import timezone
 from selenium.webdriver.common.by import By
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
 
 # Import base classes
 try:
@@ -132,7 +128,7 @@ class TestSupervisedCheckIn(E2ETestBase, TestDataMixin):
         time.sleep(2)
 
         # Find and expand the test family using JavaScript click (more reliable)
-        print(f"   Expanding family with JavaScript click...")
+        print("   Expanding family with JavaScript click...")
         family_toggle_selector = f"button[data-testid='family-toggle-button-{self.test_family.id}']"
 
         # Wait for element to exist first
@@ -140,25 +136,25 @@ class TestSupervisedCheckIn(E2ETestBase, TestDataMixin):
 
         # Use JavaScript click which bypasses any overlays or positioning issues
         self.driver.execute_script("arguments[0].click();", family_toggle)
-        print(f"   Clicked family toggle button via JavaScript, waiting for children to appear...")
+        print("   Clicked family toggle button via JavaScript, waiting for children to appear...")
         time.sleep(3)
 
         # Wait for child row to appear (this confirms expansion worked)
-        print(f"   Waiting for child rows to appear...")
+        print("   Waiting for child rows to appear...")
         try:
             self.wait_for_element(
                 By.CSS_SELECTOR,
                 f"div[data-testid='child-row-{self.supervised_child.id}']",
                 timeout=5
             )
-            print(f"   ✓ Children rows visible")
+            print("   ✓ Children rows visible")
         except:
             self.save_screenshot("expansion_failed")
             # Try printing page source to see what's actually there
             page_source = self.driver.page_source
             print(f"   Page source contains SupervisedChild: {self.supervised_child.first_name in page_source}")
             print(f"   Page source contains StandardChild: {self.standard_child.first_name in page_source}")
-            raise Exception(f"Family expansion failed - children not visible")
+            raise Exception("Family expansion failed - children not visible")
 
         # Look for supervised checkbox for the supervised child
         print(f"   Checking for supervised checkbox for child {self.supervised_child.id}...")
@@ -346,7 +342,7 @@ class TestSupervisedCheckIn(E2ETestBase, TestDataMixin):
 
         family_toggle = self.wait_for_element(
             By.CSS_SELECTOR,
-            f"button[data-testid*='family-toggle-button']"
+            "button[data-testid*='family-toggle-button']"
         )
         family_toggle.click()
         time.sleep(1)
@@ -420,7 +416,7 @@ class TestSupervisedCheckIn(E2ETestBase, TestDataMixin):
 
         family_toggle = self.wait_for_element(
             By.CSS_SELECTOR,
-            f"button[data-testid*='family-toggle-button']"
+            "button[data-testid*='family-toggle-button']"
         )
         family_toggle.click()
         time.sleep(1)
@@ -469,7 +465,7 @@ class TestSupervisedCheckIn(E2ETestBase, TestDataMixin):
 
         family_toggle = self.wait_for_element(
             By.CSS_SELECTOR,
-            f"button[data-testid*='family-toggle-button']"
+            "button[data-testid*='family-toggle-button']"
         )
         family_toggle.click()
         time.sleep(1)
@@ -530,7 +526,7 @@ class TestSupervisedCheckIn(E2ETestBase, TestDataMixin):
 
         family_toggle = self.wait_for_element(
             By.CSS_SELECTOR,
-            f"button[data-testid*='family-toggle-button']"
+            "button[data-testid*='family-toggle-button']"
         )
         family_toggle.click()
         time.sleep(1)

@@ -16,8 +16,6 @@ import pytest
 import time
 
 from selenium.webdriver.common.by import By
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
 
 from tests.e2e.base import E2ETestBase, TestDataMixin
 from events.models import EventTicket
@@ -138,7 +136,7 @@ class TestQrScanCheckin(E2ETestBase, TestDataMixin):
         assert result["data"].get("error") == "not_found", \
             f"Wrong error payload: {result['data']}"
 
-        print(f"   ✓ 404 returned with error='not_found'")
+        print("   ✓ 404 returned with error='not_found'")
         print("\n" + "=" * 60)
         print("✅ Unknown code 404 test PASSED")
 
@@ -169,7 +167,7 @@ class TestQrScanCheckin(E2ETestBase, TestDataMixin):
         assert "error" not in result, f"Fetch error: {result.get('error')}"
         assert result["status"] == 403, f"Expected 403, got {result['status']}"
 
-        print(f"   ✓ 403 returned for unauthenticated request")
+        print("   ✓ 403 returned for unauthenticated request")
         print("\n" + "=" * 60)
         print("✅ Auth required test PASSED")
 
@@ -219,7 +217,7 @@ class TestQrScanCheckin(E2ETestBase, TestDataMixin):
         visible_before = [r for r in child_rows if r.is_displayed()]
         assert len(visible_before) == 0, \
             f"Child row should be hidden before expand, but {len(visible_before)} visible"
-        print(f"   ✓ Child row hidden before expand")
+        print("   ✓ Child row hidden before expand")
 
         # Click toggle button
         toggle = self.wait_for_element(
@@ -237,7 +235,7 @@ class TestQrScanCheckin(E2ETestBase, TestDataMixin):
         visible_after = [r for r in child_rows if r.is_displayed()]
         assert len(visible_after) > 0, \
             "Child row should be visible after expand"
-        print(f"   ✓ Child row visible after expand")
+        print("   ✓ Child row visible after expand")
 
         # Click toggle again to collapse
         toggle.click()
@@ -249,7 +247,7 @@ class TestQrScanCheckin(E2ETestBase, TestDataMixin):
         visible_collapsed = [r for r in child_rows if r.is_displayed()]
         assert len(visible_collapsed) == 0, \
             "Child row should be hidden after collapse"
-        print(f"   ✓ Child row hidden after collapse")
+        print("   ✓ Child row hidden after collapse")
 
         print("\n" + "=" * 60)
         print("✅ Family card expand/collapse test PASSED")
@@ -276,7 +274,6 @@ class TestQrScanCheckin(E2ETestBase, TestDataMixin):
 
 def run_tests():
     """Run the QR scan check-in tests."""
-    import sys
     exit_code = pytest.main([__file__, "-v", "-m", "qrscan"])
     return exit_code
 

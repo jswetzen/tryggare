@@ -9,8 +9,6 @@ Run with:
 """
 import pytest
 import time
-from django.utils import timezone
-from selenium.webdriver.common.by import By
 
 # Import base classes
 try:

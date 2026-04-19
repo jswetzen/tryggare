@@ -12,7 +12,7 @@ from django.utils import timezone
 from accounts.models import AdminUser
 from families.models import Family, Parent, Child
 from events.models import Event, Session
-from checkins.models import CheckInRecord, QRCode
+from checkins.models import CheckInRecord
 from checkins.qr_utils import allocate_code_for_checkin, get_code_for_active_checkin
 
 print("🔍 Quick Model Verification\n")

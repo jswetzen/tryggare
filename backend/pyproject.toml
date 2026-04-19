@@ -37,3 +37,25 @@ test = [
     "selenium>=4.15,<5.0",
     "webdriver-manager>=4.0,<5.0",
 ]
+
+[tool.ruff]
+exclude = [".venv", "migrations", "staticfiles"]
+
+[tool.ruff.lint.per-file-ignores]
+# Django settings use star imports and conditional top-level logic
+"config/settings/*.py" = ["F403", "F405", "E402"]
+# ASGI/WSGI entrypoints must call django.setup() before importing app code
+"config/asgi.py" = ["E402"]
+"config/wsgi.py" = ["E402"]
+# Ad-hoc scripts run standalone; they bootstrap Django before importing models
+"add_test_data.py" = ["E402", "F841", "E722"]
+"demo_ticket_api.py" = ["E402", "F841"]
+"test_api.py" = ["E402"]
+"test_models.py" = ["E402"]
+"test_print_queue.py" = ["E402"]
+"test_websocket.py" = ["E402"]
+"verify.py" = ["E402"]
+# Tests use bare except to probe UI state and assign variables for readability
+"tests/**/*.py" = ["E722", "F841"]
+"**/tests.py" = ["E722", "F841"]
+"**/tests/**/*.py" = ["E722", "F841"]

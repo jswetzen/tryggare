@@ -134,6 +134,12 @@ Common issues:
 Before considering an implementation phase complete, make sure to:
 - **Trigger a rebuild** by writing to `restart.txt`: `date > /workspace/check-ins/restart.txt`
 - Write tests that cover your new functionality (see `backend/tests/e2e/TEST_COVERAGE.md`)
+- **Format and lint Python with ruff** (blocks CI in `.github/workflows/test.yml`):
+  ```bash
+  cd /workspace/check-ins/backend
+  uv run ruff format .
+  uv run ruff check .    # must pass — CI fails the Test workflow otherwise
+  ```
 - Run `make verify` for backend changes
 - Run appropriate test suite:
   - Backend changes: `cd backend && make test-auth` (or relevant suite)
