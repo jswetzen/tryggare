@@ -442,6 +442,43 @@ describe('CheckinExpandableTable', () => {
       expect(screen.queryByText('John Smith')).not.toBeInTheDocument();
     });
 
+    it('should re-auto-expand after manual collapse when the search query changes', async () => {
+      const user = userEvent.setup();
+      const { rerender } = render(CheckinExpandableTable, {
+        props: { ...defaultProps, families: twoFamilies, searchQuery: 'John' }
+      });
+
+      // Auto-expanded by initial search for "John"
+      expect(screen.queryAllByText('John Smith').length).toBeGreaterThanOrEqual(1);
+
+      // User manually collapses it
+      const toggleButtons = screen.getAllByTestId('family-toggle-button-family-1');
+      await user.click(toggleButtons[0]);
+      expect(screen.queryByText('John Smith')).not.toBeInTheDocument();
+
+      // User keeps typing — the query changes ("John" → "Joh"). Manual-collapse
+      // memory belongs to the previous query and must not suppress auto-expand
+      // for the new query.
+      await rerender({ ...defaultProps, families: twoFamilies, searchQuery: 'Joh' });
+
+      expect(screen.queryAllByText('John Smith').length).toBeGreaterThanOrEqual(1);
+    });
+
+    it('should keep the family collapsed while the search query is unchanged after a manual collapse', async () => {
+      const user = userEvent.setup();
+      render(CheckinExpandableTable, {
+        props: { ...defaultProps, families: twoFamilies, searchQuery: 'John' }
+      });
+
+      expect(screen.queryAllByText('John Smith').length).toBeGreaterThanOrEqual(1);
+
+      const toggleButtons = screen.getAllByTestId('family-toggle-button-family-1');
+      await user.click(toggleButtons[0]);
+
+      // Same query, user just collapsed it — it should stay collapsed.
+      expect(screen.queryByText('John Smith')).not.toBeInTheDocument();
+    });
+
     it('should keep manually expanded families expanded when search is cleared', async () => {
       const user = userEvent.setup();
       const { rerender } = render(CheckinExpandableTable, {

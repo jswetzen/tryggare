@@ -50,39 +50,22 @@ class TestNavigation(E2ETestBase, TestDataMixin):
         assert "/checkin" in self.driver.current_url, "Not on check-in page"
         print("   ✓ On check-in page")
 
-        # Navigate to check-out
+        # Navigate to check-out. Nav links are anchors to /checkout —
+        # match by href since text varies by locale (Check-Out / Utcheckning).
         print("   Navigating to check-out...")
-        try:
-            checkout_link = WebDriverWait(self.driver, 10).until(
-                EC.element_to_be_clickable((By.PARTIAL_LINK_TEXT, "Check-Out"))
-            )
-            checkout_link.click()
-
-            self.wait_for_url_contains("/checkout", timeout=10)
-            print("   ✓ Successfully navigated to check-out page")
-
-        except Exception:
-            # Try button instead of link
-            checkout_button = WebDriverWait(self.driver, 10).until(
-                EC.element_to_be_clickable((By.XPATH, "//button[contains(text(), 'Check-Out')]"))
-            )
-            checkout_button.click()
-            self.wait_for_url_contains("/checkout", timeout=10)
-            print("   ✓ Successfully navigated to check-out page")
+        checkout_link = WebDriverWait(self.driver, 10).until(
+            EC.element_to_be_clickable((By.CSS_SELECTOR, "a[href='/checkout']"))
+        )
+        checkout_link.click()
+        self.wait_for_url_contains("/checkout", timeout=10)
+        print("   ✓ Successfully navigated to check-out page")
 
         # Navigate back to check-in
         print("   Navigating back to check-in...")
-        try:
-            checkin_link = WebDriverWait(self.driver, 10).until(
-                EC.element_to_be_clickable((By.PARTIAL_LINK_TEXT, "Check-In"))
-            )
-            checkin_link.click()
-        except Exception:
-            checkin_button = WebDriverWait(self.driver, 10).until(
-                EC.element_to_be_clickable((By.XPATH, "//button[contains(text(), 'Check-In')]"))
-            )
-            checkin_button.click()
-
+        checkin_link = WebDriverWait(self.driver, 10).until(
+            EC.element_to_be_clickable((By.CSS_SELECTOR, "a[href='/checkin']"))
+        )
+        checkin_link.click()
         self.wait_for_url_contains("/checkin", timeout=10)
         print("   ✓ Successfully navigated back to check-in page")
 

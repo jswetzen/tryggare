@@ -55,11 +55,27 @@
 
   // Track which families are manually toggled by the user
   let manuallyExpanded = $state<Set<string>>(new Set());
-  // Track families explicitly collapsed by the user (to override search auto-expand)
+  // Track families explicitly collapsed by the user during the current search
+  // (to override search auto-expand for this query only — reset when the query changes)
   let manuallyCollapsed = $state<Set<string>>(new Set());
+  let lastSearchQuery = $state<string>('');
 
   // Track which family is currently flashing the highlight ring
   let highlightActive = $state<string | null>(null);
+
+  // When the search query changes, a manual collapse from a previous query should
+  // no longer suppress auto-expand — the user is issuing a new search intent.
+  $effect(() => {
+    const query = searchQuery;
+    untrack(() => {
+      if (query !== lastSearchQuery) {
+        lastSearchQuery = query;
+        if (manuallyCollapsed.size > 0) {
+          manuallyCollapsed = new Set();
+        }
+      }
+    });
+  });
 
   $effect(() => {
     if (!highlightedFamilyId) return;

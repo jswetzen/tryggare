@@ -90,14 +90,14 @@ class TestQrScanCheckin(E2ETestBase, TestDataMixin):
 
         result = self.driver.execute_async_script("""
             var done = arguments[0];
-            fetch('/api/families/by-ticket/?code=QRTEST_E2E', {credentials: 'include'})
+            fetch(arguments[1] + '/api/families/by-ticket/?code=QRTEST_E2E', {credentials: 'include'})
               .then(function(r) {
                 return r.json().then(function(data) {
                   done({status: r.status, data: data});
                 });
               })
               .catch(function(err) { done({error: String(err)}); });
-        """)
+        """, self.config['backend_url'])
 
         print(f"   API response status: {result.get('status')}")
         assert "error" not in result, f"Fetch error: {result.get('error')}"
@@ -124,14 +124,14 @@ class TestQrScanCheckin(E2ETestBase, TestDataMixin):
 
         result = self.driver.execute_async_script("""
             var done = arguments[0];
-            fetch('/api/families/by-ticket/?code=DOESNOTEXIST_E2E', {credentials: 'include'})
+            fetch(arguments[1] + '/api/families/by-ticket/?code=DOESNOTEXIST_E2E', {credentials: 'include'})
               .then(function(r) {
                 return r.json().then(function(data) {
                   done({status: r.status, data: data});
                 });
               })
               .catch(function(err) { done({error: String(err)}); });
-        """)
+        """, self.config['backend_url'])
 
         assert "error" not in result, f"Fetch error: {result.get('error')}"
         assert result["status"] == 404, f"Expected 404, got {result['status']}"
@@ -153,14 +153,18 @@ class TestQrScanCheckin(E2ETestBase, TestDataMixin):
 
         result = self.driver.execute_async_script("""
             var done = arguments[0];
-            fetch('/api/families/by-ticket/?code=QRTEST_E2E', {credentials: 'include'})
+            fetch(arguments[1] + '/api/families/by-ticket/?code=QRTEST_E2E', {credentials: 'include'})
               .then(function(r) {
-                return r.json().then(function(data) {
+                // 403 / 401 may come back as HTML or JSON depending on auth layer;
+                // return text and let the caller decide.
+                return r.text().then(function(body) {
+                  var data = null;
+                  try { data = JSON.parse(body); } catch (e) { data = body; }
                   done({status: r.status, data: data});
                 });
               })
               .catch(function(err) { done({error: String(err)}); });
-        """)
+        """, self.config['backend_url'])
 
         assert "error" not in result, f"Fetch error: {result.get('error')}"
         assert result["status"] == 403, f"Expected 403, got {result['status']}"

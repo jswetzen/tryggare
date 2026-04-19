@@ -40,9 +40,11 @@ REST_FRAMEWORK = {
         "rest_framework.throttling.AnonRateThrottle",
         "rest_framework.throttling.UserRateThrottle",
     ],
+    # Dev rates are intentionally lax so E2E suites running many logins in quick
+    # succession don't get throttled. Production uses tighter rates from base.py.
     "DEFAULT_THROTTLE_RATES": {
-        "anon": "10/minute",  # Anonymous users
-        "user": "100/minute",  # Authenticated users
-        "login": "5/minute",  # Login attempts
+        "anon": "1000/minute",
+        "user": "10000/minute",
+        "login": "1000/minute",
     },
 }

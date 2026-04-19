@@ -80,20 +80,13 @@ class TestCheckInFlow(E2ETestBase, TestDataMixin):
         # Wait for check-in page to load
         time.sleep(3)
 
-        # Find search box
+        # Find search box (search is live — no button to click)
         print(f"   Searching for family: {self.test_family.last_name}")
         search_input = self.wait_for_element(By.CSS_SELECTOR, "input[type='text']")
         search_input.clear()
         search_input.send_keys(self.test_family.last_name)
 
-        # Click search button
-        search_button = self.wait_for_element(
-            By.XPATH,
-            "//button[contains(text(), 'Search') or contains(text(), 'Sök')]"
-        )
-        search_button.click()
-
-        time.sleep(2)  # Wait for results
+        time.sleep(2)  # Wait for live-filter results
 
         # Verify family appears in results
         page_source = self.driver.page_source
@@ -102,7 +95,18 @@ class TestCheckInFlow(E2ETestBase, TestDataMixin):
 
         print(f"   ✓ Family '{self.test_family.last_name}' found in results")
 
+        # Expand the family to reveal children (single-match families may not auto-expand
+        # in all UI states, so do it explicitly).
+        family_id = str(self.test_family.id)
+        toggle = self.wait_for_element(
+            By.CSS_SELECTOR,
+            f"[data-testid='family-toggle-button-{family_id}']"
+        )
+        toggle.click()
+        time.sleep(1)
+
         # Verify children appear
+        page_source = self.driver.page_source
         assert self.test_child1.first_name in page_source, \
             f"Child '{self.test_child1.first_name}' not found"
         assert self.test_child2.first_name in page_source, \
@@ -125,46 +129,26 @@ class TestCheckInFlow(E2ETestBase, TestDataMixin):
 
         search_input = self.wait_for_element(By.CSS_SELECTOR, "input[type='text']")
         search_input.send_keys(self.test_family.last_name)
+        time.sleep(2)  # Live-filter
 
-        search_button = self.wait_for_element(By.XPATH, "//button[contains(text(), 'Search')]")
-        search_button.click()
-        time.sleep(2)
+        family_id = str(self.test_family.id)
+        child1_id = str(self.test_child1.id)
 
-        # Find and click individual check-in button for first child
+        # Expand family so child row becomes visible
+        toggle = self.wait_for_element(
+            By.CSS_SELECTOR,
+            f"[data-testid='family-toggle-button-{family_id}']"
+        )
+        toggle.click()
+        time.sleep(1)
+
+        # Click individual child check-in button
         print(f"   Checking in {self.test_child1.first_name}...")
-
-        table_rows = self.driver.find_elements(By.CSS_SELECTOR, "tr")
-        clicked = False
-
-        for row in table_rows:
-            if self.test_child1.first_name in row.text:
-                buttons = row.find_elements(By.CSS_SELECTOR, "button")
-                if buttons:
-                    buttons[0].click()
-                    clicked = True
-                    print(f"   ✓ Clicked check-in button for {self.test_child1.first_name}")
-                    break
-
-        assert clicked, f"Could not find check-in button for {self.test_child1.first_name}"
-
-        time.sleep(2)
-
-        # Click main check-in button
-        print("   Clicking main check-in button...")
-        try:
-            checkin_button = self.wait_for_element(
-                By.CSS_SELECTOR,
-                "[data-testid='main-checkin-button']",
-                timeout=5
-            )
-        except:
-            checkin_button = self.wait_for_element(
-                By.XPATH,
-                "//button[contains(text(), 'Check In') and contains(text(), 'Child')]",
-                timeout=5
-            )
-
-        checkin_button.click()
+        child_checkin_btn = self.wait_for_element(
+            By.CSS_SELECTOR,
+            f"[data-testid='child-check-in-button-{child1_id}']"
+        )
+        child_checkin_btn.click()
         time.sleep(3)
 
         # Verify check-in in database
@@ -207,10 +191,7 @@ class TestCheckInFlow(E2ETestBase, TestDataMixin):
 
         search_input = self.wait_for_element(By.CSS_SELECTOR, "input[type='text']")
         search_input.send_keys(self.test_family.last_name)
-
-        search_button = self.wait_for_element(By.XPATH, "//button[contains(text(), 'Search')]")
-        search_button.click()
-        time.sleep(2)
+        time.sleep(2)  # Live-filter
 
         # Try to select child
         page_source = self.driver.page_source
