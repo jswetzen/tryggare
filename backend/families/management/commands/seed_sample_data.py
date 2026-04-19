@@ -36,7 +36,6 @@ class Command(BaseCommand):
             first_name="Jamie",
             last_name="River",
             birthdate=timezone.now().date().replace(year=timezone.now().year - 7),
-            defaults={"qr_token": None},
         )
 
         event, _ = Event.objects.get_or_create(

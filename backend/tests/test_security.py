@@ -1,6 +1,7 @@
 """
 Tests for security features including rate limiting and security headers.
 """
+from django.core.cache import cache
 from django.test import TestCase, override_settings
 from django.urls import reverse
 from rest_framework.test import APIClient
@@ -14,29 +15,31 @@ class RateLimitingTests(TestCase):
 
     def setUp(self):
         """Create test user and client."""
+        cache.clear()
         self.client = APIClient()
-        self.login_url = reverse('login')
+        self.login_url = reverse('auth-login')
         self.user = AdminUser.objects.create_user(
             username='testuser',
             password='testpass123',
             name='Test User'
         )
 
-    @override_settings(
-        REST_FRAMEWORK={
-            'DEFAULT_THROTTLE_CLASSES': [
-                'rest_framework.throttling.AnonRateThrottle',
-            ],
-            'DEFAULT_THROTTLE_RATES': {
-                'anon': '5/minute',
-                'login': '5/minute',
-            }
-        }
-    )
+    def tearDown(self):
+        cache.clear()
+
     def test_login_rate_limiting(self):
         """
         Test that login endpoint is rate limited to 5 attempts per minute.
         """
+        from accounts.views import LoginRateThrottle
+        from unittest.mock import patch
+
+        # THROTTLE_RATES is a class attribute cached at import time, so
+        # @override_settings on REST_FRAMEWORK doesn't propagate. Patch directly.
+        with patch.object(LoginRateThrottle, 'THROTTLE_RATES', {'login': '5/minute'}):
+            self._run_rate_limit_assertions()
+
+    def _run_rate_limit_assertions(self):
         # Make 5 failed login attempts (should succeed)
         for i in range(5):
             response = self.client.post(

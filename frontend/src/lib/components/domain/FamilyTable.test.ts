@@ -50,14 +50,14 @@ const mockFamilies = [
     ],
     parents: [
       {
-        firstName: 'John',
-        lastName: 'Smith',
-        relationshipType: 'Father'
+        id: 'parent-1',
+        name: 'John Smith',
+        relationship_type: 'Father'
       },
       {
-        firstName: 'Jane',
-        lastName: 'Smith',
-        relationshipType: 'Mother'
+        id: 'parent-2',
+        name: 'Jane Smith',
+        relationship_type: 'Mother'
       }
     ]
   },
@@ -74,9 +74,9 @@ const mockFamilies = [
     ],
     parents: [
       {
-        firstName: 'Mike',
-        lastName: 'Johnson',
-        relationshipType: 'Father'
+        id: 'parent-3',
+        name: 'Mike Johnson',
+        relationship_type: 'Father'
       }
     ]
   }
@@ -214,10 +214,11 @@ describe('FamilyTable - Checkout Mode', () => {
       }
     });
 
-    // Should display formatted times (default formatter uses toLocaleTimeString)
-    // Check that time elements exist (exact format may vary by locale)
-    const tableContent = screen.getByRole('table').textContent;
-    expect(tableContent).toContain('AM'); // Times should be formatted
+    // Should display formatted times (default formatter uses toLocaleTimeString).
+    // Exact format varies by locale (en-US "10:30 AM" vs en-GB/sv-SE "10:30"),
+    // so just assert that some HH:MM time appears in the rendered table.
+    const tableContent = screen.getByRole('table').textContent ?? '';
+    expect(tableContent).toMatch(/\d{1,2}:\d{2}/);
   });
 
   it('calls onCheckOut when checkout button clicked', async () => {

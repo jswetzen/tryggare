@@ -16,6 +16,7 @@ from selenium.webdriver.common.by import By
 from tests.e2e.base import E2ETestBase, TestDataMixin
 from accounts.models import AdminUser
 from checkins.models import CheckInRecord, AuditLog
+from checkins.qr_utils import allocate_code_for_checkin
 from django.utils import timezone
 
 
@@ -43,13 +44,23 @@ class TestQRPage(E2ETestBase, TestDataMixin):
             self.test_family,
             first_name="QRChild",
             allergies="Peanuts, Tree nuts",
-            qr_token="test-qr-token-e2e"
         )
 
         self.test_user = self.create_test_user(
             username="qrtest",
             password="testpass123"
         )
+
+        # The new QR flow requires an active check-in to surface child info.
+        # Tests that need the "not checked in" path should delete this record
+        # (and release the allocated code) before navigating.
+        self.test_checkin = CheckInRecord.objects.create(
+            child=self.test_child,
+            session=self.test_session,
+            check_in_staff=self.test_user,
+        )
+        self.test_qr_code = allocate_code_for_checkin(self.test_checkin)
+        self.qr_code_value = self.test_qr_code.code
 
     def teardown_method(self):
         """Clean up after each test."""
@@ -68,7 +79,7 @@ class TestQRPage(E2ETestBase, TestDataMixin):
         print("=" * 60)
 
         # Navigate directly to QR page without logging in
-        qr_url = f"{self.config['frontend_url']}/qr/{self.test_child.qr_token}"
+        qr_url = f"{self.config['frontend_url']}/qr/{self.qr_code_value}"
         print(f"   Accessing: {qr_url}")
 
         self.driver.get(qr_url)
@@ -96,7 +107,7 @@ class TestQRPage(E2ETestBase, TestDataMixin):
         print("=" * 60)
 
         # Navigate to QR page
-        qr_url = f"{self.config['frontend_url']}/qr/{self.test_child.qr_token}"
+        qr_url = f"{self.config['frontend_url']}/qr/{self.qr_code_value}"
         self.driver.get(qr_url)
         time.sleep(3)
 
@@ -124,35 +135,17 @@ class TestQRPage(E2ETestBase, TestDataMixin):
         print("✅ Child info display test PASSED")
 
     def test_checkin_status_display(self):
-        """Test that check-in status displays correctly."""
+        """Test that check-in status displays correctly for the active check-in.
+
+        The new privacy-first QR API only surfaces child info while actively
+        checked in, so this test verifies the positive case on the check-in
+        allocated in setup_method.
+        """
         print("\n🔍 Testing Check-In Status Display")
         print("=" * 60)
 
-        qr_url = f"{self.config['frontend_url']}/qr/{self.test_child.qr_token}"
+        qr_url = f"{self.config['frontend_url']}/qr/{self.qr_code_value}"
 
-        # Test 1: Not checked in
-        print("   Testing 'not checked in' status...")
-        self.driver.get(qr_url)
-        time.sleep(3)
-
-        page_source = self.driver.page_source
-        not_checked_in = "not checked in" in page_source.lower() or \
-                         "inte incheckad" in page_source.lower()
-
-        if not_checked_in:
-            print("   ✓ 'Not checked in' status displayed")
-        else:
-            print("   ℹ️  'Not checked in' status text not explicitly found")
-
-        # Test 2: Checked in
-        print("   Creating check-in...")
-        checkin = CheckInRecord.objects.create(
-            child=self.test_child,
-            session=self.test_session,
-            check_in_staff=self.test_user
-        )
-
-        print("   Reloading page...")
         self.driver.get(qr_url)
         time.sleep(3)
 
@@ -175,14 +168,7 @@ class TestQRPage(E2ETestBase, TestDataMixin):
         print("\n🔍 Testing Action Buttons")
         print("=" * 60)
 
-        # Create a check-in so we have checkout buttons
-        checkin = CheckInRecord.objects.create(
-            child=self.test_child,
-            session=self.test_session,
-            check_in_staff=self.test_user
-        )
-
-        qr_url = f"{self.config['frontend_url']}/qr/{self.test_child.qr_token}"
+        qr_url = f"{self.config['frontend_url']}/qr/{self.qr_code_value}"
         self.driver.get(qr_url)
         time.sleep(3)
 

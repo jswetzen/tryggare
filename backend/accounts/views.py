@@ -13,9 +13,10 @@ from rest_framework.throttling import AnonRateThrottle
 class LoginRateThrottle(AnonRateThrottle):
     """
     Rate throttle specifically for login attempts.
-    Limits to 5 login attempts per minute per IP address.
+    Rate is read from settings.REST_FRAMEWORK['DEFAULT_THROTTLE_RATES']['login']
+    so prod and dev can configure it independently.
     """
-    rate = '5/minute'
+    scope = 'login'
 
 
 @require_http_methods(["GET"])

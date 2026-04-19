@@ -277,7 +277,6 @@ class TestDataMixin:
         first_name: str = "TestChild",
         birthdate: str = "2018-01-01",
         allergies: str = "",
-        qr_token: Optional[str] = None
     ) -> Child:
         """
         Create a test child for a family.
@@ -287,7 +286,6 @@ class TestDataMixin:
             first_name: Child's first name
             birthdate: Birth date in YYYY-MM-DD format
             allergies: Allergy information
-            qr_token: Optional QR token (auto-generated if None)
 
         Returns:
             Created Child instance
@@ -298,7 +296,6 @@ class TestDataMixin:
             last_name=family.last_name,
             birthdate=birthdate,
             allergies=allergies,
-            qr_token=qr_token
         )
 
     def create_test_session(

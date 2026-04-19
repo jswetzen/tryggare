@@ -5,26 +5,40 @@ import LoginPage from '../../../routes/login/+page.svelte';
 import { goto } from '$app/navigation';
 
 // Mock svelte-i18n
-vi.mock('svelte-i18n', () => ({
-  t: {
-    subscribe: vi.fn((callback) => {
-      callback((key: string) => {
-        const translations: Record<string, string> = {
-          'login.pageTitle': 'Login - Conference Check-In',
-          'login.title': 'Login',
-          'login.username': 'Username',
-          'login.password': 'Password',
-          'login.usernamePlaceholder': 'Enter username',
-          'login.passwordPlaceholder': 'Enter password',
-          'login.submit': 'Login',
-          'login.loggingIn': 'Logging in...'
-        };
-        return translations[key] || key;
-      });
-      return () => {};
-    })
-  }
-}));
+vi.mock('svelte-i18n', () => {
+  const translations: Record<string, string> = {
+    'login.pageTitle': 'Login - Conference Check-In',
+    'login.title': 'Login',
+    'login.username': 'Username',
+    'login.password': 'Password',
+    'login.usernamePlaceholder': 'Enter username',
+    'login.passwordPlaceholder': 'Enter password',
+    'login.submit': 'Login',
+    'login.loggingIn': 'Logging in...'
+  };
+  const translator = (key: string) => translations[key] || key;
+  return {
+    t: {
+      subscribe: (callback: (v: (key: string) => string) => void) => {
+        callback(translator);
+        return () => {};
+      }
+    },
+    _: {
+      subscribe: (callback: (v: (key: string) => string) => void) => {
+        callback(translator);
+        return () => {};
+      }
+    },
+    locale: {
+      subscribe: (callback: (v: string) => void) => {
+        callback('en');
+        return () => {};
+      },
+      set: vi.fn()
+    }
+  };
+});
 
 // Mock API client
 vi.mock('$lib/api/client', () => ({

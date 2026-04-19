@@ -139,7 +139,11 @@ class TestAuthentication(E2ETestBase, TestDataMixin):
         print("   Finding logout button...")
         try:
             logout_button = WebDriverWait(self.driver, 10).until(
-                EC.element_to_be_clickable((By.XPATH, "//button[contains(text(), 'Logout') or contains(text(), 'Log out')]"))
+                EC.element_to_be_clickable((
+                    By.XPATH,
+                    "//button[contains(text(), 'Logout') or contains(text(), 'Log out') "
+                    "or contains(text(), 'Logga ut')]"
+                ))
             )
             print("   ✓ Logout button found")
 
