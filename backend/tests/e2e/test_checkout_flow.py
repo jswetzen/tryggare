@@ -167,7 +167,7 @@ class TestCheckOutFlow(E2ETestBase, TestDataMixin):
         checkin.refresh_from_db()
 
         assert checkin.check_out_time is not None, "Check-out time not set"
-        print(f"   ✅ Check-out successful!")
+        print("   ✅ Check-out successful!")
         print(f"   - Check-out time: {checkin.check_out_time}")
         if checkin.picked_up_by:
             print(f"   - Picked up by: {checkin.picked_up_by}")

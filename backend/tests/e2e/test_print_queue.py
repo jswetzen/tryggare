@@ -11,7 +11,6 @@ Run with:
 import pytest
 import sys
 import time
-from selenium.webdriver.common.by import By
 
 from tests.e2e.base import E2ETestBase, TestDataMixin
 from checkins.models import CheckInRecord

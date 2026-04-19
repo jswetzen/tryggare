@@ -12,13 +12,11 @@ This test suite covers:
 
 import os
 import sys
-import time
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.chrome.options import Options
-from selenium.common.exceptions import TimeoutException
 
 import django
 
@@ -29,7 +27,7 @@ django.setup()
 from accounts.models import AdminUser
 from families.models import Family, Child, Parent
 from events.models import Event, Session
-from checkins.models import CheckInRecord, AuditLog
+from checkins.models import AuditLog
 
 
 class SeleniumTestHelper:
@@ -43,7 +41,7 @@ class SeleniumTestHelper:
 
     def setup_driver(self):
         """Set up the Selenium WebDriver"""
-        print(f"\n🔧 Test Configuration:")
+        print("\n🔧 Test Configuration:")
         print(f"   Selenium Hub: {self.selenium_hub}")
         print(f"   Frontend: {self.frontend_url}")
         print(f"   Backend: {self.backend_url}")
@@ -220,14 +218,14 @@ def setup_test_data():
     print(f"   ✓ User: {test_username}")
     print(f"   ✓ Event: {test_event.name}")
     print(f"   ✓ Session: {test_session.name}")
-    print(f"   ✓ Family: Smith")
-    print(f"   ✓ Child: Emma Smith")
+    print("   ✓ Family: Smith")
+    print("   ✓ Child: Emma Smith")
 
 if __name__ == "__main__":
     try:
         setup_test_data()
         sys.exit(0)
-    except Exception as e:
+    except Exception:
         print("\n" + "=" * 60)
         print("❌ DATA SETUP FAILED (check output above)")
         print("=" * 60)

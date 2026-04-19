@@ -238,7 +238,6 @@ class AutoCheckoutOnDeactivateTest(TestCase):
         mock_layer = MagicMock()
         mock_get_layer.return_value = mock_layer
 
-        from checkins.models import CheckInRecord
         record1 = self._make_checkin(self.child1)
         record2 = self._make_checkin(self.child2)
 
@@ -286,7 +285,7 @@ class AutoCheckoutOnDeactivateTest(TestCase):
         mock_layer = MagicMock()
         mock_get_layer.return_value = mock_layer
 
-        from checkins.models import CheckInRecord, AuditLog
+        from checkins.models import AuditLog
         self._make_checkin(self.child1)
 
         # First deactivation

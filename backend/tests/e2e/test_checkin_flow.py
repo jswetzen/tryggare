@@ -12,8 +12,6 @@ import pytest
 import sys
 import time
 from selenium.webdriver.common.by import By
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
 
 from tests.e2e.base import E2ETestBase, TestDataMixin
 from checkins.models import CheckInRecord
@@ -162,7 +160,7 @@ class TestCheckInFlow(E2ETestBase, TestDataMixin):
         assert checkin_record.check_in_time is not None, "Check-in time not set"
         assert checkin_record.check_in_staff == self.test_user, "Check-in staff incorrect"
 
-        print(f"   ✅ Check-in successful!")
+        print("   ✅ Check-in successful!")
         print(f"   - Child: {self.test_child1.first_name}")
         print(f"   - Time: {checkin_record.check_in_time}")
         print(f"   - Staff: {checkin_record.check_in_staff.name}")

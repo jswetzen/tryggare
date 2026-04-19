@@ -100,7 +100,7 @@ class TestNavigation(E2ETestBase, TestDataMixin):
                 hamburger = self.driver.find_element(By.XPATH, selector)
                 hamburger.click()
                 time.sleep(0.5)
-                print(f"   ✓ Hamburger menu found and clicked")
+                print("   ✓ Hamburger menu found and clicked")
                 hamburger_found = True
                 break
             except:

@@ -4,7 +4,6 @@ Unit tests for printing models: Printer and PrintJob.
 import uuid
 from django.test import TestCase
 from django.utils import timezone
-from rest_framework.test import APIClient
 
 from accounts.models import AdminUser
 from checkins.models import CheckInRecord
