@@ -16,8 +16,8 @@ Any tools and scripts you create for ad-hoc testing shall be stored under agent-
 - **Access**: `http://localhost:8080` (both frontend and backend)
 - **Database**: PostgreSQL on port 5433
 - **Settings**: `config.settings.prod`
-- **Auto-rebuild**: This command is running on the host in this repository with nushell: `watch restart.txt { || podman compose -f docker-compose.prod.yml --env-file .env.prod up -d --force-recreate --build | save -f build.prod.log }`
-- **Manual rebuild**: No podman access, the only way is to write to `restart.txt`.
+- **Auto-rebuild**: `make watch` (or `make watch-prod`) runs on the **host server** — not available to Claude Code (no podman access in the container). To trigger a rebuild, write to `restart.txt`.
+- **Manual rebuild**: No podman access from Claude Code. The only way to trigger a rebuild is to write to `restart.txt`.
 - **Testing**: `./verification.sh --test` (checks build logs, disk space, then runs tests)
 
 ### Development Environment (docker-compose.yml)
@@ -25,7 +25,7 @@ Any tools and scripts you create for ad-hoc testing shall be stored under agent-
 - **Access**: Frontend `http://localhost:5173`, Backend `http://localhost:8000`
 - **Database**: PostgreSQL on port 5432
 - **Settings**: `config.settings.local`
-- **Auto-rebuild**: This command is running on the host in this repository with nushell: `watch restart.txt { || podman compose up -d --force-recreate --build | save -f build.dev.log }`
+- **Auto-rebuild**: `make watch` (or `make watch-dev`) runs on the **host server** — not available to Claude Code.
 - **Restart**: Hot reloading should cover most code changes, but if you have to restart, trigger the auto-rebuild by writing to `checks-ins/restart.txt`.
 - **Note**: `backend/config/settings/local.py` overrides `STATIC_URL = "/static/"` to avoid conflicts with `MEDIA_URL` in dev mode
 
