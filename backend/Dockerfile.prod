@@ -3,8 +3,8 @@ FROM docker.io/node:22-alpine AS frontend-builder
 
 WORKDIR /app
 
-# Enable pnpm
-RUN corepack enable
+# Enable pnpm (pin to v9 to avoid v10+ build-script approval errors)
+RUN corepack enable && corepack prepare pnpm@9.15.4 --activate
 
 # Copy frontend files
 COPY frontend/package.json frontend/pnpm-lock.yaml ./
