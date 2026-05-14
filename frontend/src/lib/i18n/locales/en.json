@@ -401,5 +401,19 @@
     "resend": "Resend",
     "offline": "offline",
     "noPrinters": "No printers available"
+  },
+  "home": {
+    "pageTitle": "Home - Check-In System",
+    "welcome": "Welcome, {name}",
+    "subtitle": "What would you like to do today?",
+    "quickActions": "Quick Actions",
+    "checkinDesc": "Search for a family and check children in to today's session.",
+    "checkoutDesc": "View checked-in children and process pick-ups.",
+    "printQueueDesc": "Print name labels for children who have checked in.",
+    "adminSection": "Administration",
+    "importDesc": "Import family and booking data from an external source.",
+    "adminDesc": "Manage events, sessions, users, and system settings.",
+    "tipLabel": "Tip: ",
+    "tip": "Start with Check-In to search for a family by last name or scan their QR code."
   }
 }
