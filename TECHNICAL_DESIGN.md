@@ -49,7 +49,7 @@ This document outlines the technical architecture and technology stack decisions
 ### Frontend Framework
 - **SvelteKit**
   - Minimal JavaScript framework
-  - File-based routing (like Next.js)
+  - File-based routing
   - Compiles to vanilla JS (no virtual DOM)
   - Small bundle size (~30KB vs React ~150KB)
   - Built-in reactivity (perfect for real-time)
