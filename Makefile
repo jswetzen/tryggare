@@ -1,4 +1,4 @@
-.PHONY: help rebuild-dev rebuild-prod restart-dev restart-prod test test-e2e test-e2e-dev test-e2e-prod clean-docker status ping wait-dev wait-prod
+.PHONY: help rebuild-dev rebuild-prod restart-dev restart-prod watch watch-dev watch-prod test test-e2e test-e2e-dev test-e2e-prod clean-docker status ping wait-dev wait-prod
 
 # Default target
 help:
@@ -9,6 +9,9 @@ help:
 	@echo "  make rebuild-prod      Trigger production environment rebuild"
 	@echo "  make restart-dev       Restart dev containers (hot reload should work)"
 	@echo "  make restart-prod      Restart production containers"
+	@echo "  make watch             Watch restart.txt, auto-rebuild both on change"
+	@echo "  make watch-dev         Watch restart.txt, auto-rebuild dev only"
+	@echo "  make watch-prod        Watch restart.txt, auto-rebuild prod only"
 	@echo ""
 	@echo "Test Commands:"
 	@echo "  make test              Run all tests (delegates to backend/)"
@@ -58,6 +61,16 @@ restart-prod:
 	@echo "Restarting production environment..."
 	@echo "restart-$$(date +%s)" > restart.txt
 	@echo "✓ Restart triggered"
+
+# Watch restart.txt and auto-rebuild on change
+watch:
+	@nu watch.nu
+
+watch-dev:
+	@nu watch.nu --dev
+
+watch-prod:
+	@nu watch.nu --prod
 
 # Test commands (delegate to backend Makefile)
 test:
