@@ -2,8 +2,8 @@ FROM docker.io/node:22-alpine AS builder
 
 WORKDIR /app
 
-# Enable pnpm
-RUN corepack enable
+# Enable pnpm (pin to v9 to avoid v10+ build-script approval errors)
+RUN corepack enable && corepack prepare pnpm@9.15.4 --activate
 
 # Copy package files
 COPY package.json pnpm-lock.yaml ./
