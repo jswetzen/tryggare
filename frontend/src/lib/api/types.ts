@@ -60,6 +60,13 @@ export interface Session {
   requires_ticket: boolean;
 }
 
+export interface Event {
+  id: string;
+  name: string;
+  start_date: string;
+  end_date: string;
+}
+
 export interface CheckInRecord {
   id: string;
   child: string;

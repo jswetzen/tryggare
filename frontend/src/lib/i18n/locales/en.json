@@ -384,7 +384,14 @@
       "fieldSecret": "Secret",
       "pcoInstructions": "Enter your Planning Center Personal Access Token credentials (planningcenteronline.com → My Account → Personal Access Tokens).",
       "appIdRequired": "App ID is required.",
-      "secretRequired": "Secret is required."
+      "secretRequired": "Secret is required.",
+      "sectionSource": "Source Settings",
+      "sectionFestivalPro": "FestivalPro Configuration",
+      "sectionPlanningCenter": "Planning Center Configuration",
+      "fieldEvent": "Event",
+      "fieldEventHint": "optional",
+      "eventNone": "— No event —",
+      "colEvent": "Event"
     }
   },
   "printing": {
