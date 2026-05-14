@@ -401,5 +401,19 @@
     "resend": "Skicka igen",
     "offline": "offline",
     "noPrinters": "Inga skrivare tillgängliga"
+  },
+  "home": {
+    "pageTitle": "Hem - Incheckningssystem",
+    "welcome": "Välkommen, {name}",
+    "subtitle": "Vad vill du göra idag?",
+    "quickActions": "Snabbåtgärder",
+    "checkinDesc": "Sök efter en familj och checka in barn till dagens session.",
+    "checkoutDesc": "Se incheckade barn och hantera avhämtningar.",
+    "printQueueDesc": "Skriv ut namnlappar för barn som har checkats in.",
+    "adminSection": "Administration",
+    "importDesc": "Importera familje- och bokningsdata från en extern källa.",
+    "adminDesc": "Hantera evenemang, sessioner, användare och systeminställningar.",
+    "tipLabel": "Tips: ",
+    "tip": "Börja med Incheckning för att söka efter en familj med efternamn eller skanna deras QR-kod."
   }
 }
