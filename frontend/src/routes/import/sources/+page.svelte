@@ -2,13 +2,15 @@
   import { onMount } from 'svelte';
   import { t } from 'svelte-i18n';
   import { importApi } from '$lib/api/importService';
-  import type { ImportSource, ImportSourceWrite } from '$lib/api/types';
+  import { eventApi } from '$lib/api/services';
+  import type { ImportSource, ImportSourceWrite, Event } from '$lib/api/types';
 
   // ---------------------------------------------------------------------------
   // State
   // ---------------------------------------------------------------------------
 
   let sources = $state<ImportSource[]>([]);
+  let events = $state<Event[]>([]);
   let loading = $state(true);
   let error = $state('');
   let formError = $state('');
@@ -21,6 +23,7 @@
   // Form fields
   let formName = $state('');
   let formProviderType = $state<'festivalpro' | 'planningcenter'>('festivalpro');
+  let formEventId = $state<string | null>(null);
   let formLoginUrl = $state('');
   let formExportUrl = $state('');
   let formExportBody = $state('');
@@ -32,7 +35,7 @@
   // ---------------------------------------------------------------------------
 
   onMount(async () => {
-    await loadSources();
+    await Promise.all([loadSources(), loadEvents()]);
   });
 
   async function loadSources() {
@@ -47,6 +50,14 @@
     }
   }
 
+  async function loadEvents() {
+    try {
+      events = await eventApi.list();
+    } catch {
+      // Non-fatal — the form still works without the event list
+    }
+  }
+
   // ---------------------------------------------------------------------------
   // Form helpers
   // ---------------------------------------------------------------------------
@@ -54,6 +65,7 @@
   function resetForm() {
     formName = '';
     formProviderType = 'festivalpro';
+    formEventId = null;
     formLoginUrl = '';
     formExportUrl = '';
     formExportBody = '';
@@ -73,6 +85,7 @@
     editingId = source.id;
     formName = source.name;
     formProviderType = source.provider_type;
+    formEventId = source.event ?? null;
     formLoginUrl = source.festivalpro_config?.login_url ?? '';
     formExportUrl = source.festivalpro_config?.export_url ?? '';
     formExportBody = source.festivalpro_config?.export_body ?? '';
@@ -99,6 +112,7 @@
       const data: ImportSourceWrite = {
         name: formName.trim(),
         provider_type: formProviderType,
+        event: formEventId,
       };
       if (formUsername.trim()) data.username = formUsername.trim();
       if (formPassword) data.password = formPassword;
@@ -151,6 +165,11 @@
   function providerTypeLabel(type: string): string {
     return type === 'festivalpro' ? 'FestivalPro' : 'Planning Center';
   }
+
+  function eventName(eventId: string | null): string | null {
+    if (!eventId) return null;
+    return events.find(e => e.id === eventId)?.name ?? null;
+  }
 </script>
 
 <svelte:head>
@@ -175,7 +194,7 @@
     </div>
   {/if}
 
-  <!-- New source form -->
+  <!-- New/edit source form -->
   {#if showForm}
     <div class="mb-6 bg-white rounded-lg border border-neutral-200 shadow-sm p-6">
       <h2 class="text-base font-semibold text-neutral-900 mb-4">
@@ -188,7 +207,13 @@
         </div>
       {/if}
 
-      <div class="grid gap-4 sm:grid-cols-2">
+      <!-- Section 1: Source Settings -->
+      <div class="mb-2">
+        <h3 class="text-xs font-semibold uppercase tracking-wider text-neutral-400">
+          {$t('import.sources.sectionSource')}
+        </h3>
+      </div>
+      <div class="grid gap-4 sm:grid-cols-2 mb-6">
         <!-- Name -->
         <div class="sm:col-span-2">
           <label class="block text-sm font-medium text-neutral-700 mb-1" for="src-name">
@@ -204,7 +229,7 @@
         </div>
 
         <!-- Provider type -->
-        <div class="sm:col-span-2">
+        <div>
           <label class="block text-sm font-medium text-neutral-700 mb-1" for="src-type">
             {$t('import.sources.fieldProviderType')} <span class="text-danger-500">*</span>
           </label>
@@ -218,130 +243,159 @@
           </select>
         </div>
 
-        <!-- FestivalPro-specific fields -->
-        {#if formProviderType === 'festivalpro'}
-          <div>
-            <label class="block text-sm font-medium text-neutral-700 mb-1" for="src-login-url">
-              {$t('import.sources.fieldLoginUrl')} <span class="text-danger-500">*</span>
-            </label>
-            <input
-              id="src-login-url"
-              type="url"
-              bind:value={formLoginUrl}
-              placeholder="https://example.com/?login"
-              class="w-full border border-neutral-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-400"
-            />
-          </div>
-
-          <div>
-            <label class="block text-sm font-medium text-neutral-700 mb-1" for="src-export-url">
-              {$t('import.sources.fieldExportUrl')} <span class="text-danger-500">*</span>
-            </label>
-            <input
-              id="src-export-url"
-              type="url"
-              bind:value={formExportUrl}
-              placeholder="https://example.com/?advancedExport"
-              class="w-full border border-neutral-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-400"
-            />
-          </div>
-
-          <div class="sm:col-span-2">
-            <label class="block text-sm font-medium text-neutral-700 mb-1" for="src-export-body">
-              {$t('import.sources.fieldExportBody')}
-              <span class="text-neutral-400 font-normal">({$t('import.sources.fieldExportBodyHint')})</span>
-            </label>
-            <textarea
-              id="src-export-body"
-              bind:value={formExportBody}
-              rows="5"
-              placeholder="QUERYQ=CODE*__EQ__*...&EVENTID=5781&EXPORT=JSON&ETICKETS=1&..."
-              class="w-full border border-neutral-300 rounded px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-primary-400 resize-y"
-            ></textarea>
-            <p class="mt-1 text-xs text-neutral-400">
-              {$t('import.sources.fieldExportBodyHelp')}
-            </p>
-          </div>
-
-          <div>
-            <label class="block text-sm font-medium text-neutral-700 mb-1" for="src-username">
-              {$t('import.sources.fieldUsername')}
-              {#if editingId}
-                <span class="text-neutral-400 font-normal">({$t('import.sources.fieldKeepExisting')})</span>
-              {/if}
-            </label>
-            <input
-              id="src-username"
-              type="text"
-              autocomplete="off"
-              bind:value={formUsername}
-              placeholder={editingId ? '(unchanged)' : 'username'}
-              class="w-full border border-neutral-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-400"
-            />
-          </div>
-
-          <div>
-            <label class="block text-sm font-medium text-neutral-700 mb-1" for="src-password">
-              {$t('import.sources.fieldPassword')}
-              {#if editingId}
-                <span class="text-neutral-400 font-normal">({$t('import.sources.fieldKeepExisting')})</span>
-              {/if}
-            </label>
-            <input
-              id="src-password"
-              type="password"
-              autocomplete="new-password"
-              bind:value={formPassword}
-              placeholder={editingId ? '(unchanged)' : 'password'}
-              class="w-full border border-neutral-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-400"
-            />
-          </div>
-
-        {:else}
-          <!-- Planning Center credentials -->
-          <div class="sm:col-span-2">
-            <p class="text-sm text-neutral-500 mb-3">{$t('import.sources.pcoInstructions')}</p>
-          </div>
-
-          <div>
-            <label class="block text-sm font-medium text-neutral-700 mb-1" for="src-app-id">
-              {$t('import.sources.fieldAppId')}
-              {#if editingId}
-                <span class="text-neutral-400 font-normal">({$t('import.sources.fieldKeepExisting')})</span>
-              {:else}
-                <span class="text-danger-500">*</span>
-              {/if}
-            </label>
-            <input
-              id="src-app-id"
-              type="text"
-              autocomplete="off"
-              bind:value={formUsername}
-              placeholder={editingId ? '(unchanged)' : 'App ID'}
-              class="w-full border border-neutral-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-400"
-            />
-          </div>
-
-          <div>
-            <label class="block text-sm font-medium text-neutral-700 mb-1" for="src-secret">
-              {$t('import.sources.fieldSecret')}
-              {#if editingId}
-                <span class="text-neutral-400 font-normal">({$t('import.sources.fieldKeepExisting')})</span>
-              {:else}
-                <span class="text-danger-500">*</span>
-              {/if}
-            </label>
-            <input
-              id="src-secret"
-              type="password"
-              autocomplete="new-password"
-              bind:value={formPassword}
-              placeholder={editingId ? '(unchanged)' : 'Secret'}
-              class="w-full border border-neutral-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-400"
-            />
-          </div>
-        {/if}
+        <!-- Event selector -->
+        <div>
+          <label class="block text-sm font-medium text-neutral-700 mb-1" for="src-event">
+            {$t('import.sources.fieldEvent')}
+            <span class="text-neutral-400 font-normal">({$t('import.sources.fieldEventHint')})</span>
+          </label>
+          <select
+            id="src-event"
+            bind:value={formEventId}
+            class="w-full border border-neutral-300 rounded px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary-400"
+          >
+            <option value={null}>{$t('import.sources.eventNone')}</option>
+            {#each events as event (event.id)}
+              <option value={event.id}>{event.name}</option>
+            {/each}
+          </select>
+        </div>
       </div>
+
+      <!-- Section 2: Provider-specific configuration -->
+      {#if formProviderType === 'festivalpro' || formProviderType === 'planningcenter'}
+        <div class="border-t border-neutral-100 pt-4 mb-2">
+          <h3 class="text-xs font-semibold uppercase tracking-wider text-neutral-400">
+            {formProviderType === 'festivalpro'
+              ? $t('import.sources.sectionFestivalPro')
+              : $t('import.sources.sectionPlanningCenter')}
+          </h3>
+        </div>
+        <div class="grid gap-4 sm:grid-cols-2">
+          {#if formProviderType === 'festivalpro'}
+            <div>
+              <label class="block text-sm font-medium text-neutral-700 mb-1" for="src-login-url">
+                {$t('import.sources.fieldLoginUrl')} <span class="text-danger-500">*</span>
+              </label>
+              <input
+                id="src-login-url"
+                type="url"
+                bind:value={formLoginUrl}
+                placeholder="https://example.com/?login"
+                class="w-full border border-neutral-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-400"
+              />
+            </div>
+
+            <div>
+              <label class="block text-sm font-medium text-neutral-700 mb-1" for="src-export-url">
+                {$t('import.sources.fieldExportUrl')} <span class="text-danger-500">*</span>
+              </label>
+              <input
+                id="src-export-url"
+                type="url"
+                bind:value={formExportUrl}
+                placeholder="https://example.com/?advancedExport"
+                class="w-full border border-neutral-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-400"
+              />
+            </div>
+
+            <div class="sm:col-span-2">
+              <label class="block text-sm font-medium text-neutral-700 mb-1" for="src-export-body">
+                {$t('import.sources.fieldExportBody')}
+                <span class="text-neutral-400 font-normal">({$t('import.sources.fieldExportBodyHint')})</span>
+              </label>
+              <textarea
+                id="src-export-body"
+                bind:value={formExportBody}
+                rows="5"
+                placeholder="QUERYQ=CODE*__EQ__*...&EVENTID=5781&EXPORT=JSON&ETICKETS=1&..."
+                class="w-full border border-neutral-300 rounded px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-primary-400 resize-y"
+              ></textarea>
+              <p class="mt-1 text-xs text-neutral-400">
+                {$t('import.sources.fieldExportBodyHelp')}
+              </p>
+            </div>
+
+            <div>
+              <label class="block text-sm font-medium text-neutral-700 mb-1" for="src-username">
+                {$t('import.sources.fieldUsername')}
+                {#if editingId}
+                  <span class="text-neutral-400 font-normal">({$t('import.sources.fieldKeepExisting')})</span>
+                {/if}
+              </label>
+              <input
+                id="src-username"
+                type="text"
+                autocomplete="off"
+                bind:value={formUsername}
+                placeholder={editingId ? '(unchanged)' : 'username'}
+                class="w-full border border-neutral-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-400"
+              />
+            </div>
+
+            <div>
+              <label class="block text-sm font-medium text-neutral-700 mb-1" for="src-password">
+                {$t('import.sources.fieldPassword')}
+                {#if editingId}
+                  <span class="text-neutral-400 font-normal">({$t('import.sources.fieldKeepExisting')})</span>
+                {/if}
+              </label>
+              <input
+                id="src-password"
+                type="password"
+                autocomplete="new-password"
+                bind:value={formPassword}
+                placeholder={editingId ? '(unchanged)' : 'password'}
+                class="w-full border border-neutral-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-400"
+              />
+            </div>
+
+          {:else}
+            <!-- Planning Center credentials -->
+            <div class="sm:col-span-2">
+              <p class="text-sm text-neutral-500 mb-3">{$t('import.sources.pcoInstructions')}</p>
+            </div>
+
+            <div>
+              <label class="block text-sm font-medium text-neutral-700 mb-1" for="src-app-id">
+                {$t('import.sources.fieldAppId')}
+                {#if editingId}
+                  <span class="text-neutral-400 font-normal">({$t('import.sources.fieldKeepExisting')})</span>
+                {:else}
+                  <span class="text-danger-500">*</span>
+                {/if}
+              </label>
+              <input
+                id="src-app-id"
+                type="text"
+                autocomplete="off"
+                bind:value={formUsername}
+                placeholder={editingId ? '(unchanged)' : 'App ID'}
+                class="w-full border border-neutral-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-400"
+              />
+            </div>
+
+            <div>
+              <label class="block text-sm font-medium text-neutral-700 mb-1" for="src-secret">
+                {$t('import.sources.fieldSecret')}
+                {#if editingId}
+                  <span class="text-neutral-400 font-normal">({$t('import.sources.fieldKeepExisting')})</span>
+                {:else}
+                  <span class="text-danger-500">*</span>
+                {/if}
+              </label>
+              <input
+                id="src-secret"
+                type="password"
+                autocomplete="new-password"
+                bind:value={formPassword}
+                placeholder={editingId ? '(unchanged)' : 'Secret'}
+                class="w-full border border-neutral-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-400"
+              />
+            </div>
+          {/if}
+        </div>
+      {/if}
 
       <div class="mt-5 flex items-center gap-3 justify-end">
         <button
@@ -388,6 +442,7 @@
             <tr>
               <th class="text-left px-4 py-3 font-semibold text-neutral-700">{$t('import.sources.colName')}</th>
               <th class="text-left px-4 py-3 font-semibold text-neutral-700">{$t('import.sources.colType')}</th>
+              <th class="text-left px-4 py-3 font-semibold text-neutral-700">{$t('import.sources.colEvent')}</th>
               <th class="text-center px-4 py-3 font-semibold text-neutral-700">{$t('import.sources.colCredentials')}</th>
               <th class="text-left px-4 py-3 font-semibold text-neutral-700">{$t('import.sources.colCreated')}</th>
               <th class="text-right px-4 py-3 font-semibold text-neutral-700">{$t('import.sources.colActions')}</th>
@@ -402,6 +457,13 @@
                   </a>
                 </td>
                 <td class="px-4 py-3 text-neutral-600">{providerTypeLabel(source.provider_type)}</td>
+                <td class="px-4 py-3 text-neutral-500 text-sm">
+                  {#if source.event}
+                    {eventName(source.event) ?? source.event}
+                  {:else}
+                    <span class="text-neutral-300">—</span>
+                  {/if}
+                </td>
                 <td class="px-4 py-3 text-center">
                   {#if source.has_credentials}
                     <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-success-100 text-success-800">

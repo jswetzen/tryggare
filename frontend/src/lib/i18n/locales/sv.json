@@ -384,7 +384,14 @@
       "fieldSecret": "Hemlighet",
       "pcoInstructions": "Ange dina Planning Center Personal Access Token-uppgifter (planningcenteronline.com → Mitt konto → Personliga åtkomsttokens).",
       "appIdRequired": "App-ID krävs.",
-      "secretRequired": "Hemlighet krävs."
+      "secretRequired": "Hemlighet krävs.",
+      "sectionSource": "Källinställningar",
+      "sectionFestivalPro": "FestivalPro-konfiguration",
+      "sectionPlanningCenter": "Planning Center-konfiguration",
+      "fieldEvent": "Händelse",
+      "fieldEventHint": "valfritt",
+      "eventNone": "— Ingen händelse —",
+      "colEvent": "Händelse"
     }
   },
   "printing": {

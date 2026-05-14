@@ -3,7 +3,7 @@
  */
 
 import { apiClient } from './client';
-import type { Family, Child, Session, CheckInRecord, AuditLog, PrintQueueItem, QRInfoResponse, Printer, PrintJob } from './types';
+import type { Family, Child, Session, CheckInRecord, AuditLog, PrintQueueItem, QRInfoResponse, Printer, PrintJob, Event } from './types';
 import type { FamilyApiResponse } from '$lib/checkin/types';
 
 /**
@@ -205,6 +205,13 @@ export const printingApi = {
    */
   assignJob: (jobId: string, printerId: string) =>
     apiClient.post<PrintJob>(`/printing/jobs/${jobId}/assign/`, { printer_id: printerId }),
+};
+
+/**
+ * Event API endpoints
+ */
+export const eventApi = {
+  list: (): Promise<Event[]> => apiClient.get('/events/'),
 };
 
 /**
