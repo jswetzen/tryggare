@@ -1,63 +1,87 @@
-# Printer Client
+# printer-client
 
-Python client for automated label printing. Runs on a LAN machine with a USB or WiFi Brother QL printer attached.
+Label printer client for the Conference Child Management System. Connects to the Django backend via WebSocket, renders labels with WeasyPrint, and sends them to a Brother QL USB or network printer.
 
-## How it works
+## Prerequisites
 
-1. Authenticates to the Django backend using staff credentials
-2. Opens a persistent WebSocket connection
-3. Sends `printer_register` to announce itself
-4. Listens for `print_job` messages
-5. For each job: fetches the label URL, renders it with Playwright (headless Chromium), screenshots the `.label` div, and sends the PNG to `brother_ql` for printing
-6. Reports `print_job_completed` or `print_job_failed` back via WebSocket
-7. Reconnects automatically with exponential backoff on disconnect
+- [`uv`](https://docs.astral.sh/uv/) — the only required dependency. Install with:
+  ```bash
+  curl -LsSf https://astral.sh/uv/install.sh | sh
+  ```
+  `uv` manages its own Python interpreter, so you don't need a system Python.
+- macOS or Linux (Windows not supported)
+- A Brother QL printer connected via USB or WiFi
 
-## Setup
+## Install
 
 ```bash
-# Install Python dependencies
-pip install -r requirements.txt
+git clone https://github.com/jswetzen/check-ins.git
+cd check-ins/printer-client
+./install.sh
+```
 
-# Install Playwright Chromium
-playwright install chromium
+The script installs `printer-client` as a `uv tool` (isolated venv, Python 3.13) and creates `.env` from the template.
 
-# Copy and edit environment config
-cp .env.example .env
+## Configure
+
+```bash
 $EDITOR .env
 ```
 
-## Running
-
-```bash
-python client.py
-```
-
-## Dry-run mode (no actual printing)
-
-```bash
-DRY_RUN=true python client.py
-```
-
-This connects to the backend and processes jobs but skips the `brother_ql` print call. Useful for testing WebSocket connectivity.
-
-## Environment variables
-
 | Variable | Default | Description |
 |---|---|---|
-| `BACKEND_URL` | `http://localhost:8000` | Backend server URL |
+| `BACKEND_URL` | `http://localhost:8000` | Django server URL |
 | `STAFF_USERNAME` | `admin` | Staff login username |
 | `STAFF_PASSWORD` | `admin123` | Staff login password |
-| `PRINTER_UUID` | random UUID | Stable printer identity (generate once) |
-| `PRINTER_NAME` | `Label Printer` | Human-readable printer name shown in UI |
-| `PRINTER_IDENTIFIER` | `` | USB (`usb://0x04f9:0x2042`) or network (`tcp://192.168.1.50`) |
+| `PRINTER_UUID` | random UUID | Stable printer identity — generate once, keep forever |
+| `PRINTER_NAME` | `Label Printer` | Name shown in the UI |
+| `PRINTER_IDENTIFIER` | *(auto-detect)* | USB: `usb://0x04f9:0x2042`  Network: `tcp://192.168.1.50` |
 | `PRINTER_BACKEND` | `pyusb` | `pyusb`, `network`, or `linux_kernel` |
-| `PRINTER_MODEL` | `QL-700` | Brother QL model string |
-| `LABEL_SIZE` | `62` | Label width in mm |
-| `SCREENSHOT_DPI` | `300` | Playwright screenshot DPI |
-| `DRY_RUN` | `false` | Skip actual printing when `true` |
+| `PRINTER_MODEL` | `QL-810W` | Brother QL model string |
+| `LABEL_SIZE` | `29x90` | Die-cut: `29x90`, `62x100`  Endless: `29`, `62` |
+| `SCREENSHOT_DPI` | `300` | Render DPI — higher means better print quality |
+| `DRY_RUN` | `false` | Set `true` to skip actual printing (test connectivity) |
 
-## Requirements
+## Run
 
-- Python 3.11+
-- Chromium (via `playwright install chromium`)
-- USB access to Brother QL printer (or network access for WiFi models)
+```bash
+./start.sh
+```
+
+The client connects, registers itself with the backend, and processes print jobs. It reconnects automatically on disconnect.
+
+### Dry-run mode
+
+```bash
+DRY_RUN=true ./start.sh
+```
+
+Processes jobs end-to-end but skips sending to the printer. Useful for testing the WebSocket connection.
+
+## Network printer backend (optional)
+
+For WiFi/network printers with SNMP status queries, reinstall with the `network` extra:
+
+```bash
+uv tool install --python 3.13 --force '.[network]'
+```
+
+## Platform notes
+
+### Linux — USB permissions
+
+```bash
+sudo usermod -aG lp $USER
+# Log out and back in for the group change to take effect
+```
+
+### macOS
+
+The `pyusb` backend works on macOS without special permissions. If you run into issues, check that no other driver (e.g. `ipp-usb`) has claimed the device.
+
+## Troubleshooting
+
+See [docs/troubleshooting.md](docs/troubleshooting.md) for known issues including:
+- `ipp-usb` USB reset loop on Linux
+- QL-810W USB timeout and initialization quirks
+- Network backend status query limitations

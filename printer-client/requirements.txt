@@ -1,9 +1,0 @@
-websockets>=12.0
-playwright>=1.40.0
-#brother-ql-inventree>=1.3
-# Instead install from ./brother-ql-inventree
-requests>=2.31.0
-Pillow>=10.0.0
-python-dotenv>=1.0.0
-puresnmp>=2.0.0
-zeroconf>=0.38.0

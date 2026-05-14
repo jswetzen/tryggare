@@ -3,7 +3,7 @@
 Printer client for the Conference Child Management System.
 
 Connects to the backend WebSocket, receives print jobs, renders labels
-with Playwright (headless Chromium), and sends to a Brother QL printer.
+with WeasyPrint + pymupdf, and sends to a Brother QL printer.
 
 Configuration via environment variables (see .env.example).
 """
@@ -15,12 +15,12 @@ import os
 import subprocess
 import sys
 import uuid
-from pathlib import Path
 
+import fitz  # pymupdf
 import requests
 import websockets
 from dotenv import load_dotenv
-from playwright.async_api import async_playwright
+from weasyprint import HTML
 
 # Load .env file if present
 load_dotenv()
@@ -108,33 +108,24 @@ def build_ws_headers(http_session: requests.Session) -> dict:
 # Label rendering
 # ─────────────────────────────────────────────────────────────────────────────
 
-async def render_label(label_url: str) -> bytes:
+def render_label(label_url: str) -> bytes:
     """
-    Render the label page with Playwright and screenshot the .label div.
+    Fetch the label page and render it to PNG using WeasyPrint + pymupdf.
     Returns PNG bytes.
     """
-    # Tell the server to render at the correct dimensions for our label size
     sep = "&" if "?" in label_url else "?"
-    label_url = f"{label_url}{sep}label={LABEL_SIZE}"
+    url = f"{label_url}{sep}label={LABEL_SIZE}"
 
-    async with async_playwright() as p:
-        browser = await p.chromium.launch(headless=True)
-        page = await browser.new_page(device_scale_factor=SCREENSHOT_DPI / 96)
-        await page.goto(label_url, wait_until="networkidle")
+    resp = requests.get(url, timeout=15)
+    resp.raise_for_status()
 
-        # Wait for QR code image to load
-        await page.wait_for_selector(".label img", timeout=10000)
-
-        element = await page.query_selector(".label")
-        if not element:
-            await browser.close()
-            raise RuntimeError("Could not find .label element on page")
-
-        png_bytes = await element.screenshot()
-        await browser.close()
-        with open('label.png', 'wb') as f:
-            f.write(png_bytes)
-        return png_bytes
+    pdf_bytes = HTML(string=resp.text, base_url=url).write_pdf()
+    doc = fitz.open(stream=pdf_bytes, filetype="pdf")
+    pix = doc[0].get_pixmap(
+        matrix=fitz.Matrix(SCREENSHOT_DPI / 72, SCREENSHOT_DPI / 72),
+        alpha=False,
+    )
+    return pix.tobytes("png")
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -143,9 +134,9 @@ async def render_label(label_url: str) -> bytes:
 
 def get_label_target_size() -> tuple[int, int]:
     """
-    Return the expected (width, height) in pixels for the Playwright screenshot
-    based on LABEL_SIZE. This is the landscape orientation (length x width).
-    brother_ql's rotate="90" will rotate it to portrait for printing.
+    Return the expected (width, height) in pixels for the rendered label
+    based on LABEL_SIZE. Landscape orientation (length x width).
+    brother_ql's rotate="90" rotates it to portrait for printing.
     """
     try:
         from brother_ql.labels import ALL_LABELS
@@ -286,7 +277,7 @@ async def handle_print_job(ws, job_id: str, label_url: str) -> None:
     """Render and print a single label, then report result via WS."""
     try:
         log.info("Rendering label for job %s", job_id)
-        png_bytes = await render_label(label_url)
+        png_bytes = render_label(label_url)
 
         log.info("Printing label for job %s", job_id)
         print_label(png_bytes)
@@ -428,6 +419,10 @@ async def main() -> None:
 
         await asyncio.sleep(backoff)
         backoff = min(backoff * 2, 60)
+
+
+def run() -> None:
+    asyncio.run(main())
 
 
 if __name__ == "__main__":
