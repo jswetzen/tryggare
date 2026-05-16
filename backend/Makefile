@@ -128,8 +128,8 @@ coverage:
 	@uv run --group test pytest tests/ --cov=. --cov-report=html --cov-report=term-missing
 
 verify:
-	@echo "Running quick backend verification..."
-	@uv run --group test python verify.py
+	@echo "Running quick backend verification (unit tests)..."
+	@uv run --group test pytest tests/unit/ -q
 
 ping:
 	@curl -s -o /dev/null -w "Dev backend (8000): %{http_code}\n" http://localhost:8000/api/auth/check/ || echo "Dev backend (8000): UNREACHABLE"

@@ -1,3 +1,6 @@
+# Production environment: single container that builds the frontend and serves it
+# alongside the Django API on port 8080. Triggered by `make rebuild-prod` (writes
+# to restart.txt, which the host-side `watch.nu` picks up).
 name: ${COMPOSE_PROJECT_NAME:-check-in-prod}
 services:
   # Django backend serving both API and frontend
