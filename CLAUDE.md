@@ -1,11 +1,10 @@
-The Conference Child Management System has a detailed specification in the file PROJECT_SPECIFICATION.md. TECHNICAL_DESIGN.md specifies the technical details and a high-level implementation plan is in IMPLEMENTATION_PLAN.md.
+The Conference Child Management System has a product specification at `docs/specification.md` and an architecture/technical-design doc at `docs/architecture.md`.
 
-Update IMPLEMENTATION_PLAN.md to check off items that are done. Also keep CURRENT_TASKS.md up-to-date as you complete items.
+`docs/roadmap/` contains lightweight stubs for low-priority future work. Each file is one topic; `docs/roadmap/README.md` is the index.
 
-`DEFERRED_TASKS/` contains lightweight stubs for low-priority work to revisit later. Each file is one topic. `DEFERRED_TASKS/README.md` has the index. Prototypes (exploratory code, not production) live in `prototypes/`.
+If you really have to write on-the-fly documentation or markdown summaries, store them under `docs/`.
 
-If you really have to write on-the fly documentation or markdown summaries, store them under docs/
-Any tools and scripts you create for ad-hoc testing shall be stored under agent-tools/
+Persistent dev helpers (anything reusable across sessions) go under `scripts/`. `agent-tools/` is a gitignored scratch directory: throw-away scripts you write during a session belong there and won't be committed.
 
 ## Deployment Environments
 
@@ -146,7 +145,6 @@ Before considering an implementation phase complete, make sure to:
   - Before committing: `cd backend && make test-e2e-dev` (should pass 17/20+ tests)
   - Production deployment: `make test-e2e-prod` (after fixing DB config)
 - Verify tests pass (at least as well as baseline: 17/20 on dev as of 2025-12-12)
-- Update CURRENT_TASKS.md so everything that you actually finished is checked off
 - Commit all your changes to git with clear commit messages
 
 ## Playwright for Manual Testing
