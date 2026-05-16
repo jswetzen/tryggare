@@ -24,7 +24,7 @@ docker-compose -f docker-compose.prod.yml exec web uv run python manage.py creat
 
 **Note**: Production setup runs on port **8080** (not 8000) so you can run dev servers alongside it.
 
-**Local Testing**: This production configuration is often run locally for testing. See [VERIFICATION_GUIDE.md](./VERIFICATION_GUIDE.md) for comprehensive testing workflows.
+**Local Testing**: This production configuration is often run locally for testing — the same `docker-compose.prod.yml` works for a local production smoke test. Use `make test-e2e-prod` from the repo root to run the E2E suite against it.
 
 For detailed instructions including reverse proxy setup, see sections below.
 
