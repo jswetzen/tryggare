@@ -91,8 +91,9 @@ frontend/             SvelteKit project
     stores/           Svelte stores
     i18n/             Translation JSON (en, sv)
 
-docs/                 Design documents, implementation notes
-agent-tools/          Ad-hoc test/verification scripts
+docs/                 Design docs, deployment guides, screenshots, roadmap
+scripts/              Helper scripts (Docker setup validation, screenshots)
+printer-client/       Standalone label-printing client (Brother QL)
 ```
 
 ## Testing
@@ -136,12 +137,11 @@ make verify
 
 ## Documentation
 
-- [Project Specification](./PROJECT_SPECIFICATION.md) - Requirements and data model
-- [Technical Design](./TECHNICAL_DESIGN.md) - Architecture decisions
-- [Implementation Plan](./IMPLEMENTATION_PLAN.md) - Development roadmap and status
-- [Current Tasks](./CURRENT_TASKS.md) - Active work
-- [docs/](./docs/) - Design docs, API notes, deployment guides
-- [Coolify Deployment Guide](./docs/deploy-coolify.md) - Step-by-step self-hosted deployment
+- [Specification](./docs/specification.md) — Product requirements and data model
+- [Architecture](./docs/architecture.md) — Technical design and architectural decisions
+- [Deployment](./docs/deployment.md) — Production deployment guide
+- [Coolify deployment](./docs/deploy-coolify.md) — Step-by-step self-hosted deployment via Coolify
+- [docs/](./docs/) — All documentation
 
 ## Contributing
 

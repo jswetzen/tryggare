@@ -314,5 +314,5 @@ If using HTTPS, ensure:
 
 For issues or questions, refer to:
 - Project documentation in `/docs`
-- Technical design: `TECHNICAL_DESIGN.md`
-- Project specification: `PROJECT_SPECIFICATION.md`
+- Architecture: [`architecture.md`](architecture.md)
+- Specification: [`specification.md`](specification.md)

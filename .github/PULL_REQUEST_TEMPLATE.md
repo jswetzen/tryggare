@@ -16,7 +16,6 @@ What does this PR change and why?
 - [ ] No secrets, credentials, or `.env` files committed
 - [ ] Migrations included if any Django model was changed (`uv run python manage.py makemigrations`)
 - [ ] i18n translation strings added for any new UI text (`{% trans %}` / `gettext`)
-- [ ] `IMPLEMENTATION_PLAN.md` updated if a planned task is completed
 
 ## Testing notes
 

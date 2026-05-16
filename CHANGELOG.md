@@ -9,6 +9,10 @@ This project uses [Semantic Versioning](https://semver.org/) and is currently in
 
 ## [Unreleased]
 
+### Changed
+- Repository structure cleaned up for open-source release: root-level design docs moved into `docs/`, internal task-tracking files removed, historical phase reports pruned from `docs/`. `DEFERRED_TASKS/` renamed to `docs/roadmap/`. `agent-tools/` is now a gitignored scratch directory; reusable dev scripts live under `scripts/`.
+
+### Planned
 - QR scan overlay for check-in (bulk scan flow refinement)
 - Undo checkout action
 
