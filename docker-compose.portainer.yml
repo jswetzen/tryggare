@@ -1,3 +1,6 @@
+# Portainer / GHCR deployment variant: same topology as docker-compose.prod.yml
+# but pulls the pre-built image from ghcr.io instead of building locally.
+# Intended for Portainer stack deployments — see docs/portainer-deployment-guide.md.
 name: ${COMPOSE_PROJECT_NAME:-check-in-prod}
 services:
   # Django backend serving both API and frontend
