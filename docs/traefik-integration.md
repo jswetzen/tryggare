@@ -22,7 +22,7 @@ TRAEFIK_CERTRESOLVER=le           # Certificate resolver
 TRAEFIK_NETWORK=traefik           # Traefik network name
 ```
 
-### 3. `PRODUCTION_DEPLOYMENT.md`
+### 3. `deployment.md`
 Added comprehensive Traefik setup instructions, including:
 - Environment variable configuration
 - Portainer GitOps deployment notes
