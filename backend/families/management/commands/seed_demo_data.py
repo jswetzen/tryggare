@@ -8,16 +8,41 @@ from django.contrib.auth import get_user_model
 from django.core.management.base import BaseCommand
 from django.utils import timezone
 
-from checkins.models import CheckInRecord, QRCode
-from events.models import Event, Session, SessionTicket
+from checkins.models import AuditLog, CheckInRecord, QRCode
+from events.models import Event, EventTicket, Session, SessionTicket, Ticket
 from families.models import Child, Family, Parent
 
 
 class Command(BaseCommand):
     help = "Seed realistic demo data for development and screenshots"
 
+    def add_arguments(self, parser):
+        parser.add_argument(
+            "--reset",
+            action="store_true",
+            help="Wipe all family/event/check-in data (and the 'maria' staff user) before seeding. "
+                 "For demo sites that reset on every container restart.",
+        )
+
     def handle(self, *args, **options):
         AdminUser = get_user_model()
+
+        if options["reset"]:
+            self.stdout.write(self.style.WARNING("Resetting demo data (wiping families, events, check-ins)..."))
+            # Order matters: delete children/leaves before parents to avoid FK issues,
+            # though Django CASCADE handles most of it.
+            AuditLog.objects.all().delete()
+            QRCode.objects.all().delete()
+            CheckInRecord.objects.all().delete()
+            SessionTicket.objects.all().delete()
+            EventTicket.objects.all().delete()
+            Ticket.objects.all().delete()
+            Child.objects.all().delete()
+            Parent.objects.all().delete()
+            Family.objects.all().delete()
+            Session.objects.all().delete()
+            Event.objects.all().delete()
+            AdminUser.objects.filter(username="maria").delete()
 
         # --- Staff users ---
         admin, created = AdminUser.objects.get_or_create(
