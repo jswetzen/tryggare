@@ -1,3 +1,5 @@
+# Development environment: separate frontend (port 5173) and backend (port 8000)
+# containers with hot reload. Run with `podman compose up -d` from repo root.
 version: '3.9'
 
 services:
