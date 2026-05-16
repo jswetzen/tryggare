@@ -21,14 +21,9 @@ The QR code encodes the `external_ticket_code` field imported from FestivalPro.
 
 ### Frontend
 - Add a QR scan button to the check-in page
-- Use `html5-qrcode` library (prototype in `prototypes/qr_prototype.js`)
+- Use `html5-qrcode` library (an early React prototype lives in git history if needed for reference)
 - On scan success: call the lookup endpoint and populate/auto-checkin the family
 - Handle not-found gracefully (show error, let staff fall back to name search)
-
-## Prototype
-
-See `prototypes/qr_prototype.js` — a React component using `html5-qrcode`.
-Needs adapting to Svelte and wiring to the check-in API.
 
 ## Dependencies
 
