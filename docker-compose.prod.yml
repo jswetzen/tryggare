@@ -1,7 +1,7 @@
 # Production environment: single container that builds the frontend and serves it
 # alongside the Django API on port 8080. Triggered by `make rebuild-prod` (writes
 # to restart.txt, which the host-side `watch.nu` picks up).
-name: ${COMPOSE_PROJECT_NAME:-check-in-prod}
+name: ${COMPOSE_PROJECT_NAME:-tryggare-prod}
 services:
   # Django backend serving both API and frontend
   # Frontend is built in the Dockerfile's first stage
@@ -23,13 +23,17 @@ services:
       # Cookie security: set to 'false' for HTTP testing, 'true' for HTTPS/reverse proxy
       - SESSION_COOKIE_SECURE=${SESSION_COOKIE_SECURE:-false}
       - CSRF_COOKIE_SECURE=${CSRF_COOKIE_SECURE:-false}
+      # Demo mode: shows credentials on login page and resets data hourly
+      - DEMO_MODE=${DEMO_MODE:-false}
+      - SEED_DEMO_DATA=${SEED_DEMO_DATA:-false}
+      - SEED_DEMO_RESET=${SEED_DEMO_RESET:-false}
     ports:
       - "${WEB_HOST_PORT:-8080}:8000"
     labels:
       traefik.enable: "${TRAEFIK_ENABLE:-false}"
-      traefik.http.routers.checkins.rule: "Host(`${TRAEFIK_HOST:-checkins.example.com}`)"
-      traefik.http.routers.checkins.entrypoints: "${TRAEFIK_ENTRYPOINT:-websecure}"
-      traefik.http.routers.checkins.tls.certresolver: "${TRAEFIK_CERTRESOLVER:-le}"
+      traefik.http.routers.tryggare.rule: "Host(`${TRAEFIK_HOST:-tryggare.example.com}`)"
+      traefik.http.routers.tryggare.entrypoints: "${TRAEFIK_ENTRYPOINT:-websecure}"
+      traefik.http.routers.tryggare.tls.certresolver: "${TRAEFIK_CERTRESOLVER:-le}"
       traefik.docker.network: "${TRAEFIK_NETWORK:-traefik}"
     depends_on:
       db-prod:

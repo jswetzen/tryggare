@@ -1,3 +1,5 @@
+import os
+
 from django.contrib.auth import authenticate, login, logout
 from django.middleware.csrf import get_token
 from django.utils.translation import gettext as _
@@ -16,7 +18,8 @@ class LoginRateThrottle(AnonRateThrottle):
     Rate is read from settings.REST_FRAMEWORK['DEFAULT_THROTTLE_RATES']['login']
     so prod and dev can configure it independently.
     """
-    scope = 'login'
+
+    scope = "login"
 
 
 @require_http_methods(["GET"])
@@ -38,20 +41,21 @@ def check_auth(request):
     Returns authentication status and user data.
     Used by SvelteKit to verify session validity.
     """
+    demo_mode = os.getenv("DEMO_MODE", "false").lower() == "true"
     if request.user.is_authenticated:
-        return Response({
-            "authenticated": True,
-            "user": {
-                "id": str(request.user.id),
-                "username": request.user.username,
-                "name": request.user.name,
-                "is_staff": request.user.is_staff,
+        return Response(
+            {
+                "authenticated": True,
+                "demo_mode": demo_mode,
+                "user": {
+                    "id": str(request.user.id),
+                    "username": request.user.username,
+                    "name": request.user.name,
+                    "is_staff": request.user.is_staff,
+                },
             }
-        })
-    return Response({
-        "authenticated": False,
-        "user": None
-    })
+        )
+    return Response({"authenticated": False, "demo_mode": demo_mode, "user": None})
 
 
 @api_view(["POST"])
@@ -70,26 +74,27 @@ def login_view(request):
     if not username or not password:
         return Response(
             {"error": _("Username and password are required")},
-            status=status.HTTP_400_BAD_REQUEST
+            status=status.HTTP_400_BAD_REQUEST,
         )
 
     user = authenticate(request, username=username, password=password)
 
     if user is not None:
         login(request, user)
-        return Response({
-            "success": True,
-            "user": {
-                "id": str(user.id),
-                "username": user.username,
-                "name": user.name,
-                "is_staff": user.is_staff,
+        return Response(
+            {
+                "success": True,
+                "user": {
+                    "id": str(user.id),
+                    "username": user.username,
+                    "name": user.name,
+                    "is_staff": user.is_staff,
+                },
             }
-        })
+        )
 
     return Response(
-        {"error": _("Invalid credentials")},
-        status=status.HTTP_401_UNAUTHORIZED
+        {"error": _("Invalid credentials")}, status=status.HTTP_401_UNAUTHORIZED
     )
 
 

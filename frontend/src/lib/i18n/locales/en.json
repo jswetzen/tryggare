@@ -1,6 +1,6 @@
 {
   "nav": {
-    "title": "Check-In System",
+    "title": "Tryggare",
     "welcome": "Welcome, {username}",
     "welcomeMobile": "Welcome",
     "loggedInAs": "Logged in as",
@@ -12,8 +12,8 @@
     "admin": "Admin"
   },
   "login": {
-    "pageTitle": "Login - Check-In System",
-    "title": "Check-In System Login",
+    "pageTitle": "Login - Tryggare",
+    "title": "Tryggare Login",
     "success": "Login successful! Redirecting...",
     "username": "Username",
     "usernamePlaceholder": "Enter your username",
@@ -22,7 +22,9 @@
     "submit": "Login",
     "loggingIn": "Logging in...",
     "fieldsRequired": "Username and password are required",
-    "loginFailed": "Login failed. Please try again."
+    "loginFailed": "Login failed. Please try again.",
+    "demoTitle": "Demo credentials",
+    "demoCredentials": "Username: admin · Password: admin123"
   },
   "checkin": {
     "pageTitle": "Check-In Station",
@@ -403,7 +405,7 @@
     "noPrinters": "No printers available"
   },
   "home": {
-    "pageTitle": "Home - Check-In System",
+    "pageTitle": "Home - Tryggare",
     "welcome": "Welcome, {name}",
     "subtitle": "What would you like to do today?",
     "quickActions": "Quick Actions",

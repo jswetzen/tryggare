@@ -16,10 +16,10 @@ SECRET_KEY = os.getenv("SECRET_KEY", "insecure-change-me")
 DEBUG = os.getenv("DEBUG", "false").lower() == "true"
 ALLOWED_HOSTS = [host for host in os.getenv("ALLOWED_HOSTS", "*").split(",") if host]
 # Add testserver for Django test client
-if not ALLOWED_HOSTS or ALLOWED_HOSTS == ['*']:
-    ALLOWED_HOSTS = ['*']
+if not ALLOWED_HOSTS or ALLOWED_HOSTS == ["*"]:
+    ALLOWED_HOSTS = ["*"]
 else:
-    ALLOWED_HOSTS.append('testserver')
+    ALLOWED_HOSTS.append("testserver")
 
 INSTALLED_APPS = [
     "django.contrib.admin",
@@ -38,6 +38,7 @@ INSTALLED_APPS = [
     "checkins",
     "printing",
     "imports",
+    "demo",
 ]
 
 MIDDLEWARE = [
@@ -105,7 +106,9 @@ databases_default = _database_config()
 DATABASES = {"default": databases_default}
 
 AUTH_PASSWORD_VALIDATORS = [
-    {"NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"},
+    {
+        "NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"
+    },
     {"NAME": "django.contrib.auth.password_validation.MinimumLengthValidator"},
     {"NAME": "django.contrib.auth.password_validation.CommonPasswordValidator"},
     {"NAME": "django.contrib.auth.password_validation.NumericPasswordValidator"},
@@ -139,9 +142,13 @@ STORAGES = {
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 AUTH_USER_MODEL = "accounts.AdminUser"
 
-CORS_ALLOWED_ORIGINS = [host for host in os.getenv("CORS_ALLOWED_ORIGINS", "").split(",") if host]
+CORS_ALLOWED_ORIGINS = [
+    host for host in os.getenv("CORS_ALLOWED_ORIGINS", "").split(",") if host
+]
 CORS_ALLOW_CREDENTIALS = True  # Allow cookies in cross-origin requests
-CSRF_TRUSTED_ORIGINS = [host for host in os.getenv("CSRF_TRUSTED_ORIGINS", "").split(",") if host]
+CSRF_TRUSTED_ORIGINS = [
+    host for host in os.getenv("CSRF_TRUSTED_ORIGINS", "").split(",") if host
+]
 
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": [
@@ -185,4 +192,4 @@ CSRF_COOKIE_SECURE = os.getenv("CSRF_COOKIE_SECURE", "false").lower() == "true"
 CSRF_COOKIE_SAMESITE = os.getenv("CSRF_COOKIE_SAMESITE", "Lax")
 CSRF_COOKIE_HTTPONLY = False  # Allow JavaScript to read CSRF token
 CSRF_USE_SESSIONS = False  # Use cookie-based CSRF tokens
-CSRF_COOKIE_NAME = 'csrftoken'
+CSRF_COOKIE_NAME = "csrftoken"
