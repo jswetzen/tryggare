@@ -22,7 +22,7 @@ jobs:
           file: backend/Dockerfile.prod
           push: true
           tags: |
-            ghcr.io/jswetzen/check-ins:latest
-            ghcr.io/jswetzen/check-ins:${{ github.sha }}
+            ghcr.io/jswetzen/tryggare:latest
+            ghcr.io/jswetzen/tryggare:${{ github.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max

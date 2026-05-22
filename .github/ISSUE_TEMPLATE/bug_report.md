@@ -1,6 +1,6 @@
 ---
 name: Bug report
-about: Report a problem with Check-ins
+about: Report a problem with Tryggare
 title: "[Bug] "
 labels: bug
 assignees: ""
@@ -29,7 +29,7 @@ What actually happened. Include any error messages shown in the UI or console.
 - **OS**: (e.g. Ubuntu 24.04, macOS 15, Windows 11)
 - **Browser**: (e.g. Chrome 124, Firefox 126, Safari 17)
 - **Deployment type**: Docker Compose / Coolify / Other (please specify)
-- **Check-ins version / commit**: (e.g. `main` branch, or the git SHA from the image tag)
+- **Tryggare version / commit**: (e.g. `main` branch, or the git SHA from the image tag)
 
 ## Screenshots
 

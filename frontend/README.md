@@ -1,4 +1,4 @@
-# Check-ins Frontend
+# Tryggare Frontend
 
 SvelteKit (Svelte 5 runes) + Tailwind CSS + svelte-i18n. Builds to a static SPA served by Django in production; runs as a hot-reloading dev server in development.
 

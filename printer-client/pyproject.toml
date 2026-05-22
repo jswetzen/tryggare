@@ -1,5 +1,5 @@
 [project]
-name = "check-ins-printer-client"
+name = "tryggare-printer-client"
 version = "0.1.0"
 description = "Label printer client for the Conference Child Management System"
 requires-python = ">=3.11"

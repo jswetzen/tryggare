@@ -15,8 +15,8 @@ Label printer client for the Conference Child Management System. Connects to the
 ## Install
 
 ```bash
-git clone https://github.com/jswetzen/check-ins.git
-cd check-ins/printer-client
+git clone https://github.com/jswetzen/tryggare.git
+cd tryggare/printer-client
 ./install.sh
 ```
 
