@@ -6,8 +6,12 @@ from django.utils.translation import gettext_lazy as _
 
 class Family(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    last_name = models.CharField(max_length=255, verbose_name=_("Last Name"), blank=True, default="")
-    last_participation_date = models.DateTimeField(null=True, blank=True, verbose_name=_("Last Participation Date"))
+    last_name = models.CharField(
+        max_length=255, verbose_name=_("Last Name"), blank=True, default=""
+    )
+    last_participation_date = models.DateTimeField(
+        null=True, blank=True, verbose_name=_("Last Participation Date")
+    )
     external_booking_id = models.CharField(
         max_length=255,
         null=True,
@@ -28,7 +32,11 @@ class Family(models.Model):
     def __str__(self) -> str:
         if self.last_name:
             return self.last_name
-        return f"Family {self.id}" if not self.parents.exists() else f"{self.parents.first().name}'s family"
+        return (
+            f"Family {self.id}"
+            if not self.parents.exists()
+            else f"{self.parents.first().name}'s family"
+        )
 
     @property
     def display_name(self) -> str:
@@ -40,17 +48,32 @@ class Family(models.Model):
         """
         if self.last_name:
             return self.last_name
-        return f"Family {self.id}" if not self.parents.exists() else f"{self.parents.first().name}'s family"
+        return (
+            f"Family {self.id}"
+            if not self.parents.exists()
+            else f"{self.parents.first().name}'s family"
+        )
 
 
 class Parent(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     name = models.CharField(max_length=255, verbose_name=_("Name"))
-    phone = models.CharField(max_length=50, null=True, blank=True, verbose_name=_("Phone"))
+    phone = models.CharField(
+        max_length=50, null=True, blank=True, verbose_name=_("Phone")
+    )
     email = models.EmailField(null=True, blank=True, verbose_name=_("Email"))
-    relationship_type = models.CharField(max_length=64, verbose_name=_("Relationship Type"))
-    last_participation_date = models.DateTimeField(null=True, blank=True, verbose_name=_("Last Participation Date"))
-    family = models.ForeignKey(Family, related_name="parents", on_delete=models.CASCADE, verbose_name=_("Family"))
+    relationship_type = models.CharField(
+        max_length=64, verbose_name=_("Relationship Type")
+    )
+    last_participation_date = models.DateTimeField(
+        null=True, blank=True, verbose_name=_("Last Participation Date")
+    )
+    family = models.ForeignKey(
+        Family,
+        related_name="parents",
+        on_delete=models.CASCADE,
+        verbose_name=_("Family"),
+    )
 
     class Meta:
         db_table = "parents"
@@ -71,8 +94,15 @@ class Child(models.Model):
     birthdate = models.DateField(null=True, blank=True, verbose_name=_("Birthdate"))
     allergies = models.TextField(null=True, blank=True, verbose_name=_("Allergies"))
     notes = models.TextField(null=True, blank=True, verbose_name=_("Notes"))
-    last_participation_date = models.DateTimeField(null=True, blank=True, verbose_name=_("Last Participation Date"))
-    family = models.ForeignKey(Family, related_name="children", on_delete=models.CASCADE, verbose_name=_("Family"))
+    last_participation_date = models.DateTimeField(
+        null=True, blank=True, verbose_name=_("Last Participation Date")
+    )
+    family = models.ForeignKey(
+        Family,
+        related_name="children",
+        on_delete=models.CASCADE,
+        verbose_name=_("Family"),
+    )
 
     class Meta:
         db_table = "children"
@@ -109,11 +139,11 @@ class Child(models.Model):
               broader access to all sessions within an event.
         """
         if self.event_tickets.exists():
-            return 'event'
+            return "event"
         elif self.session_tickets.exists():
-            return 'session'
+            return "session"
         else:
-            return 'none'
+            return "none"
 
     def get_ticket_details(self) -> dict:
         """
@@ -143,21 +173,25 @@ class Child(models.Model):
         session_tickets_data = []
 
         for event_ticket in self.event_tickets.all():
-            event_tickets_data.append({
-                'id': str(event_ticket.id),
-                'event': str(event_ticket.event.id),
-                'event_name': event_ticket.event.name,
-            })
+            event_tickets_data.append(
+                {
+                    "id": str(event_ticket.id),
+                    "event": str(event_ticket.event.id),
+                    "event_name": event_ticket.event.name,
+                }
+            )
 
         for session_ticket in self.session_tickets.all():
-            session_tickets_data.append({
-                'id': str(session_ticket.id),
-                'session': str(session_ticket.session.id),
-                'session_name': session_ticket.session.name,
-            })
+            session_tickets_data.append(
+                {
+                    "id": str(session_ticket.id),
+                    "session": str(session_ticket.session.id),
+                    "session_name": session_ticket.session.name,
+                }
+            )
 
         return {
-            'ticket_type': ticket_type,
-            'event_tickets': event_tickets_data,
-            'session_tickets': session_tickets_data,
+            "ticket_type": ticket_type,
+            "event_tickets": event_tickets_data,
+            "session_tickets": session_tickets_data,
         }

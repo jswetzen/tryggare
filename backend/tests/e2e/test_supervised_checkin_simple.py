@@ -7,6 +7,7 @@ Run with:
     pytest backend/tests/e2e/test_supervised_checkin_simple.py -v
     make test-supervised
 """
+
 import pytest
 import time
 
@@ -33,7 +34,7 @@ class TestSupervisedCheckInSimple(E2ETestBase, TestDataMixin):
         self.test_user = self.create_test_user(
             username="supervisedtest",
             password="testpass123",
-            name="Supervised Test User"
+            name="Supervised Test User",
         )
 
         # Create test event and session FIRST
@@ -41,36 +42,32 @@ class TestSupervisedCheckInSimple(E2ETestBase, TestDataMixin):
             name="Test Session",
             is_active=True,
             event_name="Supervised Test Event",
-            hours_duration=3
+            hours_duration=3,
         )
 
         # Create test family with children
         self.test_family, self.test_parent = self.create_test_family(
-            last_name="SupervisedTest",
-            parent_name="Test Parent"
+            last_name="SupervisedTest", parent_name="Test Parent"
         )
 
         # Create test child
         self.test_child = self.create_test_child(
-            family=self.test_family,
-            first_name="TestChild"
+            family=self.test_family, first_name="TestChild"
         )
 
         # Assign event ticket so child can be checked in
         from events.models import EventTicket
-        EventTicket.objects.create(
-            child=self.test_child,
-            event=self.test_event
-        )
+
+        EventTicket.objects.create(child=self.test_child, event=self.test_event)
 
     def teardown_method(self):
         """Clean up after each test."""
         self.cleanup_test_data(
-            users=[self.test_user] if hasattr(self, 'test_user') else None,
-            families=[self.test_family] if hasattr(self, 'test_family') else None,
-            children=[self.test_child] if hasattr(self, 'test_child') else None,
-            sessions=[self.test_session] if hasattr(self, 'test_session') else None,
-            events=[self.test_event] if hasattr(self, 'test_event') else None
+            users=[self.test_user] if hasattr(self, "test_user") else None,
+            families=[self.test_family] if hasattr(self, "test_family") else None,
+            children=[self.test_child] if hasattr(self, "test_child") else None,
+            sessions=[self.test_session] if hasattr(self, "test_session") else None,
+            events=[self.test_event] if hasattr(self, "test_event") else None,
         )
         self.teardown_driver()
 
@@ -85,7 +82,7 @@ class TestSupervisedCheckInSimple(E2ETestBase, TestDataMixin):
             child=self.test_child,
             session=self.test_session,
             check_in_staff=self.test_user,
-            supervised=True
+            supervised=True,
         )
 
         assert checkin.supervised is True, "Check-in should be marked as supervised"
@@ -101,12 +98,17 @@ class TestSupervisedCheckInSimple(E2ETestBase, TestDataMixin):
 
         # Look for the child name and supervised badge
         page_source = self.driver.page_source
-        assert self.test_child.first_name in page_source, \
+        assert self.test_child.first_name in page_source, (
             f"Child '{self.test_child.first_name}' should appear on checkout page"
+        )
 
         # Check for supervised indicator (might be "Supervised", "Guardian", or similar)
-        has_supervised_indicator = "Supervised" in page_source or "Guardian" in page_source
-        assert has_supervised_indicator, "Supervised badge should be visible on checkout page"
+        has_supervised_indicator = (
+            "Supervised" in page_source or "Guardian" in page_source
+        )
+        assert has_supervised_indicator, (
+            "Supervised badge should be visible on checkout page"
+        )
 
         print("   ✓ Child appears on checkout page")
         print("   ✓ Supervised badge is visible")
@@ -124,27 +126,24 @@ class TestSupervisedCheckInSimple(E2ETestBase, TestDataMixin):
             child=self.test_child,
             session=self.test_session,
             check_in_staff=self.test_user,
-            supervised=True
+            supervised=True,
         )
 
         # Create second child for standard check-in
         standard_child = self.create_test_child(
-            family=self.test_family,
-            first_name="StandardChild"
+            family=self.test_family, first_name="StandardChild"
         )
 
         from events.models import EventTicket
-        EventTicket.objects.create(
-            child=standard_child,
-            event=self.test_event
-        )
+
+        EventTicket.objects.create(child=standard_child, event=self.test_event)
 
         print("   Creating standard check-in...")
         standard_checkin = CheckInRecord.objects.create(
             child=standard_child,
             session=self.test_session,
             check_in_staff=self.test_user,
-            supervised=False
+            supervised=False,
         )
 
         # Navigate to checkout page
@@ -158,8 +157,12 @@ class TestSupervisedCheckInSimple(E2ETestBase, TestDataMixin):
         page_source = self.driver.page_source
 
         # Both children should be visible
-        assert self.test_child.first_name in page_source, "Supervised child should be visible"
-        assert standard_child.first_name in page_source, "Standard child should be visible"
+        assert self.test_child.first_name in page_source, (
+            "Supervised child should be visible"
+        )
+        assert standard_child.first_name in page_source, (
+            "Standard child should be visible"
+        )
 
         # Count supervised badges - should have at least one
         supervised_count = page_source.count("Supervised")

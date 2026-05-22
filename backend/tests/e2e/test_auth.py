@@ -7,6 +7,7 @@ Run with:
     pytest backend/tests/e2e/test_auth.py -v
     make test-auth
 """
+
 import pytest
 import sys
 from selenium.webdriver.common.by import By
@@ -31,9 +32,7 @@ class TestAuthentication(E2ETestBase, TestDataMixin):
         """Set up test environment before each test."""
         self.setup_driver()
         self.test_user = self.create_test_user(
-            username="authtest",
-            password="testpass123",
-            name="Auth Test User"
+            username="authtest", password="testpass123", name="Auth Test User"
         )
 
     def teardown_method(self):
@@ -68,8 +67,9 @@ class TestAuthentication(E2ETestBase, TestDataMixin):
         self.wait_for_url_contains("/checkin", timeout=10)
 
         # Verify we're on the check-in page
-        assert "/checkin" in self.driver.current_url, \
+        assert "/checkin" in self.driver.current_url, (
             f"Expected redirect to /checkin, got {self.driver.current_url}"
+        )
 
         print("   ✓ Login successful")
         print("   ✓ Redirected to check-in page")
@@ -101,21 +101,22 @@ class TestAuthentication(E2ETestBase, TestDataMixin):
 
         # Wait a moment for any redirect or error message
         import time
+
         time.sleep(2)
 
         # Should still be on login page
         current_url = self.driver.current_url
-        assert "/login" in current_url, \
-            f"Expected to stay on /login, got {current_url}"
+        assert "/login" in current_url, f"Expected to stay on /login, got {current_url}"
 
         print("   ✓ Stayed on login page (no redirect)")
 
         # Check for error message in page
         page_source = self.driver.page_source
         # Look for common error messages
-        has_error = any(msg in page_source.lower() for msg in [
-            "invalid", "incorrect", "wrong", "failed", "error"
-        ])
+        has_error = any(
+            msg in page_source.lower()
+            for msg in ["invalid", "incorrect", "wrong", "failed", "error"]
+        )
 
         if has_error:
             print("   ✓ Error message displayed")
@@ -139,11 +140,13 @@ class TestAuthentication(E2ETestBase, TestDataMixin):
         print("   Finding logout button...")
         try:
             logout_button = WebDriverWait(self.driver, 10).until(
-                EC.element_to_be_clickable((
-                    By.XPATH,
-                    "//button[contains(text(), 'Logout') or contains(text(), 'Log out') "
-                    "or contains(text(), 'Logga ut')]"
-                ))
+                EC.element_to_be_clickable(
+                    (
+                        By.XPATH,
+                        "//button[contains(text(), 'Logout') or contains(text(), 'Log out') "
+                        "or contains(text(), 'Logga ut')]",
+                    )
+                )
             )
             print("   ✓ Logout button found")
 
@@ -153,8 +156,9 @@ class TestAuthentication(E2ETestBase, TestDataMixin):
             # Wait for redirect to login page
             self.wait_for_url_contains("/login", timeout=10)
 
-            assert "/login" in self.driver.current_url, \
+            assert "/login" in self.driver.current_url, (
                 f"Expected redirect to /login after logout, got {self.driver.current_url}"
+            )
 
             print("   ✓ Redirected to login page")
             print("   ✓ Logout successful")
@@ -183,12 +187,12 @@ class TestAuthentication(E2ETestBase, TestDataMixin):
         self.driver.get(checkout_url)
 
         import time
+
         time.sleep(2)
 
         # Should not redirect to login
         current_url = self.driver.current_url
-        assert "/login" not in current_url, \
-            "Session lost - redirected to login page"
+        assert "/login" not in current_url, "Session lost - redirected to login page"
 
         print("   ✓ Session persisted to checkout page")
 
@@ -201,8 +205,7 @@ class TestAuthentication(E2ETestBase, TestDataMixin):
 
         # Should still be logged in
         current_url = self.driver.current_url
-        assert "/login" not in current_url, \
-            "Session lost - redirected to login page"
+        assert "/login" not in current_url, "Session lost - redirected to login page"
 
         print("   ✓ Session persisted to check-in page")
 

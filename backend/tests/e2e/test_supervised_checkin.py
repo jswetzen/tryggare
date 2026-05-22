@@ -11,6 +11,7 @@ Run with:
     pytest backend/tests/e2e/test_supervised_checkin.py -v
     make test-supervised
 """
+
 import pytest
 import time
 from selenium.webdriver.common.by import By
@@ -37,13 +38,12 @@ class TestSupervisedCheckIn(E2ETestBase, TestDataMixin):
         self.test_user = self.create_test_user(
             username="supervisedtest",
             password="testpass123",
-            name="Supervised Test User"
+            name="Supervised Test User",
         )
 
         # Create test family with children
         self.test_family, self.test_parent = self.create_test_family(
-            last_name="SupervisedTest",
-            parent_name="Test Parent"
+            last_name="SupervisedTest", parent_name="Test Parent"
         )
 
         # Create test event and session FIRST (before children need tickets)
@@ -51,39 +51,34 @@ class TestSupervisedCheckIn(E2ETestBase, TestDataMixin):
             name="Test Session",
             is_active=True,
             event_name="Supervised Test Event",
-            hours_duration=3
+            hours_duration=3,
         )
 
         # Create two children - one for supervised, one for standard
         self.supervised_child = self.create_test_child(
-            family=self.test_family,
-            first_name="SupervisedChild"
+            family=self.test_family, first_name="SupervisedChild"
         )
 
         self.standard_child = self.create_test_child(
-            family=self.test_family,
-            first_name="StandardChild"
+            family=self.test_family, first_name="StandardChild"
         )
 
         # Assign tickets to both children so supervised checkbox will appear
         from events.models import EventTicket
-        EventTicket.objects.create(
-            child=self.supervised_child,
-            event=self.test_event
-        )
-        EventTicket.objects.create(
-            child=self.standard_child,
-            event=self.test_event
-        )
+
+        EventTicket.objects.create(child=self.supervised_child, event=self.test_event)
+        EventTicket.objects.create(child=self.standard_child, event=self.test_event)
 
     def teardown_method(self):
         """Clean up after each test."""
         self.cleanup_test_data(
-            users=[self.test_user] if hasattr(self, 'test_user') else None,
-            families=[self.test_family] if hasattr(self, 'test_family') else None,
-            children=[self.supervised_child, self.standard_child] if hasattr(self, 'supervised_child') else None,
-            sessions=[self.test_session] if hasattr(self, 'test_session') else None,
-            events=[self.test_event] if hasattr(self, 'test_event') else None
+            users=[self.test_user] if hasattr(self, "test_user") else None,
+            families=[self.test_family] if hasattr(self, "test_family") else None,
+            children=[self.supervised_child, self.standard_child]
+            if hasattr(self, "supervised_child")
+            else None,
+            sessions=[self.test_session] if hasattr(self, "test_session") else None,
+            events=[self.test_event] if hasattr(self, "test_event") else None,
         )
         self.teardown_driver()
 
@@ -129,14 +124,20 @@ class TestSupervisedCheckIn(E2ETestBase, TestDataMixin):
 
         # Find and expand the test family using JavaScript click (more reliable)
         print("   Expanding family with JavaScript click...")
-        family_toggle_selector = f"button[data-testid='family-toggle-button-{self.test_family.id}']"
+        family_toggle_selector = (
+            f"button[data-testid='family-toggle-button-{self.test_family.id}']"
+        )
 
         # Wait for element to exist first
-        family_toggle = self.wait_for_element(By.CSS_SELECTOR, family_toggle_selector, timeout=10)
+        family_toggle = self.wait_for_element(
+            By.CSS_SELECTOR, family_toggle_selector, timeout=10
+        )
 
         # Use JavaScript click which bypasses any overlays or positioning issues
         self.driver.execute_script("arguments[0].click();", family_toggle)
-        print("   Clicked family toggle button via JavaScript, waiting for children to appear...")
+        print(
+            "   Clicked family toggle button via JavaScript, waiting for children to appear..."
+        )
         time.sleep(3)
 
         # Wait for child row to appear (this confirms expansion worked)
@@ -145,27 +146,35 @@ class TestSupervisedCheckIn(E2ETestBase, TestDataMixin):
             self.wait_for_element(
                 By.CSS_SELECTOR,
                 f"div[data-testid='child-row-{self.supervised_child.id}']",
-                timeout=5
+                timeout=5,
             )
             print("   ✓ Children rows visible")
         except:
             self.save_screenshot("expansion_failed")
             # Try printing page source to see what's actually there
             page_source = self.driver.page_source
-            print(f"   Page source contains SupervisedChild: {self.supervised_child.first_name in page_source}")
-            print(f"   Page source contains StandardChild: {self.standard_child.first_name in page_source}")
+            print(
+                f"   Page source contains SupervisedChild: {self.supervised_child.first_name in page_source}"
+            )
+            print(
+                f"   Page source contains StandardChild: {self.standard_child.first_name in page_source}"
+            )
             raise Exception("Family expansion failed - children not visible")
 
         # Look for supervised checkbox for the supervised child
-        print(f"   Checking for supervised checkbox for child {self.supervised_child.id}...")
+        print(
+            f"   Checking for supervised checkbox for child {self.supervised_child.id}..."
+        )
         supervised_checkbox = self.wait_for_element(
             By.CSS_SELECTOR,
             f"input[data-testid='supervised-checkbox-{self.supervised_child.id}']",
-            timeout=5
+            timeout=5,
         )
 
         assert supervised_checkbox is not None, "Supervised checkbox should be visible"
-        assert not supervised_checkbox.is_selected(), "Supervised checkbox should be unchecked by default"
+        assert not supervised_checkbox.is_selected(), (
+            "Supervised checkbox should be unchecked by default"
+        )
 
         print("   ✓ Supervised checkbox is visible")
         print("   ✓ Checkbox is unchecked by default")
@@ -195,7 +204,7 @@ class TestSupervisedCheckIn(E2ETestBase, TestDataMixin):
         print("   Expanding family...")
         family_toggle = self.wait_for_element(
             By.CSS_SELECTOR,
-            f"button[data-testid='family-toggle-button-{self.test_family.id}']"
+            f"button[data-testid='family-toggle-button-{self.test_family.id}']",
         )
         family_toggle.click()
         time.sleep(1)
@@ -205,19 +214,21 @@ class TestSupervisedCheckIn(E2ETestBase, TestDataMixin):
         supervised_checkbox = self.wait_for_element(
             By.CSS_SELECTOR,
             f"input[data-testid='supervised-checkbox-{self.supervised_child.id}']",
-            timeout=5
+            timeout=5,
         )
         supervised_checkbox.click()
         time.sleep(0.5)
 
-        assert supervised_checkbox.is_selected(), "Supervised checkbox should be checked"
+        assert supervised_checkbox.is_selected(), (
+            "Supervised checkbox should be checked"
+        )
         print("   ✓ Supervised checkbox checked")
 
         # Click check-in button
         print("   Clicking check-in button...")
         checkin_button = self.wait_for_element(
             By.CSS_SELECTOR,
-            f"button[data-testid='child-check-in-button-{self.supervised_child.id}']"
+            f"button[data-testid='child-check-in-button-{self.supervised_child.id}']",
         )
         checkin_button.click()
         time.sleep(3)
@@ -242,8 +253,9 @@ class TestSupervisedCheckIn(E2ETestBase, TestDataMixin):
         # Look for supervised badge
         print("   Looking for supervised badge...")
         page_text = self.driver.page_source
-        assert "Supervised" in page_text or "Guardian" in page_text, \
+        assert "Supervised" in page_text or "Guardian" in page_text, (
             "Supervised badge should be visible on checkout page"
+        )
 
         print("   ✓ Supervised badge displayed on checkout page")
         print("\n" + "=" * 60)
@@ -271,7 +283,7 @@ class TestSupervisedCheckIn(E2ETestBase, TestDataMixin):
         # Expand family
         family_toggle = self.wait_for_element(
             By.CSS_SELECTOR,
-            f"button[data-testid='family-toggle-button-{self.test_family.id}']"
+            f"button[data-testid='family-toggle-button-{self.test_family.id}']",
         )
         family_toggle.click()
         time.sleep(1)
@@ -280,7 +292,7 @@ class TestSupervisedCheckIn(E2ETestBase, TestDataMixin):
         print("   Performing standard check-in (no supervised checkbox)...")
         standard_checkin_button = self.wait_for_element(
             By.CSS_SELECTOR,
-            f"button[data-testid='child-check-in-button-{self.standard_child.id}']"
+            f"button[data-testid='child-check-in-button-{self.standard_child.id}']",
         )
         standard_checkin_button.click()
         time.sleep(2)
@@ -291,14 +303,14 @@ class TestSupervisedCheckIn(E2ETestBase, TestDataMixin):
         print("   Performing supervised check-in (with supervised checkbox)...")
         supervised_checkbox = self.wait_for_element(
             By.CSS_SELECTOR,
-            f"input[data-testid='supervised-checkbox-{self.supervised_child.id}']"
+            f"input[data-testid='supervised-checkbox-{self.supervised_child.id}']",
         )
         supervised_checkbox.click()
         time.sleep(0.5)
 
         supervised_checkin_button = self.wait_for_element(
             By.CSS_SELECTOR,
-            f"button[data-testid='child-check-in-button-{self.supervised_child.id}']"
+            f"button[data-testid='child-check-in-button-{self.supervised_child.id}']",
         )
         supervised_checkin_button.click()
         time.sleep(3)
@@ -318,8 +330,9 @@ class TestSupervisedCheckIn(E2ETestBase, TestDataMixin):
         supervised_badge_count = page_text.count("Supervised")
 
         # Should be at least 1 supervised badge (for the supervised child only)
-        assert supervised_badge_count >= 1, \
+        assert supervised_badge_count >= 1, (
             "At least one supervised badge should be present"
+        )
 
         print("   ✓ Standard child has no supervised badge")
         print("   ✓ Supervised child has supervised badge")
@@ -341,22 +354,21 @@ class TestSupervisedCheckIn(E2ETestBase, TestDataMixin):
         time.sleep(2)
 
         family_toggle = self.wait_for_element(
-            By.CSS_SELECTOR,
-            "button[data-testid*='family-toggle-button']"
+            By.CSS_SELECTOR, "button[data-testid*='family-toggle-button']"
         )
         family_toggle.click()
         time.sleep(1)
 
         supervised_checkbox = self.wait_for_element(
             By.CSS_SELECTOR,
-            f"input[data-testid='supervised-checkbox-{self.supervised_child.id}']"
+            f"input[data-testid='supervised-checkbox-{self.supervised_child.id}']",
         )
         supervised_checkbox.click()
         time.sleep(0.5)
 
         checkin_button = self.wait_for_element(
             By.CSS_SELECTOR,
-            f"button[data-testid='child-check-in-button-{self.supervised_child.id}']"
+            f"button[data-testid='child-check-in-button-{self.supervised_child.id}']",
         )
         checkin_button.click()
         time.sleep(2)
@@ -372,8 +384,7 @@ class TestSupervisedCheckIn(E2ETestBase, TestDataMixin):
         # Find and click checkout button for supervised child
         print("   Looking for checkout button...")
         checkout_buttons = self.driver.find_elements(
-            By.CSS_SELECTOR,
-            "button[data-testid*='checkout-button']"
+            By.CSS_SELECTOR, "button[data-testid*='checkout-button']"
         )
 
         # Click the first checkout button we find
@@ -384,12 +395,11 @@ class TestSupervisedCheckIn(E2ETestBase, TestDataMixin):
 
             # Verify success message
             success_message = self.wait_for_element(
-                By.CSS_SELECTOR,
-                "div[role='alert']",
-                timeout=5
+                By.CSS_SELECTOR, "div[role='alert']", timeout=5
             )
-            assert "checked out" in success_message.text.lower(), \
+            assert "checked out" in success_message.text.lower(), (
                 "Success message should indicate checkout"
+            )
 
             print("   ✓ Supervised child checked out successfully")
         else:
@@ -415,20 +425,19 @@ class TestSupervisedCheckIn(E2ETestBase, TestDataMixin):
         time.sleep(2)
 
         family_toggle = self.wait_for_element(
-            By.CSS_SELECTOR,
-            "button[data-testid*='family-toggle-button']"
+            By.CSS_SELECTOR, "button[data-testid*='family-toggle-button']"
         )
         family_toggle.click()
         time.sleep(1)
 
         supervised_checkbox = self.wait_for_element(
             By.CSS_SELECTOR,
-            f"input[data-testid='supervised-checkbox-{self.supervised_child.id}']"
+            f"input[data-testid='supervised-checkbox-{self.supervised_child.id}']",
         )
         supervised_checkbox.click()
         checkin_button = self.wait_for_element(
             By.CSS_SELECTOR,
-            f"button[data-testid='child-check-in-button-{self.supervised_child.id}']"
+            f"button[data-testid='child-check-in-button-{self.supervised_child.id}']",
         )
         checkin_button.click()
         time.sleep(2)
@@ -464,8 +473,7 @@ class TestSupervisedCheckIn(E2ETestBase, TestDataMixin):
         time.sleep(2)
 
         family_toggle = self.wait_for_element(
-            By.CSS_SELECTOR,
-            "button[data-testid*='family-toggle-button']"
+            By.CSS_SELECTOR, "button[data-testid*='family-toggle-button']"
         )
         family_toggle.click()
         time.sleep(1)
@@ -473,14 +481,14 @@ class TestSupervisedCheckIn(E2ETestBase, TestDataMixin):
         # Check supervised checkbox and check in
         supervised_checkbox = self.wait_for_element(
             By.CSS_SELECTOR,
-            f"input[data-testid='supervised-checkbox-{self.supervised_child.id}']"
+            f"input[data-testid='supervised-checkbox-{self.supervised_child.id}']",
         )
         supervised_checkbox.click()
         time.sleep(0.5)
 
         checkin_button = self.wait_for_element(
             By.CSS_SELECTOR,
-            f"button[data-testid='child-check-in-button-{self.supervised_child.id}']"
+            f"button[data-testid='child-check-in-button-{self.supervised_child.id}']",
         )
         checkin_button.click()
         time.sleep(2)
@@ -498,10 +506,13 @@ class TestSupervisedCheckIn(E2ETestBase, TestDataMixin):
         page_text = self.driver.page_source
 
         # Should see the child's name
-        assert self.supervised_child.first_name in page_text, \
+        assert self.supervised_child.first_name in page_text, (
             f"Supervised child '{self.supervised_child.first_name}' should appear in print queue during active session"
+        )
 
-        print(f"   ✓ Supervised child '{self.supervised_child.first_name}' found in print queue")
+        print(
+            f"   ✓ Supervised child '{self.supervised_child.first_name}' found in print queue"
+        )
 
         # Verify the session is active
         assert self.test_session.is_active, "Test session should be active"
@@ -525,8 +536,7 @@ class TestSupervisedCheckIn(E2ETestBase, TestDataMixin):
         time.sleep(2)
 
         family_toggle = self.wait_for_element(
-            By.CSS_SELECTOR,
-            "button[data-testid*='family-toggle-button']"
+            By.CSS_SELECTOR, "button[data-testid*='family-toggle-button']"
         )
         family_toggle.click()
         time.sleep(1)
@@ -534,12 +544,12 @@ class TestSupervisedCheckIn(E2ETestBase, TestDataMixin):
         # Check in supervised child
         supervised_checkbox = self.wait_for_element(
             By.CSS_SELECTOR,
-            f"input[data-testid='supervised-checkbox-{self.supervised_child.id}']"
+            f"input[data-testid='supervised-checkbox-{self.supervised_child.id}']",
         )
         supervised_checkbox.click()
         supervised_checkin_button = self.wait_for_element(
             By.CSS_SELECTOR,
-            f"button[data-testid='child-check-in-button-{self.supervised_child.id}']"
+            f"button[data-testid='child-check-in-button-{self.supervised_child.id}']",
         )
         supervised_checkin_button.click()
         time.sleep(2)
@@ -549,7 +559,7 @@ class TestSupervisedCheckIn(E2ETestBase, TestDataMixin):
         # Check in standard child (without supervised checkbox)
         standard_checkin_button = self.wait_for_element(
             By.CSS_SELECTOR,
-            f"button[data-testid='child-check-in-button-{self.standard_child.id}']"
+            f"button[data-testid='child-check-in-button-{self.standard_child.id}']",
         )
         standard_checkin_button.click()
         time.sleep(2)
@@ -566,12 +576,16 @@ class TestSupervisedCheckIn(E2ETestBase, TestDataMixin):
 
         # Both children should appear in print queue since session is active
         print("   Verifying both children appear during active session...")
-        assert self.supervised_child.first_name in page_text, \
+        assert self.supervised_child.first_name in page_text, (
             "Supervised child should appear in active session"
-        assert self.standard_child.first_name in page_text, \
+        )
+        assert self.standard_child.first_name in page_text, (
             "Standard child should appear in print queue"
+        )
 
-        print("   ✓ Both supervised and standard children in print queue (active session)")
+        print(
+            "   ✓ Both supervised and standard children in print queue (active session)"
+        )
 
         # Note: Testing ended session filtering would require:
         # 1. Ending the session (set is_active=False or pass end_time)

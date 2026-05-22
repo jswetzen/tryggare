@@ -8,6 +8,7 @@ Run with:
     pytest backend/tests/e2e/test_checkout_flow.py -v
     make test-checkout
 """
+
 import pytest
 import sys
 import time
@@ -29,14 +30,12 @@ class TestCheckOutFlow(E2ETestBase, TestDataMixin):
 
         # Create test user
         self.test_user = self.create_test_user(
-            username="checkouttest",
-            password="testpass123"
+            username="checkouttest", password="testpass123"
         )
 
         # Create test session
         self.test_event, self.test_session = self.create_test_session(
-            name="Test Checkout Session",
-            is_active=True
+            name="Test Checkout Session", is_active=True
         )
 
         # Create test family with child
@@ -44,10 +43,7 @@ class TestCheckOutFlow(E2ETestBase, TestDataMixin):
             last_name="TestCheckOut"
         )
 
-        self.test_child = self.create_test_child(
-            self.test_family,
-            first_name="Charlie"
-        )
+        self.test_child = self.create_test_child(self.test_family, first_name="Charlie")
 
     def teardown_method(self):
         """Clean up after each test."""
@@ -56,7 +52,7 @@ class TestCheckOutFlow(E2ETestBase, TestDataMixin):
             families=[self.test_family],
             children=[self.test_child],
             sessions=[self.test_session],
-            events=[self.test_event]
+            events=[self.test_event],
         )
         self.teardown_driver()
 
@@ -70,7 +66,7 @@ class TestCheckOutFlow(E2ETestBase, TestDataMixin):
         checkin = CheckInRecord.objects.create(
             child=self.test_child,
             session=self.test_session,
-            check_in_staff=self.test_user
+            check_in_staff=self.test_user,
         )
         print(f"   ✓ {self.test_child.first_name} checked in")
 
@@ -84,11 +80,14 @@ class TestCheckOutFlow(E2ETestBase, TestDataMixin):
 
         # Verify child appears in list
         page_source = self.driver.page_source
-        child_found = self.test_child.first_name in page_source or \
-                      str(self.test_child.id) in page_source
+        child_found = (
+            self.test_child.first_name in page_source
+            or str(self.test_child.id) in page_source
+        )
 
-        assert child_found, \
+        assert child_found, (
             f"Child '{self.test_child.first_name}' not found on checkout page"
+        )
 
         print(f"   ✓ Child '{self.test_child.first_name}' found on checkout page")
 
@@ -105,7 +104,7 @@ class TestCheckOutFlow(E2ETestBase, TestDataMixin):
         checkin = CheckInRecord.objects.create(
             child=self.test_child,
             session=self.test_session,
-            check_in_staff=self.test_user
+            check_in_staff=self.test_user,
         )
 
         # Login and navigate to checkout page
@@ -122,7 +121,10 @@ class TestCheckOutFlow(E2ETestBase, TestDataMixin):
 
         clicked = False
         for row in table_rows:
-            if self.test_child.first_name in row.text or str(self.test_child.id) in row.text:
+            if (
+                self.test_child.first_name in row.text
+                or str(self.test_child.id) in row.text
+            ):
                 buttons = row.find_elements(By.CSS_SELECTOR, "button")
                 if buttons:
                     buttons[0].click()
@@ -146,7 +148,9 @@ class TestCheckOutFlow(E2ETestBase, TestDataMixin):
 
         # Look for modal/input for pickup name
         try:
-            pickup_input = self.driver.find_element(By.CSS_SELECTOR, "input[type='text']")
+            pickup_input = self.driver.find_element(
+                By.CSS_SELECTOR, "input[type='text']"
+            )
             pickup_input.send_keys("Test Parent")
             print("   ✓ Entered pickup person name")
 

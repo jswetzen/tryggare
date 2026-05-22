@@ -35,7 +35,11 @@ class PrintJob(models.Model):
         "checkins.CheckInRecord", on_delete=models.CASCADE, related_name="print_jobs"
     )
     printer = models.ForeignKey(
-        Printer, null=True, blank=True, on_delete=models.SET_NULL, related_name="print_jobs"
+        Printer,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="print_jobs",
     )
     status = models.CharField(max_length=20, choices=STATUS, default=STATUS_PENDING)
     created_at = models.DateTimeField(auto_now_add=True)

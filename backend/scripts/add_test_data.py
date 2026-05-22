@@ -60,14 +60,14 @@ class SeleniumTestHelper:
         # Disable images for faster page loads
         prefs = {
             "profile.managed_default_content_settings.images": 2,
-            "intl.accept_languages": "en-US,en"
+            "intl.accept_languages": "en-US,en",
         }
         chrome_options.add_experimental_option("prefs", prefs)
         chrome_options.add_experimental_option("excludeSwitches", ["enable-automation"])
-        chrome_options.add_experimental_option('useAutomationExtension', False)
+        chrome_options.add_experimental_option("useAutomationExtension", False)
 
         # Enable browser logging
-        chrome_options.set_capability('goog:loggingPrefs', {'browser': 'ALL'})
+        chrome_options.set_capability("goog:loggingPrefs", {"browser": "ALL"})
 
         # Detect if we should use local ChromeDriver or remote Selenium Grid
         use_remote = os.getenv("SELENIUM_HUB_URL") is not None
@@ -75,8 +75,7 @@ class SeleniumTestHelper:
         if use_remote:
             print("Connecting to Selenium Grid...")
             self.driver = webdriver.Remote(
-                command_executor=f"{self.selenium_hub}/wd/hub",
-                options=chrome_options
+                command_executor=f"{self.selenium_hub}/wd/hub", options=chrome_options
             )
             print("✓ Connected to Selenium Grid\n")
         else:
@@ -94,7 +93,7 @@ class SeleniumTestHelper:
         """Clean up the WebDriver"""
         if self.driver:
             try:
-                screenshot_path = '/tmp/final_state.png'
+                screenshot_path = "/tmp/final_state.png"
                 self.driver.save_screenshot(screenshot_path)
                 print(f"📸 Saved final screenshot to {screenshot_path}")
             except:
@@ -135,13 +134,13 @@ class SeleniumTestHelper:
 
         # Wait for redirect to check-in page
         try:
-            WebDriverWait(self.driver, 10).until(
-                EC.url_contains("/checkin")
-            )
+            WebDriverWait(self.driver, 10).until(EC.url_contains("/checkin"))
             print("   ✓ Login successful")
             return True
         except:
-            print(f"   ❌ Login redirect failed. Current URL: {self.driver.current_url}")
+            print(
+                f"   ❌ Login redirect failed. Current URL: {self.driver.current_url}"
+            )
             print(f"   Page title: {self.driver.title}")
             return False
 
@@ -169,16 +168,12 @@ def setup_test_data():
             existing_user.delete()
 
         test_user = AdminUser.objects.create_user(
-            username=test_username,
-            password=test_password,
-            name="Flow Test User"
+            username=test_username, password=test_password, name="Flow Test User"
         )
 
         # Create test event and active session
         test_event = Event.objects.create(
-            name="Sunday Service",
-            start_date="2025-11-26",
-            end_date="2025-11-26"
+            name="Sunday Service", start_date="2025-11-26", end_date="2025-11-26"
         )
 
         test_session = Session.objects.create(
@@ -187,7 +182,7 @@ def setup_test_data():
             start_time="2025-11-26T09:00:00Z",
             end_time="2025-11-26T12:00:00Z",
             is_active=True,
-            requires_ticket=False
+            requires_ticket=False,
         )
 
         # Create test family
@@ -197,7 +192,7 @@ def setup_test_data():
             name="John Smith",
             phone="555-1234",
             email="john@example.com",
-            relationship_type="Father"
+            relationship_type="Father",
         )
 
         test_child = Child.objects.create(
@@ -206,11 +201,12 @@ def setup_test_data():
             last_name="Smith",
             birthdate="2020-05-15",
             allergies="Peanuts",
-            notes="Test child"
+            notes="Test child",
         )
     except Exception as e:
         print(f"   ❌ Error setting up test data: {e}")
         import traceback
+
         traceback.print_exc()
         helper.teardown_driver()
         raise
@@ -220,6 +216,7 @@ def setup_test_data():
     print(f"   ✓ Session: {test_session.name}")
     print("   ✓ Family: Smith")
     print("   ✓ Child: Emma Smith")
+
 
 if __name__ == "__main__":
     try:

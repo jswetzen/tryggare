@@ -22,7 +22,7 @@ def stash_previous_is_active(sender, instance, **kwargs):
 @receiver(post_save, sender=Session)
 def auto_checkout_on_deactivate(sender, instance, **kwargs):
     """When a session transitions from active to inactive, auto-check-out all open check-ins."""
-    previous_was_active = getattr(instance, '_previous_is_active', True)
+    previous_was_active = getattr(instance, "_previous_is_active", True)
     if instance.is_active or not previous_was_active:
         return  # Not a True→False transition
 
@@ -32,7 +32,7 @@ def auto_checkout_on_deactivate(sender, instance, **kwargs):
     open_records = CheckInRecord.objects.filter(
         session=instance,
         check_out_time__isnull=True,
-    ).select_related('child')
+    ).select_related("child")
 
     if not open_records.exists():
         return

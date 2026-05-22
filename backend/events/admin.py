@@ -21,6 +21,7 @@ class TicketAdmin(admin.ModelAdmin):
     """
     DEPRECATED: Use EventTicketAdmin or SessionTicketAdmin instead.
     """
+
     list_display = ("type", "child", "session")
     list_filter = ("type",)
     search_fields = ("child__first_name", "child__last_name", "session__name")
@@ -31,6 +32,7 @@ class EventTicketAdmin(admin.ModelAdmin):
     """
     Admin interface for event tickets (passes).
     """
+
     list_display = ("child", "event", "id")
     list_filter = ("event",)
     search_fields = ("child__first_name", "child__last_name", "event__name")
@@ -42,12 +44,19 @@ class SessionTicketAdmin(admin.ModelAdmin):
     """
     Admin interface for session tickets.
     """
+
     list_display = ("child", "session", "get_event", "id")
     list_filter = ("session__event",)
-    search_fields = ("child__first_name", "child__last_name", "session__name", "session__event__name")
+    search_fields = (
+        "child__first_name",
+        "child__last_name",
+        "session__name",
+        "session__event__name",
+    )
     autocomplete_fields = ["child", "session"]
 
     def get_event(self, obj):
         return obj.session.event
+
     get_event.short_description = "Event"
     get_event.admin_order_field = "session__event"

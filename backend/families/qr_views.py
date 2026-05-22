@@ -2,6 +2,7 @@
 Public QR code endpoint - does not require authentication.
 Only returns data when child is actively checked in (privacy-first).
 """
+
 from django.utils.translation import gettext as _
 from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes

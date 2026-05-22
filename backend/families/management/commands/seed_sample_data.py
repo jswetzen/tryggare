@@ -21,7 +21,11 @@ class Command(BaseCommand):
         if created:
             admin_user.set_password("admin123")
             admin_user.save()
-            self.stdout.write(self.style.SUCCESS("Created default admin user 'admin' with password 'admin123'"))
+            self.stdout.write(
+                self.style.SUCCESS(
+                    "Created default admin user 'admin' with password 'admin123'"
+                )
+            )
 
         seed_family_id = uuid.UUID("00000000-0000-0000-0000-000000000001")
         family, _ = Family.objects.get_or_create(id=seed_family_id)
@@ -68,7 +72,9 @@ class Command(BaseCommand):
             entity_type="Child",
             entity_id=str(child.id),
             user=admin_user,
-            defaults={"details": {"session": str(session.id), "check_in_id": str(checkin.id)}},
+            defaults={
+                "details": {"session": str(session.id), "check_in_id": str(checkin.id)}
+            },
         )
 
         self.stdout.write(self.style.SUCCESS("Seed data ensured."))

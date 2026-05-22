@@ -4,6 +4,7 @@ QR code generation and pool management utilities.
 Codes are 5-character random alphanumeric strings from a safe alphabet
 (no confusable characters like 0/O, 1/I/l).
 """
+
 import secrets
 from datetime import timedelta
 from typing import TYPE_CHECKING

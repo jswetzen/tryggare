@@ -17,12 +17,12 @@ from .serializers import PrinterSerializer, PrintJobSerializer
 # Label dimensions mapping: brother_ql dots_printable → mm at 300 DPI.
 # Displayed landscape: width = label length, height = label width.
 LABEL_DIMENSIONS = {
-    "29x90":  {"w_mm": 83.8, "h_mm": 25.9},
-    "62":     {"w_mm": 54.3, "h_mm": 52.5},
+    "29x90": {"w_mm": 83.8, "h_mm": 25.9},
+    "62": {"w_mm": 54.3, "h_mm": 52.5},
     "62x100": {"w_mm": 93.0, "h_mm": 52.5},
-    "29x42":  {"w_mm": 36.0, "h_mm": 25.9},
-    "29":     {"w_mm": 54.3, "h_mm": 25.9},
-    "17x54":  {"w_mm": 51.0, "h_mm": 12.7},
+    "29x42": {"w_mm": 36.0, "h_mm": 25.9},
+    "29": {"w_mm": 54.3, "h_mm": 25.9},
+    "17x54": {"w_mm": 51.0, "h_mm": 12.7},
 }
 DEFAULT_LABEL_DIMENSIONS = {"w_mm": 54.3, "h_mm": 17.0}
 
@@ -31,6 +31,7 @@ class PrinterViewSet(viewsets.ReadOnlyModelViewSet):
     """
     ViewSet for listing printers.
     """
+
     queryset = Printer.objects.all()
     serializer_class = PrinterSerializer
     permission_classes = [IsAuthenticated]
@@ -40,6 +41,7 @@ class PrintJobViewSet(viewsets.GenericViewSet):
     """
     ViewSet for creating and managing print jobs.
     """
+
     serializer_class = PrintJobSerializer
     permission_classes = [IsAuthenticated]
 

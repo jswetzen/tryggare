@@ -1,6 +1,7 @@
 """
 WebSocket consumer for real-time check-in updates
 """
+
 import asyncio
 import json
 from channels.generic.websocket import AsyncWebsocketConsumer
@@ -44,10 +45,7 @@ class CheckInConsumer(AsyncWebsocketConsumer):
         # Add this connection to the checkins broadcast group
         self.room_group_name = "checkins_broadcast"
 
-        await self.channel_layer.group_add(
-            self.room_group_name,
-            self.channel_name
-        )
+        await self.channel_layer.group_add(self.room_group_name, self.channel_name)
 
         await self.accept()
 
@@ -55,17 +53,18 @@ class CheckInConsumer(AsyncWebsocketConsumer):
         self._printer_uuid = None
 
         # Send connection confirmation
-        await self.send(text_data=json.dumps({
-            "type": "connection_established",
-            "message": "Connected to check-in updates"
-        }))
+        await self.send(
+            text_data=json.dumps(
+                {
+                    "type": "connection_established",
+                    "message": "Connected to check-in updates",
+                }
+            )
+        )
 
     async def disconnect(self, close_code):
         """Remove from broadcast group on disconnect"""
-        await self.channel_layer.group_discard(
-            self.room_group_name,
-            self.channel_name
-        )
+        await self.channel_layer.group_discard(self.room_group_name, self.channel_name)
 
         # Schedule offline detection if this was a printer connection
         if self._printer_uuid:
@@ -85,6 +84,7 @@ class CheckInConsumer(AsyncWebsocketConsumer):
     def _mark_printer_offline(self, printer_uuid):
         """Mark printer offline and reassign its pending jobs."""
         from printing.models import Printer, PrintJob
+
         try:
             printer = Printer.objects.get(pk=printer_uuid)
             printer.is_online = False
@@ -99,6 +99,7 @@ class CheckInConsumer(AsyncWebsocketConsumer):
             # Broadcast status change
             from asgiref.sync import async_to_sync
             from channels.layers import get_channel_layer
+
             channel_layer = get_channel_layer()
             async_to_sync(channel_layer.group_send)(
                 "checkins_broadcast",
@@ -179,6 +180,7 @@ class CheckInConsumer(AsyncWebsocketConsumer):
     def _upsert_printer(self, printer_uuid, printer_name):
         from django.utils import timezone
         from printing.models import Printer
+
         Printer.objects.update_or_create(
             id=printer_uuid,
             defaults={
@@ -199,6 +201,7 @@ class CheckInConsumer(AsyncWebsocketConsumer):
     def _update_printer_last_seen(self, printer_uuid):
         from django.utils import timezone
         from printing.models import Printer
+
         Printer.objects.filter(pk=printer_uuid).update(last_seen_at=timezone.now())
 
     async def _handle_print_job_completed(self, data):
@@ -224,6 +227,7 @@ class CheckInConsumer(AsyncWebsocketConsumer):
         from django.utils import timezone
         from printing.models import PrintJob
         from checkins.models import CheckInRecord
+
         now = timezone.now()
         updated = PrintJob.objects.filter(pk=job_id).update(
             status=PrintJob.STATUS_COMPLETED,
@@ -252,6 +256,7 @@ class CheckInConsumer(AsyncWebsocketConsumer):
     @database_sync_to_async
     def _set_job_failed(self, job_id, reason):
         from printing.models import PrintJob
+
         PrintJob.objects.filter(pk=job_id).update(status=PrintJob.STATUS_FAILED)
 
     # -------------------------------------------------------------------------
@@ -260,70 +265,62 @@ class CheckInConsumer(AsyncWebsocketConsumer):
 
     async def child_checked_in(self, event):
         """Broadcast child check-in event to client"""
-        await self.send(text_data=json.dumps({
-            "type": "child_checked_in",
-            "data": event["data"]
-        }))
+        await self.send(
+            text_data=json.dumps({"type": "child_checked_in", "data": event["data"]})
+        )
 
     async def child_checked_out(self, event):
         """Broadcast child check-out event to client"""
-        await self.send(text_data=json.dumps({
-            "type": "child_checked_out",
-            "data": event["data"]
-        }))
+        await self.send(
+            text_data=json.dumps({"type": "child_checked_out", "data": event["data"]})
+        )
 
     async def session_started(self, event):
         """Broadcast session start event to client"""
-        await self.send(text_data=json.dumps({
-            "type": "session_started",
-            "data": event["data"]
-        }))
+        await self.send(
+            text_data=json.dumps({"type": "session_started", "data": event["data"]})
+        )
 
     async def session_ended(self, event):
         """Broadcast session end event to client"""
-        await self.send(text_data=json.dumps({
-            "type": "session_ended",
-            "data": event["data"]
-        }))
+        await self.send(
+            text_data=json.dumps({"type": "session_ended", "data": event["data"]})
+        )
 
     async def checkin_undone(self, event):
         """Broadcast check-in undo event to client"""
-        await self.send(text_data=json.dumps({
-            "type": "checkin_undone",
-            "data": event["data"]
-        }))
+        await self.send(
+            text_data=json.dumps({"type": "checkin_undone", "data": event["data"]})
+        )
 
     async def checkout_undone(self, event):
         """Broadcast checkout undo event to client"""
-        await self.send(text_data=json.dumps({
-            "type": "checkout_undone",
-            "data": event["data"]
-        }))
+        await self.send(
+            text_data=json.dumps({"type": "checkout_undone", "data": event["data"]})
+        )
 
     async def print_job(self, event):
         """Forward print job to connected printer clients."""
-        await self.send(text_data=json.dumps({
-            "type": "print_job",
-            "data": event["data"]
-        }))
+        await self.send(
+            text_data=json.dumps({"type": "print_job", "data": event["data"]})
+        )
 
     async def print_job_completed(self, event):
         """Broadcast print job completion to all clients."""
-        await self.send(text_data=json.dumps({
-            "type": "print_job_completed",
-            "data": event["data"]
-        }))
+        await self.send(
+            text_data=json.dumps({"type": "print_job_completed", "data": event["data"]})
+        )
 
     async def printer_status_changed(self, event):
         """Broadcast printer status change to all clients."""
-        await self.send(text_data=json.dumps({
-            "type": "printer_status_changed",
-            "data": event["data"]
-        }))
+        await self.send(
+            text_data=json.dumps(
+                {"type": "printer_status_changed", "data": event["data"]}
+            )
+        )
 
     async def printer_registered(self, event):
         """Broadcast printer registration to all clients."""
-        await self.send(text_data=json.dumps({
-            "type": "printer_registered",
-            "data": event["data"]
-        }))
+        await self.send(
+            text_data=json.dumps({"type": "printer_registered", "data": event["data"]})
+        )

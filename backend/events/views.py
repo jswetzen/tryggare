@@ -107,7 +107,9 @@ class SessionTicketViewSet(viewsets.ModelViewSet):
     Requires authentication.
     """
 
-    queryset = SessionTicket.objects.select_related("child", "session", "session__event").all()
+    queryset = SessionTicket.objects.select_related(
+        "child", "session", "session__event"
+    ).all()
     serializer_class = SessionTicketSerializer
     permission_classes = [IsAuthenticated]
     filterset_fields = ["child", "session"]

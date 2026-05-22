@@ -1,6 +1,7 @@
 """
 Tests for security features including rate limiting and security headers.
 """
+
 from django.core.cache import cache
 from django.test import TestCase, override_settings
 from django.urls import reverse
@@ -17,11 +18,9 @@ class RateLimitingTests(TestCase):
         """Create test user and client."""
         cache.clear()
         self.client = APIClient()
-        self.login_url = reverse('auth-login')
+        self.login_url = reverse("auth-login")
         self.user = AdminUser.objects.create_user(
-            username='testuser',
-            password='testpass123',
-            name='Test User'
+            username="testuser", password="testpass123", name="Test User"
         )
 
     def tearDown(self):
@@ -36,7 +35,7 @@ class RateLimitingTests(TestCase):
 
         # THROTTLE_RATES is a class attribute cached at import time, so
         # @override_settings on REST_FRAMEWORK doesn't propagate. Patch directly.
-        with patch.object(LoginRateThrottle, 'THROTTLE_RATES', {'login': '5/minute'}):
+        with patch.object(LoginRateThrottle, "THROTTLE_RATES", {"login": "5/minute"}):
             self._run_rate_limit_assertions()
 
     def _run_rate_limit_assertions(self):
@@ -44,8 +43,8 @@ class RateLimitingTests(TestCase):
         for i in range(5):
             response = self.client.post(
                 self.login_url,
-                {'username': 'testuser', 'password': 'wrongpassword'},
-                format='json'
+                {"username": "testuser", "password": "wrongpassword"},
+                format="json",
             )
             # Should get 401 Unauthorized for wrong password
             self.assertIn(response.status_code, [401, 429])
@@ -53,11 +52,11 @@ class RateLimitingTests(TestCase):
         # 6th attempt should be rate limited
         response = self.client.post(
             self.login_url,
-            {'username': 'testuser', 'password': 'wrongpassword'},
-            format='json'
+            {"username": "testuser", "password": "wrongpassword"},
+            format="json",
         )
         self.assertEqual(response.status_code, 429)
-        self.assertIn('throttled', str(response.data).lower())
+        self.assertIn("throttled", str(response.data).lower())
 
     def test_successful_login_not_throttled_on_first_attempt(self):
         """
@@ -65,11 +64,11 @@ class RateLimitingTests(TestCase):
         """
         response = self.client.post(
             self.login_url,
-            {'username': 'testuser', 'password': 'testpass123'},
-            format='json'
+            {"username": "testuser", "password": "testpass123"},
+            format="json",
         )
         self.assertEqual(response.status_code, 200)
-        self.assertTrue(response.data.get('success'))
+        self.assertTrue(response.data.get("success"))
 
 
 class SecurityHeadersTests(TestCase):
@@ -82,7 +81,7 @@ class SecurityHeadersTests(TestCase):
         SECURE_HSTS_SECONDS=31536000,
         SECURE_HSTS_INCLUDE_SUBDOMAINS=True,
         SECURE_CONTENT_TYPE_NOSNIFF=True,
-        X_FRAME_OPTIONS='DENY',
+        X_FRAME_OPTIONS="DENY",
     )
     def test_security_headers_configured(self):
         """
@@ -96,12 +95,12 @@ class SecurityHeadersTests(TestCase):
 
         # Test other security settings
         self.assertTrue(settings.SECURE_CONTENT_TYPE_NOSNIFF)
-        self.assertEqual(settings.X_FRAME_OPTIONS, 'DENY')
+        self.assertEqual(settings.X_FRAME_OPTIONS, "DENY")
 
     @override_settings(
         DEBUG=False,
-        SESSION_COOKIE_SAMESITE='Strict',
-        CSRF_COOKIE_SAMESITE='Strict',
+        SESSION_COOKIE_SAMESITE="Strict",
+        CSRF_COOKIE_SAMESITE="Strict",
         SESSION_COOKIE_AGE=28800,
         SESSION_EXPIRE_AT_BROWSER_CLOSE=True,
     )
@@ -111,7 +110,7 @@ class SecurityHeadersTests(TestCase):
         """
         from django.conf import settings
 
-        self.assertEqual(settings.SESSION_COOKIE_SAMESITE, 'Strict')
-        self.assertEqual(settings.CSRF_COOKIE_SAMESITE, 'Strict')
+        self.assertEqual(settings.SESSION_COOKIE_SAMESITE, "Strict")
+        self.assertEqual(settings.CSRF_COOKIE_SAMESITE, "Strict")
         self.assertEqual(settings.SESSION_COOKIE_AGE, 28800)
         self.assertTrue(settings.SESSION_EXPIRE_AT_BROWSER_CLOSE)

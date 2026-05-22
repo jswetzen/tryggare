@@ -11,10 +11,15 @@ from .base import ImportSourceProvider
 def get_provider(source: "ImportSource") -> ImportSourceProvider:
     """Return the appropriate provider implementation for the given source."""
     from imports.models import ImportSource as IS
+
     if source.provider_type == IS.PROVIDER_FESTIVALPRO:
         from .festivalpro import FestivalProProvider
+
         return FestivalProProvider()
     if source.provider_type == IS.PROVIDER_PLANNINGCENTER:
         from .planningcenter import PlanningCenterProvider
+
         return PlanningCenterProvider()
-    raise NotImplementedError(f"No provider implemented for type: {source.provider_type!r}")
+    raise NotImplementedError(
+        f"No provider implemented for type: {source.provider_type!r}"
+    )

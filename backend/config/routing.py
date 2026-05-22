@@ -1,6 +1,7 @@
 """
 WebSocket URL routing for Django Channels
 """
+
 from django.urls import path
 from checkins.consumers import CheckInConsumer
 

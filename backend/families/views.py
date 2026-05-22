@@ -32,18 +32,18 @@ class FamilyViewSet(viewsets.ModelViewSet):
         from checkins.models import CheckInRecord
 
         event_ticket_prefetch = Prefetch(
-            'children__event_tickets',
-            queryset=EventTicket.objects.select_related('event')
+            "children__event_tickets",
+            queryset=EventTicket.objects.select_related("event"),
         )
         session_ticket_prefetch = Prefetch(
-            'children__session_tickets',
-            queryset=SessionTicket.objects.select_related('session', 'session__event')
+            "children__session_tickets",
+            queryset=SessionTicket.objects.select_related("session", "session__event"),
         )
         # Prefetch active check-ins for children to avoid N+1 queries
         active_checkins_prefetch = Prefetch(
-            'children__checkin_records',
+            "children__checkin_records",
             queryset=CheckInRecord.objects.filter(check_out_time__isnull=True),
-            to_attr='active_checkins'
+            to_attr="active_checkins",
         )
 
         return Family.objects.prefetch_related(
@@ -68,11 +68,19 @@ class FamilyViewSet(viewsets.ModelViewSet):
             return Response({"error": "code required"}, status=400)
 
         family = None
-        ticket = EventTicket.objects.filter(external_ticket_code=code).select_related("child__family").first()
+        ticket = (
+            EventTicket.objects.filter(external_ticket_code=code)
+            .select_related("child__family")
+            .first()
+        )
         if ticket:
             family = ticket.child.family
         else:
-            ticket = SessionTicket.objects.filter(external_ticket_code=code).select_related("child__family").first()
+            ticket = (
+                SessionTicket.objects.filter(external_ticket_code=code)
+                .select_related("child__family")
+                .first()
+            )
             if ticket:
                 family = ticket.child.family
 
@@ -136,25 +144,27 @@ class ChildViewSet(viewsets.ModelViewSet):
         from checkins.models import CheckInRecord
 
         event_ticket_prefetch = Prefetch(
-            'event_tickets',
-            queryset=EventTicket.objects.select_related('event')
+            "event_tickets", queryset=EventTicket.objects.select_related("event")
         )
         session_ticket_prefetch = Prefetch(
-            'session_tickets',
-            queryset=SessionTicket.objects.select_related('session', 'session__event')
+            "session_tickets",
+            queryset=SessionTicket.objects.select_related("session", "session__event"),
         )
         # Prefetch all check-in records to avoid N+1 queries when checking is_checked_in
         # We prefetch all records (not just active ones) so the relationship name stays the same
         checkin_prefetch = Prefetch(
-            'checkin_records',
-            queryset=CheckInRecord.objects.all()
+            "checkin_records", queryset=CheckInRecord.objects.all()
         )
 
-        return Child.objects.select_related("family").prefetch_related(
-            event_ticket_prefetch,
-            session_ticket_prefetch,
-            checkin_prefetch,
-        ).all()
+        return (
+            Child.objects.select_related("family")
+            .prefetch_related(
+                event_ticket_prefetch,
+                session_ticket_prefetch,
+                checkin_prefetch,
+            )
+            .all()
+        )
 
     def perform_update(self, serializer):
         """Update last_participation_date when child info is updated"""

@@ -40,7 +40,14 @@ class ChildSerializer(serializers.ModelSerializer):
             "is_checked_in",
             "active_checkin_id",
         ]
-        read_only_fields = ["id", "last_participation_date", "ticket_type", "ticket_details", "is_checked_in", "active_checkin_id"]
+        read_only_fields = [
+            "id",
+            "last_participation_date",
+            "ticket_type",
+            "ticket_details",
+            "is_checked_in",
+            "active_checkin_id",
+        ]
 
     def get_ticket_type(self, obj: Child) -> str:
         """
@@ -68,20 +75,23 @@ class ChildSerializer(serializers.ModelSerializer):
             bool: True if child has an active check-in, False otherwise
         """
         # Use prefetched active_checkins if available (Family viewset uses this)
-        if hasattr(obj, 'active_checkins'):
+        if hasattr(obj, "active_checkins"):
             return len(obj.active_checkins) > 0
 
         # Use prefetched checkin_records if available (Child viewset uses this)
         # This uses the standard relationship name and filters in Python
-        if hasattr(obj, '_prefetched_objects_cache') and 'checkin_records' in obj._prefetched_objects_cache:
+        if (
+            hasattr(obj, "_prefetched_objects_cache")
+            and "checkin_records" in obj._prefetched_objects_cache
+        ):
             checkin_records = obj.checkin_records.all()
             return any(record.check_out_time is None for record in checkin_records)
 
         # Fallback: query if not prefetched
         from checkins.models import CheckInRecord
+
         active_checkin = CheckInRecord.objects.filter(
-            child=obj,
-            check_out_time__isnull=True
+            child=obj, check_out_time__isnull=True
         ).first()
         return active_checkin is not None
 
@@ -93,12 +103,15 @@ class ChildSerializer(serializers.ModelSerializer):
             str: The check-in record ID, or None if not checked in
         """
         # Use prefetched active_checkins if available (Family viewset uses this)
-        if hasattr(obj, 'active_checkins') and len(obj.active_checkins) > 0:
+        if hasattr(obj, "active_checkins") and len(obj.active_checkins) > 0:
             return str(obj.active_checkins[0].id)
 
         # Use prefetched checkin_records if available (Child viewset uses this)
         # This uses the standard relationship name and filters in Python
-        if hasattr(obj, '_prefetched_objects_cache') and 'checkin_records' in obj._prefetched_objects_cache:
+        if (
+            hasattr(obj, "_prefetched_objects_cache")
+            and "checkin_records" in obj._prefetched_objects_cache
+        ):
             checkin_records = obj.checkin_records.all()
             for record in checkin_records:
                 if record.check_out_time is None:
@@ -107,9 +120,9 @@ class ChildSerializer(serializers.ModelSerializer):
 
         # Fallback: query if not prefetched
         from checkins.models import CheckInRecord
+
         active_checkin = CheckInRecord.objects.filter(
-            child=obj,
-            check_out_time__isnull=True
+            child=obj, check_out_time__isnull=True
         ).first()
         return str(active_checkin.id) if active_checkin else None
 
@@ -121,8 +134,21 @@ class FamilySerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Family
-        fields = ["id", "last_name", "last_participation_date", "parents", "children", "display_name", "external_booking_id"]
-        read_only_fields = ["id", "last_participation_date", "display_name", "external_booking_id"]
+        fields = [
+            "id",
+            "last_name",
+            "last_participation_date",
+            "parents",
+            "children",
+            "display_name",
+            "external_booking_id",
+        ]
+        read_only_fields = [
+            "id",
+            "last_participation_date",
+            "display_name",
+            "external_booking_id",
+        ]
 
 
 class FamilyDetailSerializer(serializers.ModelSerializer):
@@ -134,12 +160,26 @@ class FamilyDetailSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Family
-        fields = ["id", "last_name", "last_participation_date", "parents", "children", "display_name", "external_booking_id"]
-        read_only_fields = ["id", "last_participation_date", "display_name", "external_booking_id"]
+        fields = [
+            "id",
+            "last_name",
+            "last_participation_date",
+            "parents",
+            "children",
+            "display_name",
+            "external_booking_id",
+        ]
+        read_only_fields = [
+            "id",
+            "last_participation_date",
+            "display_name",
+            "external_booking_id",
+        ]
 
 
 class ParentCreateSerializer(serializers.ModelSerializer):
     """Serializer for creating parents (without family field)"""
+
     class Meta:
         model = Parent
         fields = ["id", "name", "phone", "email", "relationship_type"]
@@ -148,6 +188,7 @@ class ParentCreateSerializer(serializers.ModelSerializer):
 
 class ChildCreateSerializer(serializers.ModelSerializer):
     """Serializer for creating children (without family field)"""
+
     class Meta:
         model = Child
         fields = ["id", "first_name", "last_name", "birthdate", "allergies", "notes"]
@@ -180,8 +221,8 @@ class FamilyCreateSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         """Create family with nested parents and children"""
-        parents_data = validated_data.pop('parents')
-        children_data = validated_data.pop('children')
+        parents_data = validated_data.pop("parents")
+        children_data = validated_data.pop("children")
 
         # Create the family
         family = Family.objects.create(**validated_data)

@@ -206,7 +206,9 @@ def _is_child_prefix(booking: dict, prefix: str) -> bool:
         return False
 
     # Accept if there's any Ålder key in the booking (prefixed or standalone)
-    return _get_alder_key(booking, prefix) is not None or _booking_has_any_alder(booking)
+    return _get_alder_key(booking, prefix) is not None or _booking_has_any_alder(
+        booking
+    )
 
 
 def discover_child_prefixes(data: dict) -> list[dict]:
@@ -336,7 +338,11 @@ def parse_children_from_prefix(
         birthdates_raw.append("")
 
     # ETicket code — key is "ETicket {prefix}" (may have trailing space)
-    eticket_code = booking.get(f"ETicket {prefix}") or booking.get(f"ETicket {prefix.rstrip()} ") or None
+    eticket_code = (
+        booking.get(f"ETicket {prefix}")
+        or booking.get(f"ETicket {prefix.rstrip()} ")
+        or None
+    )
     if eticket_code:
         eticket_code = str(eticket_code).strip() or None
 
@@ -397,7 +403,7 @@ def parse_extra_guardian(booking: dict) -> dict | None:
     """
     prefix = "Extra vårdnadshavare kontaktinformation"
     first = _first_nonempty(booking.get(f"{prefix} First Name", ""))
-    last  = _first_nonempty(booking.get(f"{prefix} Last Name", ""))
+    last = _first_nonempty(booking.get(f"{prefix} Last Name", ""))
     email = _first_nonempty(booking.get(f"{prefix} Email", "")) or None
     phone = _first_nonempty(booking.get(f"{prefix} Phone", "")) or None
 
@@ -449,7 +455,9 @@ def parse_booking(booking: dict, prefix_mappings: dict) -> dict:
     for prefix, mapping in prefix_mappings.items():
         if mapping == "ignore":
             continue
-        for child in parse_children_from_prefix(booking, prefix, alder_value=alder_map.get(prefix)):
+        for child in parse_children_from_prefix(
+            booking, prefix, alder_value=alder_map.get(prefix)
+        ):
             child["mapping"] = mapping
             children.append(child)
 

@@ -1,6 +1,7 @@
 """
 Unit tests for printing models: Printer and PrintJob.
 """
+
 import uuid
 from django.test import TestCase
 from django.utils import timezone
@@ -31,12 +32,16 @@ class PrinterModelTest(TestCase):
         self.assertFalse(printer.is_online)
 
     def test_printer_str(self):
-        printer = Printer.objects.create(id=uuid.uuid4(), name="My Printer", is_online=True)
+        printer = Printer.objects.create(
+            id=uuid.uuid4(), name="My Printer", is_online=True
+        )
         self.assertIn("My Printer", str(printer))
         self.assertIn("online", str(printer))
 
     def test_printer_str_offline(self):
-        printer = Printer.objects.create(id=uuid.uuid4(), name="Old Printer", is_online=False)
+        printer = Printer.objects.create(
+            id=uuid.uuid4(), name="Old Printer", is_online=False
+        )
         self.assertIn("offline", str(printer))
 
 
@@ -54,7 +59,9 @@ class PrintJobModelTest(TestCase):
             last_name="Smith",
         )
         today = timezone.now().date()
-        self.event = Event.objects.create(name="Test Event", start_date=today, end_date=today)
+        self.event = Event.objects.create(
+            name="Test Event", start_date=today, end_date=today
+        )
         self.session = Session.objects.create(
             event=self.event,
             name="Test Session",
@@ -67,7 +74,9 @@ class PrintJobModelTest(TestCase):
             check_in_staff=self.user,
             label_printed=False,
         )
-        self.printer = Printer.objects.create(id=uuid.uuid4(), name="Test Printer", is_online=True)
+        self.printer = Printer.objects.create(
+            id=uuid.uuid4(), name="Test Printer", is_online=True
+        )
 
     def test_create_job_pending(self):
         job = PrintJob.objects.create(checkin=self.checkin)
@@ -148,14 +157,18 @@ class PrintJobReassignmentTest(TestCase):
             last_name="Jones",
         )
         today = timezone.now().date()
-        self.event = Event.objects.create(name="Reassign Event", start_date=today, end_date=today)
+        self.event = Event.objects.create(
+            name="Reassign Event", start_date=today, end_date=today
+        )
         self.session = Session.objects.create(
             event=self.event,
             name="Reassign Session",
             start_time=timezone.now(),
             end_time=timezone.now() + timezone.timedelta(hours=2),
         )
-        self.printer = Printer.objects.create(id=uuid.uuid4(), name="Going Offline", is_online=True)
+        self.printer = Printer.objects.create(
+            id=uuid.uuid4(), name="Going Offline", is_online=True
+        )
 
     def _make_checkin(self):
         return CheckInRecord.objects.create(

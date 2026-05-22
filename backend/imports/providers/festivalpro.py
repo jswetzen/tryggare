@@ -34,7 +34,9 @@ class FestivalProProvider(ImportSourceProvider):
         try:
             creds = decrypt_credentials(bytes(source.credentials))
         except (InvalidToken, TypeError) as exc:
-            raise ValueError(f"Cannot decrypt credentials for source {source.id}") from exc
+            raise ValueError(
+                f"Cannot decrypt credentials for source {source.id}"
+            ) from exc
 
         session = requests.Session()
 
@@ -63,7 +65,9 @@ class FestivalProProvider(ImportSourceProvider):
                 f"Login returned HTTP {login_resp.status_code} (expected redirect)"
             )
         if "TARCH" not in session.cookies:
-            raise ProviderLoginError("Login succeeded but no TARCH session cookie was returned")
+            raise ProviderLoginError(
+                "Login succeeded but no TARCH session cookie was returned"
+            )
 
         # Export fetch — POST with the stored form-encoded body (contains QUERYQ, EVENTID, etc.)
         try:

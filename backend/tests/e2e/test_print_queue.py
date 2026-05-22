@@ -8,6 +8,7 @@ Run with:
     pytest backend/tests/e2e/test_print_queue.py -v
     make test-print
 """
+
 import pytest
 import sys
 import time
@@ -27,13 +28,11 @@ class TestPrintQueue(E2ETestBase, TestDataMixin):
         self.setup_driver()
 
         self.test_user = self.create_test_user(
-            username="printtest",
-            password="testpass123"
+            username="printtest", password="testpass123"
         )
 
         self.test_event, self.test_session = self.create_test_session(
-            name="Print Test Session",
-            is_active=True
+            name="Print Test Session", is_active=True
         )
 
         self.test_family, self.test_parent = self.create_test_family(
@@ -41,8 +40,7 @@ class TestPrintQueue(E2ETestBase, TestDataMixin):
         )
 
         self.test_child = self.create_test_child(
-            self.test_family,
-            first_name="PrintChild"
+            self.test_family, first_name="PrintChild"
         )
 
     def teardown_method(self):
@@ -52,7 +50,7 @@ class TestPrintQueue(E2ETestBase, TestDataMixin):
             families=[self.test_family],
             children=[self.test_child],
             sessions=[self.test_session],
-            events=[self.test_event]
+            events=[self.test_event],
         )
         self.teardown_driver()
 
@@ -67,7 +65,7 @@ class TestPrintQueue(E2ETestBase, TestDataMixin):
             child=self.test_child,
             session=self.test_session,
             check_in_staff=self.test_user,
-            label_printed=False
+            label_printed=False,
         )
 
         # Login and navigate to print queue
@@ -80,11 +78,14 @@ class TestPrintQueue(E2ETestBase, TestDataMixin):
 
         # Verify child appears
         page_source = self.driver.page_source
-        child_found = self.test_child.first_name in page_source or \
-                      self.test_family.last_name in page_source
+        child_found = (
+            self.test_child.first_name in page_source
+            or self.test_family.last_name in page_source
+        )
 
-        assert child_found, \
+        assert child_found, (
             f"Child '{self.test_child.first_name}' not found in print queue"
+        )
 
         print(f"   ✓ Child '{self.test_child.first_name}' found in print queue")
 
@@ -105,8 +106,10 @@ class TestPrintQueue(E2ETestBase, TestDataMixin):
 
         # Should show empty state
         page_source = self.driver.page_source
-        has_empty_message = "no labels" in page_source.lower() or \
-                           "inga etiketter" in page_source.lower()
+        has_empty_message = (
+            "no labels" in page_source.lower()
+            or "inga etiketter" in page_source.lower()
+        )
 
         if has_empty_message:
             print("   ✓ Empty state message displayed")
