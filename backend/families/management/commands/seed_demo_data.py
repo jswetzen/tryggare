@@ -2,6 +2,7 @@
 Management command to seed realistic demo data for screenshots and development.
 Idempotent — safe to re-run (uses get_or_create throughout).
 """
+
 from datetime import date, timedelta
 
 from django.contrib.auth import get_user_model
@@ -21,14 +22,18 @@ class Command(BaseCommand):
             "--reset",
             action="store_true",
             help="Wipe all family/event/check-in data (and the 'maria' staff user) before seeding. "
-                 "For demo sites that reset on every container restart.",
+            "For demo sites that reset on every container restart.",
         )
 
     def handle(self, *args, **options):
         AdminUser = get_user_model()
 
         if options["reset"]:
-            self.stdout.write(self.style.WARNING("Resetting demo data (wiping families, events, check-ins)..."))
+            self.stdout.write(
+                self.style.WARNING(
+                    "Resetting demo data (wiping families, events, check-ins)..."
+                )
+            )
             # Order matters: delete children/leaves before parents to avoid FK issues,
             # though Django CASCADE handles most of it.
             AuditLog.objects.all().delete()
@@ -59,7 +64,11 @@ class Command(BaseCommand):
 
         maria, created = AdminUser.objects.get_or_create(
             username="maria",
-            defaults={"name": "Maria Lindqvist", "is_staff": True, "is_superuser": False},
+            defaults={
+                "name": "Maria Lindqvist",
+                "is_staff": True,
+                "is_superuser": False,
+            },
         )
         if created:
             maria.set_password("demo123")
@@ -73,7 +82,9 @@ class Command(BaseCommand):
             defaults={"start_date": today, "end_date": today + timedelta(days=1)},
         )
 
-        morning_start = timezone.now().replace(hour=9, minute=0, second=0, microsecond=0)
+        morning_start = timezone.now().replace(
+            hour=9, minute=0, second=0, microsecond=0
+        )
         morning_end = timezone.now().replace(hour=12, minute=0, second=0, microsecond=0)
         morning, _ = Session.objects.get_or_create(
             event=event,
@@ -86,8 +97,12 @@ class Command(BaseCommand):
             },
         )
 
-        afternoon_start = timezone.now().replace(hour=13, minute=0, second=0, microsecond=0)
-        afternoon_end = timezone.now().replace(hour=16, minute=0, second=0, microsecond=0)
+        afternoon_start = timezone.now().replace(
+            hour=13, minute=0, second=0, microsecond=0
+        )
+        afternoon_end = timezone.now().replace(
+            hour=16, minute=0, second=0, microsecond=0
+        )
         Session.objects.get_or_create(
             event=event,
             name="Afternoon Session",
@@ -105,7 +120,10 @@ class Command(BaseCommand):
         family_data = [
             (
                 "Andersson",
-                "Sara Andersson", "Mother", "+46701234567", "sara.andersson@example.com",
+                "Sara Andersson",
+                "Mother",
+                "+46701234567",
+                "sara.andersson@example.com",
                 [
                     ("Emma", 9, None, None),
                     ("Liam", 6, None, None),
@@ -113,14 +131,20 @@ class Command(BaseCommand):
             ),
             (
                 "Bergström",
-                "Per Bergström", "Father", "+46702345678", "per.bergstrom@example.com",
+                "Per Bergström",
+                "Father",
+                "+46702345678",
+                "per.bergstrom@example.com",
                 [
                     ("Olivia", 11, None, None),
                 ],
             ),
             (
                 "Chen",
-                "Wei Chen", "Mother", "+46703456789", "wei.chen@example.com",
+                "Wei Chen",
+                "Mother",
+                "+46703456789",
+                "wei.chen@example.com",
                 [
                     ("Lucas", 7, None, None),
                     ("Mia", 5, None, None),
@@ -128,14 +152,20 @@ class Command(BaseCommand):
             ),
             (
                 "Dahl",
-                "Ingrid Dahl", "Mother", "+46704567890", "ingrid.dahl@example.com",
+                "Ingrid Dahl",
+                "Mother",
+                "+46704567890",
+                "ingrid.dahl@example.com",
                 [
                     ("Noah", 8, "Peanuts", None),
                 ],
             ),
             (
                 "Eriksson",
-                "Johan Eriksson", "Father", "+46705678901", "johan.eriksson@example.com",
+                "Johan Eriksson",
+                "Father",
+                "+46705678901",
+                "johan.eriksson@example.com",
                 [
                     ("Saga", 10, None, None),
                     ("Felix", 4, None, None),
@@ -143,14 +173,20 @@ class Command(BaseCommand):
             ),
             (
                 "Flores",
-                "Carmen Flores", "Mother", "+46706789012", "carmen.flores@example.com",
+                "Carmen Flores",
+                "Mother",
+                "+46706789012",
+                "carmen.flores@example.com",
                 [
                     ("Sofia", 7, None, None),
                 ],
             ),
             (
                 "Gustafsson",
-                "Gunnar Gustafsson", "Father", "+46707890123", "gunnar.gustafsson@example.com",
+                "Gunnar Gustafsson",
+                "Father",
+                "+46707890123",
+                "gunnar.gustafsson@example.com",
                 [
                     ("Elias", 6, None, None),
                     ("Wilma", 9, None, None),
@@ -159,7 +195,10 @@ class Command(BaseCommand):
             ),
             (
                 "Hansen",
-                "Anna Hansen", "Mother", "+46708901234", "anna.hansen@example.com",
+                "Anna Hansen",
+                "Mother",
+                "+46708901234",
+                "anna.hansen@example.com",
                 [
                     ("Astrid", 8, None, "Needs extra supervision"),
                 ],
@@ -183,7 +222,11 @@ class Command(BaseCommand):
                     family=family,
                     first_name=first_name,
                     last_name=last_name,
-                    defaults={"birthdate": birthdate, "allergies": allergies, "notes": notes},
+                    defaults={
+                        "birthdate": birthdate,
+                        "allergies": allergies,
+                        "notes": notes,
+                    },
                 )
                 children[(first_name, last_name)] = child
 
@@ -218,8 +261,12 @@ class Command(BaseCommand):
 
         # Backdate check_in_time (auto_now_add can't be set on save, use update)
         for record, hour, minute in checkin_records:
-            checkin_time = timezone.now().replace(hour=hour, minute=minute, second=0, microsecond=0)
-            CheckInRecord.objects.filter(pk=record.pk).update(check_in_time=checkin_time)
+            checkin_time = timezone.now().replace(
+                hour=hour, minute=minute, second=0, microsecond=0
+            )
+            CheckInRecord.objects.filter(pk=record.pk).update(
+                check_in_time=checkin_time
+            )
 
         # --- QR codes for checked-in children ---
         import random
@@ -242,7 +289,9 @@ class Command(BaseCommand):
                 except Exception:
                     pass  # QR code already exists
 
-        self.stdout.write(self.style.SUCCESS(
-            f"Demo data seeded: {len(children)} children in {len(families)} families, "
-            f"{len(checkin_data)} checked in to Morning Session."
-        ))
+        self.stdout.write(
+            self.style.SUCCESS(
+                f"Demo data seeded: {len(children)} children in {len(families)} families, "
+                f"{len(checkin_data)} checked in to Morning Session."
+            )
+        )

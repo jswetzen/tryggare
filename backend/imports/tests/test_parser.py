@@ -138,11 +138,12 @@ class TestDiscoverChildPrefixes:
     def test_returns_sample_children(self):
         prefixes = discover_child_prefixes(SAMPLE_DATA)
         # Find the thursday day-pass prefix
-        thursday = next(
-            (p for p in prefixes if "torsdag 26 juni" in p["prefix"]), None
-        )
+        thursday = next((p for p in prefixes if "torsdag 26 juni" in p["prefix"]), None)
         assert thursday is not None
-        assert "Barn2" in thursday["sample_children"] or "Barn22" in thursday["sample_children"]
+        assert (
+            "Barn2" in thursday["sample_children"]
+            or "Barn22" in thursday["sample_children"]
+        )
 
     def test_booking_count(self):
         prefixes = discover_child_prefixes(SAMPLE_DATA)
@@ -344,6 +345,7 @@ class TestParseJsonWithDuplicateKeys:
     def test_normal_json_unchanged(self):
         """Non-duplicate keys parse identically to json.loads."""
         import json
+
         text = '{"a": 1, "b": "hello", "c": [1, 2, 3]}'
         result = parse_json_with_duplicate_keys(text)
         assert result == json.loads(text)
@@ -442,20 +444,29 @@ class TestParseJsonWithDuplicateKeys:
         assert amap["Dagsbiljett barn (lördag)"] == "12/02/2019"
 
         # Verify children parse correctly when alder_value is supplied
-        thu = parse_children_from_prefix(booking, "Dagsbiljett barn (torsdag)",
-                                         alder_value=amap["Dagsbiljett barn (torsdag)"])
+        thu = parse_children_from_prefix(
+            booking,
+            "Dagsbiljett barn (torsdag)",
+            alder_value=amap["Dagsbiljett barn (torsdag)"],
+        )
         assert len(thu) == 2
         assert thu[0]["birthdate"] == date(2019, 1, 15)
         assert thu[1]["birthdate"] == date(2014, 3, 7)
 
-        fri = parse_children_from_prefix(booking, "Dagsbiljett barn (fredag)",
-                                         alder_value=amap["Dagsbiljett barn (fredag)"])
+        fri = parse_children_from_prefix(
+            booking,
+            "Dagsbiljett barn (fredag)",
+            alder_value=amap["Dagsbiljett barn (fredag)"],
+        )
         assert len(fri) == 1
         assert fri[0]["first_name"] == "Barn3"
         assert fri[0]["birthdate"] == date(2017, 2, 21)
 
-        sat = parse_children_from_prefix(booking, "Dagsbiljett barn (lördag)",
-                                         alder_value=amap["Dagsbiljett barn (lördag)"])
+        sat = parse_children_from_prefix(
+            booking,
+            "Dagsbiljett barn (lördag)",
+            alder_value=amap["Dagsbiljett barn (lördag)"],
+        )
         assert len(sat) == 1
         assert sat[0]["first_name"] == "Barn4"
         assert sat[0]["birthdate"] == date(2019, 2, 12)
@@ -486,7 +497,9 @@ class TestRealFormatBooking:
     def _parse(self, prefix):
         """Helper: parse one prefix using the pre-built alder map."""
         amap = build_alder_map(REAL_BOOKING, self.ALL_PREFIXES)
-        return parse_children_from_prefix(REAL_BOOKING, prefix, alder_value=amap.get(prefix))
+        return parse_children_from_prefix(
+            REAL_BOOKING, prefix, alder_value=amap.get(prefix)
+        )
 
     def test_sk26_gets_correct_birthdate(self):
         """SK26 Barnkonferens  must pick up "Ålder " (trailing space), not "Ålder"."""

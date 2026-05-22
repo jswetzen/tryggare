@@ -3,6 +3,7 @@
 Demo script to show the enhanced API serializers with ticket information.
 Run this after backend/verify.py to see the new fields in action.
 """
+
 import os
 import sys
 import django
@@ -10,7 +11,7 @@ import json
 from datetime import date
 
 # Setup Django
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'config.settings.local')
+os.environ.setdefault("DJANGO_SETTINGS_MODULE", "config.settings.local")
 django.setup()
 
 from django.contrib.auth import get_user_model
@@ -32,51 +33,48 @@ def main():
     family = Family.objects.create(last_name="DemoFamily")
 
     parent = Parent.objects.create(
-        name="John Demo",
-        relationship_type="Father",
-        phone="555-0123",
-        family=family
+        name="John Demo", relationship_type="Father", phone="555-0123", family=family
     )
 
     child1 = Child.objects.create(
         first_name="Alice",
         last_name="DemoFamily",
         birthdate=date(2018, 3, 15),
-        family=family
+        family=family,
     )
 
     child2 = Child.objects.create(
         first_name="Bob",
         last_name="DemoFamily",
         birthdate=date(2020, 7, 22),
-        family=family
+        family=family,
     )
 
     child3 = Child.objects.create(
         first_name="Charlie",
         last_name="DemoFamily",
         birthdate=date(2019, 11, 5),
-        family=family
+        family=family,
     )
 
     event = Event.objects.create(
         name="Summer Conference 2025",
         start_date=date(2025, 7, 1),
-        end_date=date(2025, 7, 10)
+        end_date=date(2025, 7, 10),
     )
 
     session1 = Session.objects.create(
         name="Morning Workshop",
         event=event,
         start_time="2025-07-01T09:00:00Z",
-        end_time="2025-07-01T12:00:00Z"
+        end_time="2025-07-01T12:00:00Z",
     )
 
     session2 = Session.objects.create(
         name="Afternoon Activities",
         event=event,
         start_time="2025-07-01T13:00:00Z",
-        end_time="2025-07-01T17:00:00Z"
+        end_time="2025-07-01T17:00:00Z",
     )
 
     # Give child1 an event ticket (full access)
@@ -124,12 +122,11 @@ def main():
     from django.db.models import Prefetch
 
     event_ticket_prefetch = Prefetch(
-        'children__event_tickets',
-        queryset=EventTicket.objects.select_related('event')
+        "children__event_tickets", queryset=EventTicket.objects.select_related("event")
     )
     session_ticket_prefetch = Prefetch(
-        'children__session_tickets',
-        queryset=SessionTicket.objects.select_related('session', 'session__event')
+        "children__session_tickets",
+        queryset=SessionTicket.objects.select_related("session", "session__event"),
     )
 
     family_optimized = Family.objects.prefetch_related(
@@ -161,7 +158,7 @@ def main():
     print()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     try:
         main()
     except KeyboardInterrupt:

@@ -11,7 +11,11 @@ from families.models import Child
 from events.models import Session
 
 from .models import AuditLog, CheckInRecord
-from .serializers import AuditLogSerializer, CheckInRecordSerializer, PrintQueueSerializer
+from .serializers import (
+    AuditLogSerializer,
+    CheckInRecordSerializer,
+    PrintQueueSerializer,
+)
 
 
 class CheckInRecordViewSet(viewsets.ModelViewSet):
@@ -65,10 +69,11 @@ class CheckInRecordViewSet(viewsets.ModelViewSet):
             )
 
         # Check for other-session active check-ins
-        other_sessions = CheckInRecord.objects.filter(
-            child=child,
-            check_out_time__isnull=True
-        ).exclude(session=session).select_related('session')
+        other_sessions = (
+            CheckInRecord.objects.filter(child=child, check_out_time__isnull=True)
+            .exclude(session=session)
+            .select_related("session")
+        )
 
         for record in other_sessions:
             # Standard check-ins always block
@@ -91,11 +96,12 @@ class CheckInRecordViewSet(viewsets.ModelViewSet):
             session=session,
             check_in_staff=request.user,
             label_printed=False,
-            supervised=supervised
+            supervised=supervised,
         )
 
         # Allocate QR code for this check-in
         from .qr_utils import allocate_code_for_checkin
+
         qr_code = allocate_code_for_checkin(record)
 
         # Update last participation dates
@@ -148,8 +154,8 @@ class CheckInRecordViewSet(viewsets.ModelViewSet):
                         }
                         for p in child.family.parents.all()
                     ],
-                }
-            }
+                },
+            },
         )
 
         serializer = self.get_serializer(record)
@@ -175,6 +181,7 @@ class CheckInRecordViewSet(viewsets.ModelViewSet):
 
         # Release the QR code (starts 24h grace period)
         from .qr_utils import release_code_for_checkout
+
         release_code_for_checkout(record)
 
         # Log the action
@@ -206,8 +213,8 @@ class CheckInRecordViewSet(viewsets.ModelViewSet):
                     "session_name": record.session.name,
                     "check_out_time": record.check_out_time.isoformat(),
                     "picked_up_by": picked_up_by,
-                }
-            }
+                },
+            },
         )
 
         serializer = self.get_serializer(record)
@@ -241,7 +248,7 @@ class CheckInRecordViewSet(viewsets.ModelViewSet):
         record.save()
 
         # Re-activate the QR code if it exists
-        if hasattr(record, 'qr_code') and record.qr_code:
+        if hasattr(record, "qr_code") and record.qr_code:
             record.qr_code.released_at = None
             record.qr_code.save()
 
@@ -271,8 +278,8 @@ class CheckInRecordViewSet(viewsets.ModelViewSet):
                     "child_name": f"{record.child.first_name} {record.child.last_name}",
                     "session_id": str(record.session.id),
                     "session_name": record.session.name,
-                }
-            }
+                },
+            },
         )
 
         serializer = self.get_serializer(record)
@@ -340,13 +347,13 @@ class CheckInRecordViewSet(viewsets.ModelViewSet):
                     "child_name": child_name,
                     "session_id": session_id,
                     "session_name": session_name,
-                }
-            }
+                },
+            },
         )
 
         return Response(
             {"success": True, "message": _("Check-in successfully undone")},
-            status=status.HTTP_200_OK
+            status=status.HTTP_200_OK,
         )
 
     @action(detail=False, methods=["get"])
@@ -389,46 +396,45 @@ class PrintQueueViewSet(viewsets.ReadOnlyModelViewSet):
         """
         from django.db import models as db_models
 
-        return CheckInRecord.objects.filter(
-            label_printed=False,
-            check_out_time__isnull=True,  # Still checked in
-        ).filter(
-            # Standard check-ins (not supervised) OR supervised in active session
-            db_models.Q(supervised=False) |
-            db_models.Q(
-                supervised=True,
-                session__is_active=True
+        return (
+            CheckInRecord.objects.filter(
+                label_printed=False,
+                check_out_time__isnull=True,  # Still checked in
             )
-        ).select_related(
-            'child',
-            'child__family',
-            'session',
-            'check_in_staff',
-            'qr_code'
-        ).prefetch_related(
-            'child__family__parents',
-            'print_jobs__printer',
-        ).order_by('-check_in_time')
+            .filter(
+                # Standard check-ins (not supervised) OR supervised in active session
+                db_models.Q(supervised=False)
+                | db_models.Q(supervised=True, session__is_active=True)
+            )
+            .select_related(
+                "child", "child__family", "session", "check_in_staff", "qr_code"
+            )
+            .prefetch_related(
+                "child__family__parents",
+                "print_jobs__printer",
+            )
+            .order_by("-check_in_time")
+        )
 
-    @action(detail=False, methods=['post'])
+    @action(detail=False, methods=["post"])
     def mark_printed(self, request):
         """Mark one or more check-ins as printed"""
-        checkin_ids = request.data.get('checkin_ids', [])
+        checkin_ids = request.data.get("checkin_ids", [])
 
         if not checkin_ids:
             return Response(
-                {'error': _('No check-in IDs provided')},
-                status=status.HTTP_400_BAD_REQUEST
+                {"error": _("No check-in IDs provided")},
+                status=status.HTTP_400_BAD_REQUEST,
             )
 
         # Update records
         updated = CheckInRecord.objects.filter(
             id__in=checkin_ids,
-            check_out_time__isnull=True  # Only if still checked in
+            check_out_time__isnull=True,  # Only if still checked in
         ).update(
             label_printed=True,
             label_printed_at=timezone.now(),
-            label_printed_by=request.user
+            label_printed_by=request.user,
         )
 
         # Log the action
@@ -450,44 +456,42 @@ class PrintQueueViewSet(viewsets.ReadOnlyModelViewSet):
             except CheckInRecord.DoesNotExist:
                 pass
 
-        return Response({
-            'message': _(f'{updated} labels marked as printed'),
-            'count': updated
-        })
+        return Response(
+            {"message": _(f"{updated} labels marked as printed"), "count": updated}
+        )
 
-    @action(detail=False, methods=['get'])
+    @action(detail=False, methods=["get"])
     def generate_pdf(self, request):
         """Generate printable PDF of labels"""
         from django.http import HttpResponse
         from .utils import generate_label_pdf
 
-        checkin_ids = request.query_params.get('ids', '').split(',')
+        checkin_ids = request.query_params.get("ids", "").split(",")
         checkin_ids = [cid.strip() for cid in checkin_ids if cid.strip()]
 
         if not checkin_ids:
             return Response(
-                {'error': _('No check-in IDs provided')},
-                status=status.HTTP_400_BAD_REQUEST
+                {"error": _("No check-in IDs provided")},
+                status=status.HTTP_400_BAD_REQUEST,
             )
 
-        checkins = CheckInRecord.objects.filter(
-            id__in=checkin_ids
-        ).select_related('child', 'session')
+        checkins = CheckInRecord.objects.filter(id__in=checkin_ids).select_related(
+            "child", "session"
+        )
 
         if not checkins.exists():
             return Response(
-                {'error': _('No check-ins found')},
-                status=status.HTTP_404_NOT_FOUND
+                {"error": _("No check-ins found")}, status=status.HTTP_404_NOT_FOUND
             )
 
         # Generate PDF using utility function
         pdf = generate_label_pdf(checkins)
 
-        response = HttpResponse(pdf, content_type='application/pdf')
-        response['Content-Disposition'] = 'attachment; filename="labels.pdf"'
+        response = HttpResponse(pdf, content_type="application/pdf")
+        response["Content-Disposition"] = 'attachment; filename="labels.pdf"'
         return response
 
-    @action(detail=True, methods=['get'])
+    @action(detail=True, methods=["get"])
     def print_page(self, request, pk=None):
         """
         Returns HTML page optimized for printing a single label on Brother QL-54.3mm.
@@ -499,12 +503,15 @@ class PrintQueueViewSet(viewsets.ReadOnlyModelViewSet):
         import base64
 
         checkin = get_object_or_404(
-            CheckInRecord.objects.select_related('child', 'session', 'qr_code'),
-            pk=pk
+            CheckInRecord.objects.select_related("child", "session", "qr_code"), pk=pk
         )
 
         # Get the QR code string
-        qr_code_str = checkin.qr_code.code if hasattr(checkin, 'qr_code') and checkin.qr_code else "INVALID"
+        qr_code_str = (
+            checkin.qr_code.code
+            if hasattr(checkin, "qr_code") and checkin.qr_code
+            else "INVALID"
+        )
 
         # Generate QR code as base64 data URL
         # Use Level L (7% error correction) for minimal complexity
@@ -514,25 +521,32 @@ class PrintQueueViewSet(viewsets.ReadOnlyModelViewSet):
             box_size=10,
             border=1,
         )
-        qr.add_data(f'http://{request.get_host()}/qr/{qr_code_str}')
+        qr.add_data(f"http://{request.get_host()}/qr/{qr_code_str}")
         qr.make(fit=True)
         img = qr.make_image(fill_color="black", back_color="white")
         buf = io.BytesIO()
-        img.save(buf, format='PNG')
-        qr_data_url = f'data:image/png;base64,{base64.b64encode(buf.getvalue()).decode()}'
+        img.save(buf, format="PNG")
+        qr_data_url = (
+            f"data:image/png;base64,{base64.b64encode(buf.getvalue()).decode()}"
+        )
 
         from printing.views import LABEL_DIMENSIONS, DEFAULT_LABEL_DIMENSIONS
+
         label = request.GET.get("label", "")
         dims = LABEL_DIMENSIONS.get(label, DEFAULT_LABEL_DIMENSIONS)
 
-        return render(request, 'print_label.html', {
-            'checkin': checkin,
-            'qr_url': qr_data_url,
-            'w_mm': dims['w_mm'],
-            'h_mm': dims['h_mm'],
-        })
+        return render(
+            request,
+            "print_label.html",
+            {
+                "checkin": checkin,
+                "qr_url": qr_data_url,
+                "w_mm": dims["w_mm"],
+                "h_mm": dims["h_mm"],
+            },
+        )
 
-    @action(detail=True, methods=['post'])
+    @action(detail=True, methods=["post"])
     def mark_single_printed(self, request, pk=None):
         """
         Mark a single check-in as printed.
@@ -541,9 +555,9 @@ class PrintQueueViewSet(viewsets.ReadOnlyModelViewSet):
         from django.shortcuts import get_object_or_404
 
         checkin = get_object_or_404(
-            CheckInRecord.objects.select_related('child', 'session'),
+            CheckInRecord.objects.select_related("child", "session"),
             pk=pk,
-            check_out_time__isnull=True  # Only if still checked in
+            check_out_time__isnull=True,  # Only if still checked in
         )
 
         # Update record
@@ -569,7 +583,7 @@ class PrintQueueViewSet(viewsets.ReadOnlyModelViewSet):
         serializer = self.get_serializer(checkin)
         return Response(serializer.data)
 
-    @action(detail=False, methods=['get'])
+    @action(detail=False, methods=["get"])
     def recently_printed(self, request):
         """
         Get recently printed labels (last 50).
@@ -577,26 +591,26 @@ class PrintQueueViewSet(viewsets.ReadOnlyModelViewSet):
         """
         from django.db import models as db_models
 
-        recent = CheckInRecord.objects.filter(
-            label_printed=True,
-            check_out_time__isnull=True,  # Still checked in
-        ).filter(
-            # Standard check-ins (not supervised) OR supervised in active session
-            db_models.Q(supervised=False) |
-            db_models.Q(
-                supervised=True,
-                session__is_active=True,
-                session__end_time__gt=timezone.now()
+        recent = (
+            CheckInRecord.objects.filter(
+                label_printed=True,
+                check_out_time__isnull=True,  # Still checked in
             )
-        ).select_related(
-            'child',
-            'child__family',
-            'session',
-            'check_in_staff',
-            'qr_code'
-        ).prefetch_related(
-            'child__family__parents'
-        ).order_by('-check_in_time')[:50]
+            .filter(
+                # Standard check-ins (not supervised) OR supervised in active session
+                db_models.Q(supervised=False)
+                | db_models.Q(
+                    supervised=True,
+                    session__is_active=True,
+                    session__end_time__gt=timezone.now(),
+                )
+            )
+            .select_related(
+                "child", "child__family", "session", "check_in_staff", "qr_code"
+            )
+            .prefetch_related("child__family__parents")
+            .order_by("-check_in_time")[:50]
+        )
 
         serializer = self.get_serializer(recent, many=True)
         return Response(serializer.data)

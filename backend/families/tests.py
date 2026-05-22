@@ -50,64 +50,70 @@ class ChildModelTests(TestCase):
 
     def test_get_ticket_type_none(self):
         """Test get_ticket_type returns 'none' when child has no tickets"""
-        self.assertEqual(self.child.get_ticket_type(), 'none')
+        self.assertEqual(self.child.get_ticket_type(), "none")
 
     def test_get_ticket_type_event(self):
         """Test get_ticket_type returns 'event' when child has an event ticket"""
         EventTicket.objects.create(child=self.child, event=self.event)
-        self.assertEqual(self.child.get_ticket_type(), 'event')
+        self.assertEqual(self.child.get_ticket_type(), "event")
 
     def test_get_ticket_type_session(self):
         """Test get_ticket_type returns 'session' when child has only session tickets"""
         SessionTicket.objects.create(child=self.child, session=self.session)
-        self.assertEqual(self.child.get_ticket_type(), 'session')
+        self.assertEqual(self.child.get_ticket_type(), "session")
 
     def test_get_ticket_type_event_precedence(self):
         """Test that event tickets take precedence over session tickets"""
         EventTicket.objects.create(child=self.child, event=self.event)
         SessionTicket.objects.create(child=self.child, session=self.session)
-        self.assertEqual(self.child.get_ticket_type(), 'event')
+        self.assertEqual(self.child.get_ticket_type(), "event")
 
     def test_get_ticket_details_no_tickets(self):
         """Test get_ticket_details with no tickets"""
         details = self.child.get_ticket_details()
-        self.assertEqual(details['ticket_type'], 'none')
-        self.assertEqual(details['event_tickets'], [])
-        self.assertEqual(details['session_tickets'], [])
+        self.assertEqual(details["ticket_type"], "none")
+        self.assertEqual(details["event_tickets"], [])
+        self.assertEqual(details["session_tickets"], [])
 
     def test_get_ticket_details_with_event_ticket(self):
         """Test get_ticket_details with an event ticket"""
         event_ticket = EventTicket.objects.create(child=self.child, event=self.event)
         details = self.child.get_ticket_details()
 
-        self.assertEqual(details['ticket_type'], 'event')
-        self.assertEqual(len(details['event_tickets']), 1)
-        self.assertEqual(details['event_tickets'][0]['event'], str(self.event.id))
-        self.assertEqual(details['event_tickets'][0]['event_name'], 'Conference 2025')
-        self.assertEqual(details['event_tickets'][0]['id'], str(event_ticket.id))
-        self.assertEqual(details['session_tickets'], [])
+        self.assertEqual(details["ticket_type"], "event")
+        self.assertEqual(len(details["event_tickets"]), 1)
+        self.assertEqual(details["event_tickets"][0]["event"], str(self.event.id))
+        self.assertEqual(details["event_tickets"][0]["event_name"], "Conference 2025")
+        self.assertEqual(details["event_tickets"][0]["id"], str(event_ticket.id))
+        self.assertEqual(details["session_tickets"], [])
 
     def test_get_ticket_details_with_session_ticket(self):
         """Test get_ticket_details with a session ticket"""
-        session_ticket = SessionTicket.objects.create(child=self.child, session=self.session)
+        session_ticket = SessionTicket.objects.create(
+            child=self.child, session=self.session
+        )
         details = self.child.get_ticket_details()
 
-        self.assertEqual(details['ticket_type'], 'session')
-        self.assertEqual(len(details['session_tickets']), 1)
-        self.assertEqual(details['session_tickets'][0]['session'], str(self.session.id))
-        self.assertEqual(details['session_tickets'][0]['session_name'], 'Morning Session')
-        self.assertEqual(details['session_tickets'][0]['id'], str(session_ticket.id))
-        self.assertEqual(details['event_tickets'], [])
+        self.assertEqual(details["ticket_type"], "session")
+        self.assertEqual(len(details["session_tickets"]), 1)
+        self.assertEqual(details["session_tickets"][0]["session"], str(self.session.id))
+        self.assertEqual(
+            details["session_tickets"][0]["session_name"], "Morning Session"
+        )
+        self.assertEqual(details["session_tickets"][0]["id"], str(session_ticket.id))
+        self.assertEqual(details["event_tickets"], [])
 
     def test_get_ticket_details_with_multiple_tickets(self):
         """Test get_ticket_details with multiple tickets of different types"""
         event_ticket = EventTicket.objects.create(child=self.child, event=self.event)
-        session_ticket = SessionTicket.objects.create(child=self.child, session=self.session)
+        session_ticket = SessionTicket.objects.create(
+            child=self.child, session=self.session
+        )
         details = self.child.get_ticket_details()
 
-        self.assertEqual(details['ticket_type'], 'event')
-        self.assertEqual(len(details['event_tickets']), 1)
-        self.assertEqual(len(details['session_tickets']), 1)
+        self.assertEqual(details["ticket_type"], "event")
+        self.assertEqual(len(details["event_tickets"]), 1)
+        self.assertEqual(len(details["session_tickets"]), 1)
 
 
 class FamilyModelTests(TestCase):
@@ -165,65 +171,65 @@ class ChildSerializerTests(TestCase):
 
     def test_child_serializer_no_tickets(self):
         """Test ChildSerializer with a child that has no tickets"""
-        response = self.client.get(f'/api/children/{self.child.id}/')
+        response = self.client.get(f"/api/children/{self.child.id}/")
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.data['ticket_type'], 'none')
-        self.assertEqual(response.data['ticket_details']['ticket_type'], 'none')
-        self.assertEqual(response.data['ticket_details']['event_tickets'], [])
-        self.assertEqual(response.data['ticket_details']['session_tickets'], [])
+        self.assertEqual(response.data["ticket_type"], "none")
+        self.assertEqual(response.data["ticket_details"]["ticket_type"], "none")
+        self.assertEqual(response.data["ticket_details"]["event_tickets"], [])
+        self.assertEqual(response.data["ticket_details"]["session_tickets"], [])
 
     def test_child_serializer_with_event_ticket(self):
         """Test ChildSerializer with a child that has an event ticket"""
         EventTicket.objects.create(child=self.child, event=self.event)
-        response = self.client.get(f'/api/children/{self.child.id}/')
+        response = self.client.get(f"/api/children/{self.child.id}/")
 
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.data['ticket_type'], 'event')
-        self.assertEqual(len(response.data['ticket_details']['event_tickets']), 1)
+        self.assertEqual(response.data["ticket_type"], "event")
+        self.assertEqual(len(response.data["ticket_details"]["event_tickets"]), 1)
         self.assertEqual(
-            response.data['ticket_details']['event_tickets'][0]['event'],
-            str(self.event.id)
+            response.data["ticket_details"]["event_tickets"][0]["event"],
+            str(self.event.id),
         )
         self.assertEqual(
-            response.data['ticket_details']['event_tickets'][0]['event_name'],
-            'Summer Camp 2025'
+            response.data["ticket_details"]["event_tickets"][0]["event_name"],
+            "Summer Camp 2025",
         )
 
     def test_child_serializer_with_session_ticket(self):
         """Test ChildSerializer with a child that has a session ticket"""
         SessionTicket.objects.create(child=self.child, session=self.session)
-        response = self.client.get(f'/api/children/{self.child.id}/')
+        response = self.client.get(f"/api/children/{self.child.id}/")
 
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.data['ticket_type'], 'session')
-        self.assertEqual(len(response.data['ticket_details']['session_tickets']), 1)
+        self.assertEqual(response.data["ticket_type"], "session")
+        self.assertEqual(len(response.data["ticket_details"]["session_tickets"]), 1)
         self.assertEqual(
-            response.data['ticket_details']['session_tickets'][0]['session'],
-            str(self.session.id)
+            response.data["ticket_details"]["session_tickets"][0]["session"],
+            str(self.session.id),
         )
         self.assertEqual(
-            response.data['ticket_details']['session_tickets'][0]['session_name'],
-            'Afternoon Session'
+            response.data["ticket_details"]["session_tickets"][0]["session_name"],
+            "Afternoon Session",
         )
 
     def test_child_serializer_ticket_fields_readonly(self):
         """Test that ticket_type and ticket_details are read-only"""
         # Attempt to update ticket_type and ticket_details
         response = self.client.patch(
-            f'/api/children/{self.child.id}/',
+            f"/api/children/{self.child.id}/",
             {
-                'ticket_type': 'event',
-                'ticket_details': {'fake': 'data'},
-                'first_name': 'Updated',
+                "ticket_type": "event",
+                "ticket_details": {"fake": "data"},
+                "first_name": "Updated",
             },
-            format='json',
+            format="json",
         )
 
         self.assertEqual(response.status_code, 200)
         # The name should be updated
-        self.assertEqual(response.data['first_name'], 'Updated')
+        self.assertEqual(response.data["first_name"], "Updated")
         # But ticket_type should still be 'none' (not changed)
-        self.assertEqual(response.data['ticket_type'], 'none')
+        self.assertEqual(response.data["ticket_type"], "none")
 
 
 class FamilySerializerTests(TestCase):
@@ -251,35 +257,35 @@ class FamilySerializerTests(TestCase):
 
     def test_family_serializer_display_name(self):
         """Test that FamilySerializer includes display_name"""
-        response = self.client.get(f'/api/families/{self.family.id}/')
+        response = self.client.get(f"/api/families/{self.family.id}/")
 
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.data['display_name'], 'Martinez Family')
+        self.assertEqual(response.data["display_name"], "Martinez Family")
 
     def test_family_serializer_display_name_readonly(self):
         """Test that display_name is read-only"""
         response = self.client.patch(
-            f'/api/families/{self.family.id}/',
+            f"/api/families/{self.family.id}/",
             {
-                'display_name': 'Fake Family',
-                'last_name': 'Updated',
+                "display_name": "Fake Family",
+                "last_name": "Updated",
             },
         )
 
         self.assertEqual(response.status_code, 200)
         # last_name should be updated
-        self.assertEqual(response.data['last_name'], 'Updated')
+        self.assertEqual(response.data["last_name"], "Updated")
         # display_name should reflect the new last_name
-        self.assertEqual(response.data['display_name'], 'Updated Family')
+        self.assertEqual(response.data["display_name"], "Updated Family")
 
     def test_family_list_includes_display_name(self):
         """Test that family list endpoint includes display_name"""
-        response = self.client.get('/api/families/')
+        response = self.client.get("/api/families/")
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(len(response.data), 1)
-        self.assertIn('display_name', response.data[0])
-        self.assertEqual(response.data[0]['display_name'], 'Martinez Family')
+        self.assertIn("display_name", response.data[0])
+        self.assertEqual(response.data[0]["display_name"], "Martinez Family")
 
 
 class TicketIntegrationTests(TestCase):
@@ -323,22 +329,22 @@ class TicketIntegrationTests(TestCase):
 
     def test_family_detail_includes_children_with_tickets(self):
         """Test that family detail endpoint includes children with ticket info"""
-        response = self.client.get(f'/api/families/{self.family.id}/')
+        response = self.client.get(f"/api/families/{self.family.id}/")
 
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(len(response.data['children']), 2)
+        self.assertEqual(len(response.data["children"]), 2)
 
         # Find Alice and Bob in the response
-        alice = next(c for c in response.data['children'] if c['first_name'] == 'Alice')
-        bob = next(c for c in response.data['children'] if c['first_name'] == 'Bob')
+        alice = next(c for c in response.data["children"] if c["first_name"] == "Alice")
+        bob = next(c for c in response.data["children"] if c["first_name"] == "Bob")
 
         # Check Alice has event ticket
-        self.assertEqual(alice['ticket_type'], 'event')
-        self.assertEqual(len(alice['ticket_details']['event_tickets']), 1)
+        self.assertEqual(alice["ticket_type"], "event")
+        self.assertEqual(len(alice["ticket_details"]["event_tickets"]), 1)
 
         # Check Bob has session ticket
-        self.assertEqual(bob['ticket_type'], 'session')
-        self.assertEqual(len(bob['ticket_details']['session_tickets']), 1)
+        self.assertEqual(bob["ticket_type"], "session")
+        self.assertEqual(len(bob["ticket_details"]["session_tickets"]), 1)
 
     def test_child_list_query_performance(self):
         """Test that child list doesn't have N+1 query problems"""
@@ -358,11 +364,11 @@ class TicketIntegrationTests(TestCase):
         # The query should be efficient due to prefetch_related
         # Expecting: 1 child query + 1 event ticket prefetch + 1 session ticket prefetch + 1 check-in record prefetch
         with self.assertNumQueries(4):
-            response = self.client.get('/api/children/')
+            response = self.client.get("/api/children/")
             self.assertEqual(response.status_code, 200)
             # Ensure all children are returned with ticket info and check-in status
             for child_data in response.data:
-                self.assertIn('ticket_type', child_data)
-                self.assertIn('ticket_details', child_data)
-                self.assertIn('is_checked_in', child_data)
-                self.assertIn('active_checkin_id', child_data)
+                self.assertIn("ticket_type", child_data)
+                self.assertIn("ticket_details", child_data)
+                self.assertIn("is_checked_in", child_data)
+                self.assertIn("active_checkin_id", child_data)

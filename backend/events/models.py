@@ -25,8 +25,15 @@ class Session(models.Model):
     start_time = models.DateTimeField(verbose_name=_("Start Time"))
     end_time = models.DateTimeField(verbose_name=_("End Time"))
     is_active = models.BooleanField(default=False, verbose_name=_("Is Active"))
-    requires_ticket = models.BooleanField(default=False, verbose_name=_("Requires Ticket"))
-    event = models.ForeignKey(Event, related_name="sessions", on_delete=models.CASCADE, verbose_name=_("Event"))
+    requires_ticket = models.BooleanField(
+        default=False, verbose_name=_("Requires Ticket")
+    )
+    event = models.ForeignKey(
+        Event,
+        related_name="sessions",
+        on_delete=models.CASCADE,
+        verbose_name=_("Event"),
+    )
 
     class Meta:
         db_table = "sessions"
@@ -49,6 +56,7 @@ class Ticket(models.Model):
     DEPRECATED: This model will be removed in a future version.
     Use EventTicket or SessionTicket instead.
     """
+
     EVENT_PASS = "EVENT_PASS"
     SESSION_TICKET = "SESSION_TICKET"
     NONE = "NONE"
@@ -61,7 +69,9 @@ class Ticket(models.Model):
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     type = models.CharField(max_length=32, choices=TICKET_TYPES)
-    child = models.ForeignKey("families.Child", related_name="tickets", on_delete=models.CASCADE)
+    child = models.ForeignKey(
+        "families.Child", related_name="tickets", on_delete=models.CASCADE
+    )
     session = models.ForeignKey(
         Session, related_name="tickets", on_delete=models.CASCADE, null=True, blank=True
     )
@@ -82,18 +92,19 @@ class EventTicket(models.Model):
     Represents a ticket/pass for an entire event.
     Gives the child access to all sessions within the event.
     """
+
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     child = models.ForeignKey(
         "families.Child",
         related_name="event_tickets",
         on_delete=models.CASCADE,
-        verbose_name=_("Child")
+        verbose_name=_("Child"),
     )
     event = models.ForeignKey(
         Event,
         related_name="event_tickets",
         on_delete=models.CASCADE,
-        verbose_name=_("Event")
+        verbose_name=_("Event"),
     )
     external_ticket_code = models.CharField(
         max_length=255,
@@ -122,18 +133,19 @@ class SessionTicket(models.Model):
     Represents a ticket for a specific session.
     Gives the child access only to the specified session.
     """
+
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     child = models.ForeignKey(
         "families.Child",
         related_name="session_tickets",
         on_delete=models.CASCADE,
-        verbose_name=_("Child")
+        verbose_name=_("Child"),
     )
     session = models.ForeignKey(
         Session,
         related_name="session_tickets",
         on_delete=models.CASCADE,
-        verbose_name=_("Session")
+        verbose_name=_("Session"),
     )
     external_ticket_code = models.CharField(
         max_length=255,

@@ -44,6 +44,7 @@ class ImportSourceSerializer(serializers.ModelSerializer):
         source = ImportSource(**validated_data)
         if username or password:
             from .encryption import encrypt_credentials
+
             source.credentials = encrypt_credentials(username, password)
         source.save()
 
@@ -66,12 +67,15 @@ class ImportSourceSerializer(serializers.ModelSerializer):
         # Only update credentials if both fields explicitly provided
         if username is not None and password is not None:
             from .encryption import encrypt_credentials
+
             instance.credentials = encrypt_credentials(username, password)
         instance.save()
 
         # Update or create FP config
         if fp_data is not None:
-            fp_config, _ = FestivalProImportSource.objects.get_or_create(source=instance)
+            fp_config, _ = FestivalProImportSource.objects.get_or_create(
+                source=instance
+            )
             for attr, value in fp_data.items():
                 setattr(fp_config, attr, value)
             fp_config.save()

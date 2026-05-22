@@ -37,7 +37,9 @@ class PlanningCenterProvider(ImportSourceProvider):
         try:
             creds = decrypt_credentials(bytes(source.credentials))
         except (InvalidToken, TypeError) as exc:
-            raise ValueError(f"Cannot decrypt credentials for source {source.id}") from exc
+            raise ValueError(
+                f"Cannot decrypt credentials for source {source.id}"
+            ) from exc
 
         app_id = creds["username"]
         secret = creds["password"]
@@ -64,9 +66,11 @@ class PlanningCenterProvider(ImportSourceProvider):
             for household in data:
                 hid = household["id"]
                 attrs = household.get("attributes", {})
-                primary_contact_id = household.get("relationships", {}).get(
-                    "primary_contact", {}
-                ).get("data", {})
+                primary_contact_id = (
+                    household.get("relationships", {})
+                    .get("primary_contact", {})
+                    .get("data", {})
+                )
                 if isinstance(primary_contact_id, dict):
                     primary_contact_id = primary_contact_id.get("id")
                 else:
@@ -91,7 +95,9 @@ class PlanningCenterProvider(ImportSourceProvider):
 
         return households
 
-    def _fetch_household_members(self, session: requests.Session, household_id: str) -> list[dict]:
+    def _fetch_household_members(
+        self, session: requests.Session, household_id: str
+    ) -> list[dict]:
         members = []
         url = f"{self.BASE_URL}/households/{household_id}/people"
         params: dict = {

@@ -12,11 +12,7 @@ if not CORS_ALLOWED_ORIGINS:
 CORS_ALLOW_ALL_ORIGINS = False  # Explicitly set allowed origins for security
 
 # Use in-memory channel layer for local development (no Redis needed)
-CHANNEL_LAYERS = {
-    "default": {
-        "BACKEND": "channels.layers.InMemoryChannelLayer"
-    }
-}
+CHANNEL_LAYERS = {"default": {"BACKEND": "channels.layers.InMemoryChannelLayer"}}
 
 # Static files - override base.py for dev mode to avoid conflict with MEDIA_URL
 STATIC_URL = "/static/"  # In dev, use /static/ (production uses / for SvelteKit)

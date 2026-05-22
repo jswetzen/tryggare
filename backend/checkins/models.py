@@ -6,11 +6,27 @@ from django.utils.translation import gettext_lazy as _
 
 class CheckInRecord(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    check_in_time = models.DateTimeField(auto_now_add=True, verbose_name=_("Check-In Time"))
-    check_out_time = models.DateTimeField(null=True, blank=True, verbose_name=_("Check-Out Time"))
-    picked_up_by = models.CharField(max_length=255, null=True, blank=True, verbose_name=_("Picked Up By"))
-    child = models.ForeignKey("families.Child", related_name="checkin_records", on_delete=models.CASCADE, verbose_name=_("Child"))
-    session = models.ForeignKey("events.Session", related_name="checkin_records", on_delete=models.CASCADE, verbose_name=_("Session"))
+    check_in_time = models.DateTimeField(
+        auto_now_add=True, verbose_name=_("Check-In Time")
+    )
+    check_out_time = models.DateTimeField(
+        null=True, blank=True, verbose_name=_("Check-Out Time")
+    )
+    picked_up_by = models.CharField(
+        max_length=255, null=True, blank=True, verbose_name=_("Picked Up By")
+    )
+    child = models.ForeignKey(
+        "families.Child",
+        related_name="checkin_records",
+        on_delete=models.CASCADE,
+        verbose_name=_("Child"),
+    )
+    session = models.ForeignKey(
+        "events.Session",
+        related_name="checkin_records",
+        on_delete=models.CASCADE,
+        verbose_name=_("Session"),
+    )
     check_in_staff = models.ForeignKey(
         "accounts.AdminUser",
         related_name="checkins_performed",
@@ -30,18 +46,13 @@ class CheckInRecord(models.Model):
     supervised = models.BooleanField(
         default=False,
         help_text="Child is supervised by guardian, no explicit checkout required",
-        verbose_name=_("Supervised")
+        verbose_name=_("Supervised"),
     )
 
     # Print tracking fields
-    label_printed = models.BooleanField(
-        default=False,
-        verbose_name=_("Label Printed")
-    )
+    label_printed = models.BooleanField(default=False, verbose_name=_("Label Printed"))
     label_printed_at = models.DateTimeField(
-        null=True,
-        blank=True,
-        verbose_name=_("Label Printed At")
+        null=True, blank=True, verbose_name=_("Label Printed At")
     )
     label_printed_by = models.ForeignKey(
         "accounts.AdminUser",
@@ -57,7 +68,10 @@ class CheckInRecord(models.Model):
         verbose_name = _("Check-In Record")
         verbose_name_plural = _("Check-In Records")
         constraints = [
-            models.UniqueConstraint(fields=["child", "session", "check_in_time"], name="unique_check_in_per_session"),
+            models.UniqueConstraint(
+                fields=["child", "session", "check_in_time"],
+                name="unique_check_in_per_session",
+            ),
         ]
         indexes = [
             models.Index(fields=["child"]),
@@ -77,12 +91,10 @@ class QRCode(models.Model):
     Short alphanumeric codes for active check-ins.
     Codes are allocated on check-in and returned to pool after checkout + 24h grace period.
     """
+
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     code = models.CharField(
-        max_length=6,
-        unique=True,
-        db_index=True,
-        verbose_name=_("QR Code")
+        max_length=6, unique=True, db_index=True, verbose_name=_("QR Code")
     )
 
     # Current assignment (null = available in pool)
@@ -92,20 +104,18 @@ class QRCode(models.Model):
         null=True,
         blank=True,
         related_name="qr_code",
-        verbose_name=_("Check-In Record")
+        verbose_name=_("Check-In Record"),
     )
 
     # Timestamps for pool management
     allocated_at = models.DateTimeField(
-        null=True,
-        blank=True,
-        verbose_name=_("Allocated At")
+        null=True, blank=True, verbose_name=_("Allocated At")
     )
     released_at = models.DateTimeField(
         null=True,
         blank=True,
         verbose_name=_("Released At"),
-        help_text="When checkout occurred. Code returns to pool 24h after this."
+        help_text="When checkout occurred. Code returns to pool 24h after this.",
     )
 
     class Meta:

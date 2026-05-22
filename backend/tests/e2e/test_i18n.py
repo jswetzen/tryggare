@@ -7,6 +7,7 @@ Run with:
     pytest backend/tests/e2e/test_i18n.py -v
     make test-i18n
 """
+
 import pytest
 import sys
 import time
@@ -26,13 +27,11 @@ class TestInternationalization(E2ETestBase, TestDataMixin):
         self.setup_driver()
 
         self.test_user = self.create_test_user(
-            username="i18ntest",
-            password="testpass123"
+            username="i18ntest", password="testpass123"
         )
 
         self.test_event, self.test_session = self.create_test_session(
-            name="i18n Test Session",
-            is_active=True
+            name="i18n Test Session", is_active=True
         )
 
     def teardown_method(self):
@@ -40,7 +39,7 @@ class TestInternationalization(E2ETestBase, TestDataMixin):
         self.cleanup_test_data(
             users=[self.test_user],
             sessions=[self.test_session],
-            events=[self.test_event]
+            events=[self.test_event],
         )
         self.teardown_driver()
 
@@ -59,7 +58,7 @@ class TestInternationalization(E2ETestBase, TestDataMixin):
             nb_button = self.wait_for_element(
                 By.CSS_SELECTOR,
                 "[data-testid='language-nb'], [data-testid='language-no']",
-                timeout=5
+                timeout=5,
             )
             nb_button.click()
             time.sleep(2)
@@ -72,8 +71,7 @@ class TestInternationalization(E2ETestBase, TestDataMixin):
 
             # Check if still in Norwegian
             page_source = self.driver.page_source
-            still_norwegian = "Utcheckning" in page_source or \
-                             "Uppdatera" in page_source
+            still_norwegian = "Utcheckning" in page_source or "Uppdatera" in page_source
 
             if still_norwegian:
                 print("   ✓ Language persisted across navigation")

@@ -11,6 +11,14 @@ class PrinterAdmin(admin.ModelAdmin):
 
 @admin.register(PrintJob)
 class PrintJobAdmin(admin.ModelAdmin):
-    list_display = ["id", "checkin", "printer", "status", "created_at", "sent_at", "completed_at"]
+    list_display = [
+        "id",
+        "checkin",
+        "printer",
+        "status",
+        "created_at",
+        "sent_at",
+        "completed_at",
+    ]
     list_filter = ["status", "printer"]
     readonly_fields = ["created_at"]

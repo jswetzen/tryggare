@@ -94,33 +94,63 @@ class FreshImportTest(TestCase):
         )
 
     def test_creates_family(self):
-        run_import(MINIMAL_JSON, self.source, self.source.festivalpro_config.field_mappings, self.user)
+        run_import(
+            MINIMAL_JSON,
+            self.source,
+            self.source.festivalpro_config.field_mappings,
+            self.user,
+        )
         assert Family.objects.filter(external_booking_id="99001").exists()
 
     def test_creates_parents(self):
-        run_import(MINIMAL_JSON, self.source, self.source.festivalpro_config.field_mappings, self.user)
+        run_import(
+            MINIMAL_JSON,
+            self.source,
+            self.source.festivalpro_config.field_mappings,
+            self.user,
+        )
         family = Family.objects.get(external_booking_id="99001")
         # Primary contact + extra guardian
         assert Parent.objects.filter(family=family).count() == 2
 
     def test_creates_child(self):
-        run_import(MINIMAL_JSON, self.source, self.source.festivalpro_config.field_mappings, self.user)
+        run_import(
+            MINIMAL_JSON,
+            self.source,
+            self.source.festivalpro_config.field_mappings,
+            self.user,
+        )
         family = Family.objects.get(external_booking_id="99001")
         assert Child.objects.filter(family=family, first_name="Maja").exists()
 
     def test_creates_event_ticket(self):
-        run_import(MINIMAL_JSON, self.source, self.source.festivalpro_config.field_mappings, self.user)
+        run_import(
+            MINIMAL_JSON,
+            self.source,
+            self.source.festivalpro_config.field_mappings,
+            self.user,
+        )
         child = Child.objects.get(first_name="Maja", last_name="Svensson")
         ticket = EventTicket.objects.filter(child=child, event=self.event).first()
         assert ticket is not None
         assert ticket.external_ticket_code == "TICKETABC"
 
     def test_run_status_completed(self):
-        run = run_import(MINIMAL_JSON, self.source, self.source.festivalpro_config.field_mappings, self.user)
+        run = run_import(
+            MINIMAL_JSON,
+            self.source,
+            self.source.festivalpro_config.field_mappings,
+            self.user,
+        )
         assert run.status == ImportRun.STATUS_COMPLETED
 
     def test_summary_counts(self):
-        run = run_import(MINIMAL_JSON, self.source, self.source.festivalpro_config.field_mappings, self.user)
+        run = run_import(
+            MINIMAL_JSON,
+            self.source,
+            self.source.festivalpro_config.field_mappings,
+            self.user,
+        )
         assert run.summary["families_created"] == 1
         assert run.summary["children_created"] == 1
         assert run.summary["tickets_created"] == 1
@@ -141,7 +171,9 @@ class IdempotentImportTest(TestCase):
         run_import(MINIMAL_JSON, self.source, fm, self.user)
 
         assert Family.objects.filter(external_booking_id="99001").count() == 1
-        assert Child.objects.filter(first_name="Maja", last_name="Svensson").count() == 1
+        assert (
+            Child.objects.filter(first_name="Maja", last_name="Svensson").count() == 1
+        )
         assert EventTicket.objects.filter(event=self.event).count() == 1
 
     def test_reimport_skips_existing(self):
@@ -194,6 +226,7 @@ class SessionTicketImportTest(TestCase):
         self.user = make_user()
         self.event = make_event()
         from django.utils import timezone
+
         self.session = Session.objects.create(
             name="Thursday Session",
             event=self.event,
@@ -300,7 +333,10 @@ class NoChildrenFamilySkipTest(TestCase):
     def test_warning_logged_for_no_children(self):
         fm = self.source.festivalpro_config.field_mappings
         run = run_import(MINIMAL_JSON, self.source, fm, self.user)
-        assert any("skipped" in w and "no children" in w.lower() for w in run.summary["warnings"])
+        assert any(
+            "skipped" in w and "no children" in w.lower()
+            for w in run.summary["warnings"]
+        )
 
     def test_families_created_count_is_zero(self):
         fm = self.source.festivalpro_config.field_mappings

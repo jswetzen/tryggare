@@ -8,6 +8,7 @@ Run with:
     pytest backend/tests/e2e/test_qr_page.py -v
     make test-qr
 """
+
 import pytest
 import sys
 import time
@@ -30,13 +31,10 @@ class TestQRPage(E2ETestBase, TestDataMixin):
 
         # Create test data
         self.test_event, self.test_session = self.create_test_session(
-            name="QR Test Session",
-            is_active=True
+            name="QR Test Session", is_active=True
         )
 
-        self.test_family, self.test_parent = self.create_test_family(
-            last_name="QRTest"
-        )
+        self.test_family, self.test_parent = self.create_test_family(last_name="QRTest")
 
         self.test_child = self.create_test_child(
             self.test_family,
@@ -45,8 +43,7 @@ class TestQRPage(E2ETestBase, TestDataMixin):
         )
 
         self.test_user = self.create_test_user(
-            username="qrtest",
-            password="testpass123"
+            username="qrtest", password="testpass123"
         )
 
         # The new QR flow requires an active check-in to surface child info.
@@ -67,7 +64,7 @@ class TestQRPage(E2ETestBase, TestDataMixin):
             families=[self.test_family],
             children=[self.test_child],
             sessions=[self.test_session],
-            events=[self.test_event]
+            events=[self.test_event],
         )
         self.teardown_driver()
 
@@ -85,8 +82,9 @@ class TestQRPage(E2ETestBase, TestDataMixin):
 
         # Verify we're NOT redirected to login
         current_url = self.driver.current_url
-        assert "/login" not in current_url, \
+        assert "/login" not in current_url, (
             f"QR page redirected to login: {current_url}"
+        )
 
         print("   ✓ QR page accessible without authentication")
 
@@ -112,21 +110,27 @@ class TestQRPage(E2ETestBase, TestDataMixin):
         page_source = self.driver.page_source
 
         # Check for child name
-        assert self.test_child.first_name in page_source, \
+        assert self.test_child.first_name in page_source, (
             f"Child first name '{self.test_child.first_name}' not found"
-        assert self.test_child.last_name in page_source, \
+        )
+        assert self.test_child.last_name in page_source, (
             f"Child last name '{self.test_child.last_name}' not found"
-        print(f"   ✓ Child name displayed: {self.test_child.first_name} {self.test_child.last_name}")
+        )
+        print(
+            f"   ✓ Child name displayed: {self.test_child.first_name} {self.test_child.last_name}"
+        )
 
         # Check for allergies
         if self.test_child.allergies:
-            assert self.test_child.allergies in page_source, \
+            assert self.test_child.allergies in page_source, (
                 f"Allergies '{self.test_child.allergies}' not found"
+            )
             print(f"   ✓ Allergies displayed: {self.test_child.allergies}")
 
         # Check for parent name
-        assert self.test_parent.name in page_source, \
+        assert self.test_parent.name in page_source, (
             f"Parent name '{self.test_parent.name}' not found"
+        )
         print(f"   ✓ Parent displayed: {self.test_parent.name}")
 
         print("\n" + "=" * 60)
@@ -148,9 +152,11 @@ class TestQRPage(E2ETestBase, TestDataMixin):
         time.sleep(3)
 
         page_source = self.driver.page_source
-        is_checked_in = "checked in" in page_source.lower() or \
-                        "incheckad" in page_source.lower() or \
-                        self.test_session.name in page_source
+        is_checked_in = (
+            "checked in" in page_source.lower()
+            or "incheckad" in page_source.lower()
+            or self.test_session.name in page_source
+        )
 
         assert is_checked_in, "Checked-in status not displayed"
         print("   ✓ 'Checked in' status displayed")
@@ -178,9 +184,9 @@ class TestQRPage(E2ETestBase, TestDataMixin):
 
         # Check for specific buttons
         button_types = {
-            'checkout': ["check out", "checka ut"],
-            'edit': ["edit", "redigera"],
-            'print': ["print", "skriv ut", "reprint"]
+            "checkout": ["check out", "checka ut"],
+            "edit": ["edit", "redigera"],
+            "print": ["print", "skriv ut", "reprint"],
         }
 
         found_buttons = []

@@ -7,6 +7,7 @@ Run with:
     pytest backend/tests/e2e/test_navigation.py -v
     make test-navigation
 """
+
 import pytest
 import sys
 import time
@@ -28,8 +29,7 @@ class TestNavigation(E2ETestBase, TestDataMixin):
         self.setup_driver()
 
         self.test_user = self.create_test_user(
-            username="navtest",
-            password="testpass123"
+            username="navtest", password="testpass123"
         )
 
     def teardown_method(self):
@@ -91,7 +91,7 @@ class TestNavigation(E2ETestBase, TestDataMixin):
             "//button[contains(@class, 'hamburger')]",
             "//button[contains(@aria-label, 'menu')]",
             "//button[contains(@class, 'menu')]",
-            "//button[.//svg]"
+            "//button[.//svg]",
         ]
 
         hamburger_found = False

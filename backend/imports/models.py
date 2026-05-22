@@ -35,7 +35,9 @@ class ImportSource(models.Model):
         related_name="import_sources",
         verbose_name=_("Event"),
     )
-    credentials = models.BinaryField(null=True, blank=True, verbose_name=_("Credentials"))
+    credentials = models.BinaryField(
+        null=True, blank=True, verbose_name=_("Credentials")
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -144,8 +146,12 @@ class ImportRun(models.Model):
         default=STATUS_PENDING,
         verbose_name=_("Status"),
     )
-    started_at = models.DateTimeField(null=True, blank=True, verbose_name=_("Started At"))
-    finished_at = models.DateTimeField(null=True, blank=True, verbose_name=_("Finished At"))
+    started_at = models.DateTimeField(
+        null=True, blank=True, verbose_name=_("Started At")
+    )
+    finished_at = models.DateTimeField(
+        null=True, blank=True, verbose_name=_("Finished At")
+    )
     source_file_name = models.CharField(
         max_length=255,
         blank=True,

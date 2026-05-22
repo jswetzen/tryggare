@@ -8,6 +8,7 @@ Run with:
     pytest backend/tests/e2e/test_checkin_flow.py -v
     make test-checkin
 """
+
 import pytest
 import sys
 import time
@@ -29,14 +30,12 @@ class TestCheckInFlow(E2ETestBase, TestDataMixin):
 
         # Create test user
         self.test_user = self.create_test_user(
-            username="checkintest",
-            password="testpass123"
+            username="checkintest", password="testpass123"
         )
 
         # Create test session
         self.test_event, self.test_session = self.create_test_session(
-            name="Test Check-In Session",
-            is_active=True
+            name="Test Check-In Session", is_active=True
         )
 
         # Create test family with children
@@ -45,15 +44,10 @@ class TestCheckInFlow(E2ETestBase, TestDataMixin):
         )
 
         self.test_child1 = self.create_test_child(
-            self.test_family,
-            first_name="Alice",
-            allergies="Peanuts"
+            self.test_family, first_name="Alice", allergies="Peanuts"
         )
 
-        self.test_child2 = self.create_test_child(
-            self.test_family,
-            first_name="Bob"
-        )
+        self.test_child2 = self.create_test_child(self.test_family, first_name="Bob")
 
     def teardown_method(self):
         """Clean up after each test."""
@@ -62,7 +56,7 @@ class TestCheckInFlow(E2ETestBase, TestDataMixin):
             families=[self.test_family],
             children=[self.test_child1, self.test_child2],
             sessions=[self.test_session],
-            events=[self.test_event]
+            events=[self.test_event],
         )
         self.teardown_driver()
 
@@ -88,8 +82,9 @@ class TestCheckInFlow(E2ETestBase, TestDataMixin):
 
         # Verify family appears in results
         page_source = self.driver.page_source
-        assert self.test_family.last_name in page_source, \
+        assert self.test_family.last_name in page_source, (
             f"Family '{self.test_family.last_name}' not found in search results"
+        )
 
         print(f"   ✓ Family '{self.test_family.last_name}' found in results")
 
@@ -97,20 +92,23 @@ class TestCheckInFlow(E2ETestBase, TestDataMixin):
         # in all UI states, so do it explicitly).
         family_id = str(self.test_family.id)
         toggle = self.wait_for_element(
-            By.CSS_SELECTOR,
-            f"[data-testid='family-toggle-button-{family_id}']"
+            By.CSS_SELECTOR, f"[data-testid='family-toggle-button-{family_id}']"
         )
         toggle.click()
         time.sleep(1)
 
         # Verify children appear
         page_source = self.driver.page_source
-        assert self.test_child1.first_name in page_source, \
+        assert self.test_child1.first_name in page_source, (
             f"Child '{self.test_child1.first_name}' not found"
-        assert self.test_child2.first_name in page_source, \
+        )
+        assert self.test_child2.first_name in page_source, (
             f"Child '{self.test_child2.first_name}' not found"
+        )
 
-        print(f"   ✓ Children found: {self.test_child1.first_name}, {self.test_child2.first_name}")
+        print(
+            f"   ✓ Children found: {self.test_child1.first_name}, {self.test_child2.first_name}"
+        )
 
         print("\n" + "=" * 60)
         print("✅ Family search test PASSED")
@@ -134,8 +132,7 @@ class TestCheckInFlow(E2ETestBase, TestDataMixin):
 
         # Expand family so child row becomes visible
         toggle = self.wait_for_element(
-            By.CSS_SELECTOR,
-            f"[data-testid='family-toggle-button-{family_id}']"
+            By.CSS_SELECTOR, f"[data-testid='family-toggle-button-{family_id}']"
         )
         toggle.click()
         time.sleep(1)
@@ -143,8 +140,7 @@ class TestCheckInFlow(E2ETestBase, TestDataMixin):
         # Click individual child check-in button
         print(f"   Checking in {self.test_child1.first_name}...")
         child_checkin_btn = self.wait_for_element(
-            By.CSS_SELECTOR,
-            f"[data-testid='child-check-in-button-{child1_id}']"
+            By.CSS_SELECTOR, f"[data-testid='child-check-in-button-{child1_id}']"
         )
         child_checkin_btn.click()
         time.sleep(3)
@@ -152,13 +148,14 @@ class TestCheckInFlow(E2ETestBase, TestDataMixin):
         # Verify check-in in database
         print("   Verifying check-in in database...")
         checkin_record = CheckInRecord.objects.filter(
-            child=self.test_child1,
-            session=self.test_session
+            child=self.test_child1, session=self.test_session
         ).first()
 
         assert checkin_record is not None, "Check-in record not found in database"
         assert checkin_record.check_in_time is not None, "Check-in time not set"
-        assert checkin_record.check_in_staff == self.test_user, "Check-in staff incorrect"
+        assert checkin_record.check_in_staff == self.test_user, (
+            "Check-in staff incorrect"
+        )
 
         print("   ✅ Check-in successful!")
         print(f"   - Child: {self.test_child1.first_name}")
@@ -178,7 +175,7 @@ class TestCheckInFlow(E2ETestBase, TestDataMixin):
         checkin = CheckInRecord.objects.create(
             child=self.test_child1,
             session=self.test_session,
-            check_in_staff=self.test_user
+            check_in_staff=self.test_user,
         )
         print(f"   ✓ Child {self.test_child1.first_name} already checked in")
 
@@ -199,11 +196,14 @@ class TestCheckInFlow(E2ETestBase, TestDataMixin):
         # 2. Have disabled check-in button
         # 3. Show "Already checked in" message
 
-        has_indication = any(text in page_source.lower() for text in [
-            "already checked in",
-            "checked in",
-            "inchecka"  # Swedish
-        ])
+        has_indication = any(
+            text in page_source.lower()
+            for text in [
+                "already checked in",
+                "checked in",
+                "inchecka",  # Swedish
+            ]
+        )
 
         if has_indication:
             print("   ✓ UI shows child is already checked in")
@@ -212,8 +212,7 @@ class TestCheckInFlow(E2ETestBase, TestDataMixin):
 
         # Verify only one check-in exists
         checkin_count = CheckInRecord.objects.filter(
-            child=self.test_child1,
-            session=self.test_session
+            child=self.test_child1, session=self.test_session
         ).count()
 
         assert checkin_count == 1, f"Expected 1 check-in, found {checkin_count}"

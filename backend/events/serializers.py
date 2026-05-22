@@ -33,8 +33,11 @@ class TicketSerializer(serializers.ModelSerializer):
     DEPRECATED: Use EventTicketSerializer or SessionTicketSerializer instead.
     This serializer is maintained for backwards compatibility only.
     """
+
     child_name = serializers.SerializerMethodField()
-    session_name = serializers.CharField(source="session.name", read_only=True, allow_null=True)
+    session_name = serializers.CharField(
+        source="session.name", read_only=True, allow_null=True
+    )
 
     class Meta:
         model = Ticket
@@ -49,13 +52,22 @@ class EventTicketSerializer(serializers.ModelSerializer):
     """
     Serializer for event tickets (passes that grant access to all sessions in an event).
     """
+
     child_name = serializers.SerializerMethodField()
     event_name = serializers.CharField(source="event.name", read_only=True)
     ticket_type = serializers.SerializerMethodField()
 
     class Meta:
         model = EventTicket
-        fields = ["id", "child", "child_name", "event", "event_name", "ticket_type", "external_ticket_code"]
+        fields = [
+            "id",
+            "child",
+            "child_name",
+            "event",
+            "event_name",
+            "ticket_type",
+            "external_ticket_code",
+        ]
         read_only_fields = ["id", "external_ticket_code"]
 
     def get_child_name(self, obj) -> str:
@@ -69,6 +81,7 @@ class SessionTicketSerializer(serializers.ModelSerializer):
     """
     Serializer for session tickets (tickets that grant access to a specific session).
     """
+
     child_name = serializers.SerializerMethodField()
     session_name = serializers.CharField(source="session.name", read_only=True)
     event_name = serializers.CharField(source="session.event.name", read_only=True)
@@ -76,7 +89,16 @@ class SessionTicketSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = SessionTicket
-        fields = ["id", "child", "child_name", "session", "session_name", "event_name", "ticket_type", "external_ticket_code"]
+        fields = [
+            "id",
+            "child",
+            "child_name",
+            "session",
+            "session_name",
+            "event_name",
+            "ticket_type",
+            "external_ticket_code",
+        ]
         read_only_fields = ["id", "external_ticket_code"]
 
     def get_child_name(self, obj) -> str:

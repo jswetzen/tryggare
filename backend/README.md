@@ -1,4 +1,4 @@
-# Check-ins Backend
+# Tryggare Backend
 
 Django 5 + Django REST Framework + Django Channels. Serves the API, runs the print queue, and broadcasts WebSocket events to connected stations.
 

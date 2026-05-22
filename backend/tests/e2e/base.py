@@ -4,6 +4,7 @@ Base classes and helpers for E2E tests.
 This module provides shared functionality for all Selenium-based end-to-end tests,
 including WebDriver setup, common actions, and test data creation.
 """
+
 import os
 from typing import Optional, Tuple
 from selenium import webdriver
@@ -16,9 +17,11 @@ from selenium.webdriver.remote.webelement import WebElement
 # Setup Django if not already configured (for standalone execution)
 import django
 from django.conf import settings
+
 if not settings.configured:
     import os
-    os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'config.settings.test')
+
+    os.environ.setdefault("DJANGO_SETTINGS_MODULE", "config.settings.test")
     django.setup()
 
 # Now safe to import Django models
@@ -40,10 +43,10 @@ class E2ETestBase:
         is_production = ":8080" in backend_url or ":8080" in frontend_url
 
         return {
-            'backend_url': backend_url,
-            'frontend_url': frontend_url,
-            'is_production': is_production,
-            'selenium_hub': os.getenv("SELENIUM_HUB_URL"),
+            "backend_url": backend_url,
+            "frontend_url": frontend_url,
+            "is_production": is_production,
+            "selenium_hub": os.getenv("SELENIUM_HUB_URL"),
         }
 
     def setup_driver(self):
@@ -69,21 +72,21 @@ class E2ETestBase:
         # Disable images for faster page loads
         prefs = {
             "profile.managed_default_content_settings.images": 2,
-            "intl.accept_languages": "en-US,en"
+            "intl.accept_languages": "en-US,en",
         }
         chrome_options.add_experimental_option("prefs", prefs)
         chrome_options.add_experimental_option("excludeSwitches", ["enable-automation"])
-        chrome_options.add_experimental_option('useAutomationExtension', False)
+        chrome_options.add_experimental_option("useAutomationExtension", False)
 
         # Enable browser logging
-        chrome_options.set_capability('goog:loggingPrefs', {'browser': 'ALL'})
+        chrome_options.set_capability("goog:loggingPrefs", {"browser": "ALL"})
 
         # Use remote or local driver based on environment
-        if self.config['selenium_hub']:
+        if self.config["selenium_hub"]:
             print(f"   Using remote Selenium Grid: {self.config['selenium_hub']}")
             self.driver = webdriver.Remote(
                 command_executor=f"{self.config['selenium_hub']}/wd/hub",
-                options=chrome_options
+                options=chrome_options,
             )
         else:
             print("   Using local ChromeDriver")
@@ -100,7 +103,7 @@ class E2ETestBase:
         """Clean up WebDriver and save final screenshot."""
         if self.driver:
             try:
-                screenshot_path = '/tmp/final_state.png'
+                screenshot_path = "/tmp/final_state.png"
                 self.driver.save_screenshot(screenshot_path)
                 print(f"📸 Saved final screenshot to {screenshot_path}")
             except Exception as e:
@@ -137,9 +140,7 @@ class E2ETestBase:
 
         # Wait for redirect to check-in page
         try:
-            WebDriverWait(self.driver, 10).until(
-                EC.url_contains("/checkin")
-            )
+            WebDriverWait(self.driver, 10).until(EC.url_contains("/checkin"))
             print("   ✓ Login successful")
             return True
         except Exception:
@@ -182,13 +183,11 @@ class E2ETestBase:
 
     def wait_for_url_contains(self, text: str, timeout: int = 10):
         """Wait for URL to contain specific text."""
-        WebDriverWait(self.driver, timeout).until(
-            EC.url_contains(text)
-        )
+        WebDriverWait(self.driver, timeout).until(EC.url_contains(text))
 
     def save_screenshot(self, name: str):
         """Save a screenshot with given name."""
-        path = f'/tmp/{name}.png'
+        path = f"/tmp/{name}.png"
         self.driver.save_screenshot(path)
         print(f"📸 Saved screenshot: {path}")
 
@@ -200,8 +199,8 @@ class TestDataMixin:
         self,
         username: str = "testuser",
         password: str = "testpass123",
-        name: Optional[str] = None
-    ) -> 'AdminUser':
+        name: Optional[str] = None,
+    ) -> "AdminUser":
         """
         Create a test admin user, cleaning up any existing user with same username.
 
@@ -223,16 +222,14 @@ class TestDataMixin:
             name = f"Test User {username}"
 
         return AdminUser.objects.create_user(
-            username=username,
-            password=password,
-            name=name
+            username=username, password=password, name=name
         )
 
     def create_test_family(
         self,
         last_name: str = "TestFamily",
         parent_name: Optional[str] = None,
-        phone: str = "555-0000"
+        phone: str = "555-0000",
     ) -> Tuple[Family, Parent]:
         """
         Create a test family with one parent.
@@ -265,7 +262,7 @@ class TestDataMixin:
             name=parent_name,
             phone=phone,
             email=f"{last_name.lower()}@test.com",
-            relationship_type="Parent"
+            relationship_type="Parent",
         )
 
         return family, parent
@@ -302,7 +299,7 @@ class TestDataMixin:
         name: str = "Test Session",
         is_active: bool = True,
         event_name: Optional[str] = None,
-        hours_duration: int = 2
+        hours_duration: int = 2,
     ) -> Tuple[Event, Session]:
         """
         Create a test event and session.
@@ -328,9 +325,7 @@ class TestDataMixin:
         now = timezone.now()
 
         event = Event.objects.create(
-            name=event_name,
-            start_date=now.date(),
-            end_date=now.date()
+            name=event_name, start_date=now.date(), end_date=now.date()
         )
 
         session = Session.objects.create(
@@ -339,7 +334,7 @@ class TestDataMixin:
             start_time=now,
             end_time=now + timezone.timedelta(hours=hours_duration),
             is_active=is_active,
-            requires_ticket=False
+            requires_ticket=False,
         )
 
         return event, session
@@ -350,7 +345,7 @@ class TestDataMixin:
         families: list = None,
         children: list = None,
         sessions: list = None,
-        events: list = None
+        events: list = None,
     ):
         """
         Clean up test data in correct order to respect foreign key constraints.

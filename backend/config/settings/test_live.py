@@ -12,7 +12,7 @@ from .local import *  # noqa
 
 # Use faster password hashing for tests (significantly speeds up user creation)
 PASSWORD_HASHERS = [
-    'django.contrib.auth.hashers.MD5PasswordHasher',
+    "django.contrib.auth.hashers.MD5PasswordHasher",
 ]
 
 # Keep debug enabled for better error messages

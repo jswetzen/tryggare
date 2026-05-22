@@ -6,7 +6,12 @@ from rest_framework.permissions import IsAdminUser
 from rest_framework.response import Response
 from rest_framework import status
 
-from .importer import ProviderFetchError, ProviderLoginError, run_import, run_import_planningcenter
+from .importer import (
+    ProviderFetchError,
+    ProviderLoginError,
+    run_import,
+    run_import_planningcenter,
+)
 from .models import FestivalProImportSource, ImportRun, ImportSource
 from .parser import discover_child_prefixes, parse_json_with_duplicate_keys
 from .serializers import (
@@ -53,9 +58,7 @@ def discover_prefixes_view(request):
         )
 
     prefixes = discover_child_prefixes(json_data)
-    total_bookings = sum(
-        1 for v in json_data.values() if isinstance(v, dict)
-    )
+    total_bookings = sum(1 for v in json_data.values() if isinstance(v, dict))
 
     return Response(
         {
@@ -67,12 +70,15 @@ def discover_prefixes_view(request):
 
 # ── Source CRUD ────────────────────────────────────────────────────────────────
 
+
 @api_view(["GET", "POST"])
 @permission_classes([IsAdminUser])
 def list_create_source_view(request):
     """GET /api/imports/sources/ or POST /api/imports/sources/"""
     if request.method == "GET":
-        sources = ImportSource.objects.select_related("festivalpro_config", "event").all()
+        sources = ImportSource.objects.select_related(
+            "festivalpro_config", "event"
+        ).all()
         return Response(ImportSourceSerializer(sources, many=True).data)
     serializer = ImportSourceSerializer(data=request.data)
     serializer.is_valid(raise_exception=True)
@@ -99,7 +105,9 @@ def source_detail_view(request, source_id):
         updated = serializer.save()
         return Response(
             ImportSourceSerializer(
-                ImportSource.objects.select_related("festivalpro_config", "event").get(pk=updated.pk)
+                ImportSource.objects.select_related("festivalpro_config", "event").get(
+                    pk=updated.pk
+                )
             ).data
         )
     source.delete()
@@ -177,6 +185,7 @@ def run_import_source_view(request, source_id):
                 status=status.HTTP_400_BAD_REQUEST,
             )
         from .providers import get_provider
+
         provider = get_provider(source)
         try:
             raw_text = provider.fetch(source)
@@ -231,7 +240,9 @@ def run_import_source_view(request, source_id):
             status=status.HTTP_500_INTERNAL_SERVER_ERROR,
         )
 
-    return Response(ImportRunSerializer(import_run).data, status=status.HTTP_201_CREATED)
+    return Response(
+        ImportRunSerializer(import_run).data, status=status.HTTP_201_CREATED
+    )
 
 
 @api_view(["POST"])
@@ -260,6 +271,7 @@ def run_import_planningcenter_view(request, source_id):
         )
 
     from .providers import get_provider
+
     provider = get_provider(source)
     try:
         raw_text = provider.fetch(source)
@@ -297,7 +309,9 @@ def run_import_planningcenter_view(request, source_id):
             status=status.HTTP_500_INTERNAL_SERVER_ERROR,
         )
 
-    return Response(ImportRunSerializer(import_run).data, status=status.HTTP_201_CREATED)
+    return Response(
+        ImportRunSerializer(import_run).data, status=status.HTTP_201_CREATED
+    )
 
 
 @api_view(["GET"])
@@ -343,6 +357,7 @@ def discover_prefixes_from_source_view(request, source_id):
             status=status.HTTP_400_BAD_REQUEST,
         )
     from .providers import get_provider
+
     provider = get_provider(source)
     try:
         raw_text = provider.fetch(source)

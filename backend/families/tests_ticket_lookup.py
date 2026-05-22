@@ -8,6 +8,7 @@ authentication, and error cases.
 Run with:
     uv run python manage.py test families.tests_ticket_lookup -v 2
 """
+
 from datetime import date, timedelta
 
 from django.test import TestCase
@@ -25,47 +26,37 @@ class TicketLookupAPITest(TestCase):
     def setUp(self):
         self.client = APIClient()
         self.user = AdminUser.objects.create_user(
-            username="lookuptest",
-            password="pass123",
-            name="Lookup Tester"
+            username="lookuptest", password="pass123", name="Lookup Tester"
         )
         self.client.force_authenticate(user=self.user)
 
         self.family = Family.objects.create(last_name="Scannable")
         self.parent = Parent.objects.create(
-            family=self.family,
-            name="Test Parent",
-            relationship_type="Parent"
+            family=self.family, name="Test Parent", relationship_type="Parent"
         )
         self.child = Child.objects.create(
             family=self.family,
             first_name="Scan",
             last_name="Scannable",
-            birthdate=date(2018, 1, 1)
+            birthdate=date(2018, 1, 1),
         )
 
         self.event = Event.objects.create(
-            name="Scan Event",
-            start_date=date.today(),
-            end_date=date.today()
+            name="Scan Event", start_date=date.today(), end_date=date.today()
         )
         self.session = Session.objects.create(
             event=self.event,
             name="Scan Session",
             start_time=timezone.now(),
             end_time=timezone.now() + timedelta(hours=2),
-            is_active=True
+            is_active=True,
         )
 
         EventTicket.objects.create(
-            child=self.child,
-            event=self.event,
-            external_ticket_code="EVENTCODE1"
+            child=self.child, event=self.event, external_ticket_code="EVENTCODE1"
         )
         SessionTicket.objects.create(
-            child=self.child,
-            session=self.session,
-            external_ticket_code="SESSIONCODE1"
+            child=self.child, session=self.session, external_ticket_code="SESSIONCODE1"
         )
 
     def test_lookup_by_event_ticket_code(self):
@@ -127,8 +118,7 @@ class TicketLookupAPITest(TestCase):
         self.assertEqual(response_event.status_code, 200)
         self.assertEqual(response_session.status_code, 200)
         self.assertEqual(
-            str(response_event.data["id"]),
-            str(response_session.data["id"])
+            str(response_event.data["id"]), str(response_session.data["id"])
         )
 
     def test_lookup_code_is_case_sensitive(self):

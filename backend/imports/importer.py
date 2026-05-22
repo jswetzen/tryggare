@@ -33,7 +33,9 @@ class _NoChildrenError(Exception):
     """Raised when a booking maps to zero children (after applying prefix mappings)."""
 
 
-def run_import(raw_json: dict, source: ImportSource, field_mappings: dict, user) -> ImportRun:
+def run_import(
+    raw_json: dict, source: ImportSource, field_mappings: dict, user
+) -> ImportRun:
     """
     Main entry point. Process all bookings in raw_json using config.field_mappings.
 
@@ -81,7 +83,9 @@ def run_import(raw_json: dict, source: ImportSource, field_mappings: dict, user)
             try:
                 session_id = uuid.UUID(mapping_value)
                 if str(session_id) not in session_cache:
-                    session_cache[str(session_id)] = Session.objects.get(pk=session_id, event=event)
+                    session_cache[str(session_id)] = Session.objects.get(
+                        pk=session_id, event=event
+                    )
             except (ValueError, Session.DoesNotExist):
                 summary["warnings"].append(
                     f"Session {mapping_value} not found for event {event.id} — mapping will be skipped"
@@ -99,14 +103,18 @@ def run_import(raw_json: dict, source: ImportSource, field_mappings: dict, user)
             msg = f"Parse error for {booking_key}: {exc}"
             logger.warning(msg)
             summary["errors"].append(msg)
-            log_entries.append({"booking_key": booking_key, "action": "error", "details": msg})
+            log_entries.append(
+                {"booking_key": booking_key, "action": "error", "details": msg}
+            )
             continue
 
         booking_id = parsed["booking_id"]
         if not booking_id:
             msg = f"Missing Booking ID for {booking_key} — skipping"
             summary["warnings"].append(msg)
-            log_entries.append({"booking_key": booking_key, "action": "warning", "details": msg})
+            log_entries.append(
+                {"booking_key": booking_key, "action": "warning", "details": msg}
+            )
             continue
 
         try:
@@ -126,7 +134,9 @@ def run_import(raw_json: dict, source: ImportSource, field_mappings: dict, user)
             msg = f"Import error for booking {booking_id} ({booking_key}): {exc}"
             logger.exception(msg)
             summary["errors"].append(msg)
-            log_entries.append({"booking_key": booking_key, "action": "error", "details": msg})
+            log_entries.append(
+                {"booking_key": booking_key, "action": "error", "details": msg}
+            )
 
     skipped = summary.pop("bookings_skipped_no_children", 0)
     if skipped:
@@ -160,8 +170,13 @@ def _process_booking(
 
     # Skip bookings with no children across all mapped prefixes (check before DB writes)
     if not children_data:
-        log_entries.append({"booking_key": booking_key, "action": "warning",
-                             "details": f"No children in booking {booking_id} — skipping"})
+        log_entries.append(
+            {
+                "booking_key": booking_key,
+                "action": "warning",
+                "details": f"No children in booking {booking_id} — skipping",
+            }
+        )
         raise _NoChildrenError()
 
     with transaction.atomic():
@@ -183,18 +198,22 @@ def _process_booking(
             if extra_guardian:
                 _create_parent(family, extra_guardian)
 
-            log_entries.append({
-                "booking_key": booking_key,
-                "action": "family_created",
-                "details": f"Created family {family.id} for booking {booking_id}",
-            })
+            log_entries.append(
+                {
+                    "booking_key": booking_key,
+                    "action": "family_created",
+                    "details": f"Created family {family.id} for booking {booking_id}",
+                }
+            )
         else:
             summary["families_skipped"] += 1
-            log_entries.append({
-                "booking_key": booking_key,
-                "action": "family_skipped",
-                "details": f"Family {family.id} already exists for booking {booking_id}",
-            })
+            log_entries.append(
+                {
+                    "booking_key": booking_key,
+                    "action": "family_skipped",
+                    "details": f"Family {family.id} already exists for booking {booking_id}",
+                }
+            )
 
         # Child reconciliation
         for child_data in children_data:
@@ -262,7 +281,9 @@ def run_import_planningcenter(
 
         try:
             with transaction.atomic():
-                family = Family.objects.filter(external_booking_id=external_booking_id).first()
+                family = Family.objects.filter(
+                    external_booking_id=external_booking_id
+                ).first()
                 if family is None:
                     last_name = household.get("name", "") or ""
                     family = Family.objects.create(
@@ -277,18 +298,22 @@ def run_import_planningcenter(
                             _create_parent_pco(family, member)
                             summary["parents_created"] += 1
 
-                    log_entries.append({
-                        "booking_key": external_booking_id,
-                        "action": "family_created",
-                        "details": f"Created family {family.id} for household {household_id}",
-                    })
+                    log_entries.append(
+                        {
+                            "booking_key": external_booking_id,
+                            "action": "family_created",
+                            "details": f"Created family {family.id} for household {household_id}",
+                        }
+                    )
                 else:
                     summary["families_skipped"] += 1
-                    log_entries.append({
-                        "booking_key": external_booking_id,
-                        "action": "family_skipped",
-                        "details": f"Family {family.id} already exists for household {household_id}",
-                    })
+                    log_entries.append(
+                        {
+                            "booking_key": external_booking_id,
+                            "action": "family_skipped",
+                            "details": f"Family {family.id} already exists for household {household_id}",
+                        }
+                    )
 
                 # Always reconcile children (idempotent)
                 for member in household.get("members", []):
@@ -305,11 +330,13 @@ def run_import_planningcenter(
             msg = f"Import error for household {household_id}: {exc}"
             logger.exception(msg)
             summary["errors"].append(msg)
-            log_entries.append({
-                "booking_key": external_booking_id,
-                "action": "error",
-                "details": msg,
-            })
+            log_entries.append(
+                {
+                    "booking_key": external_booking_id,
+                    "action": "error",
+                    "details": msg,
+                }
+            )
 
     run.status = ImportRun.STATUS_COMPLETED
     run.finished_at = timezone.now()
@@ -370,11 +397,13 @@ def _process_child_pco(
     existing = Child.objects.filter(**lookup).first()
     if existing is not None:
         summary["children_skipped"] += 1
-        log_entries.append({
-            "booking_key": f"pco-household-{household_id}",
-            "action": "child_skipped",
-            "details": f"Child {first_name} {last_name} already exists (id={existing.id})",
-        })
+        log_entries.append(
+            {
+                "booking_key": f"pco-household-{household_id}",
+                "action": "child_skipped",
+                "details": f"Child {first_name} {last_name} already exists (id={existing.id})",
+            }
+        )
         return
 
     child = Child.objects.create(
@@ -391,11 +420,13 @@ def _process_child_pco(
             f"Child {first_name} {last_name} (household {household_id}) imported without birthdate"
         )
 
-    log_entries.append({
-        "booking_key": f"pco-household-{household_id}",
-        "action": "child_created",
-        "details": f"Created child {child.id} ({first_name} {last_name})",
-    })
+    log_entries.append(
+        {
+            "booking_key": f"pco-household-{household_id}",
+            "action": "child_created",
+            "details": f"Created child {child.id} ({first_name} {last_name})",
+        }
+    )
 
 
 def _process_child(
@@ -433,11 +464,13 @@ def _process_child(
     existing = Child.objects.filter(**lookup).first()
     if existing is not None:
         summary["children_skipped"] += 1
-        log_entries.append({
-            "booking_key": booking_key,
-            "action": "child_skipped",
-            "details": f"Child {first_name} {last_name} already exists (id={existing.id})",
-        })
+        log_entries.append(
+            {
+                "booking_key": booking_key,
+                "action": "child_skipped",
+                "details": f"Child {first_name} {last_name} already exists (id={existing.id})",
+            }
+        )
         return
 
     child = Child.objects.create(
@@ -462,11 +495,13 @@ def _process_child(
             defaults={"external_ticket_code": eticket_code},
         )
         summary["tickets_created"] += 1
-        log_entries.append({
-            "booking_key": booking_key,
-            "action": "child_created",
-            "details": f"Created child {child.id} ({first_name} {last_name}) with EventTicket",
-        })
+        log_entries.append(
+            {
+                "booking_key": booking_key,
+                "action": "child_created",
+                "details": f"Created child {child.id} ({first_name} {last_name}) with EventTicket",
+            }
+        )
     elif mapping in session_cache:
         session = session_cache[mapping]
         SessionTicket.objects.get_or_create(
@@ -475,17 +510,21 @@ def _process_child(
             defaults={"external_ticket_code": eticket_code},
         )
         summary["tickets_created"] += 1
-        log_entries.append({
-            "booking_key": booking_key,
-            "action": "child_created",
-            "details": f"Created child {child.id} ({first_name} {last_name}) with SessionTicket for {session.name}",
-        })
+        log_entries.append(
+            {
+                "booking_key": booking_key,
+                "action": "child_created",
+                "details": f"Created child {child.id} ({first_name} {last_name}) with SessionTicket for {session.name}",
+            }
+        )
     else:
         summary["warnings"].append(
             f"No valid session for mapping '{mapping}' — child {first_name} {last_name} created without ticket"
         )
-        log_entries.append({
-            "booking_key": booking_key,
-            "action": "child_created_no_ticket",
-            "details": f"Created child {child.id} ({first_name} {last_name}) without ticket (invalid mapping)",
-        })
+        log_entries.append(
+            {
+                "booking_key": booking_key,
+                "action": "child_created_no_ticket",
+                "details": f"Created child {child.id} ({first_name} {last_name}) without ticket (invalid mapping)",
+            }
+        )
