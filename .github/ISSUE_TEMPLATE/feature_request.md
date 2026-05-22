@@ -1,6 +1,6 @@
 ---
 name: Feature request
-about: Suggest an idea or improvement for Check-ins
+about: Suggest an idea or improvement for Tryggare
 title: "[Feature] "
 labels: enhancement
 assignees: ""
@@ -22,7 +22,7 @@ Have you found any workarounds or alternative approaches? Why are they insuffici
 
 ## Is this for a specific church or event type?
 
-Check-ins is designed for church children's ministry, but usage varies widely.
+Tryggare is designed for church children's ministry, but usage varies widely.
 Knowing whether this is specific to your context (e.g. large multi-service church,
 small congregation, festival/camp setting) helps prioritise features that benefit
 the broadest set of users.

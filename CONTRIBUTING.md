@@ -1,6 +1,6 @@
-# Contributing to Check-ins
+# Contributing to Tryggare
 
-Thanks for your interest in Check-ins! Contributions of all kinds are welcome — whether you are a church volunteer with a bug report or a developer sending a pull request.
+Thanks for your interest in Tryggare! Contributions of all kinds are welcome — whether you are a church volunteer with a bug report or a developer sending a pull request.
 
 ---
 

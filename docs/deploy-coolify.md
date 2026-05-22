@@ -1,6 +1,6 @@
-# Deploying Check-ins on Coolify
+# Deploying Tryggare on Coolify
 
-This guide walks you through deploying the **Check-ins** child check-in system on a self-hosted [Coolify](https://coolify.io) instance. Coolify handles Docker Compose stacks, automatic SSL via Let's Encrypt, and Traefik reverse-proxy routing — so there's less manual server work involved.
+This guide walks you through deploying the **Tryggare** child check-in system on a self-hosted [Coolify](https://coolify.io) instance. Coolify handles Docker Compose stacks, automatic SSL via Let's Encrypt, and Traefik reverse-proxy routing — so there's less manual server work involved.
 
 ---
 
@@ -9,8 +9,8 @@ This guide walks you through deploying the **Check-ins** child check-in system o
 Before you start, make sure you have:
 
 - A VPS or server with **Coolify installed** (see [coolify.io/docs](https://coolify.io/docs) for the one-command install).
-- A **domain name** (e.g., `checkins.yourdomain.com`) with a DNS A record pointing to your server's IP address. DNS changes can take a few minutes to an hour to propagate.
-- Your **GitHub repository** URL for the Check-ins project. Coolify will pull and build from it.
+- A **domain name** (e.g., `tryggare.yourdomain.com`) with a DNS A record pointing to your server's IP address. DNS changes can take a few minutes to an hour to propagate.
+- Your **GitHub repository** URL for the Tryggare project. Coolify will pull and build from it.
 - SSH access to your server, or access to Coolify's built-in terminal, for the post-deploy admin setup step.
 
 ---
@@ -21,7 +21,7 @@ Before you start, make sure you have:
 2. Click **+ New Resource** (or **Add Service**) from your project or environment.
 3. Select **Docker Compose**.
 4. Choose **Git Repository** as the source.
-5. Paste your repository URL (e.g., `https://github.com/yourorg/check-ins`).
+5. Paste your repository URL (e.g., `https://github.com/jswetzen/tryggare`).
 6. Set the **Compose File** path to:
    ```
    docker-compose.prod.yml
@@ -42,7 +42,7 @@ In the Coolify UI, find the **Environment Variables** section for your service. 
 SECRET_KEY=replace-with-a-random-string
 
 # Your domain (no protocol, no port, no trailing slash)
-ALLOWED_HOSTS=checkins.yourdomain.com
+ALLOWED_HOSTS=tryggare.yourdomain.com
 
 # Full PostgreSQL connection URL
 # db-prod is the internal Docker service name — don't change that hostname
@@ -58,8 +58,8 @@ VALKEY_URL=redis://:yourredispassword@valkey-prod:6379/0
 REDIS_PASSWORD=yourredispassword
 
 # CORS and CSRF — set to your public HTTPS URL
-CORS_ALLOWED_ORIGINS=https://checkins.yourdomain.com
-CSRF_TRUSTED_ORIGINS=https://checkins.yourdomain.com
+CORS_ALLOWED_ORIGINS=https://tryggare.yourdomain.com
+CSRF_TRUSTED_ORIGINS=https://tryggare.yourdomain.com
 
 # Enable secure cookies for HTTPS (required when behind SSL)
 SESSION_COOKIE_SECURE=true
@@ -72,7 +72,7 @@ Coolify uses Traefik internally. These tell the app to register itself with Trae
 
 ```env
 TRAEFIK_ENABLE=true
-TRAEFIK_HOST=checkins.yourdomain.com
+TRAEFIK_HOST=tryggare.yourdomain.com
 TRAEFIK_ENTRYPOINT=websecure
 TRAEFIK_CERTRESOLVER=le
 TRAEFIK_NETWORK=traefik
@@ -122,7 +122,7 @@ Once environment variables are saved:
 1. Click **Deploy** in the Coolify UI.
 2. Watch the build log — the first deploy pulls dependencies and builds the SvelteKit frontend inside Docker, so it takes a few minutes.
 3. Once all three containers show as **Running** (`web`, `db-prod`, `valkey-prod`), the app is up.
-4. Visit `https://checkins.yourdomain.com` — you should see the login page.
+4. Visit `https://tryggare.yourdomain.com` — you should see the login page.
 
 ---
 
@@ -136,7 +136,7 @@ In the Coolify UI, find your `web` container and open a **terminal** (or use the
 uv run python manage.py createsuperuser
 ```
 
-Follow the prompts to set a username, email, and password. This account can then log into the app and the Django admin panel at `https://checkins.yourdomain.com/admin`.
+Follow the prompts to set a username, email, and password. This account can then log into the app and the Django admin panel at `https://tryggare.yourdomain.com/admin`.
 
 ---
 
@@ -193,10 +193,10 @@ Check `ALLOWED_HOSTS`. It must contain only the hostname — **no port number**.
 
 ```env
 # Correct
-ALLOWED_HOSTS=checkins.yourdomain.com
+ALLOWED_HOSTS=tryggare.yourdomain.com
 
 # Wrong — will cause "Invalid HTTP_HOST header" errors
-ALLOWED_HOSTS=checkins.yourdomain.com:443
+ALLOWED_HOSTS=tryggare.yourdomain.com:443
 ```
 
 ### Login works but sessions drop immediately (cookies not saved)
@@ -216,10 +216,10 @@ Then redeploy. Conversely, if you're testing over plain HTTP (not recommended fo
 
 ```env
 # For HTTPS with Traefik
-CSRF_TRUSTED_ORIGINS=https://checkins.yourdomain.com
+CSRF_TRUSTED_ORIGINS=https://tryggare.yourdomain.com
 
 # For local HTTP testing (not for real production)
-CSRF_TRUSTED_ORIGINS=http://checkins.yourdomain.com:8080
+CSRF_TRUSTED_ORIGINS=http://tryggare.yourdomain.com:8080
 ```
 
 ### "502 Bad Gateway" or app not reachable
@@ -227,7 +227,7 @@ CSRF_TRUSTED_ORIGINS=http://checkins.yourdomain.com:8080
 1. Check that all three containers are running in the Coolify UI.
 2. Check the build log for errors (a failed npm/pnpm or pip install will cause the image build to fail silently in some versions).
 3. Confirm `TRAEFIK_ENABLE=true` and `TRAEFIK_HOST` matches your domain exactly.
-4. Make sure DNS has propagated: `dig checkins.yourdomain.com` should return your server's IP.
+4. Make sure DNS has propagated: `dig tryggare.yourdomain.com` should return your server's IP.
 
 ### Database connection errors on startup
 
@@ -250,16 +250,16 @@ In the Coolify UI, click on the `web` container and open the **Logs** tab. Look 
 | Variable | Example Value | Notes |
 |---|---|---|
 | `SECRET_KEY` | `a3f9...` (64 hex chars) | Generate with `openssl rand -hex 32` |
-| `ALLOWED_HOSTS` | `checkins.yourdomain.com` | Hostname only, no port |
+| `ALLOWED_HOSTS` | `tryggare.yourdomain.com` | Hostname only, no port |
 | `DATABASE_URL` | `postgresql://user:pass@db-prod:5432/checkins` | Use `db-prod` as host |
 | `DB_USER` | `checkins_user` | Must match DATABASE_URL |
 | `DB_PASSWORD` | `strongpassword` | Must match DATABASE_URL |
 | `POSTGRES_DB` | `checkins` | Must match DATABASE_URL |
 | `VALKEY_URL` | `redis://:pass@valkey-prod:6379/0` | Use `valkey-prod` as host |
 | `REDIS_PASSWORD` | `strongpassword` | Must match VALKEY_URL |
-| `CORS_ALLOWED_ORIGINS` | `https://checkins.yourdomain.com` | Must include `https://` |
-| `CSRF_TRUSTED_ORIGINS` | `https://checkins.yourdomain.com` | Must include `https://` |
+| `CORS_ALLOWED_ORIGINS` | `https://tryggare.yourdomain.com` | Must include `https://` |
+| `CSRF_TRUSTED_ORIGINS` | `https://tryggare.yourdomain.com` | Must include `https://` |
 | `SESSION_COOKIE_SECURE` | `true` | Set `false` only for HTTP testing |
 | `CSRF_COOKIE_SECURE` | `true` | Set `false` only for HTTP testing |
 | `TRAEFIK_ENABLE` | `true` | Enables Traefik routing |
-| `TRAEFIK_HOST` | `checkins.yourdomain.com` | Domain for Traefik router |
+| `TRAEFIK_HOST` | `tryggare.yourdomain.com` | Domain for Traefik router |

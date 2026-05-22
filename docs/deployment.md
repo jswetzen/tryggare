@@ -431,15 +431,15 @@ Traefik integration is built into `docker-compose.prod.yml` and can be enabled v
 ```env
 # Enable Traefik
 TRAEFIK_ENABLE=true
-TRAEFIK_HOST=checkins.yourdomain.com
+TRAEFIK_HOST=tryggare.yourdomain.com
 TRAEFIK_ENTRYPOINT=websecure
 TRAEFIK_CERTRESOLVER=le
 TRAEFIK_NETWORK=traefik
 
 # Django settings for HTTPS
-ALLOWED_HOSTS=checkins.yourdomain.com,localhost
-CORS_ALLOWED_ORIGINS=https://checkins.yourdomain.com
-CSRF_TRUSTED_ORIGINS=https://checkins.yourdomain.com
+ALLOWED_HOSTS=tryggare.yourdomain.com,localhost
+CORS_ALLOWED_ORIGINS=https://tryggare.yourdomain.com
+CSRF_TRUSTED_ORIGINS=https://tryggare.yourdomain.com
 SESSION_COOKIE_SECURE=true
 CSRF_COOKIE_SECURE=true
 ```

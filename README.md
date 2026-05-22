@@ -1,7 +1,7 @@
-# Check-ins
+# Tryggare
 
 [![License: AGPL-3.0](https://img.shields.io/badge/License-AGPL%20v3-blue.svg)](LICENSE)
-[![Tests](https://github.com/jswetzen/check-ins/actions/workflows/test.yml/badge.svg)](https://github.com/jswetzen/check-ins/actions/workflows/test.yml)
+[![Tests](https://github.com/jswetzen/tryggare/actions/workflows/test.yml/badge.svg)](https://github.com/jswetzen/tryggare/actions/workflows/test.yml)
 [![Self-hosted](https://img.shields.io/badge/deployment-self--hosted-green)]()
 
 A self-hosted child check-in system for churches and organizations. Staff check children in and out across multiple stations simultaneously, labels print automatically, and every action is tracked in real time.
