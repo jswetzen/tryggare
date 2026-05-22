@@ -46,6 +46,7 @@ COPY --chown=django:django backend/events ./events
 COPY --chown=django:django backend/checkins ./checkins
 COPY --chown=django:django backend/printing ./printing
 COPY --chown=django:django backend/imports ./imports
+COPY --chown=django:django backend/demo ./demo
 
 # Copy frontend build from frontend-builder stage
 COPY --from=frontend-builder --chown=django:django /app/build /app/staticfiles/

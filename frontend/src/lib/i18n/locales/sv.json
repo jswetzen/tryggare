@@ -22,7 +22,9 @@
     "submit": "Logga in",
     "loggingIn": "Loggar in...",
     "fieldsRequired": "Användarnamn och lösenord krävs",
-    "loginFailed": "Inloggning misslyckades. Försök igen."
+    "loginFailed": "Inloggning misslyckades. Försök igen.",
+    "demoTitle": "Demouppgifter",
+    "demoCredentials": "Användarnamn: admin · Lösenord: admin123"
   },
   "checkin": {
     "pageTitle": "Incheckningsstation",

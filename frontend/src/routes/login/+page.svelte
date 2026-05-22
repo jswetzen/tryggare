@@ -7,6 +7,16 @@
 
   let errorMessage = $state('');
   let isLoading = $state(false);
+  let demoMode = $state(false);
+
+  onMount(async () => {
+    try {
+      const data = await apiClient.get('/auth/check/');
+      demoMode = data.demo_mode ?? false;
+    } catch {
+      // ignore — demo banner is non-critical
+    }
+  });
 
   async function handleSubmit(event: Event) {
     event.preventDefault();
@@ -52,6 +62,13 @@
       <LanguageSwitcher />
     </div>
     <h1 class="text-h1 mb-6 text-center">{$t('login.title')}</h1>
+
+    {#if demoMode}
+      <div class="bg-primary-50 border border-primary-200 text-primary-800 px-4 py-3 rounded-card mb-4 text-sm">
+        <p class="font-semibold mb-1">{$t('login.demoTitle')}</p>
+        <p>{$t('login.demoCredentials')}</p>
+      </div>
+    {/if}
 
     {#if errorMessage}
       <div class="bg-danger-50 border border-danger-200 text-danger-800 px-4 py-3 rounded-card mb-4">

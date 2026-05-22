@@ -93,6 +93,36 @@ WEB_HOST_PORT=8080
 
 Click **Deploy the stack** and wait for all services to start.
 
+## Demo Mode
+
+Demo mode is designed for trial or showcase deployments. It does two things:
+
+1. **Shows login credentials** on the login page so visitors know what to type.
+2. **Resets all data every hour** automatically — demo families, children, and check-ins are wiped and reseeded inside the running container without any external scheduling.
+
+### Enable demo mode
+
+Add these variables to your Portainer stack environment:
+
+```env
+DEMO_MODE=true
+SEED_DEMO_DATA=true
+SEED_DEMO_RESET=true
+```
+
+- `SEED_DEMO_DATA=true` — seeds demo families/users when the container starts.
+- `SEED_DEMO_RESET=true` — wipes all data before seeding on startup.
+- `DEMO_MODE=true` — shows credentials on the login page and starts the hourly in-process scheduler.
+
+Demo credentials (shown on the login page):
+
+| Username | Password | Role |
+|---|---|---|
+| `admin` | `admin123` | Superuser |
+| `maria` | `demo123` | Staff |
+
+> **Warning:** Never enable demo mode in a real deployment. The credentials are hardcoded and publicly visible.
+
 ## Configurable Parameters
 
 ### Core Configuration
