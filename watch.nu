@@ -35,7 +35,10 @@ def main [
         if $do_prod {
             job spawn {
                 print "[prod] Starting rebuild..."
-                ^podman compose -f docker-compose.prod.yml --env-file .env.prod up -d --force-recreate --build out+err> $build_prod
+                # The prod compose declares an external 'traefik' network; ensure it
+                # exists first or `up` aborts before building (truncates the log).
+                ^bash ($root | path join "scripts" "ensure-prod-network.sh") out+err> $build_prod
+                ^podman compose -f docker-compose.prod.yml --env-file .env.prod up -d --force-recreate --build out+err>> $build_prod
                 print "[prod] Done."
             }
         }

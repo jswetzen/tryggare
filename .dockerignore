@@ -1,5 +1,12 @@
 # Dependencies
+# NOTE: bare patterns only match at the build-context root. The prod build uses
+# the repo root as context (COPY frontend ./), so nested dirs need **/ globs or
+# they get copied into the image (frontend/.pnpm-store + node_modules ≈ 0.5 GB).
 node_modules
+**/node_modules
+**/.pnpm-store
+**/.svelte-kit
+frontend/build
 
 # Next.js build output
 .next
