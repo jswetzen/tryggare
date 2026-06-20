@@ -216,7 +216,17 @@
     "undoTooLate": "Kan inte ångra - för mycket tid har gått",
     "checkedOutAt": "Utcheckad kl:",
     "canUndo": "Kan ångras inom 5 minuter",
-    "qrCode": "QR-kod"
+    "qrCode": "QR-kod",
+    "supervised": "Övervakad",
+    "age": "Ålder",
+    "ageYears": "{years} år",
+    "allergyAlert": "Allergivarning",
+    "reprintSending": "Skickar till skrivare...",
+    "reprintSuccess": "Etikett skickad till skrivare",
+    "reprintError": "Kunde inte skicka etikett till skrivare",
+    "reprintOpeningPage": "Öppnar utskriftssida...",
+    "choosePrinter": "Välj skrivare",
+    "choosePrinterHelp": "Välj vilken skrivare etiketten ska skickas till."
   },
   "session": {
     "event": "Evenemang:",

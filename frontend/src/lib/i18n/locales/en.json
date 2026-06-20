@@ -216,7 +216,17 @@
     "undoTooLate": "Cannot undo - too much time has passed",
     "checkedOutAt": "Checked out at:",
     "canUndo": "Can undo within 5 minutes",
-    "qrCode": "QR Code"
+    "qrCode": "QR Code",
+    "supervised": "Supervised",
+    "age": "Age",
+    "ageYears": "{years} years",
+    "allergyAlert": "Allergy Alert",
+    "reprintSending": "Sending to printer...",
+    "reprintSuccess": "Label sent to printer",
+    "reprintError": "Failed to send label to printer",
+    "reprintOpeningPage": "Opening print page...",
+    "choosePrinter": "Choose a printer",
+    "choosePrinterHelp": "Select which printer to send this label to."
   },
   "session": {
     "event": "Event:",

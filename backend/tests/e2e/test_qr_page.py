@@ -200,6 +200,136 @@ class TestQRPage(E2ETestBase, TestDataMixin):
         print("\n" + "=" * 60)
         print("✅ Action buttons test PASSED")
 
+    def test_allergy_banner_displayed(self):
+        """Allergy alert renders as a prominent role='alert' banner at the top."""
+        print("\n🔍 Testing Allergy Alert Banner")
+        print("=" * 60)
+
+        qr_url = f"{self.config['frontend_url']}/qr/{self.qr_code_value}"
+        self.driver.get(qr_url)
+        time.sleep(3)
+
+        alerts = self.driver.find_elements(By.CSS_SELECTOR, "[role='alert']")
+        assert alerts, "Expected an allergy alert banner (role='alert')"
+
+        banner_text = alerts[0].text
+        assert "Peanuts" in banner_text, (
+            f"Allergy text missing from banner: {banner_text!r}"
+        )
+        # The label is rendered through a CSS uppercase transform, so match
+        # case-insensitively and accept either locale (app defaults to Swedish).
+        banner_lower = banner_text.lower()
+        assert "allergy alert" in banner_lower or "allergivarning" in banner_lower, (
+            f"Allergy alert label missing from banner: {banner_text!r}"
+        )
+        print(f"   ✓ Allergy banner shown: {banner_text!r}")
+
+        # Banner should sit above the child info card (safety info above the fold).
+        body = self.driver.find_element(By.TAG_NAME, "body").text.lower()
+        label = "allergy alert" if "allergy alert" in body else "allergivarning"
+        assert body.index(label) < body.index(self.test_child.first_name.lower()), (
+            "Allergy banner should appear above the child name/info card"
+        )
+        print("   ✓ Banner positioned above the info card")
+
+        print("\n" + "=" * 60)
+        print("✅ Allergy banner test PASSED")
+
+    def test_age_displayed(self):
+        """Child age (whole years from birthdate) is displayed next to the name."""
+        from datetime import date
+
+        print("\n🔍 Testing Age Display")
+        print("=" * 60)
+
+        bd = self.test_child.birthdate
+        dob = bd if isinstance(bd, date) else date.fromisoformat(str(bd))
+        today = date.today()
+        expected_age = (
+            today.year - dob.year - ((today.month, today.day) < (dob.month, dob.day))
+        )
+
+        qr_url = f"{self.config['frontend_url']}/qr/{self.qr_code_value}"
+        self.driver.get(qr_url)
+        time.sleep(3)
+
+        # App defaults to Swedish ("{years} år"); accept either locale.
+        page_source = self.driver.page_source
+        assert (
+            f"{expected_age} years" in page_source
+            or f"{expected_age} år" in page_source
+        ), f"Expected age '{expected_age}' (years/år) not found on page"
+        print(f"   ✓ Age displayed: {expected_age}")
+
+        print("\n" + "=" * 60)
+        print("✅ Age display test PASSED")
+
+    def test_no_allergy_no_banner(self):
+        """A child without allergies shows no allergy banner."""
+        print("\n🔍 Testing No-Allergy Child (no banner)")
+        print("=" * 60)
+
+        child2 = self.create_test_child(
+            self.test_family, first_name="NoAllergyKid", allergies=""
+        )
+        checkin2 = CheckInRecord.objects.create(
+            child=child2,
+            session=self.test_session,
+            check_in_staff=self.test_user,
+        )
+        code2 = allocate_code_for_checkin(checkin2).code
+
+        self.driver.get(f"{self.config['frontend_url']}/qr/{code2}")
+        time.sleep(3)
+
+        page_source = self.driver.page_source
+        assert "NoAllergyKid" in page_source, "Child info did not load"
+
+        alerts = self.driver.find_elements(By.CSS_SELECTOR, "[role='alert']")
+        assert not alerts, "No allergy banner expected for a child without allergies"
+        print("   ✓ No allergy banner for child without allergies")
+
+        print("\n" + "=" * 60)
+        print("✅ No-allergy banner test PASSED")
+
+    def test_reprint_logged_out_opens_print_page(self):
+        """Reprint while logged out (no printers) falls back to the print page."""
+        print("\n🔍 Testing Reprint Fallback (logged out)")
+        print("=" * 60)
+
+        self.driver.get(f"{self.config['frontend_url']}/qr/{self.qr_code_value}")
+        time.sleep(3)
+
+        reprint = None
+        for btn in self.driver.find_elements(By.TAG_NAME, "button"):
+            if btn.text and (
+                "reprint" in btn.text.lower() or "skriv ut" in btn.text.lower()
+            ):
+                reprint = btn
+                break
+        assert reprint, "Reprint button not found"
+
+        initial_handles = len(self.driver.window_handles)
+        reprint.click()
+        time.sleep(2)
+
+        opened_new_tab = len(self.driver.window_handles) > initial_handles
+        page_source = self.driver.page_source
+        shows_message = (
+            "Opening print page" in page_source
+            or "Öppnar utskriftssida" in page_source
+        )
+        assert opened_new_tab or shows_message, (
+            "Reprint did not trigger the print-page fallback (no new tab / message)"
+        )
+        print(
+            f"   ✓ Reprint fallback triggered (new_tab={opened_new_tab}, "
+            f"message={shows_message})"
+        )
+
+        print("\n" + "=" * 60)
+        print("✅ Reprint fallback test PASSED")
+
 
 def run_tests():
     """Run the QR page tests."""
