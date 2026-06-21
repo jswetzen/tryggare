@@ -227,6 +227,15 @@ UI Re-renders Automatically
 4. Connection maintained throughout session
 5. Reconnect logic handles temporary disconnections
 
+**Authentication:** Staff browsers authenticate over the WebSocket with their
+Django session cookie. Printer clients (which run on a church LAN and have no
+session) authenticate with a **revocable per-printer token** passed as
+`?token=` — resolved by `config/ws_auth.py` (`PrinterTokenMiddleware`) to a
+`Printer` row. A token-authed connection is bound to exactly that printer, so a
+client cannot register or report jobs as another printer. Tokens are provisioned
+server-side (Django admin or `POST /api/printing/printers/provision/`) and can be
+rotated/revoked; see `printer-client/README.md`.
+
 **Message Types:**
 - `child_checked_in` - Child checked into session
 - `child_checked_out` - Child checked out from session

@@ -127,6 +127,12 @@ export interface Printer {
   is_online: boolean;
   last_seen_at?: string | null;
   created_at?: string;
+  token_active?: boolean;
+}
+
+/** Returned only by provision / rotate-token — includes the plaintext token once. */
+export interface PrinterWithToken extends Printer {
+  token: string;
 }
 
 export interface PrintJob {
