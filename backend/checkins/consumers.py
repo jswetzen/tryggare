@@ -34,10 +34,18 @@ class CheckInConsumer(AsyncWebsocketConsumer):
 
     async def connect(self):
         """Accept WebSocket connection and add to broadcast group"""
-        # SECURITY: Enforce authentication for WebSocket connections
-        user = self.scope.get("user")
+        # Initialise before any early-return so disconnect() is always safe.
+        self.room_group_name = None
 
-        if not user or not user.is_authenticated:
+        # SECURITY: a connection is authorised if it is either a session-authed
+        # staff browser OR a printer client presenting a valid token (resolved
+        # to scope["printer_id"] by PrinterTokenMiddleware).
+        user = self.scope.get("user")
+        printer_id = self.scope.get("printer_id")
+
+        is_staff = bool(user and user.is_authenticated)
+
+        if not is_staff and not printer_id:
             # Reject unauthenticated connections
             await self.close(code=4401)  # Custom close code for unauthorized
             return
@@ -49,6 +57,9 @@ class CheckInConsumer(AsyncWebsocketConsumer):
 
         await self.accept()
 
+        # A token-authed connection is bound to exactly that printer; the UUID in
+        # any printer_register message is ignored in favour of this.
+        self._authed_printer_id = printer_id
         # Track printer UUID for this connection (set on printer_register)
         self._printer_uuid = None
 
@@ -64,6 +75,9 @@ class CheckInConsumer(AsyncWebsocketConsumer):
 
     async def disconnect(self, close_code):
         """Remove from broadcast group on disconnect"""
+        if not self.room_group_name:
+            # Connection was rejected before joining any group; nothing to clean up.
+            return
         await self.channel_layer.group_discard(self.room_group_name, self.channel_name)
 
         # Schedule offline detection if this was a printer connection
@@ -134,12 +148,17 @@ class CheckInConsumer(AsyncWebsocketConsumer):
             await self._handle_print_job_failed(data)
 
     async def _handle_printer_register(self, data):
-        """Handle printer registration."""
-        printer_uuid = data.get("uuid")
-        printer_name = data.get("name", "Unknown Printer")
+        """Handle printer registration.
 
+        The printer identity comes from the auth token (scope["printer_id"]),
+        not from the message — a client cannot register as a different printer.
+        Connections without a token (i.e. staff browsers) cannot register.
+        """
+        printer_uuid = self._authed_printer_id
         if not printer_uuid:
             return
+
+        printer_name = data.get("name") or "Unknown Printer"
 
         # Cancel any pending offline task for this printer UUID
         if printer_uuid in CheckInConsumer._offline_tasks:
@@ -149,8 +168,19 @@ class CheckInConsumer(AsyncWebsocketConsumer):
         # Store printer UUID on this connection
         self._printer_uuid = printer_uuid
 
-        # Upsert printer record
+        # Update the provisioned printer record (name + online status)
         await self._upsert_printer(printer_uuid, printer_name)
+
+        # Tell this client which printer id it is bound to, so it can filter
+        # the broadcast print_job stream to its own jobs.
+        await self.send(
+            text_data=json.dumps(
+                {
+                    "type": "printer_registered_self",
+                    "data": {"printer_id": printer_uuid, "name": printer_name},
+                }
+            )
+        )
 
         # Broadcast printer registered + status changed
         await self.channel_layer.group_send(
@@ -181,18 +211,17 @@ class CheckInConsumer(AsyncWebsocketConsumer):
         from django.utils import timezone
         from printing.models import Printer
 
-        Printer.objects.update_or_create(
-            id=printer_uuid,
-            defaults={
-                "name": printer_name,
-                "is_online": True,
-                "last_seen_at": timezone.now(),
-            },
+        # The row is provisioned ahead of time (the token belongs to it), so we
+        # update rather than create — a token never maps to a missing printer.
+        Printer.objects.filter(id=printer_uuid).update(
+            name=printer_name,
+            is_online=True,
+            last_seen_at=timezone.now(),
         )
 
     async def _handle_printer_heartbeat(self, data):
         """Handle printer heartbeat - update last_seen_at."""
-        printer_uuid = data.get("uuid")
+        printer_uuid = self._authed_printer_id
         if not printer_uuid:
             return
         await self._update_printer_last_seen(printer_uuid)
@@ -207,7 +236,7 @@ class CheckInConsumer(AsyncWebsocketConsumer):
     async def _handle_print_job_completed(self, data):
         """Handle print job completion."""
         job_id = data.get("job_id")
-        if not job_id:
+        if not job_id or not self._authed_printer_id:
             return
         checkin_id = await self._set_job_completed(job_id)
         if checkin_id:
@@ -229,7 +258,10 @@ class CheckInConsumer(AsyncWebsocketConsumer):
         from checkins.models import CheckInRecord
 
         now = timezone.now()
-        updated = PrintJob.objects.filter(pk=job_id).update(
+        # Only the printer the job is assigned to may complete it.
+        updated = PrintJob.objects.filter(
+            pk=job_id, printer_id=self._authed_printer_id
+        ).update(
             status=PrintJob.STATUS_COMPLETED,
             completed_at=now,
         )
@@ -248,7 +280,7 @@ class CheckInConsumer(AsyncWebsocketConsumer):
     async def _handle_print_job_failed(self, data):
         """Handle print job failure."""
         job_id = data.get("job_id")
-        if not job_id:
+        if not job_id or not self._authed_printer_id:
             return
         reason = data.get("reason", "")
         await self._set_job_failed(job_id, reason)
@@ -257,7 +289,9 @@ class CheckInConsumer(AsyncWebsocketConsumer):
     def _set_job_failed(self, job_id, reason):
         from printing.models import PrintJob
 
-        PrintJob.objects.filter(pk=job_id).update(status=PrintJob.STATUS_FAILED)
+        PrintJob.objects.filter(pk=job_id, printer_id=self._authed_printer_id).update(
+            status=PrintJob.STATUS_FAILED
+        )
 
     # -------------------------------------------------------------------------
     # Handler methods for each broadcast type (called via group_send)

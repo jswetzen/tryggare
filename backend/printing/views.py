@@ -12,7 +12,11 @@ from rest_framework.response import Response
 
 from checkins.models import CheckInRecord
 from .models import Printer, PrintJob
-from .serializers import PrinterSerializer, PrintJobSerializer
+from .serializers import (
+    PrinterSerializer,
+    PrinterWithTokenSerializer,
+    PrintJobSerializer,
+)
 
 # Label dimensions mapping: brother_ql dots_printable → mm at 300 DPI.
 # Displayed landscape: width = label length, height = label width.
@@ -27,14 +31,47 @@ LABEL_DIMENSIONS = {
 DEFAULT_LABEL_DIMENSIONS = {"w_mm": 54.3, "h_mm": 17.0}
 
 
-class PrinterViewSet(viewsets.ReadOnlyModelViewSet):
+class PrinterViewSet(viewsets.ModelViewSet):
     """
-    ViewSet for listing printers.
+    Manage printers and their auth tokens.
+
+    Printers are provisioned server-side: ``POST`` (or ``provision``) creates a
+    printer and returns its token *once* — the operator copies that token into
+    the printer-client config. ``rotate_token`` / ``revoke_token`` manage the
+    credential's lifecycle. The token is never included in list/retrieve.
     """
 
     queryset = Printer.objects.all()
     serializer_class = PrinterSerializer
     permission_classes = [IsAuthenticated]
+    http_method_names = ["get", "post", "patch", "delete", "head", "options"]
+
+    def create(self, request, *args, **kwargs):
+        """Provision a new printer; the response includes its token once."""
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        printer = serializer.save()
+        out = PrinterWithTokenSerializer(printer)
+        return Response(out.data, status=status.HTTP_201_CREATED)
+
+    @action(detail=False, methods=["post"])
+    def provision(self, request):
+        """Alias for create, for a clearer client-facing verb."""
+        return self.create(request)
+
+    @action(detail=True, methods=["post"], url_path="rotate-token")
+    def rotate_token(self, request, pk=None):
+        """Issue a fresh token (invalidates the old one). Returns it once."""
+        printer = self.get_object()
+        printer.rotate_token()
+        return Response(PrinterWithTokenSerializer(printer).data)
+
+    @action(detail=True, methods=["post"], url_path="revoke-token")
+    def revoke_token(self, request, pk=None):
+        """Disable the printer's token without issuing a new one."""
+        printer = self.get_object()
+        printer.revoke_token()
+        return Response(PrinterSerializer(printer).data)
 
 
 class PrintJobViewSet(viewsets.GenericViewSet):

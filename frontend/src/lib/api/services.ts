@@ -3,7 +3,7 @@
  */
 
 import { apiClient } from './client';
-import type { Family, Child, Session, CheckInRecord, AuditLog, PrintQueueItem, QRInfoResponse, Printer, PrintJob, Event } from './types';
+import type { Family, Child, Session, CheckInRecord, AuditLog, PrintQueueItem, QRInfoResponse, Printer, PrinterWithToken, PrintJob, Event } from './types';
 import type { FamilyApiResponse } from '$lib/checkin/types';
 
 /**
@@ -205,6 +205,25 @@ export const printingApi = {
    */
   assignJob: (jobId: string, printerId: string) =>
     apiClient.post<PrintJob>(`/printing/jobs/${jobId}/assign/`, { printer_id: printerId }),
+
+  /**
+   * Provision a new printer. The response includes the plaintext token ONCE —
+   * copy it into the printer-client config; it is not retrievable later.
+   */
+  provisionPrinter: (name: string) =>
+    apiClient.post<PrinterWithToken>('/printing/printers/provision/', { name }),
+
+  /**
+   * Issue a fresh token for a printer (invalidates the old one). Returns it once.
+   */
+  rotatePrinterToken: (printerId: string) =>
+    apiClient.post<PrinterWithToken>(`/printing/printers/${printerId}/rotate-token/`, {}),
+
+  /**
+   * Revoke a printer's token without issuing a new one (disables the printer).
+   */
+  revokePrinterToken: (printerId: string) =>
+    apiClient.post<Printer>(`/printing/printers/${printerId}/revoke-token/`, {}),
 };
 
 /**

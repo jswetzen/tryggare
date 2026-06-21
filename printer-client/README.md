@@ -31,16 +31,48 @@ $EDITOR .env
 | Variable | Default | Description |
 |---|---|---|
 | `BACKEND_URL` | `http://localhost:8000` | Django server URL |
-| `STAFF_USERNAME` | `admin` | Staff login username |
-| `STAFF_PASSWORD` | `admin123` | Staff login password |
-| `PRINTER_UUID` | random UUID | Stable printer identity — generate once, keep forever |
-| `PRINTER_NAME` | `Label Printer` | Name shown in the UI |
+| `PRINTER_TOKEN` | *(auto)* | Per-printer auth token. Provisioned on first run (interactive login by default); can also be set manually (see below). |
+| `STAFF_USERNAME` / `STAFF_PASSWORD` | *(empty)* | Optional. Skip the interactive login by pre-seeding credentials; used once, then removed from `.env`. |
+| `PRINTER_NAME` | `Label Printer` | Name shown in the UI (and the provisioned printer name) |
 | `PRINTER_IDENTIFIER` | *(auto-detect)* | USB: `usb://0x04f9:0x2042`  Network: `tcp://192.168.1.50` |
 | `PRINTER_BACKEND` | `pyusb` | `pyusb`, `network`, or `linux_kernel` |
 | `PRINTER_MODEL` | `QL-810W` | Brother QL model string |
 | `LABEL_SIZE` | `29x90` | Die-cut: `29x90`, `62x100`  Endless: `29`, `62` |
 | `SCREENSHOT_DPI` | `300` | Render DPI — higher means better print quality |
 | `DRY_RUN` | `false` | Set `true` to skip actual printing (test connectivity) |
+
+### Authentication
+
+Each printer authenticates with a **revocable token** bound to a printer record
+in the backend (not a staff login).
+
+**First run (interactive, default).** Leave `PRINTER_TOKEN` blank and start the
+client. It prompts for a staff username/password, provisions its own printer,
+writes `PRINTER_TOKEN` into `.env`, and removes any credential lines from `.env`.
+From then on it connects with the token only.
+
+**Headless / scripted.** Two ways to avoid the prompt:
+
+- Pre-seed `STAFF_USERNAME` / `STAFF_PASSWORD` in `.env`. They're used once to
+  provision the token, then stripped from `.env`.
+- Provision a token yourself and set `PRINTER_TOKEN` directly:
+  - **Django admin** → *Printing → Printers → Add printer*, copy the read-only
+    **Token** field.
+  - **API** (staff session): `POST /api/printing/printers/provision/` with
+    `{"name": "Foyer printer"}`; the response includes `token` **once**.
+
+Run with `--non-interactive` (e.g. under systemd or in a container) to *never*
+prompt: the client requires `PRINTER_TOKEN` or `STAFF_*` to be set and fails
+fast otherwise.
+
+```bash
+./start.sh --non-interactive
+```
+
+To replace a token, rotate it (admin action or
+`POST /api/printing/printers/{id}/rotate-token/`). Revoking
+(`.../revoke-token/`) disconnects the client; if `STAFF_*` env credentials are
+still set it auto-provisions a fresh token, otherwise set a new `PRINTER_TOKEN`.
 
 ## Run
 
