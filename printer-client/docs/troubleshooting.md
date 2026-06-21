@@ -8,6 +8,45 @@ The `ipp-usb` service (IPP over USB daemon) was continuously resetting the USB d
 
 This must be done before any USB communication with the printer will work. The service is "static" (not enabled) so it won't auto-start on reboot, but it may be triggered by udev when the printer is plugged in.
 
+## Permissions: `[Errno 13] Access denied (insufficient permissions)`
+
+The `pyusb` backend (the default) uses libusb to claim the raw USB device, which
+needs read/write access to `/dev/bus/usb/...`. That node is `root`-owned by
+default, so a non-root user can't open it — discovery fails before it finds
+anything:
+
+```
+Printer discovery failed: [Errno 13] Access denied (insufficient permissions)
+No PRINTER_IDENTIFIER set and discovery failed
+```
+
+This is **not** fixed by adding the printer to CUPS or joining `lpadmin` — those
+govern the CUPS/IPP path, not raw libusb access. On Debian-based systems (Debian,
+Ubuntu, Linux Mint) the fix is a udev rule **plus** `lp` group membership:
+
+```bash
+sudo tee /etc/udev/rules.d/99-brother-ql.rules >/dev/null <<'EOF'
+SUBSYSTEM=="usb", ATTRS{idVendor}=="04f9", GROUP="lp", MODE="0664"
+EOF
+sudo usermod -aG lp $USER
+sudo udevadm control --reload-rules && sudo udevadm trigger
+# then log out/in (or `newgrp lp`) and replug the printer
+```
+
+Without the udev rule the raw node stays `root:root`, so being in `lp` (or
+`lpadmin`) changes nothing for `pyusb`. With the rule it becomes `root:lp` +
+mode `0664`, and any `lp` member can open it. Confirm with:
+
+```bash
+lsusb -d 04f9:                     # note the Bus/Device numbers
+ls -l /dev/bus/usb/<bus>/<device>  # expect: crw-rw-r-- root lp
+```
+
+If you'd rather avoid the udev rule, set `PRINTER_BACKEND=linux_kernel`: it
+prints via the kernel's `usblp` driver (`/dev/usb/lp0`, already `root:lp`), so
+`lp` membership alone suffices — but it can't query status and conflicts with
+`ipp-usb` (above). See the README "Linux — USB permissions" section.
+
 ## Code changes
 
 ### 1. Missing initialization before status request (`helpers.py`)
