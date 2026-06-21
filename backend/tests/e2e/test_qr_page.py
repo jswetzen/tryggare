@@ -330,6 +330,32 @@ class TestQRPage(E2ETestBase, TestDataMixin):
         print("\n" + "=" * 60)
         print("✅ Reprint fallback test PASSED")
 
+    def test_privacy_notice_and_page(self):
+        """The QR page shows a privacy notice linking to a working /privacy page."""
+        print("\n🔍 Testing Privacy Notice + Page")
+        print("=" * 60)
+
+        qr_url = f"{self.config['frontend_url']}/qr/{self.qr_code_value}"
+        self.driver.get(qr_url)
+        time.sleep(3)
+
+        # A link to the privacy page is present on the QR page.
+        privacy_links = self.driver.find_elements(By.CSS_SELECTOR, "a[href='/privacy']")
+        assert privacy_links, "Privacy notice link not found on QR page"
+        print("   ✓ Privacy notice link present on QR page")
+
+        # The standalone privacy page loads and renders its heading.
+        self.driver.get(f"{self.config['frontend_url']}/privacy")
+        time.sleep(3)
+        body = self.driver.find_element(By.TAG_NAME, "body").text.lower()
+        assert "privacy" in body or "integritet" in body, (
+            "Privacy page did not render expected content"
+        )
+        print("   ✓ Privacy page renders")
+
+        print("\n" + "=" * 60)
+        print("✅ Privacy notice + page test PASSED")
+
 
 def run_tests():
     """Run the QR page tests."""

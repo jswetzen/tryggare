@@ -193,6 +193,14 @@ export interface QRInfoResponse {
   supervised: boolean;
 }
 
+export interface PrivacyInfoResponse {
+  controller_name: string;
+  contact_email: string;
+  controller_url: string;
+  privacy_policy_url: string;
+  retention_days: number;
+}
+
 export interface CheckOutMessage {
   type: 'child_checked_out';
   data: {

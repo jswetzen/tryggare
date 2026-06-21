@@ -321,6 +321,12 @@
       {/if}
       <div class="text-sm text-neutral-600">{$t('qr.familyId')} {data.family_id}</div>
     </div>
+
+    <!-- Privacy notice: data subjects (parents) see their child's data here -->
+    <div class="text-center text-xs text-neutral-500 mt-6">
+      {$t('qr.privacyNotice')}
+      <a href="/privacy" class="text-primary-600 hover:underline">{$t('qr.privacyLink')}</a>
+    </div>
   {/if}
 </main>
 

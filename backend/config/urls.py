@@ -8,7 +8,7 @@ from django.views.generic import TemplateView
 from rest_framework.routers import DefaultRouter
 
 from families.views import ChildViewSet, FamilyViewSet, ParentViewSet
-from families.qr_views import qr_info
+from families.qr_views import privacy_info, qr_info
 from events.views import (
     EventViewSet,
     EventTicketViewSet,
@@ -60,6 +60,9 @@ urlpatterns = [
     path(
         "api/qr/<str:code>/", qr_info, name="qr-info"
     ),  # Public QR code endpoint (privacy-first)
+    path(
+        "api/privacy/", privacy_info, name="privacy-info"
+    ),  # Public data-controller info for the privacy page/notice
     # Import endpoints (must be before the catch-all)
     path(
         "api/imports/discover-prefixes/",

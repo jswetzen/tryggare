@@ -221,7 +221,29 @@
     "reprintError": "Failed to send label to printer",
     "reprintOpeningPage": "Opening print page...",
     "choosePrinter": "Choose a printer",
-    "choosePrinterHelp": "Select which printer to send this label to."
+    "choosePrinterHelp": "Select which printer to send this label to.",
+    "privacyNotice": "This information is processed for child safeguarding during the event.",
+    "privacyLink": "Privacy notice"
+  },
+  "privacy": {
+    "pageTitle": "Privacy Notice",
+    "title": "Privacy Notice",
+    "intro": "This system is used to safely check children in and out during the event. This notice explains what data is held, why, and your rights.",
+    "dataWeCollectTitle": "What we collect",
+    "dataWeCollect": "Children's names, date of birth, allergies and medical notes, and parent/guardian contact details. Allergy and medical information is special-category (health) data.",
+    "purposeTitle": "Why we use it",
+    "purpose": "To check children in and out, ensure they are released to the right person, and respond to allergies or medical needs during the event.",
+    "legalBasisTitle": "Legal basis",
+    "legalBasis": "Legitimate interest in safeguarding children at the event, and protection of vital interests where health information is concerned.",
+    "retentionTitle": "How long we keep it",
+    "retention": "Inactive records are anonymised after {days} days. Operational and audit records may be kept longer in anonymised form.",
+    "rightsTitle": "Your rights",
+    "rights": "You may request access to, correction of, or erasure of your data, and may object to its processing. To exercise these rights, contact the data controller below.",
+    "controllerTitle": "Data controller",
+    "controllerUnconfigured": "The operator of this system has not yet published their contact details. Please ask a staff member.",
+    "contactEmail": "Email",
+    "website": "Website",
+    "fullPolicyLink": "Read the full privacy policy"
   },
   "session": {
     "event": "Event:",

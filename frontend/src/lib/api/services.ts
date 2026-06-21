@@ -3,7 +3,7 @@
  */
 
 import { apiClient } from './client';
-import type { Family, Child, Session, CheckInRecord, AuditLog, PrintQueueItem, QRInfoResponse, Printer, PrinterWithToken, PrintJob, Event } from './types';
+import type { Family, Child, Session, CheckInRecord, AuditLog, PrintQueueItem, QRInfoResponse, PrivacyInfoResponse, Printer, PrinterWithToken, PrintJob, Event } from './types';
 import type { FamilyApiResponse } from '$lib/checkin/types';
 
 /**
@@ -50,6 +50,16 @@ export const qrApi = {
    * Returns 404 if code is invalid or child is not currently checked in.
    */
   getInfo: (code: string) => apiClient.get<QRInfoResponse>(`/qr/${code}/`),
+};
+
+/**
+ * Privacy / data-controller API endpoints (public)
+ */
+export const privacyApi = {
+  /**
+   * Get the operator-configured data-controller details for the privacy page.
+   */
+  getInfo: () => apiClient.get<PrivacyInfoResponse>('/privacy/'),
 };
 
 /**
