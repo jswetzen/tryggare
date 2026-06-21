@@ -8,25 +8,33 @@ Persistent dev helpers (anything reusable across sessions) go under `scripts/`. 
 
 ## Deployment Environments
 
-**Two deployment modes exist. Dev may not always be up — use `make status` to check.**
+**Three Compose setups exist. The two local ones below (dev + prod-like) are
+for development only and hold no real user data — they run on seeded/throwaway
+data with demo mode enabled (`admin` / `admin123`). Either may be down; use
+`make status` to check.**
 
-### Production Deployment (docker-compose.prod.yml)
-- **Single container**: Django serves both API and built frontend static files
-- **Access**: `http://localhost:8080` (both frontend and backend)
-- **Database**: PostgreSQL on port 5433
-- **Settings**: `config.settings.prod`
-- **Auto-rebuild**: `make watch` (or `make watch-prod`) runs on the **host server** — not available to Claude Code (no podman access in the container). To trigger a rebuild, write to `restart.txt`.
-- **Manual rebuild**: No podman access from Claude Code. The only way to trigger a rebuild is to write to `restart.txt`.
-- **Testing**: `./verification.sh --test` (checks build logs, disk space, then runs tests)
+> **`.env` files in this repo are safe to read and non-sensitive.** Because no
+> environment here holds real data, the usual caution around `.env`/`.env.example`
+> does not apply to *this* repository.
 
-### Development Environment (docker-compose.yml)
-- **Separate containers**: Frontend (SvelteKit dev server) and Backend (Django)
-- **Access**: Frontend `http://localhost:5173`, Backend `http://localhost:8000`
+### Dev (`docker-compose.yml`) — localhost only, no rebuild needed
+- **Separate containers**: Frontend (SvelteKit dev server) + Backend (Django)
+- **Access**: Frontend `http://localhost:5173`, Backend `http://localhost:8000` (localhost only — not exposed on the LAN)
 - **Database**: PostgreSQL on port 5432
 - **Settings**: `config.settings.local`
-- **Auto-rebuild**: `make watch` (or `make watch-dev`) runs on the **host server** — not available to Claude Code.
-- **Restart**: Hot reloading should cover most code changes, but if you have to restart, trigger the auto-rebuild by writing to `checks-ins/restart.txt`.
+- **Refresh**: hot reload — code changes apply **without a rebuild**. If you must force a restart, write to `restart.txt`.
 - **Note**: `backend/config/settings/local.py` overrides `STATIC_URL = "/static/"` to avoid conflicts with `MEDIA_URL` in dev mode
+
+### Prod-like (`docker-compose.prod.yml`) — LAN-accessible, rebuild on change
+- **Single container**: Django serves both the API and the **built** frontend static files
+- **Access**: `http://localhost:8080`, also reachable on the LAN
+- **Database**: PostgreSQL on port 5433
+- **Settings**: `config.settings.prod`
+- **Refresh**: serves a built bundle, so changes require a **rebuild**. A host-side watcher (`make watch` / `nu watch.nu`) rebuilds on change — trigger it by writing to `restart.txt`, then `make wait-prod`. This is a prod-*like* target for local testing, **not** the real deployment.
+- **Testing**: `./verification.sh --test` (checks build logs, disk space, then runs tests)
+
+### Portainer (`docker-compose.portainer.yml`) — the actual production deployment
+- This Compose file is what's used for the real production deployment (managed via Portainer). The dev and prod-like setups above are local development environments only.
 
 **Backend & Frontend:**
 - **Backend**: `backend/` directory with Django
