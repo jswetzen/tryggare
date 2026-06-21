@@ -13,7 +13,7 @@ import { env } from '$env/dynamic/private';
 const API_BASE_URL = env.VITE_API_BASE_URL || 'http://localhost:8000';
 
 // Public paths that don't require authentication
-const PUBLIC_PATHS = ['/login', '/qr', '/debug-cookies', '/__fallback'];
+const PUBLIC_PATHS = ['/login', '/qr', '/privacy', '/debug-cookies', '/__fallback'];
 
 export const handle: Handle = async ({ event, resolve }) => {
   const path = event.url.pathname;
