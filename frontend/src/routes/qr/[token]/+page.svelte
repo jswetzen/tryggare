@@ -18,6 +18,7 @@
   let pickedUpBy = $state('');
   let showCheckoutModal = $state(false);
   let printers = $state<Printer[]>([]);
+  let printersLoaded = $state(false);
   let showPrinterPicker = $state(false);
 
   // Age computed from birthdate (whole years)
@@ -36,9 +37,13 @@
     loadQRInfo();
   });
 
-  // Only logged-in staff can print; load printers when authenticated.
+  // Only logged-in staff can print; load printers once when authenticated.
+  // Guard on printersLoaded rather than printers.length: an empty printer list
+  // would otherwise leave the condition true and re-trigger this effect on every
+  // resolution, refetching forever.
   $effect(() => {
-    if ($authStore.user && printers.length === 0) {
+    if ($authStore.user && !printersLoaded) {
+      printersLoaded = true;
       printingApi
         .getPrinters()
         .then((p) => (printers = p))

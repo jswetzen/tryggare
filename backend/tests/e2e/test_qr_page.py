@@ -152,17 +152,17 @@ class TestQRPage(E2ETestBase, TestDataMixin):
         time.sleep(3)
 
         page_source = self.driver.page_source
-        is_checked_in = (
-            "checked in" in page_source.lower()
-            or "incheckad" in page_source.lower()
-            or self.test_session.name in page_source
+
+        # The session name only renders on the check-in status card when the
+        # child is actively checked in, so it's an unambiguous positive signal.
+        # Don't match on "incheckad" alone: it's a substring of the Swedish
+        # not-checked-in copy ("Ej incheckad" / "inte ... incheckad"), so that
+        # would false-pass even when child info never loaded.
+        assert self.test_session.name in page_source, (
+            f"Session name '{self.test_session.name}' not displayed — "
+            "the checked-in status card did not render"
         )
-
-        assert is_checked_in, "Checked-in status not displayed"
-        print("   ✓ 'Checked in' status displayed")
-
-        if self.test_session.name in page_source:
-            print(f"   ✓ Session name displayed: {self.test_session.name}")
+        print(f"   ✓ Checked-in status shown with session: {self.test_session.name}")
 
         print("\n" + "=" * 60)
         print("✅ Check-in status display test PASSED")

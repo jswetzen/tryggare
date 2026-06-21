@@ -1,5 +1,16 @@
 .PHONY: help test test-e2e test-unit test-integration rebuild-dev rebuild-prod clean coverage ping
 
+# E2E tests run on the host but drive the already-running containers, so the
+# pytest process must talk to that stack's PostgreSQL. Without DATABASE_URL the
+# settings fall back to a local SQLite file (see config/settings/base.py), which
+# the running backend never reads — the browser then sees no test data and every
+# data-dependent assertion fails. Override these if your dev/prod DB differs.
+DEV_DATABASE_URL  ?= postgresql://postgres:postgres@localhost:5432/checkins
+PROD_DATABASE_URL ?= postgresql://postgres:postgres@localhost:5433/checkins
+
+DEV_E2E_ENV  = FRONTEND_URL=http://localhost:5173 BACKEND_URL=http://localhost:8000 DATABASE_URL=$(DEV_DATABASE_URL)
+PROD_E2E_ENV = FRONTEND_URL=http://localhost:8080 BACKEND_URL=http://localhost:8080 DATABASE_URL=$(PROD_DATABASE_URL)
+
 # Default target
 help:
 	@echo "Conference Check-In System - Test & Build Commands"
@@ -57,59 +68,59 @@ test-e2e-dev:
 	@echo "Running E2E tests against development environment..."
 	@echo "Frontend: http://localhost:5173"
 	@echo "Backend:  http://localhost:8000"
-	@FRONTEND_URL=http://localhost:5173 BACKEND_URL=http://localhost:8000 \
+	@$(DEV_E2E_ENV) \
 		uv run --group test pytest tests/e2e/ -v -m e2e
 
 test-e2e-prod:
 	@echo "Running E2E tests against production environment..."
 	@echo "Frontend & Backend: http://localhost:8080"
-	@FRONTEND_URL=http://localhost:8080 BACKEND_URL=http://localhost:8080 \
+	@$(PROD_E2E_ENV) \
 		uv run --group test pytest tests/e2e/ -v -m e2e
 
 # Specific test suites (default to dev environment)
 test-auth:
 	@echo "Running authentication tests..."
-	@FRONTEND_URL=http://localhost:5173 BACKEND_URL=http://localhost:8000 \
+	@$(DEV_E2E_ENV) \
 		uv run --group test pytest tests/e2e/test_auth.py -v
 
 test-checkin:
 	@echo "Running check-in flow tests..."
-	@FRONTEND_URL=http://localhost:5173 BACKEND_URL=http://localhost:8000 \
+	@$(DEV_E2E_ENV) \
 		uv run --group test pytest tests/e2e/test_checkin_flow.py -v
 
 test-checkout:
 	@echo "Running check-out flow tests..."
-	@FRONTEND_URL=http://localhost:5173 BACKEND_URL=http://localhost:8000 \
+	@$(DEV_E2E_ENV) \
 		uv run --group test pytest tests/e2e/test_checkout_flow.py -v
 
 test-qr:
 	@echo "Running QR page tests..."
-	@FRONTEND_URL=http://localhost:5173 BACKEND_URL=http://localhost:8000 \
+	@$(DEV_E2E_ENV) \
 		uv run --group test pytest tests/e2e/test_qr_page.py -v
 
 test-print:
 	@echo "Running print queue tests..."
-	@FRONTEND_URL=http://localhost:5173 BACKEND_URL=http://localhost:8000 \
+	@$(DEV_E2E_ENV) \
 		uv run --group test pytest tests/e2e/test_print_queue.py -v
 
 test-i18n:
 	@echo "Running i18n tests..."
-	@FRONTEND_URL=http://localhost:5173 BACKEND_URL=http://localhost:8000 \
+	@$(DEV_E2E_ENV) \
 		uv run --group test pytest tests/e2e/test_i18n.py -v
 
 test-navigation:
 	@echo "Running navigation tests..."
-	@FRONTEND_URL=http://localhost:5173 BACKEND_URL=http://localhost:8000 \
+	@$(DEV_E2E_ENV) \
 		uv run --group test pytest tests/e2e/test_navigation.py -v
 
 test-supervised:
 	@echo "Running supervised check-in tests..."
-	@FRONTEND_URL=http://localhost:5173 BACKEND_URL=http://localhost:8000 \
+	@$(DEV_E2E_ENV) \
 		uv run --group test pytest tests/e2e/test_supervised_checkin_simple.py -v
 
 test-qr-scan:
 	@echo "Running QR scan check-in tests..."
-	@FRONTEND_URL=http://localhost:5173 BACKEND_URL=http://localhost:8000 \
+	@$(DEV_E2E_ENV) \
 		uv run --group test pytest tests/e2e/test_qr_scan_checkin.py -v -s
 
 # Utility commands
