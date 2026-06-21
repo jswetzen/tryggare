@@ -175,6 +175,26 @@ REST_FRAMEWORK = {
     },
 }
 
+# GDPR / data-protection settings
+#
+# Tryggare is self-hosted: each operator is the data controller and is
+# responsible for filling in these values (privacy page and DSAR responses
+# read them). Defaults are intentionally empty so an unconfigured deployment
+# is obviously unconfigured rather than silently wrong.
+#
+# Retention is enforced by the `anonymize_expired_data` management command
+# (run it on a schedule, e.g. via cron). It anonymises PII on families that
+# have been inactive (by last_participation_date) for longer than
+# DATA_RETENTION_DAYS, keeping rows/timestamps for safeguarding/aggregate
+# integrity. Audit logs grow forever unless pruned with --include-audit-logs.
+DATA_RETENTION_DAYS = int(os.getenv("DATA_RETENTION_DAYS", "1095"))  # 3 years
+AUDIT_LOG_RETENTION_DAYS = int(os.getenv("AUDIT_LOG_RETENTION_DAYS", "1095"))
+
+DATA_CONTROLLER_NAME = os.getenv("DATA_CONTROLLER_NAME", "")
+DATA_CONTROLLER_CONTACT_EMAIL = os.getenv("DATA_CONTROLLER_CONTACT_EMAIL", "")
+DATA_CONTROLLER_URL = os.getenv("DATA_CONTROLLER_URL", "")
+PRIVACY_POLICY_URL = os.getenv("PRIVACY_POLICY_URL", "")
+
 CHANNEL_LAYERS = {
     "default": {
         "BACKEND": "channels_redis.core.RedisChannelLayer",

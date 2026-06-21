@@ -242,7 +242,29 @@
     "reprintOpeningPage": "Öppnar utskriftssida...",
     "choosePrinter": "Välj skrivare",
     "choosePrinterHelp": "Välj vilken skrivare etiketten ska skickas till.",
-    "contactStaff": "Kontakta personal för mer information."
+    "contactStaff": "Kontakta personal för mer information.",
+    "privacyNotice": "Dessa uppgifter behandlas för att skydda barn under evenemanget.",
+    "privacyLink": "Integritetspolicy"
+  },
+  "privacy": {
+    "pageTitle": "Integritetspolicy",
+    "title": "Integritetspolicy",
+    "intro": "Detta system används för att säkert checka in och ut barn under evenemanget. Här förklaras vilka uppgifter som lagras, varför och vilka rättigheter du har.",
+    "dataWeCollectTitle": "Vad vi samlar in",
+    "dataWeCollect": "Barns namn, födelsedatum, allergier och medicinska anteckningar samt kontaktuppgifter till föräldrar/vårdnadshavare. Allergi- och hälsouppgifter är känsliga personuppgifter.",
+    "purposeTitle": "Varför vi använder uppgifterna",
+    "purpose": "För att checka in och ut barn, säkerställa att de hämtas av rätt person och hantera allergier eller medicinska behov under evenemanget.",
+    "legalBasisTitle": "Rättslig grund",
+    "legalBasis": "Berättigat intresse av att skydda barn under evenemanget, samt skydd av grundläggande intressen när det gäller hälsouppgifter.",
+    "retentionTitle": "Hur länge vi sparar uppgifterna",
+    "retention": "Inaktiva uppgifter anonymiseras efter {days} dagar. Verksamhets- och revisionsuppgifter kan sparas längre i anonymiserad form.",
+    "rightsTitle": "Dina rättigheter",
+    "rights": "Du kan begära att få tillgång till, rätta eller radera dina uppgifter och invända mot behandlingen. Kontakta personuppgiftsansvarig nedan för att utöva dessa rättigheter.",
+    "controllerTitle": "Personuppgiftsansvarig",
+    "controllerUnconfigured": "Den som driver systemet har ännu inte publicerat sina kontaktuppgifter. Fråga en medarbetare.",
+    "contactEmail": "E-post",
+    "website": "Webbplats",
+    "fullPolicyLink": "Läs hela integritetspolicyn"
   },
   "session": {
     "event": "Evenemang:",

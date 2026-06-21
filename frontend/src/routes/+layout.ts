@@ -22,7 +22,12 @@ interface AuthCheckResponse {
 }
 
 export async function load({ url }) {
-  if (!browser || url.pathname === '/login') {
+  // Skip auth check entirely on login page, the privacy notice, or if not in
+  // browser — both are publicly accessible without logging in. QR pages are
+  // also publicly accessible but are handled separately below: they still
+  // attempt an auth check (without redirecting) so logged-in staff see the
+  // fuller view.
+  if (!browser || url.pathname === '/login' || url.pathname === '/privacy') {
     return { user: null };
   }
 
