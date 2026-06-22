@@ -22,24 +22,27 @@ No PRINTER_IDENTIFIER set and discovery failed
 
 This is **not** fixed by adding the printer to CUPS or joining `lpadmin` — those
 govern the CUPS/IPP path, not raw libusb access. On Debian-based systems (Debian,
-Ubuntu, Linux Mint) the fix is a udev rule **plus** `lp` group membership:
+Ubuntu, Linux Mint) the fix is a udev rule assigning the node to `plugdev`, the
+conventional libusb/hotplug group (already in a normal desktop session, so no
+relogin is usually needed). It is *not* `lp` — `lp` is for the kernel printer
+node (`/dev/usb/lp0`) that only the `linux_kernel` backend uses:
 
 ```bash
 sudo tee /etc/udev/rules.d/99-brother-ql.rules >/dev/null <<'EOF'
-SUBSYSTEM=="usb", ATTRS{idVendor}=="04f9", GROUP="lp", MODE="0664"
+SUBSYSTEM=="usb", ATTRS{idVendor}=="04f9", GROUP="plugdev", MODE="0664"
 EOF
-sudo usermod -aG lp $USER
 sudo udevadm control --reload-rules && sudo udevadm trigger
-# then log out/in (or `newgrp lp`) and replug the printer
+# replug the printer. If `id` doesn't list plugdev, add yourself and re-login:
+#   sudo usermod -aG plugdev $USER   # then log out/in or `newgrp plugdev`
 ```
 
-Without the udev rule the raw node stays `root:root`, so being in `lp` (or
-`lpadmin`) changes nothing for `pyusb`. With the rule it becomes `root:lp` +
-mode `0664`, and any `lp` member can open it. Confirm with:
+Without the udev rule the raw node stays `root:root`, so group membership
+changes nothing for `pyusb`. With the rule it becomes `root:plugdev` +
+mode `0664`, and any `plugdev` member can open it. Confirm with:
 
 ```bash
 lsusb -d 04f9:                     # note the Bus/Device numbers
-ls -l /dev/bus/usb/<bus>/<device>  # expect: crw-rw-r-- root lp
+ls -l /dev/bus/usb/<bus>/<device>  # expect: crw-rw-r-- root plugdev
 ```
 
 If you'd rather avoid the udev rule, set `PRINTER_BACKEND=linux_kernel`: it

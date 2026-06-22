@@ -117,37 +117,39 @@ owned by `root` by default, so running as a normal user fails with:
 Printer discovery failed: [Errno 13] Access denied (insufficient permissions)
 ```
 
-Joining the `lp` group is only **half** the fix — you also need a **udev rule**
-that assigns the printer to that group. (Adding the printer to **CUPS** or
-joining `lpadmin` does *not* help the `pyusb` backend: CUPS is a separate path
-and can even hold the device open. See [troubleshooting](docs/troubleshooting.md).)
+The fix is a **udev rule** that assigns the printer's raw USB node to a group you
+belong to. Use `plugdev` — the conventional group for libusb/hotplug devices,
+already present in a normal Debian/Ubuntu desktop session from first login (so no
+relogin is usually needed). Note this is *not* the `lp` group: `lp` governs the
+kernel printer node (`/dev/usb/lp0`) used by the `linux_kernel` backend and CUPS,
+not the libusb path `pyusb` uses. (Adding the printer to **CUPS** or joining
+`lpadmin` does *not* help `pyusb` either — CUPS is a separate path and can even
+hold the device open. See [troubleshooting](docs/troubleshooting.md).)
 
 ```bash
-# 1. Install a udev rule giving the lp group rw access to Brother QL devices.
+# 1. Install a udev rule giving the plugdev group rw access to Brother QL devices.
 sudo tee /etc/udev/rules.d/99-brother-ql.rules >/dev/null <<'EOF'
-# Brother QL label printers (vendor 04f9) — grant the lp group rw access
-SUBSYSTEM=="usb", ATTRS{idVendor}=="04f9", GROUP="lp", MODE="0664"
+# Brother QL label printers (vendor 04f9) — grant the plugdev group rw access
+SUBSYSTEM=="usb", ATTRS{idVendor}=="04f9", GROUP="plugdev", MODE="0664"
 EOF
 
-# 2. Make sure you're in the lp group.
-sudo usermod -aG lp $USER
-
-# 3. Reload udev and re-trigger (or just unplug/replug the printer).
+# 2. Reload udev and re-trigger (or just unplug/replug the printer).
 sudo udevadm control --reload-rules
 sudo udevadm trigger
 
-# 4. Log out and back in (or run `newgrp lp`) so the group change takes effect,
-#    then re-run ./start.sh
+# 3. Re-run ./start.sh. Most desktop users are already in plugdev — if `id`
+#    doesn't list it, add yourself and re-login (or `newgrp plugdev`):
+#    sudo usermod -aG plugdev $USER
 ```
 
-Verify the device node is now group-`lp` and group-writable:
+Verify the device node is now group-`plugdev` and group-writable:
 
 ```bash
 lsusb -d 04f9:                     # note the Bus/Device numbers
-ls -l /dev/bus/usb/<bus>/<device>  # expect: crw-rw-r-- root lp
+ls -l /dev/bus/usb/<bus>/<device>  # expect: crw-rw-r-- root plugdev
 ```
 
-> **nushell:** `sudo usermod -aG lp,lpadmin $env.USER` adds you to the groups,
+> **nushell:** the group-add fallback is `sudo usermod -aG plugdev $env.USER`,
 > but without the udev rule above the raw USB node stays `root:root` and the
 > membership has no effect on the `pyusb` backend.
 
@@ -166,9 +168,9 @@ sudo udevadm control --reload-rules && sudo udevadm trigger
 
 The catch: `uaccess` only grants the user logged in at the local **graphical
 seat**. It gives **nothing** to a systemd service, an SSH session, or a
-kiosk/appliance running as a dedicated user — for those, use the `GROUP="lp"`
-rule above (it works regardless of how the client is launched), which is why
-that's the default here.
+kiosk/appliance running as a dedicated user — for those, use the `GROUP="plugdev"`
+rule above (it works regardless of how the client is launched, provided the
+service user is in `plugdev`), which is why that's the default here.
 
 **Alternative — the `linux_kernel` backend.** If you'd rather not add a udev
 rule, set `PRINTER_BACKEND=linux_kernel` in `.env`. It prints through the

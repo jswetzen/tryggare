@@ -48,10 +48,16 @@ STAFF_PASSWORD = os.environ.get("STAFF_PASSWORD", "")
 _CRED_ENV_KEYS = ("STAFF_USERNAME", "STAFF_PASSWORD")
 
 PRINTER_NAME = os.environ.get("PRINTER_NAME", "Label Printer")
-PRINTER_IDENTIFIER = os.environ.get("PRINTER_IDENTIFIER", "")  # e.g. usb://0x04f9:0x209c
-PRINTER_BACKEND = os.environ.get("PRINTER_BACKEND", "pyusb")   # pyusb | network | linux_kernel
+PRINTER_IDENTIFIER = os.environ.get(
+    "PRINTER_IDENTIFIER", ""
+)  # e.g. usb://0x04f9:0x209c
+PRINTER_BACKEND = os.environ.get(
+    "PRINTER_BACKEND", "pyusb"
+)  # pyusb | network | linux_kernel
 PRINTER_MODEL = os.environ.get("PRINTER_MODEL", "QL-810W")
-LABEL_SIZE = os.environ.get("LABEL_SIZE", "29x90")  # die-cut: 29x90, 62x100 | endless: 29, 62
+LABEL_SIZE = os.environ.get(
+    "LABEL_SIZE", "29x90"
+)  # die-cut: 29x90, 62x100 | endless: 29, 62
 
 # Dry-run: skip actual printing (useful for testing)
 DRY_RUN = os.environ.get("DRY_RUN", "false").lower() in ("1", "true", "yes")
@@ -75,13 +81,14 @@ log = logging.getLogger("printer-client")
 # Connection
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 def get_ws_url() -> str:
     """Build the authenticated WebSocket URL (BACKEND_URL + printer token)."""
     base = BACKEND_URL.rstrip("/")
     if base.startswith("https://"):
-        ws_base = "wss://" + base[len("https://"):]
+        ws_base = "wss://" + base[len("https://") :]
     elif base.startswith("http://"):
-        ws_base = "ws://" + base[len("http://"):]
+        ws_base = "ws://" + base[len("http://") :]
     else:
         ws_base = "ws://" + base
     return f"{ws_base}/ws/checkins/?token={quote(PRINTER_TOKEN)}"
@@ -91,6 +98,7 @@ def get_ws_url() -> str:
 # Token bootstrap (first run): log in with staff creds, provision a printer +
 # token, persist the token to .env. Credentials are not used again afterwards.
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 def _resolve_credentials(non_interactive: bool) -> tuple[str, str]:
     """Get staff credentials to provision with.
@@ -194,6 +202,7 @@ def ensure_token(non_interactive: bool) -> None:
 # Label rendering
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 def render_label(label_url: str) -> bytes:
     """
     Fetch the label page and render it to PNG using WeasyPrint + pymupdf.
@@ -218,14 +227,55 @@ def render_label(label_url: str) -> bytes:
 # Printing
 # ─────────────────────────────────────────────────────────────────────────────
 
+# Pixel sizes (landscape: length x width) for common labels, used when
+# brother_ql isn't importable. Keys must be valid brother_ql identifiers.
+KNOWN_SIZES = {
+    "29x90": (991, 306),
+    "62x100": (1164, 618),
+    "29x42": (425, 306),
+}
+
+
+def _valid_label_identifiers() -> list[str]:
+    """All brother_ql label identifiers, or our known-sizes keys as a fallback."""
+    try:
+        from brother_ql.labels import ALL_LABELS
+
+        return [label.identifier for label in ALL_LABELS]
+    except ImportError:
+        return list(KNOWN_SIZES)
+
+
+def validate_label_size() -> None:
+    """Fail fast if LABEL_SIZE isn't a real brother_ql label identifier.
+
+    A wrong value (e.g. endless "29" when die-cut "29x90" is loaded, or a typo)
+    otherwise prints mis-sized garbage or fails obscurely deep in a print job.
+    """
+    valid = _valid_label_identifiers()
+    if LABEL_SIZE in valid:
+        return
+    raise SystemExit(
+        f"LABEL_SIZE='{LABEL_SIZE}' is not a known brother_ql label.\n"
+        f"It must match the media loaded in the printer. Die-cut labels use a\n"
+        f"WIDTHxLENGTH identifier (e.g. 29x90); endless tape uses just the width\n"
+        f"(e.g. 29). Note '29' (endless) and '29x90' (die-cut) are different media.\n"
+        f"Valid identifiers: {', '.join(sorted(valid))}"
+    )
+
+
 def get_label_target_size() -> tuple[int, int]:
     """
     Return the expected (width, height) in pixels for the rendered label
     based on LABEL_SIZE. Landscape orientation (length x width).
     brother_ql's rotate="90" rotates it to portrait for printing.
+
+    LABEL_SIZE is validated at startup (validate_label_size), so it is a known
+    identifier by the time we get here.
     """
     try:
         from brother_ql.labels import ALL_LABELS
+
         for label in ALL_LABELS:
             if label.identifier == LABEL_SIZE:
                 # dots_printable is (width, length) in portrait
@@ -233,12 +283,7 @@ def get_label_target_size() -> tuple[int, int]:
                 return (label.dots_printable[1], label.dots_printable[0])
     except ImportError:
         pass
-    # Fallback for common sizes
-    KNOWN_SIZES = {
-        "29x90": (991, 306),
-        "62x100": (1164, 618),
-        "29x42": (425, 306),
-    }
+    # brother_ql unavailable: use our known pixel sizes for common labels.
     return KNOWN_SIZES.get(LABEL_SIZE, (991, 306))
 
 
@@ -264,8 +309,13 @@ def print_label(png_bytes: bytes) -> None:
         image = Image.open(io.BytesIO(png_bytes))
         target_w, target_h = get_label_target_size()
 
-        log.info("Screenshot %dx%d, target %dx%d (landscape)",
-                 image.size[0], image.size[1], target_w, target_h)
+        log.info(
+            "Screenshot %dx%d, target %dx%d (landscape)",
+            image.size[0],
+            image.size[1],
+            target_w,
+            target_h,
+        )
 
         if image.size != (target_w, target_h):
             image = image.resize((target_w, target_h), Image.LANCZOS)
@@ -303,6 +353,7 @@ def print_label(png_bytes: bytes) -> None:
 # Main WebSocket loop
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 async def run_client() -> None:
     """Open WS, register printer, handle jobs. Raises on disconnect."""
     ws_url = get_ws_url()
@@ -317,10 +368,14 @@ async def run_client() -> None:
         log.info("Connected")
 
         # Register printer (identity comes from the token; we only send a name)
-        await ws.send(json.dumps({
-            "type": "printer_register",
-            "name": PRINTER_NAME,
-        }))
+        await ws.send(
+            json.dumps(
+                {
+                    "type": "printer_register",
+                    "name": PRINTER_NAME,
+                }
+            )
+        )
 
         # Start heartbeat task
         heartbeat_task = asyncio.ensure_future(heartbeat_loop(ws))
@@ -336,7 +391,11 @@ async def run_client() -> None:
 
                 if msg_type == "printer_registered_self":
                     my_printer_id = msg.get("data", {}).get("printer_id")
-                    log.info("Registered as printer '%s' (id: %s)", PRINTER_NAME, my_printer_id)
+                    log.info(
+                        "Registered as printer '%s' (id: %s)",
+                        PRINTER_NAME,
+                        my_printer_id,
+                    )
                     continue
 
                 if msg_type == "print_job":
@@ -374,19 +433,27 @@ async def handle_print_job(ws, job_id: str, label_url: str) -> None:
         log.info("Printing label for job %s", job_id)
         print_label(png_bytes)
 
-        await ws.send(json.dumps({
-            "type": "print_job_completed",
-            "job_id": job_id,
-        }))
+        await ws.send(
+            json.dumps(
+                {
+                    "type": "print_job_completed",
+                    "job_id": job_id,
+                }
+            )
+        )
         log.info("Job %s completed", job_id)
     except Exception as exc:
         log.error("Job %s failed: %s", job_id, exc)
         try:
-            await ws.send(json.dumps({
-                "type": "print_job_failed",
-                "job_id": job_id,
-                "reason": str(exc),
-            }))
+            await ws.send(
+                json.dumps(
+                    {
+                        "type": "print_job_failed",
+                        "job_id": job_id,
+                        "reason": str(exc),
+                    }
+                )
+            )
         except Exception:
             pass
 
@@ -395,12 +462,15 @@ async def handle_print_job(ws, job_id: str, label_url: str) -> None:
 # Startup checks
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 def check_ipp_usb() -> None:
     """Warn if ipp-usb service is active — it causes USB reset loops."""
     try:
         result = subprocess.run(
             ["systemctl", "is-active", "ipp-usb.service"],
-            capture_output=True, text=True, timeout=5,
+            capture_output=True,
+            text=True,
+            timeout=5,
         )
         if result.stdout.strip() == "active":
             log.warning("=" * 60)
@@ -421,22 +491,28 @@ def discover_and_check_printer() -> str:
 
     if PRINTER_BACKEND == "network":
         if not PRINTER_IDENTIFIER:
-            log.error("PRINTER_IDENTIFIER is required for network backend (e.g. tcp://192.168.1.50)")
+            log.error(
+                "PRINTER_IDENTIFIER is required for network backend (e.g. tcp://192.168.1.50)"
+            )
             sys.exit(1)
         log.info("Network backend: %s", PRINTER_IDENTIFIER)
         try:
             from brother_ql.backends.helpers import get_network_status
+
             status_info = get_network_status(PRINTER_IDENTIFIER)
             if status_info:
                 log.info("Printer status via SNMP: %s", status_info)
             else:
-                log.warning("Could not query printer status via SNMP (puresnmp not installed?)")
+                log.warning(
+                    "Could not query printer status via SNMP (puresnmp not installed?)"
+                )
         except Exception as exc:
             log.warning("Could not query printer status: %s", exc)
         return PRINTER_IDENTIFIER
 
     try:
         from brother_ql.backends.helpers import discover
+
         printers = discover(PRINTER_BACKEND)
     except Exception as exc:
         log.warning("Printer discovery failed: %s", exc)
@@ -450,11 +526,16 @@ def discover_and_check_printer() -> str:
             PRINTER_IDENTIFIER = printers[0]["identifier"]
             log.info("Auto-discovered printer: %s", PRINTER_IDENTIFIER)
         elif len(printers) == 0:
-            log.error("No printers found via %s backend. Is the printer connected?", PRINTER_BACKEND)
+            log.error(
+                "No printers found via %s backend. Is the printer connected?",
+                PRINTER_BACKEND,
+            )
             sys.exit(1)
         else:
             identifiers = [p["identifier"] for p in printers]
-            log.error("Multiple printers found — set PRINTER_IDENTIFIER: %s", identifiers)
+            log.error(
+                "Multiple printers found — set PRINTER_IDENTIFIER: %s", identifiers
+            )
             sys.exit(1)
     else:
         log.info("Using configured printer: %s", PRINTER_IDENTIFIER)
@@ -462,6 +543,7 @@ def discover_and_check_printer() -> str:
     # Query printer status
     try:
         from brother_ql.backends.helpers import get_printer, get_status
+
         printer = get_printer(PRINTER_IDENTIFIER, PRINTER_BACKEND)
         status_info = get_status(printer)
         log.info("Printer status: %s", status_info)
@@ -476,9 +558,17 @@ def discover_and_check_printer() -> str:
 # Entry point with reconnect logic
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 async def main(non_interactive: bool = False) -> None:
-    log.info("Printer client starting — model=%s, label=%s, backend=%s",
-             PRINTER_MODEL, LABEL_SIZE, PRINTER_BACKEND)
+    log.info(
+        "Printer client starting — model=%s, label=%s, backend=%s",
+        PRINTER_MODEL,
+        LABEL_SIZE,
+        PRINTER_BACKEND,
+    )
+
+    # Catch a wrong/typo'd LABEL_SIZE up front, before provisioning/connecting.
+    validate_label_size()
 
     # First run with no token: provision one (interactive login by default, or
     # from STAFF_* env vars). Subsequent runs reuse the saved token. With
@@ -506,8 +596,7 @@ async def main(non_interactive: bool = False) -> None:
             await run_client()
             # If we reach here without exception, WS closed cleanly
             backoff = 1
-        except (websockets.ConnectionClosed,
-                websockets.WebSocketException) as exc:
+        except (websockets.ConnectionClosed, websockets.WebSocketException) as exc:
             # A 4401 close means the token was rejected (revoked/invalid). If we
             # still have bootstrap credentials, re-provision a fresh one.
             if getattr(exc, "code", None) == 4401:
@@ -521,7 +610,9 @@ async def main(non_interactive: bool = False) -> None:
                     "STAFF_PASSWORD."
                 )
             else:
-                log.warning("WebSocket disconnected: %s — reconnecting in %ds", exc, backoff)
+                log.warning(
+                    "WebSocket disconnected: %s — reconnecting in %ds", exc, backoff
+                )
         except Exception as exc:
             log.error("Unexpected error: %s — reconnecting in %ds", exc, backoff)
 
