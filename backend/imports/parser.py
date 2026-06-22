@@ -63,44 +63,53 @@ def _parse_date(date_str: str) -> date | None:
         return None
 
 
-def _get_alder_key(booking: dict, prefix: str) -> str | None:
+def _get_prefixed_key(booking: dict, prefix: str, base: str) -> str | None:
     """
-    Find the Ålder key for a given prefix — prefixed variants only.
+    Find a "{prefix} {base}" key for a given prefix — prefixed variants only,
+    tolerating a trailing space on the prefix and/or the key.
 
     Returns the explicit prefixed key if present, otherwise None.
-    Standalone "Ålder" / "Ålder " keys are handled by build_alder_map().
+    Standalone "{base}" keys are handled by build_standalone_map().
     """
     stripped = prefix.rstrip()
     for candidate in (
-        f"{prefix} Ålder",
-        f"{prefix} Ålder ",
-        f"{stripped} Ålder",
-        f"{stripped} Ålder ",
+        f"{prefix} {base}",
+        f"{prefix} {base} ",
+        f"{stripped} {base}",
+        f"{stripped} {base} ",
     ):
         if candidate in booking:
             return candidate
     return None
 
 
-def build_alder_map(booking: dict, prefixes: list[str]) -> dict[str, str | None]:
-    """
-    Pre-assign an Ålder value to each prefix by processing prefixes in
-    document order (the order their First Name keys appear in the booking).
+def _get_alder_key(booking: dict, prefix: str) -> str | None:
+    """Find the prefixed Ålder key for a given prefix (or None)."""
+    return _get_prefixed_key(booking, prefix, "Ålder")
 
-    The external booking system places a standalone "Ålder" (or "Ålder ")
-    key immediately after each child-prefix block.  Because the same key
-    name repeats, parse_json_with_duplicate_keys() collects all occurrences
-    into a _DuplicateList at a single dict position, in document order.
+
+def build_standalone_map(
+    booking: dict, prefixes: list[str], base: str
+) -> dict[str, str | None]:
+    """
+    Pre-assign a value for ``base`` (e.g. "Ålder" or "Allergier") to each
+    prefix by processing prefixes in document order (the order their First
+    Name keys appear in the booking).
+
+    The external booking system places a standalone "{base}" key immediately
+    after each child-prefix block.  Because the same key name repeats,
+    parse_json_with_duplicate_keys() collects all occurrences into a
+    _DuplicateList at a single dict position, in document order.
 
     Strategy:
     1. Sort prefixes by the position of their First Name key in the booking
        (document order), so we consume values in the same order the source
        file was written.
-    2. For each prefix with an explicit prefixed Ålder key, use it directly.
+    2. For each prefix with an explicit prefixed "{base}" key, use it directly.
     3. For each prefix using a standalone key, consume the next unconsumed
        value from the appropriate _DuplicateList (or plain string).
 
-    Returns {prefix: alder_value_string_or_None}.
+    Returns {prefix: value_string_or_None}.
     """
     result: dict[str, str | None] = {}
     keys = list(booking.keys())
@@ -119,8 +128,8 @@ def build_alder_map(booking: dict, prefixes: list[str]) -> dict[str, str | None]
     cursors: dict[str, int] = {}
 
     for prefix in ordered_prefixes:
-        # 1. Prefixed Ålder key — unambiguous, use directly.
-        explicit_key = _get_alder_key(booking, prefix)
+        # 1. Prefixed key — unambiguous, use directly.
+        explicit_key = _get_prefixed_key(booking, prefix, base)
         if explicit_key:
             val = booking[explicit_key]
             if isinstance(val, _DuplicateList):
@@ -129,10 +138,10 @@ def build_alder_map(booking: dict, prefixes: list[str]) -> dict[str, str | None]
                 result[prefix] = val
             continue
 
-        # 2. Standalone key — find the nearest Ålder key *at or after* this
+        # 2. Standalone key — find the nearest "{base}" key *at or after* this
         #    prefix's First Name position that still has unconsumed values.
-        #    Because all occurrences of "Ålder" collapse into one _DuplicateList
-        #    at the first occurrence's position, we must check ALL Ålder keys
+        #    Because all occurrences of "{base}" collapse into one _DuplicateList
+        #    at the first occurrence's position, we must check ALL such keys
         #    (not just those after our start) for remaining capacity.
         first_name_key = f"{prefix} First Name"
         try:
@@ -142,13 +151,13 @@ def build_alder_map(booking: dict, prefixes: list[str]) -> dict[str, str | None]
             continue
 
         # First pass: look forward from start (preferred — closest match).
-        assigned = _try_consume_alder(booking, keys, start, cursors, result, prefix)
+        assigned = _try_consume(booking, keys, start, cursors, result, prefix, base)
 
-        # Second pass: if nothing found forward, scan all Ålder keys for any
-        # remaining unconsumed values (handles cases where all Ålder occurrences
-        # were merged into a _DuplicateList earlier in the dict than this prefix).
+        # Second pass: if nothing found forward, scan all "{base}" keys for any
+        # remaining unconsumed values (handles cases where all occurrences were
+        # merged into a _DuplicateList earlier in the dict than this prefix).
         if not assigned:
-            assigned = _try_consume_alder(booking, keys, 0, cursors, result, prefix)
+            assigned = _try_consume(booking, keys, 0, cursors, result, prefix, base)
 
         if not assigned:
             result[prefix] = None
@@ -156,20 +165,31 @@ def build_alder_map(booking: dict, prefixes: list[str]) -> dict[str, str | None]
     return result
 
 
-def _try_consume_alder(
+def build_alder_map(booking: dict, prefixes: list[str]) -> dict[str, str | None]:
+    """Pre-assign an Ålder (birthdate) value to each prefix in document order."""
+    return build_standalone_map(booking, prefixes, "Ålder")
+
+
+def build_allergier_map(booking: dict, prefixes: list[str]) -> dict[str, str | None]:
+    """Pre-assign an Allergier value to each prefix in document order."""
+    return build_standalone_map(booking, prefixes, "Allergier")
+
+
+def _try_consume(
     booking: dict,
     keys: list,
     start: int,
     cursors: dict,
     result: dict,
     prefix: str,
+    base: str,
 ) -> bool:
     """
-    Scan keys[start:] for a standalone Ålder key with remaining capacity.
+    Scan keys[start:] for a standalone "{base}" key with remaining capacity.
     Consumes one value and writes to result[prefix]. Returns True if assigned.
     """
     for key in keys[start:]:
-        if key.strip() != "Ålder":
+        if key.strip() != base:
             continue
         val = booking[key]
         if isinstance(val, _DuplicateList):
@@ -274,20 +294,24 @@ def discover_child_prefixes(data: dict) -> list[dict]:
 
 
 def parse_children_from_prefix(
-    booking: dict, prefix: str, alder_value: str | None = None
+    booking: dict,
+    prefix: str,
+    alder_value: str | None = None,
+    allergier_value: str | None = None,
 ) -> list[dict]:
     """
     Extract children from a single prefix bucket in a booking.
 
     Handles:
     - Single child: First Name is a string, Ålder is a single DD/MM/YYYY date
-    - Multiple children: First Name is a list, Ålder is pipe-separated dates
+    - Multiple children: First Name is a list, Ålder/Allergier is pipe-separated
     - Trailing space in "Ålder " key
     - Empty names → skip that child
 
-    alder_value: pre-resolved birthdate string from build_alder_map().
-    If not provided, falls back to _get_alder_key() for backward compatibility
-    (works correctly when each prefix has its own prefixed Ålder key).
+    alder_value / allergier_value: pre-resolved strings from build_alder_map()
+    and build_allergier_map().  Allergier, like Ålder, repeats once per prefix
+    group as a standalone key and is pipe-separated per child within a prefix.
+    If not provided, falls back to the prefixed key for backward compatibility.
 
     Returns list of:
     {
@@ -346,10 +370,26 @@ def parse_children_from_prefix(
     if eticket_code:
         eticket_code = str(eticket_code).strip() or None
 
-    # Allergies — use booking-level key (Python dicts deduplicate, so last "Allergier" wins)
-    allergies = booking.get(f"{prefix} Allergier") or booking.get("Allergier") or None
-    if allergies:
-        allergies = str(allergies).strip() or None
+    # Allergies — parallel to Ålder: one standalone "Allergier" per prefix group,
+    # pipe-separated per child within the prefix.  Use the pre-resolved value if
+    # provided; otherwise fall back to the prefixed key (NOT the standalone one,
+    # which is a _DuplicateList that must be assigned in document order).
+    if allergier_value is not None:
+        allergier_val: str | None = allergier_value
+    else:
+        allergier_key = _get_prefixed_key(booking, prefix, "Allergier")
+        raw_allergier = booking.get(allergier_key) if allergier_key else None
+        if isinstance(raw_allergier, _DuplicateList):
+            allergier_val = raw_allergier[0] if raw_allergier else None
+        else:
+            allergier_val = raw_allergier
+
+    if allergier_val and "|" in str(allergier_val):
+        allergies_raw = [s.strip() for s in str(allergier_val).split("|")]
+    elif allergier_val:
+        allergies_raw = [str(allergier_val).strip()]
+    else:
+        allergies_raw = []
 
     children = []
     for i, first_name in enumerate(first_names):
@@ -360,6 +400,7 @@ def parse_children_from_prefix(
         ln = str(last_names[i]).strip() if i < len(last_names) and last_names[i] else ""
         bd_raw = birthdates_raw[i] if i < len(birthdates_raw) else ""
         birthdate = _parse_date(bd_raw)
+        allergies = (allergies_raw[i].strip() if i < len(allergies_raw) else "") or None
 
         children.append(
             {
@@ -450,13 +491,17 @@ def parse_booking(booking: dict, prefix_mappings: dict) -> dict:
     # regardless of the order prefix_mappings is iterated.
     active_prefixes = [p for p, m in prefix_mappings.items() if m != "ignore"]
     alder_map = build_alder_map(booking, active_prefixes)
+    allergier_map = build_allergier_map(booking, active_prefixes)
 
     children = []
     for prefix, mapping in prefix_mappings.items():
         if mapping == "ignore":
             continue
         for child in parse_children_from_prefix(
-            booking, prefix, alder_value=alder_map.get(prefix)
+            booking,
+            prefix,
+            alder_value=alder_map.get(prefix),
+            allergier_value=allergier_map.get(prefix),
         ):
             child["mapping"] = mapping
             children.append(child)
