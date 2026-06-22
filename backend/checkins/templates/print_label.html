@@ -49,7 +49,10 @@
         }
 
         .child-name {
-            font-size: clamp(16pt, 5vw, 24pt);
+            /* Size computed server-side to fit the name box (see
+               fit_child_name_pt in printing/views.py). WeasyPrint runs no JS,
+               so the fit can't be measured in the browser. */
+            font-size: {{ name_pt|default:"18" }}pt;
             font-weight: 900;
             text-transform: uppercase;
             letter-spacing: 0.5pt;
@@ -107,13 +110,6 @@
         .no-print button:active {
             transform: translateY(0);
             box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        }
-
-        /* Fallback for very long names */
-        @media print {
-            .child-name {
-                font-size: 18pt;
-            }
         }
     </style>
 </head>
