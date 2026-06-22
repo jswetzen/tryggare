@@ -547,3 +547,96 @@ class TestRealFormatBooking:
             assert child["birthdate"] is not None, (
                 f"{child['first_name']} {child['last_name']} has no birthdate"
             )
+
+
+# ---------------------------------------------------------------------------
+# Allergier — same standalone-duplicate-key shape as Ålder.
+#
+# In the production export, "Allergier" repeats once per child-prefix group
+# (collapsing into a _DuplicateList) and is pipe-separated per child within a
+# prefix.  The original bug str()'d the whole _DuplicateList and assigned the
+# blob to every child, e.g.
+#   ['Vegetariskt, glutenfritt, sockerfritt|Vegetariskt, sockerfritt',
+#    'Vegetariskt, sockerfritt|Vegetariskt, sockerfritt|Vegetariskt, sockerfritt',
+#    '', '', '']
+# These tests pin the per-child split.
+# ---------------------------------------------------------------------------
+
+_ALLERGY_FORMAT_JSON = (
+    '{"contact13": {'
+    '"Booking ID": "10869",'
+    '"Contact First Name": "Jtest",'
+    '"Contact Last Name": "Enamn",'
+    '"Contact Email": "mail@exempel.se",'
+    # prefix 1: two children, two pipe-separated allergies
+    '"Dagsbiljett barn (torsdag 26 juni) First Name": ["Barn1", "Barn11"],'
+    '"Dagsbiljett barn (torsdag 26 juni) Last Name": ["Enamn", "Enamn"],'
+    '"Ålder": "15/01/2019|07/03/2014",'
+    '"Allergier": "Vegetariskt, glutenfritt, sockerfritt|Vegetariskt, sockerfritt",'
+    # prefix 2: three children, three pipe-separated allergies
+    '"Dagsbiljett barn (fredag 27 juni) First Name": ["Barn2", "Barn22", "Barn222"],'
+    '"Dagsbiljett barn (fredag 27 juni) Last Name": ["Enamn", "Enamn", "Enamn"],'
+    '"Ålder": "21/02/2017|01/01/2016|02/02/2015",'
+    '"Allergier": "Vegetariskt, sockerfritt|Vegetariskt, sockerfritt|Vegetariskt, sockerfritt",'
+    # prefixes 3-5: one child each, no allergies
+    '"Dagsbiljett barn (lördag 28 juni) First Name": "Barn3",'
+    '"Dagsbiljett barn (lördag 28 juni) Last Name": "Enamn",'
+    '"Ålder": "12/02/2019",'
+    '"Allergier": "",'
+    '"Dagsbiljett barn (söndag 29 juni) First Name": "Barn4",'
+    '"Dagsbiljett barn (söndag 29 juni) Last Name": "Enamn",'
+    '"Ålder": "12/02/2018",'
+    '"Allergier": "",'
+    '"Dagsbiljett barn (måndag 30 juni) First Name": "Barn5",'
+    '"Dagsbiljett barn (måndag 30 juni) Last Name": "Enamn",'
+    '"Ålder": "12/02/2017",'
+    '"Allergier": ""'
+    "}}"
+)
+
+ALLERGY_BOOKING = parse_json_with_duplicate_keys(_ALLERGY_FORMAT_JSON)["contact13"]
+
+
+class TestAllergierPerChild:
+    MAPPINGS = {
+        "Dagsbiljett barn (torsdag 26 juni)": "full_event",
+        "Dagsbiljett barn (fredag 27 juni)": "full_event",
+        "Dagsbiljett barn (lördag 28 juni)": "full_event",
+        "Dagsbiljett barn (söndag 29 juni)": "full_event",
+        "Dagsbiljett barn (måndag 30 juni)": "full_event",
+    }
+
+    def _children(self):
+        result = parse_booking(ALLERGY_BOOKING, self.MAPPINGS)
+        return {c["first_name"]: c for c in result["children"]}
+
+    def test_no_child_gets_the_raw_duplicate_list_blob(self):
+        """Regression: nobody should get the str() of the whole _DuplicateList."""
+        for child in parse_booking(ALLERGY_BOOKING, self.MAPPINGS)["children"]:
+            allergies = child["allergies"] or ""
+            assert "[" not in allergies and "'" not in allergies, (
+                f"{child['first_name']} got a list blob: {allergies!r}"
+            )
+
+    def test_first_prefix_splits_allergies_per_child(self):
+        kids = self._children()
+        assert kids["Barn1"]["allergies"] == "Vegetariskt, glutenfritt, sockerfritt"
+        assert kids["Barn11"]["allergies"] == "Vegetariskt, sockerfritt"
+
+    def test_second_prefix_splits_allergies_per_child(self):
+        kids = self._children()
+        assert kids["Barn2"]["allergies"] == "Vegetariskt, sockerfritt"
+        assert kids["Barn22"]["allergies"] == "Vegetariskt, sockerfritt"
+        assert kids["Barn222"]["allergies"] == "Vegetariskt, sockerfritt"
+
+    def test_empty_allergies_become_none(self):
+        kids = self._children()
+        assert kids["Barn3"]["allergies"] is None
+        assert kids["Barn4"]["allergies"] is None
+        assert kids["Barn5"]["allergies"] is None
+
+    def test_allergies_align_with_birthdates(self):
+        """The allergy split must use the same per-child index as Ålder."""
+        kids = self._children()
+        assert kids["Barn1"]["birthdate"] == date(2019, 1, 15)
+        assert kids["Barn11"]["birthdate"] == date(2014, 3, 7)
