@@ -80,19 +80,10 @@
   $effect(() => {
     if (!highlightedFamilyId) return;
     const id = highlightedFamilyId;
-    // Auto-expand the highlighted family.
-    // Use untrack to read manuallyExpanded/manuallyCollapsed without
-    // creating a dependency — otherwise writing back to them would
-    // re-trigger this effect in an infinite loop.
-    untrack(() => {
-      const newManual = new Set(manuallyExpanded);
-      newManual.add(id);
-      manuallyExpanded = newManual;
-      const newCollapsed = new Set(manuallyCollapsed);
-      newCollapsed.delete(id);
-      manuallyCollapsed = newCollapsed;
-    });
-    // Scroll to it after DOM update
+    // The highlighted (QR-scanned) family is expanded declaratively in
+    // expandedFamilies, so it collapses again when the highlight clears
+    // (e.g. when the search field is cleared). Here we only scroll to it
+    // and flash the ring after the DOM updates.
     tick().then(() => {
       document.getElementById(`family-${id}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
       highlightActive = id;
@@ -121,6 +112,12 @@
   // Combined expansion state: (manually expanded OR search-auto-expanded) AND NOT manually collapsed
   const expandedFamilies = $derived.by(() => {
     const result = new Set([...manuallyExpanded, ...searchAutoExpanded]);
+    // Expand the highlighted (QR-scanned) family too. Declarative so that
+    // clearing the highlight (e.g. clearing the search field) collapses it
+    // back automatically. A manual collapse below still wins.
+    if (highlightedFamilyId) {
+      result.add(highlightedFamilyId);
+    }
     for (const id of manuallyCollapsed) {
       result.delete(id);
     }
