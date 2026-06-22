@@ -2,6 +2,7 @@ import io
 import base64
 import qrcode
 from asgiref.sync import async_to_sync
+from reportlab.pdfbase.pdfmetrics import stringWidth
 from channels.layers import get_channel_layer
 from django.shortcuts import get_object_or_404, render
 from django.utils import timezone
@@ -29,6 +30,54 @@ LABEL_DIMENSIONS = {
     "17x54": {"w_mm": 51.0, "h_mm": 12.7},
 }
 DEFAULT_LABEL_DIMENSIONS = {"w_mm": 54.3, "h_mm": 17.0}
+
+# Label geometry, kept in sync with print_label.html. The name shares the label
+# with a square QR code; whatever horizontal space is left is the name box.
+#   .label   padding: PAD_V mm (top/bottom)  PAD_H mm (left/right); gap: GAP mm
+#   .qr-code side = (label height - QR_INSET mm)
+_PAD_H_MM = 2.5
+_PAD_V_MM = 1.5
+_GAP_MM = 2.0
+_QR_INSET_MM = 3.0
+
+# Bounds for the auto-fitted name. MAX is what a short name expands to; MIN keeps
+# a very long name legible (it will wrap/hyphenate rather than shrink past this).
+_NAME_MIN_PT = 10.0
+_NAME_MAX_PT = 28.0
+
+_PT_PER_MM = 72.0 / 25.4
+# Helvetica-Bold cap height as a fraction of em (AFM CapHeight 718/1000). Used to
+# size the name to the available height, since font-size > glyph height.
+_CAP_HEIGHT_FRAC = 0.718
+# Metric font that approximates the template's heavy Helvetica-Neue face.
+_METRIC_FONT = "Helvetica-Bold"
+
+
+def fit_child_name_pt(name, w_mm, h_mm):
+    """Largest font size (pt) at which ``name`` fits the label's name box.
+
+    WeasyPrint runs no JavaScript and renders @media print, so the font size has
+    to be decided here rather than by CSS in the browser. We measure the name
+    with reportlab's font metrics and pick the largest size that fits both the
+    width left over after the QR code and the label height, clamped to
+    [_NAME_MIN_PT, _NAME_MAX_PT]. Short names hit the max (filling the label);
+    long names shrink to fit instead of overflowing.
+    """
+    name = (name or "").strip().upper()
+    if not name:
+        return _NAME_MIN_PT
+
+    qr_side_mm = h_mm - _QR_INSET_MM
+    avail_w_pt = (w_mm - 2 * _PAD_H_MM - _GAP_MM - qr_side_mm) * _PT_PER_MM
+    avail_h_pt = (h_mm - 2 * _PAD_V_MM) * _PT_PER_MM
+
+    # stringWidth scales linearly with font size, so width at 1pt gives the ratio.
+    width_at_1pt = stringWidth(name, _METRIC_FONT, 1.0) or 0.001
+    by_width = avail_w_pt / width_at_1pt
+    by_height = avail_h_pt / _CAP_HEIGHT_FRAC
+
+    size = min(by_width, by_height, _NAME_MAX_PT)
+    return round(max(size, _NAME_MIN_PT), 1)
 
 
 class PrinterViewSet(viewsets.ModelViewSet):
@@ -201,6 +250,8 @@ def label_page_view(request, job_uuid):
     label = request.GET.get("label", "")
     dims = LABEL_DIMENSIONS.get(label, DEFAULT_LABEL_DIMENSIONS)
 
+    name_pt = fit_child_name_pt(checkin.child.first_name, dims["w_mm"], dims["h_mm"])
+
     return render(
         request,
         "print_label.html",
@@ -210,5 +261,6 @@ def label_page_view(request, job_uuid):
             "no_autoprint": True,
             "w_mm": dims["w_mm"],
             "h_mm": dims["h_mm"],
+            "name_pt": name_pt,
         },
     )
