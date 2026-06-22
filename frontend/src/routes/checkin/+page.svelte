@@ -646,7 +646,13 @@
         families = mergeFamilies(families, [apiFamily], activeSession);
         highlightedFamilyId = apiFamily.id;
       }
-      setTimeout(() => { highlightedFamilyId = null; }, 3000);
+      // Filter the list down to the scanned family instead of merely
+      // highlighting it within the full list. Reusing the search box keeps the
+      // filter visible and clearable. highlightedFamilyId stays set so the
+      // visibleFamilies force-include surfaces the family even when it would
+      // normally be hidden (e.g. already fully checked in); it's cleared as
+      // soon as the user touches the search box (see onInput below).
+      searchQuery = apiFamily.display_name;
     } catch (err) {
       const apiError = err as ApiError;
       const msg = apiError.status === 404 ? $_('checkin.qrNotFound') : $_('checkin.qrLookupError');
@@ -888,6 +894,7 @@
     <StickySearchBox
       bind:value={searchQuery}
       placeholder={$_('checkin.searchPlaceholder')}
+      onInput={() => (highlightedFamilyId = null)}
       onQrScan={() => (showQrScanner = true)}
     />
 
