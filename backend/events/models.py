@@ -69,8 +69,8 @@ class Ticket(models.Model):
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     type = models.CharField(max_length=32, choices=TICKET_TYPES)
-    child = models.ForeignKey(
-        "families.Child", related_name="tickets", on_delete=models.CASCADE
+    attendee = models.ForeignKey(
+        "families.Attendee", related_name="tickets", on_delete=models.CASCADE
     )
     session = models.ForeignKey(
         Session, related_name="tickets", on_delete=models.CASCADE, null=True, blank=True
@@ -79,26 +79,26 @@ class Ticket(models.Model):
     class Meta:
         db_table = "tickets"
         indexes = [
-            models.Index(fields=["child"]),
+            models.Index(fields=["attendee"], name="tickets_attend_0ad1b0_idx"),
             models.Index(fields=["session"]),
         ]
 
     def __str__(self) -> str:
-        return f"{self.type} for {self.child}"
+        return f"{self.type} for {self.attendee}"
 
 
 class EventTicket(models.Model):
     """
     Represents a ticket/pass for an entire event.
-    Gives the child access to all sessions within the event.
+    Gives the attendee access to all sessions within the event.
     """
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    child = models.ForeignKey(
-        "families.Child",
+    attendee = models.ForeignKey(
+        "families.Attendee",
         related_name="event_tickets",
         on_delete=models.CASCADE,
-        verbose_name=_("Child"),
+        verbose_name=_("Attendee"),
     )
     event = models.ForeignKey(
         Event,
@@ -119,27 +119,27 @@ class EventTicket(models.Model):
         verbose_name = _("Event Ticket")
         verbose_name_plural = _("Event Tickets")
         indexes = [
-            models.Index(fields=["child"]),
+            models.Index(fields=["attendee"], name="event_ticke_attend_22981b_idx"),
             models.Index(fields=["event"]),
         ]
-        unique_together = [["child", "event"]]
+        unique_together = [["attendee", "event"]]
 
     def __str__(self) -> str:
-        return f"Event Pass: {self.child} - {self.event}"
+        return f"Event Pass: {self.attendee} - {self.event}"
 
 
 class SessionTicket(models.Model):
     """
     Represents a ticket for a specific session.
-    Gives the child access only to the specified session.
+    Gives the attendee access only to the specified session.
     """
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    child = models.ForeignKey(
-        "families.Child",
+    attendee = models.ForeignKey(
+        "families.Attendee",
         related_name="session_tickets",
         on_delete=models.CASCADE,
-        verbose_name=_("Child"),
+        verbose_name=_("Attendee"),
     )
     session = models.ForeignKey(
         Session,
@@ -160,10 +160,10 @@ class SessionTicket(models.Model):
         verbose_name = _("Session Ticket")
         verbose_name_plural = _("Session Tickets")
         indexes = [
-            models.Index(fields=["child"]),
+            models.Index(fields=["attendee"], name="session_tic_attend_c5a7b7_idx"),
             models.Index(fields=["session"]),
         ]
-        unique_together = [["child", "session"]]
+        unique_together = [["attendee", "session"]]
 
     def __str__(self) -> str:
-        return f"Session Ticket: {self.child} - {self.session}"
+        return f"Session Ticket: {self.attendee} - {self.session}"
