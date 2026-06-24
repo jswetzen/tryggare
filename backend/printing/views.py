@@ -192,7 +192,19 @@ class PrintJobViewSet(viewsets.GenericViewSet):
         return Response(serializer.data)
 
     def _push_job_to_printer(self, request, job):
-        """Push a print job via WebSocket and update status."""
+        """
+        Push a print job via WebSocket and update status.
+        
+        IMPORTANT: Database write happens BEFORE broadcast to avoid race conditions
+        where the printer client receives the job UUID but the database hasn't
+        committed the record yet, causing label_page_view() to return 404.
+        """
+        # Update status and commit to database FIRST
+        job.status = PrintJob.STATUS_SENT
+        job.sent_at = timezone.now()
+        job.save()
+
+        # NOW broadcast with the committed job
         host = request.get_host()
         scheme = "https" if request.is_secure() else "http"
         label_url = f"{scheme}://{host}/print-job/{job.id}/label/"
@@ -209,10 +221,6 @@ class PrintJobViewSet(viewsets.GenericViewSet):
                 },
             },
         )
-
-        job.status = PrintJob.STATUS_SENT
-        job.sent_at = timezone.now()
-        job.save()
 
 
 def label_page_view(request, job_uuid):
