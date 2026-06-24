@@ -10,6 +10,7 @@ Configuration via environment variables (see .env.example).
 
 import argparse
 import asyncio
+import collections
 import getpass
 import json
 import logging
@@ -350,6 +351,49 @@ def print_label(png_bytes: bytes) -> None:
 
 
 # ─────────────────────────────────────────────────────────────────────────────
+# Print-job de-duplication
+#
+# The backend delivers print jobs over a broadcast channel with at-least-once
+# semantics: a job_id can reach us more than once — two near-simultaneous frames,
+# or a re-delivery around a reconnect. Without de-duplication we would render and
+# print the same label twice (and, now that the label endpoint serves a label for
+# any job status, a re-delivery of an already-printed job would reprint it rather
+# than 404). We therefore track jobs currently in flight plus a bounded history of
+# recently *completed* ones, and skip any job_id we have already handled.
+#
+# A job that *failed* is intentionally NOT remembered, so the operator can
+# re-send it (e.g. reassign from the print queue) to retry. State is module-level
+# so it survives the reconnect loop in main().
+# ─────────────────────────────────────────────────────────────────────────────
+
+_RECENT_JOBS_MAX = 256
+_inflight_jobs: set[str] = set()
+_recent_jobs: collections.deque[str] = collections.deque(maxlen=_RECENT_JOBS_MAX)
+_recent_jobs_set: set[str] = set()
+
+
+def _claim_job(job_id: str) -> bool:
+    """Reserve a job for handling. Returns False if it's a duplicate (already in
+    flight or recently completed) and should be skipped."""
+    if job_id in _inflight_jobs or job_id in _recent_jobs_set:
+        return False
+    _inflight_jobs.add(job_id)
+    return True
+
+
+def _release_job(job_id: str, completed: bool) -> None:
+    """Release a finished job. When it completed successfully, remember it so a
+    re-delivery is ignored; when it failed, forget it so it can be retried."""
+    _inflight_jobs.discard(job_id)
+    if not completed or job_id in _recent_jobs_set:
+        return
+    if len(_recent_jobs) == _recent_jobs.maxlen:
+        _recent_jobs_set.discard(_recent_jobs[0])  # evicted by the append below
+    _recent_jobs.append(job_id)
+    _recent_jobs_set.add(job_id)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
 # Main WebSocket loop
 # ─────────────────────────────────────────────────────────────────────────────
 
@@ -408,6 +452,12 @@ async def run_client() -> None:
                     if my_printer_id is None or printer_id != my_printer_id:
                         continue
 
+                    # Skip duplicates: the same job can be delivered more than
+                    # once (duplicate frame, re-delivery on reconnect).
+                    if not _claim_job(job_id):
+                        log.info("Ignoring duplicate print job %s", job_id)
+                        continue
+
                     log.info("Received print job %s, label_url=%s", job_id, label_url)
                     asyncio.ensure_future(handle_print_job(ws, job_id, label_url))
         finally:
@@ -426,6 +476,7 @@ async def heartbeat_loop(ws) -> None:
 
 async def handle_print_job(ws, job_id: str, label_url: str) -> None:
     """Render and print a single label, then report result via WS."""
+    completed = False
     try:
         log.info("Rendering label for job %s", job_id)
         png_bytes = render_label(label_url)
@@ -441,6 +492,7 @@ async def handle_print_job(ws, job_id: str, label_url: str) -> None:
                 }
             )
         )
+        completed = True
         log.info("Job %s completed", job_id)
     except Exception as exc:
         log.error("Job %s failed: %s", job_id, exc)
@@ -456,6 +508,8 @@ async def handle_print_job(ws, job_id: str, label_url: str) -> None:
             )
         except Exception:
             pass
+    finally:
+        _release_job(job_id, completed)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
