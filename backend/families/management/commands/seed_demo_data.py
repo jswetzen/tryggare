@@ -211,9 +211,13 @@ class Command(BaseCommand):
         for last_name, parent_name, rel, phone, email, kids in family_data:
             family, _ = Family.objects.get_or_create(last_name=last_name)
             families[last_name] = family
+            parts = parent_name.split(" ", 1)
+            p_first = parts[0]
+            p_last = parts[1] if len(parts) > 1 else ""
             Parent.objects.get_or_create(
                 family=family,
-                name=parent_name,
+                first_name=p_first,
+                last_name=p_last,
                 defaults={"relationship_type": rel, "phone": phone, "email": email},
             )
             for first_name, age, allergies, notes in kids:

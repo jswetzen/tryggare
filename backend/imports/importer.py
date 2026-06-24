@@ -236,10 +236,10 @@ def _create_parent(family: Family, contact: dict) -> Parent:
     """Create a Parent record from contact dict."""
     first = contact.get("first_name", "")
     last = contact.get("last_name", "")
-    name = f"{first} {last}".strip() or first or last or "Unknown"
     return Parent.objects.create(
         family=family,
-        name=name,
+        first_name=first,
+        last_name=last,
         email=contact.get("email") or None,
         phone=contact.get("phone") or None,
         relationship_type="OTHER",
@@ -395,10 +395,10 @@ def _create_parent_pco(family: Family, member: dict) -> Parent:
     """Create a Parent record from a PCO member dict."""
     first = member.get("first_name", "")
     last = member.get("last_name", "")
-    name = f"{first} {last}".strip() or first or last or "Unknown"
     return Parent.objects.create(
         family=family,
-        name=name,
+        first_name=first,
+        last_name=last,
         email=member.get("email") or None,
         phone=member.get("phone") or None,
         relationship_type="OTHER",
