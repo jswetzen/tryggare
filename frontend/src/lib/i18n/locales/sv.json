@@ -221,7 +221,8 @@
     "reprintError": "Kunde inte skicka etikett till skrivare",
     "reprintOpeningPage": "Öppnar utskriftssida...",
     "choosePrinter": "Välj skrivare",
-    "choosePrinterHelp": "Välj vilken skrivare etiketten ska skickas till."
+    "choosePrinterHelp": "Välj vilken skrivare etiketten ska skickas till.",
+    "contactStaff": "Kontakta personal för mer information."
   },
   "session": {
     "event": "Evenemang:",

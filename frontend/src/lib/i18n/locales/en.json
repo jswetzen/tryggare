@@ -221,7 +221,8 @@
     "reprintError": "Failed to send label to printer",
     "reprintOpeningPage": "Opening print page...",
     "choosePrinter": "Choose a printer",
-    "choosePrinterHelp": "Select which printer to send this label to."
+    "choosePrinterHelp": "Select which printer to send this label to.",
+    "contactStaff": "For more information, please contact a staff member."
   },
   "session": {
     "event": "Event:",
