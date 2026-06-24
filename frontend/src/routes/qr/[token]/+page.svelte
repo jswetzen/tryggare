@@ -3,13 +3,17 @@
   import { t } from 'svelte-i18n';
   import { page } from '$app/stores';
   import { qrApi, checkInApi, printingApi, printQueueApi } from '$lib/api/services';
-  import { authStore } from '$lib/stores/auth';
   import type { QRInfoResponse, Printer } from '$lib/api/types';
+
+  interface PageData {
+    user: { id: string; username: string; name: string; is_staff?: boolean } | null;
+  }
+  let { data }: { data: PageData } = $props();
 
   // Support both old 'token' param and new 'code' naming
   const code = $derived($page.params.token);
 
-  let data = $state<QRInfoResponse | null>(null);
+  let qrInfo = $state<QRInfoResponse | null>(null);
   let loading = $state(true);
   let notFound = $state(false);
   let error = $state<string | null>(null);
@@ -23,8 +27,8 @@
 
   // Age computed from birthdate (whole years)
   const age = $derived.by(() => {
-    if (!data?.child.birthdate) return null;
-    const dob = new Date(data.child.birthdate);
+    if (!qrInfo?.child.birthdate) return null;
+    const dob = new Date(qrInfo.child.birthdate);
     if (isNaN(dob.getTime())) return null;
     const now = new Date();
     let years = now.getFullYear() - dob.getFullYear();
@@ -42,7 +46,7 @@
   // would otherwise leave the condition true and re-trigger this effect on every
   // resolution, refetching forever.
   $effect(() => {
-    if ($authStore.user && !printersLoaded) {
+    if (data.user && !printersLoaded) {
       printersLoaded = true;
       printingApi
         .getPrinters()
@@ -59,7 +63,7 @@
 
     try {
       // New privacy-first API: only returns data when child is actively checked in
-      data = await qrApi.getInfo(code);
+      qrInfo = await qrApi.getInfo(code);
     } catch (err: any) {
       console.error('Failed to load QR info:', err);
       if (err?.status === 404 || err?.message?.includes('404')) {
@@ -74,13 +78,13 @@
   }
 
   async function handleCheckOut() {
-    if (!data) return;
+    if (!qrInfo) return;
 
     actionInProgress = true;
     error = null;
 
     try {
-      await checkInApi.checkOut(data.checkin_record_id, pickedUpBy);
+      await checkInApi.checkOut(qrInfo.checkin_record_id, pickedUpBy);
       successMessage = $t('qr.checkOutSuccess');
       showCheckoutModal = false;
       pickedUpBy = '';
@@ -88,7 +92,7 @@
       // Show success for a moment, then mark as not found
       setTimeout(() => {
         notFound = true;
-        data = null;
+        qrInfo = null;
       }, 2000);
     } catch (err) {
       console.error('Failed to check out:', err);
@@ -99,21 +103,21 @@
   }
 
   function handleEditChild() {
-    if (!data) return;
+    if (!qrInfo) return;
     // Redirect to Django Admin edit page
-    window.location.href = `/admin/families/child/${data.child.id}/change/`;
+    window.location.href = `/admin/families/child/${qrInfo.child.id}/change/`;
   }
 
   function handleReprintLabel() {
-    if (!data) return;
+    if (!qrInfo) return;
 
     const onlinePrinters = printers.filter((p) => p.is_online);
 
     // Not logged in or no online printer: fall back to the print page,
     // which opens in a new tab and bounces to login if needed.
-    if (!$authStore.user || onlinePrinters.length === 0) {
+    if (!data.user || onlinePrinters.length === 0) {
       successMessage = $t('qr.reprintOpeningPage');
-      window.open(printQueueApi.getPrintPageUrl(data.checkin_record_id), '_blank');
+      window.open(printQueueApi.getPrintPageUrl(qrInfo.checkin_record_id), '_blank');
       return;
     }
 
@@ -128,7 +132,7 @@
   }
 
   async function sendToPrinter(printerId: string) {
-    if (!data) return;
+    if (!qrInfo) return;
 
     showPrinterPicker = false;
     actionInProgress = true;
@@ -137,7 +141,7 @@
 
     try {
       await printingApi.createJob({
-        checkin_id: data.checkin_record_id,
+        checkin_id: qrInfo.checkin_record_id,
         printer_id: printerId,
       });
       successMessage = $t('qr.reprintSuccess');
@@ -173,7 +177,7 @@
         </div>
       </div>
     </div>
-  {:else if error && !data}
+  {:else if error && !qrInfo}
     <div class="card">
       <div class="text-center py-8">
         <div class="text-danger-600 font-semibold mb-2">
@@ -184,7 +188,7 @@
         </div>
       </div>
     </div>
-  {:else if data}
+  {:else if qrInfo}
     <!-- Success/Error Messages -->
     {#if successMessage}
       <div class="bg-success-50 border border-success-200 rounded-card p-4 mb-4">
@@ -198,7 +202,7 @@
     {/if}
 
     <!-- Allergy alert: most safety-critical info, surfaced at the very top -->
-    {#if data.child.allergies}
+    {#if qrInfo.child.allergies}
       <div
         class="bg-danger-50 border-2 border-danger-400 rounded-card p-4 mb-4 flex items-start gap-3"
         role="alert"
@@ -208,7 +212,7 @@
           <div class="text-sm font-bold uppercase tracking-wide text-danger-700">
             {$t('qr.allergyAlert')}
           </div>
-          <div class="text-lg text-danger-800 font-semibold">{data.child.allergies}</div>
+          <div class="text-lg text-danger-800 font-semibold">{qrInfo.child.allergies}</div>
         </div>
       </div>
     {/if}
@@ -217,110 +221,116 @@
     <div class="card mb-6">
       <div class="flex items-baseline justify-between gap-3 mb-4">
         <h1 class="text-3xl font-bold">
-          {data.child.first_name}
-          {data.child.last_name}
+          {qrInfo.child.first_name}
+          {#if data.user}{qrInfo.child.last_name}{/if}
         </h1>
-        {#if age !== null}
+        {#if data.user && age !== null}
           <span class="text-lg text-neutral-600 whitespace-nowrap">
             {$t('qr.ageYears', { values: { years: age } })}
           </span>
         {/if}
       </div>
 
-      <div class="space-y-4">
-        {#if data.child.birthdate}
-          <div>
-            <div class="text-sm text-neutral-600">{$t('qr.dateOfBirth')}</div>
-            <div class="text-lg">{data.child.birthdate}</div>
-          </div>
-        {/if}
-
-        {#if data.child.notes}
-          <div>
-            <div class="text-sm text-neutral-600">{$t('qr.medicalConditions')}</div>
-            <div class="text-lg text-orange-600 font-semibold">
-              {data.child.notes}
+      {#if data.user}
+        <div class="space-y-4">
+          {#if qrInfo.child.birthdate}
+            <div>
+              <div class="text-sm text-neutral-600">{$t('qr.dateOfBirth')}</div>
+              <div class="text-lg">{qrInfo.child.birthdate}</div>
             </div>
-          </div>
-        {/if}
-      </div>
-    </div>
+          {/if}
 
-    <!-- Check-In Status (always checked in when we have data) -->
-    <div class="card mb-6">
-      <h2 class="text-xl font-semibold mb-4">{$t('qr.checkInStatus')}</h2>
-
-      <div class="bg-success-50 border border-success-200 rounded-card p-4">
-        <div class="flex items-center gap-2 mb-2">
-          <div class="w-3 h-3 rounded-full bg-success-500"></div>
-          <span class="font-semibold text-success-800">{$t('qr.currentlyCheckedIn')}</span>
-          {#if data.supervised}
-            <span class="text-xs bg-primary-100 text-primary-700 px-2 py-0.5 rounded-full">
-              {$t('qr.supervised')}
-            </span>
+          {#if qrInfo.child.notes}
+            <div>
+              <div class="text-sm text-neutral-600">{$t('qr.medicalConditions')}</div>
+              <div class="text-lg text-orange-600 font-semibold">
+                {qrInfo.child.notes}
+              </div>
+            </div>
           {/if}
         </div>
-        <div class="text-sm text-neutral-700">
-          {$t('qr.session')} {data.current_session.name}
-        </div>
-        <div class="text-sm text-neutral-700">
-          {$t('qr.since')} {new Date(data.current_session.check_in_time).toLocaleString()}
-        </div>
-      </div>
-    </div>
-
-    <!-- Action Buttons -->
-    <div class="card mb-6">
-      <h2 class="text-xl font-semibold mb-4">{$t('qr.actions')}</h2>
-
-      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        <button
-          class="bg-danger-600 hover:bg-danger-700 text-white font-semibold px-5 py-3 rounded-card"
-          onclick={() => showCheckoutModal = true}
-          disabled={actionInProgress}
-        >
-          {$t('qr.checkOut')}
-        </button>
-
-        <button
-          class="bg-primary-600 hover:bg-primary-700 text-white font-semibold px-5 py-3 rounded-card"
-          onclick={handleEditChild}
-          disabled={actionInProgress}
-        >
-          {$t('qr.editChild')}
-        </button>
-
-        <button
-          class="bg-success-600 hover:bg-success-700 text-white font-semibold px-5 py-3 rounded-card"
-          onclick={handleReprintLabel}
-          disabled={actionInProgress}
-        >
-          {$t('qr.reprintLabel')}
-        </button>
-      </div>
-    </div>
-
-    <!-- Emergency Contact Info -->
-    <div class="card">
-      <h2 class="text-xl font-semibold mb-4">{$t('qr.emergencyContact')}</h2>
-      <div class="text-sm text-neutral-600 mb-2">
-        {$t('qr.emergencyContactHelp')}
-      </div>
-      {#if data.parents && data.parents.length > 0}
-        <div class="mb-2">
-          <div class="text-sm font-semibold text-neutral-700">{$t('qr.parentsGuardians')}</div>
-          {#each data.parents as parent}
-            <div class="text-lg">
-              {parent.name}
-              {#if parent.phone}
-                <span class="text-sm text-neutral-600">({parent.phone})</span>
-              {/if}
-            </div>
-          {/each}
-        </div>
+      {:else}
+        <div class="text-neutral-600">{$t('qr.contactStaff')}</div>
       {/if}
-      <div class="text-sm text-neutral-600">{$t('qr.familyId')} {data.family_id}</div>
     </div>
+
+    {#if data.user}
+      <!-- Check-In Status (always checked in when we have data) -->
+      <div class="card mb-6">
+        <h2 class="text-xl font-semibold mb-4">{$t('qr.checkInStatus')}</h2>
+
+        <div class="bg-success-50 border border-success-200 rounded-card p-4">
+          <div class="flex items-center gap-2 mb-2">
+            <div class="w-3 h-3 rounded-full bg-success-500"></div>
+            <span class="font-semibold text-success-800">{$t('qr.currentlyCheckedIn')}</span>
+            {#if qrInfo.supervised}
+              <span class="text-xs bg-primary-100 text-primary-700 px-2 py-0.5 rounded-full">
+                {$t('qr.supervised')}
+              </span>
+            {/if}
+          </div>
+          <div class="text-sm text-neutral-700">
+            {$t('qr.session')} {qrInfo.current_session.name}
+          </div>
+          <div class="text-sm text-neutral-700">
+            {$t('qr.since')} {new Date(qrInfo.current_session.check_in_time).toLocaleString()}
+          </div>
+        </div>
+      </div>
+
+      <!-- Action Buttons -->
+      <div class="card mb-6">
+        <h2 class="text-xl font-semibold mb-4">{$t('qr.actions')}</h2>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <button
+            class="bg-danger-600 hover:bg-danger-700 text-white font-semibold px-5 py-3 rounded-card"
+            onclick={() => showCheckoutModal = true}
+            disabled={actionInProgress}
+          >
+            {$t('qr.checkOut')}
+          </button>
+
+          <button
+            class="bg-primary-600 hover:bg-primary-700 text-white font-semibold px-5 py-3 rounded-card"
+            onclick={handleEditChild}
+            disabled={actionInProgress}
+          >
+            {$t('qr.editChild')}
+          </button>
+
+          <button
+            class="bg-success-600 hover:bg-success-700 text-white font-semibold px-5 py-3 rounded-card"
+            onclick={handleReprintLabel}
+            disabled={actionInProgress}
+          >
+            {$t('qr.reprintLabel')}
+          </button>
+        </div>
+      </div>
+
+      <!-- Emergency Contact Info -->
+      <div class="card">
+        <h2 class="text-xl font-semibold mb-4">{$t('qr.emergencyContact')}</h2>
+        <div class="text-sm text-neutral-600 mb-2">
+          {$t('qr.emergencyContactHelp')}
+        </div>
+        {#if qrInfo.parents && qrInfo.parents.length > 0}
+          <div class="mb-2">
+            <div class="text-sm font-semibold text-neutral-700">{$t('qr.parentsGuardians')}</div>
+            {#each qrInfo.parents as parent}
+              <div class="text-lg">
+                {parent.name}
+                {#if parent.phone}
+                  <span class="text-sm text-neutral-600">({parent.phone})</span>
+                {/if}
+              </div>
+            {/each}
+          </div>
+        {/if}
+        <div class="text-sm text-neutral-600">{$t('qr.familyId')} {qrInfo.family_id}</div>
+      </div>
+    {/if}
   {/if}
 </main>
 
@@ -364,7 +374,7 @@
 {/if}
 
 <!-- Printer Picker Modal (only shown when multiple online printers are available) -->
-{#if showPrinterPicker && data}
+{#if showPrinterPicker && qrInfo}
   <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
     <div class="bg-white rounded-card p-6 max-w-md w-full">
       <h3 class="text-xl font-bold mb-2">{$t('qr.choosePrinter')}</h3>

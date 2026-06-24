@@ -22,10 +22,19 @@ interface AuthCheckResponse {
 }
 
 export async function load({ url }) {
-  // Skip auth check on login page, QR pages, or if not in browser
-  // QR pages should be publicly accessible for parents to check child status
-  if (!browser || url.pathname === '/login' || url.pathname.startsWith('/qr/')) {
+  if (!browser || url.pathname === '/login') {
     return { user: null };
+  }
+
+  if (url.pathname.startsWith('/qr/')) {
+    // QR pages are publicly accessible; still check auth so logged-in staff
+    // see full child details instead of the limited public view.
+    try {
+      const data = await apiClient.get<AuthCheckResponse>('/auth/check/');
+      return { user: data.authenticated && data.user ? data.user : null };
+    } catch {
+      return { user: null };
+    }
   }
 
   try {
