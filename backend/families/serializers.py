@@ -4,18 +4,66 @@ from .models import Child, Family, Parent
 
 
 class ParentSerializer(serializers.ModelSerializer):
+    name = serializers.ReadOnlyField()
+    ticket_type = serializers.SerializerMethodField()
+    ticket_details = serializers.SerializerMethodField()
+    is_checked_in = serializers.SerializerMethodField()
+    active_checkin_id = serializers.SerializerMethodField()
+
     class Meta:
         model = Parent
         fields = [
             "id",
+            "first_name",
+            "last_name",
             "name",
             "phone",
             "email",
             "relationship_type",
             "last_participation_date",
             "family",
+            "ticket_type",
+            "ticket_details",
+            "is_checked_in",
+            "active_checkin_id",
         ]
-        read_only_fields = ["id", "last_participation_date"]
+        read_only_fields = [
+            "id",
+            "name",
+            "last_participation_date",
+            "ticket_type",
+            "ticket_details",
+            "is_checked_in",
+            "active_checkin_id",
+        ]
+
+    def get_ticket_type(self, obj: Parent) -> str | None:
+        t = obj.get_ticket_type()
+        return t if t != "none" else None
+
+    def get_ticket_details(self, obj: Parent) -> dict | None:
+        if not obj.has_ticket:
+            return None
+        return obj.get_ticket_details()
+
+    def get_is_checked_in(self, obj: Parent) -> bool:
+        if hasattr(obj, "active_checkins"):
+            return len(obj.active_checkins) > 0
+        from checkins.models import CheckInRecord
+
+        return CheckInRecord.objects.filter(
+            attendee=obj, check_out_time__isnull=True
+        ).exists()
+
+    def get_active_checkin_id(self, obj: Parent) -> str | None:
+        if hasattr(obj, "active_checkins"):
+            return str(obj.active_checkins[0].id) if obj.active_checkins else None
+        from checkins.models import CheckInRecord
+
+        record = CheckInRecord.objects.filter(
+            attendee=obj, check_out_time__isnull=True
+        ).first()
+        return str(record.id) if record else None
 
 
 class ChildSerializer(serializers.ModelSerializer):
@@ -91,7 +139,7 @@ class ChildSerializer(serializers.ModelSerializer):
         from checkins.models import CheckInRecord
 
         active_checkin = CheckInRecord.objects.filter(
-            child=obj, check_out_time__isnull=True
+            attendee=obj, check_out_time__isnull=True
         ).first()
         return active_checkin is not None
 
@@ -122,7 +170,7 @@ class ChildSerializer(serializers.ModelSerializer):
         from checkins.models import CheckInRecord
 
         active_checkin = CheckInRecord.objects.filter(
-            child=obj, check_out_time__isnull=True
+            attendee=obj, check_out_time__isnull=True
         ).first()
         return str(active_checkin.id) if active_checkin else None
 
@@ -182,7 +230,14 @@ class ParentCreateSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Parent
-        fields = ["id", "name", "phone", "email", "relationship_type"]
+        fields = [
+            "id",
+            "first_name",
+            "last_name",
+            "phone",
+            "email",
+            "relationship_type",
+        ]
         read_only_fields = ["id"]
 
 

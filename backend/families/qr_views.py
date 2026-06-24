@@ -37,10 +37,10 @@ def qr_info(request, code):
         )
 
     checkin = qr_code.checkin_record
-    child = checkin.child
+    attendee = checkin.attendee
 
     # Get parent information
-    parents = child.family.parents.all()
+    parents = attendee.family.parents.all()
     parent_info = [
         {
             "id": str(p.id),
@@ -52,24 +52,41 @@ def qr_info(request, code):
         for p in parents
     ]
 
+    # Build attendee payload defensively — Child has birthdate/allergies/notes, Parent doesn't
+    from families.models import Child as ChildModel
+
+    if isinstance(attendee, ChildModel):
+        attendee_data = {
+            "id": str(attendee.id),
+            "first_name": attendee.first_name,
+            "last_name": attendee.last_name,
+            "birthdate": str(attendee.birthdate) if attendee.birthdate else None,
+            "allergies": attendee.allergies or "",
+            "notes": attendee.notes or "",
+            "is_parent": False,
+        }
+    else:
+        attendee_data = {
+            "id": str(attendee.id),
+            "first_name": attendee.first_name,
+            "last_name": attendee.last_name,
+            "birthdate": None,
+            "allergies": "",
+            "notes": "",
+            "is_parent": True,
+        }
+
     data = {
         "qr_code": qr_code.code,
         "checkin_record_id": str(checkin.id),
-        "child": {
-            "id": str(child.id),
-            "first_name": child.first_name,
-            "last_name": child.last_name,
-            "birthdate": str(child.birthdate) if child.birthdate else None,
-            "allergies": child.allergies or "",
-            "notes": child.notes or "",
-        },
+        "child": attendee_data,
         "current_session": {
             "id": str(checkin.session.id),
             "name": checkin.session.name,
             "check_in_time": checkin.check_in_time.isoformat(),
         },
         "parents": parent_info,
-        "family_id": str(child.family.id),
+        "family_id": str(attendee.family.id),
         "supervised": checkin.supervised,
     }
 

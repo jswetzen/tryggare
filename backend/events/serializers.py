@@ -34,6 +34,10 @@ class TicketSerializer(serializers.ModelSerializer):
     This serializer is maintained for backwards compatibility only.
     """
 
+    child = serializers.PrimaryKeyRelatedField(
+        source="attendee",
+        queryset=Ticket._meta.get_field("attendee").related_model.objects.all(),
+    )
     child_name = serializers.SerializerMethodField()
     session_name = serializers.CharField(
         source="session.name", read_only=True, allow_null=True
@@ -45,7 +49,7 @@ class TicketSerializer(serializers.ModelSerializer):
         read_only_fields = ["id"]
 
     def get_child_name(self, obj):
-        return f"{obj.child.first_name} {obj.child.last_name}"
+        return f"{obj.attendee.first_name} {obj.attendee.last_name}"
 
 
 class EventTicketSerializer(serializers.ModelSerializer):
@@ -53,6 +57,11 @@ class EventTicketSerializer(serializers.ModelSerializer):
     Serializer for event tickets (passes that grant access to all sessions in an event).
     """
 
+    # Keep JSON key "child" for frontend back-compat; maps to attendee FK.
+    child = serializers.PrimaryKeyRelatedField(
+        source="attendee",
+        queryset=EventTicket._meta.get_field("attendee").related_model.objects.all(),
+    )
     child_name = serializers.SerializerMethodField()
     event_name = serializers.CharField(source="event.name", read_only=True)
     ticket_type = serializers.SerializerMethodField()
@@ -71,7 +80,7 @@ class EventTicketSerializer(serializers.ModelSerializer):
         read_only_fields = ["id", "external_ticket_code"]
 
     def get_child_name(self, obj) -> str:
-        return f"{obj.child.first_name} {obj.child.last_name}"
+        return f"{obj.attendee.first_name} {obj.attendee.last_name}"
 
     def get_ticket_type(self, obj) -> str:
         return "EVENT_PASS"
@@ -82,6 +91,11 @@ class SessionTicketSerializer(serializers.ModelSerializer):
     Serializer for session tickets (tickets that grant access to a specific session).
     """
 
+    # Keep JSON key "child" for frontend back-compat; maps to attendee FK.
+    child = serializers.PrimaryKeyRelatedField(
+        source="attendee",
+        queryset=SessionTicket._meta.get_field("attendee").related_model.objects.all(),
+    )
     child_name = serializers.SerializerMethodField()
     session_name = serializers.CharField(source="session.name", read_only=True)
     event_name = serializers.CharField(source="session.event.name", read_only=True)
@@ -102,7 +116,7 @@ class SessionTicketSerializer(serializers.ModelSerializer):
         read_only_fields = ["id", "external_ticket_code"]
 
     def get_child_name(self, obj) -> str:
-        return f"{obj.child.first_name} {obj.child.last_name}"
+        return f"{obj.attendee.first_name} {obj.attendee.last_name}"
 
     def get_ticket_type(self, obj) -> str:
         return "SESSION_TICKET"
