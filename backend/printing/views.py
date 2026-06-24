@@ -227,13 +227,22 @@ def label_page_view(request, job_uuid):
     """
     Unauthenticated endpoint that renders a label page for a print job.
     Used by the printer client to fetch and render the label.
+
+    The label is a pure rendering of the check-in (child name + QR), so we do
+    NOT gate it on the job's lifecycle status. Doing so caused a real bug: when
+    a whole family is checked in, the printer renders labels one at a time, and
+    a job could reach a terminal status (e.g. a transient print retry marking it
+    FAILED, a stale/duplicate completion, or a reconnect re-delivery) before the
+    printer fetched its label — which then 404'd ("uuid that doesn't exist") and
+    that child's label never printed. We only require the child to still be
+    checked in, which is the privacy-relevant condition for the public QR page.
     """
     job = get_object_or_404(
         PrintJob.objects.select_related(
             "checkin__child", "checkin__session", "checkin__qr_code"
         ),
         pk=job_uuid,
-        status__in=[PrintJob.STATUS_PENDING, PrintJob.STATUS_SENT],
+        checkin__check_out_time__isnull=True,
     )
 
     checkin = job.checkin
