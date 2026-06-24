@@ -4,7 +4,67 @@ from django.db import models
 from django.utils.translation import gettext_lazy as _
 
 
+class _AttendeeSubclassAccessor:
+    """Non-data descriptor giving Family.parents / Family.children as a QuerySet.
+
+    If a Prefetch with `to_attr` has already populated the instance dict
+    (e.g. Prefetch("attendees", queryset=Parent.objects.all(), to_attr="parents")),
+    that list is returned wrapped in a thin proxy that also supports .first()/.exists().
+    Otherwise falls back to a live filtered QuerySet.
+    """
+
+    class _ListProxy:
+        """Minimal QuerySet-like wrapper around a prefetched list."""
+
+        def __init__(self, items):
+            self._items = items
+
+        def all(self):
+            return self
+
+        def exists(self):
+            return bool(self._items)
+
+        def first(self):
+            return self._items[0] if self._items else None
+
+        def filter(self, **kwargs):  # noqa: ARG002 — best-effort passthrough
+            return self  # serializer only needs iteration; no complex filtering
+
+        def __iter__(self):
+            return iter(self._items)
+
+        def __len__(self):
+            return len(self._items)
+
+        def __bool__(self):
+            return bool(self._items)
+
+    def __init__(self, subclass_name: str):
+        self._subclass_name = subclass_name
+        self._attr = ""
+
+    def __set_name__(self, owner, name: str):
+        self._attr = name
+
+    def __get__(self, obj, objtype=None):
+        if obj is None:
+            return self
+        # Populated by Prefetch(to_attr=...) — takes priority.
+        cached = obj.__dict__.get(self._attr)
+        if cached is not None:
+            return self._ListProxy(cached)
+        # Fall back to live queryset.
+        import families.models as fm  # local to avoid module-level circular ref
+
+        model = getattr(fm, self._subclass_name)
+        return model.objects.filter(family=obj)
+
+
 class Family(models.Model):
+    parents = _AttendeeSubclassAccessor("Parent")
+    children = _AttendeeSubclassAccessor("Child")
+
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     last_name = models.CharField(
         max_length=255, verbose_name=_("Last Name"), blank=True, default=""

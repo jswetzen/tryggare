@@ -66,7 +66,7 @@ def generate_label_pdf(checkin_records):
         # Draw child name (bold, larger font)
         c.setFillColorRGB(0, 0, 0)
         c.setFont("Helvetica-Bold", 14)
-        child_name = f"{record.child.first_name} {record.child.last_name}"
+        child_name = f"{record.attendee.first_name} {record.attendee.last_name}"
         # Truncate if too long
         if len(child_name) > 25:
             child_name = child_name[:22] + "..."
@@ -81,10 +81,11 @@ def generate_label_pdf(checkin_records):
 
         # Draw allergies/notes if present (smaller, red for allergies)
         text_y = y + label_height - 0.7 * inch
-        if record.child.allergies:
+        allergies = getattr(record.attendee, "allergies", None)
+        if allergies:
             c.setFillColorRGB(0.8, 0, 0)  # Red for allergies
             c.setFont("Helvetica-Bold", 8)
-            allergy_text = f"ALLERGY: {record.child.allergies}"
+            allergy_text = f"ALLERGY: {allergies}"
             if len(allergy_text) > 35:
                 allergy_text = allergy_text[:32] + "..."
             c.drawString(x + 0.1 * inch, text_y, allergy_text)

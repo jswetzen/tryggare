@@ -32,7 +32,10 @@ class TicketLookupAPITest(TestCase):
 
         self.family = Family.objects.create(last_name="Scannable")
         self.parent = Parent.objects.create(
-            family=self.family, name="Test Parent", relationship_type="Parent"
+            family=self.family,
+            first_name="Test",
+            last_name="Parent",
+            relationship_type="Parent",
         )
         self.child = Child.objects.create(
             family=self.family,
@@ -53,10 +56,12 @@ class TicketLookupAPITest(TestCase):
         )
 
         EventTicket.objects.create(
-            child=self.child, event=self.event, external_ticket_code="EVENTCODE1"
+            attendee=self.child, event=self.event, external_ticket_code="EVENTCODE1"
         )
         SessionTicket.objects.create(
-            child=self.child, session=self.session, external_ticket_code="SESSIONCODE1"
+            attendee=self.child,
+            session=self.session,
+            external_ticket_code="SESSIONCODE1",
         )
 
     def test_lookup_by_event_ticket_code(self):

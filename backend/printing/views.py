@@ -267,7 +267,7 @@ def label_page_view(request, job_uuid):
     label = request.GET.get("label", "")
     dims = LABEL_DIMENSIONS.get(label, DEFAULT_LABEL_DIMENSIONS)
 
-    name_pt = fit_child_name_pt(checkin.child.first_name, dims["w_mm"], dims["h_mm"])
+    name_pt = fit_child_name_pt(checkin.attendee.first_name, dims["w_mm"], dims["h_mm"])
 
     return render(
         request,
