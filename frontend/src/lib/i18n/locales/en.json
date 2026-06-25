@@ -167,6 +167,7 @@
     "refreshing": "Refreshing...",
     "refreshButton": "Refresh",
     "success": "Successfully checked out child",
+    "familySuccess": "Successfully checked out {count} child(ren)",
     "error": "Check-out failed",
     "loadError": "Failed to load checked-in children",
     "searchPlaceholder": "Search by child name or family...",
