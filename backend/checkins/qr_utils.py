@@ -127,8 +127,8 @@ def get_code_for_active_checkin(code: str):
 
     try:
         qr_code = QRCode.objects.select_related(
-            "checkin_record__child",
-            "checkin_record__child__family",
+            "checkin_record__attendee",
+            "checkin_record__attendee__family",
             "checkin_record__session",
         ).get(code=code.upper())  # Normalize to uppercase
 

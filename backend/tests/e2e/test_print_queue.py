@@ -62,7 +62,7 @@ class TestPrintQueue(E2ETestBase, TestDataMixin):
         # Create unprintable check-in
         print("   Creating unprintable check-in...")
         checkin = CheckInRecord.objects.create(
-            child=self.test_child,
+            attendee=self.test_child,
             session=self.test_session,
             check_in_staff=self.test_user,
             label_printed=False,

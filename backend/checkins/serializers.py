@@ -60,8 +60,11 @@ class CheckInRecordSerializer(serializers.ModelSerializer):
         attendee = data.get("attendee")
         session = data.get("session")
 
-        # Parents are check-in only — skip multi-session validation
-        if attendee and isinstance(attendee, Parent):
+        # Parents are check-in only — skip multi-session validation.
+        # Django MTI does not downcast, so isinstance(attendee, Parent) is
+        # always False here (the PK field resolves to a base Attendee); query
+        # the Parent table directly instead.
+        if attendee and Parent.objects.filter(pk=attendee.pk).exists():
             return data
 
         if attendee and session:

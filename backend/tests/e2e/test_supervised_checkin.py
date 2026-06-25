@@ -66,8 +66,8 @@ class TestSupervisedCheckIn(E2ETestBase, TestDataMixin):
         # Assign tickets to both children so supervised checkbox will appear
         from events.models import EventTicket
 
-        EventTicket.objects.create(child=self.supervised_child, event=self.test_event)
-        EventTicket.objects.create(child=self.standard_child, event=self.test_event)
+        EventTicket.objects.create(attendee=self.supervised_child, event=self.test_event)
+        EventTicket.objects.create(attendee=self.standard_child, event=self.test_event)
 
     def teardown_method(self):
         """Clean up after each test."""

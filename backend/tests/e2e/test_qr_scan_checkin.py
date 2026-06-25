@@ -48,7 +48,7 @@ class TestQrScanCheckin(E2ETestBase, TestDataMixin):
         self.test_child = self.create_test_child(self.test_family, first_name="QRKid")
 
         EventTicket.objects.create(
-            child=self.test_child,
+            attendee=self.test_child,
             event=self.test_event,
             external_ticket_code="QRTEST_E2E",
         )
@@ -56,7 +56,7 @@ class TestQrScanCheckin(E2ETestBase, TestDataMixin):
     def teardown_method(self):
         """Clean up after each test."""
         try:
-            CheckInRecord.objects.filter(child=self.test_child).delete()
+            CheckInRecord.objects.filter(attendee=self.test_child).delete()
             EventTicket.objects.filter(external_ticket_code="QRTEST_E2E").delete()
         except Exception as e:
             print(f"   ⚠️  Cleanup warning: {e}")

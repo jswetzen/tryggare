@@ -148,6 +148,8 @@
     "childNumber": "Child {number}",
     "optional": "optional",
     "allChildrenRequired": "All children must have first name, last name, and birthdate",
+    "guardian": "Guardian",
+    "guardians": "Guardians",
     "qrScanButton": "Scan QR code",
     "qrScanTitle": "Scan ticket QR",
     "qrClose": "Close",

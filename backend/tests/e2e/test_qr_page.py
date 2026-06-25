@@ -50,7 +50,7 @@ class TestQRPage(E2ETestBase, TestDataMixin):
         # Tests that need the "not checked in" path should delete this record
         # (and release the allocated code) before navigating.
         self.test_checkin = CheckInRecord.objects.create(
-            child=self.test_child,
+            attendee=self.test_child,
             session=self.test_session,
             check_in_staff=self.test_user,
         )
@@ -293,7 +293,7 @@ class TestQRPage(E2ETestBase, TestDataMixin):
             self.test_family, first_name="NoAllergyKid", allergies=""
         )
         checkin2 = CheckInRecord.objects.create(
-            child=child2,
+            attendee=child2,
             session=self.test_session,
             check_in_staff=self.test_user,
         )

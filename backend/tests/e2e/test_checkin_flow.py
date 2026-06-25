@@ -148,7 +148,7 @@ class TestCheckInFlow(E2ETestBase, TestDataMixin):
         # Verify check-in in database
         print("   Verifying check-in in database...")
         checkin_record = CheckInRecord.objects.filter(
-            child=self.test_child1, session=self.test_session
+            attendee=self.test_child1, session=self.test_session
         ).first()
 
         assert checkin_record is not None, "Check-in record not found in database"
@@ -173,7 +173,7 @@ class TestCheckInFlow(E2ETestBase, TestDataMixin):
         # First, create a check-in
         print("   Creating initial check-in...")
         checkin = CheckInRecord.objects.create(
-            child=self.test_child1,
+            attendee=self.test_child1,
             session=self.test_session,
             check_in_staff=self.test_user,
         )
@@ -212,7 +212,7 @@ class TestCheckInFlow(E2ETestBase, TestDataMixin):
 
         # Verify only one check-in exists
         checkin_count = CheckInRecord.objects.filter(
-            child=self.test_child1, session=self.test_session
+            attendee=self.test_child1, session=self.test_session
         ).count()
 
         assert checkin_count == 1, f"Expected 1 check-in, found {checkin_count}"

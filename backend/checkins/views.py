@@ -59,7 +59,15 @@ class CheckInRecordViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_404_NOT_FOUND,
             )
 
-        is_parent = isinstance(attendee, Parent)
+        # Django MTI does not downcast automatically: Attendee.objects.get()
+        # returns a base Attendee even when a Parent row exists, so a plain
+        # isinstance(attendee, Parent) is always False. Resolve the concrete
+        # Parent explicitly so parent-specific rules (ticket gate, no label, no
+        # multi-session block) actually apply.
+        parent = Parent.objects.filter(pk=attendee.pk).first()
+        if parent is not None:
+            attendee = parent
+        is_parent = parent is not None
 
         if is_parent:
             # Parent check-in: require a ticket, no multi-session blocking

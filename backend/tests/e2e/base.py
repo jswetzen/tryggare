@@ -257,9 +257,16 @@ class TestDataMixin:
         if parent_name is None:
             parent_name = f"Test Parent {last_name}"
 
+        # Parent.name is now a read-only property derived from first/last name,
+        # so split the display name back into its parts (preserves parent.name).
+        parent_first, _, parent_last = parent_name.rpartition(" ")
+        if not parent_first:
+            parent_first, parent_last = parent_last, ""
+
         parent = Parent.objects.create(
             family=family,
-            name=parent_name,
+            first_name=parent_first,
+            last_name=parent_last,
             phone=phone,
             email=f"{last_name.lower()}@test.com",
             relationship_type="Parent",
@@ -363,7 +370,7 @@ class TestDataMixin:
         if children:
             for child in children:
                 try:
-                    CheckInRecord.objects.filter(child=child).delete()
+                    CheckInRecord.objects.filter(attendee=child).delete()
                     child.delete()
                 except Exception as e:
                     print(f"   ⚠️  Error deleting child {child.id}: {e}")

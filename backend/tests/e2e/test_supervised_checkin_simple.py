@@ -58,7 +58,7 @@ class TestSupervisedCheckInSimple(E2ETestBase, TestDataMixin):
         # Assign event ticket so child can be checked in
         from events.models import EventTicket
 
-        EventTicket.objects.create(child=self.test_child, event=self.test_event)
+        EventTicket.objects.create(attendee=self.test_child, event=self.test_event)
 
     def teardown_method(self):
         """Clean up after each test."""
@@ -79,7 +79,7 @@ class TestSupervisedCheckInSimple(E2ETestBase, TestDataMixin):
         # Create a supervised check-in directly via the model
         print("   Creating supervised check-in...")
         checkin = CheckInRecord.objects.create(
-            child=self.test_child,
+            attendee=self.test_child,
             session=self.test_session,
             check_in_staff=self.test_user,
             supervised=True,
@@ -123,7 +123,7 @@ class TestSupervisedCheckInSimple(E2ETestBase, TestDataMixin):
         # Create one supervised and one standard check-in
         print("   Creating supervised check-in...")
         supervised_checkin = CheckInRecord.objects.create(
-            child=self.test_child,
+            attendee=self.test_child,
             session=self.test_session,
             check_in_staff=self.test_user,
             supervised=True,
@@ -136,11 +136,11 @@ class TestSupervisedCheckInSimple(E2ETestBase, TestDataMixin):
 
         from events.models import EventTicket
 
-        EventTicket.objects.create(child=standard_child, event=self.test_event)
+        EventTicket.objects.create(attendee=standard_child, event=self.test_event)
 
         print("   Creating standard check-in...")
         standard_checkin = CheckInRecord.objects.create(
-            child=standard_child,
+            attendee=standard_child,
             session=self.test_session,
             check_in_staff=self.test_user,
             supervised=False,

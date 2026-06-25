@@ -52,17 +52,21 @@ def qr_info(request, code):
         for p in parents
     ]
 
-    # Build attendee payload defensively — Child has birthdate/allergies/notes, Parent doesn't
+    # Build attendee payload defensively — Child has birthdate/allergies/notes,
+    # Parent doesn't. Django MTI does not downcast checkin.attendee (it is a base
+    # Attendee, so isinstance(attendee, Child) is always False); resolve the
+    # concrete Child explicitly so child safety info is not silently dropped.
     from families.models import Child as ChildModel
 
-    if isinstance(attendee, ChildModel):
+    child = ChildModel.objects.filter(pk=attendee.pk).first()
+    if child is not None:
         attendee_data = {
-            "id": str(attendee.id),
-            "first_name": attendee.first_name,
-            "last_name": attendee.last_name,
-            "birthdate": str(attendee.birthdate) if attendee.birthdate else None,
-            "allergies": attendee.allergies or "",
-            "notes": attendee.notes or "",
+            "id": str(child.id),
+            "first_name": child.first_name,
+            "last_name": child.last_name,
+            "birthdate": str(child.birthdate) if child.birthdate else None,
+            "allergies": child.allergies or "",
+            "notes": child.notes or "",
             "is_parent": False,
         }
     else:

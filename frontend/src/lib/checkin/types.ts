@@ -37,10 +37,32 @@ export interface Child {
 
 export interface Parent {
   id: string;
+  first_name: string;
+  last_name: string;
   name: string;
   phone?: string;
   email?: string;
   relationship_type: string;
+  ticket: TicketType;
+  ticket_type: TicketType;
+  ticket_details?: {
+    event_tickets: Array<{
+      id: string;
+      event: string;
+      event_name: string;
+    }>;
+    session_tickets: Array<{
+      id: string;
+      session: string;
+      session_name: string;
+    }>;
+  };
+  checkedIn: boolean;
+  checkInTime?: string;
+  checkInActionId?: string;
+  checkInRecordId?: string;
+  family?: string;
+  is_parent?: boolean;
 }
 
 export interface Family {
@@ -80,7 +102,32 @@ export interface FamilyApiResponse {
   id: string;
   last_name: string;
   display_name: string;
-  parents: Parent[];
+  parents: Array<{
+    id: string;
+    first_name: string;
+    last_name: string;
+    name: string;
+    phone?: string;
+    email?: string;
+    relationship_type: string;
+    ticket_type: string | null;
+    ticket_details?: {
+      event_tickets: Array<{
+        id: string;
+        event: string;
+        event_name: string;
+      }>;
+      session_tickets: Array<{
+        id: string;
+        session: string;
+        session_name: string;
+      }>;
+    } | null;
+    family: string;
+    last_participation_date?: string;
+    is_checked_in?: boolean;
+    active_checkin_id?: string | null;
+  }>;
   children: Array<{
     id: string;
     first_name: string;

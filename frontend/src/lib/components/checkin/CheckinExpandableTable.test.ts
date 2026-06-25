@@ -8,7 +8,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen } from '@testing-library/svelte';
 import userEvent from '@testing-library/user-event';
 import CheckinExpandableTable from './CheckinExpandableTable.svelte';
-import type { Family } from '$lib/checkin/types';
+import type { Family, Parent } from '$lib/checkin/types';
 
 // Mock the i18n library
 vi.mock('svelte-i18n', () => ({
@@ -29,6 +29,9 @@ vi.mock('svelte-i18n', () => ({
           'checkin.checkedInAt': 'Checked in at {time}',
           'checkin.guardianPresent': 'Guardian Present',
           'checkin.checkIn': 'Check In',
+          'checkin.guardian': 'Guardian',
+          'checkin.guardians': 'Guardians',
+          'checkin.noTicketClickToAssign': 'No ticket - click to assign',
         };
 
         if (options?.values) {
@@ -85,7 +88,7 @@ describe('CheckinExpandableTable', () => {
           family: 'family-1'
         }
       ],
-      parents: [{ id: 'parent-1', name: 'Bob Smith', relationship_type: 'father' }]
+      parents: [{ id: 'parent-1', first_name: 'Bob', last_name: 'Smith', name: 'Bob Smith', relationship_type: 'father', ticket: 'none', ticket_type: 'none', checkedIn: false }]
     }
   ];
 
@@ -501,6 +504,132 @@ describe('CheckinExpandableTable', () => {
 
       // Manually expanded family should still be expanded (not collapsed by search clear)
       expect(screen.queryAllByText('John Smith').length).toBeGreaterThanOrEqual(1);
+    });
+  });
+
+  describe('Guardians Subsection', () => {
+    const ticketedParent: Parent = {
+      id: 'parent-ticketed',
+      first_name: 'Alice',
+      last_name: 'Smith',
+      name: 'Alice Smith',
+      relationship_type: 'mother',
+      ticket: 'event',
+      ticket_type: 'event',
+      checkedIn: false
+    };
+
+    const noTicketParent: Parent = {
+      id: 'parent-noticket',
+      first_name: 'Bob',
+      last_name: 'Smith',
+      name: 'Bob Smith',
+      relationship_type: 'father',
+      ticket: 'none',
+      ticket_type: 'none',
+      checkedIn: false
+    };
+
+    const checkedInParent: Parent = {
+      id: 'parent-checkedin',
+      first_name: 'Carol',
+      last_name: 'Smith',
+      name: 'Carol Smith',
+      relationship_type: 'mother',
+      ticket: 'event',
+      ticket_type: 'event',
+      checkedIn: true,
+      checkInTime: '10:00'
+    };
+
+    it('should render check-in button for a ticketed, not-checked-in parent', async () => {
+      const user = userEvent.setup();
+      const familyWithTicketedParent: Family[] = [
+        { ...mockFamilies[0], parents: [ticketedParent] }
+      ];
+
+      render(CheckinExpandableTable, {
+        props: { ...defaultProps, families: familyWithTicketedParent }
+      });
+
+      // Expand family
+      const toggleButtons = screen.getAllByTestId('family-toggle-button-family-1');
+      await user.click(toggleButtons[0]);
+
+      expect(screen.queryAllByTestId('parent-check-in-button-parent-ticketed').length).toBeGreaterThanOrEqual(1);
+    });
+
+    it('should render expand button for a ticket-less parent', async () => {
+      const user = userEvent.setup();
+      const familyWithNoTicketParent: Family[] = [
+        { ...mockFamilies[0], parents: [noTicketParent] }
+      ];
+
+      render(CheckinExpandableTable, {
+        props: { ...defaultProps, families: familyWithNoTicketParent }
+      });
+
+      // Expand family
+      const toggleButtons = screen.getAllByTestId('family-toggle-button-family-1');
+      await user.click(toggleButtons[0]);
+
+      expect(screen.queryAllByTestId('parent-expand-button-parent-noticket').length).toBeGreaterThanOrEqual(1);
+    });
+
+    it('should show ticket assignment buttons when ticket-less parent expansion is open', async () => {
+      const user = userEvent.setup();
+      const familyWithNoTicketParent: Family[] = [
+        { ...mockFamilies[0], parents: [noTicketParent] }
+      ];
+
+      render(CheckinExpandableTable, {
+        props: {
+          ...defaultProps,
+          families: familyWithNoTicketParent,
+          expandedChildId: 'parent-noticket'
+        }
+      });
+
+      // Expand family
+      const toggleButtons = screen.getAllByTestId('family-toggle-button-family-1');
+      await user.click(toggleButtons[0]);
+
+      expect(screen.queryAllByTestId('parent-ticket-assign-session-parent-noticket').length).toBeGreaterThanOrEqual(1);
+    });
+
+    it('should not render a supervised checkbox for checked-in parents', async () => {
+      const user = userEvent.setup();
+      const familyWithCheckedInParent: Family[] = [
+        { ...mockFamilies[0], parents: [checkedInParent] }
+      ];
+
+      render(CheckinExpandableTable, {
+        props: { ...defaultProps, families: familyWithCheckedInParent }
+      });
+
+      // Expand family
+      const toggleButtons = screen.getAllByTestId('family-toggle-button-family-1');
+      await user.click(toggleButtons[0]);
+
+      // There should be no supervised checkbox for the parent
+      expect(screen.queryByTestId(`supervised-checkbox-${checkedInParent.id}`)).not.toBeInTheDocument();
+    });
+
+    it('should not render guardians section when family has no parents', async () => {
+      const user = userEvent.setup();
+      const familyNoParents: Family[] = [
+        { ...mockFamilies[0], parents: [] }
+      ];
+
+      render(CheckinExpandableTable, {
+        props: { ...defaultProps, families: familyNoParents }
+      });
+
+      // Expand family
+      const toggleButtons = screen.getAllByTestId('family-toggle-button-family-1');
+      await user.click(toggleButtons[0]);
+
+      expect(screen.queryByText('Guardians')).not.toBeInTheDocument();
     });
   });
 

@@ -1,7 +1,15 @@
 import type { Family, Child, Session, FamilyApiResponse, TicketType } from '$lib/checkin/types';
 
+type TicketableApiItem = {
+  ticket_type?: string | null;
+  ticket_details?: {
+    event_tickets: { event: string }[];
+    session_tickets: { session: string }[];
+  } | null;
+};
+
 function effectiveTicketType(
-  child: FamilyApiResponse['children'][number],
+  child: TicketableApiItem,
   session: Session | null
 ): TicketType {
   if (!session) return (child.ticket_type as TicketType) || 'none';
@@ -45,7 +53,25 @@ export function transformFamily(apiFamily: FamilyApiResponse, session: Session |
         qr_token: child.qr_token,
       };
     }),
-    parents: apiFamily.parents,
+    parents: apiFamily.parents.map((parent) => {
+      const ticketType = effectiveTicketType(parent, session);
+      return {
+        id: parent.id,
+        first_name: parent.first_name,
+        last_name: parent.last_name,
+        name: parent.name || `${parent.first_name} ${parent.last_name}`.trim(),
+        phone: parent.phone,
+        email: parent.email,
+        relationship_type: parent.relationship_type,
+        ticket: ticketType,
+        ticket_type: ticketType,
+        ticket_details: parent.ticket_details ?? undefined,
+        checkedIn: parent.is_checked_in || false,
+        checkInRecordId: parent.active_checkin_id ?? undefined,
+        family: parent.family,
+        is_parent: true,
+      };
+    }),
     last_participation_date: apiFamily.last_participation_date,
   } as Family;
 }
@@ -70,6 +96,7 @@ export function mergeFamilies(
     if (!existing) return fresh;
 
     const existingChildMap = new Map(existing.children.map(c => [c.id, c]));
+    const existingParentMap = new Map(existing.parents.map(p => [p.id, p]));
 
     return {
       ...fresh,
@@ -81,6 +108,16 @@ export function mergeFamilies(
           checkInActionId: existingChild.checkInActionId,
           checkInRecordId: existingChild.checkInRecordId,
           checkInTime: existingChild.checkInTime,
+        };
+      }),
+      parents: fresh.parents.map((freshParent) => {
+        const existingParent = existingParentMap.get(freshParent.id);
+        if (!existingParent) return freshParent;
+        return {
+          ...freshParent,
+          checkInActionId: existingParent.checkInActionId,
+          checkInRecordId: existingParent.checkInRecordId,
+          checkInTime: existingParent.checkInTime,
         };
       }),
     };

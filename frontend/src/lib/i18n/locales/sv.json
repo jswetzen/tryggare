@@ -148,6 +148,8 @@
     "childNumber": "Barn {number}",
     "optional": "valfritt",
     "allChildrenRequired": "Alla barn måste ha förnamn, efternamn och födelsedatum",
+    "guardian": "Vårdnadshavare",
+    "guardians": "Vårdnadshavare",
     "qrScanButton": "Skanna QR-kod",
     "qrScanTitle": "Skanna biljett-QR",
     "qrClose": "Stäng",
