@@ -167,6 +167,7 @@
     "refreshing": "Uppdaterar...",
     "refreshButton": "Uppdatera",
     "success": "Utcheckning av barn lyckades",
+    "familySuccess": "Checkade ut {count} barn",
     "error": "Utcheckning misslyckades",
     "loadError": "Kunde inte ladda incheckade barn",
     "searchPlaceholder": "Sök efter barnnamn eller familj...",
