@@ -48,3 +48,6 @@ printer-client/label.png
 printer-client/label_rotated.png
 printer-client/label_sized.png
 printer-client/test_print.py
+
+# claude code agent worktrees (local scratch)
+.claude/worktrees/
