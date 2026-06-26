@@ -82,6 +82,8 @@ export interface CheckInRecord {
   notes?: string;
   picked_up_by?: string;
   supervised: boolean;
+  /** Short QR code for the active check-in; used to open the child info page. */
+  qr_code?: string | null;
 }
 
 export interface AuditLog {

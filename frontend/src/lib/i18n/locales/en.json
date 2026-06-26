@@ -180,7 +180,9 @@
     "checkOutFamily": "Check out {family} ({count})",
     "familyCheckOutSuccess": "{family} family checked out ({count} {childrenLabel})!",
     "familyCheckOutError": "Failed to check out family",
-    "supervised": "Supervised"
+    "supervised": "Supervised",
+    "childInfo": "Info",
+    "childInfoTitle": "Open child info page (for lost name tags)"
   },
   "qr": {
     "pageTitle": "Child Information",

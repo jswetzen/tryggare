@@ -25,7 +25,7 @@ class CheckInRecordViewSet(viewsets.ModelViewSet):
     """
 
     queryset = CheckInRecord.objects.select_related(
-        "child", "session", "check_in_staff", "check_out_staff"
+        "child", "session", "check_in_staff", "check_out_staff", "qr_code"
     ).all()
     serializer_class = CheckInRecordSerializer
     permission_classes = [IsAuthenticated]
