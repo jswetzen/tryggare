@@ -245,11 +245,15 @@ class PrintLabelTest(TestCase):
         self.assertIn("text/html", response["Content-Type"])
 
     def test_print_page_contains_child_name(self):
-        """Test that print label contains child's name."""
+        """Test that print label shows the child's first name only.
+
+        The label is intentionally first-name-only so it can be auto-fit to the
+        small tag (see fit_child_name_pt); the last name is not printed.
+        """
         response = self.client.get(f"/api/print-queue/{self.checkin.id}/print_page/")
         content = response.content.decode("utf-8")
-        self.assertIn("Test", content)
-        self.assertIn("Child", content)
+        self.assertIn("Test", content)  # first name
+        self.assertNotIn("Child", content)  # last name is not printed
 
     def test_print_page_contains_qr_code_as_data_url(self):
         """Test that print label contains QR code as base64 data URL."""
@@ -261,11 +265,11 @@ class PrintLabelTest(TestCase):
         self.assertNotIn("/api/qr/", content)
 
     def test_print_page_has_correct_dimensions(self):
-        """Test that print label has correct page dimensions (54.3mm x 17mm)."""
+        """Test that print label has correct page dimensions (54.3mm x 17.0mm)."""
         response = self.client.get(f"/api/print-queue/{self.checkin.id}/print_page/")
         content = response.content.decode("utf-8")
         self.assertIn("54.3mm", content)
-        self.assertIn("17mm", content)
+        self.assertIn("17.0mm", content)
 
     def test_print_page_does_not_contain_session_or_allergies(self):
         """Test that simplified label doesn't contain session name or allergies."""
