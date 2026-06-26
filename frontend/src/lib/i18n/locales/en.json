@@ -116,6 +116,7 @@
     "atLeastOneChildRequired": "At least one child name is required",
     "atLeastOneParent": "At least one parent is required",
     "atLeastOneChild": "At least one child is required",
+    "invalidPhone": "Please enter a valid phone number",
     "successCheckedIn": "{name} checked in!",
     "successFamilyCheckedIn": "{family} family checked in ({count} {childrenLabel})!",
     "checkInUndone": "{name} check-in undone",

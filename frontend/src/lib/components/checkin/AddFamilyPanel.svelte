@@ -8,6 +8,7 @@
   import { onMount } from 'svelte';
   import { _ } from 'svelte-i18n';
   import type { TicketType } from '$lib/checkin/types';
+  import { isValidPhone } from '$lib/utils/phone';
 
   interface Child {
     first_name: string;
@@ -135,6 +136,14 @@
     if (validParents.length === 0) {
       error = $_('checkin.atLeastOneParent');
       return;
+    }
+
+    // Validate any provided phone numbers
+    for (const parent of validParents) {
+      if (!isValidPhone(parent.phone)) {
+        error = $_('checkin.invalidPhone');
+        return;
+      }
     }
 
     // Submit

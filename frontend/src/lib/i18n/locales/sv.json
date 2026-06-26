@@ -116,6 +116,7 @@
     "atLeastOneChildRequired": "Minst ett barns namn krävs",
     "atLeastOneParent": "Minst en förälder krävs",
     "atLeastOneChild": "Minst ett barn krävs",
+    "invalidPhone": "Ange ett giltigt telefonnummer",
     "successCheckedIn": "{name} incheckad!",
     "successFamilyCheckedIn": "{family} familjen incheckad ({count} {childrenLabel})!",
     "checkInUndone": "{name} incheckning ångrad",
