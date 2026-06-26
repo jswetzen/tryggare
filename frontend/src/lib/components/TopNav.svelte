@@ -78,6 +78,14 @@
         >
           {$t('nav.printQueue')}
         </a>
+        <a
+          href="/call-list"
+          class="px-4 py-2 rounded-button font-semibold transition-colors {isActive('/call-list')
+            ? 'bg-primary-600 text-white'
+            : 'text-neutral-700 hover:bg-neutral-100'}"
+        >
+          {$t('nav.callList')}
+        </a>
         {#if isAdmin}
           <a
             href="/import"
@@ -175,6 +183,15 @@
             : 'text-neutral-700 hover:bg-neutral-100'}"
         >
           {$t('nav.printQueue')}
+        </a>
+        <a
+          href="/call-list"
+          onclick={closeMobileMenu}
+          class="block px-3 py-2 rounded-button font-semibold {isActive('/call-list')
+            ? 'bg-primary-600 text-white'
+            : 'text-neutral-700 hover:bg-neutral-100'}"
+        >
+          {$t('nav.callList')}
         </a>
         {#if isAdmin}
           <a
