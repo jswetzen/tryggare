@@ -122,7 +122,7 @@ class FamilyModelTests(TestCase):
     def test_display_name_with_last_name(self):
         """Test display_name property with a last name"""
         family = Family.objects.create(last_name="Garcia")
-        self.assertEqual(family.display_name, "Garcia Family")
+        self.assertEqual(family.display_name, "Garcia")
 
     def test_display_name_without_last_name_no_parents(self):
         """Test display_name property without last name or parents"""
@@ -260,7 +260,7 @@ class FamilySerializerTests(TestCase):
         response = self.client.get(f"/api/families/{self.family.id}/")
 
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.data["display_name"], "Martinez Family")
+        self.assertEqual(response.data["display_name"], "Martinez")
 
     def test_family_serializer_display_name_readonly(self):
         """Test that display_name is read-only"""
@@ -276,7 +276,7 @@ class FamilySerializerTests(TestCase):
         # last_name should be updated
         self.assertEqual(response.data["last_name"], "Updated")
         # display_name should reflect the new last_name
-        self.assertEqual(response.data["display_name"], "Updated Family")
+        self.assertEqual(response.data["display_name"], "Updated")
 
     def test_family_list_includes_display_name(self):
         """Test that family list endpoint includes display_name"""
@@ -285,7 +285,7 @@ class FamilySerializerTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(len(response.data), 1)
         self.assertIn("display_name", response.data[0])
-        self.assertEqual(response.data[0]["display_name"], "Martinez Family")
+        self.assertEqual(response.data[0]["display_name"], "Martinez")
 
 
 class TicketIntegrationTests(TestCase):

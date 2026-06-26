@@ -2,7 +2,7 @@
 Tests for event ticket models and API endpoints.
 """
 
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch, AsyncMock
 
 from django.test import TestCase
 from django.utils import timezone
@@ -229,7 +229,7 @@ class AutoCheckoutOnDeactivateTest(TestCase):
     @patch("events.signals.get_channel_layer")
     def test_deactivating_session_checks_out_all_open_records(self, mock_get_layer):
         """Deactivating an active session auto-checks out open check-in records."""
-        mock_layer = MagicMock()
+        mock_layer = AsyncMock()
         mock_get_layer.return_value = mock_layer
 
         record1 = self._make_checkin(self.child1)
@@ -249,7 +249,7 @@ class AutoCheckoutOnDeactivateTest(TestCase):
     @patch("events.signals.get_channel_layer")
     def test_deactivating_session_creates_audit_logs(self, mock_get_layer):
         """Auto-checkout creates AuditLog entries with user=None."""
-        mock_layer = MagicMock()
+        mock_layer = AsyncMock()
         mock_get_layer.return_value = mock_layer
 
         from checkins.models import AuditLog
@@ -267,7 +267,7 @@ class AutoCheckoutOnDeactivateTest(TestCase):
     @patch("events.signals.get_channel_layer")
     def test_deactivating_session_with_no_open_checkins_is_safe(self, mock_get_layer):
         """Deactivating a session with no open check-ins does not raise an error."""
-        mock_layer = MagicMock()
+        mock_layer = AsyncMock()
         mock_get_layer.return_value = mock_layer
 
         # No check-ins created — should not raise
@@ -277,7 +277,7 @@ class AutoCheckoutOnDeactivateTest(TestCase):
     @patch("events.signals.get_channel_layer")
     def test_already_inactive_session_save_does_not_trigger(self, mock_get_layer):
         """Saving an already-inactive session does not double-checkout."""
-        mock_layer = MagicMock()
+        mock_layer = AsyncMock()
         mock_get_layer.return_value = mock_layer
 
         from checkins.models import AuditLog
@@ -304,7 +304,7 @@ class AutoCheckoutOnDeactivateTest(TestCase):
     @patch("events.signals.get_channel_layer")
     def test_reactivating_session_does_not_checkout(self, mock_get_layer):
         """Activating (True) or re-activating a session does not trigger checkout."""
-        mock_layer = MagicMock()
+        mock_layer = AsyncMock()
         mock_get_layer.return_value = mock_layer
 
         from checkins.models import AuditLog
@@ -322,7 +322,7 @@ class AutoCheckoutOnDeactivateTest(TestCase):
         self, mock_get_layer
     ):
         """After auto-checkout, a standard check-in can check into another session."""
-        mock_layer = MagicMock()
+        mock_layer = AsyncMock()
         mock_get_layer.return_value = mock_layer
 
         from checkins.models import CheckInRecord
