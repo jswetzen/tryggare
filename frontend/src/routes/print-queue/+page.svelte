@@ -193,26 +193,30 @@
 
 	async function assignPrinter(checkinId: string, printerId: string) {
 		try {
-			const item = queueItems.find(i => i.id === checkinId);
+			// The item may live in the pending queue or in the recently-printed
+			// list (reprinting a lost label). Reuse an existing job if there is
+			// one; otherwise create a fresh job for the printer.
+			const item =
+				queueItems.find(i => i.id === checkinId) ||
+				recentlyPrintedItems.find(i => i.id === checkinId);
 			let job;
 			if (item?.print_job?.id) {
 				job = await printingApi.assignJob(item.print_job.id, printerId);
 			} else {
 				job = await printingApi.createJob({ checkin_id: checkinId, printer_id: printerId });
 			}
-			// Update queue item with new job info
+			const newJob = {
+				id: job.id,
+				printer: job.printer,
+				printer_name: job.printer_name,
+				status: job.status,
+			};
+			// Update whichever list holds the item with the new job info.
 			queueItems = queueItems.map(i =>
-				i.id === checkinId
-					? {
-							...i,
-							print_job: {
-								id: job.id,
-								printer: job.printer,
-								printer_name: job.printer_name,
-								status: job.status,
-							},
-					  }
-					: i
+				i.id === checkinId ? { ...i, print_job: newJob } : i
+			);
+			recentlyPrintedItems = recentlyPrintedItems.map(i =>
+				i.id === checkinId ? { ...i, print_job: newJob } : i
 			);
 			successMessage = $t('printQueue.printSuccess');
 			setTimeout(() => { successMessage = ''; }, 3000);
@@ -335,6 +339,9 @@
 				columns={['childName', 'actions']}
 				onPrint={printLabel}
 				onViewQR={(code) => window.open(`/qr/${code}`, '_blank')}
+				onAssignPrinter={printers.length > 0 ? assignPrinter : undefined}
+				{printers}
+				{formatTime}
 			/>
 		{/if}
 	</ExpandableSection>
