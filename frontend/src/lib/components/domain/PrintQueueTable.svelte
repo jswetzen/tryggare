@@ -60,9 +60,11 @@
   const onlinePrinters = $derived(printers.filter((p) => p.is_online));
 </script>
 
-<div class="bg-white rounded-lg border-2 border-slate-300 overflow-hidden">
-  <table class="w-full">
-    <thead class="bg-slate-50 border-b-2 border-slate-300">
+<div class="bg-white rounded-lg border-2 border-slate-300">
+  <table class="w-full border-separate border-spacing-0">
+    <thead
+      class="[&>tr>th]:bg-slate-50 [&>tr>th]:border-b-2 [&>tr>th]:border-slate-300 [&>tr>th:first-child]:rounded-tl-md [&>tr>th:last-child]:rounded-tr-md"
+    >
       <tr>
         {#if showColumn('childName')}
           <th class="px-4 py-3 text-left text-sm font-medium text-slate-700">
@@ -91,9 +93,11 @@
         {/if}
       </tr>
     </thead>
-    <tbody>
+    <tbody
+      class="[&>tr>td]:border-b [&>tr>td]:border-slate-200 [&>tr:last-child>td]:border-b-0 [&>tr:last-child>td:first-child]:rounded-bl-md [&>tr:last-child>td:last-child]:rounded-br-md"
+    >
       {#each items as item}
-        <tr class="border-b border-slate-200 hover:bg-slate-50">
+        <tr class="hover:bg-slate-50">
           {#if showColumn('childName')}
             <td class="px-4 py-3">
               <div class="font-semibold text-slate-900">{item.childName}</div>
