@@ -66,6 +66,7 @@ def run_import(
         "total_bookings": 0,
         "families_created": 0,
         "families_skipped": 0,
+        "parents_updated": 0,
         "children_created": 0,
         "children_skipped": 0,
         "tickets_created": 0,
@@ -207,11 +208,14 @@ def _process_booking(
             )
         else:
             summary["families_skipped"] += 1
+            updated = _update_parent_contact(family, contact, extra_guardian)
+            summary["parents_updated"] += updated
             log_entries.append(
                 {
                     "booking_key": booking_key,
                     "action": "family_skipped",
-                    "details": f"Family {family.id} already exists for booking {booking_id}",
+                    "details": f"Family {family.id} already exists for booking {booking_id}"
+                    + (f" ({updated} parent(s) contact info updated)" if updated else ""),
                 }
             )
 
@@ -240,6 +244,46 @@ def _create_parent(family: Family, contact: dict) -> Parent:
         phone=contact.get("phone") or None,
         relationship_type="OTHER",
     )
+
+
+def _update_parent_contact(
+    family: Family, contact: dict, extra_guardian: dict | None
+) -> int:
+    """
+    Update phone/email on existing Parent records for a family that already exists.
+
+    Matches each contact dict to a Parent by name (the name set at creation time).
+    Only overwrites a field if: the import provides a non-empty value, the field
+    is not locked (phone_locked / email_locked), and the value has actually changed.
+
+    Returns the number of Parent records that were updated.
+    """
+    updated = 0
+    contacts = [c for c in [contact, extra_guardian] if c]
+    for contact_data in contacts:
+        first = contact_data.get("first_name", "")
+        last = contact_data.get("last_name", "")
+        name = f"{first} {last}".strip() or first or last or "Unknown"
+        parent = family.parents.filter(name=name).first()
+        if parent is None:
+            continue
+
+        new_phone = contact_data.get("phone") or None
+        new_email = contact_data.get("email") or None
+        fields_to_update = []
+
+        if new_phone and not parent.phone_locked and parent.phone != new_phone:
+            parent.phone = new_phone
+            fields_to_update.append("phone")
+        if new_email and not parent.email_locked and parent.email != new_email:
+            parent.email = new_email
+            fields_to_update.append("email")
+
+        if fields_to_update:
+            parent.save(update_fields=fields_to_update)
+            updated += 1
+
+    return updated
 
 
 def run_import_planningcenter(

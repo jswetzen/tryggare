@@ -12,9 +12,9 @@ class FamilyAdmin(admin.ModelAdmin):
 
 @admin.register(Parent)
 class ParentAdmin(admin.ModelAdmin):
-    list_display = ("name", "relationship_type", "family")
+    list_display = ("name", "relationship_type", "family", "phone_locked", "email_locked")
     search_fields = ("name", "email", "phone")
-    list_filter = ("relationship_type",)
+    list_filter = ("relationship_type", "phone_locked", "email_locked")
 
 
 @admin.register(Child)
