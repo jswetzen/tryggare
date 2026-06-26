@@ -408,7 +408,16 @@ async def run_client() -> None:
     my_printer_id: str | None = None
 
     log.info("Connecting to %s", ws_url.split("?")[0])
-    async with websockets.connect(ws_url, origin=BACKEND_URL.rstrip("/")) as ws:
+    # ping_interval/ping_timeout keep the connection healthy through brief
+    # stalls (e.g. a slow print) without dropping it the moment a single pong
+    # is late. The app-level printer_heartbeat (every 10s) is separate and
+    # drives the server's last_seen_at.
+    async with websockets.connect(
+        ws_url,
+        origin=BACKEND_URL.rstrip("/"),
+        ping_interval=20,
+        ping_timeout=60,
+    ) as ws:
         log.info("Connected")
 
         # Register printer (identity comes from the token; we only send a name)
@@ -474,15 +483,28 @@ async def heartbeat_loop(ws) -> None:
             break
 
 
+def _render_and_print(label_url: str) -> None:
+    """Blocking render + print. Runs in a thread so it never stalls the loop."""
+    png_bytes = render_label(label_url)
+    print_label(png_bytes)
+
+
 async def handle_print_job(ws, job_id: str, label_url: str) -> None:
-    """Render and print a single label, then report result via WS."""
+    """Render and print a single label, then report result via WS.
+
+    Rendering (WeasyPrint) and printing (USB/network I/O to the printer) are
+    synchronous and can take several seconds. Running them inline would block
+    the asyncio event loop, starving the heartbeat loop and the websockets
+    library's own ping/pong — which makes the server believe the client has
+    disconnected and flips the printer offline mid-job. Offload to a thread so
+    the connection stays alive while we print.
+    """
     completed = False
     try:
-        log.info("Rendering label for job %s", job_id)
-        png_bytes = render_label(label_url)
-
-        log.info("Printing label for job %s", job_id)
-        print_label(png_bytes)
+        log.info("Rendering and printing label for job %s", job_id)
+        await asyncio.get_running_loop().run_in_executor(
+            None, _render_and_print, label_url
+        )
 
         await ws.send(
             json.dumps(
