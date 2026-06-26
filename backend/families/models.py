@@ -61,7 +61,17 @@ class Parent(models.Model):
     phone = models.CharField(
         max_length=50, null=True, blank=True, verbose_name=_("Phone")
     )
+    phone_locked = models.BooleanField(
+        default=False,
+        verbose_name=_("Phone Locked"),
+        help_text=_("When checked, re-imports will not overwrite this phone number."),
+    )
     email = models.EmailField(null=True, blank=True, verbose_name=_("Email"))
+    email_locked = models.BooleanField(
+        default=False,
+        verbose_name=_("Email Locked"),
+        help_text=_("When checked, re-imports will not overwrite this email address."),
+    )
     relationship_type = models.CharField(
         max_length=64, verbose_name=_("Relationship Type")
     )

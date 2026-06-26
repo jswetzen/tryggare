@@ -344,6 +344,97 @@ class NoChildrenFamilySkipTest(TestCase):
         assert run.summary["families_created"] == 0
 
 
+class ContactUpdateOnReimportTest(TestCase):
+    """
+    Re-importing an existing family updates parent phone/email unless locked.
+    Parent is matched by name (set at creation time).
+    """
+
+    def setUp(self):
+        self.user = make_user()
+        self.event = make_event()
+        self.source = make_source(
+            self.event,
+            field_mappings={"SK26 Barnkonferens": "full_event"},
+        )
+        self.fm = self.source.festivalpro_config.field_mappings
+
+    def _updated_json(self, phone="0709999999", email="new@example.se"):
+        return {
+            "contact1": {
+                **MINIMAL_JSON["contact1"],
+                "Cell/Mobile": phone,
+                "Contact Email": email,
+            }
+        }
+
+    def test_phone_updated_on_reimport(self):
+        run_import(MINIMAL_JSON, self.source, self.fm, self.user)
+        run_import(self._updated_json(phone="0709999999"), self.source, self.fm, self.user)
+        parent = Parent.objects.get(family__external_booking_id="99001", name="Anna Svensson")
+        assert parent.phone == "0709999999"
+
+    def test_email_updated_on_reimport(self):
+        run_import(MINIMAL_JSON, self.source, self.fm, self.user)
+        run_import(self._updated_json(email="updated@example.se"), self.source, self.fm, self.user)
+        parent = Parent.objects.get(family__external_booking_id="99001", name="Anna Svensson")
+        assert parent.email == "updated@example.se"
+
+    def test_phone_not_updated_when_locked(self):
+        run_import(MINIMAL_JSON, self.source, self.fm, self.user)
+        parent = Parent.objects.get(family__external_booking_id="99001", name="Anna Svensson")
+        parent.phone_locked = True
+        parent.save(update_fields=["phone_locked"])
+
+        run_import(self._updated_json(phone="0709999999"), self.source, self.fm, self.user)
+        parent.refresh_from_db()
+        assert parent.phone == "0700000001"
+
+    def test_email_not_updated_when_locked(self):
+        run_import(MINIMAL_JSON, self.source, self.fm, self.user)
+        parent = Parent.objects.get(family__external_booking_id="99001", name="Anna Svensson")
+        parent.email_locked = True
+        parent.save(update_fields=["email_locked"])
+
+        run_import(self._updated_json(email="updated@example.se"), self.source, self.fm, self.user)
+        parent.refresh_from_db()
+        assert parent.email == "anna@test.se"
+
+    def test_blank_import_value_does_not_clear_phone(self):
+        run_import(MINIMAL_JSON, self.source, self.fm, self.user)
+        run_import(self._updated_json(phone=""), self.source, self.fm, self.user)
+        parent = Parent.objects.get(family__external_booking_id="99001", name="Anna Svensson")
+        assert parent.phone == "0700000001"
+
+    def test_blank_import_value_does_not_clear_email(self):
+        run_import(MINIMAL_JSON, self.source, self.fm, self.user)
+        run_import(self._updated_json(email=""), self.source, self.fm, self.user)
+        parent = Parent.objects.get(family__external_booking_id="99001", name="Anna Svensson")
+        assert parent.email == "anna@test.se"
+
+    def test_parents_updated_in_summary(self):
+        run_import(MINIMAL_JSON, self.source, self.fm, self.user)
+        run2 = run_import(self._updated_json(), self.source, self.fm, self.user)
+        assert run2.summary["parents_updated"] >= 1
+
+    def test_no_update_when_value_unchanged(self):
+        run_import(MINIMAL_JSON, self.source, self.fm, self.user)
+        run2 = run_import(MINIMAL_JSON, self.source, self.fm, self.user)
+        assert run2.summary["parents_updated"] == 0
+
+    def test_extra_guardian_phone_updated_on_reimport(self):
+        run_import(MINIMAL_JSON, self.source, self.fm, self.user)
+        updated = {
+            "contact1": {
+                **MINIMAL_JSON["contact1"],
+                "Extra vårdnadshavare kontaktinformation Phone": "0708888888",
+            }
+        }
+        run_import(updated, self.source, self.fm, self.user)
+        guardian = Parent.objects.get(family__external_booking_id="99001", name="Lars Svensson")
+        assert guardian.phone == "0708888888"
+
+
 class ErrorHandlingTest(TestCase):
     def setUp(self):
         self.user = make_user()
