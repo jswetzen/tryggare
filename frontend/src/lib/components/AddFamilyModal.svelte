@@ -1,6 +1,7 @@
 <script lang="ts">
   import { t } from 'svelte-i18n';
   import { familyApi } from '$lib/api/services';
+  import { isValidPhone } from '$lib/utils/phone';
 
   interface Props {
     show: boolean;
@@ -63,10 +64,14 @@
       return false;
     }
 
-    // Check all parents have names
+    // Check all parents have names and valid (optional) phone numbers
     for (const parent of parents) {
       if (!parent.name.trim()) {
         error = $t('checkin.validationError');
+        return false;
+      }
+      if (!isValidPhone(parent.phone)) {
+        error = $t('checkin.invalidPhone');
         return false;
       }
     }
@@ -206,10 +211,19 @@
                 </label>
                 <input
                   type="tel"
-                  class="w-full px-4 py-2 border border-neutral-300 rounded-input focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  inputmode="tel"
+                  class="w-full px-4 py-2 border rounded-input focus:outline-none focus:ring-2 focus:ring-primary-500 {isValidPhone(
+                    parent.phone
+                  )
+                    ? 'border-neutral-300'
+                    : 'border-danger-400 focus:ring-danger-500'}"
                   placeholder={$t('checkin.parentPhonePlaceholder')}
                   bind:value={parent.phone}
+                  aria-invalid={!isValidPhone(parent.phone)}
                 />
+                {#if !isValidPhone(parent.phone)}
+                  <p class="mt-1 text-xs text-danger-600">{$t('checkin.invalidPhone')}</p>
+                {/if}
               </div>
 
               <div>
