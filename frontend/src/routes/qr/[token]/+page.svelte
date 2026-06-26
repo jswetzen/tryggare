@@ -322,7 +322,12 @@
               <div class="text-lg">
                 {parent.name}
                 {#if parent.phone}
-                  <span class="text-sm text-neutral-600">({parent.phone})</span>
+                  <a
+                    href={`tel:${parent.phone.replace(/[^+\d]/g, '')}`}
+                    class="text-sm text-primary-600 hover:text-primary-700 underline"
+                  >
+                    ({parent.phone})
+                  </a>
                 {/if}
               </div>
             {/each}
