@@ -194,7 +194,7 @@ class PrintJobViewSet(viewsets.GenericViewSet):
     def _push_job_to_printer(self, request, job):
         """
         Push a print job via WebSocket and update status.
-        
+
         IMPORTANT: Database write happens BEFORE broadcast to avoid race conditions
         where the printer client receives the job UUID but the database hasn't
         committed the record yet, causing label_page_view() to return 404.

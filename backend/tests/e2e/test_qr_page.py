@@ -98,9 +98,17 @@ class TestQRPage(E2ETestBase, TestDataMixin):
         print("✅ Public access test PASSED")
 
     def test_child_info_display(self):
-        """Test that child information displays correctly on QR page."""
+        """Full child info (last name, parents) is shown to logged-in staff.
+
+        The privacy-first QR page only reveals the last name and parent/guardian
+        contacts to authenticated staff; anonymous scanners see first name +
+        allergies + "contact staff" (covered by test_public_access).
+        """
         print("\n🔍 Testing Child Information Display")
         print("=" * 60)
+
+        # Staff login required to see full info (last name, parents).
+        assert self.login(self.test_user.username, "testpass123")
 
         # Navigate to QR page
         qr_url = f"{self.config['frontend_url']}/qr/{self.qr_code_value}"
@@ -137,14 +145,16 @@ class TestQRPage(E2ETestBase, TestDataMixin):
         print("✅ Child info display test PASSED")
 
     def test_checkin_status_display(self):
-        """Test that check-in status displays correctly for the active check-in.
+        """Check-in status (session card) displays for logged-in staff.
 
-        The new privacy-first QR API only surfaces child info while actively
-        checked in, so this test verifies the positive case on the check-in
-        allocated in setup_method.
+        The check-in status card — including the session name — is part of the
+        staff-only detail on the privacy-first QR page, so this verifies the
+        positive case while authenticated.
         """
         print("\n🔍 Testing Check-In Status Display")
         print("=" * 60)
+
+        assert self.login(self.test_user.username, "testpass123")
 
         qr_url = f"{self.config['frontend_url']}/qr/{self.qr_code_value}"
 
@@ -168,9 +178,14 @@ class TestQRPage(E2ETestBase, TestDataMixin):
         print("✅ Check-in status display test PASSED")
 
     def test_action_buttons_present(self):
-        """Test that action buttons are present on QR page."""
+        """Action buttons (check out / edit / reprint) are present for staff.
+
+        These are staff-only actions; anonymous scanners see no action buttons.
+        """
         print("\n🔍 Testing Action Buttons")
         print("=" * 60)
+
+        assert self.login(self.test_user.username, "testpass123")
 
         qr_url = f"{self.config['frontend_url']}/qr/{self.qr_code_value}"
         self.driver.get(qr_url)
@@ -236,11 +251,16 @@ class TestQRPage(E2ETestBase, TestDataMixin):
         print("✅ Allergy banner test PASSED")
 
     def test_age_displayed(self):
-        """Child age (whole years from birthdate) is displayed next to the name."""
+        """Child age (whole years from birthdate) is shown to staff next to the name.
+
+        Age is part of the staff-only detail on the privacy-first QR page.
+        """
         from datetime import date
 
         print("\n🔍 Testing Age Display")
         print("=" * 60)
+
+        assert self.login(self.test_user.username, "testpass123")
 
         bd = self.test_child.birthdate
         dob = bd if isinstance(bd, date) else date.fromisoformat(str(bd))
@@ -292,10 +312,17 @@ class TestQRPage(E2ETestBase, TestDataMixin):
         print("\n" + "=" * 60)
         print("✅ No-allergy banner test PASSED")
 
-    def test_reprint_logged_out_opens_print_page(self):
-        """Reprint while logged out (no printers) falls back to the print page."""
-        print("\n🔍 Testing Reprint Fallback (logged out)")
+    def test_reprint_no_online_printer_opens_print_page(self):
+        """Reprint with no online printer falls back to the print page.
+
+        Reprint is a staff-only action now, so log in first. With no printers
+        registered (online), clicking reprint should open the print page in a
+        new tab rather than sending a job.
+        """
+        print("\n🔍 Testing Reprint Fallback (staff, no online printer)")
         print("=" * 60)
+
+        assert self.login(self.test_user.username, "testpass123")
 
         self.driver.get(f"{self.config['frontend_url']}/qr/{self.qr_code_value}")
         time.sleep(3)
@@ -316,8 +343,7 @@ class TestQRPage(E2ETestBase, TestDataMixin):
         opened_new_tab = len(self.driver.window_handles) > initial_handles
         page_source = self.driver.page_source
         shows_message = (
-            "Opening print page" in page_source
-            or "Öppnar utskriftssida" in page_source
+            "Opening print page" in page_source or "Öppnar utskriftssida" in page_source
         )
         assert opened_new_tab or shows_message, (
             "Reprint did not trigger the print-page fallback (no new tab / message)"

@@ -56,6 +56,34 @@ class TestCheckOutFlow(E2ETestBase, TestDataMixin):
         )
         self.teardown_driver()
 
+    def _expand_families(self):
+        """Expand all family rows so child names + per-child actions are in the DOM.
+
+        The checkout table is an expandable list: a collapsed family row shows
+        only the family (last) name and a count, not the individual children.
+        Both the mobile-card and desktop-table layouts render a toggle per
+        family pointing at the same family id, so clicking both would
+        double-toggle back to collapsed — click only the VISIBLE triggers.
+        """
+        # Wait for the family rows to load before expanding (the list is fetched
+        # client-side, so it may not be present immediately after navigation).
+        deadline = time.time() + 10
+        triggers = []
+        while time.time() < deadline:
+            triggers = self.driver.find_elements(
+                By.CSS_SELECTOR, "[role='button'].cursor-pointer"
+            )
+            if any(t.is_displayed() for t in triggers):
+                break
+            time.sleep(0.5)
+        for hdr in triggers:
+            try:
+                if hdr.is_displayed():
+                    hdr.click()
+            except Exception:
+                pass
+        time.sleep(1)
+
     def test_view_checked_in_child(self):
         """Test that checked-in children appear on checkout page."""
         print("\n🔍 Testing View Checked-In Child")
@@ -77,6 +105,9 @@ class TestCheckOutFlow(E2ETestBase, TestDataMixin):
         checkout_url = f"{self.config['frontend_url']}/checkout"
         self.driver.get(checkout_url)
         time.sleep(3)
+
+        # Child names live inside the (collapsed) family row — expand to reveal.
+        self._expand_families()
 
         # Verify child appears in list
         page_source = self.driver.page_source
@@ -114,6 +145,10 @@ class TestCheckOutFlow(E2ETestBase, TestDataMixin):
         checkout_url = f"{self.config['frontend_url']}/checkout"
         self.driver.get(checkout_url)
         time.sleep(3)
+
+        # Expand the family so the per-child check-out button is in the DOM
+        # (the collapsed row only exposes "check out all").
+        self._expand_families()
 
         # Find and click checkout button
         print("   Finding checkout button...")
