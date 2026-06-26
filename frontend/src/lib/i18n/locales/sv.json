@@ -180,7 +180,9 @@
     "checkOutFamily": "Checka ut {family} ({count})",
     "familyCheckOutSuccess": "{family} familjen utcheckad ({count} {childrenLabel})!",
     "familyCheckOutError": "Kunde inte checka ut familj",
-    "supervised": "Övervakad"
+    "supervised": "Övervakad",
+    "childInfo": "Info",
+    "childInfoTitle": "Öppna barnets infosida (vid borttappad namnlapp)"
   },
   "qr": {
     "pageTitle": "Barninformation",

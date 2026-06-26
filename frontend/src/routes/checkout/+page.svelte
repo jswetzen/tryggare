@@ -361,6 +361,7 @@
             lastName: record.child_name?.split(' ').slice(1).join(' ') || '',
             checkInTime: record.check_in_time,
             supervised: record.supervised,
+            qrCode: record.qr_code || null,
             date_of_birth: '',
             created_at: '',
             updated_at: ''
@@ -393,6 +394,7 @@
             lastName: child?.last_name || record.child_name?.split(' ').slice(1).join(' ') || '',
             checkInTime: record.check_in_time,
             supervised: record.supervised,
+            qrCode: record.qr_code || null,
             date_of_birth: child?.birthdate || '',
             created_at: '',
             updated_at: ''

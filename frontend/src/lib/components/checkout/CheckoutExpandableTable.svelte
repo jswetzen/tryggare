@@ -17,6 +17,7 @@
     lastName: string;
     checkInTime?: string;
     supervised?: boolean;
+    qrCode?: string | null;
   }
 
   interface Parent {
@@ -167,14 +168,27 @@
                   </div>
                 </div>
 
-                <button
-                  type="button"
-                  onclick={() => onCheckOut(child.id)}
-                  class="px-3 py-1.5 bg-blue-600 text-white text-xs sm:text-sm font-medium rounded hover:bg-blue-700 transition-colors"
-                  aria-label={`${$_('checkout.checkOut')} ${child.firstName} {child.lastName}`}
-                >
-                  {$_('checkout.checkOut')}
-                </button>
+                <div class="flex items-center gap-2 flex-shrink-0">
+                  {#if child.qrCode}
+                    <a
+                      href={`/qr/${child.qrCode}`}
+                      target="_blank"
+                      rel="noopener"
+                      title={$_('checkout.childInfoTitle')}
+                      class="px-3 py-1.5 border border-slate-300 text-slate-700 text-xs sm:text-sm font-medium rounded hover:bg-slate-100 transition-colors"
+                    >
+                      {$_('checkout.childInfo')}
+                    </a>
+                  {/if}
+                  <button
+                    type="button"
+                    onclick={() => onCheckOut(child.id)}
+                    class="px-3 py-1.5 bg-blue-600 text-white text-xs sm:text-sm font-medium rounded hover:bg-blue-700 transition-colors"
+                    aria-label={`${$_('checkout.checkOut')} ${child.firstName} ${child.lastName}`}
+                  >
+                    {$_('checkout.checkOut')}
+                  </button>
+                </div>
               </div>
             </div>
           {/each}
@@ -297,7 +311,18 @@
                 </div>
               </td>
               <td class="px-4 py-3" colspan="2">
-                <div class="flex items-center justify-end">
+                <div class="flex items-center justify-end gap-2">
+                  {#if child.qrCode}
+                    <a
+                      href={`/qr/${child.qrCode}`}
+                      target="_blank"
+                      rel="noopener"
+                      title={$_('checkout.childInfoTitle')}
+                      class="px-3 py-1.5 border border-slate-300 text-slate-700 text-xs sm:text-sm font-medium rounded hover:bg-slate-100 transition-colors"
+                    >
+                      {$_('checkout.childInfo')}
+                    </a>
+                  {/if}
                   <button
                     type="button"
                     onclick={() => onCheckOut(child.id)}

@@ -15,6 +15,7 @@ class CheckInRecordSerializer(serializers.ModelSerializer):
     check_out_staff_name = serializers.CharField(
         source="check_out_staff.name", read_only=True, allow_null=True
     )
+    qr_code = serializers.SerializerMethodField()
 
     class Meta:
         model = CheckInRecord
@@ -32,11 +33,21 @@ class CheckInRecordSerializer(serializers.ModelSerializer):
             "check_out_staff",
             "check_out_staff_name",
             "supervised",
+            "qr_code",
         ]
         read_only_fields = ["id", "check_in_time"]
 
     def get_child_name(self, obj):
         return f"{obj.child.first_name} {obj.child.last_name}"
+
+    def get_qr_code(self, obj):
+        """The short QR code for the active check-in, if one is allocated.
+
+        Lets staff open the child's info page (/qr/<code>) when a name tag is
+        lost without needing the physical label.
+        """
+        qr = getattr(obj, "qr_code", None)
+        return qr.code if qr else None
 
     def validate(self, data):
         """Validate one child in one session at a time rule with supervised check-in support"""
