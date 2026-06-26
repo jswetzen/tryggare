@@ -640,3 +640,71 @@ class TestAllergierPerChild:
         kids = self._children()
         assert kids["Barn1"]["birthdate"] == date(2019, 1, 15)
         assert kids["Barn11"]["birthdate"] == date(2014, 3, 7)
+
+
+# ---------------------------------------------------------------------------
+# parse_contact — Cell/Mobile and Contact Email duplicate-key regression.
+#
+# In some exports "Cell/Mobile" (and potentially "Contact Email") appears more
+# than once, collapsing into a _DuplicateList.  The old str() call converted
+# the whole list to a blob like "['070...', '070...']".  The fix uses
+# _first_nonempty() which already handles lists, consistent with the same
+# treatment in parse_extra_guardian.
+# ---------------------------------------------------------------------------
+
+_PHONE_DUPE_JSON = (
+    '{"contact1": {'
+    '"Booking ID": "99999",'
+    '"Contact First Name": "Test",'
+    '"Contact Last Name": "Person",'
+    '"Contact Email": "first@example.se",'
+    '"Cell/Mobile": "0707111111",'
+    '"Cell/Mobile": "0707222222"'
+    "}}"
+)
+
+_EMAIL_DUPE_JSON = (
+    '{"contact1": {'
+    '"Booking ID": "99998",'
+    '"Contact First Name": "Test",'
+    '"Contact Last Name": "Person",'
+    '"Contact Email": "first@example.se",'
+    '"Contact Email": "second@example.se",'
+    '"Cell/Mobile": "0707333333"'
+    "}}"
+)
+
+PHONE_DUPE_BOOKING = parse_json_with_duplicate_keys(_PHONE_DUPE_JSON)["contact1"]
+EMAIL_DUPE_BOOKING = parse_json_with_duplicate_keys(_EMAIL_DUPE_JSON)["contact1"]
+
+
+class TestParseContactDuplicateKeys:
+    def test_phone_no_blob_when_duplicate(self):
+        """Regression: phone must not be a str() of the _DuplicateList."""
+        contact = parse_contact(PHONE_DUPE_BOOKING)
+        phone = contact["phone"] or ""
+        assert "[" not in phone and "'" not in phone, (
+            f"phone is a raw list blob: {phone!r}"
+        )
+
+    def test_phone_uses_first_value(self):
+        contact = parse_contact(PHONE_DUPE_BOOKING)
+        assert contact["phone"] == "0707111111"
+
+    def test_email_no_blob_when_duplicate(self):
+        """Regression: email must not be a str() of the _DuplicateList."""
+        contact = parse_contact(EMAIL_DUPE_BOOKING)
+        email = contact["email"] or ""
+        assert "[" not in email and "'" not in email, (
+            f"email is a raw list blob: {email!r}"
+        )
+
+    def test_email_uses_first_value(self):
+        contact = parse_contact(EMAIL_DUPE_BOOKING)
+        assert contact["email"] == "first@example.se"
+
+    def test_single_values_unchanged(self):
+        """Non-duplicate keys still work as before."""
+        contact = parse_contact(SAMPLE_BOOKING)
+        assert contact["phone"] == "070730403030"
+        assert contact["email"] == "mail@exempel.se"
