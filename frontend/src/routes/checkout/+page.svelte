@@ -192,9 +192,27 @@
     }
 
     const query = searchQuery.toLowerCase();
+
+    // Identify families that have at least one matching child. We then show the
+    // whole family (all their active check-ins), mirroring the check-in page —
+    // a first-name search like "Emma" should surface Emma's siblings too, since
+    // pickup usually happens per family.
+    const matchingFamilyIds = new Set<string>();
+    for (const record of activeCheckIns) {
+      const childName = record.child_name?.toLowerCase() || '';
+      if (childName.includes(query)) {
+        const family = families.find((f) => f.children.some((c) => c.id === record.child));
+        // Records whose family isn't loaded fall back to their own id so they
+        // still appear on a direct name match.
+        matchingFamilyIds.add(family?.id ?? record.id);
+      }
+    }
+
     filteredCheckIns = activeCheckIns.filter((record) => {
       const childName = record.child_name?.toLowerCase() || '';
-      return childName.includes(query);
+      if (childName.includes(query)) return true;
+      const family = families.find((f) => f.children.some((c) => c.id === record.child));
+      return matchingFamilyIds.has(family?.id ?? record.id);
     });
   }
 
