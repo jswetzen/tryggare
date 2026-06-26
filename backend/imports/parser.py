@@ -415,16 +415,6 @@ def parse_children_from_prefix(
     return children
 
 
-def parse_contact(booking: dict) -> dict:
-    """Extract primary contact (parent) info from a booking."""
-    return {
-        "first_name": str(booking.get("Contact First Name", "") or "").strip(),
-        "last_name": str(booking.get("Contact Last Name", "") or "").strip(),
-        "email": str(booking.get("Contact Email", "") or "").strip() or None,
-        "phone": str(booking.get("Cell/Mobile", "") or "").strip() or None,
-    }
-
-
 def _first_nonempty(val) -> str:
     """Return the first non-empty string from a value that may be a list or plain string."""
     if isinstance(val, list):
@@ -434,6 +424,16 @@ def _first_nonempty(val) -> str:
                 return s
         return ""
     return str(val or "").strip()
+
+
+def parse_contact(booking: dict) -> dict:
+    """Extract primary contact (parent) info from a booking."""
+    return {
+        "first_name": _first_nonempty(booking.get("Contact First Name")),
+        "last_name": _first_nonempty(booking.get("Contact Last Name")),
+        "email": _first_nonempty(booking.get("Contact Email")) or None,
+        "phone": _first_nonempty(booking.get("Cell/Mobile")) or None,
+    }
 
 
 def parse_extra_guardian(booking: dict) -> dict | None:
