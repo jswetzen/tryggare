@@ -7,9 +7,23 @@
     "checkin": "Incheckning",
     "checkout": "Utcheckning",
     "printQueue": "Utskriftskö",
+    "callList": "Ringlista",
     "logout": "Logga ut",
     "openMenu": "Öppna huvudmeny",
     "admin": "Admin"
+  },
+  "callList": {
+    "pageTitle": "Ringlista - Incheckningssystem",
+    "title": "Ringlista",
+    "subtitle": "Familjer med barn som fortfarande är incheckade. Ring en förälder för att ordna hämtning.",
+    "loading": "Laddar incheckade barn…",
+    "loadError": "Kunde inte ladda incheckade barn",
+    "empty": "Inga barn är incheckade just nu.",
+    "childrenStillIn": "{count} fortfarande incheckade",
+    "noPhone": "Inget telefonnummer registrerat",
+    "checkedInSince": "Sedan {time}",
+    "call": "Ring",
+    "refresh": "Uppdatera"
   },
   "login": {
     "pageTitle": "Logga in - Incheckningssystem",

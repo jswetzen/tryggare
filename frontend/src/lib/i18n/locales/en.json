@@ -7,9 +7,23 @@
     "checkin": "Check-In",
     "checkout": "Check-Out",
     "printQueue": "Print Queue",
+    "callList": "Call List",
     "logout": "Logout",
     "openMenu": "Open main menu",
     "admin": "Admin"
+  },
+  "callList": {
+    "pageTitle": "Call List - Tryggare",
+    "title": "Call List",
+    "subtitle": "Families with children still checked in. Call a parent to arrange pickup.",
+    "loading": "Loading checked-in children…",
+    "loadError": "Failed to load checked-in children",
+    "empty": "No children are currently checked in.",
+    "childrenStillIn": "{count} still checked in",
+    "noPhone": "No phone number on file",
+    "checkedInSince": "Since {time}",
+    "call": "Call",
+    "refresh": "Refresh"
   },
   "login": {
     "pageTitle": "Login - Tryggare",
