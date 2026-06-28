@@ -116,15 +116,44 @@
       text-wrap: pretty;
     }
 
-    .hero-ctas { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 44px; }
+    .hero-ctas { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 28px; }
 
-    .hero-stats { display: flex; gap: 28px; flex-wrap: wrap; }
-    .stat-item {}
-    .stat-num {
-      font-size: 1.5rem; font-weight: 800; letter-spacing: -0.02em;
-      color: var(--ink);
+    .hero-demo-note {
+      font-size: 0.9rem; color: var(--ink-soft);
+      margin-bottom: 44px;
+      padding: 12px 22px;
+      background: var(--surface-2);
+      border-radius: 18px;
+      line-height: 1.5;
     }
-    .stat-label { font-size: 0.8rem; color: var(--ink-faint); font-weight: 500; }
+    .hero-demo-note::before {
+      content: ''; display: inline-block; vertical-align: middle;
+      width: 9px; height: 9px; border-radius: 50%;
+      background: var(--green);
+      margin-right: 12px;
+      position: relative; top: -1px;
+      box-shadow: 0 0 0 4px oklch(0.60 0.17 145 / 0.18);
+      animation: demo-pulse 2.2s ease-in-out infinite;
+    }
+    .hero-demo-note a {
+      color: var(--blue); font-weight: 600; text-decoration: none;
+      border-bottom: 1px solid oklch(0.80 0.10 265);
+    }
+    .hero-demo-note a:hover { color: var(--blue-mid); }
+    @keyframes demo-pulse {
+      0%, 100% { box-shadow: 0 0 0 4px oklch(0.60 0.17 145 / 0.18); }
+      50%      { box-shadow: 0 0 0 7px oklch(0.60 0.17 145 / 0.05); }
+    }
+
+    .hero-stats {
+      display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap;
+      font-size: 0.92rem; color: var(--ink-soft);
+    }
+    .hero-stats .sep { color: oklch(0.82 0.006 240); }
+    .hero-stats b {
+      color: var(--ink); font-weight: 700; letter-spacing: -0.01em;
+      margin-right: 6px;
+    }
 
     /* Phone mockup */
     .hero-visual {
@@ -448,25 +477,19 @@
         <span data-i18n="hero.sub">Skip the Sunday-morning queue. A self-hosted check-in system built for churches and organizations — multiple stations check families in at once, in real time, with automatic label printing and zero per-child fees.</span>
       </p>
       <div class="hero-ctas">
-        <a class="btn btn-primary btn-lg" href="https://github.com/jswetzen/check-ins" target="_blank" rel="noopener">
-          <svg class="gh-icon" width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.477 2 2 6.477 2 12c0 4.42 2.87 8.17 6.84 9.5.5.08.66-.23.66-.5v-1.69c-2.77.6-3.36-1.34-3.36-1.34-.46-1.16-1.11-1.47-1.11-1.47-.91-.62.07-.6.07-.6 1 .07 1.53 1.03 1.53 1.03.87 1.52 2.34 1.07 2.91.83.09-.65.35-1.09.63-1.34-2.22-.25-4.55-1.11-4.55-4.92 0-1.11.38-2 1.03-2.71-.1-.25-.45-1.29.1-2.64 0 0 .84-.27 2.75 1.02.79-.22 1.65-.33 2.5-.33.85 0 1.71.11 2.5.33 1.91-1.29 2.75-1.02 2.75-1.02.55 1.35.2 2.39.1 2.64.65.71 1.03 1.6 1.03 2.71 0 3.82-2.34 4.66-4.57 4.91.36.31.69.92.69 1.85V21c0 .27.16.59.67.5C19.14 20.16 22 16.42 22 12A10 10 0 0012 2z"/></svg>
-          <span data-i18n="hero.cta1">View on GitHub</span>
+        <a class="btn btn-primary btn-lg" href="https://demo.tryggare.swetzen.com" target="_blank" rel="noopener">
+          <svg class="gh-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+          <span data-i18n="hero.cta1">Try the live demo</span>
         </a>
         <a class="btn btn-outline btn-lg" href="https://github.com/jswetzen/check-ins/blob/main/docs/deploy-coolify.md" target="_blank" rel="noopener" data-i18n="hero.cta2">Deploy guide</a>
       </div>
+      <p class="hero-demo-note" data-i18nh="hero.demoNote">Live demo at <a href="https://demo.tryggare.swetzen.com" target="_blank" rel="noopener">demo.tryggare.swetzen.com</a> — data resets every hour, on the hour.</p>
       <div class="hero-stats">
-        <div class="stat-item">
-          <div class="stat-num">∞</div>
-          <div class="stat-label" data-i18n="hero.stat1">Stations in parallel</div>
-        </div>
-        <div class="stat-item">
-          <div class="stat-num">$0</div>
-          <div class="stat-label" data-i18n="hero.stat2">Per-child fees</div>
-        </div>
-        <div class="stat-item">
-          <div class="stat-num">2</div>
-          <div class="stat-label" data-i18n="hero.stat3">Languages built-in</div>
-        </div>
+        <span><b>∞</b><span data-i18n="hero.stat1">stations in parallel</span></span>
+        <span class="sep">·</span>
+        <span><b>$0</b><span data-i18n="hero.stat2">per-child fees</span></span>
+        <span class="sep">·</span>
+        <span><b>2</b><span data-i18n="hero.stat3">languages built-in</span></span>
       </div>
     </div>
 
@@ -474,7 +497,9 @@
       <div class="phone-wrap">
         <div class="phone-frame">
           <div class="phone-notch"></div>
-          <div class="phone-screen"><img src="uploads/checkin_screenshot.png" alt="Check-in screen" /></div>
+          <div class="phone-screen">
+            <img src="uploads/checkin_screenshot.png" alt="Tryggare check-in screen showing family list with check-in status" />
+          </div>
         </div>
         <div class="phone-badge">
           <div class="icon-wrap">
@@ -673,8 +698,9 @@
       "hero.badge": "Open Source · AGPL-3.0",
       "hero.h1": 'Safe check-ins for <em>every child</em>',
       "hero.sub": "Skip the Sunday-morning queue. A self-hosted check-in system built for churches and organizations — multiple stations check families in at once, in real time, with automatic label printing and zero per-child fees.",
-      "hero.cta1": "View on GitHub", "hero.cta2": "Deploy guide",
-      "hero.stat1": "Stations in parallel", "hero.stat2": "Per-child fees", "hero.stat3": "Languages built-in",
+      "hero.cta1": "Try the live demo", "hero.cta2": "Deploy guide",
+      "hero.demoNote": 'Live demo at <a href="https://demo.tryggare.swetzen.com" target="_blank" rel="noopener">demo.tryggare.swetzen.com</a> — data resets every hour, on the hour.',
+      "hero.stat1": "stations in parallel", "hero.stat2": "per-child fees", "hero.stat3": "languages built-in",
       "hero.checkin": "Checked in", "hero.realtime": "Real-time sync",
       "feat.label": "Features", "feat.h2": "Everything a busy Sunday needs",
       "feat.sub": "Designed for the reality of church life — multiple volunteers, fast check-in lines, and parents who want to feel confident.",
@@ -706,8 +732,9 @@
       "hero.badge": "Öppen källkod · AGPL-3.0",
       "hero.h1": 'Trygg incheckning för <em>varje barn</em>',
       "hero.sub": "Slipp söndagsmorgonens kö. Ett självhostat incheckningssystem för kyrkor och organisationer — flera stationer checkar in familjer samtidigt, i realtid, med automatisk etikettutskrift och inga avgifter per barn.",
-      "hero.cta1": "Visa på GitHub", "hero.cta2": "Driftsättningsguide",
-      "hero.stat1": "Stationer samtidigt", "hero.stat2": "Avgift per barn", "hero.stat3": "Inbyggda språk",
+      "hero.cta1": "Testa live-demon", "hero.cta2": "Driftsättningsguide",
+      "hero.demoNote": 'Live-demo på <a href="https://demo.tryggare.swetzen.com" target="_blank" rel="noopener">demo.tryggare.swetzen.com</a> — datan återställs varje hel timme.',
+      "hero.stat1": "stationer parallellt", "hero.stat2": "avgift per barn", "hero.stat3": "inbyggda språk",
       "hero.checkin": "Incheckad", "hero.realtime": "Uppdateras i realtid",
       "feat.label": "Funktioner", "feat.h2": "Allt du behöver en hektisk söndagsmorgon",
       "feat.sub": "Utformat för kyrkans vardag — flera medarbetare, snabba incheckningar och föräldrar som vill känna sig trygga.",

@@ -1,0 +1,178 @@
+/* ============================================================
+   Tryggare.app — design tokens
+   Two layers: BRAND (swap to change identity) + SEMANTIC (use these).
+   Brand palette: sky blue + green. See logo-colors.html for the
+   exploration that led here.
+   ============================================================ */
+
+/* ---------- 1. BRAND TOKENS (the parts in flux) ---------- */
+:root {
+  /* Primary brand color — drives links, primary CTAs, accents,
+     and the .app suffix in the wordmark. */
+  --brand-primary:        oklch(0.56 0.22 265); /* #3B82F6 sky blue */
+  --brand-primary-mid:    oklch(0.48 0.23 265); /* deeper, used on hover */
+  --brand-primary-tint:   oklch(0.95 0.04 265); /* tint for icon bg */
+
+  /* Brand accent — the second logo color. Trust / success / "live". */
+  --brand-accent:         oklch(0.60 0.17 145); /* #22C55E green */
+  --brand-accent-mid:     oklch(0.50 0.18 145);
+  --brand-accent-tint:    oklch(0.95 0.06 145);
+
+  /* Logo gradient stops — referenced by the two SVG paths.
+     Keep in sync with --brand-primary / --brand-accent if you swap. */
+  --logo-sweep-start:     #3B82F6;
+  --logo-sweep-end:       #1E40AF;
+  --logo-accent-start:    #22C55E;
+  --logo-accent-end:      #15803D;
+}
+
+/* ---------- 2. NEUTRAL / SURFACE TOKENS ---------- */
+:root {
+  --ink:         oklch(0.14 0.015 240);  /* primary text, dark UI bg */
+  --ink-soft:    oklch(0.40 0.010 240);  /* secondary text */
+  --ink-faint:   oklch(0.60 0.008 240);  /* tertiary / meta */
+  --ink-line:    oklch(0.90 0.006 240);  /* default border */
+  --ink-line-2:  oklch(0.88 0.006 240);  /* slightly stronger border */
+
+  --surface:     oklch(0.99 0.004 240);  /* page background, cards */
+  --surface-2:   oklch(0.96 0.006 240);  /* tinted sections, button hover */
+  --surface-glass: oklch(0.99 0.004 240 / 0.88); /* nav, sticky chrome */
+
+  /* Danger tint (rare; used on ✗ rows of the "no per-child fees" list) */
+  --danger-tint: oklch(0.93 0.015 18);
+  --danger:      oklch(0.50 0.14 18);
+}
+
+/* ---------- 3. SEMANTIC ALIASES (prefer these in components) ---------- */
+:root {
+  --color-text:           var(--ink);
+  --color-text-muted:     var(--ink-soft);
+  --color-text-faint:     var(--ink-faint);
+  --color-bg:             var(--surface);
+  --color-bg-alt:         var(--surface-2);
+  --color-bg-inverse:     var(--ink);
+  --color-border:         var(--ink-line);
+  --color-link:           var(--brand-primary);
+  --color-link-hover:     var(--brand-primary-mid);
+
+  /* Legacy shorthands used in the production landing page.
+     Keep these so existing markup doesn't break. */
+  --blue:        var(--brand-primary);
+  --blue-mid:    var(--brand-primary-mid);
+  --blue-light:  var(--brand-primary-tint);
+  --green:       var(--brand-accent);
+  --green-light: var(--brand-accent-tint);
+}
+
+/* ---------- 4. RADIUS / ELEVATION / MOTION ---------- */
+:root {
+  --radius-sm:    7px;   /* lang menu items, ghost buttons */
+  --radius:       10px;  /* large buttons, sh-rows */
+  --radius-md:    14px;  /* cards, panels */
+  --radius-lg:    22px;  /* feature cards, hero surfaces */
+  --radius-pill:  100px;
+
+  --shadow-xs:    0 2px 8px oklch(0.14 0.015 240 / 0.07);
+  --shadow-sm:    0 4px 16px oklch(0.14 0.015 240 / 0.08);
+  --shadow-md:    0 8px 28px oklch(0.14 0.015 240 / 0.14);
+  --shadow-lg:    0 40px 80px oklch(0.14 0.015 240 / 0.22),
+                  0 12px 24px oklch(0.14 0.015 240 / 0.10);
+  --shadow-cta:   0 4px 16px oklch(0.52 0.20 232 / 0.30);
+
+  --motion-fast:  0.12s;
+  --motion-base:  0.15s ease;
+  --motion-slow:  0.20s ease;
+}
+
+/* ---------- 5. TYPOGRAPHY ---------- */
+:root {
+  --font-sans:  'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont,
+                'Segoe UI', Roboto, sans-serif;
+  --font-mono:  ui-monospace, 'JetBrains Mono', SFMono-Regular, Menlo, monospace;
+
+  /* Fluid type ramp (clamp-based, so it breathes across viewports) */
+  --type-display:   clamp(2.4rem, 4.5vw, 3.6rem);  /* h1 / hero */
+  --type-h2:        clamp(1.8rem, 3vw,   2.6rem);  /* section h2 */
+  --type-h3:        1rem;                           /* feature card title */
+  --type-body-lg:   1.1rem;                         /* hero sub */
+  --type-body:      1rem;                           /* default p */
+  --type-body-sm:   0.875rem;                       /* card p, sh-text */
+  --type-caption:   0.8rem;                         /* meta, footer */
+  --type-eyebrow:   0.78rem;                        /* section labels */
+
+  /* Weights actually shipped (the Google Fonts request) */
+  --weight-regular: 400;
+  --weight-medium:  500;
+  --weight-semi:    600;
+  --weight-bold:    700;
+  --weight-black:   800;
+}
+
+/* ---------- 6. SEMANTIC TYPE RULES ---------- */
+.display, h1.display {
+  font-family: var(--font-sans);
+  font-size: var(--type-display);
+  font-weight: var(--weight-black);
+  line-height: 1.1;
+  letter-spacing: -0.03em;
+  text-wrap: balance;
+  color: var(--color-text);
+}
+.h2, h2.section {
+  font-family: var(--font-sans);
+  font-size: var(--type-h2);
+  font-weight: var(--weight-black);
+  line-height: 1.15;
+  letter-spacing: -0.025em;
+  text-wrap: balance;
+}
+.h3, h3.card {
+  font-family: var(--font-sans);
+  font-size: var(--type-h3);
+  font-weight: var(--weight-bold);
+  letter-spacing: -0.01em;
+  line-height: 1.3;
+}
+.body-lg {
+  font-size: var(--type-body-lg);
+  color: var(--color-text-muted);
+  line-height: 1.55;
+  text-wrap: pretty;
+}
+.body {
+  font-size: var(--type-body);
+  color: var(--color-text);
+  line-height: 1.6;
+}
+.body-sm {
+  font-size: var(--type-body-sm);
+  color: var(--color-text-muted);
+  line-height: 1.55;
+}
+.caption {
+  font-size: var(--type-caption);
+  color: var(--color-text-faint);
+  font-weight: var(--weight-medium);
+}
+.eyebrow {
+  font-size: var(--type-eyebrow);
+  font-weight: var(--weight-bold);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--brand-primary);
+}
+
+/* ---------- 7. SPACING SCALE (informal, but consistent) ---------- */
+:root {
+  --space-1:  4px;
+  --space-2:  8px;
+  --space-3:  12px;
+  --space-4:  16px;
+  --space-5:  20px;
+  --space-6:  28px;
+  --space-7:  36px;
+  --space-8:  44px;
+  --space-9:  60px;
+  --space-10: 80px;
+  --space-11: 120px;
+}
