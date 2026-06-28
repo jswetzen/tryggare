@@ -3,7 +3,7 @@
  */
 
 import { apiClient } from './client';
-import type { Family, Child, Session, CheckInRecord, AuditLog, PrintQueueItem, QRInfoResponse, Printer, PrinterWithToken, PrintJob, Event } from './types';
+import type { Family, Child, Session, CheckInRecord, AuditLog, PrintQueueItem, QRInfoResponse, Printer, PrinterWithToken, PrintJob, Event, EventReportListItem, EventReport } from './types';
 import type { FamilyApiResponse } from '$lib/checkin/types';
 
 /**
@@ -231,6 +231,17 @@ export const printingApi = {
  */
 export const eventApi = {
   list: (): Promise<Event[]> => apiClient.get('/events/'),
+};
+
+/**
+ * Report API endpoints (read-only; snapshots are generated server-side).
+ */
+export const reportApi = {
+  list: (): Promise<EventReportListItem[]> => apiClient.get('/event-reports/'),
+  get: (id: string): Promise<EventReport> => apiClient.get(`/event-reports/${id}/`),
+  /** Direct backend download URL (session cookie sent on navigation). */
+  exportUrl: (id: string, format: 'csv' | 'json'): string =>
+    `${apiClient.getBaseUrl()}/event-reports/${id}/export/?fmt=${format}`,
 };
 
 /**
