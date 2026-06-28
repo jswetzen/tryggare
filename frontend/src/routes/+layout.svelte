@@ -1,4 +1,5 @@
 <script lang="ts">
+  import '$lib/styles/tokens.css';
   import '../app.css';
   import { translationsReady } from '$lib/i18n/i18n';
   import { isLoading } from 'svelte-i18n';
