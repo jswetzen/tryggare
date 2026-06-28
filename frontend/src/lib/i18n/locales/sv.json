@@ -10,7 +10,8 @@
     "callList": "Ringlista",
     "logout": "Logga ut",
     "openMenu": "Öppna huvudmeny",
-    "admin": "Admin"
+    "admin": "Admin",
+    "reports": "Rapporter"
   },
   "callList": {
     "pageTitle": "Ringlista - Incheckningssystem",
@@ -441,5 +442,43 @@
     "adminDesc": "Hantera evenemang, sessioner, användare och systeminställningar.",
     "tipLabel": "Tips: ",
     "tip": "Börja med Incheckning för att söka efter en familj med efternamn eller skanna deras QR-kod."
+  },
+  "reports": {
+    "pageTitle": "Rapporter - Incheckningssystem",
+    "title": "Rapporter",
+    "subtitle": "Aggregerad statistik per evenemang och session. Ögonblicksbilder genereras i backend innan personuppgifter raderas.",
+    "selectReport": "Rapport",
+    "generated": "Genererad",
+    "by": "av",
+    "exportCsv": "Exportera CSV",
+    "exportJson": "Exportera JSON",
+    "loading": "Laddar rapporter…",
+    "loadError": "Kunde inte ladda rapporter.",
+    "noReports": "Inga rapporter ännu. Skapa en i Django-admin (Evenemang → \"Generate / refresh report snapshot\") eller kör kommandot generate_event_report.",
+    "overview": "Översikt",
+    "uniqueChildren": "Unika barn",
+    "totalCheckins": "Totalt antal incheckningar",
+    "sessionsCount": "Sessioner",
+    "tickets": "Biljetter",
+    "eventPasses": "Utfärdade evenemangspass",
+    "sessionTickets": "Utfärdade sessionsbiljetter",
+    "eventNoShows": "Evenemangspass utan incheckning",
+    "demographics": "Demografi",
+    "ageGroups": "Åldersgrupper",
+    "withAllergies": "Barn med allergier",
+    "returningFamilies": "Återkommande familjer",
+    "newFamilies": "Nya familjer",
+    "operations": "Verksamhet",
+    "labelsPrinted": "Utskrivna etiketter",
+    "avgStay": "Snittvistelse (min)",
+    "checkinsPerStaff": "Incheckningar per personal",
+    "staff": "Personal",
+    "count": "Antal",
+    "sessions": "Sessioner",
+    "session": "Session",
+    "peakConcurrent": "Max samtidigt",
+    "supervised": "Övervakade",
+    "staffedCheckouts": "Personalutcheckningar",
+    "sessionNoShows": "Sessioner utan incheckning"
   }
 }

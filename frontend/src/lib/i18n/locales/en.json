@@ -10,7 +10,8 @@
     "callList": "Call List",
     "logout": "Logout",
     "openMenu": "Open main menu",
-    "admin": "Admin"
+    "admin": "Admin",
+    "reports": "Reports"
   },
   "callList": {
     "pageTitle": "Call List - Tryggare",
@@ -441,5 +442,43 @@
     "adminDesc": "Manage events, sessions, users, and system settings.",
     "tipLabel": "Tip: ",
     "tip": "Start with Check-In to search for a family by last name or scan their QR code."
+  },
+  "reports": {
+    "pageTitle": "Reports - Tryggare",
+    "title": "Reports",
+    "subtitle": "Aggregate statistics per event and session. Snapshots are generated in the backend before PII is deleted.",
+    "selectReport": "Report",
+    "generated": "Generated",
+    "by": "by",
+    "exportCsv": "Export CSV",
+    "exportJson": "Export JSON",
+    "loading": "Loading reports…",
+    "loadError": "Failed to load reports.",
+    "noReports": "No reports yet. Generate one from the Django admin (Events → \"Generate / refresh report snapshot\") or run the generate_event_report management command.",
+    "overview": "Overview",
+    "uniqueChildren": "Unique children",
+    "totalCheckins": "Total check-ins",
+    "sessionsCount": "Sessions",
+    "tickets": "Ticketing",
+    "eventPasses": "Event passes issued",
+    "sessionTickets": "Session tickets issued",
+    "eventNoShows": "Event-pass no-shows",
+    "demographics": "Demographics",
+    "ageGroups": "Age groups",
+    "withAllergies": "Children with allergies",
+    "returningFamilies": "Returning families",
+    "newFamilies": "New families",
+    "operations": "Operations",
+    "labelsPrinted": "Labels printed",
+    "avgStay": "Avg stay (min)",
+    "checkinsPerStaff": "Check-ins per staff",
+    "staff": "Staff",
+    "count": "Count",
+    "sessions": "Sessions",
+    "session": "Session",
+    "peakConcurrent": "Peak concurrent",
+    "supervised": "Supervised",
+    "staffedCheckouts": "Staffed checkouts",
+    "sessionNoShows": "Session no-shows"
   }
 }
