@@ -369,3 +369,67 @@ export interface ImportRun {
   log?: ImportRunLog[];
   raw_data?: Record<string, unknown> | null;
 }
+
+// --- Reporting ---
+
+/** Summary row returned by the report list endpoint (no snapshot payload). */
+export interface EventReportListItem {
+  id: string;
+  event: string | null;
+  event_name: string;
+  event_start_date: string;
+  event_end_date: string;
+  generated_at: string;
+  generated_by_name: string | null;
+  unique_children: number;
+  total_checkins: number;
+}
+
+export interface EventReportSessionStats {
+  name: string;
+  start_time: string;
+  end_time: string;
+  unique_children: number;
+  total_checkins: number;
+  peak_concurrent: number;
+  supervised: number;
+  staffed_checkouts: number;
+  session_tickets_issued: number;
+  session_ticket_no_shows: number;
+  labels_printed: number;
+  avg_stay_minutes: number | null;
+}
+
+/** Full aggregate snapshot stored on EventReport.data. */
+export interface EventReportData {
+  schema_version: number;
+  event: {
+    name: string;
+    start_date: string;
+    end_date: string;
+    session_count: number;
+    unique_children: number;
+    total_checkins: number;
+    tickets: {
+      event_passes_issued: number;
+      session_tickets_issued: number;
+      event_pass_no_shows: number;
+    };
+    demographics: {
+      age_buckets: Record<string, number>;
+      with_allergies: number;
+      returning_families: number;
+      new_families: number;
+    };
+    operations: {
+      labels_printed: number;
+      checkins_per_staff: Array<{ staff: string; count: number }>;
+      avg_stay_minutes: number | null;
+    };
+  };
+  sessions: EventReportSessionStats[];
+}
+
+export interface EventReport extends EventReportListItem {
+  data: EventReportData;
+}
