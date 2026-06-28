@@ -11,6 +11,13 @@ export { default as ExpandableSection } from './ExpandableSection.svelte';
 export { default as Logo } from './Logo.svelte';
 export { default as Wordmark } from './Wordmark.svelte';
 
+// Brand kit primitives (ported from the Tryggare design system)
+export { default as EyebrowLabel } from './EyebrowLabel.svelte';
+export { default as Pill } from './Pill.svelte';
+export { default as StatusBadge } from './StatusBadge.svelte';
+export { default as FeatureCard } from './FeatureCard.svelte';
+export { default as ComparisonRow } from './ComparisonRow.svelte';
+
 // Phase 1 UI Cohesion Components
 export { default as PageHeader } from './PageHeader.svelte';
 export { default as StickySearchBox } from './StickySearchBox.svelte';
