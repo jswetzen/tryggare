@@ -4,6 +4,8 @@
   import { t } from 'svelte-i18n';
   import SessionIndicator from './SessionIndicator.svelte';
   import LanguageSwitcher from './LanguageSwitcher.svelte';
+  import Logo from './ui/Logo.svelte';
+  import Wordmark from './ui/Wordmark.svelte';
 
   interface Props {
     userName?: string;
@@ -49,7 +51,14 @@
     <div class="flex justify-between items-center h-16">
       <!-- Logo/Title -->
       <div class="flex items-center">
-        <h1 class="text-xl font-bold text-primary-900">{$t('nav.title')}</h1>
+        <a
+          href="/checkin"
+          class="flex items-center gap-2.5 rounded-button focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2"
+          aria-label={$t('nav.title')}
+        >
+          <Logo size={32} />
+          <Wordmark class="hidden sm:inline text-xl" />
+        </a>
       </div>
 
       <!-- Desktop Navigation -->
