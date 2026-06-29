@@ -97,6 +97,14 @@
         </a>
         {#if isAdmin}
           <a
+            href="/reports"
+            class="px-4 py-2 rounded-button font-semibold transition-colors {currentPath.startsWith('/reports')
+              ? 'bg-primary-600 text-white'
+              : 'text-neutral-700 hover:bg-neutral-100'}"
+          >
+            {$t('nav.reports')}
+          </a>
+          <a
             href="/import"
             class="px-3 py-2 rounded-button font-semibold transition-colors {currentPath.startsWith('/import')
               ? 'bg-primary-600 text-white'
@@ -203,6 +211,15 @@
           {$t('nav.callList')}
         </a>
         {#if isAdmin}
+          <a
+            href="/reports"
+            onclick={closeMobileMenu}
+            class="block px-3 py-2 rounded-button font-semibold {currentPath.startsWith('/reports')
+              ? 'bg-primary-600 text-white'
+              : 'text-neutral-700 hover:bg-neutral-100'}"
+          >
+            {$t('nav.reports')}
+          </a>
           <a
             href="/import"
             onclick={closeMobileMenu}

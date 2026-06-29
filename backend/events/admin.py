@@ -7,6 +7,21 @@ from .models import Event, EventTicket, Session, SessionTicket, Ticket
 class EventAdmin(admin.ModelAdmin):
     list_display = ("name", "start_date", "end_date")
     search_fields = ("name",)
+    actions = ("generate_report",)
+
+    @admin.action(description="Generate / refresh report snapshot")
+    def generate_report(self, request, queryset):
+        # Imported here to avoid a hard import cycle between the apps at load.
+        from reports.services import generate_event_report
+
+        for event in queryset:
+            report = generate_event_report(event, user=request.user)
+            self.message_user(
+                request,
+                f"Generated report for '{event.name}': "
+                f"{report.unique_children} children, "
+                f"{report.total_checkins} check-ins.",
+            )
 
 
 @admin.register(Session)

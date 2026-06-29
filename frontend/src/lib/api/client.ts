@@ -25,6 +25,14 @@ export class ApiClient {
   }
 
   /**
+   * Absolute base URL for the API, e.g. for building file-download links
+   * (<a href>) that need to hit the backend directly with session cookies.
+   */
+  getBaseUrl(): string {
+    return this.baseUrl;
+  }
+
+  /**
    * Get CSRF token from cookie or Django
    */
   async getCsrfToken(): Promise<string> {

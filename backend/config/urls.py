@@ -17,6 +17,7 @@ from events.views import (
     TicketViewSet,
 )
 from checkins.views import AuditLogViewSet, CheckInRecordViewSet, PrintQueueViewSet
+from reports.views import EventReportViewSet
 from accounts.views import csrf_token, check_auth, login_view, logout_view
 from imports.views import (
     discover_prefixes_view,
@@ -48,6 +49,9 @@ router.register(r"session-tickets", SessionTicketViewSet, basename="session-tick
 router.register(r"checkins", CheckInRecordViewSet, basename="checkin")
 router.register(r"audit-logs", AuditLogViewSet, basename="audit-log")
 router.register(r"print-queue", PrintQueueViewSet, basename="print-queue")
+
+# Reporting
+router.register(r"event-reports", EventReportViewSet, basename="event-report")
 
 urlpatterns = [
     path("admin/", admin.site.urls),
