@@ -88,7 +88,7 @@
     {@const expanded = isExpanded(item.id)}
     {@const hasChildren = item.children && item.children.length > 0}
 
-    <div class="bg-white rounded-lg border-2 border-slate-300 overflow-hidden">
+    <div class="bg-white rounded-card border-2 border-slate-300 overflow-hidden">
       <!-- Card header - clickable to toggle if has children -->
       {#if hasChildren}
         <button
@@ -161,7 +161,7 @@
 </div>
 
 <!-- Desktop Layout (≥768px) -->
-<div class="hidden md:block bg-white rounded-lg border-2 border-slate-300 overflow-hidden {className}">
+<div class="hidden md:block bg-white rounded-card border-2 border-slate-300 overflow-hidden {className}">
   <table class="w-full">
     <!-- Sticky header -->
     <thead class="bg-slate-50 border-b-2 border-slate-300 sticky top-0 z-[5]">

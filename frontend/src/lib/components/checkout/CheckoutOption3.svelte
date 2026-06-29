@@ -46,7 +46,7 @@
 </script>
 
 <!-- Mobile: Compact card -->
-<div class="sm:hidden bg-white border border-slate-200 rounded-lg p-2 mb-2">
+<div class="sm:hidden bg-white border border-slate-200 rounded-card p-2 mb-2">
   <div class="flex items-center justify-between mb-1.5">
     <h4 class="font-bold text-slate-800 text-sm">{family.name} ({family.children.length})</h4>
     <button

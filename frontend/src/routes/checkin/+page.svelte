@@ -844,7 +844,7 @@
 
     <!-- Printer Selector (only shown when printers exist) -->
     {#if printersLoaded && printers.length > 0}
-      <div class="mb-3 flex items-center gap-3 bg-white rounded-lg border border-slate-200 px-4 py-2 text-sm">
+      <div class="mb-3 flex items-center gap-3 bg-white rounded-card border border-slate-200 px-4 py-2 text-sm">
         <label class="flex items-center gap-2 cursor-pointer flex-1">
           <input
             type="checkbox"
@@ -973,7 +973,7 @@
 <!-- Error Toast (QR scan misses, etc.) -->
 {#if errorToast}
   <div
-    class="fixed top-4 right-4 bg-red-50 text-red-700 border border-red-400 px-4 py-3 rounded-md shadow-lg flex items-center gap-3 z-50 animate-slide-in"
+    class="fixed top-4 right-4 bg-red-50 text-red-700 border border-red-400 px-4 py-3 rounded-card shadow-lg flex items-center gap-3 z-50 animate-slide-in"
     role="alert"
     aria-live="assertive"
   >

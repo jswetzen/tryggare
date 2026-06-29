@@ -60,7 +60,7 @@
   const onlinePrinters = $derived(printers.filter((p) => p.is_online));
 </script>
 
-<div class="bg-white rounded-lg border-2 border-slate-300">
+<div class="bg-white rounded-card border-2 border-slate-300">
   <table class="w-full border-separate border-spacing-0">
     <thead
       class="[&>tr>th]:bg-slate-50 [&>tr>th]:border-b-2 [&>tr>th]:border-slate-300 [&>tr>th:first-child]:rounded-tl-md [&>tr>th:last-child]:rounded-tr-md"
@@ -158,7 +158,7 @@
                     <!-- Popover with printer list -->
                     {#if openPopoverItemId === item.id}
                       <div
-                        class="absolute right-0 top-full mt-1 z-10 bg-white border border-slate-200 rounded-lg shadow-lg min-w-40 py-1"
+                        class="absolute right-0 top-full mt-1 z-10 bg-white border border-slate-200 rounded-card shadow-lg min-w-40 py-1"
                       >
                         {#if onlinePrinters.length === 0}
                           <div class="px-3 py-2 text-sm text-slate-500">

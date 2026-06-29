@@ -43,15 +43,15 @@
   </div>
 
   {#if loading}
-    <div class="bg-white rounded-lg border border-neutral-200 shadow-sm p-8 text-center">
+    <div class="bg-white rounded-card border border-neutral-200 shadow-sm p-8 text-center">
       <div class="text-neutral-500">{$t('common.loading')}</div>
     </div>
   {:else if error}
-    <div class="bg-white rounded-lg border border-neutral-200 shadow-sm p-8 text-center">
+    <div class="bg-white rounded-card border border-neutral-200 shadow-sm p-8 text-center">
       <p class="text-danger-600">{error}</p>
     </div>
   {:else if sources.length === 0}
-    <div class="bg-white rounded-lg border border-neutral-200 shadow-sm p-8 text-center">
+    <div class="bg-white rounded-card border border-neutral-200 shadow-sm p-8 text-center">
       <p class="text-neutral-500">{$t('import.noSources')}</p>
       <a
         href="/import/sources"
@@ -63,7 +63,7 @@
   {:else}
     <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
       {#each sources as source (source.id)}
-        <div class="bg-white rounded-lg border border-neutral-200 shadow-sm hover:shadow-md transition-shadow">
+        <div class="bg-white rounded-card border border-neutral-200 shadow-sm hover:shadow-md transition-shadow">
           <div class="p-5">
             <h2 class="text-lg font-semibold text-neutral-900 mb-1">{source.name}</h2>
             <p class="text-sm text-neutral-500 mb-1">{providerTypeLabel(source.provider_type)}</p>

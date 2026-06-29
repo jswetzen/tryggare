@@ -50,7 +50,7 @@
     role="presentation"
   >
     <div
-      class="bg-white rounded-lg shadow-xl max-w-md w-full mx-4"
+      class="bg-white rounded-card shadow-xl max-w-md w-full mx-4"
       onclick={handleModalClick}
       role="dialog"
       aria-modal="true"
@@ -64,7 +64,7 @@
           {#each sessions as session (session.id)}
             <button
               onclick={() => handleSelect(session)}
-              class="w-full text-left p-4 rounded-lg border-2 transition-colors
+              class="w-full text-left p-4 rounded-button border-2 transition-colors
                 {currentSession?.id === session.id
                   ? 'border-blue-500 bg-blue-50'
                   : 'border-slate-200 hover:border-blue-300 hover:bg-slate-50'}"

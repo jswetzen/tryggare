@@ -494,7 +494,7 @@
     {/if}
 
     {#if !loading && filteredCheckIns.length === 0}
-      <div class="text-center py-12 bg-white rounded-lg border-2 border-dashed border-slate-300">
+      <div class="text-center py-12 bg-white rounded-card border-2 border-dashed border-slate-300">
         <p class="text-slate-500 mb-2">
           {#if searchQuery}
             {$t('checkout.noChildrenFiltered', { values: { query: searchQuery } })}

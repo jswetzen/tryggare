@@ -168,7 +168,7 @@
     {:else}
       <div class="space-y-3">
         {#each callListFamilies as family (family.id)}
-          <div class="bg-white rounded-lg border-2 border-slate-300 overflow-hidden">
+          <div class="bg-white rounded-card border-2 border-slate-300 overflow-hidden">
             <div class="px-4 py-3 border-b border-slate-200">
               <div class="flex items-center gap-2">
                 <span class="font-semibold text-slate-900">{family.displayName}</span>

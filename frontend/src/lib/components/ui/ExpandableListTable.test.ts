@@ -182,7 +182,7 @@ describe('ExpandableListTable', () => {
       });
 
       // Should have rounded cards with borders
-      const cards = container.querySelectorAll('.rounded-lg.border-2.border-slate-300');
+      const cards = container.querySelectorAll('.rounded-card.border-2.border-slate-300');
       expect(cards.length).toBeGreaterThanOrEqual(2);
     });
   });
@@ -309,7 +309,7 @@ describe('ExpandableListTable', () => {
         }
       });
 
-      const tableContainer = container.querySelector('.rounded-lg');
+      const tableContainer = container.querySelector('.rounded-card');
       expect(tableContainer).toBeInTheDocument();
     });
   });
