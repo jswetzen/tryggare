@@ -196,7 +196,7 @@
 
   <!-- New/edit source form -->
   {#if showForm}
-    <div class="mb-6 bg-white rounded-lg border border-neutral-200 shadow-sm p-6">
+    <div class="mb-6 bg-white rounded-card border border-neutral-200 shadow-sm p-6">
       <h2 class="text-base font-semibold text-neutral-900 mb-4">
         {editingId ? $t('import.sources.editSource') : $t('import.sources.newSource')}
       </h2>
@@ -416,7 +416,7 @@
   {/if}
 
   <!-- Sources table -->
-  <div class="bg-white rounded-lg border border-neutral-200 shadow-sm">
+  <div class="bg-white rounded-card border border-neutral-200 shadow-sm">
     <div class="px-6 py-4 border-b border-neutral-200 flex items-center justify-between">
       <h2 class="text-base font-semibold text-neutral-900">{$t('import.sources.tableTitle')}</h2>
       {#if !showForm}

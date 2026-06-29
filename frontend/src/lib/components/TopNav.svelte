@@ -57,15 +57,15 @@
           aria-label={$t('nav.title')}
         >
           <Logo size={32} />
-          <Wordmark class="hidden sm:inline text-xl" />
+          <Wordmark class="text-xl" />
         </a>
       </div>
 
       <!-- Desktop Navigation -->
-      <div class="hidden md:flex items-center space-x-6">
+      <div class="hidden lg:flex items-center space-x-1">
         <a
           href="/checkin"
-          class="px-4 py-2 rounded-button font-semibold transition-colors {isActive('/checkin')
+          class="px-3 py-2 rounded-button font-semibold transition-colors {isActive('/checkin')
             ? 'bg-primary-600 text-white'
             : 'text-neutral-700 hover:bg-neutral-100'}"
         >
@@ -73,7 +73,7 @@
         </a>
         <a
           href="/checkout"
-          class="px-4 py-2 rounded-button font-semibold transition-colors {isActive('/checkout')
+          class="px-3 py-2 rounded-button font-semibold transition-colors {isActive('/checkout')
             ? 'bg-primary-600 text-white'
             : 'text-neutral-700 hover:bg-neutral-100'}"
         >
@@ -81,7 +81,7 @@
         </a>
         <a
           href="/print-queue"
-          class="px-4 py-2 rounded-button font-semibold transition-colors {isActive('/print-queue')
+          class="px-3 py-2 rounded-button font-semibold transition-colors {isActive('/print-queue')
             ? 'bg-primary-600 text-white'
             : 'text-neutral-700 hover:bg-neutral-100'}"
         >
@@ -89,7 +89,7 @@
         </a>
         <a
           href="/call-list"
-          class="px-4 py-2 rounded-button font-semibold transition-colors {isActive('/call-list')
+          class="px-3 py-2 rounded-button font-semibold transition-colors {isActive('/call-list')
             ? 'bg-primary-600 text-white'
             : 'text-neutral-700 hover:bg-neutral-100'}"
         >
@@ -98,7 +98,7 @@
         {#if isAdmin}
           <a
             href="/import"
-            class="px-4 py-2 rounded-button font-semibold transition-colors {currentPath.startsWith('/import')
+            class="px-3 py-2 rounded-button font-semibold transition-colors {currentPath.startsWith('/import')
               ? 'bg-primary-600 text-white'
               : 'text-neutral-700 hover:bg-neutral-100'}"
           >
@@ -106,28 +106,28 @@
           </a>
           <a
             href="/admin/"
-            class="px-4 py-2 rounded-button font-semibold transition-colors text-neutral-700 hover:bg-neutral-100"
+            class="px-3 py-2 rounded-button font-semibold transition-colors text-neutral-700 hover:bg-neutral-100"
           >
             {$t('nav.admin')}
           </a>
         {/if}
 
-        <div class="border-l border-neutral-300 pl-6 ml-2 flex items-center space-x-4">
-          <LanguageSwitcher />
-          <span class="text-sm text-neutral-600">
+        <div class="border-l border-neutral-300 pl-3 ml-1 flex items-center space-x-3">
+          <span class="hidden xl:inline text-sm text-neutral-600">
             {$t('nav.welcomeMobile')}, <span class="font-semibold text-primary-900">{userName}</span>
           </span>
           <button
             onclick={handleLogout}
-            class="text-sm text-danger-600 font-semibold hover:underline"
+            class="text-sm text-danger-600 font-semibold hover:underline whitespace-nowrap"
           >
             {$t('nav.logout')}
           </button>
+          <LanguageSwitcher />
         </div>
       </div>
 
       <!-- Mobile menu button -->
-      <div class="md:hidden">
+      <div class="lg:hidden">
         <button
           onclick={toggleMobileMenu}
           class="inline-flex items-center justify-center p-2 rounded-button text-neutral-700 hover:bg-neutral-100 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-primary-500"
@@ -164,7 +164,7 @@
 
   <!-- Mobile menu -->
   {#if mobileMenuOpen}
-    <div class="md:hidden border-t border-neutral-200">
+    <div class="lg:hidden border-t border-neutral-200">
       <div class="px-2 pt-2 pb-3 space-y-1">
         <a
           href="/checkin"
@@ -224,7 +224,7 @@
       <div class="pt-4 pb-3 border-t border-neutral-200">
         <div class="px-5">
           <div class="mb-3">
-            <LanguageSwitcher />
+            <LanguageSwitcher align="left" />
           </div>
           <div class="text-sm text-neutral-600 mb-2">
             {$t('nav.loggedInAs')} <span class="font-semibold text-primary-900">{userName}</span>

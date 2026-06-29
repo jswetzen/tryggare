@@ -800,11 +800,11 @@
   <title>{$_('checkin.pageTitle')}</title>
 </svelte:head>
 
-<div class="min-h-screen bg-slate-100">
+<div class="min-h-screen bg-neutral-100">
   <div class="max-w-4xl mx-auto p-3 md:p-5">
     {#if loading}
       <div class="text-center py-12">
-        <p class="text-slate-600">{$_('common.loading')}</p>
+        <p class="text-neutral-600">{$_('common.loading')}</p>
       </div>
     {:else if error}
       <Alert type="error" class="mb-4">
@@ -815,7 +815,7 @@
               error = null;
               loadFamilies();
             }}
-            class="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600"
+            class="px-4 py-2 bg-danger-500 text-white rounded-button hover:bg-danger-600"
           >
             {$_('common.retry')}
           </button>
@@ -844,21 +844,21 @@
 
     <!-- Printer Selector (only shown when printers exist) -->
     {#if printersLoaded && printers.length > 0}
-      <div class="mb-3 flex items-center gap-3 bg-white rounded-lg border border-slate-200 px-4 py-2 text-sm">
+      <div class="mb-3 flex items-center gap-3 bg-white rounded-card border border-neutral-200 px-4 py-2 text-sm">
         <label class="flex items-center gap-2 cursor-pointer flex-1">
           <input
             type="checkbox"
             bind:checked={autoPrintEnabled}
             onchange={() => localStorage.setItem('autoPrintEnabled', String(autoPrintEnabled))}
-            class="w-4 h-4 text-blue-600 border-slate-300 rounded focus:ring-blue-500"
+            class="w-4 h-4 text-primary-600 border-neutral-300 rounded focus:ring-primary-500"
           />
-          <span class="font-medium text-slate-700">{$_('printing.autoPrint')}</span>
+          <span class="font-medium text-neutral-700">{$_('printing.autoPrint')}</span>
         </label>
         {#if autoPrintEnabled}
           <select
             bind:value={selectedPrinterUUID}
             onchange={() => localStorage.setItem('selectedPrinterUUID', selectedPrinterUUID)}
-            class="text-sm border border-slate-300 rounded px-2 py-1 bg-white focus:ring-blue-500 focus:border-blue-500"
+            class="text-sm border border-neutral-300 rounded px-2 py-1 bg-white focus:ring-primary-500 focus:border-primary-500"
           >
             {#each printers as printer}
               <option value={printer.id}>
@@ -900,7 +900,7 @@
 
     <div class="mb-4 flex items-left justify-between text-sm">
     <!-- Stats Header -->
-      <span class="text-slate-600" data-testid="family-count-text">
+      <span class="text-neutral-600" data-testid="family-count-text">
         {visibleFamilies.length}{' '}
         {visibleFamilies.length === 1 ? $_('common.family') : $_('common.families')}
         {searchQuery && ` ${$_('checkin.matchingSearch')}`}
@@ -910,9 +910,9 @@
         <input
           type="checkbox"
           bind:checked={showCheckedInFamilies}
-          class="w-4 h-4 text-blue-600 bg-white border-slate-300 rounded focus:ring-blue-500 focus:ring-2"
+          class="w-4 h-4 text-primary-600 bg-white border-neutral-300 rounded focus:ring-primary-500 focus:ring-2"
         />
-        <span class="text-slate-700">{$_('checkin.showCheckedInFamilies')}</span>
+        <span class="text-neutral-700">{$_('checkin.showCheckedInFamilies')}</span>
       </label>
     </div>
 
@@ -973,7 +973,7 @@
 <!-- Error Toast (QR scan misses, etc.) -->
 {#if errorToast}
   <div
-    class="fixed top-4 right-4 bg-red-50 text-red-700 border border-red-400 px-4 py-3 rounded-md shadow-lg flex items-center gap-3 z-50 animate-slide-in"
+    class="fixed top-4 right-4 bg-danger-50 text-danger-700 border border-danger-400 px-4 py-3 rounded-card shadow-lg flex items-center gap-3 z-50 animate-slide-in"
     role="alert"
     aria-live="assertive"
   >

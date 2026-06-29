@@ -39,7 +39,7 @@ describe('StickySearchBox', () => {
     });
 
     const wrapper = container.querySelector('div');
-    expect(wrapper).toHaveClass('bg-slate-100');
+    expect(wrapper).toHaveClass('bg-neutral-100');
   });
 
   it('applies responsive padding pattern', () => {

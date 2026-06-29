@@ -92,10 +92,10 @@
     {@const checkInTimes = getCheckInTimes(family)}
     {@const supervised = hasSupervised(family)}
 
-    <div class="bg-white rounded-lg border-2 border-slate-300 overflow-hidden">
+    <div class="bg-white rounded-card border-2 border-neutral-300 overflow-hidden">
       <!-- Collapsed/Expanded header - clickable to toggle -->
       <div
-        class="flex items-center gap-3 px-4 py-3 cursor-pointer active:bg-slate-50"
+        class="flex items-center gap-3 px-4 py-3 cursor-pointer active:bg-neutral-50"
         onclick={(e) => toggleFamily(family.id, e)}
         role="button"
         tabindex="0"
@@ -124,15 +124,15 @@
         <!-- Family info -->
         <div class="flex-1 min-w-0">
           <div class="flex items-center gap-2">
-            <span class="font-medium text-slate-900">{family.display_name}</span>
-            <span class="inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 bg-blue-100 text-blue-700 text-xs font-medium rounded">
+            <span class="font-medium text-neutral-900">{family.display_name}</span>
+            <span class="inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 bg-primary-100 text-primary-700 text-xs font-medium rounded">
               {childCount}
             </span>
             {#if supervised}
-              <span class="text-xs text-blue-600">{$_('checkout.supervised')}</span>
+              <span class="text-xs text-primary-600">{$_('checkout.supervised')}</span>
             {/if}
           </div>
-          <div class="text-sm text-slate-500 mt-0.5">
+          <div class="text-sm text-neutral-500 mt-0.5">
             {checkInTimes}
           </div>
         </div>
@@ -141,7 +141,7 @@
         <button
           type="button"
           onclick={() => onCheckOutFamily(family.id)}
-          class="flex-shrink-0 px-3 py-1.5 sm:px-4 sm:py-2 bg-blue-600 text-white text-xs sm:text-sm font-medium rounded hover:bg-blue-700 active:bg-blue-800 transition-colors"
+          class="flex-shrink-0 px-3 py-1.5 sm:px-4 sm:py-2 bg-primary-600 text-white text-xs sm:text-sm font-medium rounded-button hover:bg-primary-700 active:bg-primary-800 transition-colors"
           aria-label={`${$_('checkout.checkOutAll')} ${family.display_name}`}
         >
           {$_('checkout.checkOutAll')}
@@ -150,20 +150,20 @@
 
       <!-- Expanded content -->
       {#if expanded}
-        <div class="border-t border-slate-200 bg-slate-50">
+        <div class="border-t border-neutral-200 bg-neutral-50">
           <!-- Children -->
           {#each family.children as child (child.id)}
-            <div class="px-4 py-3 border-b border-slate-200 bg-white">
+            <div class="px-4 py-3 border-b border-neutral-200 bg-white">
               <div class="flex items-center justify-between gap-3">
                 <div class="flex-1 min-w-0">
                   <div class="flex items-center gap-2">
-                    <span class="text-slate-900">{child.firstName} {child.lastName}</span>
+                    <span class="text-neutral-900">{child.firstName} {child.lastName}</span>
                     {#if child.supervised}
                       <!-- Blue dot = supervised -->
-                      <span class="inline-block w-2 h-2 bg-blue-600 rounded-full"></span>
+                      <span class="inline-block w-2 h-2 bg-primary-600 rounded-full"></span>
                     {/if}
                     {#if child.checkInTime}
-                      <span class="text-sm text-slate-500">{formatTime(child.checkInTime)}</span>
+                      <span class="text-sm text-neutral-500">{formatTime(child.checkInTime)}</span>
                     {/if}
                   </div>
                 </div>
@@ -175,7 +175,7 @@
                       target="_blank"
                       rel="noopener"
                       title={$_('checkout.childInfoTitle')}
-                      class="px-3 py-1.5 border border-slate-300 text-slate-700 text-xs sm:text-sm font-medium rounded hover:bg-slate-100 transition-colors"
+                      class="px-3 py-1.5 border border-neutral-300 text-neutral-700 text-xs sm:text-sm font-medium rounded-button hover:bg-neutral-100 transition-colors"
                     >
                       {$_('checkout.childInfo')}
                     </a>
@@ -183,7 +183,7 @@
                   <button
                     type="button"
                     onclick={() => onCheckOut(child.id)}
-                    class="px-3 py-1.5 bg-blue-600 text-white text-xs sm:text-sm font-medium rounded hover:bg-blue-700 transition-colors"
+                    class="px-3 py-1.5 bg-primary-600 text-white text-xs sm:text-sm font-medium rounded-button hover:bg-primary-700 transition-colors"
                     aria-label={`${$_('checkout.checkOut')} ${child.firstName} ${child.lastName}`}
                   >
                     {$_('checkout.checkOut')}
@@ -194,11 +194,11 @@
           {/each}
 
           <!-- Pickup selector (always at bottom when expanded) -->
-          <div class="px-4 py-3 bg-white border-t border-slate-200">
+          <div class="px-4 py-3 bg-white border-t border-neutral-200">
             <select
               value={pickedUpBy[family.id] || ''}
               onchange={(e) => onPickedUpByChange(family.id, (e.target as HTMLSelectElement).value)}
-              class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-xs sm:text-sm"
+              class="w-full px-3 py-2 border border-neutral-300 rounded-input focus:outline-none focus:ring-2 focus:ring-primary-500 text-xs sm:text-sm"
             >
               <option value="">{$_('checkout.pickedUpBy')}...</option>
               {#each family.parents as parent}
@@ -215,20 +215,20 @@
 </div>
 
 <!-- Desktop Layout (≥768px) -->
-<div class="hidden md:block bg-white rounded-lg border-2 border-slate-300 overflow-hidden">
+<div class="hidden md:block bg-white rounded-card border-2 border-neutral-300 overflow-hidden">
   <table class="w-full">
     <!-- Sticky header -->
-    <thead class="bg-slate-50 border-b-2 border-slate-300 sticky top-0 z-[5]">
+    <thead class="bg-neutral-50 border-b-2 border-neutral-300 sticky top-0 z-[5]">
       <tr>
-        <th class="px-4 py-3 text-left text-sm font-medium text-slate-700">
+        <th class="px-4 py-3 text-left text-sm font-medium text-neutral-700">
           Family (Count)
         </th>
-        <th class="px-4 py-3 text-left text-sm font-medium text-slate-700">
+        <th class="px-4 py-3 text-left text-sm font-medium text-neutral-700">
           Check-ins
         </th>
-        <th class="px-4 py-3 text-left text-sm font-medium text-slate-700">
+        <th class="px-4 py-3 text-left text-sm font-medium text-neutral-700">
         </th>
-        <th class="px-4 py-3 text-right text-sm font-medium text-slate-700">
+        <th class="px-4 py-3 text-right text-sm font-medium text-neutral-700">
           Actions
         </th>
       </tr>
@@ -243,7 +243,7 @@
 
         <!-- Family header row (collapsed/expanded) -->
         <tr
-          class="border-b border-slate-200 hover:bg-slate-50 cursor-pointer"
+          class="border-b border-neutral-200 hover:bg-neutral-50 cursor-pointer"
           onclick={(e) => toggleFamily(family.id, e)}
           role="button"
           tabindex="0"
@@ -269,16 +269,16 @@
                   </svg>
                 {/if}
               </div>
-              <span class="font-medium text-slate-900">{family.display_name}</span>
-              <span class="inline-flex items-center justify-center min-w-[18px] h-5 px-1.5 bg-blue-100 text-blue-700 text-xs font-medium rounded">
+              <span class="font-medium text-neutral-900">{family.display_name}</span>
+              <span class="inline-flex items-center justify-center min-w-[18px] h-5 px-1.5 bg-primary-100 text-primary-700 text-xs font-medium rounded">
                 {childCount}
               </span>
               {#if supervised}
-                <span class="text-xs text-blue-600">{$_('checkout.supervised')}</span>
+                <span class="text-xs text-primary-600">{$_('checkout.supervised')}</span>
               {/if}
             </div>
           </td>
-          <td class="px-4 py-3 text-sm text-slate-600">
+          <td class="px-4 py-3 text-sm text-neutral-600">
             {checkInTimes}
           </td>
           <td class="px-4 py-3">
@@ -287,7 +287,7 @@
             <button
               type="button"
               onclick={() => onCheckOutFamily(family.id)}
-              class="px-3 py-1.5 sm:px-4 sm:py-1.5 bg-blue-600 text-white text-xs sm:text-sm font-medium rounded hover:bg-blue-700 transition-colors"
+              class="px-3 py-1.5 sm:px-4 sm:py-1.5 bg-primary-600 text-white text-xs sm:text-sm font-medium rounded-button hover:bg-primary-700 transition-colors"
               aria-label={`${$_('checkout.checkOutAll')} ${family.display_name}`}
             >
               {$_('checkout.checkOutAll')}
@@ -298,15 +298,15 @@
         <!-- Children rows (when expanded) -->
         {#if expanded}
           {#each family.children as child (child.id)}
-            <tr class="border-b border-slate-200 bg-slate-50">
+            <tr class="border-b border-neutral-200 bg-neutral-50">
               <td class="px-4 py-3 pl-12" colspan="2">
                 <div class="flex items-center gap-2">
-                  <span class="text-slate-900">{child.firstName} {child.lastName}</span>
+                  <span class="text-neutral-900">{child.firstName} {child.lastName}</span>
                   {#if child.supervised}
-                    <span class="inline-block w-2 h-2 bg-blue-600 rounded-full"></span>
+                    <span class="inline-block w-2 h-2 bg-primary-600 rounded-full"></span>
                   {/if}
                   {#if child.checkInTime}
-                    <span class="text-sm text-slate-500">{formatTime(child.checkInTime)}</span>
+                    <span class="text-sm text-neutral-500">{formatTime(child.checkInTime)}</span>
                   {/if}
                 </div>
               </td>
@@ -318,7 +318,7 @@
                       target="_blank"
                       rel="noopener"
                       title={$_('checkout.childInfoTitle')}
-                      class="px-3 py-1.5 border border-slate-300 text-slate-700 text-xs sm:text-sm font-medium rounded hover:bg-slate-100 transition-colors"
+                      class="px-3 py-1.5 border border-neutral-300 text-neutral-700 text-xs sm:text-sm font-medium rounded-button hover:bg-neutral-100 transition-colors"
                     >
                       {$_('checkout.childInfo')}
                     </a>
@@ -326,7 +326,7 @@
                   <button
                     type="button"
                     onclick={() => onCheckOut(child.id)}
-                    class="px-3 py-1.5 bg-blue-600 text-white text-xs sm:text-sm font-medium rounded hover:bg-blue-700 transition-colors"
+                    class="px-3 py-1.5 bg-primary-600 text-white text-xs sm:text-sm font-medium rounded-button hover:bg-primary-700 transition-colors"
                     aria-label={`${$_('checkout.checkOut')} ${child.firstName} ${child.lastName}`}
                   >
                     {$_('checkout.checkOut')}
@@ -337,12 +337,12 @@
           {/each}
 
           <!-- Pickup selector row -->
-          <tr class="border-b border-slate-200 bg-slate-50">
+          <tr class="border-b border-neutral-200 bg-neutral-50">
             <td class="px-4 py-3 pl-12" colspan="4">
               <select
                 value={pickedUpBy[family.id] || ''}
                 onchange={(e) => onPickedUpByChange(family.id, (e.target as HTMLSelectElement).value)}
-                class="w-full px-3 py-1.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-xs sm:text-sm"
+                class="w-full px-3 py-1.5 border border-neutral-300 rounded-input focus:outline-none focus:ring-2 focus:ring-primary-500 text-xs sm:text-sm"
               >
                 <option value="">{$_('checkout.pickedUpBy')}...</option>
                 {#each family.parents as parent}
