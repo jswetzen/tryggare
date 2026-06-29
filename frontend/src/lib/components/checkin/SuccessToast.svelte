@@ -33,7 +33,7 @@
 
 {#if visible}
   <div
-    class="fixed top-4 right-4 bg-success-50 text-success-700 border border-success-600 px-4 py-3 rounded-md shadow-lg flex items-center gap-3 z-50 animate-slide-in"
+    class="fixed top-4 right-4 bg-success-50 text-success-700 border border-success-600 px-4 py-3 rounded-card shadow-lg flex items-center gap-3 z-50 animate-slide-in"
     role="alert"
     aria-live="polite"
     data-testid="success-toast"

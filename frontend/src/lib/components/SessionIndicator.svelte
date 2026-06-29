@@ -29,18 +29,18 @@
 </script>
 
 <div
-  class="bg-slate-50 border border-slate-300 rounded px-3 py-2 mb-4 flex flex-wrap justify-between items-center gap-2 text-sm"
+  class="bg-neutral-50 border border-neutral-300 rounded px-3 py-2 mb-4 flex flex-wrap justify-between items-center gap-2 text-sm"
   data-testid="session-indicator"
 >
-  <div class="text-slate-600">
-    <span class="font-semibold text-blue-900">{$_('session.event')}</span> {eventName} •
-    <span class="font-semibold text-blue-900 ml-1">{$_('session.session')}</span> {sessionName} ({sessionTime})
+  <div class="text-neutral-600">
+    <span class="font-semibold text-primary-900">{$_('session.event')}</span> {eventName} •
+    <span class="font-semibold text-primary-900 ml-1">{$_('session.session')}</span> {sessionName} ({sessionTime})
   </div>
   <div class="flex gap-2">
     {#if showChangeSession && onChangeSession}
       <button
         on:click={onChangeSession}
-        class="px-3 py-1.5 text-blue-600 font-semibold hover:underline"
+        class="px-3 py-1.5 text-primary-600 font-semibold hover:underline"
         data-testid="change-session-button"
       >
         {$_('session.changeSession')}
@@ -50,7 +50,7 @@
     {#if showAddFamily && onAddFamily}
       <button
         on:click={onAddFamily}
-        class="px-3 py-1.5 bg-blue-600 text-white font-semibold rounded hover:bg-blue-700 transition-colors"
+        class="px-3 py-1.5 bg-primary-600 text-white font-semibold rounded-button hover:bg-primary-700 transition-colors"
         data-testid="add-family-button"
       >
         {$_('checkin.addNewFamily')}

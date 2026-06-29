@@ -15,7 +15,7 @@ describe('PageHeader', () => {
     render(PageHeader, { props: { title: 'Styled Title' } });
 
     const heading = screen.getByRole('heading', { level: 1 });
-    expect(heading).toHaveClass('text-3xl', 'font-bold', 'text-blue-900');
+    expect(heading).toHaveClass('text-3xl', 'font-bold', 'text-primary-900');
   });
 
   it('applies standard bottom margin', () => {

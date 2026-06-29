@@ -265,7 +265,7 @@
 	<title>{$t('printQueue.pageTitle')}</title>
 </svelte:head>
 
-<div class="min-h-screen bg-slate-100">
+<div class="min-h-screen bg-neutral-100">
 	<div class="max-w-4xl mx-auto p-3 md:p-5">
 		<PageHeader title={$t('printQueue.title')} />
 

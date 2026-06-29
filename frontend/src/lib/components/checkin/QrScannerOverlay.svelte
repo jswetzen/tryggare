@@ -112,17 +112,17 @@
 
   {#if cameraError}
     <!-- Error state -->
-    <div class="bg-white rounded-xl p-6 mx-4 max-w-sm text-center">
+    <div class="bg-white rounded-card p-6 mx-4 max-w-sm text-center">
       {#if cameraError === 'insecure'}
-        <p class="text-slate-700">{$t('checkin.qrCameraInsecureContext')}</p>
+        <p class="text-neutral-700">{$t('checkin.qrCameraInsecureContext')}</p>
       {:else if cameraError === 'denied'}
-        <p class="text-slate-700">{$t('checkin.qrCameraPermissionDenied')}</p>
+        <p class="text-neutral-700">{$t('checkin.qrCameraPermissionDenied')}</p>
       {:else}
-        <p class="text-slate-700">{$t('checkin.qrCameraUnavailable')}</p>
+        <p class="text-neutral-700">{$t('checkin.qrCameraUnavailable')}</p>
       {/if}
       <button
         onclick={handleClose}
-        class="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+        class="mt-4 px-4 py-2 bg-primary-600 text-white rounded-button hover:bg-primary-700"
       >
         {$t('checkin.qrClose')}
       </button>
@@ -134,21 +134,21 @@
       <!-- svelte-ignore a11y_media_has_caption -->
       <video
         bind:this={videoEl}
-        class="rounded-lg max-w-[min(90vw,400px)] max-h-[60vh] object-cover"
+        class="rounded-card max-w-[min(90vw,400px)] max-h-[60vh] object-cover"
         playsinline
       ></video>
 
       <!-- Viewfinder border overlay -->
       <div
-        class="absolute inset-0 rounded-lg pointer-events-none"
+        class="absolute inset-0 rounded-card pointer-events-none"
         style="box-shadow: 0 0 0 4px rgba(59,130,246,0.8), inset 0 0 0 2px rgba(59,130,246,0.4);"
       ></div>
 
       <!-- Corner marks -->
-      <div class="absolute top-2 left-2 w-6 h-6 border-t-4 border-l-4 border-blue-400 rounded-tl"></div>
-      <div class="absolute top-2 right-2 w-6 h-6 border-t-4 border-r-4 border-blue-400 rounded-tr"></div>
-      <div class="absolute bottom-2 left-2 w-6 h-6 border-b-4 border-l-4 border-blue-400 rounded-bl"></div>
-      <div class="absolute bottom-2 right-2 w-6 h-6 border-b-4 border-r-4 border-blue-400 rounded-br"></div>
+      <div class="absolute top-2 left-2 w-6 h-6 border-t-4 border-l-4 border-primary-400 rounded-tl"></div>
+      <div class="absolute top-2 right-2 w-6 h-6 border-t-4 border-r-4 border-primary-400 rounded-tr"></div>
+      <div class="absolute bottom-2 left-2 w-6 h-6 border-b-4 border-l-4 border-primary-400 rounded-bl"></div>
+      <div class="absolute bottom-2 right-2 w-6 h-6 border-b-4 border-r-4 border-primary-400 rounded-br"></div>
     </div>
   {/if}
 
