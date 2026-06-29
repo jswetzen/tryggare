@@ -57,7 +57,7 @@
       aria-labelledby="session-selector-title"
     >
       <div class="p-6">
-        <h2 id="session-selector-title" class="text-xl font-bold text-slate-900 mb-4">
+        <h2 id="session-selector-title" class="text-xl font-bold text-neutral-900 mb-4">
           {$_('session.changeSession')}
         </h2>
         <div class="space-y-2">
@@ -66,13 +66,13 @@
               onclick={() => handleSelect(session)}
               class="w-full text-left p-4 rounded-button border-2 transition-colors
                 {currentSession?.id === session.id
-                  ? 'border-blue-500 bg-blue-50'
-                  : 'border-slate-200 hover:border-blue-300 hover:bg-slate-50'}"
+                  ? 'border-primary-500 bg-primary-50'
+                  : 'border-neutral-200 hover:border-primary-300 hover:bg-neutral-50'}"
               aria-pressed={currentSession?.id === session.id}
             >
-              <div class="font-semibold text-slate-900">{session.name}</div>
-              <div class="text-sm text-slate-600">{session.event_name}</div>
-              <div class="text-sm text-slate-500">
+              <div class="font-semibold text-neutral-900">{session.name}</div>
+              <div class="text-sm text-neutral-600">{session.event_name}</div>
+              <div class="text-sm text-neutral-500">
                 {formatTime(session.start_time)} - {session.end_time ? formatTime(session.end_time) : 'Open'}
               </div>
             </button>
@@ -81,7 +81,7 @@
         <div class="mt-4 flex justify-end">
           <button
             onclick={handleClose}
-            class="px-4 py-2 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-button transition-colors"
+            class="px-4 py-2 text-neutral-600 hover:text-neutral-900 hover:bg-neutral-100 rounded-button transition-colors"
           >
             {$_('common.cancel')}
           </button>

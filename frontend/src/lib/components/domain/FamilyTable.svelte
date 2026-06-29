@@ -112,7 +112,7 @@
               <div class="flex items-center gap-2">
                 <span>{child.firstName} {child.lastName}</span>
                 {#if mode === 'checkout' && child.supervised}
-                  <span class="px-2 py-0.5 text-xs font-semibold bg-blue-100 text-blue-800 rounded">
+                  <span class="px-2 py-0.5 text-xs font-semibold bg-primary-100 text-primary-800 rounded">
                     {$t('checkout.supervised')}
                   </span>
                 {/if}
