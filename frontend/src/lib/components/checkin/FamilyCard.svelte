@@ -71,7 +71,7 @@
 </script>
 
 <div
-  class="bg-white border border-slate-300 rounded-lg overflow-hidden mb-3 hover:shadow-md transition-shadow"
+  class="bg-white border border-slate-300 rounded-card overflow-hidden mb-3 hover:shadow-md transition-shadow"
   class:opacity-60={allCheckedIn}
   class:bg-slate-50={allCheckedIn}
   data-testid={`family-card-${family.id}`}
@@ -117,7 +117,7 @@
           <!-- Undo Family button during grace period -->
           <button
             on:click={onUndoFamily}
-            class="px-3 py-1.5 sm:px-4 sm:py-2 bg-amber-600 text-white font-semibold rounded-lg hover:bg-amber-700 transition-colors text-xs sm:text-sm whitespace-nowrap"
+            class="px-3 py-1.5 sm:px-4 sm:py-2 bg-amber-600 text-white font-semibold rounded-button hover:bg-amber-700 transition-colors text-xs sm:text-sm whitespace-nowrap"
             aria-label={`Undo family check-in, ${familyUndoSeconds} seconds remaining`}
             data-testid={`family-undo-button-${family.id}`}
           >
@@ -128,7 +128,7 @@
           <button
             type="button"
             on:click={onCheckInFamily}
-            class="px-3 py-1.5 sm:px-4 sm:py-2 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition-colors text-xs sm:text-sm whitespace-nowrap"
+            class="px-3 py-1.5 sm:px-4 sm:py-2 bg-blue-600 text-white font-semibold rounded-button hover:bg-blue-700 transition-colors text-xs sm:text-sm whitespace-nowrap"
             aria-label={`Check in ${canCheckInCount} children from ${family.name} family`}
             data-testid={`family-check-in-button-${family.id}`}
           >
@@ -136,7 +136,7 @@
           </button>
         {:else if allCheckedIn}
           <!-- All checked in -->
-          <span class="px-3 py-1.5 sm:px-4 sm:py-2 bg-slate-200 text-slate-600 font-semibold rounded-lg text-xs sm:text-sm whitespace-nowrap inline-block">
+          <span class="px-3 py-1.5 sm:px-4 sm:py-2 bg-slate-200 text-slate-600 font-semibold rounded-button text-xs sm:text-sm whitespace-nowrap inline-block">
             {$_('checkin.alreadyCheckedIn')}
           </span>
         {/if}

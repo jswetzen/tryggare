@@ -23,7 +23,7 @@
 
   let visible = $state(true);
 
-  const baseStyles = 'p-4 rounded-md border';
+  const baseStyles = 'p-4 rounded-card border';
 
   const typeStyles = {
     success: 'bg-success-50 text-success-700 border-success-600',

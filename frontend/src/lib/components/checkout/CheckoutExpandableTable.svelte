@@ -92,7 +92,7 @@
     {@const checkInTimes = getCheckInTimes(family)}
     {@const supervised = hasSupervised(family)}
 
-    <div class="bg-white rounded-lg border-2 border-slate-300 overflow-hidden">
+    <div class="bg-white rounded-card border-2 border-slate-300 overflow-hidden">
       <!-- Collapsed/Expanded header - clickable to toggle -->
       <div
         class="flex items-center gap-3 px-4 py-3 cursor-pointer active:bg-slate-50"
@@ -198,7 +198,7 @@
             <select
               value={pickedUpBy[family.id] || ''}
               onchange={(e) => onPickedUpByChange(family.id, (e.target as HTMLSelectElement).value)}
-              class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-xs sm:text-sm"
+              class="w-full px-3 py-2 border border-slate-300 rounded-input focus:outline-none focus:ring-2 focus:ring-blue-500 text-xs sm:text-sm"
             >
               <option value="">{$_('checkout.pickedUpBy')}...</option>
               {#each family.parents as parent}
@@ -215,7 +215,7 @@
 </div>
 
 <!-- Desktop Layout (≥768px) -->
-<div class="hidden md:block bg-white rounded-lg border-2 border-slate-300 overflow-hidden">
+<div class="hidden md:block bg-white rounded-card border-2 border-slate-300 overflow-hidden">
   <table class="w-full">
     <!-- Sticky header -->
     <thead class="bg-slate-50 border-b-2 border-slate-300 sticky top-0 z-[5]">
@@ -342,7 +342,7 @@
               <select
                 value={pickedUpBy[family.id] || ''}
                 onchange={(e) => onPickedUpByChange(family.id, (e.target as HTMLSelectElement).value)}
-                class="w-full px-3 py-1.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-xs sm:text-sm"
+                class="w-full px-3 py-1.5 border border-slate-300 rounded-input focus:outline-none focus:ring-2 focus:ring-blue-500 text-xs sm:text-sm"
               >
                 <option value="">{$_('checkout.pickedUpBy')}...</option>
                 {#each family.parents as parent}

@@ -170,7 +170,7 @@
             <p class="text-xs text-amber-700 mt-1">Pros: Best of both worlds, efficient table</p>
             <p class="text-xs text-amber-700">Cons: Different UX per device</p>
           </div>
-          <div class="border border-slate-300 rounded-lg overflow-hidden bg-white">
+          <div class="border border-slate-300 rounded-card overflow-hidden bg-white">
             {#each transformedFamilies as family}
               <CheckoutOption3
                 {family}

@@ -50,7 +50,7 @@
 </script>
 
 <div
-  class="bg-white border border-slate-300 rounded-lg overflow-hidden mb-3 hover:shadow-md transition-shadow"
+  class="bg-white border border-slate-300 rounded-card overflow-hidden mb-3 hover:shadow-md transition-shadow"
   data-testid={`checkout-family-card-${family.id}`}
 >
   <!-- Family Header -->
@@ -68,7 +68,7 @@
       <button
         type="button"
         on:click={onCheckOutFamily}
-        class="px-3 py-1.5 sm:px-4 sm:py-2 bg-red-600 text-white font-semibold rounded-lg hover:bg-red-700 transition-colors text-xs sm:text-sm whitespace-nowrap"
+        class="px-3 py-1.5 sm:px-4 sm:py-2 bg-red-600 text-white font-semibold rounded-button hover:bg-red-700 transition-colors text-xs sm:text-sm whitespace-nowrap"
         aria-label={`Check out all children from ${family.name}`}
         data-testid={`family-checkout-button-${family.id}`}
       >
@@ -124,7 +124,7 @@
       <select
         bind:value={pickedUpBy}
         on:change={(e) => onPickedUpByChange((e.target as HTMLSelectElement).value)}
-        class="px-3 py-1.5 border border-slate-300 rounded-lg text-sm bg-white text-slate-700 flex-1 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+        class="px-3 py-1.5 border border-slate-300 rounded-input text-sm bg-white text-slate-700 flex-1 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
         data-testid={`picked-up-by-${family.id}`}
       >
         <option value="">{$_('checkout.selectPerson')}</option>
