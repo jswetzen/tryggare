@@ -113,7 +113,6 @@
         {/if}
 
         <div class="border-l border-neutral-300 pl-3 ml-1 flex items-center space-x-3">
-          <LanguageSwitcher />
           <span class="hidden xl:inline text-sm text-neutral-600">
             {$t('nav.welcomeMobile')}, <span class="font-semibold text-primary-900">{userName}</span>
           </span>
@@ -123,6 +122,7 @@
           >
             {$t('nav.logout')}
           </button>
+          <LanguageSwitcher />
         </div>
       </div>
 
@@ -224,7 +224,7 @@
       <div class="pt-4 pb-3 border-t border-neutral-200">
         <div class="px-5">
           <div class="mb-3">
-            <LanguageSwitcher />
+            <LanguageSwitcher align="left" />
           </div>
           <div class="text-sm text-neutral-600 mb-2">
             {$t('nav.loggedInAs')} <span class="font-semibold text-primary-900">{userName}</span>

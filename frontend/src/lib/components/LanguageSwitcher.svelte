@@ -2,6 +2,14 @@
   import { locale, t } from 'svelte-i18n';
   import Icon from '$lib/components/ui/Icon.svelte';
 
+  interface Props {
+    /** Which edge of the toggle the dropdown aligns to. Use 'left' where the
+     *  toggle sits at the left of its container (e.g. the mobile menu). */
+    align?: 'left' | 'right';
+  }
+
+  let { align = 'right' }: Props = $props();
+
   const languages = [
     { code: 'en', label: 'English' },
     { code: 'sv', label: 'Svenska' }
@@ -64,7 +72,7 @@
 
   {#if open}
     <div
-      class="absolute right-0 top-[calc(100%+6px)] min-w-[140px] bg-white rounded-card shadow-elevation-3 ring-1 ring-neutral-200 overflow-hidden z-50 py-1"
+      class="absolute {align === 'right' ? 'right-0' : 'left-0'} top-[calc(100%+6px)] min-w-[140px] bg-white rounded-card shadow-elevation-3 ring-1 ring-neutral-200 overflow-hidden z-50 py-1"
       role="listbox"
     >
       {#each languages as lang}
