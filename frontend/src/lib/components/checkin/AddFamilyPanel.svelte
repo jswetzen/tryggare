@@ -159,7 +159,7 @@
 <svelte:window on:keydown={handleKeyDown} />
 
 <div
-  class="bg-white border border-slate-300 rounded-lg p-4 mb-4 shadow-sm"
+  class="bg-white border border-slate-300 rounded-card p-4 mb-4 shadow-sm"
   data-testid="add-family-panel"
 >
   <form on:submit={handleSubmit}>
@@ -416,14 +416,14 @@
       <button
         type="button"
         on:click={onClose}
-        class="px-4 py-2 bg-slate-200 text-slate-700 font-semibold rounded-lg hover:bg-slate-300 transition-colors"
+        class="px-4 py-2 bg-slate-200 text-slate-700 font-semibold rounded-button hover:bg-slate-300 transition-colors"
         data-testid="add-family-cancel-button"
       >
         {$_('common.cancel')}
       </button>
       <button
         type="submit"
-        class="px-4 py-2 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition-colors"
+        class="px-4 py-2 bg-blue-600 text-white font-semibold rounded-button hover:bg-blue-700 transition-colors"
         data-testid="add-family-submit-button"
       >
         {$_('checkin.addNewFamily')}

@@ -67,7 +67,7 @@
     oninput={handleInput}
     onkeydown={handleKeyDown}
     placeholder={displayPlaceholder}
-    class="w-full pl-10 py-3 border-2 border-blue-500 rounded-lg bg-blue-50 focus:outline-none focus:ring-2 focus:ring-blue-500 {onQrScan ? 'pr-20' : 'pr-10'}"
+    class="w-full pl-10 py-3 border-2 border-blue-500 rounded-card bg-blue-50 focus:outline-none focus:ring-2 focus:ring-blue-500 {onQrScan ? 'pr-20' : 'pr-10'}"
     data-testid="family-search"
   />
   {#if value}
