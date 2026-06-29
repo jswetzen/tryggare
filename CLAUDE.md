@@ -177,6 +177,11 @@ The app and the marketing site (`gh-pages`, `tryggare.app`) share one brand laye
 - **Palette is sky blue + green.** `primary` (blue) is the default; `success`/`--brand-accent`
   (green) is reserved for the trust / success / "live" signal (active state, ✓, check-in). Don't
   spread green around decoratively.
+- **Corner radius — pick the right rung.** Interactive controls (buttons, inputs) → `rounded-button`
+  (`--radius`, 10px); containers (cards, panels) → `rounded-card` (`--radius-md`, 14px); badges/dots
+  → `rounded-pill`. `--radius-lg` (22px) is **marketing-hero only — keep it out of the app shell.**
+  Don't add `sm`/`md`/`lg` keys to `tailwind.config.cjs` `borderRadius`: that silently overrides
+  Tailwind's built-in `rounded-sm`/`md`/`lg` (used app-wide) and inflates the whole UI.
 - **Wordmark is "Tryggare"** — no `.app` suffix, and **not translated** (use the `Wordmark` /
   `Logo` components in `src/lib/components/ui/`, not the `nav.title` string, for the brand mark).
 - **Bilingual by default** — every visible string gets EN + SV in the same change (`en.json` +

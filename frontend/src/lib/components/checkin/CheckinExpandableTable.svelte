@@ -231,7 +231,7 @@
 
     <div
       id={`family-${family.id}`}
-      class="bg-white border-2 rounded-lg overflow-hidden transition-colors duration-300"
+      class="bg-white border-2 rounded-card overflow-hidden transition-colors duration-300"
       class:border-slate-300={highlightActive !== family.id}
       class:border-blue-400={highlightActive === family.id}
       class:ring-2={highlightActive === family.id}
@@ -298,7 +298,7 @@
               <button
                 type="button"
                 onclick={() => onUndoFamily(family.id)}
-                class="px-3 py-1.5 sm:px-4 sm:py-2 bg-amber-600 text-white font-semibold rounded-lg hover:bg-amber-700 transition-colors text-xs sm:text-sm whitespace-nowrap"
+                class="px-3 py-1.5 sm:px-4 sm:py-2 bg-amber-600 text-white font-semibold rounded-button hover:bg-amber-700 transition-colors text-xs sm:text-sm whitespace-nowrap"
                 aria-label={`Undo family check-in, ${familyUndoSeconds} seconds remaining`}
                 data-testid={`family-undo-button-${family.id}`}
               >
@@ -309,7 +309,7 @@
               <button
                 type="button"
                 onclick={() => onCheckInFamily(family.id)}
-                class="px-3 py-1.5 sm:px-4 sm:py-2 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition-colors text-xs sm:text-sm whitespace-nowrap"
+                class="px-3 py-1.5 sm:px-4 sm:py-2 bg-blue-600 text-white font-semibold rounded-button hover:bg-blue-700 transition-colors text-xs sm:text-sm whitespace-nowrap"
                 aria-label={`Check in ${canCheckInCount} children from ${family.name} family`}
                 data-testid={`family-check-in-button-${family.id}`}
               >
@@ -317,7 +317,7 @@
               </button>
             {:else if allCheckedIn}
               <!-- All checked in -->
-              <span class="px-3 py-1.5 sm:px-4 sm:py-2 bg-slate-200 text-slate-600 font-semibold rounded-lg text-xs sm:text-sm whitespace-nowrap inline-block">
+              <span class="px-3 py-1.5 sm:px-4 sm:py-2 bg-slate-200 text-slate-600 font-semibold rounded-button text-xs sm:text-sm whitespace-nowrap inline-block">
                 {$_('checkin.alreadyCheckedIn')}
               </span>
             {/if}
@@ -408,7 +408,7 @@
 </div>
 
 <!-- Desktop Layout (≥768px) -->
-<div class="hidden md:block bg-white rounded-lg border-2 border-slate-300 overflow-hidden">
+<div class="hidden md:block bg-white rounded-card border-2 border-slate-300 overflow-hidden">
   <table class="w-full">
     <!-- Sticky header -->
     <thead class="bg-slate-50 border-b-2 border-slate-300 sticky top-0 z-[5]">

@@ -79,15 +79,20 @@ module.exports = {
         element: '1rem', // 16px - between related elements
         compact: '0.5rem', // 8px - tight spacing
       },
-      // Border Radius — brand scale (see tokens.css --radius-*)
+      // Border Radius — brand scale (see tokens.css --radius-*).
+      // Rule of thumb: interactive controls (buttons, inputs) = --radius (10px);
+      // containers (cards, panels) = --radius-md (14px); badges/dots = --radius-pill.
+      // --radius-lg (22px) is marketing-hero only — keep it out of the app shell.
+      //
+      // Do NOT add sm/md/lg keys here: that overrides Tailwind's built-in
+      // rounded-sm/md/lg (used app-wide, 58× for rounded-lg alone) and inflates
+      // the whole UI. The 7/14/22px rungs live as --radius-sm/-md/-lg in
+      // tokens.css for components that opt in via var().
       borderRadius: {
-        button: '8px', // standard button radius (kit md button)
-        input: '8px', // form inputs
-        card: '14px', // --radius-md — cards and containers
-        sm: '7px', // --radius-sm
-        md: '14px', // --radius-md
-        lg: '22px', // --radius-lg — feature cards, hero surfaces
-        pill: '100px', // --radius-pill
+        button: '10px', // --radius — interactive controls
+        input: '10px', // --radius — interactive controls
+        card: '14px', // --radius-md — containers (cards, panels)
+        pill: '100px', // --radius-pill — badges/dots only
       },
       // Box Shadows — cool ink-toned brand elevation (see tokens.css --shadow-*)
       boxShadow: {
