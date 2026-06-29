@@ -149,7 +149,7 @@
 
 {#if show}
   <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 overflow-y-auto">
-    <div class="bg-white rounded-lg p-6 max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+    <div class="bg-white rounded-card p-6 max-w-4xl w-full max-h-[90vh] overflow-y-auto">
       <h2 class="text-2xl font-bold mb-6">{$t('checkin.addFamilyTitle')}</h2>
 
       {#if error}

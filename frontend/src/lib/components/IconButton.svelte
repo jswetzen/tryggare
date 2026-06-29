@@ -34,7 +34,7 @@
   {disabled}
   title={tooltip}
   class="
-    w-8 h-8 rounded-md text-white font-bold flex items-center justify-center
+    w-8 h-8 rounded-button text-white font-bold flex items-center justify-center
     {styles[variant]} {disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
     relative group
   "

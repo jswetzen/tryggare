@@ -58,7 +58,7 @@
   <Icon
     name="search"
     size="sm"
-    class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+    class="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400"
   />
   <input
     id={inputId}
@@ -67,13 +67,13 @@
     oninput={handleInput}
     onkeydown={handleKeyDown}
     placeholder={displayPlaceholder}
-    class="w-full pl-10 py-3 border-2 border-blue-500 rounded-card bg-blue-50 focus:outline-none focus:ring-2 focus:ring-blue-500 {onQrScan ? 'pr-20' : 'pr-10'}"
+    class="w-full pl-10 py-3 border-2 border-primary-500 rounded-card bg-primary-50 focus:outline-none focus:ring-2 focus:ring-primary-500 {onQrScan ? 'pr-20' : 'pr-10'}"
     data-testid="family-search"
   />
   {#if value}
     <button
       onclick={clearSearch}
-      class="absolute top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 {onQrScan ? 'right-10' : 'right-3'}"
+      class="absolute top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-600 {onQrScan ? 'right-10' : 'right-3'}"
       aria-label="Clear search"
       data-testid="clear-search-button"
     >
@@ -83,7 +83,7 @@
   {#if onQrScan}
     <button
       onclick={onQrScan}
-      class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-blue-600"
+      class="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-primary-600"
       aria-label={$t('checkin.qrScanButton')}
       data-testid="qr-scan-button"
     >
