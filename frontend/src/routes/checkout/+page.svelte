@@ -433,7 +433,7 @@
   <title>{$t('checkout.pageTitle')}</title>
 </svelte:head>
 
-<div class="min-h-screen bg-slate-100">
+<div class="min-h-screen bg-neutral-100">
   <div class="max-w-4xl mx-auto p-3 md:p-5">
     <!-- Session Indicator -->
     {#if activeSession}
@@ -459,11 +459,11 @@
 
     <!-- Header (scrollable) -->
     <div class="mb-5">
-      <h1 class="text-3xl font-bold text-blue-900">{$t('checkout.title')}</h1>
+      <h1 class="text-3xl font-bold text-primary-900">{$t('checkout.title')}</h1>
     </div>
 
     <!-- Sticky Search Box -->
-    <div class="sticky top-0 z-10 bg-slate-100 pb-2 -mx-3 px-3 md:-mx-5 md:px-5">
+    <div class="sticky top-0 z-10 bg-neutral-100 pb-2 -mx-3 px-3 md:-mx-5 md:px-5">
       <SearchBox
         bind:value={searchQuery}
         placeholder={$t('checkout.searchPlaceholder')}
@@ -494,8 +494,8 @@
     {/if}
 
     {#if !loading && filteredCheckIns.length === 0}
-      <div class="text-center py-12 bg-white rounded-lg border-2 border-dashed border-slate-300">
-        <p class="text-slate-500 mb-2">
+      <div class="text-center py-12 bg-white rounded-card border-2 border-dashed border-neutral-300">
+        <p class="text-neutral-500 mb-2">
           {#if searchQuery}
             {$t('checkout.noChildrenFiltered', { values: { query: searchQuery } })}
           {:else}
@@ -503,7 +503,7 @@
           {/if}
         </p>
         {#if searchQuery}
-          <p class="text-sm text-slate-400">{$t('checkin.tryDifferentSearch')}</p>
+          <p class="text-sm text-neutral-400">{$t('checkin.tryDifferentSearch')}</p>
         {/if}
       </div>
     {/if}

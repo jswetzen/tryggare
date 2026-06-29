@@ -164,3 +164,32 @@ Playwright browser automation is available for testing and validation:
 - **Credentials**: `admin:admin123` for testing login flows
 - **Note**: Useful when testing from remote/mobile devices isn't practical due to CORS/CSRF restrictions
 
+## Design system (Tryggare brand)
+
+The app and the marketing site (`gh-pages`, `tryggare.app`) share one brand layer. Full guide:
+`docs/design-system/` (start with `README.md`). Keep all UI on-brand:
+
+- **Never hard-code colors, radii, shadows, or type sizes.** Use the Tailwind semantic classes
+  (`primary` / `success` / `neutral` / `danger` / `warning` / `info`) or the `var(--…)` tokens.
+  Canonical tokens: `frontend/src/lib/styles/tokens.css`; they're mirrored into
+  `frontend/tailwind.config.cjs` and the two are kept in lockstep by
+  `npm run check:tokens` (CI-enforced — update both sides together).
+- **Palette is sky blue + green.** `primary` (blue) is the default; `success`/`--brand-accent`
+  (green) is reserved for the trust / success / "live" signal (active state, ✓, check-in). Don't
+  spread green around decoratively.
+- **Corner radius — pick the right rung.** Interactive controls (buttons, inputs) → `rounded-button`
+  (`--radius`, 10px); containers (cards, panels) → `rounded-card` (`--radius-md`, 14px); badges/dots
+  → `rounded-pill`. `--radius-lg` (22px) is **marketing-hero only — keep it out of the app shell.**
+  Don't add `sm`/`md`/`lg` keys to `tailwind.config.cjs` `borderRadius`: that silently overrides
+  Tailwind's built-in `rounded-sm`/`md`/`lg` (used app-wide) and inflates the whole UI.
+- **Wordmark is "Tryggare"** — no `.app` suffix, and **not translated** (use the `Wordmark` /
+  `Logo` components in `src/lib/components/ui/`, not the `nav.title` string, for the brand mark).
+- **Bilingual by default** — every visible string gets EN + SV in the same change (`en.json` +
+  `sv.json`); Swedish conveys intent, not literal words.
+- **No emoji.** Allowed glyphs only: ✓ ✗ →. Icons are inline SVG, stroke-only, width 2,
+  `currentColor`, rounded caps/joins (Lucide as the substitute set).
+- **Plus Jakarta Sans** only (loaded in `app.html`). Restrained motion: `0.15s ease`, 1–2px
+  hover lifts, no springs/bounces. No purple-to-blue / AI-mesh gradients.
+- Reuse the shared Svelte primitives in `src/lib/components/ui/` instead of bespoke markup; if a
+  primitive is missing, build it to the spec in `docs/design-system/` rather than one-off styling.
+
