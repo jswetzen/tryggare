@@ -57,12 +57,12 @@
           aria-label={$t('nav.title')}
         >
           <Logo size={32} />
-          <Wordmark class="hidden sm:inline text-xl" />
+          <Wordmark class="text-xl" />
         </a>
       </div>
 
       <!-- Desktop Navigation -->
-      <div class="hidden md:flex items-center space-x-6">
+      <div class="hidden lg:flex items-center space-x-6">
         <a
           href="/checkin"
           class="px-4 py-2 rounded-button font-semibold transition-colors {isActive('/checkin')
@@ -127,7 +127,7 @@
       </div>
 
       <!-- Mobile menu button -->
-      <div class="md:hidden">
+      <div class="lg:hidden">
         <button
           onclick={toggleMobileMenu}
           class="inline-flex items-center justify-center p-2 rounded-button text-neutral-700 hover:bg-neutral-100 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-primary-500"
@@ -164,7 +164,7 @@
 
   <!-- Mobile menu -->
   {#if mobileMenuOpen}
-    <div class="md:hidden border-t border-neutral-200">
+    <div class="lg:hidden border-t border-neutral-200">
       <div class="px-2 pt-2 pb-3 space-y-1">
         <a
           href="/checkin"
