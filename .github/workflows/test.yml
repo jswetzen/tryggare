@@ -47,3 +47,16 @@ jobs:
           node-version: 20
       - name: Check design tokens stay in sync
         run: npm run check:tokens
+
+  marketing-tokens:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Check marketing tokens match canonical
+        run: |
+          git fetch origin gh-pages --depth=1
+          git show origin/gh-pages:colors_and_type.css > /tmp/marketing-tokens.css
+          node frontend/scripts/check-marketing-tokens.mjs /tmp/marketing-tokens.css
