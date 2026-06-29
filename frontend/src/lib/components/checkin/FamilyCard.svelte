@@ -71,38 +71,38 @@
 </script>
 
 <div
-  class="bg-white border border-slate-300 rounded-lg overflow-hidden mb-3 hover:shadow-md transition-shadow"
+  class="bg-white border border-neutral-300 rounded-card overflow-hidden mb-3 hover:shadow-md transition-shadow"
   class:opacity-60={allCheckedIn}
-  class:bg-slate-50={allCheckedIn}
+  class:bg-neutral-50={allCheckedIn}
   data-testid={`family-card-${family.id}`}
 >
   <!-- Family Header -->
-  <div class="bg-slate-50 p-2.5 sm:p-3">
+  <div class="bg-neutral-50 p-2.5 sm:p-3">
     <div class="flex items-start justify-between gap-2">
       <!-- Left side: Toggle button and family info -->
       <button
         on:click={onToggle}
-        class="flex items-start gap-2 flex-1 min-w-0 text-left hover:bg-slate-100 rounded px-2 py-1.5 -mx-2 -my-1.5 transition-colors"
+        class="flex items-start gap-2 flex-1 min-w-0 text-left hover:bg-neutral-100 rounded px-2 py-1.5 -mx-2 -my-1.5 transition-colors"
         aria-label={`${expanded ? 'Collapse' : 'Expand'} ${family.name} family`}
         data-testid={`family-toggle-button-${family.id}`}
       >
-        <div class="text-slate-600 flex-shrink-0 pt-0.5">
+        <div class="text-neutral-600 flex-shrink-0 pt-0.5">
           <span class="chevron" class:expanded>
             {expanded ? '▼' : '▶'}
           </span>
         </div>
         <div class="flex-1 min-w-0">
           <div class="flex items-center gap-2 flex-wrap">
-            <h3 class="font-bold text-blue-900 text-base sm:text-lg truncate">
+            <h3 class="font-bold text-primary-900 text-base sm:text-lg truncate">
               {family.name}
             </h3>
             {#if allCheckedIn}
-              <span class="px-1.5 py-0.5 text-xs font-semibold bg-green-100 text-green-800 rounded whitespace-nowrap">
+              <span class="px-1.5 py-0.5 text-xs font-semibold bg-success-100 text-success-800 rounded whitespace-nowrap">
                 {$_('checkin.allCheckedIn')}
               </span>
             {/if}
           </div>
-          <p class="text-xs sm:text-sm text-slate-600 mt-0.5">
+          <p class="text-xs sm:text-sm text-neutral-600 mt-0.5">
             {totalChildren} {totalChildren === 1 ? $_('checkin.child') : $_('checkin.children')} •
             {$_('checkin.checkedInCount', { values: { count: checkedInCount } })}
           </p>
@@ -117,7 +117,7 @@
           <!-- Undo Family button during grace period -->
           <button
             on:click={onUndoFamily}
-            class="px-3 py-1.5 sm:px-4 sm:py-2 bg-amber-600 text-white font-semibold rounded-lg hover:bg-amber-700 transition-colors text-xs sm:text-sm whitespace-nowrap"
+            class="px-3 py-1.5 sm:px-4 sm:py-2 bg-warning-600 text-white font-semibold rounded-button hover:bg-warning-700 transition-colors text-xs sm:text-sm whitespace-nowrap"
             aria-label={`Undo family check-in, ${familyUndoSeconds} seconds remaining`}
             data-testid={`family-undo-button-${family.id}`}
           >
@@ -128,7 +128,7 @@
           <button
             type="button"
             on:click={onCheckInFamily}
-            class="px-3 py-1.5 sm:px-4 sm:py-2 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition-colors text-xs sm:text-sm whitespace-nowrap"
+            class="px-3 py-1.5 sm:px-4 sm:py-2 bg-primary-600 text-white font-semibold rounded-button hover:bg-primary-700 transition-colors text-xs sm:text-sm whitespace-nowrap"
             aria-label={`Check in ${canCheckInCount} children from ${family.name} family`}
             data-testid={`family-check-in-button-${family.id}`}
           >
@@ -136,7 +136,7 @@
           </button>
         {:else if allCheckedIn}
           <!-- All checked in -->
-          <span class="px-3 py-1.5 sm:px-4 sm:py-2 bg-slate-200 text-slate-600 font-semibold rounded-lg text-xs sm:text-sm whitespace-nowrap inline-block">
+          <span class="px-3 py-1.5 sm:px-4 sm:py-2 bg-neutral-200 text-neutral-600 font-semibold rounded-button text-xs sm:text-sm whitespace-nowrap inline-block">
             {$_('checkin.alreadyCheckedIn')}
           </span>
         {/if}
@@ -153,14 +153,14 @@
         {@const childRemainingSeconds = child.checkInActionId && _tick >= 0 ? getRemainingTime(child.checkInActionId) : null}
 
         <div
-          class="flex flex-col gap-2 p-2 bg-slate-50 rounded border border-slate-200"
+          class="flex flex-col gap-2 p-2 bg-neutral-50 rounded border border-neutral-200"
           data-testid={`child-row-${child.id}`}
         >
           <div class="flex flex-col sm:flex-row sm:items-center gap-2">
             <!-- Child info -->
             <div class="flex-1 min-w-0">
-              <div class="font-medium text-slate-700 text-sm sm:text-base">{child.name}</div>
-              <div class="text-xs text-slate-500 mt-0.5">
+              <div class="font-medium text-neutral-700 text-sm sm:text-base">{child.name}</div>
+              <div class="text-xs text-neutral-500 mt-0.5">
                 {getTicketDisplay(child.ticket)}
                 {#if child.checkedIn && child.checkInTime}
                   • {$_('checkin.checkedInAt', { values: { time: child.checkInTime } })}
@@ -176,10 +176,10 @@
                     type="checkbox"
                     id="supervised-{child.id}"
                     bind:checked={supervisedState[child.id]}
-                    class="w-4 h-4 text-blue-600 bg-white border-slate-300 rounded focus:ring-blue-500 focus:ring-2"
+                    class="w-4 h-4 text-primary-600 bg-white border-neutral-300 rounded focus:ring-primary-500 focus:ring-2"
                     data-testid={`supervised-checkbox-${child.id}`}
                   />
-                  <span class="text-slate-600">{$_('checkin.guardianPresent')}</span>
+                  <span class="text-neutral-600">{$_('checkin.guardianPresent')}</span>
                 </label>
               {/if}
 
@@ -196,21 +196,21 @@
 
           <!-- Ticket assignment expansion (for "No Ticket" children) -->
           {#if isExpanded && child.ticket === 'none'}
-            <div class="w-full bg-yellow-50 border border-yellow-200 rounded p-3 animate-expand">
-              <p class="text-sm text-slate-700 mb-2 font-medium">
+            <div class="w-full bg-warning-50 border border-warning-200 rounded p-3 animate-expand">
+              <p class="text-sm text-neutral-700 mb-2 font-medium">
                 {$_('checkin.checkIn')} {child.name} with:
               </p>
               <div class="flex gap-2">
                 <button
                   on:click={() => onAssignTicket(child.id, 'session')}
-                  class="flex-1 px-3 py-2 bg-blue-500 text-white text-sm font-semibold rounded hover:bg-blue-600 transition-colors"
+                  class="flex-1 px-3 py-2 bg-primary-500 text-white text-sm font-semibold rounded-button hover:bg-primary-600 transition-colors"
                   data-testid={`ticket-assign-session-${child.id}`}
                 >
                   {$_('checkin.ticketSession')}
                 </button>
                 <button
                   on:click={() => onAssignTicket(child.id, 'event')}
-                  class="flex-1 px-3 py-2 bg-green-600 text-white text-sm font-semibold rounded hover:bg-green-700 transition-colors"
+                  class="flex-1 px-3 py-2 bg-success-600 text-white text-sm font-semibold rounded-button hover:bg-success-700 transition-colors"
                   data-testid={`ticket-assign-event-${child.id}`}
                 >
                   {$_('checkin.ticketEvent')}

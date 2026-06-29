@@ -243,7 +243,7 @@
           {#if qrInfo.child.notes}
             <div>
               <div class="text-sm text-neutral-600">{$t('qr.medicalConditions')}</div>
-              <div class="text-lg text-orange-600 font-semibold">
+              <div class="text-lg text-warning-600 font-semibold">
                 {qrInfo.child.notes}
               </div>
             </div>

@@ -89,23 +89,23 @@
   <title>Checkout Design Comparison</title>
 </svelte:head>
 
-<div class="min-h-screen bg-slate-100 p-4">
+<div class="min-h-screen bg-neutral-100 p-4">
   <div class="max-w-6xl mx-auto">
-    <h1 class="text-3xl font-bold text-blue-900 mb-6">Checkout Design Comparison</h1>
+    <h1 class="text-3xl font-bold text-primary-900 mb-6">Checkout Design Comparison</h1>
 
     {#if loading}
-      <p class="text-slate-600">Loading...</p>
+      <p class="text-neutral-600">Loading...</p>
     {:else if transformedFamilies.length === 0}
-      <p class="text-slate-600">No checked-in children to display. Go check in some children first!</p>
-      <a href="/checkin" class="text-blue-600 hover:underline mt-2 inline-block">Go to Check-In</a>
+      <p class="text-neutral-600">No checked-in children to display. Go check in some children first!</p>
+      <a href="/checkin" class="text-primary-600 hover:underline mt-2 inline-block">Go to Check-In</a>
     {:else}
       <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
         <!-- Current Design -->
         <div>
-          <div class="bg-blue-100 border-l-4 border-blue-600 p-3 mb-3">
-            <h2 class="font-bold text-blue-900">Current Design</h2>
-            <p class="text-sm text-blue-800">Spacious cards with full layout</p>
+          <div class="bg-primary-100 border-l-4 border-primary-600 p-3 mb-3">
+            <h2 class="font-bold text-primary-900">Current Design</h2>
+            <p class="text-sm text-primary-800">Spacious cards with full layout</p>
           </div>
           <div class="space-y-3">
             {#each transformedFamilies as family}
@@ -123,11 +123,11 @@
 
         <!-- Option 1 -->
         <div>
-          <div class="bg-green-100 border-l-4 border-green-600 p-3 mb-3">
-            <h2 class="font-bold text-green-900">Option 1: Compact with Colored Border</h2>
-            <p class="text-sm text-green-800">Minimal padding, left border accent</p>
-            <p class="text-xs text-green-700 mt-1">Pros: Less vertical space, clear family separation</p>
-            <p class="text-xs text-green-700">Cons: Might feel cramped</p>
+          <div class="bg-success-100 border-l-4 border-success-600 p-3 mb-3">
+            <h2 class="font-bold text-success-900">Option 1: Compact with Colored Border</h2>
+            <p class="text-sm text-success-800">Minimal padding, left border accent</p>
+            <p class="text-xs text-success-700 mt-1">Pros: Less vertical space, clear family separation</p>
+            <p class="text-xs text-success-700">Cons: Might feel cramped</p>
           </div>
           {#each transformedFamilies as family}
             <CheckoutOption1
@@ -143,11 +143,11 @@
 
         <!-- Option 2 -->
         <div>
-          <div class="bg-purple-100 border-l-4 border-purple-600 p-3 mb-3">
-            <h2 class="font-bold text-purple-900">Option 2: Minimalist Flat List</h2>
-            <p class="text-sm text-purple-800">Alternating backgrounds, inline children</p>
-            <p class="text-xs text-purple-700 mt-1">Pros: Most compact, fast to scan</p>
-            <p class="text-xs text-purple-700">Cons: Less visual hierarchy, children inline</p>
+          <div class="bg-primary-100 border-l-4 border-primary-600 p-3 mb-3">
+            <h2 class="font-bold text-primary-900">Option 2: Minimalist Flat List</h2>
+            <p class="text-sm text-primary-800">Alternating backgrounds, inline children</p>
+            <p class="text-xs text-primary-700 mt-1">Pros: Most compact, fast to scan</p>
+            <p class="text-xs text-primary-700">Cons: Less visual hierarchy, children inline</p>
           </div>
           {#each transformedFamilies as family, index}
             <CheckoutOption2
@@ -164,13 +164,13 @@
 
         <!-- Option 3 -->
         <div>
-          <div class="bg-amber-100 border-l-4 border-amber-600 p-3 mb-3">
-            <h2 class="font-bold text-amber-900">Option 3: Adaptive Table/Cards</h2>
-            <p class="text-sm text-amber-800">Table on desktop, cards on mobile</p>
-            <p class="text-xs text-amber-700 mt-1">Pros: Best of both worlds, efficient table</p>
-            <p class="text-xs text-amber-700">Cons: Different UX per device</p>
+          <div class="bg-warning-100 border-l-4 border-warning-600 p-3 mb-3">
+            <h2 class="font-bold text-warning-900">Option 3: Adaptive Table/Cards</h2>
+            <p class="text-sm text-warning-800">Table on desktop, cards on mobile</p>
+            <p class="text-xs text-warning-700 mt-1">Pros: Best of both worlds, efficient table</p>
+            <p class="text-xs text-warning-700">Cons: Different UX per device</p>
           </div>
-          <div class="border border-slate-300 rounded-lg overflow-hidden bg-white">
+          <div class="border border-neutral-300 rounded-card overflow-hidden bg-white">
             {#each transformedFamilies as family}
               <CheckoutOption3
                 {family}
