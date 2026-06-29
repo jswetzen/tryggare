@@ -27,8 +27,8 @@
     "refresh": "Uppdatera"
   },
   "login": {
-    "pageTitle": "Logga in - Incheckningssystem",
-    "title": "Logga in till incheckningssystemet",
+    "pageTitle": "Logga in - Tryggare",
+    "title": "Logga in på Tryggare",
     "success": "Inloggning lyckades! Omdirigerar...",
     "username": "Användarnamn",
     "usernamePlaceholder": "Ange ditt användarnamn",
