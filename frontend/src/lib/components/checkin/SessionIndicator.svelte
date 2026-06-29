@@ -50,7 +50,7 @@
     {#if showAddFamily && onAddFamily}
       <button
         onclick={onAddFamily}
-        class="px-3 py-1.5 bg-blue-600 text-white font-semibold rounded hover:bg-blue-700 transition-colors"
+        class="px-3 py-1.5 bg-blue-600 text-white font-semibold rounded-button hover:bg-blue-700 transition-colors"
         data-testid="add-family-button"
       >
         {$_('checkin.addNewFamily')}

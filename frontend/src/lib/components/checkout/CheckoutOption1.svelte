@@ -54,7 +54,7 @@
     <button
       type="button"
       on:click={onCheckOutFamily}
-      class="px-2 py-1 bg-red-600 text-white text-xs font-semibold rounded hover:bg-red-700"
+      class="px-2 py-1 bg-red-600 text-white text-xs font-semibold rounded-button hover:bg-red-700"
     >
       {$_('checkout.checkOutAll')}
     </button>
@@ -71,7 +71,7 @@
       </div>
       <button
         on:click={() => onCheckOut(child.id)}
-        class="px-2 py-0.5 bg-red-500 text-white text-xs rounded hover:bg-red-600"
+        class="px-2 py-0.5 bg-red-500 text-white text-xs rounded-button hover:bg-red-600"
       >
         {$_('checkout.checkOut')}
       </button>

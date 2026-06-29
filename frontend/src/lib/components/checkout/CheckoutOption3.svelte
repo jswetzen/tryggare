@@ -51,7 +51,7 @@
     <h4 class="font-bold text-slate-800 text-sm">{family.name} ({family.children.length})</h4>
     <button
       on:click={onCheckOutFamily}
-      class="px-2 py-1 bg-red-600 text-white text-xs font-semibold rounded"
+      class="px-2 py-1 bg-red-600 text-white text-xs font-semibold rounded-button"
     >
       All
     </button>
@@ -66,7 +66,7 @@
       </div>
       <button
         on:click={() => onCheckOut(child.id)}
-        class="px-2 py-1 bg-red-500 text-white text-xs rounded"
+        class="px-2 py-1 bg-red-500 text-white text-xs rounded-button"
       >
         Out
       </button>
@@ -92,7 +92,7 @@
       <span>{family.name} ({family.children.length})</span>
       <button
         on:click={onCheckOutFamily}
-        class="px-3 py-1 bg-red-600 text-white text-sm rounded hover:bg-red-700"
+        class="px-3 py-1 bg-red-600 text-white text-sm rounded-button hover:bg-red-700"
       >
         {$_('checkout.checkOutAll')}
       </button>
@@ -119,7 +119,7 @@
       </div>
       <button
         on:click={() => onCheckOut(child.id)}
-        class="px-3 py-1 bg-red-500 text-white text-sm rounded hover:bg-red-600"
+        class="px-3 py-1 bg-red-500 text-white text-sm rounded-button hover:bg-red-600"
       >
         {$_('checkout.checkOut')}
       </button>
