@@ -384,14 +384,14 @@
                   <div class="flex gap-2">
                     <button
                       onclick={() => onAssignTicket(family.id, child.id, 'session')}
-                      class="flex-1 px-3 py-2 bg-blue-500 text-white text-sm font-semibold rounded hover:bg-blue-600 transition-colors"
+                      class="flex-1 px-3 py-2 bg-blue-500 text-white text-sm font-semibold rounded-button hover:bg-blue-600 transition-colors"
                       data-testid={`ticket-assign-session-${child.id}`}
                     >
                       {$_('checkin.ticketSession')}
                     </button>
                     <button
                       onclick={() => onAssignTicket(family.id, child.id, 'event')}
-                      class="flex-1 px-3 py-2 bg-green-600 text-white text-sm font-semibold rounded hover:bg-green-700 transition-colors"
+                      class="flex-1 px-3 py-2 bg-green-600 text-white text-sm font-semibold rounded-button hover:bg-green-700 transition-colors"
                       data-testid={`ticket-assign-event-${child.id}`}
                     >
                       {$_('checkin.ticketEvent')}
@@ -488,7 +488,7 @@
               {#if familyUndoSeconds !== null}
                 <button
                   onclick={() => onUndoFamily(family.id)}
-                  class="px-4 py-1.5 bg-amber-600 text-white text-sm font-medium rounded hover:bg-amber-700 transition-colors"
+                  class="px-4 py-1.5 bg-amber-600 text-white text-sm font-medium rounded-button hover:bg-amber-700 transition-colors"
                   data-testid={`family-undo-button-${family.id}`}
                 >
                   {$_('checkin.undoSeconds', { values: { seconds: familyUndoSeconds } })}
@@ -497,13 +497,13 @@
                 <button
                   type="button"
                   onclick={() => onCheckInFamily(family.id)}
-                  class="px-4 py-1.5 bg-blue-600 text-white text-sm font-medium rounded hover:bg-blue-700 transition-colors"
+                  class="px-4 py-1.5 bg-blue-600 text-white text-sm font-medium rounded-button hover:bg-blue-700 transition-colors"
                   data-testid={`family-check-in-button-${family.id}`}
                 >
                   {$_('checkin.checkInCount', { values: { count: canCheckInCount } })}
                 </button>
               {:else if allCheckedIn}
-                <span class="px-4 py-1.5 bg-slate-200 text-slate-600 text-sm font-medium rounded inline-block">
+                <span class="px-4 py-1.5 bg-slate-200 text-slate-600 text-sm font-medium rounded-button inline-block">
                   {$_('checkin.alreadyCheckedIn')}
                 </span>
               {/if}
@@ -554,14 +554,14 @@
                     <div class="flex gap-2">
                       <button
                         onclick={() => onAssignTicket(family.id, child.id, 'session')}
-                        class="flex-1 px-3 py-2 bg-blue-500 text-white text-sm font-semibold rounded hover:bg-blue-600 transition-colors"
+                        class="flex-1 px-3 py-2 bg-blue-500 text-white text-sm font-semibold rounded-button hover:bg-blue-600 transition-colors"
                         data-testid={`ticket-assign-session-${child.id}`}
                       >
                         {$_('checkin.ticketSession')}
                       </button>
                       <button
                         onclick={() => onAssignTicket(family.id, child.id, 'event')}
-                        class="flex-1 px-3 py-2 bg-green-600 text-white text-sm font-semibold rounded hover:bg-green-700 transition-colors"
+                        class="flex-1 px-3 py-2 bg-green-600 text-white text-sm font-semibold rounded-button hover:bg-green-700 transition-colors"
                         data-testid={`ticket-assign-event-${child.id}`}
                       >
                         {$_('checkin.ticketEvent')}

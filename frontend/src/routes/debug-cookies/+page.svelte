@@ -30,7 +30,7 @@
         allCookies = document.cookie;
         alert('Cookies cleared! Refresh to see result.');
       }}
-      class="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600 mr-2"
+      class="bg-red-500 text-white px-4 py-2 rounded-button hover:bg-red-600 mr-2"
     >
       Clear All Auth Cookies
     </button>
@@ -38,7 +38,7 @@
       onclick={() => {
         allCookies = document.cookie;
       }}
-      class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
+      class="bg-blue-500 text-white px-4 py-2 rounded-button hover:bg-blue-600"
     >
       Refresh
     </button>

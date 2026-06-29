@@ -203,14 +203,14 @@
               <div class="flex gap-2">
                 <button
                   on:click={() => onAssignTicket(child.id, 'session')}
-                  class="flex-1 px-3 py-2 bg-blue-500 text-white text-sm font-semibold rounded hover:bg-blue-600 transition-colors"
+                  class="flex-1 px-3 py-2 bg-blue-500 text-white text-sm font-semibold rounded-button hover:bg-blue-600 transition-colors"
                   data-testid={`ticket-assign-session-${child.id}`}
                 >
                   {$_('checkin.ticketSession')}
                 </button>
                 <button
                   on:click={() => onAssignTicket(child.id, 'event')}
-                  class="flex-1 px-3 py-2 bg-green-600 text-white text-sm font-semibold rounded hover:bg-green-700 transition-colors"
+                  class="flex-1 px-3 py-2 bg-green-600 text-white text-sm font-semibold rounded-button hover:bg-green-700 transition-colors"
                   data-testid={`ticket-assign-event-${child.id}`}
                 >
                   {$_('checkin.ticketEvent')}

@@ -141,7 +141,7 @@
         <button
           type="button"
           onclick={() => onCheckOutFamily(family.id)}
-          class="flex-shrink-0 px-3 py-1.5 sm:px-4 sm:py-2 bg-blue-600 text-white text-xs sm:text-sm font-medium rounded hover:bg-blue-700 active:bg-blue-800 transition-colors"
+          class="flex-shrink-0 px-3 py-1.5 sm:px-4 sm:py-2 bg-blue-600 text-white text-xs sm:text-sm font-medium rounded-button hover:bg-blue-700 active:bg-blue-800 transition-colors"
           aria-label={`${$_('checkout.checkOutAll')} ${family.display_name}`}
         >
           {$_('checkout.checkOutAll')}
@@ -175,7 +175,7 @@
                       target="_blank"
                       rel="noopener"
                       title={$_('checkout.childInfoTitle')}
-                      class="px-3 py-1.5 border border-slate-300 text-slate-700 text-xs sm:text-sm font-medium rounded hover:bg-slate-100 transition-colors"
+                      class="px-3 py-1.5 border border-slate-300 text-slate-700 text-xs sm:text-sm font-medium rounded-button hover:bg-slate-100 transition-colors"
                     >
                       {$_('checkout.childInfo')}
                     </a>
@@ -183,7 +183,7 @@
                   <button
                     type="button"
                     onclick={() => onCheckOut(child.id)}
-                    class="px-3 py-1.5 bg-blue-600 text-white text-xs sm:text-sm font-medium rounded hover:bg-blue-700 transition-colors"
+                    class="px-3 py-1.5 bg-blue-600 text-white text-xs sm:text-sm font-medium rounded-button hover:bg-blue-700 transition-colors"
                     aria-label={`${$_('checkout.checkOut')} ${child.firstName} ${child.lastName}`}
                   >
                     {$_('checkout.checkOut')}
@@ -287,7 +287,7 @@
             <button
               type="button"
               onclick={() => onCheckOutFamily(family.id)}
-              class="px-3 py-1.5 sm:px-4 sm:py-1.5 bg-blue-600 text-white text-xs sm:text-sm font-medium rounded hover:bg-blue-700 transition-colors"
+              class="px-3 py-1.5 sm:px-4 sm:py-1.5 bg-blue-600 text-white text-xs sm:text-sm font-medium rounded-button hover:bg-blue-700 transition-colors"
               aria-label={`${$_('checkout.checkOutAll')} ${family.display_name}`}
             >
               {$_('checkout.checkOutAll')}
@@ -318,7 +318,7 @@
                       target="_blank"
                       rel="noopener"
                       title={$_('checkout.childInfoTitle')}
-                      class="px-3 py-1.5 border border-slate-300 text-slate-700 text-xs sm:text-sm font-medium rounded hover:bg-slate-100 transition-colors"
+                      class="px-3 py-1.5 border border-slate-300 text-slate-700 text-xs sm:text-sm font-medium rounded-button hover:bg-slate-100 transition-colors"
                     >
                       {$_('checkout.childInfo')}
                     </a>
@@ -326,7 +326,7 @@
                   <button
                     type="button"
                     onclick={() => onCheckOut(child.id)}
-                    class="px-3 py-1.5 bg-blue-600 text-white text-xs sm:text-sm font-medium rounded hover:bg-blue-700 transition-colors"
+                    class="px-3 py-1.5 bg-blue-600 text-white text-xs sm:text-sm font-medium rounded-button hover:bg-blue-700 transition-colors"
                     aria-label={`${$_('checkout.checkOut')} ${child.firstName} ${child.lastName}`}
                   >
                     {$_('checkout.checkOut')}

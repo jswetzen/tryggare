@@ -105,7 +105,7 @@
         <button
           type="button"
           on:click={() => onCheckOut(child.id)}
-          class="px-3 py-1.5 bg-red-600 text-white font-semibold rounded hover:bg-red-700 transition-colors text-xs sm:text-sm whitespace-nowrap self-start sm:self-center"
+          class="px-3 py-1.5 bg-red-600 text-white font-semibold rounded-button hover:bg-red-700 transition-colors text-xs sm:text-sm whitespace-nowrap self-start sm:self-center"
           aria-label={`Check out ${child.firstName} ${child.lastName}`}
           data-testid={`child-checkout-button-${child.id}`}
         >

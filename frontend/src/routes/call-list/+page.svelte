@@ -207,7 +207,7 @@
                       {#if parent.phone}
                         <a
                           href={`tel:${normalizePhone(parent.phone)}`}
-                          class="flex-shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 bg-green-600 text-white text-sm font-medium rounded hover:bg-green-700 transition-colors"
+                          class="flex-shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 bg-green-600 text-white text-sm font-medium rounded-button hover:bg-green-700 transition-colors"
                         >
                           <Icon name="phone" size="sm" />
                           {parent.phone}
