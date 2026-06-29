@@ -335,7 +335,7 @@
     switch (status) {
       case 'completed': return 'bg-success-100 text-success-800';
       case 'failed':    return 'bg-danger-100 text-danger-800';
-      case 'running':   return 'bg-blue-100 text-blue-800';
+      case 'running':   return 'bg-primary-100 text-primary-800';
       case 'pending':   return 'bg-neutral-100 text-neutral-700';
       default:          return 'bg-neutral-100 text-neutral-700';
     }
@@ -396,7 +396,7 @@
        STEP 1 — Upload / Auto-fetch
        ========================================================= -->
   {#if step === 1}
-    <div class="bg-white rounded-lg border border-neutral-200 shadow-sm p-6">
+    <div class="bg-white rounded-card border border-neutral-200 shadow-sm p-6">
 
       <!-- ── Planning Center single-step panel ── -->
       {#if isPlanningCenter}
@@ -430,7 +430,7 @@
 
       <!-- Auto-fetch banner (FestivalPro with credentials) -->
       {#if autoFetchMode}
-        <div class="mb-5 p-3 bg-blue-50 border border-blue-200 rounded text-blue-700 text-sm flex items-center justify-between gap-4 flex-wrap">
+        <div class="mb-5 p-3 bg-primary-50 border border-primary-200 rounded text-primary-700 text-sm flex items-center justify-between gap-4 flex-wrap">
           <span>
             <strong>{$t('import.autoFetchConfigured')}</strong> {sourceInfo?.name}
           </span>
@@ -439,7 +439,7 @@
             <button
               onclick={runImportAutoFetch}
               disabled={importing}
-              class="px-4 py-1.5 bg-blue-600 text-white text-sm font-semibold rounded-button hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors whitespace-nowrap"
+              class="px-4 py-1.5 bg-primary-600 text-white text-sm font-semibold rounded-button hover:bg-primary-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors whitespace-nowrap"
             >
               {importing ? $t('import.importing') : $t('import.resync')}
             </button>
@@ -448,7 +448,7 @@
             <button
               onclick={fetchFromSource}
               disabled={analyzing}
-              class="px-4 py-1.5 bg-blue-600 text-white text-sm font-semibold rounded-button hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors whitespace-nowrap"
+              class="px-4 py-1.5 bg-primary-600 text-white text-sm font-semibold rounded-button hover:bg-primary-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors whitespace-nowrap"
             >
               {analyzing ? $t('import.fetching') : $t('import.fetchFromSource')}
             </button>
@@ -473,7 +473,7 @@
         role="button"
         aria-label={$t('import.dropOrClick')}
         class="
-          border-2 border-dashed rounded-lg p-10 text-center cursor-pointer transition-colors
+          border-2 border-dashed rounded-card p-10 text-center cursor-pointer transition-colors
           {isDragOver ? 'border-primary-400 bg-primary-50' : 'border-neutral-300 hover:border-primary-400 hover:bg-neutral-50'}
         "
         onclick={() => fileInput.click()}
@@ -543,12 +543,12 @@
        STEP 2 — Map prefixes
        ========================================================= -->
   {#if step === 2 && !isPlanningCenter}
-    <div class="bg-white rounded-lg border border-neutral-200 shadow-sm p-6">
+    <div class="bg-white rounded-card border border-neutral-200 shadow-sm p-6">
       <h2 class="text-lg font-semibold text-neutral-900 mb-1">{$t('import.step2Title')}</h2>
       <p class="text-sm text-neutral-500 mb-4">{$t('import.mappingNote')}</p>
 
       {#if hasSavedMappings}
-        <div class="mb-4 p-3 bg-blue-50 border border-blue-200 rounded text-blue-700 text-sm">
+        <div class="mb-4 p-3 bg-primary-50 border border-primary-200 rounded text-primary-700 text-sm">
           {$t('import.savedConfigFound')}
         </div>
       {/if}
@@ -560,7 +560,7 @@
       {/if}
 
       <!-- Mapping table -->
-      <div class="overflow-x-auto rounded-lg border border-neutral-200">
+      <div class="overflow-x-auto rounded-card border border-neutral-200">
         <table class="w-full text-sm">
           <thead class="bg-neutral-50 border-b border-neutral-200">
             <tr>
@@ -631,7 +631,7 @@
        STEP 3 — Results
        ========================================================= -->
   {#if step === 3 && importResult}
-    <div class="bg-white rounded-lg border border-neutral-200 shadow-sm p-6">
+    <div class="bg-white rounded-card border border-neutral-200 shadow-sm p-6">
       <div class="flex items-center gap-3 mb-6">
         {#if importResult.status === 'completed'}
           <span class="flex-shrink-0 w-8 h-8 rounded-full bg-success-100 flex items-center justify-center">
@@ -653,49 +653,49 @@
       <!-- Summary stats -->
       <div class="grid grid-cols-2 sm:grid-cols-3 gap-4 mb-6">
         {#if importResult.summary.total_households !== undefined}
-          <div class="bg-neutral-50 rounded-lg p-4 text-center border border-neutral-200">
+          <div class="bg-neutral-50 rounded-card p-4 text-center border border-neutral-200">
             <div class="text-2xl font-bold text-neutral-900">{importResult.summary.total_households}</div>
             <div class="text-xs text-neutral-500 mt-1">{$t('import.totalHouseholds')}</div>
           </div>
         {/if}
         {#if importResult.summary.total_bookings !== undefined}
-          <div class="bg-neutral-50 rounded-lg p-4 text-center border border-neutral-200">
+          <div class="bg-neutral-50 rounded-card p-4 text-center border border-neutral-200">
             <div class="text-2xl font-bold text-neutral-900">{importResult.summary.total_bookings}</div>
             <div class="text-xs text-neutral-500 mt-1">{$t('import.totalBookings')}</div>
           </div>
         {/if}
         {#if importResult.summary.families_created !== undefined}
-          <div class="bg-success-50 rounded-lg p-4 text-center border border-success-200">
+          <div class="bg-success-50 rounded-card p-4 text-center border border-success-200">
             <div class="text-2xl font-bold text-success-800">{importResult.summary.families_created}</div>
             <div class="text-xs text-success-700 mt-1">{$t('import.familiesCreated')}</div>
           </div>
         {/if}
         {#if importResult.summary.families_skipped !== undefined}
-          <div class="bg-neutral-50 rounded-lg p-4 text-center border border-neutral-200">
+          <div class="bg-neutral-50 rounded-card p-4 text-center border border-neutral-200">
             <div class="text-2xl font-bold text-neutral-700">{importResult.summary.families_skipped}</div>
             <div class="text-xs text-neutral-500 mt-1">{$t('import.familiesSkipped')}</div>
           </div>
         {/if}
         {#if importResult.summary.children_created !== undefined}
-          <div class="bg-success-50 rounded-lg p-4 text-center border border-success-200">
+          <div class="bg-success-50 rounded-card p-4 text-center border border-success-200">
             <div class="text-2xl font-bold text-success-800">{importResult.summary.children_created}</div>
             <div class="text-xs text-success-700 mt-1">{$t('import.childrenCreated')}</div>
           </div>
         {/if}
         {#if importResult.summary.children_skipped !== undefined}
-          <div class="bg-neutral-50 rounded-lg p-4 text-center border border-neutral-200">
+          <div class="bg-neutral-50 rounded-card p-4 text-center border border-neutral-200">
             <div class="text-2xl font-bold text-neutral-700">{importResult.summary.children_skipped}</div>
             <div class="text-xs text-neutral-500 mt-1">{$t('import.childrenSkipped')}</div>
           </div>
         {/if}
         {#if importResult.summary.parents_created !== undefined}
-          <div class="bg-success-50 rounded-lg p-4 text-center border border-success-200">
+          <div class="bg-success-50 rounded-card p-4 text-center border border-success-200">
             <div class="text-2xl font-bold text-success-800">{importResult.summary.parents_created}</div>
             <div class="text-xs text-success-700 mt-1">{$t('import.parentsCreated')}</div>
           </div>
         {/if}
         {#if importResult.summary.tickets_created !== undefined}
-          <div class="bg-primary-50 rounded-lg p-4 text-center border border-primary-200">
+          <div class="bg-primary-50 rounded-card p-4 text-center border border-primary-200">
             <div class="text-2xl font-bold text-primary-800">{importResult.summary.tickets_created}</div>
             <div class="text-xs text-primary-700 mt-1">{$t('import.ticketsCreated')}</div>
           </div>
@@ -739,7 +739,7 @@
             Raw source data ({Object.keys(importResult.raw_data).length} bookings)
           </button>
           {#if showLogDetails}
-            <pre class="mt-3 p-4 bg-neutral-900 text-neutral-100 text-xs rounded-lg overflow-x-auto max-h-96 overflow-y-auto leading-relaxed">{JSON.stringify(importResult.raw_data, null, 2)}</pre>
+            <pre class="mt-3 p-4 bg-neutral-900 text-neutral-100 text-xs rounded-card overflow-x-auto max-h-96 overflow-y-auto leading-relaxed">{JSON.stringify(importResult.raw_data, null, 2)}</pre>
           {/if}
         </div>
       {/if}
@@ -759,7 +759,7 @@
   <!-- =========================================================
        Import History (always shown at bottom)
        ========================================================= -->
-  <div class="mt-8 bg-white rounded-lg border border-neutral-200 shadow-sm">
+  <div class="mt-8 bg-white rounded-card border border-neutral-200 shadow-sm">
     <div class="px-6 py-4 border-b border-neutral-200">
       <h2 class="text-base font-semibold text-neutral-900">{$t('import.importHistory')}</h2>
     </div>

@@ -88,11 +88,11 @@
     {@const expanded = isExpanded(item.id)}
     {@const hasChildren = item.children && item.children.length > 0}
 
-    <div class="bg-white rounded-lg border-2 border-slate-300 overflow-hidden">
+    <div class="bg-white rounded-card border-2 border-neutral-300 overflow-hidden">
       <!-- Card header - clickable to toggle if has children -->
       {#if hasChildren}
         <button
-          class="flex items-center gap-3 px-4 py-3 w-full text-left cursor-pointer active:bg-slate-50"
+          class="flex items-center gap-3 px-4 py-3 w-full text-left cursor-pointer active:bg-neutral-50"
           onclick={(e) => toggleItem(item.id, e)}
           onkeydown={(e) => {
             if (e.key === 'Enter' || e.key === ' ') {
@@ -123,7 +123,7 @@
             {:else}
               <div class="flex items-center gap-2">
                 {#each columns as column}
-                  <span class="text-slate-900">
+                  <span class="text-neutral-900">
                     {getColumnValue(item, column.key)}
                   </span>
                 {/each}
@@ -140,7 +140,7 @@
             {:else}
               <div class="flex items-center gap-2">
                 {#each columns as column}
-                  <span class="text-slate-900">
+                  <span class="text-neutral-900">
                     {getColumnValue(item, column.key)}
                   </span>
                 {/each}
@@ -152,7 +152,7 @@
 
       <!-- Expanded content -->
       {#if expanded && expandedContent && hasChildren}
-        <div class="border-t border-slate-200 bg-slate-50">
+        <div class="border-t border-neutral-200 bg-neutral-50">
           {@render expandedContent(item)}
         </div>
       {/if}
@@ -161,13 +161,13 @@
 </div>
 
 <!-- Desktop Layout (≥768px) -->
-<div class="hidden md:block bg-white rounded-lg border-2 border-slate-300 overflow-hidden {className}">
+<div class="hidden md:block bg-white rounded-card border-2 border-neutral-300 overflow-hidden {className}">
   <table class="w-full">
     <!-- Sticky header -->
-    <thead class="bg-slate-50 border-b-2 border-slate-300 sticky top-0 z-[5]">
+    <thead class="bg-neutral-50 border-b-2 border-neutral-300 sticky top-0 z-[5]">
       <tr>
         {#each columns as column}
-          <th class="px-4 py-3 {getAlignment(column.align)} text-sm font-medium text-slate-700 {column.class || ''}">
+          <th class="px-4 py-3 {getAlignment(column.align)} text-sm font-medium text-neutral-700 {column.class || ''}">
             {column.label}
           </th>
         {/each}
@@ -181,7 +181,7 @@
 
         <!-- Item row -->
         <tr
-          class="border-b border-slate-200 {hasChildren ? 'hover:bg-slate-50 cursor-pointer' : ''}"
+          class="border-b border-neutral-200 {hasChildren ? 'hover:bg-neutral-50 cursor-pointer' : ''}"
           onclick={(e) => hasChildren && toggleItem(item.id, e)}
           role={hasChildren ? 'button' : undefined}
           tabindex={hasChildren ? 0 : undefined}
@@ -212,14 +212,14 @@
                   {#if headerRow}
                     {@render headerRow(item)}
                   {:else}
-                    <span class="text-slate-900">{getColumnValue(item, column.key)}</span>
+                    <span class="text-neutral-900">{getColumnValue(item, column.key)}</span>
                   {/if}
                 </div>
               {:else}
                 {#if headerRow && idx === 0}
                   {@render headerRow(item)}
                 {:else}
-                  <span class="text-slate-900">{getColumnValue(item, column.key)}</span>
+                  <span class="text-neutral-900">{getColumnValue(item, column.key)}</span>
                 {/if}
               {/if}
             </td>
@@ -228,7 +228,7 @@
 
         <!-- Expanded rows (when expanded) -->
         {#if expanded && expandedContent && hasChildren}
-          <tr class="border-b border-slate-200 bg-slate-50">
+          <tr class="border-b border-neutral-200 bg-neutral-50">
             <td colspan={columns.length} class="px-4 py-3">
               {@render expandedContent(item)}
             </td>

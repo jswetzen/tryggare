@@ -64,7 +64,7 @@ describe('ExpandableListTable', () => {
       });
 
       const thead = container.querySelector('thead');
-      expect(thead).toHaveClass('sticky', 'top-0', 'bg-slate-50');
+      expect(thead).toHaveClass('sticky', 'top-0', 'bg-neutral-50');
     });
 
     it('renders all items in collapsed state by default', () => {
@@ -155,7 +155,7 @@ describe('ExpandableListTable', () => {
       });
 
       const firstRow = container.querySelector('tbody tr');
-      expect(firstRow).toHaveClass('hover:bg-slate-50');
+      expect(firstRow).toHaveClass('hover:bg-neutral-50');
     });
   });
 
@@ -182,7 +182,7 @@ describe('ExpandableListTable', () => {
       });
 
       // Should have rounded cards with borders
-      const cards = container.querySelectorAll('.rounded-lg.border-2.border-slate-300');
+      const cards = container.querySelectorAll('.rounded-card.border-2.border-neutral-300');
       expect(cards.length).toBeGreaterThanOrEqual(2);
     });
   });
@@ -294,10 +294,10 @@ describe('ExpandableListTable', () => {
       });
 
       // Check for slate colors in borders and backgrounds
-      const tableContainer = container.querySelector('.border-slate-300');
+      const tableContainer = container.querySelector('.border-neutral-300');
       expect(tableContainer).toBeInTheDocument();
 
-      const header = container.querySelector('.bg-slate-50');
+      const header = container.querySelector('.bg-neutral-50');
       expect(header).toBeInTheDocument();
     });
 
@@ -309,7 +309,7 @@ describe('ExpandableListTable', () => {
         }
       });
 
-      const tableContainer = container.querySelector('.rounded-lg');
+      const tableContainer = container.querySelector('.rounded-card');
       expect(tableContainer).toBeInTheDocument();
     });
   });

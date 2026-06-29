@@ -1,6 +1,6 @@
 {
   "nav": {
-    "title": "Incheckningssystem",
+    "title": "Tryggare",
     "welcome": "Välkommen, {username}",
     "welcomeMobile": "Välkommen",
     "loggedInAs": "Inloggad som",
@@ -10,6 +10,7 @@
     "callList": "Ringlista",
     "logout": "Logga ut",
     "openMenu": "Öppna huvudmeny",
+    "changeLanguage": "Byt språk",
     "admin": "Admin",
     "reports": "Rapporter"
   },
@@ -27,8 +28,8 @@
     "refresh": "Uppdatera"
   },
   "login": {
-    "pageTitle": "Logga in - Incheckningssystem",
-    "title": "Logga in till incheckningssystemet",
+    "pageTitle": "Logga in - Tryggare",
+    "title": "Logga in på Tryggare",
     "success": "Inloggning lyckades! Omdirigerar...",
     "username": "Användarnamn",
     "usernamePlaceholder": "Ange ditt användarnamn",

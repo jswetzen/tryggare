@@ -60,55 +60,55 @@
   const onlinePrinters = $derived(printers.filter((p) => p.is_online));
 </script>
 
-<div class="bg-white rounded-lg border-2 border-slate-300">
+<div class="bg-white rounded-card border-2 border-neutral-300 overflow-hidden">
   <table class="w-full border-separate border-spacing-0">
     <thead
-      class="[&>tr>th]:bg-slate-50 [&>tr>th]:border-b-2 [&>tr>th]:border-slate-300 [&>tr>th:first-child]:rounded-tl-md [&>tr>th:last-child]:rounded-tr-md"
+      class="[&>tr>th]:bg-neutral-50 [&>tr>th]:border-b-2 [&>tr>th]:border-neutral-300"
     >
       <tr>
         {#if showColumn('childName')}
-          <th class="px-4 py-3 text-left text-sm font-medium text-slate-700">
+          <th class="px-4 py-3 text-left text-sm font-medium text-neutral-700">
             {$t('printQueue.childName')}
           </th>
         {/if}
         {#if showColumn('session')}
-          <th class="px-4 py-3 text-left text-sm font-medium text-slate-700">
+          <th class="px-4 py-3 text-left text-sm font-medium text-neutral-700">
             {$t('printQueue.session')}
           </th>
         {/if}
         {#if showColumn('checkInTime')}
-          <th class="px-4 py-3 text-left text-sm font-medium text-slate-700">
+          <th class="px-4 py-3 text-left text-sm font-medium text-neutral-700">
             {$t('printQueue.time')}
           </th>
         {/if}
         {#if showColumn('allergies')}
-          <th class="px-4 py-3 text-left text-sm font-medium text-slate-700">
+          <th class="px-4 py-3 text-left text-sm font-medium text-neutral-700">
             {$t('printQueue.allergies')}
           </th>
         {/if}
         {#if showColumn('actions')}
-          <th class="px-4 py-3 text-center text-sm font-medium text-slate-700">
+          <th class="px-4 py-3 text-center text-sm font-medium text-neutral-700">
             {$t('printQueue.actions')}
           </th>
         {/if}
       </tr>
     </thead>
     <tbody
-      class="[&>tr>td]:border-b [&>tr>td]:border-slate-200 [&>tr:last-child>td]:border-b-0 [&>tr:last-child>td:first-child]:rounded-bl-md [&>tr:last-child>td:last-child]:rounded-br-md"
+      class="[&>tr>td]:border-b [&>tr>td]:border-neutral-200 [&>tr:last-child>td]:border-b-0"
     >
       {#each items as item}
-        <tr class="hover:bg-slate-50">
+        <tr class="hover:bg-neutral-50">
           {#if showColumn('childName')}
             <td class="px-4 py-3">
-              <div class="font-semibold text-slate-900">{item.childName}</div>
-              <div class="text-sm text-slate-500">{item.parentNames}</div>
+              <div class="font-semibold text-neutral-900">{item.childName}</div>
+              <div class="text-sm text-neutral-500">{item.parentNames}</div>
             </td>
           {/if}
           {#if showColumn('session')}
-            <td class="px-4 py-3 text-sm text-slate-700">{item.sessionName}</td>
+            <td class="px-4 py-3 text-sm text-neutral-700">{item.sessionName}</td>
           {/if}
           {#if showColumn('checkInTime')}
-            <td class="px-4 py-3 text-sm text-slate-700">{formatTime(item.checkInTime)}</td>
+            <td class="px-4 py-3 text-sm text-neutral-700">{formatTime(item.checkInTime)}</td>
           {/if}
           {#if showColumn('allergies')}
             <td class="px-4 py-3">
@@ -117,7 +117,7 @@
                   {item.allergies}
                 </Badge>
               {:else}
-                <span class="text-slate-400 text-sm">{$t('printQueue.none')}</span>
+                <span class="text-neutral-400 text-sm">{$t('printQueue.none')}</span>
               {/if}
             </td>
           {/if}
@@ -140,8 +140,8 @@
                         onclick={() => togglePopover(item.id)}
                         title={$t('printing.resend')}
                       >
-                        <Icon name="printer" size="sm" class="mr-1 text-green-600" />
-                        <span class="text-green-700 text-xs">{item.printJob.printer_name}</span>
+                        <Icon name="printer" size="sm" class="mr-1 text-success-600" />
+                        <span class="text-success-700 text-xs">{item.printJob.printer_name}</span>
                       </Button>
                     {:else}
                       <!-- No job or completed/failed: assign printer -->
@@ -158,16 +158,16 @@
                     <!-- Popover with printer list -->
                     {#if openPopoverItemId === item.id}
                       <div
-                        class="absolute right-0 top-full mt-1 z-10 bg-white border border-slate-200 rounded-lg shadow-lg min-w-40 py-1"
+                        class="absolute right-0 top-full mt-1 z-10 bg-white border border-neutral-200 rounded-card shadow-lg min-w-40 py-1"
                       >
                         {#if onlinePrinters.length === 0}
-                          <div class="px-3 py-2 text-sm text-slate-500">
+                          <div class="px-3 py-2 text-sm text-neutral-500">
                             {$t('printing.noPrinters')}
                           </div>
                         {:else}
                           {#each onlinePrinters as printer}
                             <button
-                              class="w-full text-left px-3 py-2 text-sm hover:bg-slate-50 text-slate-700"
+                              class="w-full text-left px-3 py-2 text-sm hover:bg-neutral-50 text-neutral-700"
                               onclick={() => selectPrinter(item.id, printer.id)}
                             >
                               {printer.name}

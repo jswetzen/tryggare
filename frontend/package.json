@@ -9,6 +9,7 @@
     "build": "vite build",
     "preview": "vite preview",
     "check": "svelte-check --tsconfig ./tsconfig.json",
+    "check:tokens": "node scripts/check-design-tokens.mjs",
     "test": "vitest --config vitest.config.ts",
     "test:ui": "vitest --config vitest.config.ts --ui",
     "test:coverage": "vitest --config vitest.config.ts --coverage"
