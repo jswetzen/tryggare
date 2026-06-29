@@ -62,10 +62,10 @@
       </div>
 
       <!-- Desktop Navigation -->
-      <div class="hidden lg:flex items-center space-x-6">
+      <div class="hidden lg:flex items-center space-x-1">
         <a
           href="/checkin"
-          class="px-4 py-2 rounded-button font-semibold transition-colors {isActive('/checkin')
+          class="px-3 py-2 rounded-button font-semibold transition-colors {isActive('/checkin')
             ? 'bg-primary-600 text-white'
             : 'text-neutral-700 hover:bg-neutral-100'}"
         >
@@ -73,7 +73,7 @@
         </a>
         <a
           href="/checkout"
-          class="px-4 py-2 rounded-button font-semibold transition-colors {isActive('/checkout')
+          class="px-3 py-2 rounded-button font-semibold transition-colors {isActive('/checkout')
             ? 'bg-primary-600 text-white'
             : 'text-neutral-700 hover:bg-neutral-100'}"
         >
@@ -81,7 +81,7 @@
         </a>
         <a
           href="/print-queue"
-          class="px-4 py-2 rounded-button font-semibold transition-colors {isActive('/print-queue')
+          class="px-3 py-2 rounded-button font-semibold transition-colors {isActive('/print-queue')
             ? 'bg-primary-600 text-white'
             : 'text-neutral-700 hover:bg-neutral-100'}"
         >
@@ -89,7 +89,7 @@
         </a>
         <a
           href="/call-list"
-          class="px-4 py-2 rounded-button font-semibold transition-colors {isActive('/call-list')
+          class="px-3 py-2 rounded-button font-semibold transition-colors {isActive('/call-list')
             ? 'bg-primary-600 text-white'
             : 'text-neutral-700 hover:bg-neutral-100'}"
         >
@@ -98,7 +98,7 @@
         {#if isAdmin}
           <a
             href="/import"
-            class="px-4 py-2 rounded-button font-semibold transition-colors {currentPath.startsWith('/import')
+            class="px-3 py-2 rounded-button font-semibold transition-colors {currentPath.startsWith('/import')
               ? 'bg-primary-600 text-white'
               : 'text-neutral-700 hover:bg-neutral-100'}"
           >
@@ -106,20 +106,20 @@
           </a>
           <a
             href="/admin/"
-            class="px-4 py-2 rounded-button font-semibold transition-colors text-neutral-700 hover:bg-neutral-100"
+            class="px-3 py-2 rounded-button font-semibold transition-colors text-neutral-700 hover:bg-neutral-100"
           >
             {$t('nav.admin')}
           </a>
         {/if}
 
-        <div class="border-l border-neutral-300 pl-6 ml-2 flex items-center space-x-4">
+        <div class="border-l border-neutral-300 pl-3 ml-1 flex items-center space-x-3">
           <LanguageSwitcher />
-          <span class="text-sm text-neutral-600">
+          <span class="hidden xl:inline text-sm text-neutral-600">
             {$t('nav.welcomeMobile')}, <span class="font-semibold text-primary-900">{userName}</span>
           </span>
           <button
             onclick={handleLogout}
-            class="text-sm text-danger-600 font-semibold hover:underline"
+            class="text-sm text-danger-600 font-semibold hover:underline whitespace-nowrap"
           >
             {$t('nav.logout')}
           </button>
