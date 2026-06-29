@@ -32,7 +32,7 @@
   <!-- Checked in with active undo timer -->
   <button
     on:click={() => onUndo?.()}
-    class="px-3 py-1.5 bg-amber-600 text-white text-sm font-semibold rounded-button hover:bg-amber-700 transition-colors min-w-[100px]"
+    class="px-3 py-1.5 bg-warning-600 text-white text-sm font-semibold rounded-button hover:bg-warning-700 transition-colors min-w-[100px]"
     aria-label={`Undo check-in for ${child.name}, ${remainingSeconds} seconds remaining`}
     data-testid={`child-undo-button-${child.id}`}
   >
@@ -43,7 +43,7 @@
   <button
     disabled
     title={`Checked in at ${child.checkInTime}`}
-    class="px-3 py-1.5 bg-slate-400 text-white text-sm font-semibold rounded-button cursor-not-allowed min-w-[100px]"
+    class="px-3 py-1.5 bg-neutral-400 text-white text-sm font-semibold rounded-button cursor-not-allowed min-w-[100px]"
   >
     {$_('checkin.alreadyCheckedIn')}
   </button>
@@ -51,7 +51,7 @@
   <!-- No ticket - show button only (expansion handled by parent) -->
   <button
     on:click={() => onNoTicketClick?.()}
-    class="px-3 py-1.5 bg-red-100 text-red-700 text-sm font-semibold rounded-button border border-red-300 hover:bg-red-200 transition-colors min-w-[100px]"
+    class="px-3 py-1.5 bg-danger-100 text-danger-700 text-sm font-semibold rounded-button border border-danger-300 hover:bg-danger-200 transition-colors min-w-[100px]"
     aria-label={$_('checkin.noTicketClickToAssign')}
     data-testid={`child-expand-button-${child.id}`}
   >
@@ -61,7 +61,7 @@
   <!-- Has valid ticket, ready to check in -->
   <button
     on:click={() => onCheckIn?.()}
-    class="px-3 py-1.5 bg-green-600 text-white text-sm font-semibold rounded-button hover:bg-green-700 transition-colors min-w-[100px]"
+    class="px-3 py-1.5 bg-success-600 text-white text-sm font-semibold rounded-button hover:bg-success-700 transition-colors min-w-[100px]"
     aria-label={`Check in ${child.name}`}
     data-testid={`child-check-in-button-${child.id}`}
   >

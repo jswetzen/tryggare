@@ -335,7 +335,7 @@
     switch (status) {
       case 'completed': return 'bg-success-100 text-success-800';
       case 'failed':    return 'bg-danger-100 text-danger-800';
-      case 'running':   return 'bg-blue-100 text-blue-800';
+      case 'running':   return 'bg-primary-100 text-primary-800';
       case 'pending':   return 'bg-neutral-100 text-neutral-700';
       default:          return 'bg-neutral-100 text-neutral-700';
     }
@@ -430,7 +430,7 @@
 
       <!-- Auto-fetch banner (FestivalPro with credentials) -->
       {#if autoFetchMode}
-        <div class="mb-5 p-3 bg-blue-50 border border-blue-200 rounded text-blue-700 text-sm flex items-center justify-between gap-4 flex-wrap">
+        <div class="mb-5 p-3 bg-primary-50 border border-primary-200 rounded text-primary-700 text-sm flex items-center justify-between gap-4 flex-wrap">
           <span>
             <strong>{$t('import.autoFetchConfigured')}</strong> {sourceInfo?.name}
           </span>
@@ -439,7 +439,7 @@
             <button
               onclick={runImportAutoFetch}
               disabled={importing}
-              class="px-4 py-1.5 bg-blue-600 text-white text-sm font-semibold rounded-button hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors whitespace-nowrap"
+              class="px-4 py-1.5 bg-primary-600 text-white text-sm font-semibold rounded-button hover:bg-primary-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors whitespace-nowrap"
             >
               {importing ? $t('import.importing') : $t('import.resync')}
             </button>
@@ -448,7 +448,7 @@
             <button
               onclick={fetchFromSource}
               disabled={analyzing}
-              class="px-4 py-1.5 bg-blue-600 text-white text-sm font-semibold rounded-button hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors whitespace-nowrap"
+              class="px-4 py-1.5 bg-primary-600 text-white text-sm font-semibold rounded-button hover:bg-primary-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors whitespace-nowrap"
             >
               {analyzing ? $t('import.fetching') : $t('import.fetchFromSource')}
             </button>
@@ -548,7 +548,7 @@
       <p class="text-sm text-neutral-500 mb-4">{$t('import.mappingNote')}</p>
 
       {#if hasSavedMappings}
-        <div class="mb-4 p-3 bg-blue-50 border border-blue-200 rounded text-blue-700 text-sm">
+        <div class="mb-4 p-3 bg-primary-50 border border-primary-200 rounded text-primary-700 text-sm">
           {$t('import.savedConfigFound')}
         </div>
       {/if}

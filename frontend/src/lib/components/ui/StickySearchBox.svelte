@@ -20,7 +20,7 @@
   }: Props = $props();
 </script>
 
-<div class="sticky top-0 z-10 bg-slate-100 pb-2 -mx-3 px-3 md:-mx-5 md:px-5 {className}">
+<div class="sticky top-0 z-10 bg-neutral-100 pb-2 -mx-3 px-3 md:-mx-5 md:px-5 {className}">
   <SearchBox
     bind:value={value}
     placeholder={placeholder}

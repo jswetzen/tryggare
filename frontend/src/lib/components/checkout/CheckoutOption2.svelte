@@ -46,19 +46,19 @@
     index?: number;
   } = $props();
 
-  const bgColor = $derived(index % 2 === 0 ? 'bg-white' : 'bg-slate-50');
+  const bgColor = $derived(index % 2 === 0 ? 'bg-white' : 'bg-neutral-50');
 </script>
 
 <div class="{bgColor} py-1.5 px-2">
   <!-- Family header - minimal -->
   <div class="flex items-center justify-between mb-1">
     <div class="flex items-center gap-2">
-      <span class="font-semibold text-slate-800 text-sm">{family.name}</span>
-      <span class="text-xs text-slate-500">({family.children.length})</span>
+      <span class="font-semibold text-neutral-800 text-sm">{family.name}</span>
+      <span class="text-xs text-neutral-500">({family.children.length})</span>
       <button
         type="button"
         on:click={onCheckOutFamily}
-        class="text-xs text-red-600 hover:text-red-700 font-medium underline"
+        class="text-xs text-danger-600 hover:text-danger-700 font-medium underline"
       >
         {$_('checkout.checkOutAll')}
       </button>
@@ -66,7 +66,7 @@
     <select
       bind:value={pickedUpBy}
       on:change={(e) => onPickedUpByChange((e.target as HTMLSelectElement).value)}
-      class="text-xs px-2 py-0.5 border border-slate-300 rounded bg-white"
+      class="text-xs px-2 py-0.5 border border-neutral-300 rounded bg-white"
     >
       <option value="">{$_('checkout.pickedUpBy')}: {$_('checkout.selectPerson')}</option>
       {#each family.parents as parent}
@@ -79,13 +79,13 @@
   <div class="flex flex-wrap gap-x-4 gap-y-1 pl-2">
     {#each family.children as child}
       <div class="flex items-center gap-2 text-sm">
-        <span class="text-slate-700">{child.firstName} {child.lastName}</span>
-        <span class="text-slate-400 text-xs">
+        <span class="text-neutral-700">{child.firstName} {child.lastName}</span>
+        <span class="text-neutral-400 text-xs">
           {child.checkInTime ? formatTime(child.checkInTime) : ''}
         </span>
         <button
           on:click={() => onCheckOut(child.id)}
-          class="text-xs text-red-600 hover:text-red-700 font-medium"
+          class="text-xs text-danger-600 hover:text-danger-700 font-medium"
         >
           ✕
         </button>

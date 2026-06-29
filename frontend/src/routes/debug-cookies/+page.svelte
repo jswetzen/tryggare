@@ -18,7 +18,7 @@
 
   <div class="mb-6">
     <h2 class="text-xl font-semibold mb-2">Client-Side Cookies (document.cookie):</h2>
-    <pre class="bg-gray-100 p-4 rounded overflow-auto">{allCookies || 'No cookies'}</pre>
+    <pre class="bg-neutral-100 p-4 rounded overflow-auto">{allCookies || 'No cookies'}</pre>
   </div>
 
   <div class="mb-6">
@@ -30,7 +30,7 @@
         allCookies = document.cookie;
         alert('Cookies cleared! Refresh to see result.');
       }}
-      class="bg-red-500 text-white px-4 py-2 rounded-button hover:bg-red-600 mr-2"
+      class="bg-danger-500 text-white px-4 py-2 rounded-button hover:bg-danger-600 mr-2"
     >
       Clear All Auth Cookies
     </button>
@@ -38,15 +38,15 @@
       onclick={() => {
         allCookies = document.cookie;
       }}
-      class="bg-blue-500 text-white px-4 py-2 rounded-button hover:bg-blue-600"
+      class="bg-primary-500 text-white px-4 py-2 rounded-button hover:bg-primary-600"
     >
       Refresh
     </button>
   </div>
 
   <div class="mb-6">
-    <p class="text-sm text-gray-600">
-      Go back to <a href="/login" class="text-blue-500 underline">Login</a>
+    <p class="text-sm text-neutral-600">
+      Go back to <a href="/login" class="text-primary-500 underline">Login</a>
     </p>
   </div>
 </div>

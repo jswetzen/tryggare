@@ -137,11 +137,11 @@
   <title>{$t('callList.pageTitle')}</title>
 </svelte:head>
 
-<div class="min-h-screen bg-slate-100">
+<div class="min-h-screen bg-neutral-100">
   <div class="max-w-4xl mx-auto p-3 md:p-5">
     <div class="mb-5">
-      <h1 class="text-3xl font-bold text-blue-900">{$t('callList.title')}</h1>
-      <p class="text-slate-600 mt-1">{$t('callList.subtitle')}</p>
+      <h1 class="text-3xl font-bold text-primary-900">{$t('callList.title')}</h1>
+      <p class="text-neutral-600 mt-1">{$t('callList.subtitle')}</p>
     </div>
 
     {#if error}
@@ -168,21 +168,21 @@
     {:else}
       <div class="space-y-3">
         {#each callListFamilies as family (family.id)}
-          <div class="bg-white rounded-card border-2 border-slate-300 overflow-hidden">
-            <div class="px-4 py-3 border-b border-slate-200">
+          <div class="bg-white rounded-card border-2 border-neutral-300 overflow-hidden">
+            <div class="px-4 py-3 border-b border-neutral-200">
               <div class="flex items-center gap-2">
-                <span class="font-semibold text-slate-900">{family.displayName}</span>
+                <span class="font-semibold text-neutral-900">{family.displayName}</span>
                 <span
-                  class="inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 bg-blue-100 text-blue-700 text-xs font-medium rounded"
+                  class="inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 bg-primary-100 text-primary-700 text-xs font-medium rounded"
                 >
                   {$t('callList.childrenStillIn', { values: { count: family.children.length } })}
                 </span>
               </div>
-              <div class="text-sm text-slate-500 mt-1">
+              <div class="text-sm text-neutral-500 mt-1">
                 {#each family.children as child, i}
                   <span>
                     {child.name}{#if child.checkInTime}
-                      <span class="text-slate-400">
+                      <span class="text-neutral-400">
                         ({$t('callList.checkedInSince', {
                           values: { time: formatTime(child.checkInTime) },
                         })})</span
@@ -195,25 +195,25 @@
 
             <div class="px-4 py-3">
               {#if family.parents.length === 0}
-                <div class="text-sm text-slate-400 italic">{$t('callList.noPhone')}</div>
+                <div class="text-sm text-neutral-400 italic">{$t('callList.noPhone')}</div>
               {:else}
                 <div class="space-y-2">
                   {#each family.parents as parent}
                     <div class="flex items-center justify-between gap-3">
                       <div class="min-w-0">
-                        <span class="text-slate-900">{parent.name}</span>
-                        <span class="text-xs text-slate-500">({parent.relationship})</span>
+                        <span class="text-neutral-900">{parent.name}</span>
+                        <span class="text-xs text-neutral-500">({parent.relationship})</span>
                       </div>
                       {#if parent.phone}
                         <a
                           href={`tel:${normalizePhone(parent.phone)}`}
-                          class="flex-shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 bg-green-600 text-white text-sm font-medium rounded-button hover:bg-green-700 transition-colors"
+                          class="flex-shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 bg-success-600 text-white text-sm font-medium rounded-button hover:bg-success-700 transition-colors"
                         >
                           <Icon name="phone" size="sm" />
                           {parent.phone}
                         </a>
                       {:else}
-                        <span class="flex-shrink-0 text-xs text-slate-400 italic">
+                        <span class="flex-shrink-0 text-xs text-neutral-400 italic">
                           {$t('callList.noPhone')}
                         </span>
                       {/if}
