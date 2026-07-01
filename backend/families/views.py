@@ -1,4 +1,5 @@
 from django.db.models import Prefetch
+from django.http import HttpResponse
 from django.utils import timezone
 from rest_framework import viewsets
 from rest_framework.decorators import action
@@ -6,6 +7,11 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
 from events.models import EventTicket, SessionTicket
+from .dsar import (
+    build_family_export,
+    family_export_to_csv,
+    scrub_audit_logs_for_children,
+)
 from .models import Child, Family, Parent
 from .serializers import (
     ChildSerializer,
@@ -61,6 +67,19 @@ class FamilyViewSet(viewsets.ModelViewSet):
             return FamilyDetailSerializer
         return FamilySerializer
 
+    def retrieve(self, request, *args, **kwargs):
+        """Full family detail includes allergies/notes — log the access."""
+        from checkins.audit import log_audit
+
+        response = super().retrieve(request, *args, **kwargs)
+        log_audit(
+            request,
+            action="record_viewed",
+            entity_type="Family",
+            entity_id=kwargs.get("pk", ""),
+        )
+        return response
+
     @action(detail=False, methods=["get"], url_path="by-ticket")
     def ticket_lookup(self, request):
         code = request.query_params.get("code", "").strip()
@@ -110,6 +129,69 @@ class FamilyViewSet(viewsets.ModelViewSet):
         parents = family.parents.all()
         serializer = ParentSerializer(parents, many=True)
         return Response(serializer.data)
+
+    @action(detail=True, methods=["get"])
+    def export(self, request, pk=None):
+        """
+        GDPR right-to-access / portability: export everything held about this
+        family (parents, children, check-in history, audit trail).
+
+        Returns JSON by default, or CSV with ``?as=csv``. (We avoid the ``format``
+        query param because DRF reserves it for content-negotiation suffixes.)
+        """
+        from checkins.audit import log_audit
+
+        family = self.get_object()
+        data = build_family_export(family)
+        export_as = request.query_params.get("as", "json")
+
+        log_audit(
+            request,
+            action="dsar_export",
+            entity_type="Family",
+            entity_id=str(family.id),
+            details={"format": export_as},
+        )
+
+        if export_as == "csv":
+            response = HttpResponse(family_export_to_csv(data), content_type="text/csv")
+            response["Content-Disposition"] = (
+                f'attachment; filename="family-{family.id}.csv"'
+            )
+            return response
+
+        return Response(data)
+
+    @action(detail=True, methods=["post"])
+    def erase(self, request, pk=None):
+        """
+        GDPR right-to-erasure: export the family's data, scrub its children's
+        audit-log PII, then hard-delete the family (cascades to parents,
+        children and their check-in records).
+
+        The export is returned in the response so the operator retains a copy,
+        and an audit entry is written *before* deletion so the action is logged.
+        """
+        from checkins.audit import log_audit
+
+        family = self.get_object()
+        export = build_family_export(family)
+        child_ids = [str(c.id) for c in family.children.all()]
+
+        log_audit(
+            request,
+            action="dsar_erasure",
+            entity_type="Family",
+            entity_id=str(family.id),
+            details={
+                "last_name": family.last_name,
+                "child_count": len(child_ids),
+            },
+        )
+        scrub_audit_logs_for_children(child_ids)
+        family.delete()
+
+        return Response({"erased": True, "export": export})
 
 
 class ParentViewSet(viewsets.ModelViewSet):

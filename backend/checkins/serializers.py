@@ -152,6 +152,8 @@ class AuditLogSerializer(serializers.ModelSerializer):
             "entity_type",
             "entity_id",
             "details",
+            "source_ip",
+            "session_id",
         ]
         read_only_fields = ["id", "timestamp"]
 

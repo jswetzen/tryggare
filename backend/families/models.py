@@ -20,6 +20,14 @@ class Family(models.Model):
         verbose_name=_("External Booking ID"),
         help_text=_("Booking ID from the external registration system (e.g. '10869')."),
     )
+    anonymized_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        verbose_name=_("Anonymized At"),
+        help_text=_(
+            "Set when GDPR retention anonymization scrubbed this family's PII."
+        ),
+    )
 
     class Meta:
         db_table = "families"
@@ -106,6 +114,12 @@ class Child(models.Model):
     notes = models.TextField(null=True, blank=True, verbose_name=_("Notes"))
     last_participation_date = models.DateTimeField(
         null=True, blank=True, verbose_name=_("Last Participation Date")
+    )
+    anonymized_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        verbose_name=_("Anonymized At"),
+        help_text=_("Set when GDPR retention anonymization scrubbed this child's PII."),
     )
     family = models.ForeignKey(
         Family,

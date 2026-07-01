@@ -3,13 +3,35 @@ Public QR code endpoint - does not require authentication.
 Only returns data when child is actively checked in (privacy-first).
 """
 
+from django.conf import settings
 from django.utils.translation import gettext as _
 from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 
+from checkins.audit import log_audit
 from checkins.qr_utils import get_code_for_active_checkin
+
+
+@api_view(["GET"])
+@permission_classes([AllowAny])
+def privacy_info(request):
+    """
+    Public endpoint exposing the operator-configured data-controller details.
+
+    The privacy page and QR-page notice read this so each self-hosting operator
+    can supply their own controller name/contact without a rebuild.
+    """
+    return Response(
+        {
+            "controller_name": settings.DATA_CONTROLLER_NAME,
+            "contact_email": settings.DATA_CONTROLLER_CONTACT_EMAIL,
+            "controller_url": settings.DATA_CONTROLLER_URL,
+            "privacy_policy_url": settings.PRIVACY_POLICY_URL,
+            "retention_days": settings.DATA_RETENTION_DAYS,
+        }
+    )
 
 
 @api_view(["GET"])
@@ -72,5 +94,13 @@ def qr_info(request, code):
         "family_id": str(child.family.id),
         "supervised": checkin.supervised,
     }
+
+    log_audit(
+        request,
+        action="qr_viewed",
+        entity_type="Child",
+        entity_id=str(child.id),
+        details={"qr_code": qr_code.code},
+    )
 
     return Response(data)

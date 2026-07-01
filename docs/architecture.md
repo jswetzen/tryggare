@@ -462,24 +462,36 @@ Deployment complete
 
 ## GDPR Compliance
 
+See `docs/legal/` for policy/compliance templates (privacy notice, terms, LIA,
+DPA notes, breach process) that operators customise.
+
 ### Data Tracking
 - Last event participation date on all entities
-- Audit trail via Django signals
+- Audit trail via explicit `AuditLog.objects.create()` in the check-in/out views
+  (`checkins/views.py`) — not Django signals
 - Timestamp all database operations
 - Log staff member for all actions
 
 ### Data Retention
-- Configurable retention period (Django settings)
-- Management command for data cleanup
-- Clear data deletion process via Django Admin
-- Legitimate interest as legal basis
+- Configurable retention period via `DATA_RETENTION_DAYS` (and
+  `AUDIT_LOG_RETENTION_DAYS`) in `config/settings/base.py`
+- `anonymize_expired_data` management command (in the `families` app) scrubs PII
+  on families inactive past the retention window; run it on a schedule (cron).
+  Supports `--dry-run`, `--days`, and `--include-audit-logs`
+- DSAR: right-to-access export and right-to-erasure via `FamilyViewSet`
+  `export`/`erase` actions and the matching Django Admin actions
+- Legitimate interest as legal basis (document it with the LIA template)
 
 ### Privacy
 - Minimal PII collection
 - Purpose-limited data usage
-- Secure storage (PostgreSQL encryption at rest)
+- Public `/api/privacy/` endpoint exposes operator-configured controller details
+  (`DATA_CONTROLLER_*`, `PRIVACY_POLICY_URL`); the `/privacy` page and QR page
+  render them
 - Access control (admin authentication)
-- Data export capability (DRF serializers)
+- Data export capability via the DSAR `export` action / admin action
+- **Encryption at rest is recommended but not enforced by the app** — enable it
+  at the database or volume layer (operator/infrastructure responsibility)
 
 ---
 

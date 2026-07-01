@@ -41,6 +41,12 @@ restart.txt
 # claude scratch directory — ad-hoc scripts written during a session
 agent-tools/
 
+# real (non-template) legal/business documents with actual company details —
+# generic templates in docs/legal/ stay committed, filled-in real drafts don't
+docs/legal/TRYGGARE_MOLN_VILLKOR.md
+docs/legal/TRYGGARE_MOLN_TECHNICAL_ANNEX.md
+docs/legal/TRYGGARE_MOLN_DPA.md
+
 # printer-client development scratch files
 printer-client/brother_ql-inventree/
 printer-client/get_it_printing.md

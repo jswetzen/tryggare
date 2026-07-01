@@ -10,6 +10,7 @@ from rest_framework.response import Response
 from families.models import Child
 from events.models import Session
 
+from .audit import log_audit
 from .models import AuditLog, CheckInRecord
 from .serializers import (
     AuditLogSerializer,
@@ -112,8 +113,8 @@ class CheckInRecordViewSet(viewsets.ModelViewSet):
         child.family.save()
 
         # Log the action
-        AuditLog.objects.create(
-            user=request.user,
+        log_audit(
+            request,
             action="check_in",
             entity_type="CheckInRecord",
             entity_id=str(record.id),
@@ -185,8 +186,8 @@ class CheckInRecordViewSet(viewsets.ModelViewSet):
         release_code_for_checkout(record)
 
         # Log the action
-        AuditLog.objects.create(
-            user=request.user,
+        log_audit(
+            request,
             action="check_out",
             entity_type="CheckInRecord",
             entity_id=str(record.id),
@@ -253,8 +254,8 @@ class CheckInRecordViewSet(viewsets.ModelViewSet):
             record.qr_code.save()
 
         # Log the action
-        AuditLog.objects.create(
-            user=request.user,
+        log_audit(
+            request,
             action="undo_checkout",
             entity_type="CheckInRecord",
             entity_id=str(record.id),
@@ -319,8 +320,8 @@ class CheckInRecordViewSet(viewsets.ModelViewSet):
         record_id = str(record.id)
 
         # Log the action before deleting the record
-        AuditLog.objects.create(
-            user=request.user,
+        log_audit(
+            request,
             action="undo_checkin",
             entity_type="CheckInRecord",
             entity_id=record_id,
@@ -441,8 +442,8 @@ class PrintQueueViewSet(viewsets.ReadOnlyModelViewSet):
         for checkin_id in checkin_ids[:updated]:  # Only log actually updated records
             try:
                 record = CheckInRecord.objects.get(id=checkin_id)
-                AuditLog.objects.create(
-                    user=request.user,
+                log_audit(
+                    request,
                     action="label_printed",
                     entity_type="CheckInRecord",
                     entity_id=str(checkin_id),
@@ -459,37 +460,6 @@ class PrintQueueViewSet(viewsets.ReadOnlyModelViewSet):
         return Response(
             {"message": _(f"{updated} labels marked as printed"), "count": updated}
         )
-
-    @action(detail=False, methods=["get"])
-    def generate_pdf(self, request):
-        """Generate printable PDF of labels"""
-        from django.http import HttpResponse
-        from .utils import generate_label_pdf
-
-        checkin_ids = request.query_params.get("ids", "").split(",")
-        checkin_ids = [cid.strip() for cid in checkin_ids if cid.strip()]
-
-        if not checkin_ids:
-            return Response(
-                {"error": _("No check-in IDs provided")},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        checkins = CheckInRecord.objects.filter(id__in=checkin_ids).select_related(
-            "child", "session"
-        )
-
-        if not checkins.exists():
-            return Response(
-                {"error": _("No check-ins found")}, status=status.HTTP_404_NOT_FOUND
-            )
-
-        # Generate PDF using utility function
-        pdf = generate_label_pdf(checkins)
-
-        response = HttpResponse(pdf, content_type="application/pdf")
-        response["Content-Disposition"] = 'attachment; filename="labels.pdf"'
-        return response
 
     @action(detail=True, methods=["get"])
     def print_page(self, request, pk=None):
@@ -567,8 +537,8 @@ class PrintQueueViewSet(viewsets.ReadOnlyModelViewSet):
         checkin.save()
 
         # Log the action
-        AuditLog.objects.create(
-            user=request.user,
+        log_audit(
+            request,
             action="label_printed",
             entity_type="CheckInRecord",
             entity_id=str(checkin.id),

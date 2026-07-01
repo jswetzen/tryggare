@@ -3,7 +3,7 @@
  */
 
 import { apiClient } from './client';
-import type { Family, Child, Session, CheckInRecord, AuditLog, PrintQueueItem, QRInfoResponse, Printer, PrinterWithToken, PrintJob, Event, EventReportListItem, EventReport } from './types';
+import type { Family, Child, Session, CheckInRecord, AuditLog, PrintQueueItem, QRInfoResponse, PrivacyInfoResponse, Printer, PrinterWithToken, PrintJob, Event, EventReportListItem, EventReport } from './types';
 import type { FamilyApiResponse } from '$lib/checkin/types';
 
 /**
@@ -50,6 +50,16 @@ export const qrApi = {
    * Returns 404 if code is invalid or child is not currently checked in.
    */
   getInfo: (code: string) => apiClient.get<QRInfoResponse>(`/qr/${code}/`),
+};
+
+/**
+ * Privacy / data-controller API endpoints (public)
+ */
+export const privacyApi = {
+  /**
+   * Get the operator-configured data-controller details for the privacy page.
+   */
+  getInfo: () => apiClient.get<PrivacyInfoResponse>('/privacy/'),
 };
 
 /**
@@ -119,11 +129,6 @@ export const printQueueApi = {
    * Get recently printed check-ins (last 50)
    */
   getRecentlyPrinted: () => apiClient.get<PrintQueueItem[]>('/print-queue/recently_printed/'),
-
-  /**
-   * Get the URL for downloading PDF labels
-   */
-  getPrintUrl: (checkinIds: string[]) => `/api/print-queue/generate_pdf/?ids=${checkinIds.join(',')}`,
 
   /**
    * Get the URL for the print page (opens in new window for printing)
