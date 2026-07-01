@@ -3,7 +3,7 @@ from django.db import migrations, models
 
 class Migration(migrations.Migration):
     dependencies = [
-        ("families", "0007_allow_null_birthdate"),
+        ("families", "0008_add_parent_lock_fields"),
     ]
 
     operations = [
