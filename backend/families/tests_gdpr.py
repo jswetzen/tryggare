@@ -169,6 +169,50 @@ class DSARTests(TestCase):
         self.assertEqual(scrubbed.details["child_name"], "REDACTED")
 
 
+class AuditAccessLoggingTests(TestCase):
+    """Read/view access to Art. 9 data must be logged, not just mutations."""
+
+    def setUp(self):
+        self.staff = User.objects.create_user(username="staff", password="pw")
+        self.client = APIClient()
+        self.client.force_authenticate(user=self.staff)
+
+    def test_family_retrieve_logs_view_with_ip(self):
+        family, child = _make_family("Viewed")
+        resp = self.client.get(
+            f"/api/families/{family.id}/", REMOTE_ADDR="203.0.113.42"
+        )
+        self.assertEqual(resp.status_code, 200)
+        log = AuditLog.objects.get(action="record_viewed", entity_id=str(family.id))
+        self.assertEqual(log.user, self.staff)
+        self.assertEqual(log.source_ip, "203.0.113.42")
+
+    def test_qr_view_logs_anonymous_access(self):
+        from checkins.qr_utils import allocate_code_for_checkin
+
+        family, child = _make_family("QrViewed")
+        event = Event.objects.create(
+            name="Conf", start_date=date(2025, 1, 1), end_date=date(2025, 1, 2)
+        )
+        session = Session.objects.create(
+            name="Morning",
+            event=event,
+            start_time="2025-01-01T09:00:00Z",
+            end_time="2025-01-01T12:00:00Z",
+        )
+        record = CheckInRecord.objects.create(
+            child=child, session=session, check_in_staff=self.staff
+        )
+        qr_code = allocate_code_for_checkin(record)
+
+        anon_client = APIClient()
+        resp = anon_client.get(f"/api/qr/{qr_code.code}/", REMOTE_ADDR="198.51.100.7")
+        self.assertEqual(resp.status_code, 200)
+        log = AuditLog.objects.get(action="qr_viewed", entity_id=str(child.id))
+        self.assertIsNone(log.user)
+        self.assertEqual(log.source_ip, "198.51.100.7")
+
+
 class PrivacyEndpointTests(TestCase):
     @override_settings(
         DATA_CONTROLLER_NAME="Test Org",

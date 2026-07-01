@@ -22,14 +22,11 @@ controller's instructions. In that case you need:
 - A **DPA** between controller and operator covering Art. 28 GDPR requirements
   (subject matter, duration, nature/purpose, data types, controller
   instructions, confidentiality, security, sub-processors, deletion/return,
-  audit).
+  audit). See [`DPA_TEMPLATE.md`](DPA_TEMPLATE.md) for a signable draft.
 - A **sub-processor list** (e.g. cloud hosting, managed database, email/SMS
   providers) with a process for notifying controllers of changes.
 - Defined security measures and a breach-notification commitment (see
   `BREACH_NOTIFICATION_PROCESS.md`).
-
-> Status: a hosted offering is planned but not yet provided. Until it exists,
-> only section 1 applies to standard deployments.
 
 ## 3. Import integrations
 

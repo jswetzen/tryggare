@@ -159,6 +159,8 @@ class AuditLog(models.Model):
     entity_type = models.CharField(max_length=64)
     entity_id = models.CharField(max_length=255)
     details = models.JSONField(null=True, blank=True)
+    source_ip = models.GenericIPAddressField(null=True, blank=True)
+    session_id = models.CharField(max_length=40, null=True, blank=True)
 
     class Meta:
         db_table = "audit_logs"

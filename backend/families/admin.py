@@ -44,13 +44,13 @@ class FamilyAdmin(admin.ModelAdmin):
 
     @admin.action(description="Erase selected families (GDPR right to erasure)")
     def erase_families(self, request, queryset):
-        from checkins.models import AuditLog
+        from checkins.audit import log_audit
 
         count = 0
         for family in queryset:
             child_ids = [str(c.id) for c in family.children.all()]
-            AuditLog.objects.create(
-                user=request.user,
+            log_audit(
+                request,
                 action="dsar_erasure",
                 entity_type="Family",
                 entity_id=str(family.id),
