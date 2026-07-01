@@ -132,7 +132,7 @@ deployment — no cross-congregation data path exists at the application layer.
 | R2 | Lost/discarded printed label read by an unauthorised person | Low | Low | Label carries no health data, only name + QR |
 | R3 | Staff account compromise (credential theft, unattended session) | Low–Medium | High | Individual accounts; no shared logins |
 | R4 | Insider misuse — staff browsing records without operational need | Low | Medium | Now mitigated by `record_viewed`/`qr_viewed` audit events (added {{DATE}}) |
-| R5 | Data retained longer than necessary | Low | Medium | Automated `anonymize_expired_data`, but depends on the retention job actually being scheduled (cron/`make`) by the operator |
+| R5 | Data retained longer than necessary | Low | Medium | Automated `anonymize_expired_data`, run daily by an in-app scheduler (no operator cron setup required) |
 | R6 | Backup/export leakage | Low | Medium | {{describe backup encryption/access controls for your deployment}} |
 | R7 | Guardian email over-collected relative to need on the QR surface | Medium | Low | See open question in §2 |
 
@@ -147,7 +147,9 @@ deployment — no cross-congregation data path exists at the application layer.
   including `source_ip` and `session_id` for reconstruction of "who accessed
   what, from where, when."
 - Automated retention/anonymisation (`anonymize_expired_data`), configurable
-  via `DATA_RETENTION_DAYS` / `AUDIT_LOG_RETENTION_DAYS`.
+  via `DATA_RETENTION_DAYS` / `AUDIT_LOG_RETENTION_DAYS`, run automatically
+  every day at 03:00 by an in-app scheduler (`families/apps.py` +
+  `families/tasks.py`) — no operator-configured cron required.
 - DSAR export and erasure tooling (staff-initiated today; see the roadmap for
   a self-service portal).
 - QR code entropy + time-boxing + anonymous rate limiting (see §4).
@@ -163,7 +165,9 @@ deployment — no cross-congregation data path exists at the application layer.
 
 **Outstanding actions before go-live:**
 - [ ] Resolve the guardian-email minimisation question in §2.
-- [ ] Confirm the retention job is actually scheduled in production (cron/`make`).
+- [x] Confirm the retention job is actually scheduled in production — it now
+      runs automatically via an in-app scheduler (daily, 03:00), no
+      operator-configured cron needed.
 - [ ] Document backup encryption and access controls (R6).
 - [ ] Legal sign-off on the Art. 9 condition relied upon (§2).
 

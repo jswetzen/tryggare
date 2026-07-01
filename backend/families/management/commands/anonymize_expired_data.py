@@ -6,9 +6,12 @@ for longer than ``DATA_RETENTION_DAYS``. PII is scrubbed in place — rows,
 timestamps and foreign keys are kept so attendance/safeguarding aggregates stay
 intact. Families with an active (not-checked-out) check-in are never touched.
 
-Run on a schedule, e.g. weekly via cron:
+This runs automatically once a day at 03:00 via an in-app scheduler (see
+``families.apps.FamiliesConfig.ready()`` / ``families.tasks.run_scheduled_retention``),
+so no operator-configured cron is required. It can still be invoked manually,
+e.g. for an out-of-band run or to pass ``--dry-run``/``--days`` overrides:
 
-    0 3 * * 0 cd /app/backend && python manage.py anonymize_expired_data
+    cd /app/backend && python manage.py anonymize_expired_data --dry-run
 
 Use ``--dry-run`` first to see what would be affected.
 """

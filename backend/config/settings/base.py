@@ -182,11 +182,13 @@ REST_FRAMEWORK = {
 # read them). Defaults are intentionally empty so an unconfigured deployment
 # is obviously unconfigured rather than silently wrong.
 #
-# Retention is enforced by the `anonymize_expired_data` management command
-# (run it on a schedule, e.g. via cron). It anonymises PII on families that
-# have been inactive (by last_participation_date) for longer than
+# Retention is enforced by the `anonymize_expired_data` management command,
+# which runs automatically once a day (see families/apps.py's in-app
+# apscheduler job) — no operator cron needed. It anonymises PII on families
+# that have been inactive (by last_participation_date) for longer than
 # DATA_RETENTION_DAYS, keeping rows/timestamps for safeguarding/aggregate
-# integrity. Audit logs grow forever unless pruned with --include-audit-logs.
+# integrity. Audit logs grow forever unless pruned with --include-audit-logs
+# (the scheduled run passes this flag).
 DATA_RETENTION_DAYS = int(os.getenv("DATA_RETENTION_DAYS", "1095"))  # 3 years
 AUDIT_LOG_RETENTION_DAYS = int(os.getenv("AUDIT_LOG_RETENTION_DAYS", "1095"))
 
