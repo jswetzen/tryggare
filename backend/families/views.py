@@ -67,6 +67,19 @@ class FamilyViewSet(viewsets.ModelViewSet):
             return FamilyDetailSerializer
         return FamilySerializer
 
+    def retrieve(self, request, *args, **kwargs):
+        """Full family detail includes allergies/notes — log the access."""
+        from checkins.audit import log_audit
+
+        response = super().retrieve(request, *args, **kwargs)
+        log_audit(
+            request,
+            action="record_viewed",
+            entity_type="Family",
+            entity_id=kwargs.get("pk", ""),
+        )
+        return response
+
     @action(detail=False, methods=["get"], url_path="by-ticket")
     def ticket_lookup(self, request):
         code = request.query_params.get("code", "").strip()
@@ -126,14 +139,14 @@ class FamilyViewSet(viewsets.ModelViewSet):
         Returns JSON by default, or CSV with ``?as=csv``. (We avoid the ``format``
         query param because DRF reserves it for content-negotiation suffixes.)
         """
-        from checkins.models import AuditLog
+        from checkins.audit import log_audit
 
         family = self.get_object()
         data = build_family_export(family)
         export_as = request.query_params.get("as", "json")
 
-        AuditLog.objects.create(
-            user=request.user,
+        log_audit(
+            request,
             action="dsar_export",
             entity_type="Family",
             entity_id=str(family.id),
@@ -159,14 +172,14 @@ class FamilyViewSet(viewsets.ModelViewSet):
         The export is returned in the response so the operator retains a copy,
         and an audit entry is written *before* deletion so the action is logged.
         """
-        from checkins.models import AuditLog
+        from checkins.audit import log_audit
 
         family = self.get_object()
         export = build_family_export(family)
         child_ids = [str(c.id) for c in family.children.all()]
 
-        AuditLog.objects.create(
-            user=request.user,
+        log_audit(
+            request,
             action="dsar_erasure",
             entity_type="Family",
             entity_id=str(family.id),

@@ -11,7 +11,9 @@ reviewed by someone qualified before relying on it.
 | [`PRIVACY_POLICY_TEMPLATE.md`](PRIVACY_POLICY_TEMPLATE.md) | Privacy notice to publish for parents/guardians. |
 | [`TERMS_OF_SERVICE_TEMPLATE.md`](TERMS_OF_SERVICE_TEMPLATE.md) | Terms for staff/operators using the system. |
 | [`LEGITIMATE_INTEREST_ASSESSMENT_TEMPLATE.md`](LEGITIMATE_INTEREST_ASSESSMENT_TEMPLATE.md) | LIA documenting your lawful basis. |
+| [`DPIA_TEMPLATE.md`](DPIA_TEMPLATE.md) | Data Protection Impact Assessment — required for this kind of processing under Art. 35. |
 | [`DPA_NOTE.md`](DPA_NOTE.md) | Processor/sub-processor notes for hosted use and the import integrations. |
+| [`DPA_TEMPLATE.md`](DPA_TEMPLATE.md) | Signable Art. 28 DPA draft for the hosted/SaaS scenario. |
 | [`BREACH_NOTIFICATION_PROCESS.md`](BREACH_NOTIFICATION_PROCESS.md) | What to do if data is breached. |
 
 ## How these connect to the running system

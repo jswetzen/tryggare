@@ -18,6 +18,7 @@ from __future__ import annotations
 import csv
 import io
 
+from django.db.models import Q
 from django.utils import timezone
 
 REDACTED = "REDACTED"
@@ -65,8 +66,9 @@ def build_family_export(family) -> dict:
     ]
 
     audit_logs = AuditLog.objects.filter(
-        entity_type="CheckInRecord",
-        details__child_id__in=child_ids,
+        Q(entity_type="CheckInRecord", details__child_id__in=child_ids)
+        | Q(entity_type="Family", entity_id=str(family.id))
+        | Q(entity_type="Child", entity_id__in=child_ids)
     ).order_by("timestamp")
     data["audit_logs"] = [
         {
@@ -75,6 +77,7 @@ def build_family_export(family) -> dict:
             "entity_type": log.entity_type,
             "entity_id": log.entity_id,
             "details": log.details,
+            "source_ip": log.source_ip,
         }
         for log in audit_logs
     ]
