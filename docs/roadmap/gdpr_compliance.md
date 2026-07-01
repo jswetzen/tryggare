@@ -9,17 +9,20 @@ export/erasure, public privacy page + notice, policy templates in
 ## How it works (current state)
 
 - Retention: `anonymize_expired_data` management command, gated by
-  `DATA_RETENTION_DAYS` / `AUDIT_LOG_RETENTION_DAYS`, run via cron.
+  `DATA_RETENTION_DAYS` / `AUDIT_LOG_RETENTION_DAYS`, run automatically every
+  day at 03:00 by an in-app `apscheduler` `BackgroundScheduler` started from
+  `families/apps.py` (`FamiliesConfig.ready()`), which calls the thin task
+  wrapper in `families/tasks.py` (`run_scheduled_retention`, invoked with
+  `--include-audit-logs` so audit logs are pruned too). No operator-configured
+  cron entry required — self-hosters get retention enforcement out of the box.
+  The scheduler only starts in the actual server process (daphne), not during
+  `manage.py test`/`migrate`/`shell`/etc.; see `should_start_scheduler()` in
+  `families/apps.py` for the guard and its rationale.
 - DSAR: `FamilyViewSet` `export`/`erase` actions + Django Admin actions.
 - Privacy: `/api/privacy/` endpoint + `/privacy` frontend page, controller
   details from `DATA_CONTROLLER_*` env vars.
 
 ## Follow-ups
-
-### Scheduled-job runner
-The retention command relies on an operator-configured cron entry. Consider an
-in-app scheduler (Celery beat — Channels/Redis is already present, or a
-management-command-on-boot) so self-hosters don't have to wire cron themselves.
 
 ### Encryption at rest
 Currently an operator/infrastructure responsibility, documented but not enforced.
