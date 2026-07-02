@@ -413,7 +413,7 @@
           <!-- Guardians subsection (mobile) -->
           {#if family.parents.length > 0}
             <div class="mt-1">
-              <p class="text-xs font-semibold text-slate-500 uppercase px-1 mb-1">
+              <p class="text-xs font-semibold text-neutral-500 uppercase px-1 mb-1">
                 {$_('checkin.guardians')}
               </p>
               {#each family.parents as parent (parent.id)}
@@ -422,19 +422,19 @@
                 {@const parentRemainingSeconds = parent.checkInActionId && _tick >= 0 ? getRemainingTime(parent.checkInActionId) : null}
 
                 <div
-                  class="flex flex-col gap-2 p-2 bg-slate-100 rounded border border-slate-200"
+                  class="flex flex-col gap-2 p-2 bg-neutral-50 rounded border border-neutral-200"
                   data-testid={`parent-row-${parent.id}`}
                 >
                   <div class="flex flex-col sm:flex-row sm:items-center gap-2">
                     <!-- Parent info -->
                     <div class="flex-1 min-w-0">
                       <div class="flex items-center gap-1.5 flex-wrap">
-                        <span class="font-medium text-slate-700 text-sm sm:text-base">{parent.name}</span>
-                        <span class="px-1.5 py-0.5 text-xs font-semibold bg-slate-200 text-slate-600 rounded">
+                        <span class="font-medium text-neutral-700 text-sm sm:text-base">{parent.name}</span>
+                        <span class="px-1.5 py-0.5 text-xs font-semibold bg-neutral-200 text-neutral-600 rounded">
                           {$_('checkin.guardian')}
                         </span>
                       </div>
-                      <div class="text-xs text-slate-500 mt-0.5">
+                      <div class="text-xs text-neutral-500 mt-0.5">
                         {getTicketDisplay(parent)}
                         {#if parent.checkedIn && parent.checkInTime}
                           • {$_('checkin.checkedInAt', { values: { time: parent.checkInTime } })}
@@ -457,21 +457,21 @@
 
                   <!-- Ticket assignment expansion (for "No Ticket" parents) -->
                   {#if isParentExpanded && parent.ticket === 'none'}
-                    <div class="w-full bg-yellow-50 border border-yellow-200 rounded p-3 animate-expand">
-                      <p class="text-sm text-slate-700 mb-2 font-medium">
+                    <div class="w-full bg-warning-50 border border-warning-200 rounded p-3 animate-expand">
+                      <p class="text-sm text-neutral-700 mb-2 font-medium">
                         {$_('checkin.checkIn')} {parent.name} with:
                       </p>
                       <div class="flex gap-2">
                         <button
                           onclick={() => onAssignParentTicket(family.id, parent.id, 'session')}
-                          class="flex-1 px-3 py-2 bg-blue-500 text-white text-sm font-semibold rounded hover:bg-blue-600 transition-colors"
+                          class="flex-1 px-3 py-2 bg-primary-500 text-white text-sm font-semibold rounded-button hover:bg-primary-600 transition-colors"
                           data-testid={`parent-ticket-assign-session-${parent.id}`}
                         >
                           {$_('checkin.ticketSession')}
                         </button>
                         <button
                           onclick={() => onAssignParentTicket(family.id, parent.id, 'event')}
-                          class="flex-1 px-3 py-2 bg-green-600 text-white text-sm font-semibold rounded hover:bg-green-700 transition-colors"
+                          class="flex-1 px-3 py-2 bg-success-600 text-white text-sm font-semibold rounded-button hover:bg-success-700 transition-colors"
                           data-testid={`parent-ticket-assign-event-${parent.id}`}
                         >
                           {$_('checkin.ticketEvent')}
@@ -669,9 +669,9 @@
 
           <!-- Guardians subsection heading row (desktop) -->
           {#if family.parents.length > 0}
-            <tr class="border-b border-slate-200 bg-slate-50">
+            <tr class="border-b border-neutral-200 bg-neutral-50">
               <td class="px-4 py-1 pl-12" colspan="3">
-                <span class="text-xs font-semibold text-slate-500 uppercase">
+                <span class="text-xs font-semibold text-neutral-500 uppercase">
                   {$_('checkin.guardians')}
                 </span>
               </td>
@@ -681,17 +681,17 @@
               {@const _tick = undoActionsData.tick}
               {@const parentRemainingSeconds = parent.checkInActionId && _tick >= 0 ? getRemainingTime(parent.checkInActionId) : null}
 
-              <tr class="border-b border-slate-200 bg-slate-100" data-testid={`parent-row-${parent.id}`}>
+              <tr class="border-b border-neutral-200 bg-neutral-100" data-testid={`parent-row-${parent.id}`}>
                 <td class="px-4 py-3 pl-12" colspan="2">
                   <div class="flex items-center gap-3">
                     <div class="flex-1">
                       <div class="flex items-center gap-1.5 flex-wrap">
-                        <span class="font-medium text-slate-700">{parent.name}</span>
-                        <span class="px-1.5 py-0.5 text-xs font-semibold bg-slate-200 text-slate-600 rounded">
+                        <span class="font-medium text-neutral-700">{parent.name}</span>
+                        <span class="px-1.5 py-0.5 text-xs font-semibold bg-neutral-200 text-neutral-600 rounded">
                           {$_('checkin.guardian')}
                         </span>
                       </div>
-                      <div class="text-xs text-slate-500 mt-0.5">
+                      <div class="text-xs text-neutral-500 mt-0.5">
                         {getTicketDisplay(parent)}
                         {#if parent.checkedIn && parent.checkInTime}
                           • {$_('checkin.checkedInAt', { values: { time: parent.checkInTime } })}
@@ -702,21 +702,21 @@
 
                   <!-- Ticket assignment expansion (inline for desktop) -->
                   {#if isParentExpanded && parent.ticket === 'none'}
-                    <div class="mt-2 bg-yellow-50 border border-yellow-200 rounded p-3 animate-expand">
-                      <p class="text-sm text-slate-700 mb-2 font-medium">
+                    <div class="mt-2 bg-warning-50 border border-warning-200 rounded p-3 animate-expand">
+                      <p class="text-sm text-neutral-700 mb-2 font-medium">
                         {$_('checkin.checkIn')} {parent.name} with:
                       </p>
                       <div class="flex gap-2">
                         <button
                           onclick={() => onAssignParentTicket(family.id, parent.id, 'session')}
-                          class="flex-1 px-3 py-2 bg-blue-500 text-white text-sm font-semibold rounded hover:bg-blue-600 transition-colors"
+                          class="flex-1 px-3 py-2 bg-primary-500 text-white text-sm font-semibold rounded-button hover:bg-primary-600 transition-colors"
                           data-testid={`parent-ticket-assign-session-${parent.id}`}
                         >
                           {$_('checkin.ticketSession')}
                         </button>
                         <button
                           onclick={() => onAssignParentTicket(family.id, parent.id, 'event')}
-                          class="flex-1 px-3 py-2 bg-green-600 text-white text-sm font-semibold rounded hover:bg-green-700 transition-colors"
+                          class="flex-1 px-3 py-2 bg-success-600 text-white text-sm font-semibold rounded-button hover:bg-success-700 transition-colors"
                           data-testid={`parent-ticket-assign-event-${parent.id}`}
                         >
                           {$_('checkin.ticketEvent')}
