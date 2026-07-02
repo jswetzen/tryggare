@@ -19,6 +19,14 @@ class Migration(migrations.Migration):
 
     dependencies = [
         ("families", "0010_backfill_attendees"),
+        # This migration's raw SQL below drops constraints on tables owned by
+        # the events/checkins apps (tickets, event_tickets, session_tickets,
+        # check_in_records) — those tables must already exist. Without these,
+        # Django's migration graph has no ordering guarantee against events/
+        # checkins and can schedule this before those tables are created on a
+        # from-scratch database build, failing with "relation does not exist".
+        ("events", "0003_eventticket_sessionticket"),
+        ("checkins", "0001_initial"),
     ]
 
     operations = [
