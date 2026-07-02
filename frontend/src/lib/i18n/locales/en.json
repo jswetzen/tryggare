@@ -224,6 +224,7 @@
     "checkOut": "Check Out",
     "undoCheckOut": "Undo Check-Out",
     "editChild": "Edit Child",
+    "editGuardian": "Edit Guardian",
     "reprintLabel": "Reprint Label",
     "pickedUpBy": "Picked up by",
     "pickedUpByPlaceholder": "Enter name (optional)",

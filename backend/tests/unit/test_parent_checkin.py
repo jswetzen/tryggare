@@ -297,6 +297,35 @@ class TestParentCheckIn:
             or "session" in resp_b.data["error"].lower()
         )
 
+    # 7 -----------------------------------------------------------------------
+    def test_parent_cannot_be_checked_out(self):
+        """Parents are check-in only (no checkout — by design). The check_out
+        action must reject it even though nothing else prevents the HTTP call
+        from reaching it (no checkout button is rendered in the UI for parents,
+        but that's not a security boundary)."""
+        staff = _make_staff("pci_staff_7")
+        family = _make_family("Pci7")
+        parent = _make_parent(family)
+        event = _make_event()
+        session = _make_session(event)
+        SessionTicket.objects.create(attendee=parent, session=session)
+
+        client = _authed_client(staff)
+        resp = client.post(
+            CHECKIN_URL,
+            {"child": str(parent.id), "session": str(session.id)},
+            format="json",
+        )
+        assert resp.status_code == 201, resp.data
+        record_id = CheckInRecord.objects.get(attendee_id=parent.id).id
+
+        resp = client.post(reverse("checkin-check-out", args=[record_id]))
+        assert resp.status_code == 400
+        assert "error" in resp.data
+
+        record = CheckInRecord.objects.get(id=record_id)
+        assert record.check_out_time is None
+
 
 @pytest.mark.django_db
 class TestQrInfoAttendeeType:

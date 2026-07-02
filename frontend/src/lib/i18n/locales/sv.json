@@ -224,6 +224,7 @@
     "checkOut": "Checka ut",
     "undoCheckOut": "Ångra utcheckning",
     "editChild": "Redigera barn",
+    "editGuardian": "Redigera vårdnadshavare",
     "reprintLabel": "Skriv ut etikett igen",
     "pickedUpBy": "Hämtad av",
     "pickedUpByPlaceholder": "Ange namn (valfritt)",

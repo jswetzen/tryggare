@@ -195,6 +195,14 @@ class CheckInRecordViewSet(viewsets.ModelViewSet):
         """Check out a child from a session"""
         record = self.get_object()
 
+        # Parents are check-in only (no label, no checkout — by design). See the
+        # matching MTI-downcast note on check_in above for why pk lookup is needed.
+        if Parent.objects.filter(pk=record.attendee_id).exists():
+            return Response(
+                {"error": _("Parents are check-in only and cannot be checked out")},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
         if record.check_out_time:
             return Response(
                 {"error": _("Child is already checked out")},

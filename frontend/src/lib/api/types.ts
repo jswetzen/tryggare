@@ -179,6 +179,7 @@ export interface QRInfoResponse {
     birthdate?: string;
     allergies?: string;
     notes?: string;
+    is_parent: boolean;
   };
   current_session: {
     id: string;

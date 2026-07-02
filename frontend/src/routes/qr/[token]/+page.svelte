@@ -105,7 +105,8 @@
   function handleEditChild() {
     if (!qrInfo) return;
     // Redirect to Django Admin edit page
-    window.location.href = `/admin/families/child/${qrInfo.child.id}/change/`;
+    const model = qrInfo.child.is_parent ? 'parent' : 'child';
+    window.location.href = `/admin/families/${model}/${qrInfo.child.id}/change/`;
   }
 
   function handleReprintLabel() {
@@ -283,29 +284,35 @@
         <h2 class="text-xl font-semibold mb-4">{$t('qr.actions')}</h2>
 
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <button
-            class="bg-danger-600 hover:bg-danger-700 text-white font-semibold px-5 py-3 rounded-card"
-            onclick={() => showCheckoutModal = true}
-            disabled={actionInProgress}
-          >
-            {$t('qr.checkOut')}
-          </button>
+          {#if !qrInfo.child.is_parent}
+            <!-- Parents check in one-way (no label, no checkout — by design),
+                 so neither action applies to them. -->
+            <button
+              class="bg-danger-600 hover:bg-danger-700 text-white font-semibold px-5 py-3 rounded-card"
+              onclick={() => showCheckoutModal = true}
+              disabled={actionInProgress}
+            >
+              {$t('qr.checkOut')}
+            </button>
+          {/if}
 
           <button
             class="bg-primary-600 hover:bg-primary-700 text-white font-semibold px-5 py-3 rounded-card"
             onclick={handleEditChild}
             disabled={actionInProgress}
           >
-            {$t('qr.editChild')}
+            {qrInfo.child.is_parent ? $t('qr.editGuardian') : $t('qr.editChild')}
           </button>
 
-          <button
-            class="bg-success-600 hover:bg-success-700 text-white font-semibold px-5 py-3 rounded-card"
-            onclick={handleReprintLabel}
-            disabled={actionInProgress}
-          >
-            {$t('qr.reprintLabel')}
-          </button>
+          {#if !qrInfo.child.is_parent}
+            <button
+              class="bg-success-600 hover:bg-success-700 text-white font-semibold px-5 py-3 rounded-card"
+              onclick={handleReprintLabel}
+              disabled={actionInProgress}
+            >
+              {$t('qr.reprintLabel')}
+            </button>
+          {/if}
         </div>
       </div>
 

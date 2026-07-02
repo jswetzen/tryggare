@@ -29,6 +29,25 @@ function effectiveTicketType(
   return 'none';
 }
 
+// Parents always need a real ticket to check in (see checkins/views.py check_in —
+// unconditional attendee.has_ticket gate), unlike children whose ticket requirement
+// depends on session.requires_ticket. So skip that shortcut here: a parent with no
+// ticket must show as 'none' even for a session that doesn't require one for children.
+function effectiveParentTicketType(
+  parent: TicketableApiItem,
+  session: Session | null
+): TicketType {
+  if (!session) return (parent.ticket_type as TicketType) || 'none';
+
+  const details = parent.ticket_details;
+  if (!details) return 'none';
+
+  if (details.event_tickets.some((t) => t.event === session.event)) return 'event';
+  if (details.session_tickets.some((t) => t.session === session.id)) return 'session';
+
+  return 'none';
+}
+
 export function transformFamily(apiFamily: FamilyApiResponse, session: Session | null): Family {
   return {
     id: apiFamily.id,
@@ -54,7 +73,7 @@ export function transformFamily(apiFamily: FamilyApiResponse, session: Session |
       };
     }),
     parents: apiFamily.parents.map((parent) => {
-      const ticketType = effectiveTicketType(parent, session);
+      const ticketType = effectiveParentTicketType(parent, session);
       return {
         id: parent.id,
         first_name: parent.first_name,
