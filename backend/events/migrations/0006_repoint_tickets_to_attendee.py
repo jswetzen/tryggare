@@ -15,7 +15,7 @@ class Migration(migrations.Migration):
 
     dependencies = [
         ("events", "0005_add_external_ticket_code"),
-        ("families", "0010_convert_child_parent_to_mti"),
+        ("families", "0011_convert_child_parent_to_mti"),
     ]
 
     operations = [

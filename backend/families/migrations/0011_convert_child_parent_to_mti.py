@@ -18,7 +18,7 @@ class Migration(migrations.Migration):
     """
 
     dependencies = [
-        ("families", "0009_backfill_attendees"),
+        ("families", "0010_backfill_attendees"),
     ]
 
     operations = [
@@ -95,9 +95,25 @@ class Migration(migrations.Migration):
                             ),
                         ),
                         (
+                            "phone_locked",
+                            models.BooleanField(
+                                default=False,
+                                help_text="When checked, re-imports will not overwrite this phone number.",
+                                verbose_name="Phone Locked",
+                            ),
+                        ),
+                        (
                             "email",
                             models.EmailField(
                                 blank=True, null=True, verbose_name="Email"
+                            ),
+                        ),
+                        (
+                            "email_locked",
+                            models.BooleanField(
+                                default=False,
+                                help_text="When checked, re-imports will not overwrite this email address.",
+                                verbose_name="Email Locked",
                             ),
                         ),
                         (

@@ -48,7 +48,7 @@ def reverse_backfill_attendees(apps, schema_editor):
 class Migration(migrations.Migration):
 
     dependencies = [
-        ("families", "0008_create_attendee_table"),
+        ("families", "0009_create_attendee_table"),
     ]
 
     operations = [

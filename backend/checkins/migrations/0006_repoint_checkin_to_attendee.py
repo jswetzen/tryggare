@@ -13,7 +13,7 @@ class Migration(migrations.Migration):
 
     dependencies = [
         ("checkins", "0005_auditlog_user_nullable"),
-        ("families", "0010_convert_child_parent_to_mti"),
+        ("families", "0011_convert_child_parent_to_mti"),
     ]
 
     operations = [
