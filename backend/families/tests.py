@@ -290,6 +290,67 @@ class FamilySerializerTests(TestCase):
         self.assertEqual(response.data[0]["display_name"], "Martinez")
 
 
+class FamilyCreateValidationTests(TestCase):
+    """A family is a household of attendees — any non-empty combination of
+    parents/children is valid, it just can't be completely empty."""
+
+    def setUp(self):
+        self.user = User.objects.create_user(username="familycreate", password="x")
+        self.client = APIClient()
+        self.client.force_authenticate(user=self.user)
+
+    def test_parent_only_family_succeeds(self):
+        response = self.client.post(
+            "/api/families/",
+            {
+                "last_name": "AdultsOnly",
+                "parents": [
+                    {
+                        "first_name": "Anna",
+                        "last_name": "AdultsOnly",
+                        "relationship_type": "OTHER",
+                    }
+                ],
+                "children": [],
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, 201, response.data)
+        family = Family.objects.get(last_name="AdultsOnly")
+        self.assertEqual(family.parents.count(), 1)
+        self.assertEqual(family.children.count(), 0)
+
+    def test_child_only_family_succeeds(self):
+        response = self.client.post(
+            "/api/families/",
+            {
+                "last_name": "KidsOnly",
+                "parents": [],
+                "children": [
+                    {
+                        "first_name": "Kim",
+                        "last_name": "KidsOnly",
+                        "birthdate": "2018-01-01",
+                    }
+                ],
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, 201, response.data)
+        family = Family.objects.get(last_name="KidsOnly")
+        self.assertEqual(family.parents.count(), 0)
+        self.assertEqual(family.children.count(), 1)
+
+    def test_empty_family_rejected(self):
+        response = self.client.post(
+            "/api/families/",
+            {"last_name": "Nobody", "parents": [], "children": []},
+            format="json",
+        )
+        self.assertEqual(response.status_code, 400)
+        self.assertFalse(Family.objects.filter(last_name="Nobody").exists())
+
+
 class TicketIntegrationTests(TestCase):
     """Integration tests for ticket information in family/child endpoints"""
 

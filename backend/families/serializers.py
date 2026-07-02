@@ -262,17 +262,14 @@ class FamilyCreateSerializer(serializers.ModelSerializer):
         fields = ["id", "last_name", "parents", "children", "display_name"]
         read_only_fields = ["id", "display_name"]
 
-    def validate_parents(self, value):
-        """Ensure at least one parent is provided"""
-        if not value:
-            raise serializers.ValidationError("At least one parent is required")
-        return value
-
-    def validate_children(self, value):
-        """Ensure at least one child is provided"""
-        if not value:
-            raise serializers.ValidationError("At least one child is required")
-        return value
+    def validate(self, data):
+        """A family is a household of attendees — it can be all-parents,
+        all-children, or mixed, but not empty."""
+        if not data.get("parents") and not data.get("children"):
+            raise serializers.ValidationError(
+                "A family needs at least one parent or child"
+            )
+        return data
 
     def create(self, validated_data):
         """Create family with nested parents and children"""
