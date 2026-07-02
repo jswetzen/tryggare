@@ -26,6 +26,12 @@ DATABASES = {
 # Use in-memory channel layer for testing (faster, no Redis needed)
 CHANNEL_LAYERS = {"default": {"BACKEND": "channels.layers.InMemoryChannelLayer"}}
 
+# AllowedHostsOriginValidator (wraps the websocket app in config/asgi.py) rejects
+# connections with no Origin header unless "*" is in ALLOWED_HOSTS. Channels'
+# WebsocketCommunicator in tests sends no Origin header, so we must allow all
+# hosts here. This overrides the real ALLOWED_HOSTS loaded from .env by base.py.
+ALLOWED_HOSTS = ["*"]
+
 # Don't send real emails during tests
 EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
 
