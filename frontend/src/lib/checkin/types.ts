@@ -76,6 +76,8 @@ export interface Family {
   last_participation_date?: string;
 }
 
+export type ParentCheckinPolicy = 'disabled' | 'open' | 'ticket_required';
+
 export interface Session {
   id: string;
   event: string;
@@ -85,6 +87,12 @@ export interface Session {
   is_active: boolean;
   event_name: string;
   requires_ticket: boolean;
+  /** Blank means "inherit the event's default" — read effective_parent_checkin_policy instead.
+   *  Optional (rather than required) only to avoid widening the pre-existing structural
+   *  mismatch with the separate Session type in $lib/api/types — both are always present
+   *  on the actual API response. */
+  parent_checkin_policy?: ParentCheckinPolicy | '';
+  effective_parent_checkin_policy?: ParentCheckinPolicy;
 }
 
 export interface UndoAction {

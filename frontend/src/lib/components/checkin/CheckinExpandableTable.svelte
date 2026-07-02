@@ -40,6 +40,8 @@
     onCheckInParent?: (familyId: string, parentId: string) => Promise<void>;
     onUndoParent?: (familyId: string, parentId: string) => Promise<void>;
     onAssignParentTicket?: (familyId: string, parentId: string, ticketType: TicketType) => Promise<void>;
+    /** False when the active session's effective_parent_checkin_policy is 'disabled'. */
+    parentCheckinEnabled?: boolean;
   }
 
   let {
@@ -57,7 +59,8 @@
     highlightedFamilyId = null,
     onCheckInParent = async () => {},
     onUndoParent = async () => {},
-    onAssignParentTicket = async () => {}
+    onAssignParentTicket = async () => {},
+    parentCheckinEnabled = true
   }: Props = $props();
 
   // Track which families are manually toggled by the user
@@ -209,16 +212,33 @@
     return family.children.length;
   }
 
+  function getTotalParents(family: Family): number {
+    return family.parents.length;
+  }
+
   function getCheckedInCount(family: Family): number {
     return family.children.filter(c => c.checkedIn).length;
+  }
+
+  function getCheckedInParentsCount(family: Family): number {
+    return family.parents.filter(p => p.checkedIn).length;
   }
 
   function getCanCheckInCount(family: Family): number {
     return family.children.filter(c => !c.checkedIn && c.ticket !== 'none').length;
   }
 
+  // Child-only households compare against children; child-less households
+  // (adults only) fall back to parents so the status badge isn't vacuously
+  // "all checked in" for a family with nobody checked in at all.
   function isAllCheckedIn(family: Family): boolean {
-    return getCheckedInCount(family) === getTotalChildren(family);
+    if (family.children.length > 0) {
+      return getCheckedInCount(family) === getTotalChildren(family);
+    }
+    return (
+      family.parents.length > 0 &&
+      getCheckedInParentsCount(family) === getTotalParents(family)
+    );
   }
 
   function hasNoTicketChildren(family: Family): boolean {
@@ -232,6 +252,8 @@
     {@const expanded = isExpanded(family.id)}
     {@const totalChildren = getTotalChildren(family)}
     {@const checkedInCount = getCheckedInCount(family)}
+    {@const totalParents = getTotalParents(family)}
+    {@const checkedInParentsCount = getCheckedInParentsCount(family)}
     {@const canCheckInCount = getCanCheckInCount(family)}
     {@const allCheckedIn = isAllCheckedIn(family)}
     {@const noTicketChildren = hasNoTicketChildren(family)}
@@ -293,8 +315,13 @@
                 {/if}
               </div>
               <p class="text-xs sm:text-sm text-neutral-600 mt-0.5">
-                {totalChildren} {totalChildren === 1 ? $_('checkin.child') : $_('checkin.children')} •
-                {$_('checkin.checkedInCount', { values: { count: checkedInCount } })}
+                {#if totalChildren > 0}
+                  {totalChildren} {totalChildren === 1 ? $_('checkin.child') : $_('checkin.children')} •
+                  {$_('checkin.checkedInCount', { values: { count: checkedInCount } })}
+                {:else}
+                  {totalParents} {totalParents === 1 ? $_('checkin.adult') : $_('checkin.adults')} •
+                  {$_('checkin.checkedInCount', { values: { count: checkedInParentsCount } })}
+                {/if}
               </p>
             </div>
           </div>
@@ -411,7 +438,7 @@
           {/each}
 
           <!-- Guardians subsection (mobile) -->
-          {#if family.parents.length > 0}
+          {#if parentCheckinEnabled && family.parents.length > 0}
             <div class="mt-1">
               <p class="text-xs font-semibold text-neutral-500 uppercase px-1 mb-1">
                 {$_('checkin.guardians')}
@@ -512,6 +539,8 @@
         {@const expanded = isExpanded(family.id)}
         {@const totalChildren = getTotalChildren(family)}
         {@const checkedInCount = getCheckedInCount(family)}
+        {@const totalParents = getTotalParents(family)}
+        {@const checkedInParentsCount = getCheckedInParentsCount(family)}
         {@const canCheckInCount = getCanCheckInCount(family)}
         {@const allCheckedIn = isAllCheckedIn(family)}
         {@const noTicketChildren = hasNoTicketChildren(family)}
@@ -560,8 +589,13 @@
             </div>
           </td>
           <td class="px-4 py-3 text-sm text-neutral-600">
-            {totalChildren} {totalChildren === 1 ? $_('checkin.child') : $_('checkin.children')} •
-            {$_('checkin.checkedInCount', { values: { count: checkedInCount } })}
+            {#if totalChildren > 0}
+              {totalChildren} {totalChildren === 1 ? $_('checkin.child') : $_('checkin.children')} •
+              {$_('checkin.checkedInCount', { values: { count: checkedInCount } })}
+            {:else}
+              {totalParents} {totalParents === 1 ? $_('checkin.adult') : $_('checkin.adults')} •
+              {$_('checkin.checkedInCount', { values: { count: checkedInParentsCount } })}
+            {/if}
           </td>
           <td class="px-4 py-3 text-right">
             <!-- svelte-ignore a11y-click-events-have-key-events -->
@@ -668,7 +702,7 @@
           {/each}
 
           <!-- Guardians subsection heading row (desktop) -->
-          {#if family.parents.length > 0}
+          {#if parentCheckinEnabled && family.parents.length > 0}
             <tr class="border-b border-neutral-200 bg-neutral-50">
               <td class="px-4 py-1 pl-12" colspan="3">
                 <span class="text-xs font-semibold text-neutral-500 uppercase">

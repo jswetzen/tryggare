@@ -170,7 +170,8 @@ export const checkinApi = {
   createFamily: (data: {
     last_name: string;
     parents: Array<{
-      name: string;
+      first_name: string;
+      last_name: string;
       phone?: string;
       email?: string;
       relationship_type: string;

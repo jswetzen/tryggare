@@ -29,15 +29,24 @@ function effectiveTicketType(
   return 'none';
 }
 
-// Parents always need a real ticket to check in (see checkins/views.py check_in —
-// unconditional attendee.has_ticket gate), unlike children whose ticket requirement
-// depends on session.requires_ticket. So skip that shortcut here: a parent with no
-// ticket must show as 'none' even for a session that doesn't require one for children.
+// Whether/how a parent can check in is governed by the session's
+// effective_parent_checkin_policy (see checkins/eligibility.py
+// parent_checkin_gate_error, the backend's single source of truth):
+// - 'disabled': parent check-in isn't offered at all for this session — the
+//   Guardians section won't even render (see CheckinExpandableTable's
+//   parentCheckinEnabled prop), but return 'none' defensively.
+// - 'open': no ticket needed, same shortcut children get when
+//   session.requires_ticket is false.
+// - 'ticket_required': same real ticket lookup children use.
 function effectiveParentTicketType(
   parent: TicketableApiItem,
   session: Session | null
 ): TicketType {
   if (!session) return (parent.ticket_type as TicketType) || 'none';
+
+  const policy = session.effective_parent_checkin_policy;
+  if (policy === 'disabled') return 'none';
+  if (policy === 'open') return 'event';
 
   const details = parent.ticket_details;
   if (!details) return 'none';

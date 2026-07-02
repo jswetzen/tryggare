@@ -18,6 +18,8 @@ vi.mock('svelte-i18n', () => ({
         const translations: Record<string, string> = {
           'checkin.child': 'child',
           'checkin.children': 'children',
+          'checkin.adult': 'adult',
+          'checkin.adults': 'adults',
           'checkin.allCheckedIn': 'All Checked In',
           'checkin.alreadyCheckedIn': 'Already Checked In',
           'checkin.checkInCount': 'Check In {count}',
@@ -631,6 +633,19 @@ describe('CheckinExpandableTable', () => {
 
       expect(screen.queryByText('Guardians')).not.toBeInTheDocument();
     });
+
+    it('should not render guardians section when parentCheckinEnabled is false, even with parents present', async () => {
+      const user = userEvent.setup();
+
+      render(CheckinExpandableTable, {
+        props: { ...defaultProps, families: mockFamilies, parentCheckinEnabled: false }
+      });
+
+      const toggleButtons = screen.getAllByTestId('family-toggle-button-family-1');
+      await user.click(toggleButtons[0]);
+
+      expect(screen.queryByText('Guardians')).not.toBeInTheDocument();
+    });
   });
 
   describe('Edge Cases', () => {
@@ -642,7 +657,7 @@ describe('CheckinExpandableTable', () => {
       expect(screen.queryByTestId(/family-card/)).not.toBeInTheDocument();
     });
 
-    it('should handle family with no children', () => {
+    it('should show adult count for a child-less family with parents', () => {
       const emptyFamily: Family[] = [
         {
           ...mockFamilies[0],
@@ -654,7 +669,27 @@ describe('CheckinExpandableTable', () => {
         props: { ...defaultProps, families: emptyFamily }
       });
 
-      expect(screen.getAllByText(/0 children/i).length).toBeGreaterThan(0);
+      // mockFamilies[0] has exactly one parent — falls back to the adult
+      // count instead of "0 children" now that all-adult households are supported.
+      expect(screen.getAllByText(/1 adult/i).length).toBeGreaterThan(0);
+      expect(screen.queryByText(/0 children/i)).not.toBeInTheDocument();
+    });
+
+    it('should handle a fully empty family (no children, no parents)', () => {
+      const emptyFamily: Family[] = [
+        {
+          ...mockFamilies[0],
+          children: [],
+          parents: []
+        }
+      ];
+
+      render(CheckinExpandableTable, {
+        props: { ...defaultProps, families: emptyFamily }
+      });
+
+      // Neither branch has anything to count — should render without crashing.
+      expect(screen.getAllByTestId(/family-card/).length).toBeGreaterThan(0);
     });
   });
 });

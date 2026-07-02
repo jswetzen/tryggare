@@ -47,6 +47,9 @@
   let families = $state<Family[]>([]);
   let activeSession = $state<Session | null>(null);
   let activeSessions = $state<Session[]>([]);
+  let parentCheckinEnabled = $derived(
+    activeSession?.effective_parent_checkin_policy !== 'disabled'
+  );
   let loading = $state(true);
   let error = $state<string | null>(null);
   let searchQuery = $state('');
@@ -884,7 +887,23 @@
       // Create family via API
       const newFamily = await checkinApi.createFamily({
         last_name: data.familyName,
-        parents: data.parents,
+        // AddFamilyPanel collects one "full name" field per parent; the API
+        // needs first_name/last_name separately (Parent has no name column
+        // post-MTI — split on the first space, same convention used by the
+        // historical Attendee-backfill migration for the same legacy shape).
+        parents: data.parents.map((p) => {
+          const trimmed = p.name.trim();
+          const spaceIndex = trimmed.indexOf(' ');
+          const first_name = spaceIndex === -1 ? trimmed : trimmed.slice(0, spaceIndex);
+          const last_name = spaceIndex === -1 ? '' : trimmed.slice(spaceIndex + 1);
+          return {
+            first_name,
+            last_name,
+            phone: p.phone,
+            email: p.email,
+            relationship_type: p.relationship_type,
+          };
+        }),
         children: data.children.map((c) => ({
           first_name: c.first_name.trim(),
           last_name: c.last_name.trim(),
@@ -1087,6 +1106,7 @@
         onCheckInParent={checkInParent}
         onUndoParent={undoParentCheckIn}
         onAssignParentTicket={assignParentTicket}
+        {parentCheckinEnabled}
         {getRemainingTime}
         bind:supervisedState
         {expandedChildId}

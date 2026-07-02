@@ -69,9 +69,7 @@
   }
 
   function handleRemoveChild(index: number) {
-    if (children.length > 1) {
-      children = children.filter((_, i) => i !== index);
-    }
+    children = children.filter((_, i) => i !== index);
   }
 
   function handleAddParent() {
@@ -110,12 +108,9 @@
       return;
     }
 
-    // Validate children - check required fields
-    if (children.length === 0) {
-      error = $_('checkin.atLeastOneChildRequired');
-      return;
-    }
-
+    // A family is a household of attendees — all-children, all-parents, or
+    // mixed are all valid, it just can't be empty (checked below, once we
+    // know how many parents survived the empty-row filter).
     for (const child of children) {
       if (!child.first_name.trim() || !child.last_name.trim() || !child.birthdate.trim()) {
         error = $_('checkin.allChildrenRequired');
@@ -133,8 +128,8 @@
         relationship_type: parent.relationship_type,
       }));
 
-    if (validParents.length === 0) {
-      error = $_('checkin.atLeastOneParent');
+    if (children.length === 0 && validParents.length === 0) {
+      error = $_('checkin.atLeastOneMemberRequired');
       return;
     }
 
@@ -270,15 +265,13 @@
                 />
               </div>
             </div>
-            {#if index > 0}
-              <button
-                type="button"
-                on:click={() => handleRemoveParent(index)}
-                class="mt-2 text-danger-600 hover:text-danger-700 text-xs font-medium"
-              >
-                {$_('checkin.removeParent')}
-              </button>
-            {/if}
+            <button
+              type="button"
+              on:click={() => handleRemoveParent(index)}
+              class="mt-2 text-danger-600 hover:text-danger-700 text-xs font-medium"
+            >
+              {$_('checkin.removeParent')}
+            </button>
           </div>
         {/each}
       </div>
@@ -320,15 +313,13 @@
           <div class="border border-neutral-200 rounded p-3 bg-neutral-50">
             <div class="flex justify-between items-center mb-2">
               <span class="text-sm font-semibold text-neutral-700">{$_('checkin.childNumber', { values: { number: index + 1 } })}</span>
-              {#if children.length > 1}
-                <button
-                  type="button"
-                  on:click={() => handleRemoveChild(index)}
-                  class="text-danger-600 hover:text-danger-700 text-xs font-medium"
-                >
-                  {$_('checkin.removeChild')}
-                </button>
-              {/if}
+              <button
+                type="button"
+                on:click={() => handleRemoveChild(index)}
+                class="text-danger-600 hover:text-danger-700 text-xs font-medium"
+              >
+                {$_('checkin.removeChild')}
+              </button>
             </div>
 
             <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
