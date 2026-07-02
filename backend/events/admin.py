@@ -5,7 +5,13 @@ from .models import Event, EventTicket, Session, SessionTicket, Ticket
 
 @admin.register(Event)
 class EventAdmin(admin.ModelAdmin):
-    list_display = ("name", "start_date", "end_date")
+    list_display = (
+        "name",
+        "start_date",
+        "end_date",
+        "parent_checkin_policy_default",
+    )
+    list_filter = ("parent_checkin_policy_default",)
     search_fields = ("name",)
     actions = ("generate_report",)
 
@@ -26,9 +32,21 @@ class EventAdmin(admin.ModelAdmin):
 
 @admin.register(Session)
 class SessionAdmin(admin.ModelAdmin):
-    list_display = ("name", "event", "start_time", "end_time", "is_active")
-    list_filter = ("is_active", "event")
+    list_display = (
+        "name",
+        "event",
+        "start_time",
+        "end_time",
+        "is_active",
+        "parent_checkin_policy",
+        "effective_parent_checkin_policy",
+    )
+    list_filter = ("is_active", "event", "parent_checkin_policy")
     search_fields = ("name", "event__name")
+
+    @admin.display(description="Effective parent policy")
+    def effective_parent_checkin_policy(self, obj):
+        return obj.effective_parent_checkin_policy
 
 
 @admin.register(Ticket)

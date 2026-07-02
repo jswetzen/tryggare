@@ -11,6 +11,7 @@ from rest_framework.response import Response
 from families.models import Attendee, Parent
 from events.models import Session
 
+from .eligibility import parent_checkin_gate_error
 from .models import AuditLog, CheckInRecord
 from .serializers import (
     AuditLogSerializer,
@@ -70,11 +71,12 @@ class CheckInRecordViewSet(viewsets.ModelViewSet):
         is_parent = parent is not None
 
         if is_parent:
-            # Parent check-in: require a ticket, no multi-session blocking
-            if not attendee.has_ticket:
+            # Parent check-in: gated by the session's parent_checkin_policy,
+            # not a hardcoded ticket requirement. No multi-session blocking.
+            gate_error = parent_checkin_gate_error(attendee, session)
+            if gate_error:
                 return Response(
-                    {"error": _("Parent does not have a ticket for this event")},
-                    status=status.HTTP_400_BAD_REQUEST,
+                    {"error": gate_error}, status=status.HTTP_400_BAD_REQUEST
                 )
             existing = CheckInRecord.objects.filter(
                 attendee=attendee, session=session, check_out_time__isnull=True

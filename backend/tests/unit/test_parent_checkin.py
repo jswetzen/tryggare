@@ -77,7 +77,11 @@ def _make_event() -> Event:
     return Event.objects.create(name="Test Event", start_date=today, end_date=today)
 
 
-def _make_session(event: Event, name: str = "Session A") -> Session:
+def _make_session(
+    event: Event,
+    name: str = "Session A",
+    parent_checkin_policy: str = Session.ParentCheckinPolicy.TICKET_REQUIRED,
+) -> Session:
     now = timezone.now()
     return Session.objects.create(
         name=name,
@@ -86,6 +90,10 @@ def _make_session(event: Event, name: str = "Session A") -> Session:
         end_time=now + timedelta(hours=2),
         is_active=True,
         requires_ticket=False,
+        # Defaults to ticket_required so existing ticket-gate tests below
+        # keep testing what their names say regardless of the system-wide
+        # default (Event.parent_checkin_policy_default is "open").
+        parent_checkin_policy=parent_checkin_policy,
     )
 
 
@@ -385,3 +393,93 @@ class TestQrInfoAttendeeType:
         assert resp.data["child"]["is_parent"] is True
         assert resp.data["child"]["allergies"] == ""
         assert resp.data["child"]["birthdate"] is None
+
+
+@pytest.mark.django_db
+class TestParentCheckinPolicy:
+    """Session.effective_parent_checkin_policy gates parent check-in — see
+    checkins/eligibility.py parent_checkin_gate_error, the single source of
+    truth used by both the check_in view and CheckInRecordSerializer."""
+
+    def _check_in(self, client, parent, session):
+        return client.post(
+            CHECKIN_URL,
+            {"child": str(parent.id), "session": str(session.id)},
+            format="json",
+        )
+
+    def test_open_policy_allows_checkin_without_ticket(self):
+        staff = _make_staff("pcp_staff_1")
+        family = _make_family("Pcp1")
+        parent = _make_parent(family)
+        event = _make_event()
+        session = _make_session(
+            event, parent_checkin_policy=Session.ParentCheckinPolicy.OPEN
+        )
+        # Intentionally no ticket.
+
+        resp = self._check_in(_authed_client(staff), parent, session)
+        assert resp.status_code == 201, resp.data
+
+    def test_disabled_policy_rejects_even_with_ticket(self):
+        staff = _make_staff("pcp_staff_2")
+        family = _make_family("Pcp2")
+        parent = _make_parent(family)
+        event = _make_event()
+        session = _make_session(
+            event, parent_checkin_policy=Session.ParentCheckinPolicy.DISABLED
+        )
+        SessionTicket.objects.create(attendee=parent, session=session)
+
+        resp = self._check_in(_authed_client(staff), parent, session)
+        assert resp.status_code == 400
+        assert "not enabled" in resp.data["error"].lower()
+        assert not CheckInRecord.objects.filter(attendee_id=parent.id).exists()
+
+    def test_ticket_required_policy_rejects_without_ticket(self):
+        staff = _make_staff("pcp_staff_3")
+        family = _make_family("Pcp3")
+        parent = _make_parent(family)
+        event = _make_event()
+        session = _make_session(
+            event, parent_checkin_policy=Session.ParentCheckinPolicy.TICKET_REQUIRED
+        )
+
+        resp = self._check_in(_authed_client(staff), parent, session)
+        assert resp.status_code == 400
+        assert "ticket" in resp.data["error"].lower()
+
+    def test_blank_session_policy_inherits_event_default(self):
+        staff = _make_staff("pcp_staff_4")
+        family = _make_family("Pcp4")
+        parent = _make_parent(family)
+        event = _make_event()
+        event.parent_checkin_policy_default = Session.ParentCheckinPolicy.DISABLED
+        event.save(update_fields=["parent_checkin_policy_default"])
+        # parent_checkin_policy left blank ("") — must inherit the event default.
+        session = _make_session(event, parent_checkin_policy="")
+
+        assert (
+            session.effective_parent_checkin_policy
+            == Session.ParentCheckinPolicy.DISABLED
+        )
+        resp = self._check_in(_authed_client(staff), parent, session)
+        assert resp.status_code == 400
+        assert "not enabled" in resp.data["error"].lower()
+
+    def test_session_policy_overrides_event_default(self):
+        staff = _make_staff("pcp_staff_5")
+        family = _make_family("Pcp5")
+        parent = _make_parent(family)
+        event = _make_event()
+        event.parent_checkin_policy_default = Session.ParentCheckinPolicy.DISABLED
+        event.save(update_fields=["parent_checkin_policy_default"])
+        session = _make_session(
+            event, parent_checkin_policy=Session.ParentCheckinPolicy.OPEN
+        )
+
+        assert (
+            session.effective_parent_checkin_policy == Session.ParentCheckinPolicy.OPEN
+        )
+        resp = self._check_in(_authed_client(staff), parent, session)
+        assert resp.status_code == 201, resp.data

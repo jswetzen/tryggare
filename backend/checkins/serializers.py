@@ -4,6 +4,7 @@ from rest_framework import serializers
 
 from families.models import Parent
 from families.serializers import ParentSerializer
+from .eligibility import parent_checkin_gate_error
 from .models import AuditLog, CheckInRecord
 
 
@@ -60,11 +61,20 @@ class CheckInRecordSerializer(serializers.ModelSerializer):
         attendee = data.get("attendee")
         session = data.get("session")
 
-        # Parents are check-in only — skip multi-session validation.
         # Django MTI does not downcast, so isinstance(attendee, Parent) is
         # always False here (the PK field resolves to a base Attendee); query
         # the Parent table directly instead.
-        if attendee and Parent.objects.filter(pk=attendee.pk).exists():
+        parent = Parent.objects.filter(pk=attendee.pk).first() if attendee else None
+
+        if parent is not None:
+            # Parents are check-in only — skip multi-session validation, but
+            # are still gated by the session's parent_checkin_policy (same
+            # gate the check_in view enforces, kept here too so the generic
+            # CheckInRecord create/update endpoint can't bypass it).
+            if session:
+                gate_error = parent_checkin_gate_error(parent, session)
+                if gate_error:
+                    raise serializers.ValidationError(gate_error)
             return data
 
         if attendee and session:
