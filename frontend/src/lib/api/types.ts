@@ -161,6 +161,7 @@ export interface CheckInMessage {
     check_in_time: string;
     qr_code: string;
     supervised: boolean;
+    is_parent?: boolean;
     allergies?: string;
     notes?: string;
     parents?: Parent[];

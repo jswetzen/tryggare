@@ -60,6 +60,8 @@
     if (message.type === 'child_checked_in') {
       // Skip if doesn't match current session filter
       if (!matchesSession) return;
+      // Parents are check-in only — never surface them as checkout candidates.
+      if (message.data?.is_parent) return;
 
       // Add new check-in to list
       const data = message.data;
@@ -185,9 +187,15 @@
     loadActiveCheckIns();
   }
 
+  // Parents can check in too (one-way, never checked out) — they aren't
+  // checkout candidates, so keep their active check-in records out of this page.
+  function isParentCheckIn(record: CheckInRecord): boolean {
+    return families.some((f) => f.parents.some((p) => p.id === record.child));
+  }
+
   function filterCheckIns() {
     if (!searchQuery.trim()) {
-      filteredCheckIns = activeCheckIns;
+      filteredCheckIns = activeCheckIns.filter((record) => !isParentCheckIn(record));
       return;
     }
 
@@ -199,6 +207,7 @@
     // pickup usually happens per family.
     const matchingFamilyIds = new Set<string>();
     for (const record of activeCheckIns) {
+      if (isParentCheckIn(record)) continue;
       const childName = record.child_name?.toLowerCase() || '';
       if (childName.includes(query)) {
         const family = families.find((f) => f.children.some((c) => c.id === record.child));
@@ -209,6 +218,7 @@
     }
 
     filteredCheckIns = activeCheckIns.filter((record) => {
+      if (isParentCheckIn(record)) return false;
       const childName = record.child_name?.toLowerCase() || '';
       if (childName.includes(query)) return true;
       const family = families.find((f) => f.children.some((c) => c.id === record.child));
