@@ -239,7 +239,7 @@ def label_page_view(request, job_uuid):
     """
     job = get_object_or_404(
         PrintJob.objects.select_related(
-            "checkin__child", "checkin__session", "checkin__qr_code"
+            "checkin__attendee", "checkin__session", "checkin__qr_code"
         ),
         pk=job_uuid,
         checkin__check_out_time__isnull=True,

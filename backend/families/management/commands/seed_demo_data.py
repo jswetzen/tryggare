@@ -236,7 +236,7 @@ class Command(BaseCommand):
 
         # --- Tickets (all children get a Morning Session ticket) ---
         for child in children.values():
-            SessionTicket.objects.get_or_create(child=child, session=morning)
+            SessionTicket.objects.get_or_create(attendee=child, session=morning)
 
         # --- Check-ins for Morning Session ---
         # (first_name, last_name, staff_user, hour, minute)
@@ -256,7 +256,7 @@ class Command(BaseCommand):
         for first_name, last_name, staff, hour, minute in checkin_data:
             child = children[(first_name, last_name)]
             record, created = CheckInRecord.objects.get_or_create(
-                child=child,
+                attendee=child,
                 session=morning,
                 defaults={"check_in_staff": staff},
             )

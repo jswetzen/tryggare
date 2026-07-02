@@ -215,7 +215,11 @@ def _process_booking(
                     "booking_key": booking_key,
                     "action": "family_skipped",
                     "details": f"Family {family.id} already exists for booking {booking_id}"
-                    + (f" ({updated} parent(s) contact info updated)" if updated else ""),
+                    + (
+                        f" ({updated} parent(s) contact info updated)"
+                        if updated
+                        else ""
+                    ),
                 }
             )
 
@@ -252,9 +256,10 @@ def _update_parent_contact(
     """
     Update phone/email on existing Parent records for a family that already exists.
 
-    Matches each contact dict to a Parent by name (the name set at creation time).
-    Only overwrites a field if: the import provides a non-empty value, the field
-    is not locked (phone_locked / email_locked), and the value has actually changed.
+    Matches each contact dict to a Parent by first_name/last_name (set at
+    creation time). Only overwrites a field if: the import provides a
+    non-empty value, the field is not locked (phone_locked / email_locked),
+    and the value has actually changed.
 
     Returns the number of Parent records that were updated.
     """
@@ -263,8 +268,7 @@ def _update_parent_contact(
     for contact_data in contacts:
         first = contact_data.get("first_name", "")
         last = contact_data.get("last_name", "")
-        name = f"{first} {last}".strip() or first or last or "Unknown"
-        parent = family.parents.filter(name=name).first()
+        parent = family.parents.filter(first_name=first, last_name=last).first()
         if parent is None:
             continue
 
@@ -534,7 +538,7 @@ def _process_child(
     # Create ticket
     if mapping == "full_event":
         EventTicket.objects.get_or_create(
-            child=child,
+            attendee=child,
             event=event,
             defaults={"external_ticket_code": eticket_code},
         )
@@ -549,7 +553,7 @@ def _process_child(
     elif mapping in session_cache:
         session = session_cache[mapping]
         SessionTicket.objects.get_or_create(
-            child=child,
+            attendee=child,
             session=session,
             defaults={"external_ticket_code": eticket_code},
         )
