@@ -136,7 +136,9 @@ class Attendee(models.Model):
         null=True,
         blank=True,
         verbose_name=_("Anonymized At"),
-        help_text=_("Set when GDPR retention anonymization scrubbed this child's PII."),
+        help_text=_(
+            "Set when GDPR retention anonymization scrubbed this attendee's PII."
+        ),
     )
     family = models.ForeignKey(
         Family,
@@ -268,9 +270,42 @@ class Parent(Attendee):
 
 
 class Child(Attendee):
+    class HealthConsentStatus(models.TextChoices):
+        NOT_APPLICABLE = "not_applicable", _("No health information indicated")
+        GRANTED = "granted", _("Guardian consented to recording details")
+        DECLINED = "declined", _("Guardian declined to have details recorded")
+        WITHDRAWN = "withdrawn", _("Guardian withdrew previously granted consent")
+        NEEDS_RECONFIRMATION = (
+            "needs_reconfirmation",
+            _("Consent needs to be reconfirmed"),
+        )
+
     birthdate = models.DateField(null=True, blank=True, verbose_name=_("Birthdate"))
     allergies = models.TextField(null=True, blank=True, verbose_name=_("Allergies"))
     notes = models.TextField(null=True, blank=True, verbose_name=_("Notes"))
+    health_consent_status = models.CharField(
+        max_length=32,
+        choices=HealthConsentStatus.choices,
+        default=HealthConsentStatus.NOT_APPLICABLE,
+        verbose_name=_("Health Data Consent Status"),
+    )
+    health_consent_by = models.ForeignKey(
+        "Parent",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="health_consents_given",
+        verbose_name=_("Health Consent Given By"),
+    )
+    health_consent_at = models.DateTimeField(
+        null=True, blank=True, verbose_name=_("Health Consent Recorded At")
+    )
+    health_consent_notice_version = models.CharField(
+        max_length=32,
+        null=True,
+        blank=True,
+        verbose_name=_("Health Consent Notice Version"),
+    )
 
     class Meta:
         db_table = "children"
@@ -279,3 +314,22 @@ class Child(Attendee):
 
     def __str__(self) -> str:
         return f"{self.first_name} {self.last_name}"
+
+    def save(self, *args, **kwargs):
+        """
+        Invariant: health text may only be present alongside an active
+        consent decision (granted) or while quarantined pending one
+        (needs_reconfirmation). Any other status — none, declined,
+        withdrawn — must never carry text; catch violations from paths that
+        bypass the consent-capture UI (bulk imports, seed scripts, direct
+        ORM/admin edits) by quarantining instead of trusting the status
+        that was set.
+        """
+        has_text = bool(self.allergies or self.notes)
+        live_statuses = (
+            self.HealthConsentStatus.GRANTED,
+            self.HealthConsentStatus.NEEDS_RECONFIRMATION,
+        )
+        if has_text and self.health_consent_status not in live_statuses:
+            self.health_consent_status = self.HealthConsentStatus.NEEDS_RECONFIRMATION
+        super().save(*args, **kwargs)

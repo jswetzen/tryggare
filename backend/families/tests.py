@@ -1,5 +1,6 @@
 from datetime import date
 
+from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.test import TestCase
 from rest_framework.test import APIClient
@@ -435,3 +436,151 @@ class TicketIntegrationTests(TestCase):
                 self.assertIn("ticket_details", child_data)
                 self.assertIn("is_checked_in", child_data)
                 self.assertIn("active_checkin_id", child_data)
+
+
+class HealthConsentModelTests(TestCase):
+    """save() invariant: health text may only coexist with granted/needs_reconfirmation."""
+
+    def setUp(self):
+        self.family = Family.objects.create(last_name="Nguyen")
+
+    def test_health_text_without_explicit_status_flags_reconfirmation(self):
+        child = Child.objects.create(
+            first_name="Kim",
+            last_name="Nguyen",
+            allergies="Peanuts",
+            family=self.family,
+        )
+        self.assertEqual(
+            child.health_consent_status, Child.HealthConsentStatus.NEEDS_RECONFIRMATION
+        )
+
+    def test_no_health_text_defaults_to_not_applicable(self):
+        child = Child.objects.create(
+            first_name="Lee", last_name="Nguyen", family=self.family
+        )
+        self.assertEqual(
+            child.health_consent_status, Child.HealthConsentStatus.NOT_APPLICABLE
+        )
+
+    def test_explicit_granted_status_is_not_overridden(self):
+        child = Child.objects.create(
+            first_name="Sam",
+            last_name="Nguyen",
+            allergies="Peanuts",
+            health_consent_status=Child.HealthConsentStatus.GRANTED,
+            family=self.family,
+        )
+        self.assertEqual(child.health_consent_status, Child.HealthConsentStatus.GRANTED)
+
+    def test_declined_status_with_text_is_quarantined(self):
+        """A bypass path writing text onto a declined/withdrawn row must not
+        silently violate "declined/withdrawn means no text" — this is the
+        gap the old two-field design left open (it only guarded the default
+        status)."""
+        child = Child.objects.create(
+            first_name="Ana",
+            last_name="Nguyen",
+            allergies="Peanuts",
+            health_consent_status=Child.HealthConsentStatus.DECLINED,
+            family=self.family,
+        )
+        self.assertEqual(
+            child.health_consent_status, Child.HealthConsentStatus.NEEDS_RECONFIRMATION
+        )
+
+    def test_withdrawn_status_with_text_is_quarantined(self):
+        child = Child.objects.create(
+            first_name="Leo",
+            last_name="Nguyen",
+            notes="Needs inhaler",
+            health_consent_status=Child.HealthConsentStatus.WITHDRAWN,
+            family=self.family,
+        )
+        self.assertEqual(
+            child.health_consent_status, Child.HealthConsentStatus.NEEDS_RECONFIRMATION
+        )
+
+
+class HealthConsentCreateAPITests(TestCase):
+    """POST /api/families/ consent handling via FamilyCreateSerializer."""
+
+    def setUp(self):
+        self.user = User.objects.create_user(username="deskstaff", password="pw")
+        self.client = APIClient()
+        self.client.force_authenticate(user=self.user)
+
+    def _payload(self, child_extra):
+        return {
+            "last_name": "Alvarez",
+            "parents": [
+                {
+                    "first_name": "Pat",
+                    "last_name": "Alvarez",
+                    "phone": "555-0100",
+                    "relationship_type": "MOM",
+                }
+            ],
+            "children": [
+                {
+                    "first_name": "Robin",
+                    "last_name": "Alvarez",
+                    "birthdate": "2019-03-01",
+                    **child_extra,
+                }
+            ],
+        }
+
+    def test_granted_consent_stores_text_and_stamps_metadata(self):
+        response = self.client.post(
+            "/api/families/",
+            self._payload(
+                {
+                    "allergies": "Peanuts",
+                    "health_consent_status": "granted",
+                }
+            ),
+            format="json",
+        )
+        self.assertEqual(response.status_code, 201)
+        child = Child.objects.get(family_id=response.data["id"])
+        parent = Parent.objects.get(family_id=response.data["id"])
+
+        self.assertEqual(child.allergies, "Peanuts")
+        self.assertEqual(child.health_consent_status, Child.HealthConsentStatus.GRANTED)
+        self.assertEqual(child.health_consent_by, parent)
+        self.assertIsNotNone(child.health_consent_at)
+        self.assertEqual(
+            child.health_consent_notice_version, settings.HEALTH_CONSENT_NOTICE_VERSION
+        )
+
+    def test_declined_consent_blanks_text_even_if_sent(self):
+        response = self.client.post(
+            "/api/families/",
+            self._payload(
+                {
+                    "allergies": "Peanuts",
+                    "notes": "Cannot have nuts in any form",
+                    "health_consent_status": "declined",
+                }
+            ),
+            format="json",
+        )
+        self.assertEqual(response.status_code, 201)
+        child = Child.objects.get(family_id=response.data["id"])
+
+        self.assertIsNone(child.allergies)
+        self.assertIsNone(child.notes)
+        self.assertEqual(
+            child.health_consent_status, Child.HealthConsentStatus.DECLINED
+        )
+
+    def test_no_health_info_indicated_leaves_status_not_applicable(self):
+        response = self.client.post("/api/families/", self._payload({}), format="json")
+        self.assertEqual(response.status_code, 201)
+        child = Child.objects.get(family_id=response.data["id"])
+
+        self.assertEqual(
+            child.health_consent_status, Child.HealthConsentStatus.NOT_APPLICABLE
+        )
+        self.assertIsNone(child.health_consent_by)

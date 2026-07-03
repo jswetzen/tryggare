@@ -187,6 +187,7 @@ export const checkinApi = {
       birthdate: string;
       allergies?: string;
       notes?: string;
+      health_consent_status?: 'not_applicable' | 'granted' | 'declined';
     }>;
   }) => apiClient.post<FamilyApiResponse>('/families/', data),
 };

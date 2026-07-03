@@ -61,14 +61,15 @@ def qr_info(request, code):
     checkin = qr_code.checkin_record
     attendee = checkin.attendee
 
-    # Get parent information
+    # Get parent information. Name + phone are sufficient for in-person
+    # pickup matching; email is not needed here and its exposure on an
+    # unauthenticated endpoint was a documented DPIA risk (R7).
     parents = attendee.family.parents.all()
     parent_info = [
         {
             "id": str(p.id),
             "name": p.name,
             "phone": p.phone or "",
-            "email": p.email or "",
             "relationship_type": p.relationship_type,
         }
         for p in parents

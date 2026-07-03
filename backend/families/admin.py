@@ -89,6 +89,12 @@ class ParentAdmin(admin.ModelAdmin):
 
 @admin.register(Child)
 class ChildAdmin(admin.ModelAdmin):
-    list_display = ("first_name", "last_name", "family", "birthdate")
+    list_display = (
+        "first_name",
+        "last_name",
+        "family",
+        "birthdate",
+        "health_consent_status",
+    )
     search_fields = ("first_name", "last_name")
-    list_filter = ("last_participation_date", "anonymized_at")
+    list_filter = ("last_participation_date", "anonymized_at", "health_consent_status")

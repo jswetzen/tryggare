@@ -6,7 +6,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('checkins', '0005_auditlog_user_nullable'),
+        ('checkins', '0006_repoint_checkin_to_attendee'),
     ]
 
     operations = [

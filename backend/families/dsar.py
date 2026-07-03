@@ -45,15 +45,15 @@ def build_family_export(family) -> dict:
     child_ids = [str(c.id) for c in family.children.all()]
 
     checkins = (
-        CheckInRecord.objects.filter(child__family=family)
-        .select_related("child", "session", "check_in_staff", "check_out_staff")
+        CheckInRecord.objects.filter(attendee__family=family)
+        .select_related("attendee", "session", "check_in_staff", "check_out_staff")
         .order_by("check_in_time")
     )
     data["checkin_history"] = [
         {
             "id": str(r.id),
-            "child_id": str(r.child_id),
-            "child_name": f"{r.child.first_name} {r.child.last_name}",
+            "child_id": str(r.attendee_id),
+            "child_name": f"{r.attendee.first_name} {r.attendee.last_name}",
             "session": r.session.name,
             "check_in_time": r.check_in_time.isoformat() if r.check_in_time else None,
             "check_out_time": r.check_out_time.isoformat()
@@ -162,10 +162,11 @@ def scrub_family(family, *, when=None) -> None:
     family.save(update_fields=["last_name", "anonymized_at"])
 
     for parent in family.parents.all():
-        parent.name = REDACTED
+        parent.first_name = REDACTED
+        parent.last_name = REDACTED
         parent.phone = None
         parent.email = None
-        parent.save(update_fields=["name", "phone", "email"])
+        parent.save(update_fields=["first_name", "last_name", "phone", "email"])
 
     for child in family.children.all():
         child.first_name = REDACTED
@@ -186,7 +187,7 @@ def scrub_family(family, *, when=None) -> None:
         )
 
     CheckInRecord.objects.filter(
-        child__family=family, picked_up_by__isnull=False
+        attendee__family=family, picked_up_by__isnull=False
     ).update(picked_up_by=REDACTED)
 
 

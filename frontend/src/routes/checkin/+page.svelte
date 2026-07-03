@@ -874,6 +874,7 @@
       birthdate: string;
       allergies: string;
       notes: string;
+      health_consent_status: 'not_applicable' | 'granted' | 'declined';
     }>;
     ticketType: TicketType;
     parents: Array<{
@@ -910,6 +911,7 @@
           birthdate: c.birthdate.trim(),
           allergies: c.allergies.trim() || undefined,
           notes: c.notes.trim() || undefined,
+          health_consent_status: c.health_consent_status,
         })),
       });
 

@@ -23,7 +23,8 @@ def _make_family(last_name, *, inactive_days=None):
         family.last_participation_date = timezone.now() - timedelta(days=inactive_days)
         family.save()
     Parent.objects.create(
-        name="Jane Doe",
+        first_name="Jane",
+        last_name="Doe",
         phone="555-1234",
         email="jane@example.com",
         relationship_type="Mom",
@@ -94,7 +95,7 @@ class AnonymizeExpiredDataTests(TestCase):
     def test_never_anonymizes_checked_in_child(self):
         family, child = _make_family("Active", inactive_days=400)
         CheckInRecord.objects.create(
-            child=child, session=self.session, check_in_staff=self.staff
+            attendee=child, session=self.session, check_in_staff=self.staff
         )  # no check_out_time => active
         call_command("anonymize_expired_data", stdout=StringIO())
         child.refresh_from_db()
@@ -201,7 +202,7 @@ class AuditAccessLoggingTests(TestCase):
             end_time="2025-01-01T12:00:00Z",
         )
         record = CheckInRecord.objects.create(
-            child=child, session=session, check_in_staff=self.staff
+            attendee=child, session=session, check_in_staff=self.staff
         )
         qr_code = allocate_code_for_checkin(record)
 

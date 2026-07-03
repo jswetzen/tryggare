@@ -72,7 +72,7 @@ class Command(BaseCommand):
         # exclude would also drop families whose children simply have no check-in
         # records at all (their NULL check_out_time matching isnull=True).
         active_checkin = CheckInRecord.objects.filter(
-            child__family=OuterRef("pk"), check_out_time__isnull=True
+            attendee__family=OuterRef("pk"), check_out_time__isnull=True
         )
         candidates = Family.objects.filter(
             last_participation_date__lt=cutoff,

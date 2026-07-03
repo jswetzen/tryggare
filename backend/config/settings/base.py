@@ -197,6 +197,12 @@ DATA_CONTROLLER_CONTACT_EMAIL = os.getenv("DATA_CONTROLLER_CONTACT_EMAIL", "")
 DATA_CONTROLLER_URL = os.getenv("DATA_CONTROLLER_URL", "")
 PRIVACY_POLICY_URL = os.getenv("PRIVACY_POLICY_URL", "")
 
+# Version tag for the health-data consent notice shown at registration
+# (Art. 9(2)(a)). Bump this whenever the notice text changes — existing
+# consent records keep the version they were granted under (grandfathered);
+# only new registrations see the new text. See Child.health_consent_notice_version.
+HEALTH_CONSENT_NOTICE_VERSION = os.getenv("HEALTH_CONSENT_NOTICE_VERSION", "v1-2026-07")
+
 CHANNEL_LAYERS = {
     "default": {
         "BACKEND": "channels_redis.core.RedisChannelLayer",
