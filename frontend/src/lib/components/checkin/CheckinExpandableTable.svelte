@@ -567,7 +567,7 @@
           data-testid={`family-card-${family.id}`}
         >
           <td class="px-4 py-3">
-            <div class="flex items-center gap-2">
+            <div class="flex items-center gap-2" data-testid={`family-toggle-button-${family.id}`}>
               <!-- Chevron -->
               <div class="flex-shrink-0">
                 {#if expanded}

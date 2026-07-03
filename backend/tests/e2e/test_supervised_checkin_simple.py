@@ -96,15 +96,21 @@ class TestSupervisedCheckInSimple(E2ETestBase, TestDataMixin):
         self.driver.get(checkout_url)
         time.sleep(3)
 
+        # Child names live inside the (collapsed) family row — expand to reveal.
+        self.expand_all_visible_family_rows()
+
         # Look for the child name and supervised badge
         page_source = self.driver.page_source
         assert self.test_child.first_name in page_source, (
             f"Child '{self.test_child.first_name}' should appear on checkout page"
         )
 
-        # Check for supervised indicator (might be "Supervised", "Guardian", or similar)
-        has_supervised_indicator = (
-            "Supervised" in page_source or "Guardian" in page_source
+        # Check for supervised indicator. The app defaults to Swedish
+        # ("Övervakad") for a fresh session with no saved language preference,
+        # so accept either language's translation.
+        has_supervised_indicator = any(
+            text in page_source
+            for text in ["Supervised", "Guardian", "Övervakad", "Vårdnadshavare"]
         )
         assert has_supervised_indicator, (
             "Supervised badge should be visible on checkout page"
@@ -154,6 +160,9 @@ class TestSupervisedCheckInSimple(E2ETestBase, TestDataMixin):
         self.driver.get(checkout_url)
         time.sleep(3)
 
+        # Child names live inside the (collapsed) family row — expand to reveal.
+        self.expand_all_visible_family_rows()
+
         page_source = self.driver.page_source
 
         # Both children should be visible
@@ -164,8 +173,12 @@ class TestSupervisedCheckInSimple(E2ETestBase, TestDataMixin):
             "Standard child should be visible"
         )
 
-        # Count supervised badges - should have at least one
-        supervised_count = page_source.count("Supervised")
+        # Count supervised badges - should have at least one. The app defaults
+        # to Swedish ("Övervakad") for a fresh session with no saved language
+        # preference, so count either language's translation.
+        supervised_count = page_source.count("Supervised") + page_source.count(
+            "Övervakad"
+        )
         assert supervised_count >= 1, "At least one supervised badge should be present"
 
         print("   ✓ Both children visible on checkout page")

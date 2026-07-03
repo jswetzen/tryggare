@@ -6,6 +6,7 @@ including WebDriver setup, common actions, and test data creation.
 """
 
 import os
+import time
 from typing import Optional, Tuple
 from selenium import webdriver
 from selenium.webdriver.common.by import By
@@ -184,6 +185,62 @@ class E2ETestBase:
     def wait_for_url_contains(self, text: str, timeout: int = 10):
         """Wait for URL to contain specific text."""
         WebDriverWait(self.driver, timeout).until(EC.url_contains(text))
+
+    def wait_for_visible_element(
+        self, by: By, value: str, timeout: int = 10
+    ) -> WebElement:
+        """
+        Wait until at least one element matching the locator is visible, and
+        return the first visible match.
+
+        The check-in/check-out family lists render a mobile-card layout and a
+        desktop-table layout at the same time and use CSS breakpoints
+        (Tailwind `md:hidden` / `md:block`) to show only one of them — both
+        layouts can share the same data-testid. `wait_for_element` (backed by
+        `presence_of_element_located`) returns whichever matching element
+        appears first in DOM order regardless of visibility, which — at this
+        suite's 1920x1080 window size — is usually the mobile element that's
+        hidden via `display: none`. Clicking that element raises
+        ElementNotInteractableException even though a second, visible match
+        exists. This waits for an actually-visible match instead.
+        """
+
+        def _first_visible(driver):
+            for element in driver.find_elements(by, value):
+                if element.is_displayed():
+                    return element
+            return False
+
+        return WebDriverWait(self.driver, timeout).until(_first_visible)
+
+    def expand_all_visible_family_rows(self, timeout: int = 10) -> None:
+        """
+        Click every visible family-row expand toggle so child rows enter the DOM.
+
+        The check-in/check-out family lists are collapsed by default — only the
+        family (last) name, a count, and any status badge are shown until a row
+        is expanded. Assertions on individual child names require expanding
+        first. Only visible triggers are clicked since (as in
+        `wait_for_visible_element`) the mobile and desktop layouts both render
+        a toggle for the same family; clicking both would double-toggle a
+        family back to collapsed.
+        """
+        deadline = time.time() + timeout
+        triggers: list[WebElement] = []
+        while time.time() < deadline:
+            triggers = self.driver.find_elements(
+                By.CSS_SELECTOR, "[role='button'].cursor-pointer"
+            )
+            if any(t.is_displayed() for t in triggers):
+                break
+            time.sleep(0.5)
+        for trigger in triggers:
+            try:
+                if trigger.is_displayed():
+                    trigger.click()
+            except Exception:
+                pass
+        time.sleep(1)
 
     def save_screenshot(self, name: str):
         """Save a screenshot with given name."""
