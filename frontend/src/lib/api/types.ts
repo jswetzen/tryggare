@@ -161,6 +161,7 @@ export interface CheckInMessage {
     check_in_time: string;
     qr_code: string;
     supervised: boolean;
+    is_parent?: boolean;
     allergies?: string;
     notes?: string;
     parents?: Parent[];
@@ -178,6 +179,7 @@ export interface QRInfoResponse {
     birthdate?: string;
     allergies?: string;
     notes?: string;
+    is_parent: boolean;
   };
   current_session: {
     id: string;

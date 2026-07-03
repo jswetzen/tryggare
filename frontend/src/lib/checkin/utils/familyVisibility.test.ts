@@ -112,6 +112,36 @@ describe('shouldShowFamily', () => {
 
     expect(shouldShowFamily(emptyFamily, [])).toBe(false);
   });
+
+  it('should show an all-adult family (no children) with an unchecked parent', () => {
+    const adultOnlyFamily: Family = {
+      id: '6',
+      name: 'AdultsOnly',
+      last_name: 'AdultsOnly',
+      display_name: 'AdultsOnly Family',
+      children: [],
+      parents: [
+        { id: 'p1', name: 'Alex Adult', first_name: 'Alex', last_name: 'Adult', relationship_type: 'OTHER', ticket: 'event', ticket_type: 'event', checkedIn: false, family: '6', is_parent: true },
+      ],
+    };
+
+    expect(shouldShowFamily(adultOnlyFamily, [])).toBe(true);
+  });
+
+  it('should hide an all-adult family once its only parent is checked in, with no active undo', () => {
+    const adultOnlyFamily: Family = {
+      id: '6',
+      name: 'AdultsOnly',
+      last_name: 'AdultsOnly',
+      display_name: 'AdultsOnly Family',
+      children: [],
+      parents: [
+        { id: 'p1', name: 'Alex Adult', first_name: 'Alex', last_name: 'Adult', relationship_type: 'OTHER', ticket: 'event', ticket_type: 'event', checkedIn: true, family: '6', is_parent: true },
+      ],
+    };
+
+    expect(shouldShowFamily(adultOnlyFamily, [])).toBe(false);
+  });
 });
 
 describe('sortFamiliesByStatus', () => {

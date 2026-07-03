@@ -58,10 +58,10 @@ class Command(BaseCommand):
             },
         )
 
-        SessionTicket.objects.get_or_create(child=child, session=session)
+        SessionTicket.objects.get_or_create(attendee=child, session=session)
 
         checkin, _ = CheckInRecord.objects.get_or_create(
-            child=child,
+            attendee=child,
             session=session,
             check_in_staff=admin_user,
             defaults={"picked_up_by": "Alex"},

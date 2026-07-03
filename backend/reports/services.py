@@ -24,7 +24,7 @@ from collections import defaultdict
 
 from checkins.models import CheckInRecord
 from events.models import EventTicket, SessionTicket
-from families.models import Child, Family
+from families.models import Child
 
 SCHEMA_VERSION = 1
 
@@ -95,21 +95,31 @@ def build_event_report_data(event) -> dict:
     """Compute the full snapshot for ``event`` from live data (no writes)."""
     sessions = list(event.sessions.all().order_by("start_time"))
 
+    # Parents can also check in and hold tickets now (see Attendee MTI base
+    # model), but this report is child-only by definition (demographics below
+    # need birthdate/allergies, which only Child has) — restrict every
+    # query to Child attendees so parents don't silently inflate the counts.
     records = list(
-        CheckInRecord.objects.filter(session__event=event).select_related(
-            "child", "check_in_staff"
-        )
+        CheckInRecord.objects.filter(
+            session__event=event, attendee_id__in=Child.objects.all()
+        ).select_related("attendee", "check_in_staff")
     )
 
-    event_child_ids = {r.child_id for r in records}
+    event_child_ids = {r.attendee_id for r in records}
     unique_children = len(event_child_ids)
     total_checkins = len(records)
 
     # --- Ticketing / no-shows ---
-    event_passes_issued = EventTicket.objects.filter(event=event).count()
-    session_tickets_issued = SessionTicket.objects.filter(session__event=event).count()
+    event_passes_issued = EventTicket.objects.filter(
+        event=event, attendee_id__in=Child.objects.all()
+    ).count()
+    session_tickets_issued = SessionTicket.objects.filter(
+        session__event=event, attendee_id__in=Child.objects.all()
+    ).count()
     event_pass_child_ids = set(
-        EventTicket.objects.filter(event=event).values_list("child_id", flat=True)
+        EventTicket.objects.filter(
+            event=event, attendee_id__in=Child.objects.all()
+        ).values_list("attendee_id", flat=True)
     )
     event_pass_no_shows = len(event_pass_child_ids - event_child_ids)
 
@@ -128,10 +138,11 @@ def build_event_report_data(event) -> dict:
     returning_families = 0
     if participating_family_ids:
         returning_families = (
-            Family.objects.filter(id__in=participating_family_ids)
-            .filter(
-                children__checkin_records__session__event__start_date__lt=event.start_date
+            Child.objects.filter(
+                family_id__in=participating_family_ids,
+                checkin_records__session__event__start_date__lt=event.start_date,
             )
+            .values_list("family_id", flat=True)
             .distinct()
             .count()
         )
@@ -154,14 +165,14 @@ def build_event_report_data(event) -> dict:
 
     session_ticket_child_ids = defaultdict(set)
     for session_id, child_id in SessionTicket.objects.filter(
-        session__event=event
-    ).values_list("session_id", "child_id"):
+        session__event=event, attendee_id__in=Child.objects.all()
+    ).values_list("session_id", "attendee_id"):
         session_ticket_child_ids[session_id].add(child_id)
 
     sessions_data = []
     for s in sessions:
         s_records = records_by_session.get(s.id, [])
-        s_child_ids = {r.child_id for r in s_records}
+        s_child_ids = {r.attendee_id for r in s_records}
         s_ticket_child_ids = session_ticket_child_ids.get(s.id, set())
         sessions_data.append(
             {

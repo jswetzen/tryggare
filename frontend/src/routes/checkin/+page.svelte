@@ -47,6 +47,9 @@
   let families = $state<Family[]>([]);
   let activeSession = $state<Session | null>(null);
   let activeSessions = $state<Session[]>([]);
+  let parentCheckinEnabled = $derived(
+    activeSession?.effective_parent_checkin_policy !== 'disabled'
+  );
   let loading = $state(true);
   let error = $state<string | null>(null);
   let searchQuery = $state('');
@@ -719,6 +722,149 @@
     }
   }
 
+  // Check in individual parent
+  async function checkInParent(familyId: string, parentId: string) {
+    if (!activeSession) {
+      error = 'No active session';
+      return;
+    }
+
+    try {
+      // Track this parent to prevent WebSocket reload from clobbering local state
+      recentlyCheckedInChildren.add(parentId);
+      recentlyCheckedInChildren = new Set(recentlyCheckedInChildren);
+
+      // Create undo action
+      const actionId = createUndoAction(familyId, [parentId]);
+      const checkInTime = getCurrentTime();
+
+      // Call API to check in the parent (no supervised flag, no auto-print)
+      const checkInRecord = await checkinApi.checkIn({
+        child: parentId,
+        session: activeSession.id,
+      });
+
+      // Update local state optimistically
+      families = families.map((fam) => {
+        if (fam.id !== familyId) return fam;
+        return {
+          ...fam,
+          parents: fam.parents.map((parent) => {
+            if (parent.id !== parentId) return parent;
+            return {
+              ...parent,
+              checkedIn: true,
+              checkInTime,
+              checkInActionId: actionId,
+              checkInRecordId: checkInRecord.id,
+            };
+          }),
+        };
+      });
+
+      const family = families.find((f) => f.id === familyId);
+      const parent = family?.parents.find((p) => p.id === parentId);
+      if (parent) {
+        successToast = $_('checkin.successCheckedIn', { values: { name: parent.name } });
+      }
+
+      // Close expansion if open
+      expandedChildId = null;
+    } catch (err) {
+      const apiError = err as ApiError;
+      error = apiError.message || 'Failed to check in parent';
+      console.error('Error checking in parent:', err);
+    }
+  }
+
+  // Undo individual parent check-in
+  async function undoParentCheckIn(familyId: string, parentId: string) {
+    const family = families.find((f) => f.id === familyId);
+    const parent = family?.parents.find((p) => p.id === parentId);
+
+    if (!parent?.checkInActionId || !parent?.checkInRecordId) {
+      return;
+    }
+
+    try {
+      // Track this parent to prevent WebSocket reload from clobbering local state
+      recentlyUndoneChildren.add(parentId);
+      recentlyUndoneChildren = new Set(recentlyUndoneChildren);
+
+      // Call backend undo endpoint
+      await checkInApi.undo(parent.checkInRecordId);
+
+      // Remove undo action from timer store
+      removeUndoAction(parent.checkInActionId);
+
+      // Update local state
+      families = families.map((fam) => {
+        if (fam.id !== familyId) return fam;
+        return {
+          ...fam,
+          parents: fam.parents.map((p) => {
+            if (p.id !== parentId) return p;
+            return {
+              ...p,
+              checkedIn: false,
+              checkInTime: undefined,
+              checkInActionId: undefined,
+              checkInRecordId: undefined,
+            };
+          }),
+        };
+      });
+
+      successToast = $_('checkin.checkInUndone', { values: { name: parent.name } });
+    } catch (err) {
+      const apiError = err as ApiError;
+      error = apiError.message || 'Failed to undo check-in';
+      console.error('Error undoing parent check-in:', err);
+    }
+  }
+
+  // Assign ticket and check in parent
+  async function assignParentTicket(familyId: string, parentId: string, ticketType: TicketType) {
+    if (!activeSession) {
+      error = 'No active session';
+      return;
+    }
+
+    try {
+      // Assign the ticket via API based on ticket type
+      if (ticketType === 'event') {
+        await ticketApi.assignEventTicket({
+          child: parentId,
+          event: activeSession.event,
+        });
+      } else if (ticketType === 'session') {
+        await ticketApi.assignSessionTicket({
+          child: parentId,
+          session: activeSession.id,
+        });
+      }
+
+      // Update local state
+      families = families.map((fam) => {
+        if (fam.id !== familyId) return fam;
+        return {
+          ...fam,
+          parents: fam.parents.map((parent) => {
+            if (parent.id !== parentId) return parent;
+            return { ...parent, ticket: ticketType, ticket_type: ticketType };
+          }),
+        };
+      });
+
+      // Then check in the parent
+      await checkInParent(familyId, parentId);
+    } catch (err) {
+      const apiError = err as ApiError;
+      error = apiError.message || 'Failed to assign ticket';
+      console.error('Error assigning ticket:', err);
+    }
+  }
+
   // Add new family
   async function handleAddFamily(data: {
     familyName: string;
@@ -741,7 +887,23 @@
       // Create family via API
       const newFamily = await checkinApi.createFamily({
         last_name: data.familyName,
-        parents: data.parents,
+        // AddFamilyPanel collects one "full name" field per parent; the API
+        // needs first_name/last_name separately (Parent has no name column
+        // post-MTI — split on the first space, same convention used by the
+        // historical Attendee-backfill migration for the same legacy shape).
+        parents: data.parents.map((p) => {
+          const trimmed = p.name.trim();
+          const spaceIndex = trimmed.indexOf(' ');
+          const first_name = spaceIndex === -1 ? trimmed : trimmed.slice(0, spaceIndex);
+          const last_name = spaceIndex === -1 ? '' : trimmed.slice(spaceIndex + 1);
+          return {
+            first_name,
+            last_name,
+            phone: p.phone,
+            email: p.email,
+            relationship_type: p.relationship_type,
+          };
+        }),
         children: data.children.map((c) => ({
           first_name: c.first_name.trim(),
           last_name: c.last_name.trim(),
@@ -941,6 +1103,10 @@
         onUndoChild={undoChildCheckIn}
         onUndoFamily={undoFamilyCheckIn}
         onAssignTicket={assignTicketAndCheckIn}
+        onCheckInParent={checkInParent}
+        onUndoParent={undoParentCheckIn}
+        onAssignParentTicket={assignParentTicket}
+        {parentCheckinEnabled}
         {getRemainingTime}
         bind:supervisedState
         {expandedChildId}

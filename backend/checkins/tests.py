@@ -48,7 +48,7 @@ class UndoCheckInTest(TestCase):
         """Test successful undo of recent check-in within 5 minute window."""
         # Create a check-in record
         checkin = CheckInRecord.objects.create(
-            child=self.child, session=self.session, check_in_staff=self.user
+            attendee=self.child, session=self.session, check_in_staff=self.user
         )
 
         # Verify check-in exists
@@ -77,7 +77,7 @@ class UndoCheckInTest(TestCase):
         """Test that undo fails when child is already checked out."""
         # Create a check-in record and check out
         checkin = CheckInRecord.objects.create(
-            child=self.child,
+            attendee=self.child,
             session=self.session,
             check_in_staff=self.user,
             check_out_time=timezone.now(),
@@ -98,7 +98,7 @@ class UndoCheckInTest(TestCase):
         """Test that undo fails when check-in is older than 5 minutes."""
         # Create a check-in record with old timestamp
         checkin = CheckInRecord.objects.create(
-            child=self.child, session=self.session, check_in_staff=self.user
+            attendee=self.child, session=self.session, check_in_staff=self.user
         )
 
         # Manually set check_in_time to 6 minutes ago
@@ -119,7 +119,7 @@ class UndoCheckInTest(TestCase):
         """Test undo at exactly 5 minutes (should fail since time_elapsed > 5 minutes)."""
         # Create a check-in record
         checkin = CheckInRecord.objects.create(
-            child=self.child, session=self.session, check_in_staff=self.user
+            attendee=self.child, session=self.session, check_in_staff=self.user
         )
 
         # Set check_in_time to exactly 5 minutes and 1 second ago
@@ -141,7 +141,7 @@ class UndoCheckInTest(TestCase):
         """Test undo at 4 minutes 59 seconds (should succeed)."""
         # Create a check-in record
         checkin = CheckInRecord.objects.create(
-            child=self.child, session=self.session, check_in_staff=self.user
+            attendee=self.child, session=self.session, check_in_staff=self.user
         )
 
         # Set check_in_time to 4 minutes 59 seconds ago
@@ -161,7 +161,7 @@ class UndoCheckInTest(TestCase):
     def test_undo_requires_authentication(self):
         """Test that unauthenticated users cannot undo check-ins."""
         checkin = CheckInRecord.objects.create(
-            child=self.child, session=self.session, check_in_staff=self.user
+            attendee=self.child, session=self.session, check_in_staff=self.user
         )
 
         # Remove authentication
@@ -188,7 +188,7 @@ class UndoCheckInTest(TestCase):
     def test_multiple_undo_attempts(self):
         """Test that undo cannot be called twice on the same record."""
         checkin = CheckInRecord.objects.create(
-            child=self.child, session=self.session, check_in_staff=self.user
+            attendee=self.child, session=self.session, check_in_staff=self.user
         )
         checkin_id = checkin.id
 
@@ -235,7 +235,7 @@ class PrintLabelTest(TestCase):
             is_active=True,
         )
         self.checkin = CheckInRecord.objects.create(
-            child=self.child, session=self.session, check_in_staff=self.user
+            attendee=self.child, session=self.session, check_in_staff=self.user
         )
 
     def test_print_page_returns_html(self):
@@ -374,7 +374,7 @@ class SupervisedCheckInTest(TestCase):
         """Test supervised check-in to ended session allows check-in to new session."""
         # Create supervised check-in to ended session (session1)
         CheckInRecord.objects.create(
-            child=self.child,
+            attendee=self.child,
             session=self.session1,
             check_in_staff=self.user,
             supervised=True,
@@ -392,13 +392,13 @@ class SupervisedCheckInTest(TestCase):
 
         self.assertEqual(response.status_code, 201)
         # Verify both records exist
-        self.assertEqual(CheckInRecord.objects.filter(child=self.child).count(), 2)
+        self.assertEqual(CheckInRecord.objects.filter(attendee=self.child).count(), 2)
 
     def test_supervised_check_in_to_active_session_blocks_new_check_in(self):
         """Test supervised check-in to active session blocks check-in to new session."""
         # Create supervised check-in to active session (session2)
         CheckInRecord.objects.create(
-            child=self.child,
+            attendee=self.child,
             session=self.session2,
             check_in_staff=self.user,
             supervised=True,
@@ -430,7 +430,7 @@ class SupervisedCheckInTest(TestCase):
 
         # Create supervised check-in to this session
         CheckInRecord.objects.create(
-            child=self.child,
+            attendee=self.child,
             session=past_session,
             check_in_staff=self.user,
             supervised=True,
@@ -461,7 +461,7 @@ class SupervisedCheckInTest(TestCase):
 
         # Create supervised check-in to this session
         CheckInRecord.objects.create(
-            child=self.child,
+            attendee=self.child,
             session=inactive_session,
             check_in_staff=self.user,
             supervised=True,
@@ -483,7 +483,7 @@ class SupervisedCheckInTest(TestCase):
         """Test standard (non-supervised) check-in always blocks new check-in."""
         # Create standard check-in to ended session
         CheckInRecord.objects.create(
-            child=self.child,
+            attendee=self.child,
             session=self.session1,
             check_in_staff=self.user,
             supervised=False,
@@ -505,7 +505,7 @@ class SupervisedCheckInTest(TestCase):
         """
         # Create supervised check-in to inactive session (is_active=False)
         ended_checkin = CheckInRecord.objects.create(
-            child=self.child,
+            attendee=self.child,
             session=self.session1,
             check_in_staff=self.user,
             supervised=True,
@@ -522,7 +522,7 @@ class SupervisedCheckInTest(TestCase):
 
         # Create supervised check-in to active session (is_active=True)
         active_checkin = CheckInRecord.objects.create(
-            child=child2,
+            attendee=child2,
             session=self.session2,
             check_in_staff=self.user,
             supervised=True,
@@ -549,7 +549,7 @@ class SupervisedCheckInTest(TestCase):
         """
         # Create supervised check-in to inactive session (is_active=False)
         CheckInRecord.objects.create(
-            child=self.child,
+            attendee=self.child,
             session=self.session1,
             check_in_staff=self.user,
             supervised=True,
@@ -584,7 +584,7 @@ class SupervisedCheckInTest(TestCase):
 
         # Create supervised check-in to this session
         checkin = CheckInRecord.objects.create(
-            child=self.child,
+            attendee=self.child,
             session=past_but_active_session,
             check_in_staff=self.user,
             supervised=True,
@@ -608,7 +608,7 @@ class SupervisedCheckInTest(TestCase):
         """Test print queue shows standard check-ins regardless of session status."""
         # Create standard check-in to ended session
         ended_checkin = CheckInRecord.objects.create(
-            child=self.child,
+            attendee=self.child,
             session=self.session1,
             check_in_staff=self.user,
             supervised=False,
@@ -632,7 +632,7 @@ class SupervisedCheckInTest(TestCase):
         """Test that checkout functionality works for supervised records."""
         # Create supervised check-in
         checkin = CheckInRecord.objects.create(
-            child=self.child,
+            attendee=self.child,
             session=self.session2,
             check_in_staff=self.user,
             supervised=True,
@@ -654,7 +654,7 @@ class SupervisedCheckInTest(TestCase):
         """Test that undo functionality works for supervised records within time window."""
         # Create supervised check-in
         checkin = CheckInRecord.objects.create(
-            child=self.child,
+            attendee=self.child,
             session=self.session2,
             check_in_staff=self.user,
             supervised=True,
@@ -689,7 +689,7 @@ class SupervisedCheckInTest(TestCase):
         """Test that supervised child cannot be checked into same session twice."""
         # Create supervised check-in
         CheckInRecord.objects.create(
-            child=self.child,
+            attendee=self.child,
             session=self.session2,
             check_in_staff=self.user,
             supervised=True,

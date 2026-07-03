@@ -19,8 +19,9 @@
    */
   import { tick, untrack } from 'svelte';
   import { _ } from 'svelte-i18n';
-  import type { Child, Family, TicketType } from '$lib/checkin/types';
+  import type { Child, Parent, Family, TicketType } from '$lib/checkin/types';
   import ChildCheckInButton from './ChildCheckInButton.svelte';
+  import ParentCheckInButton from './ParentCheckInButton.svelte';
   import { undoActionsWithTick } from '$lib/checkin/stores/undoTimer';
 
   interface Props {
@@ -36,6 +37,11 @@
     onToggleChildExpansion: (childId: string | null) => void;
     searchQuery?: string;
     highlightedFamilyId?: string | null;
+    onCheckInParent?: (familyId: string, parentId: string) => Promise<void>;
+    onUndoParent?: (familyId: string, parentId: string) => Promise<void>;
+    onAssignParentTicket?: (familyId: string, parentId: string, ticketType: TicketType) => Promise<void>;
+    /** False when the active session's effective_parent_checkin_policy is 'disabled'. */
+    parentCheckinEnabled?: boolean;
   }
 
   let {
@@ -50,7 +56,11 @@
     expandedChildId,
     onToggleChildExpansion,
     searchQuery = '',
-    highlightedFamilyId = null
+    highlightedFamilyId = null,
+    onCheckInParent = async () => {},
+    onUndoParent = async () => {},
+    onAssignParentTicket = async () => {},
+    parentCheckinEnabled = true
   }: Props = $props();
 
   // Track which families are manually toggled by the user
@@ -180,12 +190,13 @@
   }
 
   // Helper to get ticket type display (shows specific session name for session tickets)
-  function getTicketDisplay(child: Child): string {
-    switch (child.ticket) {
+  // Works for both Child and Parent since both have ticket and ticket_details fields.
+  function getTicketDisplay(attendee: Child | Parent): string {
+    switch (attendee.ticket) {
       case 'event':
         return `🟢 ${$_('checkin.ticketEvent')}`;
       case 'session': {
-        const sessionTicket = child.ticket_details?.session_tickets[0];
+        const sessionTicket = attendee.ticket_details?.session_tickets[0];
         const label = sessionTicket?.session_name ?? $_('checkin.ticketSession');
         return `🔵 ${label}`;
       }
@@ -201,16 +212,33 @@
     return family.children.length;
   }
 
+  function getTotalParents(family: Family): number {
+    return family.parents.length;
+  }
+
   function getCheckedInCount(family: Family): number {
     return family.children.filter(c => c.checkedIn).length;
+  }
+
+  function getCheckedInParentsCount(family: Family): number {
+    return family.parents.filter(p => p.checkedIn).length;
   }
 
   function getCanCheckInCount(family: Family): number {
     return family.children.filter(c => !c.checkedIn && c.ticket !== 'none').length;
   }
 
+  // Child-only households compare against children; child-less households
+  // (adults only) fall back to parents so the status badge isn't vacuously
+  // "all checked in" for a family with nobody checked in at all.
   function isAllCheckedIn(family: Family): boolean {
-    return getCheckedInCount(family) === getTotalChildren(family);
+    if (family.children.length > 0) {
+      return getCheckedInCount(family) === getTotalChildren(family);
+    }
+    return (
+      family.parents.length > 0 &&
+      getCheckedInParentsCount(family) === getTotalParents(family)
+    );
   }
 
   function hasNoTicketChildren(family: Family): boolean {
@@ -224,6 +252,8 @@
     {@const expanded = isExpanded(family.id)}
     {@const totalChildren = getTotalChildren(family)}
     {@const checkedInCount = getCheckedInCount(family)}
+    {@const totalParents = getTotalParents(family)}
+    {@const checkedInParentsCount = getCheckedInParentsCount(family)}
     {@const canCheckInCount = getCanCheckInCount(family)}
     {@const allCheckedIn = isAllCheckedIn(family)}
     {@const noTicketChildren = hasNoTicketChildren(family)}
@@ -285,8 +315,13 @@
                 {/if}
               </div>
               <p class="text-xs sm:text-sm text-neutral-600 mt-0.5">
-                {totalChildren} {totalChildren === 1 ? $_('checkin.child') : $_('checkin.children')} •
-                {$_('checkin.checkedInCount', { values: { count: checkedInCount } })}
+                {#if totalChildren > 0}
+                  {totalChildren} {totalChildren === 1 ? $_('checkin.child') : $_('checkin.children')} •
+                  {$_('checkin.checkedInCount', { values: { count: checkedInCount } })}
+                {:else}
+                  {totalParents} {totalParents === 1 ? $_('checkin.adult') : $_('checkin.adults')} •
+                  {$_('checkin.checkedInCount', { values: { count: checkedInParentsCount } })}
+                {/if}
               </p>
             </div>
           </div>
@@ -401,6 +436,80 @@
               {/if}
             </div>
           {/each}
+
+          <!-- Guardians subsection (mobile) -->
+          {#if parentCheckinEnabled && family.parents.length > 0}
+            <div class="mt-1">
+              <p class="text-xs font-semibold text-neutral-500 uppercase px-1 mb-1">
+                {$_('checkin.guardians')}
+              </p>
+              {#each family.parents as parent (parent.id)}
+                {@const isParentExpanded = expandedChildId === parent.id}
+                {@const _tick = undoActionsData.tick}
+                {@const parentRemainingSeconds = parent.checkInActionId && _tick >= 0 ? getRemainingTime(parent.checkInActionId) : null}
+
+                <div
+                  class="flex flex-col gap-2 p-2 bg-neutral-50 rounded border border-neutral-200"
+                  data-testid={`parent-row-${parent.id}`}
+                >
+                  <div class="flex flex-col sm:flex-row sm:items-center gap-2">
+                    <!-- Parent info -->
+                    <div class="flex-1 min-w-0">
+                      <div class="flex items-center gap-1.5 flex-wrap">
+                        <span class="font-medium text-neutral-700 text-sm sm:text-base">{parent.name}</span>
+                        <span class="px-1.5 py-0.5 text-xs font-semibold bg-neutral-200 text-neutral-600 rounded">
+                          {$_('checkin.guardian')}
+                        </span>
+                      </div>
+                      <div class="text-xs text-neutral-500 mt-0.5">
+                        {getTicketDisplay(parent)}
+                        {#if parent.checkedIn && parent.checkInTime}
+                          • {$_('checkin.checkedInAt', { values: { time: parent.checkInTime } })}
+                        {/if}
+                      </div>
+                    </div>
+
+                    <!-- Actions -->
+                    <div class="flex items-center gap-2 flex-wrap">
+                      <ParentCheckInButton
+                        {parent}
+                        onCheckIn={() => onCheckInParent(family.id, parent.id)}
+                        onUndo={() => onUndoParent(family.id, parent.id)}
+                        onNoTicketClick={() => onToggleChildExpansion(isParentExpanded ? null : parent.id)}
+                        remainingSeconds={parentRemainingSeconds}
+                        expanded={isParentExpanded}
+                      />
+                    </div>
+                  </div>
+
+                  <!-- Ticket assignment expansion (for "No Ticket" parents) -->
+                  {#if isParentExpanded && parent.ticket === 'none'}
+                    <div class="w-full bg-warning-50 border border-warning-200 rounded p-3 animate-expand">
+                      <p class="text-sm text-neutral-700 mb-2 font-medium">
+                        {$_('checkin.checkIn')} {parent.name} with:
+                      </p>
+                      <div class="flex gap-2">
+                        <button
+                          onclick={() => onAssignParentTicket(family.id, parent.id, 'session')}
+                          class="flex-1 px-3 py-2 bg-primary-500 text-white text-sm font-semibold rounded-button hover:bg-primary-600 transition-colors"
+                          data-testid={`parent-ticket-assign-session-${parent.id}`}
+                        >
+                          {$_('checkin.ticketSession')}
+                        </button>
+                        <button
+                          onclick={() => onAssignParentTicket(family.id, parent.id, 'event')}
+                          class="flex-1 px-3 py-2 bg-success-600 text-white text-sm font-semibold rounded-button hover:bg-success-700 transition-colors"
+                          data-testid={`parent-ticket-assign-event-${parent.id}`}
+                        >
+                          {$_('checkin.ticketEvent')}
+                        </button>
+                      </div>
+                    </div>
+                  {/if}
+                </div>
+              {/each}
+            </div>
+          {/if}
         </div>
       {/if}
     </div>
@@ -430,6 +539,8 @@
         {@const expanded = isExpanded(family.id)}
         {@const totalChildren = getTotalChildren(family)}
         {@const checkedInCount = getCheckedInCount(family)}
+        {@const totalParents = getTotalParents(family)}
+        {@const checkedInParentsCount = getCheckedInParentsCount(family)}
         {@const canCheckInCount = getCanCheckInCount(family)}
         {@const allCheckedIn = isAllCheckedIn(family)}
         {@const noTicketChildren = hasNoTicketChildren(family)}
@@ -456,7 +567,7 @@
           data-testid={`family-card-${family.id}`}
         >
           <td class="px-4 py-3">
-            <div class="flex items-center gap-2">
+            <div class="flex items-center gap-2" data-testid={`family-toggle-button-${family.id}`}>
               <!-- Chevron -->
               <div class="flex-shrink-0">
                 {#if expanded}
@@ -478,8 +589,13 @@
             </div>
           </td>
           <td class="px-4 py-3 text-sm text-neutral-600">
-            {totalChildren} {totalChildren === 1 ? $_('checkin.child') : $_('checkin.children')} •
-            {$_('checkin.checkedInCount', { values: { count: checkedInCount } })}
+            {#if totalChildren > 0}
+              {totalChildren} {totalChildren === 1 ? $_('checkin.child') : $_('checkin.children')} •
+              {$_('checkin.checkedInCount', { values: { count: checkedInCount } })}
+            {:else}
+              {totalParents} {totalParents === 1 ? $_('checkin.adult') : $_('checkin.adults')} •
+              {$_('checkin.checkedInCount', { values: { count: checkedInParentsCount } })}
+            {/if}
           </td>
           <td class="px-4 py-3 text-right">
             <!-- svelte-ignore a11y-click-events-have-key-events -->
@@ -584,6 +700,80 @@
               </td>
             </tr>
           {/each}
+
+          <!-- Guardians subsection heading row (desktop) -->
+          {#if parentCheckinEnabled && family.parents.length > 0}
+            <tr class="border-b border-neutral-200 bg-neutral-50">
+              <td class="px-4 py-1 pl-12" colspan="3">
+                <span class="text-xs font-semibold text-neutral-500 uppercase">
+                  {$_('checkin.guardians')}
+                </span>
+              </td>
+            </tr>
+            {#each family.parents as parent (parent.id)}
+              {@const isParentExpanded = expandedChildId === parent.id}
+              {@const _tick = undoActionsData.tick}
+              {@const parentRemainingSeconds = parent.checkInActionId && _tick >= 0 ? getRemainingTime(parent.checkInActionId) : null}
+
+              <tr class="border-b border-neutral-200 bg-neutral-100" data-testid={`parent-row-${parent.id}`}>
+                <td class="px-4 py-3 pl-12" colspan="2">
+                  <div class="flex items-center gap-3">
+                    <div class="flex-1">
+                      <div class="flex items-center gap-1.5 flex-wrap">
+                        <span class="font-medium text-neutral-700">{parent.name}</span>
+                        <span class="px-1.5 py-0.5 text-xs font-semibold bg-neutral-200 text-neutral-600 rounded">
+                          {$_('checkin.guardian')}
+                        </span>
+                      </div>
+                      <div class="text-xs text-neutral-500 mt-0.5">
+                        {getTicketDisplay(parent)}
+                        {#if parent.checkedIn && parent.checkInTime}
+                          • {$_('checkin.checkedInAt', { values: { time: parent.checkInTime } })}
+                        {/if}
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- Ticket assignment expansion (inline for desktop) -->
+                  {#if isParentExpanded && parent.ticket === 'none'}
+                    <div class="mt-2 bg-warning-50 border border-warning-200 rounded p-3 animate-expand">
+                      <p class="text-sm text-neutral-700 mb-2 font-medium">
+                        {$_('checkin.checkIn')} {parent.name} with:
+                      </p>
+                      <div class="flex gap-2">
+                        <button
+                          onclick={() => onAssignParentTicket(family.id, parent.id, 'session')}
+                          class="flex-1 px-3 py-2 bg-primary-500 text-white text-sm font-semibold rounded-button hover:bg-primary-600 transition-colors"
+                          data-testid={`parent-ticket-assign-session-${parent.id}`}
+                        >
+                          {$_('checkin.ticketSession')}
+                        </button>
+                        <button
+                          onclick={() => onAssignParentTicket(family.id, parent.id, 'event')}
+                          class="flex-1 px-3 py-2 bg-success-600 text-white text-sm font-semibold rounded-button hover:bg-success-700 transition-colors"
+                          data-testid={`parent-ticket-assign-event-${parent.id}`}
+                        >
+                          {$_('checkin.ticketEvent')}
+                        </button>
+                      </div>
+                    </div>
+                  {/if}
+                </td>
+                <td class="px-4 py-3">
+                  <div class="flex justify-end">
+                    <ParentCheckInButton
+                      {parent}
+                      onCheckIn={() => onCheckInParent(family.id, parent.id)}
+                      onUndo={() => onUndoParent(family.id, parent.id)}
+                      onNoTicketClick={() => onToggleChildExpansion(isParentExpanded ? null : parent.id)}
+                      remainingSeconds={parentRemainingSeconds}
+                      expanded={isParentExpanded}
+                    />
+                  </div>
+                </td>
+              </tr>
+            {/each}
+          {/if}
         {/if}
       {/each}
     </tbody>

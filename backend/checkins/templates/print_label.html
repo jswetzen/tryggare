@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Print Label - {{ checkin.child.first_name }}</title>
+    <title>Print Label - {{ checkin.attendee.first_name }}</title>
     <style>
         :root {
             --label-w: {{ w_mm|default:"54.3" }}mm;
@@ -115,7 +115,7 @@
 </head>
 <body>
     <div class="label">
-        <div class="child-name">{{ checkin.child.first_name }}</div>
+        <div class="child-name">{{ checkin.attendee.first_name }}</div>
         <img src="{{ qr_url }}" alt="QR Code" class="qr-code">
     </div>
 

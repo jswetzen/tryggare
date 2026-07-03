@@ -131,7 +131,7 @@ class FreshImportTest(TestCase):
             self.user,
         )
         child = Child.objects.get(first_name="Maja", last_name="Svensson")
-        ticket = EventTicket.objects.filter(child=child, event=self.event).first()
+        ticket = EventTicket.objects.filter(attendee=child, event=self.event).first()
         assert ticket is not None
         assert ticket.external_ticket_code == "TICKETABC"
 
@@ -242,7 +242,9 @@ class SessionTicketImportTest(TestCase):
         fm = self.source.festivalpro_config.field_mappings
         run_import(MINIMAL_JSON, self.source, fm, self.user)
         child = Child.objects.get(first_name="Maja")
-        ticket = SessionTicket.objects.filter(child=child, session=self.session).first()
+        ticket = SessionTicket.objects.filter(
+            attendee=child, session=self.session
+        ).first()
         assert ticket is not None
         assert ticket.external_ticket_code == "TICKETABC"
 
@@ -250,7 +252,7 @@ class SessionTicketImportTest(TestCase):
         fm = self.source.festivalpro_config.field_mappings
         run_import(MINIMAL_JSON, self.source, fm, self.user)
         child = Child.objects.get(first_name="Maja")
-        assert not EventTicket.objects.filter(child=child, event=self.event).exists()
+        assert not EventTicket.objects.filter(attendee=child, event=self.event).exists()
 
 
 class MissingBirthdateTest(TestCase):
@@ -291,7 +293,7 @@ class MissingBirthdateTest(TestCase):
     def test_ticket_created_when_birthdate_missing(self):
         self._run("")
         child = Child.objects.get(first_name="NoDate")
-        assert EventTicket.objects.filter(child=child).exists()
+        assert EventTicket.objects.filter(attendee=child).exists()
 
     def test_birthdate_is_null(self):
         self._run("")
@@ -370,46 +372,72 @@ class ContactUpdateOnReimportTest(TestCase):
 
     def test_phone_updated_on_reimport(self):
         run_import(MINIMAL_JSON, self.source, self.fm, self.user)
-        run_import(self._updated_json(phone="0709999999"), self.source, self.fm, self.user)
-        parent = Parent.objects.get(family__external_booking_id="99001", name="Anna Svensson")
+        run_import(
+            self._updated_json(phone="0709999999"), self.source, self.fm, self.user
+        )
+        parent = Parent.objects.get(
+            family__external_booking_id="99001", first_name="Anna", last_name="Svensson"
+        )
         assert parent.phone == "0709999999"
 
     def test_email_updated_on_reimport(self):
         run_import(MINIMAL_JSON, self.source, self.fm, self.user)
-        run_import(self._updated_json(email="updated@example.se"), self.source, self.fm, self.user)
-        parent = Parent.objects.get(family__external_booking_id="99001", name="Anna Svensson")
+        run_import(
+            self._updated_json(email="updated@example.se"),
+            self.source,
+            self.fm,
+            self.user,
+        )
+        parent = Parent.objects.get(
+            family__external_booking_id="99001", first_name="Anna", last_name="Svensson"
+        )
         assert parent.email == "updated@example.se"
 
     def test_phone_not_updated_when_locked(self):
         run_import(MINIMAL_JSON, self.source, self.fm, self.user)
-        parent = Parent.objects.get(family__external_booking_id="99001", name="Anna Svensson")
+        parent = Parent.objects.get(
+            family__external_booking_id="99001", first_name="Anna", last_name="Svensson"
+        )
         parent.phone_locked = True
         parent.save(update_fields=["phone_locked"])
 
-        run_import(self._updated_json(phone="0709999999"), self.source, self.fm, self.user)
+        run_import(
+            self._updated_json(phone="0709999999"), self.source, self.fm, self.user
+        )
         parent.refresh_from_db()
         assert parent.phone == "0700000001"
 
     def test_email_not_updated_when_locked(self):
         run_import(MINIMAL_JSON, self.source, self.fm, self.user)
-        parent = Parent.objects.get(family__external_booking_id="99001", name="Anna Svensson")
+        parent = Parent.objects.get(
+            family__external_booking_id="99001", first_name="Anna", last_name="Svensson"
+        )
         parent.email_locked = True
         parent.save(update_fields=["email_locked"])
 
-        run_import(self._updated_json(email="updated@example.se"), self.source, self.fm, self.user)
+        run_import(
+            self._updated_json(email="updated@example.se"),
+            self.source,
+            self.fm,
+            self.user,
+        )
         parent.refresh_from_db()
         assert parent.email == "anna@test.se"
 
     def test_blank_import_value_does_not_clear_phone(self):
         run_import(MINIMAL_JSON, self.source, self.fm, self.user)
         run_import(self._updated_json(phone=""), self.source, self.fm, self.user)
-        parent = Parent.objects.get(family__external_booking_id="99001", name="Anna Svensson")
+        parent = Parent.objects.get(
+            family__external_booking_id="99001", first_name="Anna", last_name="Svensson"
+        )
         assert parent.phone == "0700000001"
 
     def test_blank_import_value_does_not_clear_email(self):
         run_import(MINIMAL_JSON, self.source, self.fm, self.user)
         run_import(self._updated_json(email=""), self.source, self.fm, self.user)
-        parent = Parent.objects.get(family__external_booking_id="99001", name="Anna Svensson")
+        parent = Parent.objects.get(
+            family__external_booking_id="99001", first_name="Anna", last_name="Svensson"
+        )
         assert parent.email == "anna@test.se"
 
     def test_parents_updated_in_summary(self):
@@ -431,7 +459,9 @@ class ContactUpdateOnReimportTest(TestCase):
             }
         }
         run_import(updated, self.source, self.fm, self.user)
-        guardian = Parent.objects.get(family__external_booking_id="99001", name="Lars Svensson")
+        guardian = Parent.objects.get(
+            family__external_booking_id="99001", first_name="Lars", last_name="Svensson"
+        )
         assert guardian.phone == "0708888888"
 
 

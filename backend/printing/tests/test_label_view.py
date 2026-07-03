@@ -44,7 +44,7 @@ class LabelPageViewTest(TestCase):
         )
         self.printer = Printer.objects.create(id=uuid.uuid4(), name="P", is_online=True)
         self.checkin = CheckInRecord.objects.create(
-            child=self.child, session=self.session, check_in_staff=self.user
+            attendee=self.child, session=self.session, check_in_staff=self.user
         )
         QRCode.objects.create(code="AB12C", checkin_record=self.checkin)
 

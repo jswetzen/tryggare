@@ -89,9 +89,12 @@ class TestCheckInFlow(E2ETestBase, TestDataMixin):
         print(f"   ✓ Family '{self.test_family.last_name}' found in results")
 
         # Expand the family to reveal children (single-match families may not auto-expand
-        # in all UI states, so do it explicitly).
+        # in all UI states, so do it explicitly). The mobile-card and
+        # desktop-table layouts both render at this data-testid but only one is
+        # visible at the current window size, so wait for a visible match
+        # rather than just the first one present in the DOM.
         family_id = str(self.test_family.id)
-        toggle = self.wait_for_element(
+        toggle = self.wait_for_visible_element(
             By.CSS_SELECTOR, f"[data-testid='family-toggle-button-{family_id}']"
         )
         toggle.click()
@@ -130,16 +133,19 @@ class TestCheckInFlow(E2ETestBase, TestDataMixin):
         family_id = str(self.test_family.id)
         child1_id = str(self.test_child1.id)
 
-        # Expand family so child row becomes visible
-        toggle = self.wait_for_element(
+        # Expand family so child row becomes visible. Both responsive layouts
+        # render this testid; only one is actually visible/clickable at the
+        # current window size (see wait_for_visible_element).
+        toggle = self.wait_for_visible_element(
             By.CSS_SELECTOR, f"[data-testid='family-toggle-button-{family_id}']"
         )
         toggle.click()
         time.sleep(1)
 
-        # Click individual child check-in button
+        # Click individual child check-in button. Same dual-layout caveat as
+        # the family toggle above — the button is rendered once per layout.
         print(f"   Checking in {self.test_child1.first_name}...")
-        child_checkin_btn = self.wait_for_element(
+        child_checkin_btn = self.wait_for_visible_element(
             By.CSS_SELECTOR, f"[data-testid='child-check-in-button-{child1_id}']"
         )
         child_checkin_btn.click()
@@ -148,7 +154,7 @@ class TestCheckInFlow(E2ETestBase, TestDataMixin):
         # Verify check-in in database
         print("   Verifying check-in in database...")
         checkin_record = CheckInRecord.objects.filter(
-            child=self.test_child1, session=self.test_session
+            attendee=self.test_child1, session=self.test_session
         ).first()
 
         assert checkin_record is not None, "Check-in record not found in database"
@@ -173,7 +179,7 @@ class TestCheckInFlow(E2ETestBase, TestDataMixin):
         # First, create a check-in
         print("   Creating initial check-in...")
         checkin = CheckInRecord.objects.create(
-            child=self.test_child1,
+            attendee=self.test_child1,
             session=self.test_session,
             check_in_staff=self.test_user,
         )
@@ -212,7 +218,7 @@ class TestCheckInFlow(E2ETestBase, TestDataMixin):
 
         # Verify only one check-in exists
         checkin_count = CheckInRecord.objects.filter(
-            child=self.test_child1, session=self.test_session
+            attendee=self.test_child1, session=self.test_session
         ).count()
 
         assert checkin_count == 1, f"Expected 1 check-in, found {checkin_count}"

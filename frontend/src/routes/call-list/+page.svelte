@@ -84,6 +84,14 @@
     const looseRecords: CheckInRecord[] = [];
 
     for (const record of activeCheckIns) {
+      // Parents can now check in too (one-way, never checked out), but they
+      // are call-list *contacts*, not children to call about — skip their
+      // own active check-in records here.
+      const isParentRecord = families.some((f) =>
+        f.parents.some((p) => p.id === record.child)
+      );
+      if (isParentRecord) continue;
+
       const family = families.find((f) => f.children.some((c) => c.id === record.child));
       if (family) {
         if (!byFamily.has(family.id)) byFamily.set(family.id, []);

@@ -92,7 +92,7 @@ class TestCheckOutFlow(E2ETestBase, TestDataMixin):
         # Pre-create a check-in
         print("   Creating check-in...")
         checkin = CheckInRecord.objects.create(
-            child=self.test_child,
+            attendee=self.test_child,
             session=self.test_session,
             check_in_staff=self.test_user,
         )
@@ -133,7 +133,7 @@ class TestCheckOutFlow(E2ETestBase, TestDataMixin):
         # Pre-create a check-in
         print("   Creating check-in...")
         checkin = CheckInRecord.objects.create(
-            child=self.test_child,
+            attendee=self.test_child,
             session=self.test_session,
             check_in_staff=self.test_user,
         )

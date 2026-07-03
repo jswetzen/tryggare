@@ -37,10 +37,32 @@ export interface Child {
 
 export interface Parent {
   id: string;
+  first_name: string;
+  last_name: string;
   name: string;
   phone?: string;
   email?: string;
   relationship_type: string;
+  ticket: TicketType;
+  ticket_type: TicketType;
+  ticket_details?: {
+    event_tickets: Array<{
+      id: string;
+      event: string;
+      event_name: string;
+    }>;
+    session_tickets: Array<{
+      id: string;
+      session: string;
+      session_name: string;
+    }>;
+  };
+  checkedIn: boolean;
+  checkInTime?: string;
+  checkInActionId?: string;
+  checkInRecordId?: string;
+  family?: string;
+  is_parent?: boolean;
 }
 
 export interface Family {
@@ -54,6 +76,8 @@ export interface Family {
   last_participation_date?: string;
 }
 
+export type ParentCheckinPolicy = 'disabled' | 'open' | 'ticket_required';
+
 export interface Session {
   id: string;
   event: string;
@@ -63,6 +87,12 @@ export interface Session {
   is_active: boolean;
   event_name: string;
   requires_ticket: boolean;
+  /** Blank means "inherit the event's default" — read effective_parent_checkin_policy instead.
+   *  Optional (rather than required) only to avoid widening the pre-existing structural
+   *  mismatch with the separate Session type in $lib/api/types — both are always present
+   *  on the actual API response. */
+  parent_checkin_policy?: ParentCheckinPolicy | '';
+  effective_parent_checkin_policy?: ParentCheckinPolicy;
 }
 
 export interface UndoAction {
@@ -80,7 +110,32 @@ export interface FamilyApiResponse {
   id: string;
   last_name: string;
   display_name: string;
-  parents: Parent[];
+  parents: Array<{
+    id: string;
+    first_name: string;
+    last_name: string;
+    name: string;
+    phone?: string;
+    email?: string;
+    relationship_type: string;
+    ticket_type: string | null;
+    ticket_details?: {
+      event_tickets: Array<{
+        id: string;
+        event: string;
+        event_name: string;
+      }>;
+      session_tickets: Array<{
+        id: string;
+        session: string;
+        session_name: string;
+      }>;
+    } | null;
+    family: string;
+    last_participation_date?: string;
+    is_checked_in?: boolean;
+    active_checkin_id?: string | null;
+  }>;
   children: Array<{
     id: string;
     first_name: string;

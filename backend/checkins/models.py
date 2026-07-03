@@ -15,11 +15,11 @@ class CheckInRecord(models.Model):
     picked_up_by = models.CharField(
         max_length=255, null=True, blank=True, verbose_name=_("Picked Up By")
     )
-    child = models.ForeignKey(
-        "families.Child",
+    attendee = models.ForeignKey(
+        "families.Attendee",
         related_name="checkin_records",
         on_delete=models.CASCADE,
-        verbose_name=_("Child"),
+        verbose_name=_("Attendee"),
     )
     session = models.ForeignKey(
         "events.Session",
@@ -69,12 +69,12 @@ class CheckInRecord(models.Model):
         verbose_name_plural = _("Check-In Records")
         constraints = [
             models.UniqueConstraint(
-                fields=["child", "session", "check_in_time"],
+                fields=["attendee", "session", "check_in_time"],
                 name="unique_check_in_per_session",
             ),
         ]
         indexes = [
-            models.Index(fields=["child"]),
+            models.Index(fields=["attendee"], name="check_in_re_attend_5f734e_idx"),
             models.Index(fields=["session"]),
             models.Index(fields=["check_in_staff"]),
             models.Index(fields=["check_out_staff"]),
@@ -83,7 +83,7 @@ class CheckInRecord(models.Model):
         ]
 
     def __str__(self) -> str:
-        return f"{self.child} @ {self.session}"
+        return f"{self.attendee} @ {self.session}"
 
 
 class QRCode(models.Model):

@@ -313,3 +313,220 @@ describe('loadFamilies merge logic', () => {
     expect(merged[1].id).toBe('family-1');
   });
 });
+
+describe('parent transform and merge', () => {
+  const sessionWithTicket: import('$lib/checkin/types').Session = {
+    id: 'session-1',
+    event: 'event-1',
+    name: 'Morning Session',
+    start_time: '09:00',
+    is_active: true,
+    event_name: 'Annual Conference',
+    requires_ticket: true,
+    parent_checkin_policy: 'ticket_required',
+    effective_parent_checkin_policy: 'ticket_required',
+  };
+
+  const makeApiFamily = (parents: FamilyApiResponse['parents']): FamilyApiResponse => ({
+    id: 'family-1',
+    last_name: 'Smith',
+    display_name: 'Smith Family',
+    children: [],
+    parents,
+  });
+
+  it('should transform a parent with a matching session ticket to ticket !== none', () => {
+    const apiFamily = makeApiFamily([
+      {
+        id: 'parent-1',
+        first_name: 'Jane',
+        last_name: 'Smith',
+        name: 'Jane Smith',
+        relationship_type: 'mother',
+        family: 'family-1',
+        ticket_type: 'session',
+        ticket_details: {
+          event_tickets: [],
+          session_tickets: [{ id: 'st-1', session: 'session-1', session_name: 'Morning Session' }],
+        },
+        is_checked_in: false,
+        active_checkin_id: null,
+      },
+    ]);
+
+    const merged = mergeFamilies([], [apiFamily], sessionWithTicket);
+    const parent = merged[0].parents[0];
+
+    expect(parent.ticket).toBe('session');
+    expect(parent.checkedIn).toBe(false);
+  });
+
+  it('should transform a parent with ticket_type null to ticket === none', () => {
+    const apiFamily = makeApiFamily([
+      {
+        id: 'parent-2',
+        first_name: 'John',
+        last_name: 'Smith',
+        name: 'John Smith',
+        relationship_type: 'father',
+        family: 'family-1',
+        ticket_type: null,
+        ticket_details: null,
+        is_checked_in: false,
+        active_checkin_id: null,
+      },
+    ]);
+
+    const merged = mergeFamilies([], [apiFamily], sessionWithTicket);
+    const parent = merged[0].parents[0];
+
+    expect(parent.ticket).toBe('none');
+    expect(parent.checkedIn).toBe(false);
+  });
+
+  it('should reflect is_checked_in true on a parent', () => {
+    const apiFamily = makeApiFamily([
+      {
+        id: 'parent-3',
+        first_name: 'Alice',
+        last_name: 'Smith',
+        name: 'Alice Smith',
+        relationship_type: 'guardian',
+        family: 'family-1',
+        ticket_type: 'event',
+        ticket_details: {
+          event_tickets: [{ id: 'et-1', event: 'event-1', event_name: 'Annual Conference' }],
+          session_tickets: [],
+        },
+        is_checked_in: true,
+        active_checkin_id: 'record-uuid-abc',
+      },
+    ]);
+
+    const merged = mergeFamilies([], [apiFamily], sessionWithTicket);
+    const parent = merged[0].parents[0];
+
+    expect(parent.checkedIn).toBe(true);
+    expect(parent.checkInRecordId).toBe('record-uuid-abc');
+  });
+
+  it('should preserve parent checkInActionId, checkInRecordId, checkInTime across reloads', () => {
+    const apiFamily = makeApiFamily([
+      {
+        id: 'parent-1',
+        first_name: 'Jane',
+        last_name: 'Smith',
+        name: 'Jane Smith',
+        relationship_type: 'mother',
+        family: 'family-1',
+        ticket_type: 'event',
+        ticket_details: {
+          event_tickets: [{ id: 'et-1', event: 'event-1', event_name: 'Annual Conference' }],
+          session_tickets: [],
+        },
+        is_checked_in: true,
+        active_checkin_id: 'record-uuid-new',
+      },
+    ]);
+
+    const existingFamily: Family = {
+      id: 'family-1',
+      last_name: 'Smith',
+      display_name: 'Smith Family',
+      name: 'Smith Family',
+      children: [],
+      parents: [
+        {
+          id: 'parent-1',
+          first_name: 'Jane',
+          last_name: 'Smith',
+          name: 'Jane Smith',
+          relationship_type: 'mother',
+          ticket: 'event',
+          ticket_type: 'event',
+          checkedIn: true,
+          checkInActionId: 'action-uuid-parent',
+          checkInRecordId: 'record-uuid-parent',
+          checkInTime: '10:00 AM',
+          family: 'family-1',
+          is_parent: true,
+        },
+      ],
+    };
+
+    const merged = mergeFamilies([existingFamily], [apiFamily], sessionWithTicket);
+    const parent = merged[0].parents[0];
+
+    expect(parent.checkInActionId).toBe('action-uuid-parent');
+    expect(parent.checkInRecordId).toBe('record-uuid-parent');
+    expect(parent.checkInTime).toBe('10:00 AM');
+  });
+
+  it('should treat a ticketless parent as eligible when the session policy is open', () => {
+    const openSession = { ...sessionWithTicket, parent_checkin_policy: 'open' as const, effective_parent_checkin_policy: 'open' as const };
+    const apiFamily = makeApiFamily([
+      {
+        id: 'parent-4',
+        first_name: 'Sam',
+        last_name: 'Smith',
+        name: 'Sam Smith',
+        relationship_type: 'father',
+        family: 'family-1',
+        ticket_type: null,
+        ticket_details: null,
+        is_checked_in: false,
+        active_checkin_id: null,
+      },
+    ]);
+
+    const merged = mergeFamilies([], [apiFamily], openSession);
+    expect(merged[0].parents[0].ticket).toBe('event');
+  });
+
+  it('should treat any parent as ineligible when the session policy is disabled, ticket or not', () => {
+    const disabledSession = { ...sessionWithTicket, parent_checkin_policy: 'disabled' as const, effective_parent_checkin_policy: 'disabled' as const };
+    const apiFamily = makeApiFamily([
+      {
+        id: 'parent-5',
+        first_name: 'Pat',
+        last_name: 'Smith',
+        name: 'Pat Smith',
+        relationship_type: 'mother',
+        family: 'family-1',
+        ticket_type: 'event',
+        ticket_details: {
+          event_tickets: [{ id: 'et-2', event: 'event-1', event_name: 'Annual Conference' }],
+          session_tickets: [],
+        },
+        is_checked_in: false,
+        active_checkin_id: null,
+      },
+    ]);
+
+    const merged = mergeFamilies([], [apiFamily], disabledSession);
+    expect(merged[0].parents[0].ticket).toBe('none');
+  });
+
+  it('should still require a real ticket under ticket_required, even with a ticket for a different session', () => {
+    const apiFamily = makeApiFamily([
+      {
+        id: 'parent-6',
+        first_name: 'Lee',
+        last_name: 'Smith',
+        name: 'Lee Smith',
+        relationship_type: 'father',
+        family: 'family-1',
+        ticket_type: 'session',
+        ticket_details: {
+          event_tickets: [],
+          session_tickets: [{ id: 'st-2', session: 'some-other-session', session_name: 'Evening Session' }],
+        },
+        is_checked_in: false,
+        active_checkin_id: null,
+      },
+    ]);
+
+    const merged = mergeFamilies([], [apiFamily], sessionWithTicket);
+    expect(merged[0].parents[0].ticket).toBe('none');
+  });
+});

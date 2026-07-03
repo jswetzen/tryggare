@@ -40,41 +40,41 @@ class TicketModelTest(TestCase):
 
     def test_create_event_ticket(self):
         """Test creating an event ticket."""
-        ticket = EventTicket.objects.create(child=self.child, event=self.event)
-        self.assertEqual(ticket.child, self.child)
+        ticket = EventTicket.objects.create(attendee=self.child, event=self.event)
+        self.assertEqual(ticket.attendee, self.child)
         self.assertEqual(ticket.event, self.event)
         self.assertIn(str(self.child), str(ticket))
         self.assertIn(str(self.event), str(ticket))
 
     def test_create_session_ticket(self):
         """Test creating a session ticket."""
-        ticket = SessionTicket.objects.create(child=self.child, session=self.session)
-        self.assertEqual(ticket.child, self.child)
+        ticket = SessionTicket.objects.create(attendee=self.child, session=self.session)
+        self.assertEqual(ticket.attendee, self.child)
         self.assertEqual(ticket.session, self.session)
         self.assertIn(str(self.child), str(ticket))
         self.assertIn(str(self.session), str(ticket))
 
     def test_event_ticket_unique_constraint(self):
         """Test that a child cannot have duplicate event tickets."""
-        EventTicket.objects.create(child=self.child, event=self.event)
+        EventTicket.objects.create(attendee=self.child, event=self.event)
 
         # Try to create a duplicate
         with self.assertRaises(Exception):  # Will raise IntegrityError
-            EventTicket.objects.create(child=self.child, event=self.event)
+            EventTicket.objects.create(attendee=self.child, event=self.event)
 
     def test_session_ticket_unique_constraint(self):
         """Test that a child cannot have duplicate session tickets."""
-        SessionTicket.objects.create(child=self.child, session=self.session)
+        SessionTicket.objects.create(attendee=self.child, session=self.session)
 
         # Try to create a duplicate
         with self.assertRaises(Exception):  # Will raise IntegrityError
-            SessionTicket.objects.create(child=self.child, session=self.session)
+            SessionTicket.objects.create(attendee=self.child, session=self.session)
 
     def test_child_can_have_both_ticket_types(self):
         """Test that a child can have both event and session tickets."""
-        event_ticket = EventTicket.objects.create(child=self.child, event=self.event)
+        event_ticket = EventTicket.objects.create(attendee=self.child, event=self.event)
         session_ticket = SessionTicket.objects.create(
-            child=self.child, session=self.session
+            attendee=self.child, session=self.session
         )
 
         self.assertEqual(self.child.event_tickets.count(), 1)
@@ -115,7 +115,7 @@ class TicketAPITest(TestCase):
 
     def test_list_event_tickets(self):
         """Test listing event tickets."""
-        EventTicket.objects.create(child=self.child, event=self.event)
+        EventTicket.objects.create(attendee=self.child, event=self.event)
 
         response = self.client.get("/api/event-tickets/")
         self.assertEqual(response.status_code, 200)
@@ -131,7 +131,7 @@ class TicketAPITest(TestCase):
 
     def test_list_session_tickets(self):
         """Test listing session tickets."""
-        SessionTicket.objects.create(child=self.child, session=self.session)
+        SessionTicket.objects.create(attendee=self.child, session=self.session)
 
         response = self.client.get("/api/session-tickets/")
         self.assertEqual(response.status_code, 200)
@@ -158,17 +158,17 @@ class TicketAPITest(TestCase):
             birthdate=timezone.now().date(),
         )
 
-        EventTicket.objects.create(child=self.child, event=self.event)
-        EventTicket.objects.create(child=child2, event=self.event)
+        EventTicket.objects.create(attendee=self.child, event=self.event)
+        EventTicket.objects.create(attendee=child2, event=self.event)
 
-        response = self.client.get(f"/api/event-tickets/?child={self.child.id}")
+        response = self.client.get(f"/api/event-tickets/?attendee={self.child.id}")
         self.assertEqual(response.status_code, 200)
         self.assertEqual(
             len(response.data),
             1,
             f"Expected 1 ticket, got {len(response.data)}: {response.data}",
         )
-        # The response contains UUID objects, not strings
+        # The response uses "child" key for back-compat
         self.assertEqual(str(response.data[0]["child"]), str(self.child.id))
 
     def test_unauthenticated_access_denied(self):
@@ -221,7 +221,7 @@ class AutoCheckoutOnDeactivateTest(TestCase):
         from checkins.models import CheckInRecord
 
         return CheckInRecord.objects.create(
-            child=child,
+            attendee=child,
             session=self.session,
             check_in_staff=self.staff,
         )
@@ -344,7 +344,7 @@ class AutoCheckoutOnDeactivateTest(TestCase):
 
         # child1 should now be checkable into the new session (no open records)
         open_standard = CheckInRecord.objects.filter(
-            child=self.child1,
+            attendee=self.child1,
             check_out_time__isnull=True,
             supervised=False,
         ).exclude(session=new_session)

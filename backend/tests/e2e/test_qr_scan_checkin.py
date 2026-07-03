@@ -48,7 +48,7 @@ class TestQrScanCheckin(E2ETestBase, TestDataMixin):
         self.test_child = self.create_test_child(self.test_family, first_name="QRKid")
 
         EventTicket.objects.create(
-            child=self.test_child,
+            attendee=self.test_child,
             event=self.test_event,
             external_ticket_code="QRTEST_E2E",
         )
@@ -56,7 +56,7 @@ class TestQrScanCheckin(E2ETestBase, TestDataMixin):
     def teardown_method(self):
         """Clean up after each test."""
         try:
-            CheckInRecord.objects.filter(child=self.test_child).delete()
+            CheckInRecord.objects.filter(attendee=self.test_child).delete()
             EventTicket.objects.filter(external_ticket_code="QRTEST_E2E").delete()
         except Exception as e:
             print(f"   ⚠️  Cleanup warning: {e}")
@@ -84,8 +84,12 @@ class TestQrScanCheckin(E2ETestBase, TestDataMixin):
 
         result = self.driver.execute_async_script(
             """
-            var done = arguments[0];
-            fetch(arguments[1] + '/api/families/by-ticket/?code=QRTEST_E2E', {credentials: 'include'})
+            // Selenium appends the callback as the LAST argument, after any
+            // args passed to execute_async_script() — with one extra arg
+            // (backend_url) that's arguments[1], not arguments[0].
+            var backendUrl = arguments[0];
+            var done = arguments[1];
+            fetch(backendUrl + '/api/families/by-ticket/?code=QRTEST_E2E', {credentials: 'include'})
               .then(function(r) {
                 return r.json().then(function(data) {
                   done({status: r.status, data: data});
@@ -125,8 +129,12 @@ class TestQrScanCheckin(E2ETestBase, TestDataMixin):
 
         result = self.driver.execute_async_script(
             """
-            var done = arguments[0];
-            fetch(arguments[1] + '/api/families/by-ticket/?code=DOESNOTEXIST_E2E', {credentials: 'include'})
+            // Selenium appends the callback as the LAST argument, after any
+            // args passed to execute_async_script() — with one extra arg
+            // (backend_url) that's arguments[1], not arguments[0].
+            var backendUrl = arguments[0];
+            var done = arguments[1];
+            fetch(backendUrl + '/api/families/by-ticket/?code=DOESNOTEXIST_E2E', {credentials: 'include'})
               .then(function(r) {
                 return r.json().then(function(data) {
                   done({status: r.status, data: data});
@@ -158,8 +166,12 @@ class TestQrScanCheckin(E2ETestBase, TestDataMixin):
 
         result = self.driver.execute_async_script(
             """
-            var done = arguments[0];
-            fetch(arguments[1] + '/api/families/by-ticket/?code=QRTEST_E2E', {credentials: 'include'})
+            // Selenium appends the callback as the LAST argument, after any
+            // args passed to execute_async_script() — with one extra arg
+            // (backend_url) that's arguments[1], not arguments[0].
+            var backendUrl = arguments[0];
+            var done = arguments[1];
+            fetch(backendUrl + '/api/families/by-ticket/?code=QRTEST_E2E', {credentials: 'include'})
               .then(function(r) {
                 // 403 / 401 may come back as HTML or JSON depending on auth layer;
                 // return text and let the caller decide.
@@ -196,22 +208,24 @@ class TestQrScanCheckin(E2ETestBase, TestDataMixin):
         self.login(self.test_user.username, "testpass123")
         time.sleep(3)
 
-        # Search for the family to surface it in the list
-        search_input = self.wait_for_element(By.CSS_SELECTOR, "input[type='text']")
+        # Search for the family to surface it in the list. SearchBox has no
+        # submit button — it filters reactively on every keystroke via
+        # oninput, so just type and wait for the filter to apply.
+        search_input = self.wait_for_element(
+            By.CSS_SELECTOR, "[data-testid='family-search']"
+        )
         search_input.clear()
         search_input.send_keys(self.test_family.last_name)
-
-        search_button = self.wait_for_element(
-            By.XPATH, "//button[contains(text(), 'Search') or contains(text(), 'Sök')]"
-        )
-        search_button.click()
         time.sleep(2)
 
         family_id = str(self.test_family.id)
         child_id = str(self.test_child.id)
 
-        # Family card must be present
-        family_card = self.wait_for_element(
+        # Family card must be present. Both the mobile-card and desktop-table
+        # layouts render at this data-testid; wait for whichever is actually
+        # visible at the current window size (see wait_for_visible_element
+        # docstring).
+        family_card = self.wait_for_visible_element(
             By.CSS_SELECTOR, f"[data-testid='family-card-{family_id}']", timeout=10
         )
         assert family_card is not None, "Family card not found"
@@ -227,8 +241,10 @@ class TestQrScanCheckin(E2ETestBase, TestDataMixin):
         )
         print("   ✓ Child row hidden before expand")
 
-        # Click toggle button
-        toggle = self.wait_for_element(
+        # Click toggle button. Both responsive layouts render this testid;
+        # wait for whichever match is actually visible (see
+        # wait_for_visible_element docstring).
+        toggle = self.wait_for_visible_element(
             By.CSS_SELECTOR,
             f"[data-testid='family-toggle-button-{family_id}']",
             timeout=10,
