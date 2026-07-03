@@ -86,7 +86,7 @@ class TestChildTicketType:
         child = self._make_child(family)
         event = self._make_event()
         session = self._make_session(event)
-        SessionTicket.objects.create(child=child, session=session)
+        SessionTicket.objects.create(attendee=child, session=session)
         assert child.get_ticket_type() == "session"
         assert child.has_ticket is True
 
@@ -97,8 +97,8 @@ class TestChildTicketType:
         child = self._make_child(family)
         event = self._make_event()
         session = self._make_session(event)
-        EventTicket.objects.create(child=child, event=event)
-        SessionTicket.objects.create(child=child, session=session)
+        EventTicket.objects.create(attendee=child, event=event)
+        SessionTicket.objects.create(attendee=child, session=session)
         assert child.get_ticket_type() == "event"
 
     def test_get_ticket_details_structure(self):
@@ -108,7 +108,7 @@ class TestChildTicketType:
         child = self._make_child(family)
         event = self._make_event()
         session = self._make_session(event)
-        SessionTicket.objects.create(child=child, session=session)
+        SessionTicket.objects.create(attendee=child, session=session)
         details = child.get_ticket_details()
         assert details["ticket_type"] == "session"
         assert len(details["session_tickets"]) == 1
@@ -166,7 +166,7 @@ class TestQRCodeIsAvailable:
             end_time=timezone.now() + timedelta(hours=1),
         )
         record = CheckInRecord.objects.create(
-            child=child, session=session, check_in_staff=staff
+            attendee=child, session=session, check_in_staff=staff
         )
         qr = QRCode(code="TSTAS1", checkin_record=record)
         assert qr.is_available is False

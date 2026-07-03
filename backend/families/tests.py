@@ -40,12 +40,12 @@ class ChildModelTests(TestCase):
 
     def test_has_ticket_with_event_ticket(self):
         """Test has_ticket returns True when child has an event ticket"""
-        EventTicket.objects.create(child=self.child, event=self.event)
+        EventTicket.objects.create(attendee=self.child, event=self.event)
         self.assertTrue(self.child.has_ticket)
 
     def test_has_ticket_with_session_ticket(self):
         """Test has_ticket returns True when child has a session ticket"""
-        SessionTicket.objects.create(child=self.child, session=self.session)
+        SessionTicket.objects.create(attendee=self.child, session=self.session)
         self.assertTrue(self.child.has_ticket)
 
     def test_get_ticket_type_none(self):
@@ -54,18 +54,18 @@ class ChildModelTests(TestCase):
 
     def test_get_ticket_type_event(self):
         """Test get_ticket_type returns 'event' when child has an event ticket"""
-        EventTicket.objects.create(child=self.child, event=self.event)
+        EventTicket.objects.create(attendee=self.child, event=self.event)
         self.assertEqual(self.child.get_ticket_type(), "event")
 
     def test_get_ticket_type_session(self):
         """Test get_ticket_type returns 'session' when child has only session tickets"""
-        SessionTicket.objects.create(child=self.child, session=self.session)
+        SessionTicket.objects.create(attendee=self.child, session=self.session)
         self.assertEqual(self.child.get_ticket_type(), "session")
 
     def test_get_ticket_type_event_precedence(self):
         """Test that event tickets take precedence over session tickets"""
-        EventTicket.objects.create(child=self.child, event=self.event)
-        SessionTicket.objects.create(child=self.child, session=self.session)
+        EventTicket.objects.create(attendee=self.child, event=self.event)
+        SessionTicket.objects.create(attendee=self.child, session=self.session)
         self.assertEqual(self.child.get_ticket_type(), "event")
 
     def test_get_ticket_details_no_tickets(self):
@@ -77,7 +77,7 @@ class ChildModelTests(TestCase):
 
     def test_get_ticket_details_with_event_ticket(self):
         """Test get_ticket_details with an event ticket"""
-        event_ticket = EventTicket.objects.create(child=self.child, event=self.event)
+        event_ticket = EventTicket.objects.create(attendee=self.child, event=self.event)
         details = self.child.get_ticket_details()
 
         self.assertEqual(details["ticket_type"], "event")
@@ -90,7 +90,7 @@ class ChildModelTests(TestCase):
     def test_get_ticket_details_with_session_ticket(self):
         """Test get_ticket_details with a session ticket"""
         session_ticket = SessionTicket.objects.create(
-            child=self.child, session=self.session
+            attendee=self.child, session=self.session
         )
         details = self.child.get_ticket_details()
 
@@ -105,9 +105,9 @@ class ChildModelTests(TestCase):
 
     def test_get_ticket_details_with_multiple_tickets(self):
         """Test get_ticket_details with multiple tickets of different types"""
-        event_ticket = EventTicket.objects.create(child=self.child, event=self.event)
+        event_ticket = EventTicket.objects.create(attendee=self.child, event=self.event)
         session_ticket = SessionTicket.objects.create(
-            child=self.child, session=self.session
+            attendee=self.child, session=self.session
         )
         details = self.child.get_ticket_details()
 
@@ -134,7 +134,8 @@ class FamilyModelTests(TestCase):
         """Test display_name property without last name but with parent"""
         family = Family.objects.create(last_name="")
         Parent.objects.create(
-            name="Jane Doe",
+            first_name="Jane",
+            last_name="Doe",
             relationship_type="Mother",
             family=family,
         )
@@ -180,7 +181,7 @@ class ChildSerializerTests(TestCase):
 
     def test_child_serializer_with_event_ticket(self):
         """Test ChildSerializer with a child that has an event ticket"""
-        EventTicket.objects.create(child=self.child, event=self.event)
+        EventTicket.objects.create(attendee=self.child, event=self.event)
         response = self.client.get(f"/api/children/{self.child.id}/")
 
         self.assertEqual(response.status_code, 200)
@@ -197,7 +198,7 @@ class ChildSerializerTests(TestCase):
 
     def test_child_serializer_with_session_ticket(self):
         """Test ChildSerializer with a child that has a session ticket"""
-        SessionTicket.objects.create(child=self.child, session=self.session)
+        SessionTicket.objects.create(attendee=self.child, session=self.session)
         response = self.client.get(f"/api/children/{self.child.id}/")
 
         self.assertEqual(response.status_code, 200)
@@ -243,7 +244,8 @@ class FamilySerializerTests(TestCase):
 
         self.family = Family.objects.create(last_name="Martinez")
         Parent.objects.create(
-            name="Carlos Martinez",
+            first_name="Carlos",
+            last_name="Martinez",
             relationship_type="Father",
             phone="555-1234",
             family=self.family,
@@ -288,6 +290,67 @@ class FamilySerializerTests(TestCase):
         self.assertEqual(response.data[0]["display_name"], "Martinez")
 
 
+class FamilyCreateValidationTests(TestCase):
+    """A family is a household of attendees — any non-empty combination of
+    parents/children is valid, it just can't be completely empty."""
+
+    def setUp(self):
+        self.user = User.objects.create_user(username="familycreate", password="x")
+        self.client = APIClient()
+        self.client.force_authenticate(user=self.user)
+
+    def test_parent_only_family_succeeds(self):
+        response = self.client.post(
+            "/api/families/",
+            {
+                "last_name": "AdultsOnly",
+                "parents": [
+                    {
+                        "first_name": "Anna",
+                        "last_name": "AdultsOnly",
+                        "relationship_type": "OTHER",
+                    }
+                ],
+                "children": [],
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, 201, response.data)
+        family = Family.objects.get(last_name="AdultsOnly")
+        self.assertEqual(family.parents.count(), 1)
+        self.assertEqual(family.children.count(), 0)
+
+    def test_child_only_family_succeeds(self):
+        response = self.client.post(
+            "/api/families/",
+            {
+                "last_name": "KidsOnly",
+                "parents": [],
+                "children": [
+                    {
+                        "first_name": "Kim",
+                        "last_name": "KidsOnly",
+                        "birthdate": "2018-01-01",
+                    }
+                ],
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, 201, response.data)
+        family = Family.objects.get(last_name="KidsOnly")
+        self.assertEqual(family.parents.count(), 0)
+        self.assertEqual(family.children.count(), 1)
+
+    def test_empty_family_rejected(self):
+        response = self.client.post(
+            "/api/families/",
+            {"last_name": "Nobody", "parents": [], "children": []},
+            format="json",
+        )
+        self.assertEqual(response.status_code, 400)
+        self.assertFalse(Family.objects.filter(last_name="Nobody").exists())
+
+
 class TicketIntegrationTests(TestCase):
     """Integration tests for ticket information in family/child endpoints"""
 
@@ -324,8 +387,8 @@ class TicketIntegrationTests(TestCase):
         )
 
         # Give child1 an event ticket, child2 a session ticket
-        EventTicket.objects.create(child=self.child1, event=self.event)
-        SessionTicket.objects.create(child=self.child2, session=self.session)
+        EventTicket.objects.create(attendee=self.child1, event=self.event)
+        SessionTicket.objects.create(attendee=self.child2, session=self.session)
 
     def test_family_detail_includes_children_with_tickets(self):
         """Test that family detail endpoint includes children with ticket info"""
@@ -357,9 +420,9 @@ class TicketIntegrationTests(TestCase):
                 family=self.family,
             )
             if i % 2 == 0:
-                EventTicket.objects.create(child=child, event=self.event)
+                EventTicket.objects.create(attendee=child, event=self.event)
             else:
-                SessionTicket.objects.create(child=child, session=self.session)
+                SessionTicket.objects.create(attendee=child, session=self.session)
 
         # The query should be efficient due to prefetch_related
         # Expecting: 1 child query + 1 event ticket prefetch + 1 session ticket prefetch + 1 check-in record prefetch

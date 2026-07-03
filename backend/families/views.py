@@ -27,31 +27,55 @@ class FamilyViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         """
         Optimize queries with prefetch_related to avoid N+1 problems.
-        Includes ticket information and check-in status for children.
+        Includes ticket information and check-in status for children and parents.
+
+        Since Child and Parent are MTI subclasses of Attendee, their family FK
+        lives on the Attendee table. We prefetch through "attendees" and store
+        each subclass in a to_attr that Family._AttendeeSubclassAccessor exposes.
         """
         from checkins.models import CheckInRecord
 
-        event_ticket_prefetch = Prefetch(
-            "children__event_tickets",
-            queryset=EventTicket.objects.select_related("event"),
+        # Prefetch children with their tickets and active check-ins
+        children_qs = Child.objects.prefetch_related(
+            Prefetch(
+                "event_tickets",
+                queryset=EventTicket.objects.select_related("event"),
+            ),
+            Prefetch(
+                "session_tickets",
+                queryset=SessionTicket.objects.select_related(
+                    "session", "session__event"
+                ),
+            ),
+            Prefetch(
+                "checkin_records",
+                queryset=CheckInRecord.objects.filter(check_out_time__isnull=True),
+                to_attr="active_checkins",
+            ),
         )
-        session_ticket_prefetch = Prefetch(
-            "children__session_tickets",
-            queryset=SessionTicket.objects.select_related("session", "session__event"),
-        )
-        # Prefetch active check-ins for children to avoid N+1 queries
-        active_checkins_prefetch = Prefetch(
-            "children__checkin_records",
-            queryset=CheckInRecord.objects.filter(check_out_time__isnull=True),
-            to_attr="active_checkins",
+
+        # Prefetch parents with their tickets and active check-ins
+        parents_qs = Parent.objects.prefetch_related(
+            Prefetch(
+                "event_tickets",
+                queryset=EventTicket.objects.select_related("event"),
+            ),
+            Prefetch(
+                "session_tickets",
+                queryset=SessionTicket.objects.select_related(
+                    "session", "session__event"
+                ),
+            ),
+            Prefetch(
+                "checkin_records",
+                queryset=CheckInRecord.objects.filter(check_out_time__isnull=True),
+                to_attr="active_checkins",
+            ),
         )
 
         return Family.objects.prefetch_related(
-            "parents",
-            "children",
-            event_ticket_prefetch,
-            session_ticket_prefetch,
-            active_checkins_prefetch,
+            Prefetch("attendees", queryset=children_qs, to_attr="children"),
+            Prefetch("attendees", queryset=parents_qs, to_attr="parents"),
         ).all()
 
     def get_serializer_class(self):
@@ -70,19 +94,19 @@ class FamilyViewSet(viewsets.ModelViewSet):
         family = None
         ticket = (
             EventTicket.objects.filter(external_ticket_code=code)
-            .select_related("child__family")
+            .select_related("attendee__family")
             .first()
         )
         if ticket:
-            family = ticket.child.family
+            family = ticket.attendee.family
         else:
             ticket = (
                 SessionTicket.objects.filter(external_ticket_code=code)
-                .select_related("child__family")
+                .select_related("attendee__family")
                 .first()
             )
             if ticket:
-                family = ticket.child.family
+                family = ticket.attendee.family
 
         if not family:
             return Response({"error": "not_found"}, status=404)
@@ -121,7 +145,7 @@ class ParentViewSet(viewsets.ModelViewSet):
     queryset = Parent.objects.select_related("family").all()
     serializer_class = ParentSerializer
     permission_classes = [IsAuthenticated]
-    search_fields = ["name", "email", "phone"]
+    search_fields = ["first_name", "last_name", "email", "phone"]
     filterset_fields = ["family", "relationship_type"]
 
 

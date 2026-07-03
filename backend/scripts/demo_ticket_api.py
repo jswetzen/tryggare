@@ -78,11 +78,11 @@ def main():
     )
 
     # Give child1 an event ticket (full access)
-    EventTicket.objects.create(child=child1, event=event)
+    EventTicket.objects.create(attendee=child1, event=event)
 
     # Give child2 session tickets (limited access)
-    SessionTicket.objects.create(child=child2, session=session1)
-    SessionTicket.objects.create(child=child2, session=session2)
+    SessionTicket.objects.create(attendee=child2, session=session1)
+    SessionTicket.objects.create(attendee=child2, session=session2)
 
     # child3 has no tickets
 
@@ -122,16 +122,14 @@ def main():
     from django.db.models import Prefetch
 
     event_ticket_prefetch = Prefetch(
-        "children__event_tickets", queryset=EventTicket.objects.select_related("event")
+        "attendees__event_tickets", queryset=EventTicket.objects.select_related("event")
     )
     session_ticket_prefetch = Prefetch(
-        "children__session_tickets",
+        "attendees__session_tickets",
         queryset=SessionTicket.objects.select_related("session", "session__event"),
     )
 
     family_optimized = Family.objects.prefetch_related(
-        "parents",
-        "children",
         event_ticket_prefetch,
         session_ticket_prefetch,
     ).get(id=family.id)

@@ -69,7 +69,7 @@ class PrintJobModelTest(TestCase):
             end_time=timezone.now() + timezone.timedelta(hours=2),
         )
         self.checkin = CheckInRecord.objects.create(
-            child=self.child,
+            attendee=self.child,
             session=self.session,
             check_in_staff=self.user,
             label_printed=False,
@@ -172,7 +172,7 @@ class PrintJobReassignmentTest(TestCase):
 
     def _make_checkin(self):
         return CheckInRecord.objects.create(
-            child=self.child,
+            attendee=self.child,
             session=self.session,
             check_in_staff=self.user,
             label_printed=False,

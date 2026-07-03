@@ -80,10 +80,10 @@ class TicketViewSet(viewsets.ModelViewSet):
     Requires authentication.
     """
 
-    queryset = Ticket.objects.select_related("child", "session").all()
+    queryset = Ticket.objects.select_related("attendee", "session").all()
     serializer_class = TicketSerializer
     permission_classes = [IsAuthenticated]
-    filterset_fields = ["type", "child", "session"]
+    filterset_fields = ["type", "attendee", "session"]
 
 
 class EventTicketViewSet(viewsets.ModelViewSet):
@@ -93,10 +93,10 @@ class EventTicketViewSet(viewsets.ModelViewSet):
     Requires authentication.
     """
 
-    queryset = EventTicket.objects.select_related("child", "event").all()
+    queryset = EventTicket.objects.select_related("attendee", "event").all()
     serializer_class = EventTicketSerializer
     permission_classes = [IsAuthenticated]
-    filterset_fields = ["child", "event"]
+    filterset_fields = ["attendee", "event"]
     ordering = ["event__start_date"]
 
 
@@ -108,9 +108,9 @@ class SessionTicketViewSet(viewsets.ModelViewSet):
     """
 
     queryset = SessionTicket.objects.select_related(
-        "child", "session", "session__event"
+        "attendee", "session", "session__event"
     ).all()
     serializer_class = SessionTicketSerializer
     permission_classes = [IsAuthenticated]
-    filterset_fields = ["child", "session"]
+    filterset_fields = ["attendee", "session"]
     ordering = ["session__start_time"]

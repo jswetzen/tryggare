@@ -66,8 +66,10 @@ class TestSupervisedCheckIn(E2ETestBase, TestDataMixin):
         # Assign tickets to both children so supervised checkbox will appear
         from events.models import EventTicket
 
-        EventTicket.objects.create(child=self.supervised_child, event=self.test_event)
-        EventTicket.objects.create(child=self.standard_child, event=self.test_event)
+        EventTicket.objects.create(
+            attendee=self.supervised_child, event=self.test_event
+        )
+        EventTicket.objects.create(attendee=self.standard_child, event=self.test_event)
 
     def teardown_method(self):
         """Clean up after each test."""
@@ -125,11 +127,13 @@ class TestSupervisedCheckIn(E2ETestBase, TestDataMixin):
         # Find and expand the test family using JavaScript click (more reliable)
         print("   Expanding family with JavaScript click...")
         family_toggle_selector = (
-            f"button[data-testid='family-toggle-button-{self.test_family.id}']"
+            f"[data-testid='family-toggle-button-{self.test_family.id}']"
         )
 
-        # Wait for element to exist first
-        family_toggle = self.wait_for_element(
+        # Wait for a *visible* match — the mobile-card and desktop-table
+        # layouts both render at this data-testid, and only one is visible at
+        # the current window size (see wait_for_visible_element docstring).
+        family_toggle = self.wait_for_visible_element(
             By.CSS_SELECTOR, family_toggle_selector, timeout=10
         )
 
@@ -200,20 +204,22 @@ class TestSupervisedCheckIn(E2ETestBase, TestDataMixin):
         search_input.send_keys(self.test_family.last_name)
         time.sleep(2)
 
-        # Expand family
+        # Expand family. Both the mobile-card and desktop-table layouts render
+        # at this data-testid, so wait for whichever match is actually visible
+        # at the current window size (see wait_for_visible_element docstring).
         print("   Expanding family...")
-        family_toggle = self.wait_for_element(
+        family_toggle = self.wait_for_visible_element(
             By.CSS_SELECTOR,
-            f"button[data-testid='family-toggle-button-{self.test_family.id}']",
+            f"[data-testid='family-toggle-button-{self.test_family.id}']",
         )
         family_toggle.click()
         time.sleep(1)
 
-        # Find and check the supervised checkbox
+        # Find and check the supervised checkbox (same dual-layout caveat)
         print("   Checking supervised checkbox...")
-        supervised_checkbox = self.wait_for_element(
+        supervised_checkbox = self.wait_for_visible_element(
             By.CSS_SELECTOR,
-            f"input[data-testid='supervised-checkbox-{self.supervised_child.id}']",
+            f"[data-testid='supervised-checkbox-{self.supervised_child.id}']",
             timeout=5,
         )
         supervised_checkbox.click()
@@ -224,11 +230,11 @@ class TestSupervisedCheckIn(E2ETestBase, TestDataMixin):
         )
         print("   ✓ Supervised checkbox checked")
 
-        # Click check-in button
+        # Click check-in button (same dual-layout caveat)
         print("   Clicking check-in button...")
-        checkin_button = self.wait_for_element(
+        checkin_button = self.wait_for_visible_element(
             By.CSS_SELECTOR,
-            f"button[data-testid='child-check-in-button-{self.supervised_child.id}']",
+            f"[data-testid='child-check-in-button-{self.supervised_child.id}']",
         )
         checkin_button.click()
         time.sleep(3)
@@ -250,12 +256,19 @@ class TestSupervisedCheckIn(E2ETestBase, TestDataMixin):
         self.driver.get(checkout_url)
         time.sleep(3)
 
-        # Look for supervised badge
+        # Supervised badge (and everything else) lives inside the (collapsed)
+        # family row — expand to reveal it.
+        self.expand_all_visible_family_rows()
+
+        # Look for supervised badge. The app defaults to Swedish ("Övervakad")
+        # for a fresh session with no saved language preference, so accept
+        # either language's translation.
         print("   Looking for supervised badge...")
         page_text = self.driver.page_source
-        assert "Supervised" in page_text or "Guardian" in page_text, (
-            "Supervised badge should be visible on checkout page"
-        )
+        assert any(
+            text in page_text
+            for text in ["Supervised", "Guardian", "Övervakad", "Vårdnadshavare"]
+        ), "Supervised badge should be visible on checkout page"
 
         print("   ✓ Supervised badge displayed on checkout page")
         print("\n" + "=" * 60)
@@ -280,19 +293,21 @@ class TestSupervisedCheckIn(E2ETestBase, TestDataMixin):
         search_input.send_keys(self.test_family.last_name)
         time.sleep(2)
 
-        # Expand family
-        family_toggle = self.wait_for_element(
+        # Expand family. Both the mobile-card and desktop-table layouts render
+        # at this data-testid, so wait for whichever match is actually visible
+        # at the current window size (see wait_for_visible_element docstring).
+        family_toggle = self.wait_for_visible_element(
             By.CSS_SELECTOR,
-            f"button[data-testid='family-toggle-button-{self.test_family.id}']",
+            f"[data-testid='family-toggle-button-{self.test_family.id}']",
         )
         family_toggle.click()
         time.sleep(1)
 
         # Check in first child WITHOUT supervised checkbox (standard check-in)
         print("   Performing standard check-in (no supervised checkbox)...")
-        standard_checkin_button = self.wait_for_element(
+        standard_checkin_button = self.wait_for_visible_element(
             By.CSS_SELECTOR,
-            f"button[data-testid='child-check-in-button-{self.standard_child.id}']",
+            f"[data-testid='child-check-in-button-{self.standard_child.id}']",
         )
         standard_checkin_button.click()
         time.sleep(2)
@@ -301,16 +316,16 @@ class TestSupervisedCheckIn(E2ETestBase, TestDataMixin):
 
         # Check in second child WITH supervised checkbox
         print("   Performing supervised check-in (with supervised checkbox)...")
-        supervised_checkbox = self.wait_for_element(
+        supervised_checkbox = self.wait_for_visible_element(
             By.CSS_SELECTOR,
-            f"input[data-testid='supervised-checkbox-{self.supervised_child.id}']",
+            f"[data-testid='supervised-checkbox-{self.supervised_child.id}']",
         )
         supervised_checkbox.click()
         time.sleep(0.5)
 
-        supervised_checkin_button = self.wait_for_element(
+        supervised_checkin_button = self.wait_for_visible_element(
             By.CSS_SELECTOR,
-            f"button[data-testid='child-check-in-button-{self.supervised_child.id}']",
+            f"[data-testid='child-check-in-button-{self.supervised_child.id}']",
         )
         supervised_checkin_button.click()
         time.sleep(3)
@@ -323,11 +338,19 @@ class TestSupervisedCheckIn(E2ETestBase, TestDataMixin):
         self.driver.get(checkout_url)
         time.sleep(3)
 
+        # Supervised badge (and everything else) lives inside the (collapsed)
+        # family row — expand to reveal it.
+        self.expand_all_visible_family_rows()
+
         page_text = self.driver.page_source
 
         # Standard child should NOT have supervised badge
-        # Supervised child SHOULD have supervised badge
-        supervised_badge_count = page_text.count("Supervised")
+        # Supervised child SHOULD have supervised badge. The app defaults to
+        # Swedish ("Övervakad") for a fresh session with no saved language
+        # preference, so count either language's translation.
+        supervised_badge_count = page_text.count("Supervised") + page_text.count(
+            "Övervakad"
+        )
 
         # Should be at least 1 supervised badge (for the supervised child only)
         assert supervised_badge_count >= 1, (

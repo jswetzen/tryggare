@@ -95,10 +95,12 @@ class ReportAggregationTest(TestCase):
         )
 
         # Tickets.
-        EventTicket.objects.create(child=self.c1, event=self.event)
-        EventTicket.objects.create(child=self.c5, event=self.event)  # no-show
-        SessionTicket.objects.create(child=self.c2, session=self.session_a)
-        SessionTicket.objects.create(child=self.c3, session=self.session_a)  # no-show
+        EventTicket.objects.create(attendee=self.c1, event=self.event)
+        EventTicket.objects.create(attendee=self.c5, event=self.event)  # no-show
+        SessionTicket.objects.create(attendee=self.c2, session=self.session_a)
+        SessionTicket.objects.create(
+            attendee=self.c3, session=self.session_a
+        )  # no-show
 
         # Returning: C1 attended the past event.
         self._checkin(self.c1, self.past_session, self.alice, _aware(2025, 1, 1, 9, 0))
@@ -162,7 +164,7 @@ class ReportAggregationTest(TestCase):
         checkout_staff=None,
     ):
         rec = CheckInRecord.objects.create(
-            child=child,
+            attendee=child,
             session=session,
             check_in_staff=staff,
             check_out_time=cout,

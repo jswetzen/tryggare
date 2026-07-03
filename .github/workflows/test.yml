@@ -14,10 +14,30 @@ jobs:
       run:
         working-directory: backend
 
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: checkins
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
     env:
       SECRET_KEY: test-secret-key-for-ci
       ENV_FILE: /dev/null
-      DJANGO_SETTINGS_MODULE: config.settings.base
+      DJANGO_SETTINGS_MODULE: config.settings.test
+      POSTGRES_DB: checkins
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_HOST: localhost
+      POSTGRES_PORT: 5432
 
     steps:
       - uses: actions/checkout@v4

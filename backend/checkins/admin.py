@@ -5,9 +5,9 @@ from .models import AuditLog, CheckInRecord
 
 @admin.register(CheckInRecord)
 class CheckInRecordAdmin(admin.ModelAdmin):
-    list_display = ("child", "session", "check_in_time", "check_out_time")
+    list_display = ("attendee", "session", "check_in_time", "check_out_time")
     list_filter = ("session", "check_in_staff")
-    search_fields = ("child__first_name", "child__last_name", "session__name")
+    search_fields = ("attendee__first_name", "attendee__last_name", "session__name")
 
 
 @admin.register(AuditLog)

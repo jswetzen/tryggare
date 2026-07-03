@@ -5,7 +5,13 @@ from .models import Event, EventTicket, Session, SessionTicket, Ticket
 
 @admin.register(Event)
 class EventAdmin(admin.ModelAdmin):
-    list_display = ("name", "start_date", "end_date")
+    list_display = (
+        "name",
+        "start_date",
+        "end_date",
+        "parent_checkin_policy_default",
+    )
+    list_filter = ("parent_checkin_policy_default",)
     search_fields = ("name",)
     actions = ("generate_report",)
 
@@ -26,9 +32,21 @@ class EventAdmin(admin.ModelAdmin):
 
 @admin.register(Session)
 class SessionAdmin(admin.ModelAdmin):
-    list_display = ("name", "event", "start_time", "end_time", "is_active")
-    list_filter = ("is_active", "event")
+    list_display = (
+        "name",
+        "event",
+        "start_time",
+        "end_time",
+        "is_active",
+        "parent_checkin_policy",
+        "effective_parent_checkin_policy",
+    )
+    list_filter = ("is_active", "event", "parent_checkin_policy")
     search_fields = ("name", "event__name")
+
+    @admin.display(description="Effective parent policy")
+    def effective_parent_checkin_policy(self, obj):
+        return obj.effective_parent_checkin_policy
 
 
 @admin.register(Ticket)
@@ -37,9 +55,13 @@ class TicketAdmin(admin.ModelAdmin):
     DEPRECATED: Use EventTicketAdmin or SessionTicketAdmin instead.
     """
 
-    list_display = ("type", "child", "session")
+    list_display = ("type", "attendee", "session")
     list_filter = ("type",)
-    search_fields = ("child__first_name", "child__last_name", "session__name")
+    search_fields = (
+        "attendee__first_name",
+        "attendee__last_name",
+        "session__name",
+    )
 
 
 @admin.register(EventTicket)
@@ -48,10 +70,10 @@ class EventTicketAdmin(admin.ModelAdmin):
     Admin interface for event tickets (passes).
     """
 
-    list_display = ("child", "event", "id")
+    list_display = ("attendee", "event", "id")
     list_filter = ("event",)
-    search_fields = ("child__first_name", "child__last_name", "event__name")
-    autocomplete_fields = ["child", "event"]
+    search_fields = ("attendee__first_name", "attendee__last_name", "event__name")
+    autocomplete_fields = ["attendee", "event"]
 
 
 @admin.register(SessionTicket)
@@ -60,15 +82,15 @@ class SessionTicketAdmin(admin.ModelAdmin):
     Admin interface for session tickets.
     """
 
-    list_display = ("child", "session", "get_event", "id")
+    list_display = ("attendee", "session", "get_event", "id")
     list_filter = ("session__event",)
     search_fields = (
-        "child__first_name",
-        "child__last_name",
+        "attendee__first_name",
+        "attendee__last_name",
         "session__name",
         "session__event__name",
     )
-    autocomplete_fields = ["child", "session"]
+    autocomplete_fields = ["attendee", "session"]
 
     def get_event(self, obj):
         return obj.session.event

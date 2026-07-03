@@ -156,7 +156,7 @@ export const checkinApi = {
   /**
    * Get all families with nested children and parents
    */
-  getFamilies: () => apiClient.get<Family[]>('/families/'),
+  getFamilies: () => apiClient.get<FamilyApiResponse[]>('/families/'),
 
   /**
    * Look up a family by ticket QR code (external_ticket_code)
@@ -170,7 +170,8 @@ export const checkinApi = {
   createFamily: (data: {
     last_name: string;
     parents: Array<{
-      name: string;
+      first_name: string;
+      last_name: string;
       phone?: string;
       email?: string;
       relationship_type: string;
@@ -182,7 +183,7 @@ export const checkinApi = {
       allergies?: string;
       notes?: string;
     }>;
-  }) => apiClient.post<Family>('/families/', data),
+  }) => apiClient.post<FamilyApiResponse>('/families/', data),
 };
 
 /**

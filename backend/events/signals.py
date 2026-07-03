@@ -28,11 +28,19 @@ def auto_checkout_on_deactivate(sender, instance, **kwargs):
 
     from checkins.models import CheckInRecord, AuditLog
     from checkins.qr_utils import release_code_for_checkout
+    from families.models import Parent as ParentModel
 
-    open_records = CheckInRecord.objects.filter(
-        session=instance,
-        check_out_time__isnull=True,
-    ).select_related("child")
+    # Parents are check-in only — auto-checkout must not touch them
+    parent_ids = ParentModel.objects.values_list("attendee_ptr_id", flat=True)
+
+    open_records = (
+        CheckInRecord.objects.filter(
+            session=instance,
+            check_out_time__isnull=True,
+        )
+        .exclude(attendee_id__in=parent_ids)
+        .select_related("attendee")
+    )
 
     if not open_records.exists():
         return
@@ -52,8 +60,8 @@ def auto_checkout_on_deactivate(sender, instance, **kwargs):
             entity_type="CheckInRecord",
             entity_id=str(record.id),
             details={
-                "child_id": str(record.child.id),
-                "child_name": f"{record.child.first_name} {record.child.last_name}",
+                "child_id": str(record.attendee.id),
+                "child_name": f"{record.attendee.first_name} {record.attendee.last_name}",
                 "session_id": str(instance.id),
                 "session_name": instance.name,
                 "reason": "session_deactivated",
@@ -65,8 +73,8 @@ def auto_checkout_on_deactivate(sender, instance, **kwargs):
                 "type": "child_checked_out",
                 "data": {
                     "record_id": str(record.id),
-                    "child_id": str(record.child.id),
-                    "child_name": f"{record.child.first_name} {record.child.last_name}",
+                    "child_id": str(record.attendee.id),
+                    "child_name": f"{record.attendee.first_name} {record.attendee.last_name}",
                     "session_id": str(instance.id),
                     "session_name": instance.name,
                     "check_out_time": record.check_out_time.isoformat(),

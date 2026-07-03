@@ -1,5 +1,6 @@
 from asgiref.sync import async_to_sync
 from channels.layers import get_channel_layer
+from django.db.models import Prefetch
 from django.utils import timezone
 from django.utils.translation import gettext as _
 from rest_framework import status, viewsets
@@ -7,9 +8,10 @@ from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
-from families.models import Child
+from families.models import Attendee, Parent
 from events.models import Session
 
+from .eligibility import parent_checkin_gate_error
 from .models import AuditLog, CheckInRecord
 from .serializers import (
     AuditLogSerializer,
@@ -25,77 +27,104 @@ class CheckInRecordViewSet(viewsets.ModelViewSet):
     """
 
     queryset = CheckInRecord.objects.select_related(
-        "child", "session", "check_in_staff", "check_out_staff", "qr_code"
+        "attendee", "session", "check_in_staff", "check_out_staff", "qr_code"
     ).all()
     serializer_class = CheckInRecordSerializer
     permission_classes = [IsAuthenticated]
-    filterset_fields = ["child", "session", "check_in_staff", "check_out_staff"]
+    filterset_fields = ["attendee", "session", "check_in_staff", "check_out_staff"]
     ordering = ["-check_in_time"]
 
     @action(detail=False, methods=["post"])
     def check_in(self, request):
         """
-        Check in a child to a session.
-        Generates QR token if not already present.
+        Check in an attendee (child or parent) to a session.
+        Parents: check-in only (no label, no checkout coupling, no multi-session block).
+        Children: full existing behaviour.
         """
-        child_id = request.data.get("child")
+        attendee_id = request.data.get("child") or request.data.get("attendee")
         session_id = request.data.get("session")
         supervised = request.data.get("supervised", False)
 
-        if not child_id or not session_id:
+        if not attendee_id or not session_id:
             return Response(
                 {"error": _("Both child and session are required")},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
         try:
-            child = Child.objects.get(id=child_id)
+            attendee = Attendee.objects.get(id=attendee_id)
             session = Session.objects.get(id=session_id)
-        except (Child.DoesNotExist, Session.DoesNotExist):
+        except (Attendee.DoesNotExist, Session.DoesNotExist):
             return Response(
                 {"error": _("Child or session not found")},
                 status=status.HTTP_404_NOT_FOUND,
             )
 
-        # Check for same-session active check-in
-        existing = CheckInRecord.objects.filter(
-            child=child, session=session, check_out_time__isnull=True
-        ).first()
+        # Django MTI does not downcast automatically: Attendee.objects.get()
+        # returns a base Attendee even when a Parent row exists, so a plain
+        # isinstance(attendee, Parent) is always False. Resolve the concrete
+        # Parent explicitly so parent-specific rules (ticket gate, no label, no
+        # multi-session block) actually apply.
+        parent = Parent.objects.filter(pk=attendee.pk).first()
+        if parent is not None:
+            attendee = parent
+        is_parent = parent is not None
 
-        if existing:
-            return Response(
-                {"error": _("Child is already checked in to this session")},
-                status=status.HTTP_400_BAD_REQUEST,
+        if is_parent:
+            # Parent check-in: gated by the session's parent_checkin_policy,
+            # not a hardcoded ticket requirement. No multi-session blocking.
+            gate_error = parent_checkin_gate_error(attendee, session)
+            if gate_error:
+                return Response(
+                    {"error": gate_error}, status=status.HTTP_400_BAD_REQUEST
+                )
+            existing = CheckInRecord.objects.filter(
+                attendee=attendee, session=session, check_out_time__isnull=True
+            ).first()
+            if existing:
+                return Response(
+                    {"error": _("Parent is already checked in to this session")},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+        else:
+            # Child check-in: enforce single-session rule
+            existing = CheckInRecord.objects.filter(
+                attendee=attendee, session=session, check_out_time__isnull=True
+            ).first()
+            if existing:
+                return Response(
+                    {"error": _("Child is already checked in to this session")},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            other_sessions = (
+                CheckInRecord.objects.filter(
+                    attendee=attendee, check_out_time__isnull=True
+                )
+                .exclude(session=session)
+                .select_related("session")
             )
+            for record in other_sessions:
+                if not record.supervised:
+                    return Response(
+                        {"error": _("Child has active check-in to another session")},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+                if (
+                    record.session.is_active
+                    and record.session.end_time > timezone.now()
+                ):
+                    return Response(
+                        {"error": _("Child still in active supervised session")},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
 
-        # Check for other-session active check-ins
-        other_sessions = (
-            CheckInRecord.objects.filter(child=child, check_out_time__isnull=True)
-            .exclude(session=session)
-            .select_related("session")
-        )
-
-        for record in other_sessions:
-            # Standard check-ins always block
-            if not record.supervised:
-                return Response(
-                    {"error": _("Child has active check-in to another session")},
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
-
-            # Supervised: only block if BOTH conditions true
-            if record.session.is_active and record.session.end_time > timezone.now():
-                return Response(
-                    {"error": _("Child still in active supervised session")},
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
-
-        # Create check-in record
+        # Create check-in record. Parents never get a label.
         record = CheckInRecord.objects.create(
-            child=child,
+            attendee=attendee,
             session=session,
             check_in_staff=request.user,
-            label_printed=False,
+            label_printed=is_parent,  # mark as already "printed" so parent never enters print queue
             supervised=supervised,
         )
 
@@ -106,10 +135,10 @@ class CheckInRecordViewSet(viewsets.ModelViewSet):
 
         # Update last participation dates
         now = timezone.now()
-        child.last_participation_date = now
-        child.family.last_participation_date = now
-        child.save()
-        child.family.save()
+        attendee.last_participation_date = now
+        attendee.family.last_participation_date = now
+        attendee.save()
+        attendee.family.save()
 
         # Log the action
         AuditLog.objects.create(
@@ -118,11 +147,12 @@ class CheckInRecordViewSet(viewsets.ModelViewSet):
             entity_type="CheckInRecord",
             entity_id=str(record.id),
             details={
-                "child_id": str(child.id),
-                "child_name": f"{child.first_name} {child.last_name}",
+                "child_id": str(attendee.id),
+                "child_name": f"{attendee.first_name} {attendee.last_name}",
                 "session_id": str(session.id),
                 "session_name": session.name,
                 "supervised": supervised,
+                "is_parent": is_parent,
             },
         )
 
@@ -134,16 +164,17 @@ class CheckInRecordViewSet(viewsets.ModelViewSet):
                 "type": "child_checked_in",
                 "data": {
                     "record_id": str(record.id),
-                    "child_id": str(child.id),
-                    "child_name": child.first_name,
-                    "child_last_name": child.last_name,
+                    "child_id": str(attendee.id),
+                    "child_name": attendee.first_name,
+                    "child_last_name": attendee.last_name,
                     "session_id": str(session.id),
                     "session_name": session.name,
                     "check_in_time": record.check_in_time.isoformat(),
                     "qr_code": qr_code.code,
                     "supervised": supervised,
-                    "allergies": child.allergies or "",
-                    "notes": child.notes or "",
+                    "is_parent": is_parent,
+                    "allergies": getattr(attendee, "allergies", "") or "",
+                    "notes": getattr(attendee, "notes", "") or "",
                     "parents": [
                         {
                             "id": str(p.id),
@@ -152,7 +183,7 @@ class CheckInRecordViewSet(viewsets.ModelViewSet):
                             "email": p.email or "",
                             "relationship_type": p.relationship_type,
                         }
-                        for p in child.family.parents.all()
+                        for p in attendee.family.parents.all()
                     ],
                 },
             },
@@ -165,6 +196,14 @@ class CheckInRecordViewSet(viewsets.ModelViewSet):
     def check_out(self, request, pk=None):
         """Check out a child from a session"""
         record = self.get_object()
+
+        # Parents are check-in only (no label, no checkout — by design). See the
+        # matching MTI-downcast note on check_in above for why pk lookup is needed.
+        if Parent.objects.filter(pk=record.attendee_id).exists():
+            return Response(
+                {"error": _("Parents are check-in only and cannot be checked out")},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         if record.check_out_time:
             return Response(
@@ -191,8 +230,8 @@ class CheckInRecordViewSet(viewsets.ModelViewSet):
             entity_type="CheckInRecord",
             entity_id=str(record.id),
             details={
-                "child_id": str(record.child.id),
-                "child_name": f"{record.child.first_name} {record.child.last_name}",
+                "child_id": str(record.attendee.id),
+                "child_name": f"{record.attendee.first_name} {record.attendee.last_name}",
                 "session_id": str(record.session.id),
                 "session_name": record.session.name,
                 "picked_up_by": picked_up_by,
@@ -207,8 +246,8 @@ class CheckInRecordViewSet(viewsets.ModelViewSet):
                 "type": "child_checked_out",
                 "data": {
                     "record_id": str(record.id),
-                    "child_id": str(record.child.id),
-                    "child_name": f"{record.child.first_name} {record.child.last_name}",
+                    "child_id": str(record.attendee.id),
+                    "child_name": f"{record.attendee.first_name} {record.attendee.last_name}",
                     "session_id": str(record.session.id),
                     "session_name": record.session.name,
                     "check_out_time": record.check_out_time.isoformat(),
@@ -259,8 +298,8 @@ class CheckInRecordViewSet(viewsets.ModelViewSet):
             entity_type="CheckInRecord",
             entity_id=str(record.id),
             details={
-                "child_id": str(record.child.id),
-                "child_name": f"{record.child.first_name} {record.child.last_name}",
+                "child_id": str(record.attendee.id),
+                "child_name": f"{record.attendee.first_name} {record.attendee.last_name}",
                 "session_id": str(record.session.id),
                 "session_name": record.session.name,
             },
@@ -274,8 +313,8 @@ class CheckInRecordViewSet(viewsets.ModelViewSet):
                 "type": "checkout_undone",
                 "data": {
                     "record_id": str(record.id),
-                    "child_id": str(record.child.id),
-                    "child_name": f"{record.child.first_name} {record.child.last_name}",
+                    "child_id": str(record.attendee.id),
+                    "child_name": f"{record.attendee.first_name} {record.attendee.last_name}",
                     "session_id": str(record.session.id),
                     "session_name": record.session.name,
                 },
@@ -312,8 +351,8 @@ class CheckInRecordViewSet(viewsets.ModelViewSet):
             )
 
         # Store details before deletion for logging and broadcasting
-        child_id = str(record.child.id)
-        child_name = f"{record.child.first_name} {record.child.last_name}"
+        child_id = str(record.attendee.id)
+        child_name = f"{record.attendee.first_name} {record.attendee.last_name}"
         session_id = str(record.session.id)
         session_name = record.session.name
         record_id = str(record.id)
@@ -396,21 +435,31 @@ class PrintQueueViewSet(viewsets.ReadOnlyModelViewSet):
         """
         from django.db import models as db_models
 
+        from families.models import Parent as ParentModel
+
+        # Exclude parent attendees — parents are check-in only, never get labels
+        parent_ids = ParentModel.objects.values_list("attendee_ptr_id", flat=True)
+
         return (
             CheckInRecord.objects.filter(
                 label_printed=False,
-                check_out_time__isnull=True,  # Still checked in
+                check_out_time__isnull=True,
             )
+            .exclude(attendee_id__in=parent_ids)
             .filter(
                 # Standard check-ins (not supervised) OR supervised in active session
                 db_models.Q(supervised=False)
                 | db_models.Q(supervised=True, session__is_active=True)
             )
             .select_related(
-                "child", "child__family", "session", "check_in_staff", "qr_code"
+                "attendee", "attendee__family", "session", "check_in_staff", "qr_code"
             )
             .prefetch_related(
-                "child__family__parents",
+                Prefetch(
+                    "attendee__family__attendees",
+                    queryset=Parent.objects.all(),
+                    to_attr="parents",
+                ),
                 "print_jobs__printer",
             )
             .order_by("-check_in_time")
@@ -447,8 +496,8 @@ class PrintQueueViewSet(viewsets.ReadOnlyModelViewSet):
                     entity_type="CheckInRecord",
                     entity_id=str(checkin_id),
                     details={
-                        "child_id": str(record.child.id),
-                        "child_name": f"{record.child.first_name} {record.child.last_name}",
+                        "child_id": str(record.attendee.id),
+                        "child_name": f"{record.attendee.first_name} {record.attendee.last_name}",
                         "session_id": str(record.session.id),
                         "session_name": record.session.name,
                     },
@@ -476,7 +525,7 @@ class PrintQueueViewSet(viewsets.ReadOnlyModelViewSet):
             )
 
         checkins = CheckInRecord.objects.filter(id__in=checkin_ids).select_related(
-            "child", "session"
+            "attendee", "session"
         )
 
         if not checkins.exists():
@@ -503,7 +552,8 @@ class PrintQueueViewSet(viewsets.ReadOnlyModelViewSet):
         import base64
 
         checkin = get_object_or_404(
-            CheckInRecord.objects.select_related("child", "session", "qr_code"), pk=pk
+            CheckInRecord.objects.select_related("attendee", "session", "qr_code"),
+            pk=pk,
         )
 
         # Get the QR code string
@@ -555,7 +605,7 @@ class PrintQueueViewSet(viewsets.ReadOnlyModelViewSet):
         from django.shortcuts import get_object_or_404
 
         checkin = get_object_or_404(
-            CheckInRecord.objects.select_related("child", "session"),
+            CheckInRecord.objects.select_related("attendee", "session"),
             pk=pk,
             check_out_time__isnull=True,  # Only if still checked in
         )
@@ -573,8 +623,8 @@ class PrintQueueViewSet(viewsets.ReadOnlyModelViewSet):
             entity_type="CheckInRecord",
             entity_id=str(checkin.id),
             details={
-                "child_id": str(checkin.child.id),
-                "child_name": f"{checkin.child.first_name} {checkin.child.last_name}",
+                "child_id": str(checkin.attendee.id),
+                "child_name": f"{checkin.attendee.first_name} {checkin.attendee.last_name}",
                 "session_id": str(checkin.session.id),
                 "session_name": checkin.session.name,
             },
@@ -606,9 +656,15 @@ class PrintQueueViewSet(viewsets.ReadOnlyModelViewSet):
                 )
             )
             .select_related(
-                "child", "child__family", "session", "check_in_staff", "qr_code"
+                "attendee", "attendee__family", "session", "check_in_staff", "qr_code"
             )
-            .prefetch_related("child__family__parents")
+            .prefetch_related(
+                Prefetch(
+                    "attendee__family__attendees",
+                    queryset=Parent.objects.all(),
+                    to_attr="parents",
+                )
+            )
             .order_by("-check_in_time")[:50]
         )
 
