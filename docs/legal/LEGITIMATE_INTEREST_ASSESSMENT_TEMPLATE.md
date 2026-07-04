@@ -33,9 +33,17 @@ three-part test: purpose, necessity, and balancing.
 | Impact on individuals | Low: access restricted to staff; public QR page only shows data while checked in; data anonymised after {{RETENTION_DAYS}} days. |
 | Safeguards | Authentication, audit logging, staff attribution, retention/anonymisation, unguessable QR codes. |
 
-**Special-category data note:** Allergy/medical data also requires an Art. 9
-condition (e.g. vital interests, or substantial public interest with an
-appropriate policy document). Record which condition you rely on: {{CONDITION}}.
+**Special-category data note:** This legitimate-interest basis (Art. 6(1)(f))
+covers ordinary processing only — it does **not** extend to the health data
+itself. Allergy/medical-notes fields need their own Art. 9 condition:
+**explicit guardian consent — Art. 9(2)(a)** — captured separately at
+registration (see the privacy policy and DPIA §2); vital interests
+(Art. 9(2)(c)) is the correct basis only for *using* the data in an actual
+emergency, not for collecting it. Attendance at {{ORGANISATION_NAME}}'s
+activities can itself reveal religious affiliation (also Art. 9 data); that
+dimension rests on **Art. 9(2)(d)** (religious non-profit processing data
+about its own members/regular contacts, no external disclosure) rather than
+on this LIA.
 
 ## Conclusion
 

@@ -69,10 +69,24 @@ See `docs/architecture.md` for the full system diagram.
 
 ## 2. Necessity and proportionality
 
-- **Art. 6 basis:** Legitimate interests (safeguarding) — see the LIA.
-- **Art. 9 condition:** {{vital interests, for the allergy/medical fields
-  specifically — confirm with legal counsel; substantial public interest
-  (safeguarding of minors) may also apply depending on jurisdiction}}.
+- **Art. 6 basis:** Legitimate interests (safeguarding) — Art. 6(1)(f); see
+  the LIA. This covers ordinary data (names, contact details, check-in/out
+  records) but not the health fields themselves — see below.
+- **Art. 9 condition:**
+  - Allergy/medical-notes fields: **explicit guardian consent — Art.
+    9(2)(a)**, captured at registration as a separate, unticked, optional
+    step (`Child.health_consent_status`); attendance is never conditional on
+    giving it. Vital interests (Art. 9(2)(c)) remains the correct basis for
+    *using* the data in an actual emergency, but not for *collecting* it —
+    the guardian is not incapable of consenting at registration, so 9(2)(c)
+    doesn't reach the collection itself. Substantial public interest
+    (Art. 9(2)(g)) does not apply either: Dataskyddslagen provides no basis
+    in Swedish/EU law for private-sector safeguarding of this kind.
+  - Attendance at {{ORGANISATION_NAME}}'s activities can itself reveal
+    religious belief (also Art. 9 special-category data): **Art. 9(2)(d)**
+    covers this, since {{ORGANISATION_NAME}} is a religious non-profit
+    processing data about its own members/regular contacts, with no
+    disclosure outside the organisation.
 - **Could the purpose be achieved with less data?** No — allergy/medical
   information is the specific field staff need to act on in an emergency;
   omitting it would remove the safety benefit that is the entire justification

@@ -59,19 +59,23 @@ three (3) months}} notice. On termination, §10 applies.
 ## 3. Type of personal data and categories of data subjects
 
 3.1 **Categories of data subjects:** children attending the Controller's
-events; their parents/guardians.
+events; their parents/guardians; the Controller's staff/volunteers with
+system access.
 
 3.2 **Types of personal data:**
 
 - Child: first name, last name, date of birth, allergies, free-text
   medical/behavioural notes
 - Guardian: name, phone number, email address, relationship to the child
+- Staff/volunteers: user account (name, email address), action and access
+  logs (timestamp, event, source IP, session ID)
 - Operational: check-in/check-out timestamps, session, attending staff
   member, printed-label/QR history
 
 3.3 Allergy and medical-note fields are **special category data (health
 data)** under GDPR Art. 9. The Processor acknowledges the heightened duty of
-care this requires.
+care this requires. See "Open questions" item 5 below for the specific
+Art. 9 condition relied on.
 
 ---
 
@@ -277,5 +281,10 @@ Date: _________________________ Signature: _________________________
 4. **Retention values (§9):** confirm `DATA_RETENTION_DAYS` /
    `AUDIT_LOG_RETENTION_DAYS` reflect a documented decision, not just the
    code defaults.
-5. **Art. 9 condition:** confirmed in the DPIA (§2) and LIA — reference the
-   same condition here for consistency across documents.
+5. **Art. 9 condition:** the health fields (allergies/medical notes) rest on
+   explicit guardian consent — Art. 9(2)(a) — captured at registration and
+   recorded per child (see DPIA §2 and the LIA); vital interests
+   (Art. 9(2)(c)) covers only *using* the data in an actual emergency, not
+   collecting it. The attendance/religious-affiliation dimension rests on
+   Art. 9(2)(d). Confirm this reasoning holds for your specific deployment
+   and jurisdiction before relying on it.

@@ -19,14 +19,18 @@ To safely manage children at our event we collect:
   member, and who collected them.
 
 Allergy and medical-notes information is **special-category (health) data**
-under Article 9 GDPR. We collect it only to keep children safe during the event.
+under Article 9 GDPR. We only collect it with your **explicit consent** — you
+are free to decline, and this will never affect your child's ability to
+attend.
 
 ## Why we use it and our legal basis
 
 | Purpose | Lawful basis |
 |---------|--------------|
 | Checking children in/out and releasing them to the right adult | Legitimate interests (safeguarding) — Art. 6(1)(f) |
-| Responding to allergies and medical needs | Vital interests / substantial public interest — Art. 6(1)(d), Art. 9(2) |
+| Collecting and storing allergy/medical information | **Explicit consent — Art. 9(2)(a)**. Optional; declining does not affect attendance. |
+| Using allergy/medical information to respond in an actual emergency | Vital interests — Art. 6(1)(d), Art. 9(2)(c) |
+| Recording attendance at our activities | Legitimate interests — Art. 6(1)(f); where attendance itself reveals religious affiliation, Art. 9(2)(d) (processing by a religious non-profit about its own members/regular contacts, not disclosed outside the organisation) |
 | Audit trail of staff actions | Legitimate interests (accountability/safeguarding) — Art. 6(1)(f) |
 
 See our Legitimate Interest Assessment for the balancing test.
@@ -51,7 +55,10 @@ You can ask us to:
 - access the data we hold about you or your child (we can provide an export);
 - correct inaccurate data;
 - erase the data ("right to be forgotten");
-- object to or restrict our processing.
+- object to or restrict our processing;
+- withdraw consent for the health-data processing above at any time — this
+  does not affect the lawfulness of processing before withdrawal, and does
+  not affect your child's ability to attend.
 
 To exercise any of these, contact {{CONTACT_EMAIL}}. You also have the right to
 complain to your data protection authority ({{SUPERVISORY_AUTHORITY}}).
