@@ -33,20 +33,19 @@ send this annex until the hosting model in this section matches reality.}}
 - Automated nightly backups (Proxmox Backup Server), running at 01:00.
 - Backups are client-side encrypted (AES-256-GCM) before leaving the source
   host.
-- Offsite copy: confirmed 2026-07-04 as in the backup chain for the Tryggare
-  Moln production container specifically (not just other services) — nightly
-  backups are replicated to a second, geographically separate private
-  residence as part of the same automated job that backs up every container
-  on the primary host. Both the primary and off-site locations are private
-  residences with comparable physical security (locked premises, no public
-  access). The off-site copy is protected independently of physical security
-  at that location: it is encrypted before it ever leaves the primary site,
-  and the decryption key exists only there — the off-site location cannot
-  read the data it stores even in the event of a full compromise of that
-  host.
-- {{CONFIRM retention/rotation policy — as of this draft, backups are
-  retained indefinitely with no automatic expiry configured; a fixed
-  retention window has not yet been decided.}}
+- {{CONFIRM offsite copy: does a second, geographically separate backup copy
+  exist, and is it actually in the chain for THIS customer's production
+  container specifically (not just other services on shared
+  infrastructure)? If so, describe the physical security of that second
+  location, and confirm whether the backup remains encrypted there with a
+  key that isn't available at that location — so a compromise of the
+  offsite location alone doesn't expose the data. If both locations are
+  private premises rather than commercial facilities, describe their
+  security posture at a level of detail proportionate to what's actually
+  needed (e.g. "private residence, comparable security to the primary
+  site" rather than naming individuals or addresses).}}
+- {{CONFIRM retention/rotation policy — describe how long backups are kept
+  and whether that's a fixed, enforced window or indefinite retention.}}
 
 ## 3. Encryption at rest
 
