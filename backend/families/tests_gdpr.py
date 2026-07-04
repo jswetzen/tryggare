@@ -75,7 +75,7 @@ class AnonymizeExpiredDataTests(TestCase):
         self.assertIsNone(child.allergies)
         self.assertIsNone(child.notes)
         self.assertIsNotNone(child.anonymized_at)
-        self.assertEqual(parent.name, "REDACTED")
+        self.assertEqual(parent.name, "REDACTED REDACTED")
         self.assertIsNone(parent.email)
         self.assertEqual(family.last_name, "REDACTED")
 

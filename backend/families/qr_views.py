@@ -120,8 +120,8 @@ def qr_info(request, code):
     log_audit(
         request,
         action="qr_viewed",
-        entity_type="Child",
-        entity_id=str(child.id),
+        entity_type="Child" if child is not None else "Parent",
+        entity_id=str(attendee.id),
         details={"qr_code": qr_code.code},
     )
 
