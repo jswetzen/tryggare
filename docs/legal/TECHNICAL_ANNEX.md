@@ -21,7 +21,8 @@ send this annex until the hosting model in this section matches reality.}}
   Tryggare Moln customer runs as an isolated container (LXC) — no
   multi-tenant database, consistent with the "one instance per church" data
   isolation described in the DPIA §4.
-- Storage: ZFS-backed (raidz2), local to the hosting node.
+- Storage: {{describe the actual storage backend — e.g. ZFS, LVM, local disk
+  — local to the hosting node}}.
 - Reverse proxy / TLS: Traefik terminates TLS at the edge; certificates via
   Let's Encrypt, auto-renewed. HTTP requests are redirected to HTTPS.
 - Network exposure: only the application's HTTP(S) port is internet-facing
@@ -49,16 +50,26 @@ send this annex until the hosting model in this section matches reality.}}
 
 ## 3. Encryption at rest
 
-- ZFS native encryption (AES-256-GCM) with TPM-sealed auto-unlock has been
-  validated on the primary hosting node.
-- {{OPEN — CONFIRM BEFORE RELYING ON THIS: as of this draft, that encrypted
-  dataset is a validated proof of concept, not confirmed as the storage
-  location for the live Tryggare Moln database/container. Verify the actual
-  Postgres data volume for production customer instances sits on an
-  encrypted dataset before stating "encryption at rest" as a completed
-  control in the DPA/DPIA. If it doesn't yet, this is the single largest gap
-  between the current DPIA's stated mitigations and actual production
-  state.}}
+- {{CONFIRM the actual encryption-at-rest mechanism protecting the
+  database/container data volume for production customer instances — e.g.
+  disk/volume-level encryption (LUKS/dm-crypt, BitLocker) or filesystem-native
+  encryption (ZFS native encryption or similar), and how the decryption key
+  is supplied at boot (manual entry, TPM-sealed auto-unlock, a
+  key-management service, etc.).}}
+- {{State the threat model plainly rather than overselling it: encryption
+  at rest with the key material available on the same host typically
+  defends against disk theft or decommissioning, NOT against a compromised
+  host or container escape — root/admin access on that host still sees
+  plaintext. Say this explicitly rather than implying encryption alone
+  makes the host itself secure.}}
+- {{Confirm scope: does this cover the full container/VM, or only a specific
+  data volume (e.g. just the database's data directory)? If only partial,
+  say so — application code, logs, and any secrets/environment files outside
+  that volume may not be covered, and shouldn't be implied to be.}}
+- {{CONFIRM this is validated in actual production for live customer
+  instances, not just a proof of concept on a test volume — state plainly if
+  it isn't yet, since that gap matters more than almost anything else in
+  this document.}}
 
 ## 4. Monitoring and alerting
 
