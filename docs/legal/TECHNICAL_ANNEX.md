@@ -33,10 +33,20 @@ send this annex until the hosting model in this section matches reality.}}
 - Automated nightly backups (Proxmox Backup Server), running at 01:00.
 - Backups are client-side encrypted (AES-256-GCM) before leaving the source
   host.
-- {{CONFIRM current retention/rotation policy and offsite copy arrangement —
-  a second, geographically separate host is available for this but confirm
-  it's actually in the backup chain for the Tryggare Moln production
-  container(s) specifically, not just other services.}}
+- Offsite copy: confirmed 2026-07-04 as in the backup chain for the Tryggare
+  Moln production container specifically (not just other services) — nightly
+  backups are replicated to a second, geographically separate private
+  residence as part of the same automated job that backs up every container
+  on the primary host. Both the primary and off-site locations are private
+  residences with comparable physical security (locked premises, no public
+  access). The off-site copy is protected independently of physical security
+  at that location: it is encrypted before it ever leaves the primary site,
+  and the decryption key exists only there — the off-site location cannot
+  read the data it stores even in the event of a full compromise of that
+  host.
+- {{CONFIRM retention/rotation policy — as of this draft, backups are
+  retained indefinitely with no automatic expiry configured; a fixed
+  retention window has not yet been decided.}}
 
 ## 3. Encryption at rest
 
