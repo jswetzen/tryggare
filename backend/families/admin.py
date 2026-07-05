@@ -54,7 +54,7 @@ class FamilyAdmin(admin.ModelAdmin):
                 action="dsar_erasure",
                 entity_type="Family",
                 entity_id=str(family.id),
-                details={"last_name": family.last_name, "child_count": len(child_ids)},
+                details={"child_count": len(child_ids)},
             )
             scrub_audit_logs_for_children(child_ids)
             family.delete()

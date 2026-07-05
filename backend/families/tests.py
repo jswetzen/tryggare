@@ -501,6 +501,25 @@ class HealthConsentModelTests(TestCase):
             child.health_consent_status, Child.HealthConsentStatus.NEEDS_RECONFIRMATION
         )
 
+    def test_quarantine_flip_persists_when_update_fields_omits_status(self):
+        """A caller saving with an explicit update_fields list that includes
+        the text fields but not health_consent_status must still persist the
+        quarantine flip, not just apply it in memory and silently drop it."""
+        child = Child.objects.create(
+            first_name="Mei",
+            last_name="Nguyen",
+            health_consent_status=Child.HealthConsentStatus.DECLINED,
+            family=self.family,
+        )
+        child.allergies = "Shellfish"
+        child.save(update_fields=["allergies"])
+
+        child.refresh_from_db()
+        self.assertEqual(child.allergies, "Shellfish")
+        self.assertEqual(
+            child.health_consent_status, Child.HealthConsentStatus.NEEDS_RECONFIRMATION
+        )
+
 
 class HealthConsentCreateAPITests(TestCase):
     """POST /api/families/ consent handling via FamilyCreateSerializer."""

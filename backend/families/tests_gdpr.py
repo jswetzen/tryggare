@@ -3,14 +3,16 @@
 from datetime import date, timedelta
 from io import StringIO
 
+from django.contrib import admin
 from django.contrib.auth import get_user_model
 from django.core.management import call_command
-from django.test import TestCase, override_settings
+from django.test import RequestFactory, TestCase, override_settings
 from django.utils import timezone
 from rest_framework.test import APIClient
 
 from checkins.models import AuditLog, CheckInRecord
 from events.models import Event, Session
+from families.admin import FamilyAdmin
 from families.dsar import build_family_export
 from families.models import Child, Family, Parent
 
@@ -57,6 +59,8 @@ class AnonymizeExpiredDataTests(TestCase):
     @override_settings(DATA_RETENTION_DAYS=365)
     def test_anonymizes_inactive_family(self):
         family, child = _make_family("Old", inactive_days=400)
+        family.external_booking_id = "10869"
+        family.save(update_fields=["external_booking_id"])
         # An audit log referencing the child, as written by check-in views.
         AuditLog.objects.create(
             user=self.staff,
@@ -78,6 +82,9 @@ class AnonymizeExpiredDataTests(TestCase):
         self.assertEqual(parent.name, "REDACTED REDACTED")
         self.assertIsNone(parent.email)
         self.assertEqual(family.last_name, "REDACTED")
+        # external_booking_id is a unique key back into the external booking
+        # system — anonymization must not leave it re-identifiable.
+        self.assertIsNone(family.external_booking_id)
 
         log = AuditLog.objects.get(details__child_id=str(child.id))
         self.assertEqual(log.details["child_name"], "REDACTED")
@@ -168,6 +175,29 @@ class DSARTests(TestCase):
         self.assertTrue(AuditLog.objects.filter(action="dsar_erasure").exists())
         scrubbed = AuditLog.objects.get(details__child_id=str(child.id))
         self.assertEqual(scrubbed.details["child_name"], "REDACTED")
+        # The erasure entry itself must not re-create the PII it just erased.
+        erasure_entry = AuditLog.objects.get(
+            action="dsar_erasure", entity_id=str(family.id)
+        )
+        self.assertNotIn("last_name", erasure_entry.details)
+
+    def test_admin_erase_action_does_not_leak_surname_in_audit_log(self):
+        """Same guarantee as the API erase path, for the Django Admin action."""
+        from django.contrib.messages.storage.fallback import FallbackStorage
+
+        family, child = _make_family("AdminErase")
+        request = RequestFactory().post("/admin/families/family/")
+        request.user = self.staff
+        request.session = {}
+        request._messages = FallbackStorage(request)
+        FamilyAdmin(Family, admin.site).erase_families(
+            request, Family.objects.filter(id=family.id)
+        )
+        self.assertFalse(Family.objects.filter(id=family.id).exists())
+        erasure_entry = AuditLog.objects.get(
+            action="dsar_erasure", entity_id=str(family.id)
+        )
+        self.assertNotIn("last_name", erasure_entry.details)
 
 
 class AuditAccessLoggingTests(TestCase):
