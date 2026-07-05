@@ -83,6 +83,11 @@ def qr_info(request, code):
 
     child = ChildModel.objects.filter(pk=attendee.pk).first()
     if child is not None:
+        # Deliberate: allergies/notes are served here regardless of
+        # health_consent_status, including "needs_reconfirmation" (quarantined
+        # pre-consent data). A safety decision, not an oversight — see DPIA §4
+        # "Quarantine display policy". Revisit once the staff-facing
+        # reconfirmation banner exists and quarantine is actually actionable.
         attendee_data = {
             "id": str(child.id),
             "first_name": child.first_name,

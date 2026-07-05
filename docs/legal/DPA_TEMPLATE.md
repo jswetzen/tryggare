@@ -198,7 +198,7 @@ and remediating the breach.
 | Data type | Retention | Mechanism |
 |---|---|---|
 | Active family/child records | Until `DATA_RETENTION_DAYS` ({{value}}, default 1095 days) of inactivity | `anonymize_expired_data` scrubs PII in place |
-| Audit logs | `AUDIT_LOG_RETENTION_DAYS` ({{value}}, default 1095 days) | Optional `--include-audit-logs` pruning |
+| Audit logs | `AUDIT_LOG_RETENTION_DAYS` ({{value}}, default 1095 days) | Pruned automatically by the daily scheduled run (`--include-audit-logs` is always passed); the flag exists for manual/ad-hoc invocations of the command |
 | Checked-in children | Never auto-anonymised while actively checked in | Safeguarding — always resolvable during an event |
 
 9.2 The Controller is responsible for confirming these defaults meet its own
@@ -272,7 +272,7 @@ Date: _________________________ Signature: _________________________
 
 1. **Contracting entity:** confirm whether {{sole trader / limited company}}
    is an appropriate Processor party for this Agreement — see the questions
-   already sent to counsel in `docs/legal-request-to-law-firm.md`.
+   already sent to counsel in `docs/legal/TRYGGARE_MOLN_LAW_FIRM_REQUEST.md`.
 2. **Notice periods and audit cadence (§5.2, §10.1, §11.2):** confirm the
    placeholder day counts are reasonable for your jurisdiction and risk
    appetite.

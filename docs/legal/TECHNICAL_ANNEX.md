@@ -12,7 +12,7 @@ environment Tryggare Moln customers are actually served from}}. Last updated:
 
 {{CONFIRM: this section assumes self-managed infrastructure (Proxmox VE,
 homelab-style), consistent with the "no external cloud provider" statement in
-`docs/legal-request-to-law-firm.md`. If Tryggare Moln customers are instead
+`docs/legal/TRYGGARE_MOLN_LAW_FIRM_REQUEST.md`. If Tryggare Moln customers are instead
 hosted with a third-party provider (e.g. a Swedish VPS/cloud host), that
 provider is a sub-processor and must be added to DPA_TEMPLATE.md §5 — do not
 send this annex until the hosting model in this section matches reality.}}

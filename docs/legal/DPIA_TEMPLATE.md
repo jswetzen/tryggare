@@ -95,12 +95,11 @@ See `docs/architecture.md` for the full system diagram.
   contains only the child's name and a QR code — no health data is rendered on
   a physical, unlogged printout. Health data only appears on authenticated
   screens or through the time-boxed QR flow described below.
-- **Open question to resolve before commercial launch:** the QR-linked page
-  (`qr_info`, §4) currently returns the guardian's email address alongside
-  phone and name. Confirm whether email is operationally necessary on that
-  specific surface (used for on-the-spot pickup matching) or whether it should
-  be dropped from that response to tighten minimisation — phone/name are
-  plausibly sufficient for the in-person matching use case.
+- **Resolved:** the QR-linked page (`qr_info`, §4) previously returned the
+  guardian's email address alongside phone and name; email has since been
+  dropped from that response (`families/qr_views.py`) since phone/name are
+  sufficient for in-person pickup matching and email added no operational
+  value on an unauthenticated surface.
 
 ---
 
@@ -109,7 +108,8 @@ See `docs/architecture.md` for the full system diagram.
 - **Stakeholders consulted:** {{pilot congregation staff, safeguarding lead,
   guardians if feasible}}.
 - **Data Protection Officer / legal counsel consulted:** {{name, date}} — see
-  `docs/legal-request-to-law-firm.md` for the parallel legal review in progress.
+  `docs/legal/TRYGGARE_MOLN_LAW_FIRM_REQUEST.md` for the parallel legal review
+  in progress.
 - **Views incorporated:** {{summarise any changes made as a result}}.
 
 ---
@@ -121,7 +121,7 @@ See `docs/architecture.md` for the full system diagram.
 | `FamilyViewSet` (admin UI) | Staff login, individual accounts (no shared/event passwords) | Full family record incl. allergies/notes |
 | Check-in WebSocket broadcast | Staff login (station-scoped) | Allergies/notes for the checked-in child |
 | Printed label | Physical possession | Name + QR code only |
-| `GET /api/qr/{code}/` | **None (`AllowAny`)** | Allergies, notes, birthdate, guardian name/phone/email |
+| `GET /api/qr/{code}/` | **None (`AllowAny`)** | Allergies, notes, birthdate, guardian name/phone (no email — see §2) |
 | DSAR export/erasure | Staff login | Full record, on request |
 
 **Why the QR endpoint is unauthenticated (by design, not oversight):** it must
@@ -136,6 +136,21 @@ validity window; a distributed brute-force attempt is a residual risk (see §5).
 **Tenant isolation:** each {{ORGANISATION_NAME}} instance is a separate
 deployment — no cross-congregation data path exists at the application layer.
 
+**Quarantine display policy (deliberate, not an oversight):** the QR endpoint
+and all staff-facing serializers return allergy/notes text identically
+regardless of `health_consent_status`, including `needs_reconfirmation` —
+health text quarantined because its Art. 9 consent basis is unconfirmed (e.g.
+pre-existing data from before consent capture shipped, migration 0013). The
+safety argument: at the point someone is physically collecting a child, a
+possibly-unconfirmed allergy warning is more valuable shown than hidden — the
+harm from a false negative (anaphylaxis) outweighs the harm from displaying
+data whose consent paperwork is incomplete. This is a considered trade-off,
+not a bug, but it is not yet paired with the operational half of the fix: a
+staff-facing banner surfacing which children are in `needs_reconfirmation` so
+staff can actually chase down reconfirmation, rather than the quarantine
+state sitting invisible in the database. Track that banner as a prerequisite
+for calling this risk closed rather than merely mitigated.
+
 ---
 
 ## 5. Risk identification and assessment
@@ -148,7 +163,8 @@ deployment — no cross-congregation data path exists at the application layer.
 | R4 | Insider misuse — staff browsing records without operational need | Low | Medium | Now mitigated by `record_viewed`/`qr_viewed` audit events (added {{DATE}}) |
 | R5 | Data retained longer than necessary | Low | Medium | Automated `anonymize_expired_data`, run daily by an in-app scheduler (no operator cron setup required) |
 | R6 | Backup/export leakage | Low | Medium | {{describe backup encryption/access controls for your deployment}} |
-| R7 | Guardian email over-collected relative to need on the QR surface | Medium | Low | See open question in §2 |
+| R7 | Guardian email over-collected relative to need on the QR surface | Low | Low | Resolved — email dropped from this endpoint, see §2 |
+| R8 | Health data with unconfirmed Art. 9 basis (`needs_reconfirmation`) is displayed identically to consented data | Medium | Medium | Deliberate safety trade-off, see §4 "Quarantine display policy"; mitigated further once the staff reconfirmation banner exists |
 
 ---
 
@@ -178,12 +194,15 @@ deployment — no cross-congregation data path exists at the application layer.
 **Residual risk after mitigations:** {{Low / Medium — state your conclusion}}.
 
 **Outstanding actions before go-live:**
-- [ ] Resolve the guardian-email minimisation question in §2.
+- [x] Resolve the guardian-email minimisation question in §2 — email dropped
+      from the QR-linked page response.
 - [x] Confirm the retention job is actually scheduled in production — it now
       runs automatically via an in-app scheduler (daily, 03:00), no
       operator-configured cron needed.
 - [ ] Document backup encryption and access controls (R6).
 - [ ] Legal sign-off on the Art. 9 condition relied upon (§2).
+- [ ] Build the staff-facing reconfirmation banner for `needs_reconfirmation`
+      children so the quarantine decision in §4 is actionable, not silent (R8).
 
 **Assessed by:** {{NAME / ROLE}}
 **Date:** {{DATE}}
