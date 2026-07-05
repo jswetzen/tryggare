@@ -201,7 +201,7 @@ PRIVACY_POLICY_URL = os.getenv("PRIVACY_POLICY_URL", "")
 # (Art. 9(2)(a)). Bump this whenever the notice text changes — existing
 # consent records keep the version they were granted under (grandfathered);
 # only new registrations see the new text. See Child.health_consent_notice_version.
-HEALTH_CONSENT_NOTICE_VERSION = os.getenv("HEALTH_CONSENT_NOTICE_VERSION", "v1-2026-07")
+HEALTH_CONSENT_NOTICE_VERSION = os.getenv("HEALTH_CONSENT_NOTICE_VERSION", "v2-2026-07")
 
 CHANNEL_LAYERS = {
     "default": {
