@@ -208,7 +208,6 @@ class FamilyViewSet(viewsets.ModelViewSet):
             entity_type="Family",
             entity_id=str(family.id),
             details={
-                "last_name": family.last_name,
                 "child_count": len(child_ids),
             },
         )
