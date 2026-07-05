@@ -162,7 +162,7 @@ for calling this risk closed rather than merely mitigated.
 | R3 | Staff account compromise (credential theft, unattended session) | Low–Medium | High | Individual accounts; no shared logins |
 | R4 | Insider misuse — staff browsing records without operational need | Low | Medium | Now mitigated by `record_viewed`/`qr_viewed` audit events (added {{DATE}}) |
 | R5 | Data retained longer than necessary | Low | Medium | Automated `anonymize_expired_data`, run daily by an in-app scheduler (no operator cron setup required) |
-| R6 | Backup/export leakage | Low | Medium | {{describe backup encryption/access controls for your deployment}} |
+| R6 | Backup/export leakage, and erased/anonymised data outliving its stated retention inside backup copies | Low | Medium | {{describe backup encryption/access controls for your deployment, and confirm the backup rotation's actual worst-case retention ceiling matches what DPA_TEMPLATE.md §9/§10.1a and TECHNICAL_ANNEX.md §2 state}} |
 | R7 | Guardian email over-collected relative to need on the QR surface | Low | Low | Resolved — email dropped from this endpoint, see §2 |
 | R8 | Health data with unconfirmed Art. 9 basis (`needs_reconfirmation`) is displayed identically to consented data | Medium | Medium | Deliberate safety trade-off, see §4 "Quarantine display policy"; mitigated further once the staff reconfirmation banner exists |
 

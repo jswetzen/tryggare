@@ -200,6 +200,7 @@ and remediating the breach.
 | Active family/child records | Until `DATA_RETENTION_DAYS` ({{value}}, default 1095 days) of inactivity | `anonymize_expired_data` scrubs PII in place |
 | Audit logs | `AUDIT_LOG_RETENTION_DAYS` ({{value}}, default 1095 days) | Pruned automatically by the daily scheduled run (`--include-audit-logs` is always passed); the flag exists for manual/ad-hoc invocations of the command |
 | Checked-in children | Never auto-anonymised while actively checked in | Safeguarding — always resolvable during an event |
+| Backups | {{CONFIRM: state the actual maximum age a backup can reach under your rotation — daily/weekly/monthly tiers compound to a longer ceiling than any single number suggests; compute and state it explicitly}} | {{CONFIRM: rotation/pruning mechanism, e.g. keep-daily/weekly/monthly tiers plus the garbage-collection step that actually reclaims space}} |
 
 9.2 The Controller is responsible for confirming these defaults meet its own
 retention policy and adjusting the environment variables accordingly.
@@ -209,10 +210,21 @@ retention policy and adjusting the environment variables accordingly.
 ## 10. Deletion and return on termination
 
 10.1 Within {{30}} days of termination, the Processor shall, at the
-Controller's choice: (a) securely delete all personal data including backups
-and confirm in writing, or (b) return the data in a commonly readable format
-(the existing export endpoint produces JSON/CSV), after which all copies are
-deleted.
+Controller's choice: (a) securely delete all personal data in the live/export
+environment and confirm in writing, or (b) return the data in a commonly
+readable format (the existing export endpoint produces JSON/CSV), after
+which those copies are deleted.
+
+10.1a {{CONFIRM: does this deployment's backup rotation naturally purge
+everything within the §10.1 window, or is a longer window kept for
+disaster-recovery reasons (e.g. weekly/monthly recovery points)? A blanket
+"including backups" promise you can't actually keep is worse than an honest,
+longer, disclosed one. If backups outlive §10.1's window, exempt them here
+explicitly and state their own bounded ceiling instead — matching the figure
+in §9's retention table and in TECHNICAL_ANNEX.md §2, so this clause and the
+technical annex can't drift apart. On termination, no new backups should be
+taken for that Controller, and existing ones should simply age out via the
+standard rotation rather than requiring a manual early purge.}}
 
 10.2 This obligation does not apply to data the Processor is required to
 retain by law or order of a public authority.
@@ -280,7 +292,9 @@ Date: _________________________ Signature: _________________________
    IMY asks for in an audit.
 4. **Retention values (§9):** confirm `DATA_RETENTION_DAYS` /
    `AUDIT_LOG_RETENTION_DAYS` reflect a documented decision, not just the
-   code defaults.
+   code defaults. Resolve §9's backup row and §10.1a together: if backups
+   outlive the termination window, state their actual maximum age and make
+   sure §9, §10.1a, and TECHNICAL_ANNEX.md §2 all state the same number.
 5. **Art. 9 condition:** the health fields (allergies/medical notes) rest on
    explicit guardian consent — Art. 9(2)(a) — captured at registration and
    recorded per child (see DPIA §2 and the LIA); vital interests

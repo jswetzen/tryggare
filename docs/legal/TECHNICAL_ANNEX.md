@@ -46,7 +46,13 @@ send this annex until the hosting model in this section matches reality.}}
   needed (e.g. "private residence, comparable security to the primary
   site" rather than naming individuals or addresses).}}
 - {{CONFIRM retention/rotation policy — describe how long backups are kept
-  and whether that's a fixed, enforced window or indefinite retention.}}
+  and whether that's a fixed, enforced window or indefinite retention. If you
+  use tiered retention (e.g. daily/weekly/monthly keep-counts), compute and
+  state the actual worst-case ceiling — the oldest surviving backup, not any
+  single tier's count — and make sure that number matches DPA_TEMPLATE.md §9
+  and §10.1a (backups are commonly, and legitimately, exempted from the
+  termination-deletion deadline and given their own longer, disclosed
+  ceiling instead — but the two documents must state the same figure).}}
 
 ## 3. Encryption at rest
 
