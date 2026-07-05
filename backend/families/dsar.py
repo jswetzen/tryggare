@@ -158,8 +158,9 @@ def scrub_family(family, *, when=None) -> None:
     when = when or timezone.now()
 
     family.last_name = REDACTED
+    family.external_booking_id = None
     family.anonymized_at = when
-    family.save(update_fields=["last_name", "anonymized_at"])
+    family.save(update_fields=["last_name", "external_booking_id", "anonymized_at"])
 
     for parent in family.parents.all():
         parent.first_name = REDACTED
