@@ -25,6 +25,13 @@ def should_start_scheduler() -> bool:
     ``python -m daphne ...`` — never via ``manage.py runserver`` — so its
     ``sys.argv[0]`` is daphne's entry point, not ``manage.py``. Gating on that
     reliably tells "serving" apart from "tooling" without an extra env var.
+
+    This is exclusion-based (anything not ``manage.py`` starts it), so a
+    future gunicorn/celery worker process would each start their own
+    duplicate scheduler. Benign today — the 3 AM window, ``anonymized_at``
+    idempotency, and the atomic transaction in the retention command mean
+    duplicate runs are harmless — but worth tightening to an allowlist
+    (e.g. explicitly checking for daphne) if a second process type is added.
     """
     if not sys.argv:
         return False

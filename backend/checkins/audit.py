@@ -4,7 +4,12 @@ from .models import AuditLog
 
 
 def get_client_ip(request):
-    """Best-effort client IP, preferring the reverse proxy's forwarded header."""
+    """Best-effort client IP, preferring the reverse proxy's forwarded header.
+
+    Assumes deployment behind a trusted reverse proxy (e.g. Traefik) that
+    sets/overwrites X-Forwarded-For itself. Without one in front of this app,
+    a client can spoof this header and forge the IP recorded in the audit log.
+    """
     forwarded_for = request.META.get("HTTP_X_FORWARDED_FOR")
     if forwarded_for:
         return forwarded_for.split(",")[0].strip()
