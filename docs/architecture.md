@@ -476,8 +476,9 @@ DPA notes, breach process) that operators customise.
 - Configurable retention period via `DATA_RETENTION_DAYS` (and
   `AUDIT_LOG_RETENTION_DAYS`) in `config/settings/base.py`
 - `anonymize_expired_data` management command (in the `families` app) scrubs PII
-  on families inactive past the retention window; run it on a schedule (cron).
-  Supports `--dry-run`, `--days`, and `--include-audit-logs`
+  on families inactive past the retention window; run automatically every day
+  at 03:00 by an in-app scheduler (`families/apps.py`), no operator cron entry
+  required. Supports `--dry-run`, `--days`, and `--include-audit-logs`
 - DSAR: right-to-access export and right-to-erasure via `FamilyViewSet`
   `export`/`erase` actions and the matching Django Admin actions
 - Legitimate interest as legal basis (document it with the LIA template)

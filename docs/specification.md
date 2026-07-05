@@ -313,9 +313,10 @@ A web application for managing children at conferences with check-in, check-out,
   - Export family data before deletion (CSV/JSON) — implemented via the
     `export` API action and Django Admin export actions
   - Audit log for all deletions
-  - **Optional automated cleanup**: the `anonymize_expired_data` management
-    command anonymises records inactive past `DATA_RETENTION_DAYS`. It is
-    operator-opt-in (run via cron); there are no in-app retention warnings.
+  - **Automated cleanup**: the `anonymize_expired_data` management command
+    anonymises records inactive past `DATA_RETENTION_DAYS`, run automatically
+    every day at 03:00 by an in-app scheduler — no operator cron setup
+    required. There are no in-app retention warnings beyond that.
   - See `docs/legal/` for privacy-policy, ToS, LIA, DPA and breach-process
     templates.
 
