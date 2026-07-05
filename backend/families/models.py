@@ -332,4 +332,10 @@ class Child(Attendee):
         )
         if has_text and self.health_consent_status not in live_statuses:
             self.health_consent_status = self.HealthConsentStatus.NEEDS_RECONFIRMATION
+            update_fields = kwargs.get("update_fields")
+            if (
+                update_fields is not None
+                and "health_consent_status" not in update_fields
+            ):
+                kwargs["update_fields"] = [*update_fields, "health_consent_status"]
         super().save(*args, **kwargs)
