@@ -308,10 +308,17 @@ A web application for managing children at conferences with check-in, check-out,
 - **Data Retention Approach:**
   - Track last participation date for each family/child
   - Admin can view records by last participation date
-  - Manual data deletion available (with confirmation)
-  - Export family data before deletion (CSV/JSON)
+  - Manual data deletion / erasure available (Django Admin action and the
+    `FamilyViewSet` `erase` API action, both logged)
+  - Export family data before deletion (CSV/JSON) — implemented via the
+    `export` API action and Django Admin export actions
   - Audit log for all deletions
-  - **No automated warnings or cleanup** (manual review only)
+  - **Automated cleanup**: the `anonymize_expired_data` management command
+    anonymises records inactive past `DATA_RETENTION_DAYS`, run automatically
+    every day at 03:00 by an in-app scheduler — no operator cron setup
+    required. There are no in-app retention warnings beyond that.
+  - See `docs/legal/` for privacy-policy, ToS, LIA, DPA and breach-process
+    templates.
 
 ### Time & Session Management
 - Events have date and time ranges

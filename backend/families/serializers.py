@@ -1,3 +1,5 @@
+from django.conf import settings
+from django.utils import timezone
 from rest_framework import serializers
 
 from .models import Child, Family, Parent
@@ -81,6 +83,10 @@ class ChildSerializer(serializers.ModelSerializer):
             "birthdate",
             "allergies",
             "notes",
+            "health_consent_status",
+            "health_consent_by",
+            "health_consent_at",
+            "health_consent_notice_version",
             "last_participation_date",
             "family",
             "ticket_type",
@@ -90,6 +96,10 @@ class ChildSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = [
             "id",
+            "health_consent_status",
+            "health_consent_by",
+            "health_consent_at",
+            "health_consent_notice_version",
             "last_participation_date",
             "ticket_type",
             "ticket_details",
@@ -244,10 +254,42 @@ class ParentCreateSerializer(serializers.ModelSerializer):
 class ChildCreateSerializer(serializers.ModelSerializer):
     """Serializer for creating children (without family field)"""
 
+    health_consent_status = serializers.ChoiceField(
+        choices=[
+            Child.HealthConsentStatus.NOT_APPLICABLE,
+            Child.HealthConsentStatus.GRANTED,
+            Child.HealthConsentStatus.DECLINED,
+        ],
+        default=Child.HealthConsentStatus.NOT_APPLICABLE,
+    )
+
     class Meta:
         model = Child
-        fields = ["id", "first_name", "last_name", "birthdate", "allergies", "notes"]
+        fields = [
+            "id",
+            "first_name",
+            "last_name",
+            "birthdate",
+            "allergies",
+            "notes",
+            "health_consent_status",
+        ]
         read_only_fields = ["id"]
+
+    def validate(self, attrs):
+        """
+        Health text is only ever stored once consent is granted — a
+        declined/undecided status must not carry allergy/medical text even
+        if the client sent some (enforced server-side, not just trusted from
+        the UI).
+        """
+        status = attrs.get(
+            "health_consent_status", Child.HealthConsentStatus.NOT_APPLICABLE
+        )
+        if status != Child.HealthConsentStatus.GRANTED:
+            attrs["allergies"] = None
+            attrs["notes"] = None
+        return attrs
 
 
 class FamilyCreateSerializer(serializers.ModelSerializer):
@@ -280,11 +322,29 @@ class FamilyCreateSerializer(serializers.ModelSerializer):
         family = Family.objects.create(**validated_data)
 
         # Create parents
-        for parent_data in parents_data:
+        created_parents = [
             Parent.objects.create(family=family, **parent_data)
+            for parent_data in parents_data
+        ]
+        # Whoever is present at registration attests to the health-data
+        # consent decision, so the first parent listed is recorded as the
+        # consent giver rather than exposing a separate picker in the UI.
+        consented_by = created_parents[0] if created_parents else None
 
         # Create children
         for child_data in children_data:
+            status = child_data.get(
+                "health_consent_status", Child.HealthConsentStatus.NOT_APPLICABLE
+            )
+            if status in (
+                Child.HealthConsentStatus.GRANTED,
+                Child.HealthConsentStatus.DECLINED,
+            ):
+                child_data["health_consent_by"] = consented_by
+                child_data["health_consent_at"] = timezone.now()
+                child_data["health_consent_notice_version"] = (
+                    settings.HEALTH_CONSENT_NOTICE_VERSION
+                )
             Child.objects.create(family=family, **child_data)
 
         return family

@@ -27,6 +27,10 @@ export interface Child {
   birthdate?: string;
   allergies?: string;
   notes?: string;
+  health_consent_status?: 'not_applicable' | 'granted' | 'declined' | 'withdrawn' | 'needs_reconfirmation';
+  health_consent_by?: string | null;
+  health_consent_at?: string | null;
+  health_consent_notice_version?: string | null;
   last_participation_date?: string;
   ticket_type: 'event' | 'session' | 'none';
   ticket_details?: {
@@ -190,11 +194,18 @@ export interface QRInfoResponse {
     id: string;
     name: string;
     phone?: string;
-    email?: string;
     relationship_type: string;
   }>;
   family_id: string;
   supervised: boolean;
+}
+
+export interface PrivacyInfoResponse {
+  controller_name: string;
+  contact_email: string;
+  controller_url: string;
+  privacy_policy_url: string;
+  retention_days: number;
 }
 
 export interface CheckOutMessage {
