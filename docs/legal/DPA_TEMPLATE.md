@@ -117,6 +117,13 @@ managed hosting), the table below is updated and the Controller notified per
 |---|---|---|---|
 | {{none as of DATE — update when applicable}} | | | |
 
+<!-- Example row, once a sub-processor is actually added (e.g. a
+     transactional email provider) — delete this comment and fill in real
+     values, don't leave it as a live row:
+| {{Provider name}} | Transactional email delivery | Guardian name, email address, message content | {{Country}} |
+-->
+
+
 5.2 The Processor shall give the Controller at least {{30}} days' written
 notice of any new or replacement sub-processor, during which the Controller
 may object. If the parties cannot resolve an objection, the Controller may

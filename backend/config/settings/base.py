@@ -40,6 +40,7 @@ INSTALLED_APPS = [
     "imports",
     "reports",
     "demo",
+    "notifications",
 ]
 
 MIDDLEWARE = [
@@ -202,6 +203,24 @@ PRIVACY_POLICY_URL = os.getenv("PRIVACY_POLICY_URL", "")
 # consent records keep the version they were granted under (grandfathered);
 # only new registrations see the new text. See Child.health_consent_notice_version.
 HEALTH_CONSENT_NOTICE_VERSION = os.getenv("HEALTH_CONSENT_NOTICE_VERSION", "v2-2026-07")
+
+# Demo mode also gates the notifications NullProvider fallback (see
+# notifications/providers.py) — kept as a proper setting rather than a
+# scattered os.getenv so it's overridable in tests. demo/apps.py's own
+# scheduler still reads the env var directly; this doesn't replace that.
+DEMO_MODE = os.getenv("DEMO_MODE", "false").lower() == "true"
+
+# Email sending (see notifications/providers.py). Deliberately optional —
+# leaving EMAIL_HOST unset is a supported "no email" deployment mode (e.g.
+# the public demo instance), not a misconfiguration. EMAIL_PROVIDER selects
+# the implementation; "smtp" is the only one that exists today.
+EMAIL_PROVIDER = os.getenv("EMAIL_PROVIDER", "smtp")
+EMAIL_HOST = os.getenv("EMAIL_HOST", "")
+EMAIL_PORT = int(os.getenv("EMAIL_PORT", "587"))
+EMAIL_HOST_USER = os.getenv("EMAIL_HOST_USER", "")
+EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD", "")
+EMAIL_USE_TLS = os.getenv("EMAIL_USE_TLS", "true").lower() == "true"
+DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL", "")
 
 CHANNEL_LAYERS = {
     "default": {
