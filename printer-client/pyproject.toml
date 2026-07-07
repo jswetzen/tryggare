@@ -19,7 +19,9 @@ dependencies = [
 brother = [
     "brother_ql-inventree",
 ]
-dymo = []
+dymo = [
+    "pywin32>=305; sys_platform == 'win32'",
+]
 network = [
     "puresnmp>=2.0.0",
     "zeroconf>=0.38.0",

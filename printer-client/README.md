@@ -1,6 +1,6 @@
 # printer-client
 
-Label printer client for the Conference Child Management System. Connects to the Django backend via WebSocket, renders labels with WeasyPrint, and sends them to a Brother QL (USB/network) or Dymo LabelWriter (CUPS) printer.
+Label printer client for the Conference Child Management System. Connects to the Django backend via WebSocket, renders labels with WeasyPrint, and sends them to a Brother QL (USB/network, Linux/macOS) or Dymo LabelWriter (CUPS on Linux/macOS, or the Windows print driver on Windows) printer.
 
 ## Prerequisites
 
@@ -9,8 +9,11 @@ Label printer client for the Conference Child Management System. Connects to the
   curl -LsSf https://astral.sh/uv/install.sh | sh
   ```
   `uv` manages its own Python interpreter, so you don't need a system Python.
-- macOS or Linux (Windows not supported)
-- A Brother QL printer (USB/WiFi) or a Dymo LabelWriter registered with CUPS
+- macOS or Linux for the Brother backend (Windows not supported there)
+- macOS, Linux, or **Windows** for the Dymo backend
+- A Brother QL printer (USB/WiFi), or a Dymo LabelWriter — registered with
+  CUPS on Linux/macOS, or installed as a normal Windows printer (its official
+  driver) on Windows
 
 ## Install
 
@@ -20,7 +23,18 @@ cd tryggare/printer-client
 ./install.sh
 ```
 
-The script installs `printer-client` as a `uv tool` (isolated venv, Python 3.13, `[brother]` extra by default) and creates `.env` from the template. Dymo needs no extra Python dependencies — it prints through CUPS.
+The script installs `printer-client` as a `uv tool` (isolated venv, Python 3.13, `[brother]` extra by default) and creates `.env` from the template. Dymo on Linux/macOS needs no extra Python dependencies — it prints through CUPS.
+
+**Windows (Dymo only):** `install.sh` is a POSIX shell script and won't run
+on Windows. Install manually instead:
+
+```powershell
+uv tool install --python 3.13 --force ".[dymo]"
+Copy-Item .env.example .env
+```
+
+`[dymo]` pulls in `pywin32` (only on Windows, via an environment marker) for
+talking to the Windows print driver.
 
 ## Configure
 
@@ -35,7 +49,7 @@ $EDITOR .env
 | `STAFF_USERNAME` / `STAFF_PASSWORD` | *(empty)* | Optional. Skip the interactive login by pre-seeding credentials; used once, then removed from `.env`. |
 | `PRINTER_NAME` | `Label Printer` | Name shown in the UI (and the provisioned printer name) |
 | `PRINTER_TYPE` | `brother` | `brother` or `dymo` |
-| `PRINTER_IDENTIFIER` | *(auto-detect)* | Brother USB: `usb://0x04f9:0x2042`  Brother network: `tcp://192.168.1.50`  Dymo: CUPS queue name, e.g. `DYMO_LabelWriter_450` |
+| `PRINTER_IDENTIFIER` | *(auto-detect)* | Brother USB: `usb://0x04f9:0x2042`  Brother network: `tcp://192.168.1.50`  Dymo (Linux/macOS): CUPS queue name, e.g. `DYMO_LabelWriter_450`  Dymo (Windows): the printer's name as shown in *Devices & Printers* |
 | `PRINTER_BACKEND` | `pyusb` | Brother only: `pyusb`, `network`, or `linux_kernel` |
 | `PRINTER_MODEL` | `QL-810W` | Brother QL model string (unused for Dymo) |
 | `LABEL_SIZE` | `29x90` | Brother die-cut: `29x90`, `62x100`  Brother endless: `29`, `62`  Dymo: `30252`, `30334`, `30256`, `4xl` |
@@ -100,9 +114,16 @@ Processes jobs end-to-end but skips sending to the printer. Useful for testing t
 
 ## Dymo LabelWriter (optional)
 
-Dymo has no Python driver equivalent to `brother_ql`, so this backend prints
-through **CUPS** (`lp`) instead — no extra Python dependencies needed. Register
-the printer with CUPS first (`lpstat -p` should list it), then in `.env`:
+Dymo has no Python driver equivalent to `brother_ql`, so this backend hands
+the rendered label to whatever the OS already uses to print — CUPS on
+Linux/macOS, the Windows print driver on Windows — rather than talking to the
+printer's own protocol directly. `PRINTER_MODEL` and `PRINTER_BACKEND` are
+ignored for this backend on every OS.
+
+### Linux / macOS
+
+Register the printer with CUPS first (`lpstat -p` should list it), then in
+`.env`:
 
 ```bash
 PRINTER_TYPE=dymo
@@ -110,7 +131,25 @@ PRINTER_IDENTIFIER=DYMO_LabelWriter_450   # leave blank to auto-detect from lpst
 LABEL_SIZE=30252                          # 30252, 30334, 30256, or 4xl
 ```
 
-`PRINTER_MODEL` and `PRINTER_BACKEND` are ignored for this backend.
+### Windows
+
+Install the Dymo LabelWriter's official Windows driver (via Windows Update or
+DYMO's driver download) and set it up once through *Devices & Printers* — the
+same as setting up any other printer. No DYMO Connect / background service
+needs to be running; the client submits print jobs straight to that driver.
+
+```powershell
+PRINTER_TYPE=dymo
+PRINTER_IDENTIFIER=DYMO LabelWriter 450   # the printer's name in Devices & Printers; blank auto-detects
+LABEL_SIZE=30252                          # 30252, 30334, 30256, or 4xl
+```
+
+The driver's printer-properties dialog lists a paper size per label part
+number (e.g. *"30252 Address Labels"*) — the client looks up the matching one
+automatically. If `LABEL_SIZE` doesn't match anything in that list, printing
+fails with an error naming the sizes the driver actually offers; open
+*Printing Preferences* for that printer and confirm the label size is there
+before troubleshooting further.
 
 ## Network printer backend (Brother only, optional)
 
@@ -123,7 +162,9 @@ uv tool install --python 3.13 --force '.[brother,network]'
 ## Development
 
 Hardware-free regression tests cover the dedup, auth, rendering, WebSocket, and
-both printer backends:
+all three printer backends (Brother, Dymo/CUPS, Dymo/Windows — the Windows one
+runs everywhere by mocking `win32print`/`win32ui`/`win32con`, since `pywin32`
+itself only installs on Windows):
 
 ```bash
 uv sync --extra dev --extra brother
@@ -208,6 +249,15 @@ status, and it conflicts with `ipp-usb` (stop that service first — see
 
 The `pyusb` backend works on macOS without special permissions. If you run into issues, check that no other driver (e.g. `ipp-usb`) has claimed the device.
 
+### Windows (Dymo only)
+
+There's no Brother support on Windows (the `pyusb`/`linux_kernel` backends
+don't apply there). For Dymo, the client prints through the standard Windows
+print driver — no CUPS, no DYMO Connect required to be running. Prerequisites:
+the printer's official Windows driver installed and set up once in *Devices &
+Printers*. See the **Dymo LabelWriter → Windows** section above for `.env`
+setup and what to do if a label size isn't found.
+
 ## Troubleshooting
 
 See [docs/troubleshooting.md](docs/troubleshooting.md) for known issues including:
@@ -215,3 +265,4 @@ See [docs/troubleshooting.md](docs/troubleshooting.md) for known issues includin
 - `ipp-usb` USB reset loop on Linux
 - QL-810W USB timeout and initialization quirks
 - Network backend status query limitations
+- Dymo on Windows: "No paper form matching" errors

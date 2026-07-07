@@ -4,8 +4,9 @@ from unittest import mock
 
 import pytest
 
-import client.backends.dymo as dymo
-from client.backends.dymo import DymoBackend
+import client.backends.dymo_cups as dymo
+from client.backends.dymo_common import DYMO_LABEL_SIZES
+from client.backends.dymo_cups import DymoBackend
 
 
 @pytest.fixture
@@ -35,7 +36,7 @@ def test_validate_label_size_unknown_raises(backend):
 
 
 def test_get_label_target_size_matches_known_sizes(backend):
-    for label_size, size in dymo.DYMO_LABEL_SIZES.items():
+    for label_size, size in DYMO_LABEL_SIZES.items():
         assert backend.get_label_target_size(label_size) == size
 
 

@@ -1,9 +1,9 @@
-"""Dymo LabelWriter backend via CUPS (`lp` subprocess).
+"""Dymo LabelWriter backend via CUPS (`lp` subprocess) — Linux/macOS.
 
 No Python driver equivalent to brother_ql exists for Dymo; the pragmatic
-approach is to hand the rendered PNG to CUPS. All LabelWriter 450/550/5XL
-models print at 300 DPI. Label sizes below are sourced from the official Dymo
-CUPS PPD (landscape orientation, long side first).
+approach is to hand the rendered PNG to CUPS. Label sizes are sourced from
+the official Dymo CUPS PPD (landscape orientation, long side first); see
+dymo_common.py for the pixel dimensions shared with dymo_windows.py.
 """
 
 import logging
@@ -12,19 +12,14 @@ import subprocess
 import sys
 import tempfile
 
+from .dymo_common import DymoLabelSizeMixin
+
 log = logging.getLogger("printer-client")
 
 PRINTER_IDENTIFIER = os.environ.get("PRINTER_IDENTIFIER", "")
 LABEL_SIZE = os.environ.get("LABEL_SIZE", "30252")
 DRY_RUN = os.environ.get("DRY_RUN", "false").lower() in ("1", "true", "yes")
 
-# (width_px, height_px) at 300 DPI — long side first.
-DYMO_LABEL_SIZES = {
-    "30252": (1050, 329),  # 3-1/2" x 1-1/8" address      (PPD w252h79)
-    "30334": (675, 375),  # 2-1/4" x 1-1/4" multipurpose  (PPD w162h90)
-    "30256": (1200, 695),  # 4" x 2-5/16" large shipping   (PPD w288h167)
-    "4xl": (1883, 1233),  # 6" x 4" 5XL shipping           (PPD w452h296)
-}
 DYMO_PPD_SIZES = {
     "30252": "w252h79",
     "30334": "w162h90",
@@ -33,25 +28,8 @@ DYMO_PPD_SIZES = {
 }
 
 
-class DymoBackend:
+class DymoBackend(DymoLabelSizeMixin):
     """Prints via CUPS (`lp`) to a registered Dymo LabelWriter queue."""
-
-    def validate_label_size(self, label_size: str) -> None:
-        """Fail fast if label_size isn't a known Dymo label identifier."""
-        if label_size in DYMO_LABEL_SIZES:
-            return
-        raise SystemExit(
-            f"LABEL_SIZE='{label_size}' is not a known Dymo label.\n"
-            f"Valid identifiers: {', '.join(sorted(DYMO_LABEL_SIZES))}"
-        )
-
-    def get_label_target_size(self, label_size: str) -> tuple[int, int]:
-        """Return the expected (width, height) in pixels for label_size.
-
-        label_size is validated at startup (validate_label_size), so it is a
-        known identifier by the time we get here.
-        """
-        return DYMO_LABEL_SIZES[label_size]
 
     def print_png(self, png_bytes: bytes) -> None:
         """Send PNG bytes to the Dymo printer via `lp`. Skipped in DRY_RUN."""
