@@ -150,6 +150,18 @@ class EventTicket(models.Model):
         verbose_name=_("External Ticket Code"),
         help_text=_("ETicket code from the external registration system."),
     )
+    registration = models.ForeignKey(
+        "registrations.Registration",
+        null=True,
+        blank=True,
+        on_delete=models.CASCADE,
+        related_name="event_tickets",
+        verbose_name=_("Registration"),
+        help_text=_(
+            "Set only for tickets created via public self-serve registration; "
+            "staff-created tickets leave this null and are unaffected."
+        ),
+    )
 
     class Meta:
         db_table = "event_tickets"
@@ -190,6 +202,18 @@ class SessionTicket(models.Model):
         blank=True,
         verbose_name=_("External Ticket Code"),
         help_text=_("ETicket code from the external registration system."),
+    )
+    registration = models.ForeignKey(
+        "registrations.Registration",
+        null=True,
+        blank=True,
+        on_delete=models.CASCADE,
+        related_name="session_tickets",
+        verbose_name=_("Registration"),
+        help_text=_(
+            "Set only for tickets created via public self-serve registration; "
+            "staff-created tickets leave this null and are unaffected."
+        ),
     )
 
     class Meta:

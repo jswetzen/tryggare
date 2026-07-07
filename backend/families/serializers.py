@@ -1,8 +1,7 @@
-from django.conf import settings
-from django.utils import timezone
 from rest_framework import serializers
 
 from .models import Child, Family, Parent
+from .services import create_family_with_members
 
 
 class ParentSerializer(serializers.ModelSerializer):
@@ -314,37 +313,15 @@ class FamilyCreateSerializer(serializers.ModelSerializer):
         return data
 
     def create(self, validated_data):
-        """Create family with nested parents and children"""
-        parents_data = validated_data.pop("parents")
-        children_data = validated_data.pop("children")
+        """Create family with nested parents and children.
 
-        # Create the family
-        family = Family.objects.create(**validated_data)
-
-        # Create parents
-        created_parents = [
-            Parent.objects.create(family=family, **parent_data)
-            for parent_data in parents_data
-        ]
-        # Whoever is present at registration attests to the health-data
-        # consent decision, so the first parent listed is recorded as the
-        # consent giver rather than exposing a separate picker in the UI.
-        consented_by = created_parents[0] if created_parents else None
-
-        # Create children
-        for child_data in children_data:
-            status = child_data.get(
-                "health_consent_status", Child.HealthConsentStatus.NOT_APPLICABLE
-            )
-            if status in (
-                Child.HealthConsentStatus.GRANTED,
-                Child.HealthConsentStatus.DECLINED,
-            ):
-                child_data["health_consent_by"] = consented_by
-                child_data["health_consent_at"] = timezone.now()
-                child_data["health_consent_notice_version"] = (
-                    settings.HEALTH_CONSENT_NOTICE_VERSION
-                )
-            Child.objects.create(family=family, **child_data)
-
-        return family
+        Whoever is present at registration attests to the health-data consent
+        decision — see create_family_with_members's docstring for why "first
+        parent listed" is the right default here specifically (no separate
+        attestor picker in the staff UI).
+        """
+        return create_family_with_members(
+            last_name=validated_data.get("last_name", ""),
+            parents_data=validated_data.pop("parents"),
+            children_data=validated_data.pop("children"),
+        )

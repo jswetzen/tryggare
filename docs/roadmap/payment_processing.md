@@ -1,5 +1,14 @@
 # Payment Processing — Swish & Bankgiro (Manual Verification)
 
+## Status (2026-07-07)
+
+Dependency is now satisfied: free-event self-serve registration (phase 1 of
+`event_registration_and_mailing.md`) is implemented, with a `Registration`
+grouping model shaped exactly as this doc's "Implementation sketch" sketch
+anticipated (owns N tickets, not a per-ticket field). This doc's own
+`Payment` model, Swish QR generation, and "mark as paid" action are not yet
+built — everything below remains future work (phase 2).
+
 ## Goal
 
 Let congregations charge for paid events without Tryggare Moln ever

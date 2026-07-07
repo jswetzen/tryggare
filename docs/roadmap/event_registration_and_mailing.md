@@ -1,5 +1,50 @@
 # Self-Serve Event Registration & Mailing
 
+## Status (2026-07-07)
+
+Phase 0 (transactional email, `notifications` app) and Phase 1 (free-event
+self-serve registration, `registrations` app) are implemented on
+`feature/self-serve-registration` (branched from `feature/transactional-email`).
+The open design questions below are resolved for phase 1 — kept here for the
+reasoning, not as still-open decisions:
+
+- **Registration state before payment**: resolved as a thin `Registration`
+  grouping model (event FK, status, reference code, contact email, hashed
+  verification token) owning N tickets — not a field on `EventTicket`/
+  `SessionTicket`. State machine: `pending_verification` → (email verify) →
+  `confirmed` (free) / `pending_payment` (paid, phase 2) / `pending_review`
+  (verified email exactly matches an existing guardian on a *different*
+  family — routed to a staff queue rather than auto-attached). A ticket only
+  counts toward check-in eligibility once its `registration.status ==
+  confirmed` (`checkins/eligibility.py::registration_checkin_gate_error`).
+- **Guardian portal reversal / abuse protection**: resolved as email
+  verification (hashed one-time token) as the primary control, not CAPTCHA —
+  dedup + resend-cooldown on `(event, contact_email)` is the actual abuse
+  multiplier control; per-IP throttle stays deliberately loose (bulk on-site
+  registration from one venue wifi hotspot is a real workload, per the
+  FestivalPro/Planning Center import precedent) plus a honeypot field. No
+  persistent guardian account/login introduced — same one-time-link shape
+  already used for `/qr/[token]`.
+- **Consent capture without a staff intermediary**: resolved by extracting
+  the staff `AddFamilyPanel.svelte` consent block into a shared
+  `ConsentCapture.svelte`, and `FamilyCreateSerializer.create()`'s logic into
+  `families/services.py::create_family_with_members()`, so both paths get
+  identical validation/notice-versioning rigor.
+- **Email content minimization**: `notifications/providers.py` never
+  receives allergy/health text — enforced by convention (registration emails
+  only ever mention event name + reference code), not by code-level
+  filtering.
+
+Still open / explicitly deferred from phase 1: CAPTCHA (revisit only if real
+abuse is observed), a bespoke staff review UI for the `pending_review` queue
+(Django admin is enough for now), fuzzy family-dedup beyond exact-email-match,
+capacity limits, and a UI treatment for unconfirmed registrations on the
+staff check-in screen beyond "check-in is blocked with an error" (the backend
+gate is enforced; the visual "pending" indicator on the family list is not
+yet built — see `checkins/eligibility.py`'s docstring). Marketing mailouts
+(the other half of this doc) are entirely unbuilt — everything below this
+point still describes future work.
+
 ## Goal
 
 Extend Tryggare Moln beyond on-location check-in to cover the full event

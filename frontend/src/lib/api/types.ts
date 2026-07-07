@@ -208,6 +208,58 @@ export interface PrivacyInfoResponse {
   retention_days: number;
 }
 
+export interface RegistrationEventInfo {
+  id: string;
+  name: string;
+  start_date: string;
+  end_date: string;
+}
+
+export interface RegistrationParentPayload {
+  first_name: string;
+  last_name?: string;
+  phone?: string;
+  email?: string;
+  relationship_type: string;
+}
+
+export interface RegistrationChildPayload {
+  first_name: string;
+  last_name?: string;
+  birthdate?: string;
+  allergies?: string;
+  notes?: string;
+  health_consent_status?: 'not_applicable' | 'granted' | 'declined';
+}
+
+export interface RegistrationSubmitPayload {
+  event: string;
+  last_name?: string;
+  contact_email: string;
+  parents: RegistrationParentPayload[];
+  children: RegistrationChildPayload[];
+  // Honeypot: must stay empty. Hidden from real users via CSS.
+  website?: string;
+}
+
+export interface RegistrationSubmitResponse {
+  reference_code: string | null;
+  message: string;
+}
+
+export type RegistrationStatus =
+  | 'pending_verification'
+  | 'confirmed'
+  | 'pending_payment'
+  | 'pending_review'
+  | 'cancelled';
+
+export interface RegistrationVerifyResponse {
+  status: RegistrationStatus;
+  reference_code: string;
+  event_name: string;
+}
+
 export interface CheckOutMessage {
   type: 'child_checked_out';
   data: {

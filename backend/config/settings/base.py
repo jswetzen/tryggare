@@ -41,6 +41,7 @@ INSTALLED_APPS = [
     "reports",
     "demo",
     "notifications",
+    "registrations",
 ]
 
 MIDDLEWARE = [
@@ -173,6 +174,12 @@ REST_FRAMEWORK = {
         "anon": "10/minute",  # Anonymous users
         "user": "100/minute",  # Authenticated users
         "login": "5/minute",  # Login attempts
+        # Deliberately loose, not the initially-considered 3/hour: on-site
+        # bulk registration by one youth leader on shared venue wifi is a
+        # normal workload for this product (see registrations/views.py).
+        # Dedup + resend-cooldown on (event, contact_email) is the actual
+        # abuse control, not this per-IP cap.
+        "registration_submit": "30/hour",
     },
 }
 
@@ -221,6 +228,21 @@ EMAIL_HOST_USER = os.getenv("EMAIL_HOST_USER", "")
 EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD", "")
 EMAIL_USE_TLS = os.getenv("EMAIL_USE_TLS", "true").lower() == "true"
 DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL", "")
+
+# Base URL of the SvelteKit frontend, used to build links sent by email (e.g.
+# the registration verification link) — these must resolve to the frontend's
+# real routes even though the Django backend is on a different origin in dev
+# (localhost:5173 vs :8000); in prod-like/production a single container
+# serves both, so this is normally the same origin as the API.
+FRONTEND_BASE_URL = os.getenv("FRONTEND_BASE_URL", "http://localhost:5173")
+
+# Send-budget circuit breaker (see notifications/providers.py::SmtpProvider.send()).
+# A burst from one feature (e.g. self-serve registration) must not exhaust the
+# shared transactional channel that other features (consent-renewal mail) also
+# depend on. Default cap is well under Simply.com's ~300msg/4h auto-suspend
+# threshold, leaving headroom for other senders sharing the same window.
+EMAIL_SEND_BUDGET_MAX = int(os.getenv("EMAIL_SEND_BUDGET_MAX", "200"))
+EMAIL_SEND_BUDGET_WINDOW_HOURS = int(os.getenv("EMAIL_SEND_BUDGET_WINDOW_HOURS", "4"))
 
 CHANNEL_LAYERS = {
     "default": {
