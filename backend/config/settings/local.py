@@ -43,5 +43,6 @@ REST_FRAMEWORK = {
         "user": "10000/minute",
         "login": "1000/minute",
         "registration_submit": "1000/minute",
+        "registration_payment_status": "1000/minute",
     },
 }

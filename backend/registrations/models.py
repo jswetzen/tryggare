@@ -11,9 +11,22 @@ from .tokens import generate_unique_reference_code
 # hard-deletes it. A fixed business rule, not an operator-tunable setting.
 REGISTRATION_TTL_HOURS = 48
 
+# How long a verified-but-unpaid registration is kept before the scheduled
+# sweep cancels it. Also a fixed business rule. Deliberately days, not hours —
+# unlike an unverified submission (spam-shaped, no real relationship yet), a
+# pending_payment registration already passed email verification and
+# represents a real family; giving them a week to pay before cancelling
+# balances "don't hold a check-in-invalid slot forever" against "don't
+# cancel over a bank transfer that takes a couple of days to clear."
+PAYMENT_TTL_DAYS = 7
+
 
 def default_expires_at():
     return timezone.now() + timedelta(hours=REGISTRATION_TTL_HOURS)
+
+
+def default_payment_expires_at():
+    return timezone.now() + timedelta(days=PAYMENT_TTL_DAYS)
 
 
 class Registration(models.Model):
@@ -84,7 +97,9 @@ class Registration(models.Model):
         default=default_expires_at,
         verbose_name=_("Expires At"),
         help_text=_(
-            "When an unverified registration becomes eligible for the expiry sweep."
+            "When this registration becomes eligible for the expiry sweep — "
+            "the verification TTL while pending_verification, reset to the "
+            "payment TTL when entering pending_payment."
         ),
     )
     created_new_family = models.BooleanField(
@@ -112,3 +127,78 @@ class Registration(models.Model):
     @property
     def is_expired(self) -> bool:
         return timezone.now() >= self.expires_at
+
+
+class Payment(models.Model):
+    """
+    The single payment record for a paid-event Registration.
+
+    A OneToOne, not a FK: a family registration is paid as one lump sum (per
+    payment_processing.md), so there is at most one Payment per Registration.
+    Created lazily by verify_registration() once a paid event's registration
+    is actually verified — never at submission time, so an unverified/
+    spam-shaped submission never gets a Payment row.
+    """
+
+    class Method(models.TextChoices):
+        SWISH = "swish", _("Swish")
+        BANKGIRO = "bankgiro", _("Bankgiro")
+        MANUAL_OTHER = "manual_other", _("Other (manual)")
+
+    class Status(models.TextChoices):
+        PENDING = "pending", _("Pending")
+        PAID = "paid", _("Paid")
+        REFUNDED = "refunded", _("Refunded")
+        CANCELLED = "cancelled", _("Cancelled")
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    registration = models.OneToOneField(
+        Registration,
+        on_delete=models.CASCADE,
+        related_name="payment",
+        verbose_name=_("Registration"),
+    )
+    amount = models.DecimalField(
+        max_digits=8, decimal_places=2, verbose_name=_("Amount")
+    )
+    currency = models.CharField(max_length=3, default="SEK", verbose_name=_("Currency"))
+    method = models.CharField(
+        max_length=20,
+        choices=Method.choices,
+        blank=True,
+        default="",
+        verbose_name=_("Method"),
+        help_text=_(
+            "Set only once marked paid — a guardian may pay via either rail, "
+            "so it isn't known in advance."
+        ),
+    )
+    status = models.CharField(
+        max_length=20,
+        choices=Status.choices,
+        default=Status.PENDING,
+        verbose_name=_("Status"),
+    )
+    paid_at = models.DateTimeField(null=True, blank=True, verbose_name=_("Paid At"))
+    marked_by = models.ForeignKey(
+        "accounts.AdminUser",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="payments_marked",
+        verbose_name=_("Marked By"),
+    )
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name=_("Created At"))
+
+    class Meta:
+        db_table = "payments"
+        verbose_name = _("Payment")
+        verbose_name_plural = _("Payments")
+        indexes = [models.Index(fields=["status"])]
+
+    def __str__(self) -> str:
+        return f"Payment for {self.reference_code} ({self.status})"
+
+    @property
+    def reference_code(self) -> str:
+        return self.registration.reference_code

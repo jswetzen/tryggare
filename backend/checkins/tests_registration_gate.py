@@ -79,6 +79,17 @@ class RegistrationCheckinGateUnitTests(TestCase):
         error = registration_checkin_gate_error(self.child, self.session)
         self.assertIsNotNone(error)
 
+    def test_pending_payment_registration_ticket_blocks(self):
+        """Documents that eligibility.py needs zero changes for Phase 2 —
+        pending_payment is already excluded by the existing != CONFIRMED
+        check, same as any other non-confirmed status."""
+        registration = self._make_registration(Registration.Status.PENDING_PAYMENT)
+        EventTicket.objects.create(
+            attendee=self.child, event=self.event, registration=registration
+        )
+        error = registration_checkin_gate_error(self.child, self.session)
+        self.assertIsNotNone(error)
+
 
 class RegistrationCheckinGateApiTests(TestCase):
     """End-to-end through the real check_in endpoint."""

@@ -205,7 +205,12 @@
       <h1 class="text-2xl font-bold text-neutral-900 mb-1">
         {$t('register.heading', { values: { event: eventInfo.name } })}
       </h1>
-      <p class="text-sm text-neutral-600 mb-4">{$t('register.introText')}</p>
+      <p class="text-sm text-neutral-600 mb-1">{$t('register.introText')}</p>
+      {#if eventInfo.is_paid && eventInfo.price}
+        <p class="text-sm font-semibold text-neutral-700 mb-4">
+          {$t('register.eventPriceNotice', { values: { amount: eventInfo.price, currency: eventInfo.currency } })}
+        </p>
+      {/if}
 
       {#if error}
         <div class="mb-4 p-2 bg-danger-50 border border-danger-200 rounded text-danger-700 text-sm">

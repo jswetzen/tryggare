@@ -12,6 +12,7 @@
   import { registrationApi } from '$lib/api/registrationService';
   import type { RegistrationVerifyResponse } from '$lib/api/types';
   import type { ApiError } from '$lib/api/client';
+  import PaymentInstructions from '$lib/components/registrations/PaymentInstructions.svelte';
 
   const token = $derived($page.params.token ?? '');
 
@@ -61,6 +62,25 @@
       <p class="text-neutral-700 mb-4">{$t('register.verifyPendingReviewMessage')}</p>
       <p class="text-sm text-neutral-500">
         {$t('register.referenceCode', { values: { code: result.reference_code } })}
+      </p>
+    {:else if result.status === 'pending_payment' && result.amount}
+      <h1 class="text-2xl font-bold text-neutral-900 mb-2">{$t('register.paymentPendingTitle')}</h1>
+      <p class="text-neutral-700 mb-4">
+        {$t('register.paymentPendingMessage', { values: { event: result.event_name } })}
+      </p>
+      <PaymentInstructions
+        amount={result.amount}
+        currency={result.currency ?? 'SEK'}
+        reference_code={result.reference_code}
+        swish_url={result.swish_url ?? null}
+        swish_qr_data_url={result.swish_qr_data_url ?? null}
+        bankgiro_number={result.bankgiro_number ?? null}
+      />
+      <p class="text-xs text-neutral-500 mt-4">
+        {$t('register.paymentStatusLinkHint')}
+        <a href="/register/payment-status?ref={result.reference_code}" class="text-primary-600 hover:underline">
+          {$t('register.paymentStatusLink')}
+        </a>
       </p>
     {:else}
       <h1 class="text-2xl font-bold text-neutral-900 mb-2">{$t('register.verifyConfirmedTitle')}</h1>

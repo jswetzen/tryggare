@@ -180,6 +180,7 @@ REST_FRAMEWORK = {
         # Dedup + resend-cooldown on (event, contact_email) is the actual
         # abuse control, not this per-IP cap.
         "registration_submit": "30/hour",
+        "registration_payment_status": "20/hour",
     },
 }
 
@@ -204,6 +205,14 @@ DATA_CONTROLLER_NAME = os.getenv("DATA_CONTROLLER_NAME", "")
 DATA_CONTROLLER_CONTACT_EMAIL = os.getenv("DATA_CONTROLLER_CONTACT_EMAIL", "")
 DATA_CONTROLLER_URL = os.getenv("DATA_CONTROLLER_URL", "")
 PRIVACY_POLICY_URL = os.getenv("PRIVACY_POLICY_URL", "")
+
+# Swish/Bankgiro payee config (registrations/swish.py). Single-tenant,
+# per-deployment — one congregation, one number each — matching the
+# DATA_CONTROLLER_* pattern above rather than a DB-configurable multi-tenant
+# field. Blank-safe: a deployment with no Swish number configured simply
+# omits swish_url/swish_qr_data_url from payment instructions (Bankgiro-only).
+SWISH_PAYEE_NUMBER = os.getenv("SWISH_PAYEE_NUMBER", "")
+BANKGIRO_NUMBER = os.getenv("BANKGIRO_NUMBER", "")
 
 # Version tag for the health-data consent notice shown at registration
 # (Art. 9(2)(a)). Bump this whenever the notice text changes — existing

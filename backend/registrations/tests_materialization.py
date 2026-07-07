@@ -1,10 +1,13 @@
 """
 Expiry sweep: hard-deletes unverified registrations past their TTL, and only
 ever deletes rows a registration itself created — never a pre-existing
-matched family (the created_new_family branch).
+matched family (the created_new_family branch). Also covers the
+pending_payment sweep, which cancels (never deletes) unpaid registrations
+past their payment TTL.
 """
 
 from datetime import timedelta
+from decimal import Decimal
 
 from django.test import TestCase
 from django.utils import timezone
@@ -12,8 +15,8 @@ from django.utils import timezone
 from events.models import Event, EventTicket
 from families.models import Child, Family, Parent
 
-from .models import Registration
-from .tasks import sweep_expired_registrations
+from .models import Payment, Registration
+from .tasks import sweep_expired_registrations, sweep_unpaid_registrations
 from .tokens import generate_verification_token, hash_token
 
 
@@ -120,3 +123,57 @@ class ExpirySweepTests(TestCase):
         # The pre-existing family and its unrelated child must survive untouched.
         self.assertTrue(Family.objects.filter(pk=existing_family.pk).exists())
         self.assertTrue(Child.objects.filter(pk=pre_existing_child.pk).exists())
+
+
+class UnpaidSweepTests(TestCase):
+    def setUp(self):
+        self.event = _make_event()
+        self.event.price = Decimal("50.00")
+        self.event.save(update_fields=["price"])
+
+    def _make_pending_payment_registration(self, *, expired):
+        family = Family.objects.create(last_name="Unpaid")
+        registration = Registration.objects.create(
+            event=self.event,
+            family=family,
+            contact_email="guardian@example.com",
+            verification_token_hash=hash_token(generate_verification_token()),
+            status=Registration.Status.PENDING_PAYMENT,
+        )
+        payment = Payment.objects.create(
+            registration=registration, amount=self.event.price
+        )
+        if expired:
+            Registration.objects.filter(pk=registration.pk).update(
+                expires_at=timezone.now() - timedelta(hours=1)
+            )
+        return registration, family, payment
+
+    def test_expired_pending_payment_registration_is_cancelled_not_deleted(self):
+        registration, family, _ = self._make_pending_payment_registration(expired=True)
+
+        sweep_unpaid_registrations()
+
+        registration.refresh_from_db()
+        self.assertEqual(registration.status, Registration.Status.CANCELLED)
+        self.assertTrue(Family.objects.filter(pk=family.pk).exists())
+
+    def test_expired_pending_payment_also_cancels_its_payment(self):
+        _, _, payment = self._make_pending_payment_registration(expired=True)
+
+        sweep_unpaid_registrations()
+
+        payment.refresh_from_db()
+        self.assertEqual(payment.status, Payment.Status.CANCELLED)
+
+    def test_non_expired_pending_payment_is_untouched(self):
+        registration, _, payment = self._make_pending_payment_registration(
+            expired=False
+        )
+
+        sweep_unpaid_registrations()
+
+        registration.refresh_from_db()
+        payment.refresh_from_db()
+        self.assertEqual(registration.status, Registration.Status.PENDING_PAYMENT)
+        self.assertEqual(payment.status, Payment.Status.PENDING)

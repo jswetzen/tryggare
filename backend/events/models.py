@@ -32,6 +32,17 @@ class Event(models.Model):
             "Applied to sessions of this event that don't set their own policy."
         ),
     )
+    price = models.DecimalField(
+        max_digits=8,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        verbose_name=_("Price"),
+        help_text=_(
+            "Leave blank for a free event. SEK only — Swish/Bankgiro are "
+            "Sweden-only payment rails."
+        ),
+    )
 
     class Meta:
         db_table = "events"
@@ -40,6 +51,10 @@ class Event(models.Model):
 
     def __str__(self) -> str:
         return self.name
+
+    @property
+    def is_paid(self) -> bool:
+        return self.price is not None and self.price > 0
 
 
 class Session(models.Model):

@@ -71,6 +71,10 @@ system access.
   logs (timestamp, event, source IP, session ID)
 - Operational: check-in/check-out timestamps, session, attending staff
   member, printed-label/QR history
+- Payment (paid events only): payment status, amount, method, and
+  reference code for manual Swish/Bankgiro verification — no card data,
+  bank credentials, or third-party payment API is involved (see
+  `docs/roadmap/payment_processing.md`)
 
 3.3 Allergy and medical-note fields are **special category data (health
 data)** under GDPR Art. 9. The Processor acknowledges the heightened duty of

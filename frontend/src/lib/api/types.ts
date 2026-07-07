@@ -213,6 +213,9 @@ export interface RegistrationEventInfo {
   name: string;
   start_date: string;
   end_date: string;
+  is_paid: boolean;
+  price: string | null;
+  currency: string;
 }
 
 export interface RegistrationParentPayload {
@@ -254,9 +257,23 @@ export type RegistrationStatus =
   | 'pending_review'
   | 'cancelled';
 
-export interface RegistrationVerifyResponse {
+export interface PaymentInstructionsPayload {
+  amount: string;
+  currency: string;
+  reference_code: string;
+  swish_url: string | null;
+  swish_qr_data_url: string | null;
+  bankgiro_number: string | null;
+}
+
+export interface RegistrationVerifyResponse extends Partial<PaymentInstructionsPayload> {
   status: RegistrationStatus;
   reference_code: string;
+  event_name: string;
+}
+
+export interface RegistrationPaymentStatusResponse extends PaymentInstructionsPayload {
+  status: RegistrationStatus;
   event_name: string;
 }
 

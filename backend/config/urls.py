@@ -31,6 +31,7 @@ from imports.views import (
 from printing.views import label_page_view
 from registrations.views import (
     registration_event_info,
+    registration_payment_status,
     submit_registration,
     verify_registration,
 )
@@ -83,6 +84,11 @@ urlpatterns = [
         "api/registrations/events/<uuid:event_id>/",
         registration_event_info,
         name="registration-event-info",
+    ),
+    path(
+        "api/registrations/payment-status/",
+        registration_payment_status,
+        name="registration-payment-status",
     ),
     # Import endpoints (must be before the catch-all)
     path(

@@ -17,15 +17,17 @@ class RegistrationsConfig(AppConfig):
 
         from apscheduler.schedulers.background import BackgroundScheduler
 
-        from .tasks import sweep_expired_registrations
+        from .tasks import run_registration_sweeps
 
         scheduler = BackgroundScheduler()
         # Hourly, not daily like the GDPR retention sweep: a 48h TTL needs
         # finer granularity than a once-a-day cutoff would give guardians —
         # hourly keeps the window tight without meaningfully increasing load
-        # (this table stays small).
+        # (this table stays small). run_registration_sweeps() runs both the
+        # unverified-registration hard-delete pass and the unpaid-registration
+        # cancel pass.
         scheduler.add_job(
-            sweep_expired_registrations,
+            run_registration_sweeps,
             "interval",
             hours=1,
             id="registration_expiry_sweep",

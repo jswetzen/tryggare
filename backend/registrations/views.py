@@ -2,6 +2,7 @@ import logging
 from datetime import timedelta
 
 from django.db import transaction
+from django.http import Http404
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from django.utils.translation import gettext as _
@@ -16,9 +17,19 @@ from events.models import Event, EventTicket
 from families.models import Parent
 from families.services import create_family_with_members
 
-from .emails import send_confirmation_email, send_verification_email
-from .models import Registration, default_expires_at
+from .emails import (
+    send_confirmation_email,
+    send_payment_instructions_email,
+    send_verification_email,
+)
+from .models import (
+    Payment,
+    Registration,
+    default_expires_at,
+    default_payment_expires_at,
+)
 from .serializers import RegistrationSubmitSerializer
+from .swish import payment_instructions
 from .tokens import generate_verification_token, hash_token
 
 logger = logging.getLogger(__name__)
@@ -35,6 +46,10 @@ class RegistrationSubmitThrottle(AnonRateThrottle):
     path below is the actual abuse control."""
 
     scope = "registration_submit"
+
+
+class RegistrationPaymentStatusThrottle(AnonRateThrottle):
+    scope = "registration_payment_status"
 
 
 def _create_registration(
@@ -95,6 +110,9 @@ def registration_event_info(request, event_id):
             "name": event.name,
             "start_date": str(event.start_date),
             "end_date": str(event.end_date),
+            "is_paid": event.is_paid,
+            "price": str(event.price) if event.price is not None else None,
+            "currency": "SEK",
         }
     )
 
@@ -209,13 +227,17 @@ def verify_registration(request, token):
     """
     Public verification-link landing endpoint.
 
-    Auto-confirms the common case. Exception: if the now-verified
-    contact_email exactly matches an existing, non-anonymized Parent.email on
-    a *different* family, route to pending_review instead of auto-attaching —
-    since email verification is the entire security control here, defeating
-    auto-attach doesn't require spoofing anything, only the real mailbox
-    owner clicking a routine link out of habit (divorced co-parents; anyone
-    who knows a family's contact email from a church directory).
+    Auto-confirms the common case. Exception, checked first and
+    unconditionally: if the now-verified contact_email exactly matches an
+    existing, non-anonymized Parent.email on a *different* family, route to
+    pending_review instead of auto-attaching — since email verification is
+    the entire security control here, defeating auto-attach doesn't require
+    spoofing anything, only the real mailbox owner clicking a routine link
+    out of habit (divorced co-parents; anyone who knows a family's contact
+    email from a church directory). Only when that doesn't match do we look
+    at whether the event is paid: a paid event routes to pending_payment
+    instead of confirmed, and gets a Payment record + payment instructions
+    email instead of a confirmation email.
     """
     registration = get_object_or_404(
         Registration.objects.select_related("event", "family"),
@@ -237,13 +259,25 @@ def verify_registration(request, token):
         .exists()
     )
 
+    event = registration.event
+    payment = None
+
+    if email_matches_other_family:
+        registration.status = Registration.Status.PENDING_REVIEW
+    elif event.is_paid:
+        registration.status = Registration.Status.PENDING_PAYMENT
+        registration.expires_at = default_payment_expires_at()
+    else:
+        registration.status = Registration.Status.CONFIRMED
+
     registration.verified_at = timezone.now()
-    registration.status = (
-        Registration.Status.PENDING_REVIEW
-        if email_matches_other_family
-        else Registration.Status.CONFIRMED
-    )
-    registration.save(update_fields=["verified_at", "status"])
+    update_fields = ["verified_at", "status"]
+    if registration.status == Registration.Status.PENDING_PAYMENT:
+        update_fields.append("expires_at")
+    registration.save(update_fields=update_fields)
+
+    if event.is_paid:
+        payment = Payment.objects.create(registration=registration, amount=event.price)
 
     log_audit(
         request,
@@ -258,11 +292,58 @@ def verify_registration(request, token):
 
     if registration.status == Registration.Status.CONFIRMED:
         send_confirmation_email(registration)
+    elif registration.status == Registration.Status.PENDING_PAYMENT:
+        send_payment_instructions_email(registration)
+
+    response_data = {
+        "status": registration.status,
+        "reference_code": registration.reference_code,
+        "event_name": registration.event.name,
+    }
+    if payment is not None:
+        response_data.update(payment_instructions(payment))
+
+    return Response(response_data)
+
+
+@api_view(["POST"])
+@permission_classes([AllowAny])
+@throttle_classes([RegistrationPaymentStatusThrottle])
+def registration_payment_status(request):
+    """
+    Public "check my payment status" lookup — the recovery path for a
+    guardian who navigated away from verify_registration's one-time response
+    before paying. Keyed on (reference_code, contact_email) rather than
+    reference_code alone: unlike the high-entropy verification token, the
+    8-character reference_code is shown to guardians for support lookups and
+    isn't meant to be a secret credential on its own. POST, not GET with
+    query params, so contact_email doesn't land in access logs the way a
+    query string would.
+    """
+    reference_code = request.data.get("reference_code", "").strip().upper()
+    contact_email = request.data.get("contact_email", "").strip()
+
+    registration = get_object_or_404(
+        Registration.objects.select_related("event", "payment"),
+        reference_code=reference_code,
+        contact_email__iexact=contact_email,
+    )
+
+    if not registration.event.is_paid or not hasattr(registration, "payment"):
+        raise Http404("No payment associated with this registration")
+
+    log_audit(
+        request,
+        action="registration_payment_status_checked",
+        entity_type="Registration",
+        entity_id=str(registration.id),
+        details={"reference_code": registration.reference_code},
+    )
 
     return Response(
         {
             "status": registration.status,
-            "reference_code": registration.reference_code,
             "event_name": registration.event.name,
+            **payment_instructions(registration.payment),
         }
     )

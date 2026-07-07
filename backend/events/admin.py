@@ -10,6 +10,7 @@ class EventAdmin(admin.ModelAdmin):
         "start_date",
         "end_date",
         "parent_checkin_policy_default",
+        "price",
     )
     list_filter = ("parent_checkin_policy_default",)
     search_fields = ("name",)
