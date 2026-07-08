@@ -60,7 +60,7 @@
 
     {#if result}
       <h2 class="text-lg font-semibold text-neutral-900 mb-2 text-center">
-        {$t('register.verifyConfirmedMessage', { values: { event: result.event_name } })}
+        {$t('register.paymentStatusEventHeading', { values: { event: result.event_name } })}
       </h2>
       {#if result.status === 'pending_payment'}
         <PaymentInstructions

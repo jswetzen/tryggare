@@ -301,6 +301,7 @@
     "paymentStatusLinkHint": "Stängde du sidan? Du kan när som helst kontrollera din betalningsstatus:",
     "paymentStatusLink": "Kontrollera betalningsstatus",
     "paymentStatusFormTitle": "Kontrollera betalningsstatus",
+    "paymentStatusEventHeading": "Anmälan till {event}",
     "paymentStatusReferenceLabel": "Referenskod",
     "paymentStatusEmailLabel": "Din e-postadress",
     "paymentStatusSubmit": "Kontrollera status",

@@ -301,6 +301,7 @@
     "paymentStatusLinkHint": "Closed this page? You can check your payment status any time:",
     "paymentStatusLink": "Check payment status",
     "paymentStatusFormTitle": "Check payment status",
+    "paymentStatusEventHeading": "Registration for {event}",
     "paymentStatusReferenceLabel": "Reference code",
     "paymentStatusEmailLabel": "Your email address",
     "paymentStatusSubmit": "Check status",
