@@ -12,6 +12,11 @@ COPY families ./families
 COPY events ./events
 COPY checkins ./checkins
 COPY printing ./printing
+COPY imports ./imports
+COPY reports ./reports
+COPY demo ./demo
+COPY notifications ./notifications
+COPY registrations ./registrations
 
 ENV DJANGO_SETTINGS_MODULE=config.settings.prod
 ENV PYTHONUNBUFFERED=1
