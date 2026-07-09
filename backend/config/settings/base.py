@@ -181,6 +181,11 @@ REST_FRAMEWORK = {
         # abuse control, not this per-IP cap.
         "registration_submit": "30/hour",
         "registration_payment_status": "20/hour",
+        # Live-typing validation while filling the form — looser than the
+        # submit rate itself since one guardian may retype a code a few
+        # times, but still bounded (this is also the only place an
+        # unauthenticated caller can probe for valid promo codes).
+        "registration_validate_promo_code": "60/hour",
     },
 }
 

@@ -1,5 +1,6 @@
 import { apiClient } from './client';
 import type {
+  PromoCodeValidation,
   RegistrationEventInfo,
   RegistrationPaymentStatusResponse,
   RegistrationSubmitPayload,
@@ -16,6 +17,13 @@ export const registrationApi = {
 
   submit: (data: RegistrationSubmitPayload): Promise<RegistrationSubmitResponse> =>
     apiClient.post('/registrations/', data),
+
+  // Read-only preview — never locks/reserves the code, just tells the form
+  // whether it's currently usable, what it discounts, and which is_hidden
+  // ticket types it unlocks. The real, authoritative redemption happens
+  // again from scratch inside submit().
+  validatePromoCode: (eventId: string, code: string): Promise<PromoCodeValidation> =>
+    apiClient.post('/registrations/validate-promo-code/', { event: eventId, code }),
 
   verify: (token: string): Promise<RegistrationVerifyResponse> =>
     apiClient.get(`/registrations/verify/${encodeURIComponent(token)}/`),

@@ -83,6 +83,13 @@ class RegistrationSubmitSerializer(serializers.Serializer):
     # pass with quantity > 1. Distinct from parents[*]/children[*].extras,
     # which are per-attendee.
     extras = ExtraSelectionSerializer(many=True, required=False, default=list)
+    # Resolved/locked/validated in views.py::_resolve_promo_code, not here
+    # — a plain string field, since "not a valid code" needs the single
+    # generic error message that function raises, not a PrimaryKeyRelated
+    # field's distinguishable "object does not exist" error.
+    promo_code = serializers.CharField(
+        max_length=50, required=False, allow_blank=True, default=""
+    )
     # Honeypot: hidden on the real form via CSS; real guardians never fill
     # this in, bots filling every field typically do.
     website = serializers.CharField(

@@ -834,6 +834,20 @@ problem at the source.
 
 ### 5.4 Promo codes: stacking, scoping, and hidden ticket types
 
+**Status (2026-07-09): built**, on `feature/self-serve-registration`. All
+four scenarios below are handled as recommended: one code per registration
+(`Registration.promo_code`, single FK — stacking is unrepresentable, not
+just rejected), `PromoCode.applies_to_ticket_types`/`unlocks_ticket_types`
+(the VIP2026-unlocks-Weekend-2026's-VIP-type case verified live against
+the real event), `Registration.discount_amount` snapshotted once at
+submission, and `select_for_update()`-locked `uses_count` accounting
+(concurrency-tested with two simultaneous redemptions against
+`max_uses=1`). One real gap found and fixed along the way:
+`TicketType.is_hidden` had no actual enforcement at submission before this
+— only the public listing endpoint filtered it out, so a raw API POST with
+the right UUID would have been accepted; `_validate_ticket_type_for_attendee`
+now rejects a hidden type unless the applied code unlocks it specifically.
+
 **Scenario.** (a) A family tries "EARLYBIRD" + "SYSKON10" together.
 (b) A code meant to discount only youth tickets discounts the whole
 booking. (c) A "VOLONTÄR" code should reveal an otherwise-invisible 0 kr

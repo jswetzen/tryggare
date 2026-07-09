@@ -20,6 +20,15 @@ STATIC_URL = "/static/"  # In dev, use /static/ (production uses / for SvelteKit
 # Keep session-based authentication enabled in development
 # Override base.py to allow unauthenticated access to public endpoints
 # Individual views will use @permission_classes to control access
+#
+# DEFAULT_THROTTLE_RATES starts from base.py's own rates (**_base_throttle_rates)
+# rather than a fully separate dict — a new scope added to base.py used to need
+# a second, easy-to-forget edit here too, or any view using it 500s in dev with
+# "No default throttle rate set" (hit this directly adding
+# registration_validate_promo_code). Only the rates that are deliberately
+# laxer in dev are listed explicitly below; everything else is inherited.
+_base_throttle_rates = REST_FRAMEWORK["DEFAULT_THROTTLE_RATES"]
+
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": [
         "rest_framework.authentication.SessionAuthentication",
@@ -39,10 +48,12 @@ REST_FRAMEWORK = {
     # Dev rates are intentionally lax so E2E suites running many logins in quick
     # succession don't get throttled. Production uses tighter rates from base.py.
     "DEFAULT_THROTTLE_RATES": {
+        **_base_throttle_rates,
         "anon": "1000/minute",
         "user": "10000/minute",
         "login": "1000/minute",
         "registration_submit": "1000/minute",
         "registration_payment_status": "1000/minute",
+        "registration_validate_promo_code": "1000/minute",
     },
 }

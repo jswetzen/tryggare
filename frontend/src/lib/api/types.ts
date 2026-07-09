@@ -290,6 +290,9 @@ export interface RegistrationSubmitPayload {
   // Per-registration extras (a shared cabin) — distinct from
   // parents[*]/children[*].extras, which are per-attendee.
   extras?: RegistrationExtraSelectionPayload[];
+  // Resolved/locked/validated server-side — see validate_promo_code for
+  // the pre-submit preview of the same code.
+  promo_code?: string;
   // Honeypot: must stay empty. Hidden from real users via CSS.
   website?: string;
 }
@@ -297,6 +300,14 @@ export interface RegistrationSubmitPayload {
 export interface RegistrationSubmitResponse {
   reference_code: string | null;
   message: string;
+}
+
+export interface PromoCodeValidation {
+  valid: boolean;
+  discount_type?: 'percent' | 'fixed';
+  discount_value?: string;
+  applies_to_ticket_type_ids?: string[];
+  unlocks_ticket_types?: RegistrationTicketType[];
 }
 
 export type RegistrationStatus =

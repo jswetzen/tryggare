@@ -108,7 +108,10 @@ class Event(models.Model):
         now = timezone.now()
         if self.registration_opens_at is not None and now < self.registration_opens_at:
             return RegistrationWindowStatus.NOT_OPEN_YET
-        if self.registration_closes_at is not None and now > self.registration_closes_at:
+        if (
+            self.registration_closes_at is not None
+            and now > self.registration_closes_at
+        ):
             return RegistrationWindowStatus.CLOSED
         return RegistrationWindowStatus.OPEN
 
@@ -175,9 +178,7 @@ class TicketType(models.Model):
         verbose_name=_("Event"),
     )
     name = models.CharField(max_length=255, verbose_name=_("Name"))
-    price = models.DecimalField(
-        max_digits=8, decimal_places=2, verbose_name=_("Price")
-    )
+    price = models.DecimalField(max_digits=8, decimal_places=2, verbose_name=_("Price"))
     applies_to = models.CharField(
         max_length=10,
         choices=AppliesTo.choices,
@@ -266,6 +267,110 @@ class TicketType(models.Model):
 
     def __str__(self) -> str:
         return f"{self.event.name} - {self.name}"
+
+
+class PromoCode(models.Model):
+    """A code a guardian enters at self-serve registration — either a
+    discount, an unlock for an otherwise-`is_hidden` TicketType, or both.
+    See registrations/pricing.py::calculate_discount for how the discount
+    is computed, and registrations/views.py for where a code is resolved,
+    locked, and its use counted.
+
+    One code per Registration, ever (a single FK there, not M2M) — stacking
+    is deliberately unrepresentable rather than validated away (case
+    catalog §5.4).
+    """
+
+    class DiscountType(models.TextChoices):
+        PERCENT = "percent", _("Percent")
+        FIXED = "fixed", _("Fixed amount")
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    event = models.ForeignKey(
+        Event,
+        related_name="promo_codes",
+        on_delete=models.CASCADE,
+        verbose_name=_("Event"),
+    )
+    code = models.CharField(
+        max_length=50,
+        verbose_name=_("Code"),
+        help_text=_("Matched case-insensitively. Unique per event."),
+    )
+    discount_type = models.CharField(
+        max_length=10,
+        choices=DiscountType.choices,
+        default=DiscountType.FIXED,
+        verbose_name=_("Discount Type"),
+    )
+    discount_value = models.DecimalField(
+        max_digits=8,
+        decimal_places=2,
+        default=0,
+        verbose_name=_("Discount Value"),
+        help_text=_(
+            "0-100 for percent, kr for fixed. 0 is valid — a pure unlock "
+            "code with no discount of its own (e.g. the ticket it unlocks "
+            "is already 0 kr)."
+        ),
+    )
+    applies_to_ticket_types = models.ManyToManyField(
+        TicketType,
+        blank=True,
+        related_name="discount_promo_codes",
+        verbose_name=_("Applies To Ticket Types"),
+        help_text=_(
+            "Empty = discount computed over the whole itemized total. "
+            "Non-empty = discount computed only over matching ticket lines."
+        ),
+    )
+    unlocks_ticket_types = models.ManyToManyField(
+        TicketType,
+        blank=True,
+        related_name="unlocking_promo_codes",
+        verbose_name=_("Unlocks Ticket Types"),
+        help_text=_(
+            "Hidden ticket types (TicketType.is_hidden) this code makes "
+            "selectable — e.g. VIP2026 unlocking Weekend 2026's VIP type."
+        ),
+    )
+    max_uses = models.PositiveIntegerField(
+        null=True,
+        blank=True,
+        verbose_name=_("Max Uses"),
+        help_text=_("Null = unlimited."),
+    )
+    uses_count = models.PositiveIntegerField(default=0, verbose_name=_("Uses Count"))
+    valid_from = models.DateTimeField(
+        null=True, blank=True, verbose_name=_("Valid From")
+    )
+    valid_until = models.DateTimeField(
+        null=True, blank=True, verbose_name=_("Valid Until")
+    )
+    is_active = models.BooleanField(default=True, verbose_name=_("Active"))
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name=_("Created At"))
+
+    class Meta:
+        db_table = "promo_codes"
+        verbose_name = _("Promo Code")
+        verbose_name_plural = _("Promo Codes")
+        constraints = [
+            models.UniqueConstraint(
+                fields=["event", "code"], name="unique_promo_code_per_event"
+            )
+        ]
+        indexes = [models.Index(fields=["event"])]
+
+    def save(self, *args, **kwargs):
+        # Normalize to uppercase so the unique constraint actually enforces
+        # case-insensitive uniqueness (Postgres text equality is
+        # case-sensitive by default) and lookups can use a plain `code=`
+        # exact match instead of a collation-dependent `iexact`.
+        self.code = self.code.strip().upper()
+        super().save(*args, **kwargs)
+
+    def __str__(self) -> str:
+        return f"{self.event.name} - {self.code}"
 
 
 class Extra(models.Model):

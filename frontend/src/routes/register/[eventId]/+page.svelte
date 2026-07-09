@@ -18,6 +18,7 @@
   import { page } from '$app/stores';
   import { registrationApi } from '$lib/api/registrationService';
   import type {
+    PromoCodeValidation,
     RegistrationEventInfo,
     RegistrationExtraInfo,
     RegistrationExtraSelectionPayload
@@ -111,6 +112,17 @@
   // Honeypot: hidden from real users via CSS. Bots that fill every field
   // trip it; the backend responds as if successful but persists nothing.
   let website = $state('');
+
+  // Promo code: an explicit "apply" click (not auto-validated on every
+  // keystroke) queries validate_promo_code for a preview — never locks or
+  // reserves the code, just tells the form what to show. The real,
+  // authoritative redemption happens again from scratch server-side at
+  // submission (see _resolve_promo_code); this can still fail there if
+  // the code's last slot was claimed in between.
+  let promoCode = $state('');
+  let promoCodeValidation = $state<PromoCodeValidation | null>(null);
+  let promoCodeChecking = $state(false);
+  let promoCodeError = $state('');
 
   let error = $state('');
   let submitting = $state(false);
@@ -267,6 +279,62 @@
     return total;
   });
 
+  async function checkPromoCode() {
+    const code = promoCode.trim();
+    promoCodeError = '';
+    promoCodeValidation = null;
+    if (!code || !eventInfo) return;
+
+    promoCodeChecking = true;
+    try {
+      const result = await registrationApi.validatePromoCode(eventId, code);
+      if (!result.valid) {
+        promoCodeError = $t('register.promoCodeInvalid');
+        return;
+      }
+      promoCodeValidation = result;
+      // Reveal any is_hidden ticket types this code unlocks (e.g. VIP) by
+      // merging them into the local list — applicableTicketTypes/
+      // suggestChildTicketType then pick them up with no further changes.
+      const unlocked = result.unlocks_ticket_types ?? [];
+      const existingIds = new Set(eventInfo.ticket_types.map((tt) => tt.id));
+      const newlyUnlocked = unlocked.filter((tt) => !existingIds.has(tt.id));
+      if (newlyUnlocked.length > 0) {
+        eventInfo = { ...eventInfo, ticket_types: [...eventInfo.ticket_types, ...newlyUnlocked] };
+      }
+    } catch (err) {
+      console.error('Promo code validation failed:', err);
+      promoCodeError = $t('register.promoCodeInvalid');
+    } finally {
+      promoCodeChecking = false;
+    }
+  }
+
+  // Cosmetic preview only, mirroring pricing.py::calculate_discount's
+  // scoping rule — the server recomputes and snapshots the real discount
+  // from scratch at submission, this never gets trusted for the charge.
+  let discountAmount = $derived.by(() => {
+    if (!promoCodeValidation?.valid || !eventInfo) return 0;
+    const scopedIds = promoCodeValidation.applies_to_ticket_type_ids ?? [];
+
+    let base = runningTotal;
+    if (scopedIds.length > 0) {
+      const scopedSet = new Set(scopedIds);
+      base = 0;
+      for (const row of [...parents, ...children]) {
+        if (!scopedSet.has(row.ticketTypeId)) continue;
+        const ticketType = eventInfo.ticket_types.find((tt) => tt.id === row.ticketTypeId);
+        if (ticketType) base += parseFloat(ticketType.price);
+      }
+    }
+
+    const value = parseFloat(promoCodeValidation.discount_value ?? '0');
+    const raw = promoCodeValidation.discount_type === 'percent' ? (base * value) / 100 : value;
+    return Math.min(raw, base);
+  });
+
+  let discountedTotal = $derived(Math.max(runningTotal - discountAmount, 0));
+
   function handleAddParent() {
     parents = [...parents, emptyParent()];
   }
@@ -369,6 +437,7 @@
           extras: buildExtraSelections(child.extraSelections, applicablePersonExtras(true))
         })),
         extras: buildExtraSelections(registrationExtraSelections, registrationExtras()),
+        promo_code: promoCode.trim(),
         website
       });
       referenceCode = response.reference_code;
@@ -934,9 +1003,49 @@
         </div>
       {/if}
 
+      {#if eventInfo.ticket_types.length > 0 || eventInfo.is_paid}
+        <div class="mb-4">
+          <div class="flex items-center gap-2">
+            <input
+              type="text"
+              bind:value={promoCode}
+              placeholder={$t('register.promoCodePlaceholder')}
+              class="flex-1 px-3 py-2 text-sm border border-neutral-300 rounded focus:outline-none focus:ring-2 focus:ring-primary-500"
+              data-testid="register-promo-code-input"
+            />
+            <button
+              type="button"
+              on:click={checkPromoCode}
+              disabled={promoCodeChecking || !promoCode.trim()}
+              class="px-3 py-2 text-sm font-semibold border border-neutral-300 rounded hover:bg-neutral-50 disabled:opacity-50"
+              data-testid="register-promo-code-apply"
+            >
+              {promoCodeChecking ? $t('register.promoCodeChecking') : $t('register.promoCodeApply')}
+            </button>
+          </div>
+          {#if promoCodeValidation?.valid}
+            <p class="mt-1 text-xs text-success-700" data-testid="register-promo-code-applied">
+              {$t('register.promoCodeApplied')}
+            </p>
+          {:else if promoCodeError}
+            <p class="mt-1 text-xs text-danger-700">{promoCodeError}</p>
+          {/if}
+        </div>
+      {/if}
+
       {#if eventInfo.ticket_types.length > 0}
-        <div class="mb-4 text-right text-sm font-semibold text-neutral-700" data-testid="register-running-total">
-          {$t('register.totalLabel')}: {runningTotal.toFixed(2)} kr
+        <div class="mb-4 text-right text-sm text-neutral-700" data-testid="register-running-total">
+          {#if discountAmount > 0}
+            <div class="text-xs font-normal text-neutral-500">
+              {$t('register.subtotalLabel')}: {runningTotal.toFixed(2)} kr
+            </div>
+            <div class="text-xs font-normal text-success-700">
+              {$t('register.discountLabel')}: -{discountAmount.toFixed(2)} kr
+            </div>
+          {/if}
+          <div class="font-semibold">
+            {$t('register.totalLabel')}: {discountedTotal.toFixed(2)} kr
+          </div>
         </div>
       {/if}
 

@@ -1,5 +1,13 @@
 # Self-Serve Event Registration & Mailing
 
+## Status (2026-07-09)
+
+**Phase 5 (promo codes) shipped** — see the case catalog's §5.4 for the
+full design and its own status note. `Event.price`/flat-fallback events
+can carry a code too (a whole-total discount applies fine there), but the
+hidden-ticket-type unlock case only matters for itemized events with a
+`TicketType.is_hidden=True` row to unlock.
+
 ## Status (2026-07-08)
 
 **Update 2026-07-08**: Phase 2 (Swish/Bankgiro payment) also shipped, on the

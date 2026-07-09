@@ -5,6 +5,7 @@ from .models import (
     EventTicket,
     Extra,
     ExtraChoice,
+    PromoCode,
     Session,
     SessionTicket,
     Ticket,
@@ -126,6 +127,24 @@ class TicketTypeAdmin(admin.ModelAdmin):
     search_fields = ("name", "event__name")
     autocomplete_fields = ["event"]
     filter_horizontal = ["sessions"]
+
+
+@admin.register(PromoCode)
+class PromoCodeAdmin(admin.ModelAdmin):
+    list_display = (
+        "code",
+        "event",
+        "discount_type",
+        "discount_value",
+        "uses_count",
+        "max_uses",
+        "is_active",
+    )
+    list_filter = ("event", "discount_type", "is_active")
+    search_fields = ("code", "event__name")
+    autocomplete_fields = ["event"]
+    filter_horizontal = ["applies_to_ticket_types", "unlocks_ticket_types"]
+    readonly_fields = ("uses_count",)
 
 
 class ExtraChoiceInline(admin.TabularInline):

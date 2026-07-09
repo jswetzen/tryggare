@@ -33,6 +33,7 @@ from registrations.views import (
     registration_event_info,
     registration_payment_status,
     submit_registration,
+    validate_promo_code,
     verify_registration,
 )
 
@@ -89,6 +90,11 @@ urlpatterns = [
         "api/registrations/payment-status/",
         registration_payment_status,
         name="registration-payment-status",
+    ),
+    path(
+        "api/registrations/validate-promo-code/",
+        validate_promo_code,
+        name="registration-validate-promo-code",
     ),
     # Import endpoints (must be before the catch-all)
     path(

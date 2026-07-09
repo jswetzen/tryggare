@@ -116,6 +116,24 @@ class Registration(models.Model):
             "tickets it created — it must never delete a pre-existing family."
         ),
     )
+    promo_code = models.ForeignKey(
+        "events.PromoCode",
+        null=True,
+        blank=True,
+        on_delete=models.PROTECT,
+        related_name="registrations",
+        verbose_name=_("Promo Code"),
+    )
+    discount_amount = models.DecimalField(
+        max_digits=8,
+        decimal_places=2,
+        default=0,
+        verbose_name=_("Discount Amount"),
+        help_text=_(
+            "Snapshotted once at submission (P2) — never recomputed, even "
+            "if the promo code is edited afterwards."
+        ),
+    )
 
     class Meta:
         db_table = "registrations"

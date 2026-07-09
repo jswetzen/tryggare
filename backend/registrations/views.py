@@ -20,6 +20,7 @@ from events.models import (
     Event,
     EventTicket,
     Extra,
+    PromoCode,
     RegistrationWindowStatus,
     SessionTicket,
     TicketType,
@@ -39,7 +40,7 @@ from .models import (
     default_expires_at,
     default_payment_expires_at,
 )
-from .pricing import calculate_total
+from .pricing import calculate_discount, calculate_total
 from .serializers import RegistrationSubmitSerializer
 from .swish import payment_instructions
 from .tokens import generate_verification_token, hash_token
@@ -62,6 +63,10 @@ class RegistrationSubmitThrottle(AnonRateThrottle):
 
 class RegistrationPaymentStatusThrottle(AnonRateThrottle):
     scope = "registration_payment_status"
+
+
+class ValidatePromoCodeThrottle(AnonRateThrottle):
+    scope = "registration_validate_promo_code"
 
 
 def _split_selections(items):
@@ -88,9 +93,80 @@ def _split_selections(items):
     return model_data, selections
 
 
-def _validate_ticket_type_for_attendee(ticket_type, *, event, attendee, is_child):
+def _ticket_type_payload(ticket_type):
+    """Shared public JSON shape for a TicketType — used both by
+    registration_event_info's normal listing and validate_promo_code's
+    unlocked-types payload, so the two never drift apart."""
+    return {
+        "id": str(ticket_type.id),
+        "name": ticket_type.name,
+        "price": str(ticket_type.price),
+        "applies_to": ticket_type.applies_to,
+        "min_birthdate": (
+            str(ticket_type.min_birthdate) if ticket_type.min_birthdate else None
+        ),
+        "max_birthdate": (
+            str(ticket_type.max_birthdate) if ticket_type.max_birthdate else None
+        ),
+        "kind": ticket_type.kind,
+    }
+
+
+def _resolve_promo_code(*, event, code_str):
+    """Resolve and lock a submitted promo code string, or return None if
+    none was submitted. Must be called inside the same transaction.atomic()
+    block as the rest of registration creation, and before the attendee
+    loop (so is_hidden ticket-type validation below can see it) — the
+    select_for_update() lock plus the max_uses check happening under it is
+    what makes case catalog §5.4(d)'s simultaneous-last-slot race resolve
+    to exactly one winner.
+
+    Not-found/inactive/expired/exhausted all raise the same generic
+    message, deliberately — a distinguishable error would let someone
+    probe for which codes exist.
+    """
+    code_str = (code_str or "").strip()
+    if not code_str:
+        return None
+
+    invalid = ValidationError(
+        {"promo_code": [_("This promo code is not valid.")]},
+        code="invalid_promo_code",
+    )
+    try:
+        promo_code = PromoCode.objects.select_for_update().get(
+            event=event, code=code_str.upper(), is_active=True
+        )
+    except PromoCode.DoesNotExist:
+        raise invalid from None
+
+    now = timezone.now()
+    if promo_code.valid_from and now < promo_code.valid_from:
+        raise invalid
+    if promo_code.valid_until and now > promo_code.valid_until:
+        raise invalid
+    if promo_code.max_uses is not None and promo_code.uses_count >= promo_code.max_uses:
+        raise invalid
+
+    promo_code.uses_count += 1
+    promo_code.save(update_fields=["uses_count"])
+    return promo_code
+
+
+def _validate_ticket_type_for_attendee(
+    ticket_type, *, event, attendee, is_child, promo_code
+):
     if ticket_type.event_id != event.id or not ticket_type.is_active:
         raise ValidationError(_("Invalid ticket type for this event."))
+    if ticket_type.is_hidden:
+        unlocked = (
+            promo_code is not None
+            and promo_code.unlocks_ticket_types.filter(pk=ticket_type.pk).exists()
+        )
+        if not unlocked:
+            # Same generic message as the branch above — a hidden type
+            # should look indistinguishable from a nonexistent one.
+            raise ValidationError(_("Invalid ticket type for this event."))
     attendee_kind = "child" if is_child else "parent"
     if ticket_type.applies_to not in (attendee_kind, "either"):
         raise ValidationError(_("This ticket type isn't available for this attendee."))
@@ -145,7 +221,9 @@ def _attendee_covers_session(*, attendee, registration, session_id):
     ).exists()
 
 
-def _missing_required_extras(*, event, registration, attendee, is_child, submitted_extra_ids):
+def _missing_required_extras(
+    *, event, registration, attendee, is_child, submitted_extra_ids
+):
     """Active Extra.required=True rows (case 3.2's must-choose-one pattern,
     e.g. accommodation) applicable to this attendee that never appear at
     all in what was submitted — distinct from _attach_extra's per-selection
@@ -199,12 +277,12 @@ def _attach_extra(*, registration, attendee, selection, is_child):
     if extra.per_attendee and attendee is None:
         raise ValidationError(_("This extra must be attached to an attendee."))
     if not extra.per_attendee and attendee is not None:
-        raise ValidationError(
-            _("This extra can't be attached to a specific attendee.")
-        )
+        raise ValidationError(_("This extra can't be attached to a specific attendee."))
     if quantity > 1 and extra.per_attendee:
         raise ValidationError(
-            _("A quantity greater than one is only allowed for per-registration extras.")
+            _(
+                "A quantity greater than one is only allowed for per-registration extras."
+            )
         )
     if attendee is not None and extra.applies_to != "either":
         attendee_kind = "child" if is_child else "parent"
@@ -270,7 +348,10 @@ def _create_registration(
     parents_data,
     children_data,
     extras_data=(),
+    promo_code_str=None,
 ):
+    promo_code = _resolve_promo_code(event=event, code_str=promo_code_str)
+
     parents_model_data, parent_selections = _split_selections(parents_data)
     children_model_data, child_selections = _split_selections(children_data)
 
@@ -311,7 +392,11 @@ def _create_registration(
                     _("Please select a ticket type for every attendee.")
                 )
             _validate_ticket_type_for_attendee(
-                ticket_type, event=event, attendee=attendee, is_child=is_child
+                ticket_type,
+                event=event,
+                attendee=attendee,
+                is_child=is_child,
+                promo_code=promo_code,
             )
             _materialize_ticket(
                 attendee=attendee,
@@ -356,7 +441,11 @@ def _create_registration(
     if missing_required_registration:
         raise ValidationError(
             _("Please make a required choice: %(extras)s")
-            % {"extras": ", ".join(extra.name for extra in missing_required_registration)}
+            % {
+                "extras": ", ".join(
+                    extra.name for extra in missing_required_registration
+                )
+            }
         )
 
     for extra_selection in extras_data:
@@ -366,6 +455,14 @@ def _create_registration(
             selection=extra_selection,
             is_child=None,
         )
+
+    if promo_code is not None:
+        # Snapshotted once here (P2) — needs the ticket/extra lines above
+        # to already exist, and is never recomputed afterwards even if the
+        # code is edited later.
+        registration.promo_code = promo_code
+        registration.discount_amount = calculate_discount(registration, promo_code)
+        registration.save(update_fields=["promo_code", "discount_amount"])
 
     return registration, token
 
@@ -401,19 +498,7 @@ def registration_event_info(request, event_id):
     event = get_object_or_404(Event, pk=event_id)
 
     ticket_types = [
-        {
-            "id": str(ticket_type.id),
-            "name": ticket_type.name,
-            "price": str(ticket_type.price),
-            "applies_to": ticket_type.applies_to,
-            "min_birthdate": (
-                str(ticket_type.min_birthdate) if ticket_type.min_birthdate else None
-            ),
-            "max_birthdate": (
-                str(ticket_type.max_birthdate) if ticket_type.max_birthdate else None
-            ),
-            "kind": ticket_type.kind,
-        }
+        _ticket_type_payload(ticket_type)
         for ticket_type in event.ticket_types.filter(
             is_active=True, is_hidden=False
         ).order_by("sort_order", "name")
@@ -465,6 +550,65 @@ def registration_event_info(request, event_id):
                 if event.registration_closes_at
                 else None
             ),
+        }
+    )
+
+
+@api_view(["POST"])
+@permission_classes([AllowAny])
+@throttle_classes([ValidatePromoCodeThrottle])
+def validate_promo_code(request):
+    """
+    Public, read-only promo-code check for the registration form: lets it
+    reveal any is_hidden ticket types the code unlocks (e.g. VIP2026 ->
+    Weekend 2026's hidden VIP type) and preview the discount before the
+    guardian commits.
+
+    Deliberately advisory only — never locks the PromoCode row or
+    increments uses_count (that only happens for real inside
+    submit_registration's atomic block via _resolve_promo_code). A code
+    that validates here can still fail at submission if its last slot was
+    claimed in between; the form should treat this as a preview, not a
+    reservation.
+    """
+    event = get_object_or_404(Event, pk=request.data.get("event"))
+    code_str = (request.data.get("code") or "").strip()
+
+    if not code_str:
+        return Response({"valid": False})
+
+    try:
+        promo_code = PromoCode.objects.get(
+            event=event, code=code_str.upper(), is_active=True
+        )
+    except PromoCode.DoesNotExist:
+        return Response({"valid": False})
+
+    now = timezone.now()
+    if promo_code.valid_from and now < promo_code.valid_from:
+        return Response({"valid": False})
+    if promo_code.valid_until and now > promo_code.valid_until:
+        return Response({"valid": False})
+    if promo_code.max_uses is not None and promo_code.uses_count >= promo_code.max_uses:
+        return Response({"valid": False})
+
+    return Response(
+        {
+            "valid": True,
+            "discount_type": promo_code.discount_type,
+            "discount_value": str(promo_code.discount_value),
+            "applies_to_ticket_type_ids": [
+                str(pk)
+                for pk in promo_code.applies_to_ticket_types.values_list(
+                    "id", flat=True
+                )
+            ],
+            "unlocks_ticket_types": [
+                _ticket_type_payload(ticket_type)
+                for ticket_type in promo_code.unlocks_ticket_types.filter(
+                    is_active=True
+                )
+            ],
         }
     )
 
@@ -559,6 +703,7 @@ def submit_registration(request):
             parents_data=data.get("parents", []),
             children_data=data.get("children", []),
             extras_data=data.get("extras", []),
+            promo_code_str=data.get("promo_code"),
         )
 
     send_verification_email(registration, token)
