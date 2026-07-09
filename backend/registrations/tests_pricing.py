@@ -39,6 +39,7 @@ def _make_event(name="Summer Camp", price=None, days=1):
         start_date=today,
         end_date=today + timezone.timedelta(days=days - 1),
         price=price,
+        registration_opens_at=timezone.now() - timezone.timedelta(days=1),
     )
 
 

@@ -26,7 +26,11 @@ from .tokens import generate_verification_token, hash_token
 def _make_event(name="Summer Camp", price=None):
     today = timezone.now().date()
     return Event.objects.create(
-        name=name, start_date=today, end_date=today, price=price
+        name=name,
+        start_date=today,
+        end_date=today,
+        price=price,
+        registration_opens_at=timezone.now() - timezone.timedelta(days=1),
     )
 
 

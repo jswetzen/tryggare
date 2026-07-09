@@ -6,6 +6,7 @@ email-match staff-review routing, and consent trust-boundary clearing.
 from datetime import timedelta
 from unittest.mock import patch
 
+from django.core.cache import cache
 from django.test import TestCase
 from django.utils import timezone
 from rest_framework.test import APIClient
@@ -19,7 +20,12 @@ from .models import Registration
 
 def _make_event(name="Summer Camp"):
     today = timezone.now().date()
-    return Event.objects.create(name=name, start_date=today, end_date=today)
+    return Event.objects.create(
+        name=name,
+        start_date=today,
+        end_date=today,
+        registration_opens_at=timezone.now() - timedelta(days=1),
+    )
 
 
 class RegistrationEventInfoTests(TestCase):
@@ -37,6 +43,81 @@ class RegistrationEventInfoTests(TestCase):
 
         response = self.client.get(f"/api/registrations/events/{uuid.uuid4()}/")
         self.assertEqual(response.status_code, 404)
+
+    def test_reports_registration_window_status(self):
+        event = _make_event()
+        response = self.client.get(f"/api/registrations/events/{event.id}/")
+        self.assertEqual(response.status_code, 200, response.data)
+        self.assertEqual(response.data["registration_window_status"], "open")
+        self.assertIsNotNone(response.data["registration_opens_at"])
+        self.assertIsNone(response.data["registration_closes_at"])
+
+
+class RegistrationWindowGateTests(TestCase):
+    """submit_registration is the actual enforcement point for the
+    registration-window gate — the frontend hiding the form / disabling
+    submit is UX only. See events.tests.RegistrationWindowStatusTest for
+    the underlying status logic."""
+
+    def setUp(self):
+        cache.clear()
+        self.client = APIClient()
+        self.url = "/api/registrations/"
+
+    def _payload(self, event):
+        return {
+            "event": str(event.id),
+            "last_name": "Andersson",
+            "contact_email": "guardian@example.com",
+            "parents": [
+                {
+                    "first_name": "Anna",
+                    "last_name": "Andersson",
+                    "relationship_type": "Mother",
+                    "email": "guardian@example.com",
+                }
+            ],
+            "children": [],
+        }
+
+    def test_not_configured_event_rejects_submission(self):
+        event = Event.objects.create(
+            name="Staff-only event",
+            start_date=timezone.now().date(),
+            end_date=timezone.now().date(),
+        )
+        response = self.client.post(self.url, self._payload(event), format="json")
+        self.assertEqual(response.status_code, 400, response.data)
+        self.assertFalse(Registration.objects.filter(event=event).exists())
+
+    def test_not_open_yet_event_rejects_submission(self):
+        event = Event.objects.create(
+            name="Future opening",
+            start_date=timezone.now().date(),
+            end_date=timezone.now().date(),
+            registration_opens_at=timezone.now() + timedelta(days=1),
+        )
+        response = self.client.post(self.url, self._payload(event), format="json")
+        self.assertEqual(response.status_code, 400, response.data)
+        self.assertFalse(Registration.objects.filter(event=event).exists())
+
+    def test_closed_event_rejects_submission(self):
+        event = Event.objects.create(
+            name="Already closed",
+            start_date=timezone.now().date(),
+            end_date=timezone.now().date(),
+            registration_opens_at=timezone.now() - timedelta(days=2),
+            registration_closes_at=timezone.now() - timedelta(days=1),
+        )
+        response = self.client.post(self.url, self._payload(event), format="json")
+        self.assertEqual(response.status_code, 400, response.data)
+        self.assertFalse(Registration.objects.filter(event=event).exists())
+
+    @patch("registrations.views.send_verification_email")
+    def test_open_event_accepts_submission(self, mock_send):
+        event = _make_event()
+        response = self.client.post(self.url, self._payload(event), format="json")
+        self.assertEqual(response.status_code, 201, response.data)
 
 
 class SubmitRegistrationTests(TestCase):

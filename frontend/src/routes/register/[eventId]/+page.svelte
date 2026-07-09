@@ -14,7 +14,7 @@
    * unchanged (see backend registrations/pricing.py::calculate_total).
    */
   import { onMount } from 'svelte';
-  import { t } from 'svelte-i18n';
+  import { t, locale } from 'svelte-i18n';
   import { page } from '$app/stores';
   import { registrationApi } from '$lib/api/registrationService';
   import type {
@@ -55,6 +55,22 @@
   }
 
   const eventId = $derived($page.params.eventId ?? '');
+  // Staff preview: ?preview=1 bypasses the "not open yet" landing screen so
+  // staff can walk through the real form before announcing it, but never
+  // bypasses the server-side window check — see submit_registration's
+  // registration_window_status gate, the actual enforcement point.
+  const isPreview = $derived($page.url.searchParams.get('preview') === '1');
+
+  function formatDateTime(iso: string): string {
+    // Follow the page's own sv/en toggle rather than the browser's OS
+    // locale, so the date doesn't clash with the surrounding Swedish (or
+    // English) copy.
+    const localeTag = $locale === 'sv' ? 'sv-SE' : 'en-GB';
+    return new Date(iso).toLocaleString(localeTag, {
+      dateStyle: 'long',
+      timeStyle: 'short'
+    });
+  }
 
   function emptyParent(): ParentRow {
     return {
@@ -271,6 +287,8 @@
     e.preventDefault();
     error = '';
 
+    if (isPreview) return;
+
     if (!contactEmail.trim()) {
       error = $t('register.contactEmailRequired');
       return;
@@ -377,6 +395,35 @@
     <div class="bg-white border border-neutral-300 rounded-card p-6 shadow-sm text-center">
       <p class="text-danger-700 font-semibold">{$t('register.eventNotFound')}</p>
     </div>
+  {:else if !isPreview && eventInfo.registration_window_status === 'not_open_yet'}
+    <div class="bg-white border border-neutral-300 rounded-card p-6 shadow-sm text-center" data-testid="register-not-open-yet">
+      <h1 class="text-xl font-bold text-neutral-900 mb-2">{$t('register.notOpenYetTitle')}</h1>
+      <p class="text-neutral-700">
+        {$t('register.notOpenYetMessage', {
+          values: {
+            event: eventInfo.name,
+            date: eventInfo.registration_opens_at ? formatDateTime(eventInfo.registration_opens_at) : ''
+          }
+        })}
+      </p>
+    </div>
+  {:else if !isPreview && eventInfo.registration_window_status === 'closed'}
+    <div class="bg-white border border-neutral-300 rounded-card p-6 shadow-sm text-center" data-testid="register-closed">
+      <h1 class="text-xl font-bold text-neutral-900 mb-2">{$t('register.closedTitle')}</h1>
+      <p class="text-neutral-700">
+        {$t('register.closedMessage', {
+          values: {
+            event: eventInfo.name,
+            date: eventInfo.registration_closes_at ? formatDateTime(eventInfo.registration_closes_at) : ''
+          }
+        })}
+      </p>
+    </div>
+  {:else if !isPreview && eventInfo.registration_window_status === 'not_configured'}
+    <div class="bg-white border border-neutral-300 rounded-card p-6 shadow-sm text-center" data-testid="register-not-configured">
+      <h1 class="text-xl font-bold text-neutral-900 mb-2">{$t('register.notConfiguredTitle')}</h1>
+      <p class="text-neutral-700">{$t('register.notConfiguredMessage')}</p>
+    </div>
   {:else if submitted}
     <div class="bg-white border border-neutral-300 rounded-card p-6 shadow-sm text-center">
       <h1 class="text-2xl font-bold text-neutral-900 mb-2">{$t('register.successTitle')}</h1>
@@ -390,6 +437,14 @@
       {/if}
     </div>
   {:else}
+    {#if isPreview}
+      <div
+        class="mb-4 p-3 bg-warning-50 border border-warning-200 rounded text-warning-800 text-sm font-semibold text-center"
+        data-testid="register-preview-banner"
+      >
+        {$t('register.previewBanner')}
+      </div>
+    {/if}
     <form
       on:submit={handleSubmit}
       class="bg-white border border-neutral-300 rounded-card p-6 shadow-sm"
@@ -888,7 +943,8 @@
       <div class="flex items-center justify-end gap-3">
         <button
           type="submit"
-          disabled={submitting}
+          disabled={submitting || isPreview}
+          title={isPreview ? $t('register.previewSubmitDisabled') : undefined}
           class="px-4 py-2 bg-primary-600 text-white font-semibold rounded-button hover:bg-primary-700 transition-colors disabled:opacity-50"
           data-testid="register-submit-button"
         >

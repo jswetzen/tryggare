@@ -16,7 +16,14 @@ from rest_framework.response import Response
 from rest_framework.throttling import AnonRateThrottle
 
 from checkins.audit import log_audit
-from events.models import Event, EventTicket, Extra, SessionTicket, TicketType
+from events.models import (
+    Event,
+    EventTicket,
+    Extra,
+    RegistrationWindowStatus,
+    SessionTicket,
+    TicketType,
+)
 from families.models import Parent
 from families.services import create_family_with_members
 
@@ -447,6 +454,17 @@ def registration_event_info(request, event_id):
             "currency": "SEK",
             "ticket_types": ticket_types,
             "extras": extras,
+            "registration_window_status": event.registration_window_status,
+            "registration_opens_at": (
+                event.registration_opens_at.isoformat()
+                if event.registration_opens_at
+                else None
+            ),
+            "registration_closes_at": (
+                event.registration_closes_at.isoformat()
+                if event.registration_closes_at
+                else None
+            ),
         }
     )
 
@@ -484,6 +502,15 @@ def submit_registration(request):
 
     event = data["event"]
     contact_email = data["contact_email"]
+
+    # The frontend gate (hide the form, disable submit in preview mode) is
+    # UX only — this is the actual enforcement point. Never trust a client
+    # not to POST directly.
+    if event.registration_window_status != RegistrationWindowStatus.OPEN:
+        raise ValidationError(
+            {"event": [_("Registration is not currently open for this event.")]},
+            code="registration_not_open",
+        )
 
     existing = (
         Registration.objects.filter(

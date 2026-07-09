@@ -1,6 +1,7 @@
 import uuid
 
 from django.db import models
+from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
 
@@ -28,6 +29,17 @@ class AppliesTo(models.TextChoices):
     EITHER = "either", _("Either")
 
 
+class RegistrationWindowStatus(models.TextChoices):
+    """Result of Event.registration_window_status — module level so the
+    public registration API and the frontend gate can share the same
+    vocabulary without importing the Event model itself."""
+
+    NOT_CONFIGURED = "not_configured", _("Not configured")
+    NOT_OPEN_YET = "not_open_yet", _("Not open yet")
+    OPEN = "open", _("Open")
+    CLOSED = "closed", _("Closed")
+
+
 class Event(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     name = models.CharField(max_length=255, verbose_name=_("Event Name"))
@@ -53,6 +65,24 @@ class Event(models.Model):
             "Sweden-only payment rails."
         ),
     )
+    registration_opens_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        verbose_name=_("Registration Opens At"),
+        help_text=_(
+            "Public self-serve registration only accepts submissions from "
+            "this moment on. Leave this AND 'closes at' both blank to keep "
+            "self-serve registration off for this event entirely — the "
+            "correct default for events not meant for public sign-up (staff-"
+            "only events, imports)."
+        ),
+    )
+    registration_closes_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        verbose_name=_("Registration Closes At"),
+        help_text=_("Leave blank for no closing deadline."),
+    )
 
     class Meta:
         db_table = "events"
@@ -65,6 +95,22 @@ class Event(models.Model):
     @property
     def is_paid(self) -> bool:
         return self.price is not None and self.price > 0
+
+    @property
+    def registration_window_status(self) -> str:
+        """Single source of truth for whether the public registration form
+        accepts submissions right now — read by both the public event-info
+        endpoint (to decide what the landing page shows) and
+        submit_registration (the actual enforcement point; the frontend gate
+        is UX only, never trusted alone)."""
+        if self.registration_opens_at is None and self.registration_closes_at is None:
+            return RegistrationWindowStatus.NOT_CONFIGURED
+        now = timezone.now()
+        if self.registration_opens_at is not None and now < self.registration_opens_at:
+            return RegistrationWindowStatus.NOT_OPEN_YET
+        if self.registration_closes_at is not None and now > self.registration_closes_at:
+            return RegistrationWindowStatus.CLOSED
+        return RegistrationWindowStatus.OPEN
 
 
 class Session(models.Model):

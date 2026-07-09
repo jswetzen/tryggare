@@ -20,7 +20,12 @@ from events.models import Event
 
 def _make_event():
     today = timezone.now().date()
-    return Event.objects.create(name="Camp", start_date=today, end_date=today)
+    return Event.objects.create(
+        name="Camp",
+        start_date=today,
+        end_date=today,
+        registration_opens_at=timezone.now() - timezone.timedelta(days=1),
+    )
 
 
 class RegistrationSubmitThrottleTests(TestCase):

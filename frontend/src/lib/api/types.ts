@@ -237,6 +237,8 @@ export interface RegistrationExtraInfo {
   choices: RegistrationExtraChoice[];
 }
 
+export type RegistrationWindowStatus = 'not_configured' | 'not_open_yet' | 'open' | 'closed';
+
 export interface RegistrationEventInfo {
   id: string;
   name: string;
@@ -247,6 +249,9 @@ export interface RegistrationEventInfo {
   currency: string;
   ticket_types: RegistrationTicketType[];
   extras: RegistrationExtraInfo[];
+  registration_window_status: RegistrationWindowStatus;
+  registration_opens_at: string | null;
+  registration_closes_at: string | null;
 }
 
 export interface RegistrationExtraSelectionPayload {

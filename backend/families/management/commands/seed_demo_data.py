@@ -330,6 +330,14 @@ class Command(BaseCommand):
                 "end_date": today + timedelta(days=32),
             },
         )
+        # Self-serve registration is closed by default (see
+        # Event.registration_window_status) — demo/seed events opt in
+        # explicitly so the public form stays reachable for testing. Set
+        # unconditionally (not just in `defaults`) so a re-run against a
+        # dev DB seeded before this field existed still opens it.
+        if camp.registration_opens_at is None:
+            camp.registration_opens_at = timezone.now() - timedelta(days=1)
+            camp.save(update_fields=["registration_opens_at"])
 
         session_defs = [
             ("Fredag", 0, 16, 22),
@@ -519,6 +527,9 @@ class Command(BaseCommand):
                 "end_date": today + timedelta(days=62),
             },
         )
+        if weekend.registration_opens_at is None:
+            weekend.registration_opens_at = timezone.now() - timedelta(days=1)
+            weekend.save(update_fields=["registration_opens_at"])
 
         TicketType.objects.get_or_create(
             event=weekend,

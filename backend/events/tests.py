@@ -13,6 +13,7 @@ from events.models import (
     Extra,
     ExtraChoice,
     EventTicket,
+    RegistrationWindowStatus,
     Session,
     SessionTicket,
     TicketType,
@@ -485,3 +486,58 @@ class TicketTypeExtraModelTest(TestCase):
                     attendee=self.child,
                     price_at_registration=50,
                 )
+
+
+class RegistrationWindowStatusTest(TestCase):
+    """Event.registration_window_status — the actual enforcement point for
+    the public registration endpoint gate, and what the landing page reads
+    to decide what to show (see event_registration_ux_case_catalog.md,
+    punch-list item 13: nothing gated the public endpoint before this)."""
+
+    def _make_event(self, **kwargs):
+        return Event.objects.create(
+            name="Camp",
+            start_date=timezone.now().date(),
+            end_date=timezone.now().date(),
+            **kwargs,
+        )
+
+    def test_both_unset_is_not_configured(self):
+        event = self._make_event()
+        self.assertEqual(
+            event.registration_window_status, RegistrationWindowStatus.NOT_CONFIGURED
+        )
+
+    def test_before_opens_at_is_not_open_yet(self):
+        event = self._make_event(
+            registration_opens_at=timezone.now() + timezone.timedelta(days=1)
+        )
+        self.assertEqual(
+            event.registration_window_status, RegistrationWindowStatus.NOT_OPEN_YET
+        )
+
+    def test_within_window_is_open(self):
+        event = self._make_event(
+            registration_opens_at=timezone.now() - timezone.timedelta(days=1),
+            registration_closes_at=timezone.now() + timezone.timedelta(days=1),
+        )
+        self.assertEqual(event.registration_window_status, RegistrationWindowStatus.OPEN)
+
+    def test_open_ended_after_opens_at_is_open(self):
+        event = self._make_event(
+            registration_opens_at=timezone.now() - timezone.timedelta(days=1)
+        )
+        self.assertEqual(event.registration_window_status, RegistrationWindowStatus.OPEN)
+
+    def test_after_closes_at_is_closed(self):
+        event = self._make_event(
+            registration_opens_at=timezone.now() - timezone.timedelta(days=2),
+            registration_closes_at=timezone.now() - timezone.timedelta(days=1),
+        )
+        self.assertEqual(event.registration_window_status, RegistrationWindowStatus.CLOSED)
+
+    def test_closes_at_only_is_open_before_deadline(self):
+        event = self._make_event(
+            registration_closes_at=timezone.now() + timezone.timedelta(days=1)
+        )
+        self.assertEqual(event.registration_window_status, RegistrationWindowStatus.OPEN)

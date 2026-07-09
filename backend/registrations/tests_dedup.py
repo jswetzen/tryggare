@@ -18,7 +18,12 @@ from .models import Registration
 
 def _make_event(name="Summer Camp"):
     today = timezone.now().date()
-    return Event.objects.create(name=name, start_date=today, end_date=today)
+    return Event.objects.create(
+        name=name,
+        start_date=today,
+        end_date=today,
+        registration_opens_at=timezone.now() - timedelta(days=1),
+    )
 
 
 class RegistrationDedupTests(TestCase):
