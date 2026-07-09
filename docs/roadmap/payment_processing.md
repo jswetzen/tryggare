@@ -1,6 +1,6 @@
 # Payment Processing — Swish & Bankgiro (Manual Verification)
 
-## Status (2026-07-07)
+## Status (2026-07-09)
 
 Phase 2 (this doc) is implemented on `feature/self-serve-registration`: a
 `price` field on `Event`, a `Payment` model (`OneToOneField` to
@@ -15,6 +15,28 @@ deletes) verified-but-unpaid registrations after a 7-day payment TTL. The
 navigate away before paying. No provider-interface abstraction was added
 (see this doc's own "Future" section below) — both rails are 100%
 manually verified in this phase, so there's nothing to abstract yet.
+
+**Partial payments, overpayment, and refunds** (case catalog §5.1/§5.3,
+punch-list item 7) are now also implemented: `Payment.status` gained
+`partially_paid`, derived from a new append-only `PaymentEvent` ledger
+(`registrations/models.py`) recording `received`/`refunded`/`adjustment`
+entries against a Payment. `Payment.balance` is computed from the ledger;
+`Payment.amount` itself still never changes after creation (it's set once
+from `pricing.py::calculate_total()` — registration editing/repricing,
+case catalog §8.2, is a separate, not-yet-built piece). Staff record
+ledger entries one at a time via a dedicated `PaymentEventAdmin` (the
+existing bulk "mark as paid" actions stay for the common one-shot full-
+payment case, now recording a `received` event for the outstanding
+balance under the hood). A registration only auto-confirms when the
+ledger brings its balance to zero or below; a separate, explicitly
+audited `confirm_despite_balance` staff action (case catalog §5.3: "de
+betalar resten på lägret") confirms regardless of outstanding balance.
+`payment_instructions()` (the Swish/Bankgiro guardian-facing payload) now
+quotes the remaining balance, not the original nominal amount, so a
+guardian returning to pay the rest isn't asked to pay twice. Not built:
+a staff-facing outstanding-balances dashboard beyond Django admin, and
+automatic balance-delta reminder emails — both layer cleanly on top of
+the ledger later.
 
 ## Goal
 

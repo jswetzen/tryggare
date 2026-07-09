@@ -1,11 +1,16 @@
 import uuid
 from datetime import timedelta
+from decimal import Decimal
 
+from django.core.validators import MinValueValidator
 from django.db import models
+from django.db.models import Sum
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
 from .tokens import generate_unique_reference_code
+
+ZERO = Decimal("0")
 
 # How long an unverified registration is kept before the scheduled sweep
 # hard-deletes it. A fixed business rule, not an operator-tunable setting.
@@ -147,6 +152,7 @@ class Payment(models.Model):
 
     class Status(models.TextChoices):
         PENDING = "pending", _("Pending")
+        PARTIALLY_PAID = "partially_paid", _("Partially paid")
         PAID = "paid", _("Paid")
         REFUNDED = "refunded", _("Refunded")
         CANCELLED = "cancelled", _("Cancelled")
@@ -203,6 +209,112 @@ class Payment(models.Model):
     def reference_code(self) -> str:
         return self.registration.reference_code
 
+    @property
+    def balance(self) -> Decimal:
+        """Amount still owed: amount minus what the PaymentEvent ledger says
+        has actually happened. received reduces it, refunded and adjustment
+        (a goodwill write-off — no money moves) reduce and increase it
+        respectively per their real-world meaning: a refund gives money back
+        to the payer, so it reopens the balance; an adjustment writes off
+        part of what's owed."""
+        received = (
+            self.events.filter(kind=PaymentEvent.Kind.RECEIVED).aggregate(
+                total=Sum("amount")
+            )["total"]
+            or ZERO
+        )
+        refunded = (
+            self.events.filter(kind=PaymentEvent.Kind.REFUNDED).aggregate(
+                total=Sum("amount")
+            )["total"]
+            or ZERO
+        )
+        adjusted = (
+            self.events.filter(kind=PaymentEvent.Kind.ADJUSTMENT).aggregate(
+                total=Sum("amount")
+            )["total"]
+            or ZERO
+        )
+        return self.amount - received + refunded - adjusted
+
+    def recompute_status(self) -> None:
+        """Derive and persist status from the ledger. Idempotent; called by
+        record_payment_event() inside its transaction. Never touches an
+        existing `cancelled` status — that transition belongs to the sweep/
+        admin cancel action, not the ledger (see payment_processing.md)."""
+        if self.status == self.Status.CANCELLED:
+            return
+
+        balance = self.balance
+        if balance <= ZERO:
+            new_status = self.Status.PAID
+        elif balance < self.amount:
+            new_status = self.Status.PARTIALLY_PAID
+        else:
+            new_status = self.Status.PENDING
+
+        update_fields = []
+        if new_status != self.status:
+            if new_status == self.Status.PAID and self.status != self.Status.PAID:
+                self.paid_at = timezone.now()
+                update_fields.append("paid_at")
+            self.status = new_status
+            update_fields.append("status")
+            self.save(update_fields=update_fields)
+
+
+class PaymentEvent(models.Model):
+    """Append-only ledger of money movements against a Payment — the source
+    of truth Payment.status/balance are derived from. Nothing ever updates
+    or deletes a row (enforced in the admin); a correction is recorded as a
+    new offsetting entry, not an edit to history.
+    """
+
+    class Kind(models.TextChoices):
+        RECEIVED = "received", _("Received")
+        REFUNDED = "refunded", _("Refunded")
+        ADJUSTMENT = "adjustment", _("Adjustment")
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    payment = models.ForeignKey(
+        Payment,
+        on_delete=models.CASCADE,
+        related_name="events",
+        verbose_name=_("Payment"),
+    )
+    kind = models.CharField(max_length=20, choices=Kind.choices, verbose_name=_("Kind"))
+    amount = models.DecimalField(
+        max_digits=8,
+        decimal_places=2,
+        validators=[MinValueValidator(Decimal("0.01"))],
+        verbose_name=_("Amount"),
+        help_text=_(
+            "Always positive — kind determines the sign of its effect on "
+            "the payment's balance."
+        ),
+    )
+    note = models.CharField(
+        max_length=255, blank=True, default="", verbose_name=_("Note")
+    )
+    created_by = models.ForeignKey(
+        "accounts.AdminUser",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="payment_events_recorded",
+        verbose_name=_("Created By"),
+    )
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name=_("Created At"))
+
+    class Meta:
+        db_table = "payment_events"
+        verbose_name = _("Payment Event")
+        verbose_name_plural = _("Payment Events")
+        indexes = [models.Index(fields=["payment"])]
+
+    def __str__(self) -> str:
+        return f"{self.kind} {self.amount} {self.payment.currency} for {self.payment.reference_code}"
+
 
 class RegistrationExtra(models.Model):
     """One extra (T-shirt, lunch, a shared cabin) attached to a Registration
@@ -247,7 +359,9 @@ class RegistrationExtra(models.Model):
     quantity = models.PositiveIntegerField(
         default=1,
         verbose_name=_("Quantity"),
-        help_text=_("Only >1 allowed for a per-registration extra (per_attendee=False)."),
+        help_text=_(
+            "Only >1 allowed for a per-registration extra (per_attendee=False)."
+        ),
     )
     price_at_registration = models.DecimalField(
         max_digits=8,

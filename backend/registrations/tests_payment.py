@@ -17,8 +17,13 @@ from checkins.models import AuditLog
 from events.models import Event
 from families.models import Family, Parent
 
-from .models import Payment, Registration
-from .services import InvalidPaymentTransition, mark_payment_paid
+from .models import Payment, PaymentEvent, Registration
+from .services import (
+    InvalidPaymentTransition,
+    confirm_registration_despite_balance,
+    mark_payment_paid,
+    record_payment_event,
+)
 from .swish import build_qr_data_url, build_swish_url
 from .tokens import generate_verification_token, hash_token
 
@@ -144,6 +149,199 @@ class MarkPaymentPaidTests(TestCase):
         self.registration.save(update_fields=["status"])
         with self.assertRaises(InvalidPaymentTransition):
             mark_payment_paid(self.payment, method=Payment.Method.SWISH, marked_by=None)
+
+
+class PaymentEventLedgerTests(TestCase):
+    """Punch-list item 7: partial payments, overpayment, refunds, and
+    goodwill adjustments, all via the append-only PaymentEvent ledger."""
+
+    def setUp(self):
+        self.event = _make_event(price=Decimal("1500.00"))
+        self.family = Family.objects.create(last_name="Ledger")
+        self.registration = Registration.objects.create(
+            event=self.event,
+            family=self.family,
+            contact_email="guardian@example.com",
+            verification_token_hash=hash_token(generate_verification_token()),
+            status=Registration.Status.PENDING_PAYMENT,
+        )
+        self.payment = Payment.objects.create(
+            registration=self.registration, amount=self.event.price
+        )
+
+    @patch("registrations.services.send_confirmation_email")
+    def test_partial_received_sets_partially_paid(self, mock_confirm):
+        record_payment_event(
+            self.payment,
+            kind=PaymentEvent.Kind.RECEIVED,
+            amount=Decimal("1200.00"),
+            created_by=None,
+        )
+
+        self.payment.refresh_from_db()
+        self.registration.refresh_from_db()
+        self.assertEqual(self.payment.status, Payment.Status.PARTIALLY_PAID)
+        self.assertEqual(self.payment.balance, Decimal("300.00"))
+        self.assertEqual(self.registration.status, Registration.Status.PENDING_PAYMENT)
+        mock_confirm.assert_not_called()
+
+    @patch("registrations.services.send_confirmation_email")
+    def test_received_events_summing_to_full_confirms_registration(self, mock_confirm):
+        record_payment_event(
+            self.payment,
+            kind=PaymentEvent.Kind.RECEIVED,
+            amount=Decimal("1200.00"),
+            created_by=None,
+        )
+        record_payment_event(
+            self.payment,
+            kind=PaymentEvent.Kind.RECEIVED,
+            amount=Decimal("300.00"),
+            created_by=None,
+        )
+
+        self.payment.refresh_from_db()
+        self.registration.refresh_from_db()
+        self.assertEqual(self.payment.status, Payment.Status.PAID)
+        self.assertEqual(self.payment.balance, Decimal("0.00"))
+        self.assertEqual(self.registration.status, Registration.Status.CONFIRMED)
+        mock_confirm.assert_called_once_with(self.registration)
+
+    @patch("registrations.services.send_confirmation_email")
+    def test_overpayment_is_paid_with_negative_balance(self, mock_confirm):
+        record_payment_event(
+            self.payment,
+            kind=PaymentEvent.Kind.RECEIVED,
+            amount=Decimal("1550.00"),
+            created_by=None,
+        )
+
+        self.payment.refresh_from_db()
+        self.assertEqual(self.payment.status, Payment.Status.PAID)
+        self.assertEqual(self.payment.balance, Decimal("-50.00"))
+
+    @patch("registrations.services.send_confirmation_email")
+    def test_refund_after_confirmed_reopens_balance_without_reverting_status(
+        self, mock_confirm
+    ):
+        record_payment_event(
+            self.payment,
+            kind=PaymentEvent.Kind.RECEIVED,
+            amount=Decimal("1500.00"),
+            created_by=None,
+        )
+        self.registration.refresh_from_db()
+        self.assertEqual(self.registration.status, Registration.Status.CONFIRMED)
+
+        record_payment_event(
+            self.payment,
+            kind=PaymentEvent.Kind.REFUNDED,
+            amount=Decimal("1000.00"),
+            note="Ebba avanmäld",
+            created_by=None,
+        )
+
+        self.payment.refresh_from_db()
+        self.registration.refresh_from_db()
+        self.assertEqual(self.payment.balance, Decimal("1000.00"))
+        self.assertEqual(self.payment.status, Payment.Status.PARTIALLY_PAID)
+        # Orthogonality invariant (case catalog §8.2): once confirmed, a
+        # ledger change never regresses Registration.status.
+        self.assertEqual(self.registration.status, Registration.Status.CONFIRMED)
+
+    @patch("registrations.services.send_confirmation_email")
+    def test_adjustment_reduces_balance_and_can_confirm(self, mock_confirm):
+        record_payment_event(
+            self.payment,
+            kind=PaymentEvent.Kind.RECEIVED,
+            amount=Decimal("1200.00"),
+            created_by=None,
+        )
+        record_payment_event(
+            self.payment,
+            kind=PaymentEvent.Kind.ADJUSTMENT,
+            amount=Decimal("300.00"),
+            note="Waived, broken arm",
+            created_by=None,
+        )
+
+        self.payment.refresh_from_db()
+        self.registration.refresh_from_db()
+        self.assertEqual(self.payment.balance, Decimal("0.00"))
+        self.assertEqual(self.payment.status, Payment.Status.PAID)
+        self.assertEqual(self.registration.status, Registration.Status.CONFIRMED)
+        mock_confirm.assert_called_once_with(self.registration)
+
+    def test_rejects_event_on_cancelled_payment(self):
+        self.payment.status = Payment.Status.CANCELLED
+        self.payment.save(update_fields=["status"])
+        with self.assertRaises(InvalidPaymentTransition):
+            record_payment_event(
+                self.payment,
+                kind=PaymentEvent.Kind.RECEIVED,
+                amount=Decimal("10.00"),
+                created_by=None,
+            )
+
+    def test_rejects_non_positive_amount(self):
+        with self.assertRaises(ValueError):
+            record_payment_event(
+                self.payment,
+                kind=PaymentEvent.Kind.RECEIVED,
+                amount=Decimal("0.00"),
+                created_by=None,
+            )
+
+    @patch("registrations.services.send_confirmation_email")
+    def test_mark_payment_paid_works_from_partially_paid(self, mock_confirm):
+        record_payment_event(
+            self.payment,
+            kind=PaymentEvent.Kind.RECEIVED,
+            amount=Decimal("1200.00"),
+            created_by=None,
+        )
+
+        mark_payment_paid(self.payment, method=Payment.Method.BANKGIRO, marked_by=None)
+
+        self.payment.refresh_from_db()
+        self.registration.refresh_from_db()
+        self.assertEqual(self.payment.status, Payment.Status.PAID)
+        self.assertEqual(self.payment.balance, Decimal("0.00"))
+        self.assertEqual(self.registration.status, Registration.Status.CONFIRMED)
+
+
+class ConfirmDespiteBalanceTests(TestCase):
+    def setUp(self):
+        self.event = _make_event(price=Decimal("500.00"))
+        self.family = Family.objects.create(last_name="Discretion")
+        self.registration = Registration.objects.create(
+            event=self.event,
+            family=self.family,
+            contact_email="guardian@example.com",
+            verification_token_hash=hash_token(generate_verification_token()),
+            status=Registration.Status.PENDING_PAYMENT,
+        )
+        self.payment = Payment.objects.create(
+            registration=self.registration, amount=self.event.price
+        )
+
+    @patch("registrations.services.send_confirmation_email")
+    def test_confirms_with_outstanding_balance(self, mock_confirm):
+        confirm_registration_despite_balance(self.registration, confirmed_by=None)
+
+        self.registration.refresh_from_db()
+        self.payment.refresh_from_db()
+        self.assertEqual(self.registration.status, Registration.Status.CONFIRMED)
+        # The ledger itself is untouched — this is a staff decision to let
+        # someone in, not a record of money arriving.
+        self.assertEqual(self.payment.status, Payment.Status.PENDING)
+        mock_confirm.assert_called_once_with(self.registration)
+
+    def test_raises_when_not_pending_payment(self):
+        self.registration.status = Registration.Status.CONFIRMED
+        self.registration.save(update_fields=["status"])
+        with self.assertRaises(InvalidPaymentTransition):
+            confirm_registration_despite_balance(self.registration, confirmed_by=None)
 
 
 class VerifyRegistrationPaymentBranchTests(TestCase):
@@ -361,4 +559,96 @@ class AdminMarkPaidActionTests(TestCase):
         self.assertEqual(self.registration.status, Registration.Status.CONFIRMED)
         self.assertTrue(
             AuditLog.objects.filter(action="registration_payment_marked_paid").exists()
+        )
+
+
+class AdminConfirmDespiteBalanceActionTests(TestCase):
+    def setUp(self):
+        from accounts.models import AdminUser
+
+        self.event = _make_event(price=Decimal("500.00"))
+        self.family = Family.objects.create(last_name="Discretion")
+        self.registration = Registration.objects.create(
+            event=self.event,
+            family=self.family,
+            contact_email="guardian@example.com",
+            verification_token_hash=hash_token(generate_verification_token()),
+            status=Registration.Status.PENDING_PAYMENT,
+        )
+        self.payment = Payment.objects.create(
+            registration=self.registration, amount=self.event.price
+        )
+        self.staff = AdminUser.objects.create_superuser(
+            username="admin_confirm", password="testpass123", name="Admin Confirm"
+        )
+        self.client = APIClient()
+        self.client.force_authenticate(user=self.staff)
+        self.client.force_login(self.staff)
+
+    @patch("registrations.services.send_confirmation_email")
+    def test_confirm_despite_balance_action(self, mock_confirm):
+        response = self.client.post(
+            "/admin/registrations/registration/",
+            {
+                "action": "confirm_despite_balance",
+                "_selected_action": [str(self.registration.pk)],
+            },
+        )
+        self.assertIn(response.status_code, (200, 302))
+        self.registration.refresh_from_db()
+        self.payment.refresh_from_db()
+        self.assertEqual(self.registration.status, Registration.Status.CONFIRMED)
+        self.assertEqual(self.payment.status, Payment.Status.PENDING)
+        self.assertTrue(
+            AuditLog.objects.filter(
+                action="registration_confirmed_despite_balance"
+            ).exists()
+        )
+
+
+class PaymentEventAdminTests(TestCase):
+    def setUp(self):
+        from accounts.models import AdminUser
+
+        self.event = _make_event(price=Decimal("500.00"))
+        self.family = Family.objects.create(last_name="LedgerAdmin")
+        self.registration = Registration.objects.create(
+            event=self.event,
+            family=self.family,
+            contact_email="guardian@example.com",
+            verification_token_hash=hash_token(generate_verification_token()),
+            status=Registration.Status.PENDING_PAYMENT,
+        )
+        self.payment = Payment.objects.create(
+            registration=self.registration, amount=self.event.price
+        )
+        self.staff = AdminUser.objects.create_superuser(
+            username="admin_ledger", password="testpass123", name="Admin Ledger"
+        )
+        self.client = APIClient()
+        self.client.force_authenticate(user=self.staff)
+        self.client.force_login(self.staff)
+
+    @patch("registrations.services.send_confirmation_email")
+    def test_add_payment_event_via_admin_records_ledger(self, mock_confirm):
+        response = self.client.post(
+            "/admin/registrations/paymentevent/add/",
+            {
+                "payment": str(self.payment.pk),
+                "kind": PaymentEvent.Kind.RECEIVED,
+                "amount": "200.00",
+                "note": "Partial Swish",
+            },
+        )
+        self.assertIn(response.status_code, (200, 302))
+        self.payment.refresh_from_db()
+        self.assertEqual(self.payment.balance, Decimal("300.00"))
+        self.assertEqual(self.payment.status, Payment.Status.PARTIALLY_PAID)
+        self.assertTrue(
+            PaymentEvent.objects.filter(
+                payment=self.payment, amount=Decimal("200.00")
+            ).exists()
+        )
+        self.assertTrue(
+            AuditLog.objects.filter(action="payment_event_recorded").exists()
         )

@@ -49,22 +49,28 @@ def payment_instructions(payment: Payment) -> dict:
     """Assembled payload returned both inline by verify_registration (the
     pending_payment case) and by the payment-status lookup endpoint.
 
+    Uses payment.balance, not payment.amount — a guardian who already paid
+    part of the total and returns via the payment-status recovery page must
+    be asked for what's actually still owed, not the original nominal
+    amount (which would silently invite an overpayment).
+
     swish_url/swish_qr_data_url are None when SWISH_PAYEE_NUMBER isn't
     configured — blank-safe, matching the DATA_CONTROLLER_* convention, since
     not every deployment/congregation will have set one up.
     """
+    balance = payment.balance
     swish_url = None
     swish_qr_data_url = None
     if settings.SWISH_PAYEE_NUMBER:
         swish_url = build_swish_url(
             payee_number=settings.SWISH_PAYEE_NUMBER,
-            amount=payment.amount,
+            amount=balance,
             reference=payment.reference_code,
         )
         swish_qr_data_url = build_qr_data_url(swish_url)
 
     return {
-        "amount": str(payment.amount),
+        "amount": str(balance),
         "currency": payment.currency,
         "reference_code": payment.reference_code,
         "swish_url": swish_url,

@@ -3,8 +3,13 @@ from django.utils.translation import gettext_lazy as _
 
 from checkins.audit import log_audit
 
-from .models import Payment, Registration, RegistrationExtra
-from .services import InvalidPaymentTransition, mark_payment_paid
+from .models import Payment, PaymentEvent, Registration, RegistrationExtra
+from .services import (
+    InvalidPaymentTransition,
+    confirm_registration_despite_balance,
+    mark_payment_paid,
+    record_payment_event,
+)
 
 
 def _mark_paid_action(method, description):
@@ -70,6 +75,7 @@ class RegistrationAdmin(admin.ModelAdmin):
         "mark_paid_swish",
         "mark_paid_bankgiro",
         "mark_paid_other",
+        "confirm_despite_balance",
     ]
 
     def get_queryset(self, request):
@@ -103,6 +109,53 @@ class RegistrationAdmin(admin.ModelAdmin):
         Payment.Method.MANUAL_OTHER, _("Mark selected as paid (other)")
     )
 
+    @admin.action(description=_("Confirm despite outstanding balance"))
+    def confirm_despite_balance(self, request, queryset):
+        confirmed = skipped = 0
+        for registration in queryset.select_related("payment"):
+            payment = getattr(registration, "payment", None)
+            if (
+                payment is None
+                or registration.status != Registration.Status.PENDING_PAYMENT
+            ):
+                skipped += 1
+                continue
+            outstanding = payment.balance
+            confirm_registration_despite_balance(
+                registration, confirmed_by=request.user
+            )
+            log_audit(
+                request,
+                action="registration_confirmed_despite_balance",
+                entity_type="Registration",
+                entity_id=str(registration.id),
+                details={
+                    "reference_code": registration.reference_code,
+                    "outstanding_balance": str(outstanding),
+                },
+            )
+            confirmed += 1
+        self.message_user(
+            request,
+            _("%(confirmed)d confirmed, %(skipped)d skipped (not pending payment).")
+            % {"confirmed": confirmed, "skipped": skipped},
+        )
+
+
+class PaymentEventInline(admin.TabularInline):
+    """Read-only ledger history on the Payment page. Adding a new entry
+    happens through PaymentEventAdmin below (one code path through
+    record_payment_event), not here — has_add_permission is disabled."""
+
+    model = PaymentEvent
+    extra = 0
+    fields = ("kind", "amount", "note", "created_by", "created_at")
+    readonly_fields = fields
+    can_delete = False
+
+    def has_add_permission(self, request, obj=None):
+        return False
+
 
 @admin.register(Payment)
 class PaymentAdmin(admin.ModelAdmin):
@@ -115,6 +168,7 @@ class PaymentAdmin(admin.ModelAdmin):
         "reference_code",
         "registration",
         "amount",
+        "balance_display",
         "currency",
         "method",
         "status",
@@ -124,6 +178,7 @@ class PaymentAdmin(admin.ModelAdmin):
     list_filter = ("status", "method")
     search_fields = ("registration__reference_code", "registration__contact_email")
     readonly_fields = ("id", "registration", "created_at")
+    inlines = [PaymentEventInline]
     actions = ["mark_paid_swish", "mark_paid_bankgiro", "mark_paid_other"]
 
     def get_queryset(self, request):
@@ -132,6 +187,10 @@ class PaymentAdmin(admin.ModelAdmin):
     @admin.display(description=_("Reference Code"))
     def reference_code(self, obj):
         return obj.reference_code
+
+    @admin.display(description=_("Balance"))
+    def balance_display(self, obj):
+        return obj.balance
 
     def _mark_paid(self, request, queryset, method):
         paid = skipped = 0
@@ -170,6 +229,65 @@ class PaymentAdmin(admin.ModelAdmin):
     @admin.action(description=_("Mark selected as paid (other)"))
     def mark_paid_other(self, request, queryset):
         self._mark_paid(request, queryset, Payment.Method.MANUAL_OTHER)
+
+
+@admin.register(PaymentEvent)
+class PaymentEventAdmin(admin.ModelAdmin):
+    """Where staff record a partial payment, refund, or goodwill adjustment
+    — one at a time, since each carries its own amount and note. The fast
+    "mark fully paid" bulk actions stay on RegistrationAdmin/PaymentAdmin;
+    this is for everything that isn't "pay the exact outstanding balance in
+    one shot." Append-only: existing rows can't be edited or deleted — to
+    correct a mistake, record an offsetting entry, don't edit history."""
+
+    list_display = ("payment", "kind", "amount", "note", "created_by", "created_at")
+    list_filter = ("kind",)
+    search_fields = (
+        "payment__registration__reference_code",
+        "payment__registration__contact_email",
+    )
+    autocomplete_fields = ["payment"]
+    readonly_fields = ("id", "created_by", "created_at")
+
+    def get_queryset(self, request):
+        return (
+            super()
+            .get_queryset(request)
+            .select_related("payment__registration", "created_by")
+        )
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+    def save_model(self, request, obj, form, change):
+        event = record_payment_event(
+            obj.payment,
+            kind=obj.kind,
+            amount=obj.amount,
+            note=obj.note,
+            created_by=request.user,
+        )
+        # obj itself is never saved (record_payment_event creates the real
+        # row) — repoint its pk at the row that actually exists, so the
+        # admin's post-save redirect/log_addition don't reference a
+        # UUID that was never persisted (UUIDField assigns its default
+        # at instantiation, not at save).
+        obj.id = event.id
+        log_audit(
+            request,
+            action="payment_event_recorded",
+            entity_type="Payment",
+            entity_id=str(obj.payment_id),
+            details={
+                "reference_code": obj.payment.reference_code,
+                "kind": obj.kind,
+                "amount": str(obj.amount),
+                "note": obj.note,
+            },
+        )
 
 
 @admin.register(RegistrationExtra)

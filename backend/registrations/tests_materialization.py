@@ -15,7 +15,8 @@ from django.utils import timezone
 from events.models import Event, EventTicket
 from families.models import Child, Family, Parent
 
-from .models import Payment, Registration
+from .models import Payment, PaymentEvent, Registration
+from .services import record_payment_event
 from .tasks import sweep_expired_registrations, sweep_unpaid_registrations
 from .tokens import generate_verification_token, hash_token
 
@@ -177,3 +178,25 @@ class UnpaidSweepTests(TestCase):
         payment.refresh_from_db()
         self.assertEqual(registration.status, Registration.Status.PENDING_PAYMENT)
         self.assertEqual(payment.status, Payment.Status.PENDING)
+
+    def test_expired_partially_paid_registration_cancels_but_payment_stays_partial(
+        self,
+    ):
+        """Money's already been received — the sweep must not silently
+        erase that by cancelling the Payment along with the Registration.
+        A partially_paid Payment on a cancelled registration is a real
+        outstanding refund obligation staff need to see and act on."""
+        registration, _, payment = self._make_pending_payment_registration(expired=True)
+        record_payment_event(
+            payment,
+            kind=PaymentEvent.Kind.RECEIVED,
+            amount=Decimal("20.00"),
+            created_by=None,
+        )
+
+        sweep_unpaid_registrations()
+
+        registration.refresh_from_db()
+        payment.refresh_from_db()
+        self.assertEqual(registration.status, Registration.Status.CANCELLED)
+        self.assertEqual(payment.status, Payment.Status.PARTIALLY_PAID)
