@@ -3,6 +3,7 @@ import logging
 from django.utils import timezone
 
 from .models import Payment, Registration
+from .services import release_promo_code_use
 
 logger = logging.getLogger(__name__)
 
@@ -28,6 +29,7 @@ def sweep_expired_registrations():
 
     swept = 0
     for registration in expired:
+        release_promo_code_use(registration)
         if registration.created_new_family:
             registration.family.delete()
         else:
@@ -68,6 +70,7 @@ def sweep_unpaid_registrations():
         if payment is not None and payment.status == Payment.Status.PENDING:
             payment.status = Payment.Status.CANCELLED
             payment.save(update_fields=["status"])
+        release_promo_code_use(registration)
         cancelled += 1
 
     if cancelled:

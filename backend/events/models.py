@@ -1,5 +1,6 @@
 import uuid
 
+from django.core.exceptions import ValidationError
 from django.db import models
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
@@ -91,6 +92,25 @@ class Event(models.Model):
 
     def __str__(self) -> str:
         return self.name
+
+    def clean(self):
+        super().clean()
+        # D2: registration_window_status can't itself distinguish a
+        # misconfigured window from "not open yet" — closes_at < opens_at
+        # makes every moment either NOT_OPEN_YET or CLOSED, never OPEN, with
+        # no error surfaced anywhere. Catch it at save time instead.
+        if (
+            self.registration_opens_at is not None
+            and self.registration_closes_at is not None
+            and self.registration_closes_at < self.registration_opens_at
+        ):
+            raise ValidationError(
+                {
+                    "registration_closes_at": _(
+                        "Registration closes-at must be after opens-at."
+                    )
+                }
+            )
 
     @property
     def is_paid(self) -> bool:

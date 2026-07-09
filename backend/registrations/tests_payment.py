@@ -292,6 +292,117 @@ class PaymentEventLedgerTests(TestCase):
                 created_by=None,
             )
 
+    def test_rejects_a_refund_exceeding_what_was_received(self):
+        """C1, invariant 1: this is the exact bug the punch list flagged —
+        an oversized refund against a partially-received payment must not
+        be allowed to land the payment on a state indistinguishable from
+        'never paid' while real money is still un-returned."""
+        record_payment_event(
+            self.payment,
+            kind=PaymentEvent.Kind.RECEIVED,
+            amount=Decimal("1200.00"),
+            created_by=None,
+        )
+        with self.assertRaises(InvalidPaymentTransition):
+            record_payment_event(
+                self.payment,
+                kind=PaymentEvent.Kind.REFUNDED,
+                amount=Decimal("1300.00"),
+                created_by=None,
+            )
+        self.payment.refresh_from_db()
+        self.assertEqual(self.payment.status, Payment.Status.PARTIALLY_PAID)
+        self.assertEqual(self.payment.balance, Decimal("300.00"))
+
+    def test_rejects_a_refund_with_nothing_ever_received(self):
+        with self.assertRaises(InvalidPaymentTransition):
+            record_payment_event(
+                self.payment,
+                kind=PaymentEvent.Kind.REFUNDED,
+                amount=Decimal("10.00"),
+                created_by=None,
+            )
+
+    def test_rejects_an_adjustment_that_writes_off_more_than_is_owed(self):
+        """C1, invariant 2: only an ADJUSTMENT can actually violate this
+        (a RECEIVED event is deliberately exempt — see the module-level
+        overpayment test below — and a REFUNDED event can only ever shrink
+        the checked expression)."""
+        record_payment_event(
+            self.payment,
+            kind=PaymentEvent.Kind.RECEIVED,
+            amount=Decimal("1200.00"),
+            created_by=None,
+        )
+        with self.assertRaises(InvalidPaymentTransition):
+            record_payment_event(
+                self.payment,
+                kind=PaymentEvent.Kind.ADJUSTMENT,
+                amount=Decimal("300.01"),
+                created_by=None,
+            )
+        self.payment.refresh_from_db()
+        self.assertEqual(self.payment.balance, Decimal("300.00"))
+
+    @patch("registrations.services.send_confirmation_email")
+    def test_pure_goodwill_writeoff_with_zero_received_is_still_allowed(
+        self, mock_confirm
+    ):
+        """The exact write-off amount owed is still a legal ADJUSTMENT with
+        zero received — invariant 2 only rejects *overshooting* it."""
+        record_payment_event(
+            self.payment,
+            kind=PaymentEvent.Kind.ADJUSTMENT,
+            amount=Decimal("1500.00"),
+            note="Scholarship, full waiver",
+            created_by=None,
+        )
+        self.payment.refresh_from_db()
+        self.assertEqual(self.payment.status, Payment.Status.PAID)
+        self.assertEqual(self.payment.balance, Decimal("0.00"))
+
+    @patch("registrations.services.send_confirmation_email")
+    def test_overpayment_still_allowed_despite_exceeding_amount(self, mock_confirm):
+        """Invariant 2 is deliberately not checked for a RECEIVED event —
+        event_registration_ux_case_catalog.md §5.3 makes overpayment (a
+        negative balance, with a staff 'registrera återbetalning' action) an
+        intentional, supported state. Regression guard alongside
+        test_overpayment_is_paid_with_negative_balance above."""
+        record_payment_event(
+            self.payment,
+            kind=PaymentEvent.Kind.RECEIVED,
+            amount=Decimal("1600.00"),
+            created_by=None,
+        )
+        self.payment.refresh_from_db()
+        self.assertEqual(self.payment.status, Payment.Status.PAID)
+        self.assertEqual(self.payment.balance, Decimal("-100.00"))
+
+    @patch("registrations.services.send_confirmation_email")
+    def test_full_refund_of_fully_paid_reads_as_refunded(self, mock_confirm):
+        """C1's reorder: refunded==received (and >0) must read REFUNDED, not
+        fall through to the balance-threshold split where it would land on
+        PENDING — indistinguishable from 'never paid' despite two real
+        money movements. Narrower than 'any refund': a *partial* refund
+        must stay PARTIALLY_PAID (see
+        test_refund_after_confirmed_reopens_balance_without_reverting_status
+        above)."""
+        record_payment_event(
+            self.payment,
+            kind=PaymentEvent.Kind.RECEIVED,
+            amount=Decimal("1500.00"),
+            created_by=None,
+        )
+        record_payment_event(
+            self.payment,
+            kind=PaymentEvent.Kind.REFUNDED,
+            amount=Decimal("1500.00"),
+            note="Family withdrew entirely",
+            created_by=None,
+        )
+        self.payment.refresh_from_db()
+        self.assertEqual(self.payment.status, Payment.Status.REFUNDED)
+
     @patch("registrations.services.send_confirmation_email")
     def test_mark_payment_paid_works_from_partially_paid(self, mock_confirm):
         record_payment_event(

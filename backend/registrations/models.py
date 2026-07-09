@@ -227,14 +227,10 @@ class Payment(models.Model):
     def reference_code(self) -> str:
         return self.registration.reference_code
 
-    @property
-    def balance(self) -> Decimal:
-        """Amount still owed: amount minus what the PaymentEvent ledger says
-        has actually happened. received reduces it, refunded and adjustment
-        (a goodwill write-off — no money moves) reduce and increase it
-        respectively per their real-world meaning: a refund gives money back
-        to the payer, so it reopens the balance; an adjustment writes off
-        part of what's owed."""
+    def ledger_totals(self) -> tuple[Decimal, Decimal, Decimal]:
+        """Cumulative (received, refunded, adjusted) from the PaymentEvent
+        ledger — the shared read both ``balance`` and
+        ``services.record_payment_event``'s C1 invariant checks build on."""
         received = (
             self.events.filter(kind=PaymentEvent.Kind.RECEIVED).aggregate(
                 total=Sum("amount")
@@ -253,18 +249,43 @@ class Payment(models.Model):
             )["total"]
             or ZERO
         )
+        return received, refunded, adjusted
+
+    @property
+    def balance(self) -> Decimal:
+        """Amount still owed: amount minus what the PaymentEvent ledger says
+        has actually happened. received reduces it; refunded and adjustment
+        (a goodwill write-off — no money moves) increase and reduce it
+        respectively per their real-world meaning: a refund gives money back
+        to the payer, so it reopens the balance; an adjustment writes off
+        part of what's owed."""
+        received, refunded, adjusted = self.ledger_totals()
         return self.amount - received + refunded - adjusted
 
     def recompute_status(self) -> None:
         """Derive and persist status from the ledger. Idempotent; called by
         record_payment_event() inside its transaction. Never touches an
         existing `cancelled` status — that transition belongs to the sweep/
-        admin cancel action, not the ledger (see payment_processing.md)."""
+        admin cancel action, not the ledger (see payment_processing.md).
+
+        C1: a fully-refunded payment (everything ever received has since
+        been refunded back out) reads as REFUNDED rather than falling into
+        the balance-threshold split below — otherwise it lands on PENDING,
+        indistinguishable from "never paid" even though real money moved
+        twice. Deliberately narrower than "any refund at all": a *partial*
+        refund of a fully-paid payment (some of what was received is still
+        held) must stay PARTIALLY_PAID, not flip to REFUNDED — see
+        tests_payment.py::test_refund_after_confirmed_reopens_balance_
+        without_reverting_status."""
         if self.status == self.Status.CANCELLED:
             return
 
-        balance = self.balance
-        if balance <= ZERO:
+        received, refunded, adjusted = self.ledger_totals()
+        balance = self.amount - received + refunded - adjusted
+
+        if refunded > ZERO and refunded >= received:
+            new_status = self.Status.REFUNDED
+        elif balance <= ZERO:
             new_status = self.Status.PAID
         elif balance < self.amount:
             new_status = self.Status.PARTIALLY_PAID

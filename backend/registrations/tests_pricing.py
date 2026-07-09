@@ -119,6 +119,36 @@ class CalculateTotalTests(TestCase):
         # Two SessionTicket rows share one ticket_type — must be counted once.
         self.assertEqual(calculate_total(registration), Decimal("350.00"))
 
+
+class MaterializeTicketEmptyBundleTests(TestCase):
+    """A2: TicketTypeAdminForm.clean() (events/tests.py) is the staff-facing
+    guard; this is the belt-and-suspenders runtime backstop in
+    _materialize_ticket itself for any path that isn't the admin form."""
+
+    def test_empty_sessions_bundle_is_rejected_not_silently_ticketless(self):
+        from rest_framework.exceptions import ValidationError
+
+        from .views import _materialize_ticket
+
+        event = _make_event()
+        bundle = TicketType.objects.create(
+            event=event,
+            name="Weekend",
+            price=350,
+            kind=TicketType.Kind.SESSION_BUNDLE,
+        )
+        registration = _make_registration(event)
+        child = Child.objects.create(family=registration.family, first_name="Kim")
+
+        with self.assertRaises(ValidationError):
+            _materialize_ticket(
+                attendee=child,
+                event=event,
+                ticket_type=bundle,
+                registration=registration,
+            )
+        self.assertEqual(SessionTicket.objects.count(), 0)
+
     def test_extras_summed_with_quantity_and_choice_delta(self):
         event = _make_event()
         TicketType.objects.create(event=event, name="Adult", price=0)
