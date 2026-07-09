@@ -1,6 +1,15 @@
 from django.contrib import admin
 
-from .models import Event, EventTicket, Session, SessionTicket, Ticket
+from .models import (
+    Event,
+    EventTicket,
+    Extra,
+    ExtraChoice,
+    Session,
+    SessionTicket,
+    Ticket,
+    TicketType,
+)
 
 
 @admin.register(Event)
@@ -98,3 +107,58 @@ class SessionTicketAdmin(admin.ModelAdmin):
 
     get_event.short_description = "Event"
     get_event.admin_order_field = "session__event"
+
+
+@admin.register(TicketType)
+class TicketTypeAdmin(admin.ModelAdmin):
+    list_display = (
+        "name",
+        "event",
+        "price",
+        "applies_to",
+        "kind",
+        "is_hidden",
+        "is_active",
+        "sort_order",
+    )
+    list_filter = ("event", "applies_to", "kind", "is_hidden", "is_active")
+    search_fields = ("name", "event__name")
+    autocomplete_fields = ["event"]
+    filter_horizontal = ["sessions"]
+
+
+class ExtraChoiceInline(admin.TabularInline):
+    model = ExtraChoice
+    extra = 1
+    fields = ("label", "price_delta", "sort_order", "is_active")
+
+
+@admin.register(Extra)
+class ExtraAdmin(admin.ModelAdmin):
+    list_display = (
+        "name",
+        "event",
+        "session",
+        "price",
+        "per_attendee",
+        "applies_to",
+        "is_active",
+        "sort_order",
+    )
+    list_filter = ("event", "applies_to", "per_attendee", "is_active")
+    search_fields = ("name", "event__name")
+    autocomplete_fields = ["event", "session"]
+    inlines = [ExtraChoiceInline]
+
+
+@admin.register(ExtraChoice)
+class ExtraChoiceAdmin(admin.ModelAdmin):
+    """Standalone registration alongside the ExtraAdmin inline above —
+    needed so RegistrationExtraAdmin.choice can use autocomplete_fields
+    (Django requires the target model have its own registered ModelAdmin
+    with search_fields, inlines don't count)."""
+
+    list_display = ("label", "extra", "price_delta", "is_active", "sort_order")
+    list_filter = ("extra__event", "is_active")
+    search_fields = ("label", "extra__name")
+    autocomplete_fields = ["extra"]

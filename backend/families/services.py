@@ -16,8 +16,18 @@ def create_family_with_members(
     parents_data: list[dict],
     children_data: list[dict],
     consent_attestor_email: str | None = None,
-) -> Family:
+) -> tuple[Family, list[Parent], list[Child]]:
     """Create a new Family with nested Parent/Child rows.
+
+    Returns ``(family, created_parents, created_children)`` — both lists in
+    the same order as ``parents_data``/``children_data`` — so a caller can
+    zip its input dicts against the actual created rows. This matters
+    because ``Attendee.id`` is a random UUID primary key with no
+    ``Meta.ordering`` on ``Parent``/``Child``: re-querying
+    ``family.parents.all()`` afterwards is not guaranteed to preserve
+    creation order, so callers that need to attach more per-attendee data
+    (e.g. a self-serve registration's ticket type/extras selections) must
+    use these returned lists rather than re-fetching.
 
     ``consent_attestor_email``, when given, designates which of the parents
     being created here attests to any child health-data consent decision —
@@ -44,6 +54,7 @@ def create_family_with_members(
     if consented_by is None:
         consented_by = created_parents[0] if created_parents else None
 
+    created_children = []
     for child_data in children_data:
         status = child_data.get(
             "health_consent_status", Child.HealthConsentStatus.NOT_APPLICABLE
@@ -57,6 +68,6 @@ def create_family_with_members(
             child_data["health_consent_notice_version"] = (
                 settings.HEALTH_CONSENT_NOTICE_VERSION
             )
-        Child.objects.create(family=family, **child_data)
+        created_children.append(Child.objects.create(family=family, **child_data))
 
-    return family
+    return family, created_parents, created_children

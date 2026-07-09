@@ -18,6 +18,16 @@ class ParentCheckinPolicy(models.TextChoices):
     TICKET_REQUIRED = "ticket_required", _("Ticket required")
 
 
+class AppliesTo(models.TextChoices):
+    """Who a TicketType or Extra is offered to. Module level (like
+    ParentCheckinPolicy above) so both models can reference the same
+    choices without duplicating them."""
+
+    PARENT = "parent", _("Parent")
+    CHILD = "child", _("Child")
+    EITHER = "either", _("Either")
+
+
 class Event(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     name = models.CharField(max_length=255, verbose_name=_("Event Name"))
@@ -100,6 +110,230 @@ class Session(models.Model):
         return self.parent_checkin_policy or self.event.parent_checkin_policy_default
 
 
+class TicketType(models.Model):
+    """A priced, event-scoped category a guardian assigns to one attendee at
+    self-serve registration (e.g. "Adult", "Youth 13-17", "Child 0-12").
+    Distinct from the flat Event.price fallback used when an event has none
+    configured — see registrations/pricing.py::calculate_total.
+    """
+
+    class Kind(models.TextChoices):
+        EVENT = "event", _("Whole event")
+        SESSION_BUNDLE = "session_bundle", _("Session bundle (e.g. one day)")
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    event = models.ForeignKey(
+        Event,
+        related_name="ticket_types",
+        on_delete=models.CASCADE,
+        verbose_name=_("Event"),
+    )
+    name = models.CharField(max_length=255, verbose_name=_("Name"))
+    price = models.DecimalField(
+        max_digits=8, decimal_places=2, verbose_name=_("Price")
+    )
+    applies_to = models.CharField(
+        max_length=10,
+        choices=AppliesTo.choices,
+        default=AppliesTo.EITHER,
+        verbose_name=_("Applies To"),
+    )
+    min_birthdate = models.DateField(
+        null=True,
+        blank=True,
+        verbose_name=_("Minimum Birthdate"),
+        help_text=_(
+            "Age-tier lower bound: attendee must be born on/after this date. "
+            "Blank = no lower bound."
+        ),
+    )
+    max_birthdate = models.DateField(
+        null=True,
+        blank=True,
+        verbose_name=_("Maximum Birthdate"),
+        help_text=_(
+            "Age-tier upper bound: attendee must be born on/before this date. "
+            "Blank = no upper bound."
+        ),
+    )
+    available_from = models.DateTimeField(
+        null=True, blank=True, verbose_name=_("Available From")
+    )
+    available_until = models.DateTimeField(
+        null=True,
+        blank=True,
+        verbose_name=_("Available Until"),
+        help_text=_(
+            "E.g. an early-bird cutoff. Checked at submission time only — "
+            "never recomputed for an existing registration."
+        ),
+    )
+    is_hidden = models.BooleanField(
+        default=False,
+        verbose_name=_("Hidden"),
+        help_text=_(
+            "Hidden from the public form; only selectable via a direct "
+            "link/code (e.g. volunteer tickets)."
+        ),
+    )
+    kind = models.CharField(
+        max_length=20,
+        choices=Kind.choices,
+        default=Kind.EVENT,
+        verbose_name=_("Kind"),
+    )
+    sessions = models.ManyToManyField(
+        Session,
+        blank=True,
+        related_name="bundle_ticket_types",
+        verbose_name=_("Sessions"),
+        help_text=_(
+            "Only used when kind=session_bundle — the sessions this ticket "
+            "type covers (e.g. a single day of a multi-day event)."
+        ),
+    )
+    capacity = models.PositiveIntegerField(
+        null=True,
+        blank=True,
+        verbose_name=_("Capacity"),
+        help_text=_(
+            "Null = unlimited. Schema placeholder only — not yet enforced "
+            "anywhere; a future capacity-accounting pass reads this field."
+        ),
+    )
+    sort_order = models.PositiveIntegerField(default=0, verbose_name=_("Sort Order"))
+    is_active = models.BooleanField(
+        default=True,
+        verbose_name=_("Active"),
+        help_text=_(
+            "Soft-retire instead of deleting once any ticket references "
+            "this type — see on_delete=PROTECT on EventTicket/SessionTicket."
+        ),
+    )
+
+    class Meta:
+        db_table = "ticket_types"
+        verbose_name = _("Ticket Type")
+        verbose_name_plural = _("Ticket Types")
+        ordering = ["sort_order", "name"]
+        indexes = [models.Index(fields=["event"])]
+
+    def __str__(self) -> str:
+        return f"{self.event.name} - {self.name}"
+
+
+class Extra(models.Model):
+    """An optional paid or free add-on a guardian can attach to an attendee
+    or to the registration as a whole (T-shirt, lunch, a shared cabin).
+
+    Deliberately never a free-text field: dietary/health/accessibility
+    disclosures live in dedicated, consent-gated fields elsewhere, not here —
+    see the case catalog's "no free-text extras" decision.
+    """
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    event = models.ForeignKey(
+        Event, related_name="extras", on_delete=models.CASCADE, verbose_name=_("Event")
+    )
+    session = models.ForeignKey(
+        Session,
+        null=True,
+        blank=True,
+        related_name="extras",
+        on_delete=models.CASCADE,
+        verbose_name=_("Session"),
+        help_text=_(
+            "Set for a session-scoped extra (e.g. one evening's dinner). "
+            "Blank = event-wide."
+        ),
+    )
+    name = models.CharField(max_length=255, verbose_name=_("Name"))
+    price = models.DecimalField(
+        max_digits=8, decimal_places=2, default=0, verbose_name=_("Price")
+    )
+    per_attendee = models.BooleanField(
+        default=True,
+        verbose_name=_("Per Attendee"),
+        help_text=_(
+            "Unchecked for a per-registration extra shared by the whole "
+            "booking (e.g. a cabin, a parking pass with quantity > 1)."
+        ),
+    )
+    applies_to = models.CharField(
+        max_length=10,
+        choices=AppliesTo.choices,
+        default=AppliesTo.EITHER,
+        verbose_name=_("Applies To"),
+    )
+    requires_choice = models.BooleanField(
+        default=False, verbose_name=_("Requires Choice")
+    )
+    required = models.BooleanField(
+        default=False,
+        verbose_name=_("Required"),
+        help_text=_(
+            "Must-choose-one, e.g. accommodation — renders as radio, not an "
+            "optional checkbox."
+        ),
+    )
+    default_selected = models.BooleanField(
+        default=False,
+        verbose_name=_("Default Selected"),
+        help_text=_(
+            "For an opt-out extra (e.g. food included by default, guardian "
+            "can decline) — never model an opt-out as a negative price."
+        ),
+    )
+    sort_order = models.PositiveIntegerField(default=0, verbose_name=_("Sort Order"))
+    is_active = models.BooleanField(default=True, verbose_name=_("Active"))
+
+    class Meta:
+        db_table = "extras"
+        verbose_name = _("Extra")
+        verbose_name_plural = _("Extras")
+        ordering = ["sort_order", "name"]
+        indexes = [
+            models.Index(fields=["event"]),
+            models.Index(fields=["session"]),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.event.name} - {self.name}"
+
+
+class ExtraChoice(models.Model):
+    """One selectable option under an Extra with requires_choice=True (e.g.
+    a T-shirt size). A real model rather than a JSON string list so
+    per-choice pricing and referential integrity are both representable —
+    editing a choice's label can never silently orphan an already-selected
+    registration's choice the way a mutated JSON list could.
+    """
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    extra = models.ForeignKey(
+        Extra,
+        related_name="choice_rows",
+        on_delete=models.CASCADE,
+        verbose_name=_("Extra"),
+    )
+    label = models.CharField(max_length=255, verbose_name=_("Label"))
+    price_delta = models.DecimalField(
+        max_digits=8, decimal_places=2, default=0, verbose_name=_("Price Delta")
+    )
+    sort_order = models.PositiveIntegerField(default=0, verbose_name=_("Sort Order"))
+    is_active = models.BooleanField(default=True, verbose_name=_("Active"))
+
+    class Meta:
+        db_table = "extra_choices"
+        verbose_name = _("Extra Choice")
+        verbose_name_plural = _("Extra Choices")
+        ordering = ["sort_order", "label"]
+        indexes = [models.Index(fields=["extra"])]
+
+    def __str__(self) -> str:
+        return f"{self.extra.name} - {self.label}"
+
+
 class Ticket(models.Model):
     """
     Base model for tickets. This is kept for backwards compatibility
@@ -177,6 +411,29 @@ class EventTicket(models.Model):
             "staff-created tickets leave this null and are unaffected."
         ),
     )
+    ticket_type = models.ForeignKey(
+        TicketType,
+        null=True,
+        blank=True,
+        on_delete=models.PROTECT,
+        related_name="event_tickets",
+        verbose_name=_("Ticket Type"),
+        help_text=_(
+            "Set only for itemized self-serve tickets (Phase 3+); null means "
+            "a flat-price/staff/import ticket, unaffected."
+        ),
+    )
+    price_at_registration = models.DecimalField(
+        max_digits=8,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        verbose_name=_("Price At Registration"),
+        help_text=_(
+            "Snapshotted once at submission — never recomputed even if the "
+            "ticket type's price changes afterwards."
+        ),
+    )
 
     class Meta:
         db_table = "event_tickets"
@@ -228,6 +485,29 @@ class SessionTicket(models.Model):
         help_text=_(
             "Set only for tickets created via public self-serve registration; "
             "staff-created tickets leave this null and are unaffected."
+        ),
+    )
+    ticket_type = models.ForeignKey(
+        TicketType,
+        null=True,
+        blank=True,
+        on_delete=models.PROTECT,
+        related_name="session_tickets",
+        verbose_name=_("Ticket Type"),
+        help_text=_(
+            "Set only for itemized self-serve tickets (Phase 3+); null means "
+            "a flat-price/staff/import ticket, unaffected."
+        ),
+    )
+    price_at_registration = models.DecimalField(
+        max_digits=8,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        verbose_name=_("Price At Registration"),
+        help_text=_(
+            "Snapshotted once at submission — never recomputed even if the "
+            "ticket type's price changes afterwards."
         ),
     )
 

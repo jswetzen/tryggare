@@ -320,8 +320,9 @@ class FamilyCreateSerializer(serializers.ModelSerializer):
         parent listed" is the right default here specifically (no separate
         attestor picker in the staff UI).
         """
-        return create_family_with_members(
+        family, _created_parents, _created_children = create_family_with_members(
             last_name=validated_data.get("last_name", ""),
             parents_data=validated_data.pop("parents"),
             children_data=validated_data.pop("children"),
         )
+        return family

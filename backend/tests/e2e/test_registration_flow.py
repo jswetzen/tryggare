@@ -124,7 +124,7 @@ class TestRegistrationVerifyAndCheckin(E2ETestBase, TestDataMixin):
             username="registrationVerifyE2E", password="testpass123"
         )
 
-        family = create_family_with_members(
+        family, _, _ = create_family_with_members(
             last_name="E2EVerify",
             parents_data=[{"first_name": "Verify", "relationship_type": "OTHER"}],
             children_data=[{"first_name": "E2EChild", "last_name": "Confirmed"}],

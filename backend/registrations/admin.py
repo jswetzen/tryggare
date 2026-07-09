@@ -3,7 +3,7 @@ from django.utils.translation import gettext_lazy as _
 
 from checkins.audit import log_audit
 
-from .models import Payment, Registration
+from .models import Payment, Registration, RegistrationExtra
 from .services import InvalidPaymentTransition, mark_payment_paid
 
 
@@ -170,3 +170,33 @@ class PaymentAdmin(admin.ModelAdmin):
     @admin.action(description=_("Mark selected as paid (other)"))
     def mark_paid_other(self, request, queryset):
         self._mark_paid(request, queryset, Payment.Method.MANUAL_OTHER)
+
+
+@admin.register(RegistrationExtra)
+class RegistrationExtraAdmin(admin.ModelAdmin):
+    """Finance/logistics browsing (kitchen counts, T-shirt orders) —
+    materialization happens through the public submission flow, not here."""
+
+    list_display = (
+        "registration",
+        "extra",
+        "attendee",
+        "choice",
+        "quantity",
+        "price_at_registration",
+    )
+    list_filter = ("extra__event", "extra")
+    search_fields = (
+        "registration__reference_code",
+        "attendee__first_name",
+        "attendee__last_name",
+    )
+    autocomplete_fields = ["registration", "extra", "attendee", "choice"]
+    readonly_fields = ("id", "created_at")
+
+    def get_queryset(self, request):
+        return (
+            super()
+            .get_queryset(request)
+            .select_related("registration", "extra", "attendee", "choice")
+        )

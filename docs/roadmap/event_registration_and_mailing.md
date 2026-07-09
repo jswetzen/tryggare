@@ -1,5 +1,19 @@
 # Self-Serve Event Registration & Mailing
 
+## Status (2026-07-08)
+
+**Update 2026-07-08**: Phase 2 (Swish/Bankgiro payment) also shipped, on the
+same branch, commit `116040c` — see [[tryggare-payment-verification-status]]
+in memory. PR #18 open, not yet merged. `PENDING_PAYMENT` is no longer dead
+code; a paid event correctly blocks auto-confirm.
+
+Phases 3-6 below are a priorities/data-model planning pass done the same day,
+in response to real customer complexity (food/no-food, promo codes,
+age-tiered ticket pricing similar to the FestivalPro import's prefix
+mapping, longer-retention consent, and group bookings that don't fit neatly
+inside one `Family`). Nothing in Phases 3-6 is built yet — this is design,
+not status.
+
 ## Status (2026-07-07)
 
 Phase 0 (transactional email, `notifications` app) and Phase 1 (free-event
@@ -194,13 +208,176 @@ provider is chosen.
 - Consent-renewal and withdrawal-link landing pages (public, token-based,
   similar pattern to `/qr/[token]`).
 
+## Phases 3-6: itemized registration, self-service, promo codes, group booking
+
+Grounding check done before designing this: "a parent registers alone for a
+leaders' conference, no kids" already works today with zero model changes —
+`RegistrationSubmitSerializer.validate()` only requires *either* parents or
+children, not both (`registrations/serializers.py`). The real gap is that
+self-serve registration currently has **no choices in it at all** — every
+attendee gets one flat `EventTicket` at `Event.price`
+(`registrations/views.py::_create_registration`). Ticket types, extras, and
+promo codes are the first itemization layer, not a tweak to an existing one.
+
+### Phase 3 — Ticket types & extras
+
+```python
+class TicketType(models.Model):
+    event = FK(Event, related_name="ticket_types")
+    name = CharField          # "Adult", "Youth (13-17)", "Child (0-12)"
+    price = DecimalField
+    applies_to = CharField(choices=["parent", "child", "either"])
+    sort_order = IntegerField
+
+# EventTicket / SessionTicket gain:
+    ticket_type = FK(TicketType, null=True)     # null = staff/import ticket, unaffected
+    price_at_registration = DecimalField        # snapshot — never recompute after the fact
+
+class Extra(models.Model):
+    event = FK(Event, related_name="extras")
+    name = CharField           # "Lunch Friday", "T-shirt"
+    price = DecimalField(default=0)
+    per_attendee = BooleanField(default=True)   # vs. per-registration (e.g. a shared cabin)
+    requires_choice = BooleanField(default=False)
+    choices = JSONField(blank=True, default=list)   # e.g. ["S", "M", "L", "XL"]
+
+class RegistrationExtra(models.Model):
+    registration = FK(Registration, related_name="extras")
+    extra = FK(Extra)
+    attendee = FK("families.Attendee", null=True)   # null if per-registration
+    choice_value = CharField(blank=True)
+    price_at_registration = DecimalField
+```
+
+`registrations/pricing.py::calculate_total(registration)` sums ticket types
++ extras; called at the same lazy `Payment`-creation point
+`verify_registration()` already uses for phase 2. "Early bird" pricing
+should be a `TicketType` with a validity window, not a promo code — and
+sibling/multi-child discounts (common at church camps) are an automatic
+rule, not a code — keep both out of Phase 5's `PromoCode` if they come up
+later.
+
+**Priority: first.** Everything below depends on itemized pricing existing.
+
+### Phase 4 — Edit + self-service + notify other adults
+
+Reuses the existing token pattern (`Registration.verification_token_hash`,
+same shape as `/qr/[token]`) rather than a login system — consistent with
+the explicit prior decision above that guardians never get a persistent
+account. Two token *scopes* answer both the edit-permission question and
+the "who can manage what" question in one mechanism:
+
+```python
+class RegistrationAccessToken(models.Model):
+    registration = FK(Registration, related_name="access_tokens")
+    attendee = FK("families.Attendee", null=True)   # null = full-booking scope
+    token_hash = CharField
+    scope = CharField(choices=["full", "self"])
+    expires_at = DateTimeField
+    used_at = DateTimeField(null=True)
+```
+
+- **full** scope (no `attendee`): only the original registrant — edit the
+  whole booking, add/remove attendees, change ticket types/extras, cancel,
+  see payment status.
+- **self** scope (`attendee` set): any adult attendee on the registration —
+  limited to their own contact info and, if they guardian a child on the
+  booking, that child's allergy/health notes.
+
+Sending every adult attendee their own **self**-scoped link at confirmation
+*is* the answer to "do we email other adults when they're signed up" — one
+mechanism serves both asks, no separate notification system needed.
+
+**Priority: second.** High UX value once real guardians are relying on
+this for a real conference (typos, late additions, dietary changes are
+routine), and self-contained — doesn't depend on Phase 5 or 6.
+
+### Phase 5 — Promo codes
+
+```python
+class PromoCode(models.Model):
+    event = FK(Event, related_name="promo_codes")
+    code = CharField()                # unique per event
+    discount_type = CharField(choices=["percent", "fixed"])
+    discount_value = DecimalField
+    max_uses = IntegerField(null=True)     # null = unlimited
+    uses_count = IntegerField(default=0)
+    valid_from = DateTimeField(null=True)
+    valid_until = DateTimeField(null=True)
+    active = BooleanField(default=True)
+```
+
+Applied against the whole `Registration` total from Phase 3's itemized
+pricing — this is why itemization has to land first.
+
+**Priority: third.** Small, bolts on; not a launch blocker.
+
+### Phase 6 — Group booking (two families registering together)
+
+The only case here with real schema impact: one checkout/payment spanning
+attendees from more than one `Family`. `Registration.family` and `Payment`
+(currently `OneToOne` to `Registration`) are both 1:1 today, and that's
+*correct* for check-in/pickup purposes — an adult from Family A shouldn't
+become part of Family B just because they co-registered for a retreat.
+**Decided 2026-07-08**: keep `Family`/`Registration` 1:1, and add the
+group concept only at the checkout layer:
+
+```python
+class RegistrationGroup(models.Model):
+    id = UUIDField(primary_key=True, default=uuid.uuid4)
+    created_at = DateTimeField(auto_now_add=True)
+
+# Registration gains:
+    group = FK(RegistrationGroup, null=True, related_name="registrations")
+```
+
+`Payment` moves from `OneToOne(Registration)` to `OneToOne(RegistrationGroup)`
+when a registration is grouped; an ungrouped `Registration` keeps owning its
+own `Payment` exactly as today (Phase 2 behavior unchanged for the common
+case). Each family in the group still gets its own `Registration` row (own
+tickets, own family-matching/`pending_review` logic per contact email) — the
+group only ties them together for one combined checkout/payment.
+
+**Priority: last.** Rarest case in practice (a joint leaders'-conference
+booking, not everyday registration) and the most invasive change to the
+Phase 0-2 model. Until built, staff can still handle a joint booking
+manually, or one adult can register both families under themselves as a
+workaround.
+
+### Cross-cutting: consent generalization
+
+By Phase 6 there will be three consent-shaped fields in play:
+`Child.health_consent_status` (exists), `marketing_opt_in` (sketched
+above, unbuilt), and "consent to store details longer than default
+retention" (raised 2026-07-08, unbuilt). Rather than a third bespoke
+boolean, generalize once any of the unbuilt ones gets scheduled:
+
+```python
+class ConsentRecord(models.Model):
+    subject = FK("families.Attendee")   # or a GenericFK if family-level consent is ever needed
+    consent_type = CharField(choices=["health", "marketing", "extended_retention"])
+    granted_at = DateTimeField
+    expires_at = DateTimeField(null=True)
+    notice_version = CharField
+```
+
+Same audit shape as the existing health-consent pattern, one place to
+reason about expiry sweeps instead of three. Not urgent on its own — do
+this when the second or third consent type is actually implemented, not
+speculatively ahead of that.
+
 ## Dependencies
 
 - SMTP relay + DPA in place before any real email goes out.
 - Payment processing (or an explicit "free event" path) before
   registrations can be marked check-in-valid.
+- Phase 3 (itemized ticket types/extras) before Phase 5 (promo codes) —
+  a discount needs an itemized total to discount.
 
 ## Priority
 
-Medium-high. The transactional-email half unblocks an existing
-pre-launch legal gap regardless of what else in this doc gets built.
+Medium-high. The transactional-email half unblocked an existing
+pre-launch legal gap regardless of what else in this doc gets built (done).
+Within what's left: Phase 3 (ticket types & extras) first — everything
+else depends on it — then Phase 4 (edit/self-service/notify), then Phase 5
+(promo codes), then Phase 6 (group booking) last.

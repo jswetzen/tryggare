@@ -208,6 +208,35 @@ export interface PrivacyInfoResponse {
   retention_days: number;
 }
 
+export interface RegistrationTicketType {
+  id: string;
+  name: string;
+  price: string;
+  applies_to: 'parent' | 'child' | 'either';
+  min_birthdate: string | null;
+  max_birthdate: string | null;
+  kind: 'event' | 'session_bundle';
+}
+
+export interface RegistrationExtraChoice {
+  id: string;
+  label: string;
+  price_delta: string;
+}
+
+export interface RegistrationExtraInfo {
+  id: string;
+  name: string;
+  price: string;
+  session_id: string | null;
+  per_attendee: boolean;
+  applies_to: 'parent' | 'child' | 'either';
+  requires_choice: boolean;
+  required: boolean;
+  default_selected: boolean;
+  choices: RegistrationExtraChoice[];
+}
+
 export interface RegistrationEventInfo {
   id: string;
   name: string;
@@ -216,6 +245,14 @@ export interface RegistrationEventInfo {
   is_paid: boolean;
   price: string | null;
   currency: string;
+  ticket_types: RegistrationTicketType[];
+  extras: RegistrationExtraInfo[];
+}
+
+export interface RegistrationExtraSelectionPayload {
+  extra: string;
+  choice?: string | null;
+  quantity?: number;
 }
 
 export interface RegistrationParentPayload {
@@ -224,6 +261,8 @@ export interface RegistrationParentPayload {
   phone?: string;
   email?: string;
   relationship_type: string;
+  ticket_type?: string | null;
+  extras?: RegistrationExtraSelectionPayload[];
 }
 
 export interface RegistrationChildPayload {
@@ -233,6 +272,8 @@ export interface RegistrationChildPayload {
   allergies?: string;
   notes?: string;
   health_consent_status?: 'not_applicable' | 'granted' | 'declined';
+  ticket_type?: string | null;
+  extras?: RegistrationExtraSelectionPayload[];
 }
 
 export interface RegistrationSubmitPayload {
@@ -241,6 +282,9 @@ export interface RegistrationSubmitPayload {
   contact_email: string;
   parents: RegistrationParentPayload[];
   children: RegistrationChildPayload[];
+  // Per-registration extras (a shared cabin) — distinct from
+  // parents[*]/children[*].extras, which are per-attendee.
+  extras?: RegistrationExtraSelectionPayload[];
   // Honeypot: must stay empty. Hidden from real users via CSS.
   website?: string;
 }

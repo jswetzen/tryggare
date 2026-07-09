@@ -202,3 +202,75 @@ class Payment(models.Model):
     @property
     def reference_code(self) -> str:
         return self.registration.reference_code
+
+
+class RegistrationExtra(models.Model):
+    """One extra (T-shirt, lunch, a shared cabin) attached to a Registration
+    — either to one attendee (``attendee`` set) or to the registration as a
+    whole (``attendee`` null, e.g. a shared cabin).
+
+    The unique constraint below is the row-level guard against the
+    double-tap/two-tab duplicate-submission case: the same per-attendee
+    extra can't be attached to the same attendee twice.
+    """
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    registration = models.ForeignKey(
+        Registration,
+        on_delete=models.CASCADE,
+        related_name="extras",
+        verbose_name=_("Registration"),
+    )
+    extra = models.ForeignKey(
+        "events.Extra",
+        on_delete=models.PROTECT,
+        related_name="registration_extras",
+        verbose_name=_("Extra"),
+    )
+    attendee = models.ForeignKey(
+        "families.Attendee",
+        null=True,
+        blank=True,
+        on_delete=models.CASCADE,
+        related_name="registration_extras",
+        verbose_name=_("Attendee"),
+        help_text=_("Null for a per-registration extra (extra.per_attendee=False)."),
+    )
+    choice = models.ForeignKey(
+        "events.ExtraChoice",
+        null=True,
+        blank=True,
+        on_delete=models.PROTECT,
+        related_name="registration_extras",
+        verbose_name=_("Choice"),
+    )
+    quantity = models.PositiveIntegerField(
+        default=1,
+        verbose_name=_("Quantity"),
+        help_text=_("Only >1 allowed for a per-registration extra (per_attendee=False)."),
+    )
+    price_at_registration = models.DecimalField(
+        max_digits=8,
+        decimal_places=2,
+        verbose_name=_("Price At Registration"),
+        help_text=_(
+            "Snapshotted per-unit price (extra.price + choice.price_delta) "
+            "at submission time — never recomputed afterwards."
+        ),
+    )
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name=_("Created At"))
+
+    class Meta:
+        db_table = "registration_extras"
+        verbose_name = _("Registration Extra")
+        verbose_name_plural = _("Registration Extras")
+        constraints = [
+            models.UniqueConstraint(
+                fields=["registration", "extra", "attendee"],
+                name="unique_registration_extra_attendee",
+            )
+        ]
+        indexes = [models.Index(fields=["registration"])]
+
+    def __str__(self) -> str:
+        return f"{self.extra.name} for {self.registration.reference_code}"

@@ -13,7 +13,7 @@ from families.services import create_family_with_members
 @pytest.mark.django_db
 class TestCreateFamilyWithMembers:
     def test_defaults_to_first_created_parent_when_no_attestor_email(self):
-        family = create_family_with_members(
+        family, _, _ = create_family_with_members(
             last_name="Andersson",
             parents_data=[
                 {"first_name": "Anna", "relationship_type": "MOTHER"},
@@ -31,7 +31,7 @@ class TestCreateFamilyWithMembers:
         assert child.health_consent_by.first_name == "Anna"
 
     def test_matches_attestor_by_email_even_when_not_first(self):
-        family = create_family_with_members(
+        family, _, _ = create_family_with_members(
             last_name="Andersson",
             parents_data=[
                 {
@@ -58,7 +58,7 @@ class TestCreateFamilyWithMembers:
         assert child.health_consent_by.first_name == "Bo"
 
     def test_falls_back_to_first_parent_when_attestor_email_matches_nobody(self):
-        family = create_family_with_members(
+        family, _, _ = create_family_with_members(
             last_name="Andersson",
             parents_data=[
                 {
@@ -80,7 +80,7 @@ class TestCreateFamilyWithMembers:
         assert child.health_consent_by.first_name == "Anna"
 
     def test_child_only_submission_has_no_attestor(self):
-        family = create_family_with_members(
+        family, _, _ = create_family_with_members(
             last_name="KidsOnly",
             parents_data=[],
             children_data=[{"first_name": "Kim"}],
@@ -88,7 +88,7 @@ class TestCreateFamilyWithMembers:
         assert family.children.first().health_consent_by is None
 
     def test_creates_a_new_family_each_call(self):
-        family = create_family_with_members(
+        family, _, _ = create_family_with_members(
             last_name="Andersson", parents_data=[], children_data=[]
         )
         assert Family.objects.filter(pk=family.pk).exists()

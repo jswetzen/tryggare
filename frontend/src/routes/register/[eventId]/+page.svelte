@@ -6,22 +6,40 @@
    * no persistent guardian account. On submit, the backend materializes
    * Family/Parent/Child rows immediately (status=pending_verification) and
    * emails a one-time verification link — see /register/verify/[token].
+   *
+   * Phase 3: when the event has active TicketTypes configured, each
+   * attendee picks one and can attach per-attendee Extras; the booking can
+   * also carry per-registration Extras (e.g. a shared cabin). Events with
+   * no TicketTypes configured keep the original flat-price behavior
+   * unchanged (see backend registrations/pricing.py::calculate_total).
    */
   import { onMount } from 'svelte';
   import { t } from 'svelte-i18n';
   import { page } from '$app/stores';
   import { registrationApi } from '$lib/api/registrationService';
-  import type { RegistrationEventInfo } from '$lib/api/types';
+  import type {
+    RegistrationEventInfo,
+    RegistrationExtraInfo,
+    RegistrationExtraSelectionPayload
+  } from '$lib/api/types';
   import ConsentCapture, { type HealthInfoStatus } from '$lib/components/checkin/ConsentCapture.svelte';
   import { isValidPhone } from '$lib/utils/phone';
 
   type HealthConsentStatus = 'not_applicable' | 'granted' | 'declined';
+
+  interface ExtraSelectionState {
+    selected: boolean;
+    choiceId: string;
+    quantity: number;
+  }
 
   interface ParentRow {
     first_name: string;
     phone: string;
     email: string;
     relationship_type: string;
+    ticketTypeId: string;
+    extraSelections: Record<string, ExtraSelectionState>;
   }
 
   interface ChildRow {
@@ -32,12 +50,21 @@
     notes: string;
     healthInfoStatus: HealthInfoStatus;
     consentNoticeShared: boolean;
+    ticketTypeId: string;
+    extraSelections: Record<string, ExtraSelectionState>;
   }
 
   const eventId = $derived($page.params.eventId ?? '');
 
   function emptyParent(): ParentRow {
-    return { first_name: '', phone: '', email: '', relationship_type: 'OTHER' };
+    return {
+      first_name: '',
+      phone: '',
+      email: '',
+      relationship_type: 'OTHER',
+      ticketTypeId: '',
+      extraSelections: {}
+    };
   }
 
   function emptyChild(): ChildRow {
@@ -48,7 +75,9 @@
       allergies: '',
       notes: '',
       healthInfoStatus: 'none',
-      consentNoticeShared: false
+      consentNoticeShared: false,
+      ticketTypeId: '',
+      extraSelections: {}
     };
   }
 
@@ -60,6 +89,9 @@
   let contactEmail = $state('');
   let parents = $state<ParentRow[]>([emptyParent()]);
   let children = $state<ChildRow[]>([emptyChild()]);
+  // Per-registration extras (e.g. a shared cabin) — one selection state per
+  // Extra, not per person.
+  let registrationExtraSelections = $state<Record<string, ExtraSelectionState>>({});
   // Honeypot: hidden from real users via CSS. Bots that fill every field
   // trip it; the backend responds as if successful but persists nothing.
   let website = $state('');
@@ -78,6 +110,145 @@
     } finally {
       loadingEvent = false;
     }
+  });
+
+  function applicableTicketTypes(isChild: boolean) {
+    if (!eventInfo) return [];
+    const kind = isChild ? 'child' : 'parent';
+    return eventInfo.ticket_types.filter((tt) => tt.applies_to === kind || tt.applies_to === 'either');
+  }
+
+  function applicablePersonExtras(isChild: boolean): RegistrationExtraInfo[] {
+    if (!eventInfo) return [];
+    const kind = isChild ? 'child' : 'parent';
+    return eventInfo.extras.filter(
+      (extra) => extra.per_attendee && (extra.applies_to === kind || extra.applies_to === 'either')
+    );
+  }
+
+  function registrationExtras(): RegistrationExtraInfo[] {
+    return eventInfo ? eventInfo.extras.filter((extra) => !extra.per_attendee) : [];
+  }
+
+  function extraState(
+    selections: Record<string, ExtraSelectionState>,
+    extra: RegistrationExtraInfo
+  ): ExtraSelectionState {
+    // A required extra (case 3.2's must-choose-one, e.g. accommodation)
+    // has no checkbox to toggle — it's mandatory, so it defaults selected
+    // regardless of default_selected. What still needs an explicit answer
+    // is the choice itself (see requiredChoiceMissing below).
+    return (
+      selections[extra.id] ?? {
+        selected: extra.required || extra.default_selected,
+        choiceId: '',
+        quantity: 1
+      }
+    );
+  }
+
+  function setExtraSelected(
+    selections: Record<string, ExtraSelectionState>,
+    extra: RegistrationExtraInfo,
+    selected: boolean
+  ) {
+    selections[extra.id] = { ...extraState(selections, extra), selected };
+  }
+
+  function setExtraChoice(
+    selections: Record<string, ExtraSelectionState>,
+    extra: RegistrationExtraInfo,
+    choiceId: string
+  ) {
+    // Required extras have no checkbox — picking a choice is itself what
+    // marks the extra as selected.
+    selections[extra.id] = { ...extraState(selections, extra), choiceId, selected: true };
+  }
+
+  function requiredChoiceMissing(
+    selections: Record<string, ExtraSelectionState>,
+    extras: RegistrationExtraInfo[]
+  ): boolean {
+    return extras.some(
+      (extra) => extra.required && extra.requires_choice && extraState(selections, extra).choiceId === ''
+    );
+  }
+
+  function setExtraQuantity(
+    selections: Record<string, ExtraSelectionState>,
+    extra: RegistrationExtraInfo,
+    quantity: number
+  ) {
+    selections[extra.id] = { ...extraState(selections, extra), quantity: Math.max(1, quantity) };
+  }
+
+  function suggestChildTicketType(child: ChildRow) {
+    if (!eventInfo || child.ticketTypeId || !child.birthdate) return;
+    const candidates = applicableTicketTypes(true).filter(
+      (tt) =>
+        (!tt.min_birthdate || child.birthdate >= tt.min_birthdate) &&
+        (!tt.max_birthdate || child.birthdate <= tt.max_birthdate)
+    );
+    // Prefer a type with an actual age window over one with none — an
+    // unbounded "either" type (e.g. "All inclusive", no age limit) always
+    // matches and must not shadow a more specific age-tiered type (e.g.
+    // "0-6 år") just because it happens to sort first. Only fall back to
+    // an unbounded type when nothing more specific matches.
+    const bounded = candidates.find((tt) => tt.min_birthdate || tt.max_birthdate);
+    const match = bounded ?? candidates[0];
+    if (match) child.ticketTypeId = match.id;
+  }
+
+  function buildExtraSelections(
+    selections: Record<string, ExtraSelectionState>,
+    extras: RegistrationExtraInfo[]
+  ): RegistrationExtraSelectionPayload[] {
+    const result: RegistrationExtraSelectionPayload[] = [];
+    for (const extra of extras) {
+      // Use extraState's default_selected fallback, not a raw lookup — an
+      // opt-out-by-default extra (case 2.1) the guardian never explicitly
+      // toggled must still submit as selected, matching what the checkbox
+      // displays. Reading selections[extra.id] directly here would drop it
+      // from the payload while the UI still showed it checked.
+      const state = extraState(selections, extra);
+      if (!state.selected) continue;
+      result.push({
+        extra: extra.id,
+        choice: state.choiceId || null,
+        quantity: state.quantity || 1
+      });
+    }
+    return result;
+  }
+
+  function priceOf(extra: RegistrationExtraInfo, state: ExtraSelectionState): number {
+    if (!state.selected) return 0;
+    const choice = extra.choices.find((c) => c.id === state.choiceId);
+    const unit = parseFloat(extra.price) + (choice ? parseFloat(choice.price_delta) : 0);
+    return unit * (state.quantity || 1);
+  }
+
+  let runningTotal = $derived.by(() => {
+    if (!eventInfo) return 0;
+    let total = 0;
+    for (const parent of parents) {
+      const ticketType = eventInfo.ticket_types.find((tt) => tt.id === parent.ticketTypeId);
+      if (ticketType) total += parseFloat(ticketType.price);
+      for (const extra of applicablePersonExtras(false)) {
+        total += priceOf(extra, extraState(parent.extraSelections, extra));
+      }
+    }
+    for (const child of children) {
+      const ticketType = eventInfo.ticket_types.find((tt) => tt.id === child.ticketTypeId);
+      if (ticketType) total += parseFloat(ticketType.price);
+      for (const extra of applicablePersonExtras(true)) {
+        total += priceOf(extra, extraState(child.extraSelections, extra));
+      }
+    }
+    for (const extra of registrationExtras()) {
+      total += priceOf(extra, extraState(registrationExtraSelections, extra));
+    }
+    return total;
   });
 
   function handleAddParent() {
@@ -116,14 +287,7 @@
       }
     }
 
-    const validParents = parents
-      .filter((p) => p.first_name.trim().length > 0)
-      .map((p) => ({
-        first_name: p.first_name.trim(),
-        phone: p.phone.trim(),
-        email: p.email.trim(),
-        relationship_type: p.relationship_type
-      }));
+    const validParents = parents.filter((p) => p.first_name.trim().length > 0);
 
     if (children.length === 0 && validParents.length === 0) {
       error = $t('checkin.atLeastOneMemberRequired');
@@ -135,6 +299,25 @@
         error = $t('checkin.invalidPhone');
         return;
       }
+    }
+
+    const requiresTicketType = !!eventInfo && eventInfo.ticket_types.length > 0;
+    if (requiresTicketType) {
+      const missing =
+        validParents.some((p) => !p.ticketTypeId) || children.some((c) => !c.ticketTypeId);
+      if (missing) {
+        error = $t('register.ticketTypeRequired');
+        return;
+      }
+    }
+
+    const missingRequiredChoice =
+      validParents.some((p) => requiredChoiceMissing(p.extraSelections, applicablePersonExtras(false))) ||
+      children.some((c) => requiredChoiceMissing(c.extraSelections, applicablePersonExtras(true))) ||
+      requiredChoiceMissing(registrationExtraSelections, registrationExtras());
+    if (missingRequiredChoice) {
+      error = $t('register.requiredExtraMissing');
+      return;
     }
 
     const statusMap: Record<HealthInfoStatus, HealthConsentStatus> = {
@@ -149,15 +332,25 @@
         event: eventId,
         last_name: familyName.trim(),
         contact_email: contactEmail.trim(),
-        parents: validParents,
+        parents: validParents.map((p) => ({
+          first_name: p.first_name.trim(),
+          phone: p.phone.trim(),
+          email: p.email.trim(),
+          relationship_type: p.relationship_type,
+          ticket_type: p.ticketTypeId || null,
+          extras: buildExtraSelections(p.extraSelections, applicablePersonExtras(false))
+        })),
         children: children.map((child) => ({
           first_name: child.first_name.trim(),
           last_name: child.last_name.trim(),
           birthdate: child.birthdate,
           allergies: child.healthInfoStatus === 'consented' ? child.allergies : '',
           notes: child.healthInfoStatus === 'consented' ? child.notes : '',
-          health_consent_status: statusMap[child.healthInfoStatus]
+          health_consent_status: statusMap[child.healthInfoStatus],
+          ticket_type: child.ticketTypeId || null,
+          extras: buildExtraSelections(child.extraSelections, applicablePersonExtras(true))
         })),
+        extras: buildExtraSelections(registrationExtraSelections, registrationExtras()),
         website
       });
       referenceCode = response.reference_code;
@@ -206,7 +399,7 @@
         {$t('register.heading', { values: { event: eventInfo.name } })}
       </h1>
       <p class="text-sm text-neutral-600 mb-1">{$t('register.introText')}</p>
-      {#if eventInfo.is_paid && eventInfo.price}
+      {#if eventInfo.is_paid && eventInfo.price && eventInfo.ticket_types.length === 0}
         <p class="text-sm font-semibold text-neutral-700 mb-4">
           {$t('register.eventPriceNotice', { values: { amount: eventInfo.price, currency: eventInfo.currency } })}
         </p>
@@ -322,6 +515,91 @@
                   />
                 </div>
               </div>
+
+              {#if applicableTicketTypes(false).length > 0}
+                <div class="mt-2">
+                  <label for={`parent-ticket-type-${index}`} class="block text-xs text-neutral-600 mb-1">
+                    {$t('register.ticketTypeLabel')} *
+                  </label>
+                  <select
+                    id={`parent-ticket-type-${index}`}
+                    bind:value={parent.ticketTypeId}
+                    class="w-full px-2 py-1.5 text-sm border border-neutral-300 rounded focus:outline-none focus:ring-2 focus:ring-primary-500"
+                    data-testid={`parent-ticket-type-${index}`}
+                  >
+                    <option value="">{$t('register.ticketTypePlaceholder')}</option>
+                    {#each applicableTicketTypes(false) as ticketType (ticketType.id)}
+                      <option value={ticketType.id}>{ticketType.name} — {ticketType.price} kr</option>
+                    {/each}
+                  </select>
+                </div>
+              {/if}
+
+              {#each applicablePersonExtras(false).filter((extra) => extra.required) as extra (extra.id)}
+                {@const state = extraState(parent.extraSelections, extra)}
+                <div class="mt-2">
+                  <div class="block text-xs text-neutral-600 mb-1">
+                    {extra.name} {extra.price !== '0.00' ? `(${extra.price} kr)` : ''} *
+                  </div>
+                  {#if extra.requires_choice}
+                    <div class="flex items-center gap-3 flex-wrap">
+                      {#each extra.choices as choice (choice.id)}
+                        <label class="flex items-center gap-1 text-sm text-neutral-700">
+                          <input
+                            type="radio"
+                            name={`extra-${extra.id}-parent-${index}`}
+                            checked={state.choiceId === choice.id}
+                            on:change={() => setExtraChoice(parent.extraSelections, extra, choice.id)}
+                          />
+                          {choice.label}{choice.price_delta !== '0.00' ? ` (+${choice.price_delta} kr)` : ''}
+                        </label>
+                      {/each}
+                    </div>
+                  {/if}
+                </div>
+              {/each}
+
+              {#if applicablePersonExtras(false).filter((extra) => !extra.required).length > 0}
+                <div class="mt-2 space-y-1.5">
+                  <div class="block text-xs text-neutral-600">{$t('register.extrasLabel')}</div>
+                  {#each applicablePersonExtras(false).filter((extra) => !extra.required) as extra (extra.id)}
+                    {@const state = extraState(parent.extraSelections, extra)}
+                    <div class="flex items-center gap-2 flex-wrap">
+                      <label class="flex items-center gap-1.5 text-sm text-neutral-700">
+                        <input
+                          type="checkbox"
+                          checked={state.selected}
+                          on:change={(e) =>
+                            setExtraSelected(
+                              parent.extraSelections,
+                              extra,
+                              (e.currentTarget as HTMLInputElement).checked
+                            )}
+                        />
+                        {extra.name} ({extra.price} kr)
+                      </label>
+                      {#if extra.requires_choice && state.selected}
+                        <select
+                          value={state.choiceId}
+                          on:change={(e) =>
+                            setExtraChoice(
+                              parent.extraSelections,
+                              extra,
+                              (e.currentTarget as HTMLSelectElement).value
+                            )}
+                          class="px-2 py-1 text-sm border border-neutral-300 rounded"
+                        >
+                          <option value="">{$t('register.extraChoicePlaceholder')}</option>
+                          {#each extra.choices as choice (choice.id)}
+                            <option value={choice.id}>{choice.label}</option>
+                          {/each}
+                        </select>
+                      {/if}
+                    </div>
+                  {/each}
+                </div>
+              {/if}
+
               {#if parents.length > 1}
                 <button
                   type="button"
@@ -402,10 +680,95 @@
                     id={`child-birthdate-${index}`}
                     type="date"
                     bind:value={child.birthdate}
+                    on:change={() => suggestChildTicketType(child)}
                     class="w-full px-2 py-1.5 text-sm border border-neutral-300 rounded focus:outline-none focus:ring-2 focus:ring-primary-500"
                     required
                   />
                 </div>
+
+                {#if applicableTicketTypes(true).length > 0}
+                  <div>
+                    <label for={`child-ticket-type-${index}`} class="block text-xs text-neutral-600 mb-1">
+                      {$t('register.ticketTypeLabel')} <span class="text-danger-600">*</span>
+                    </label>
+                    <select
+                      id={`child-ticket-type-${index}`}
+                      bind:value={child.ticketTypeId}
+                      class="w-full px-2 py-1.5 text-sm border border-neutral-300 rounded focus:outline-none focus:ring-2 focus:ring-primary-500"
+                      data-testid={`child-ticket-type-${index}`}
+                    >
+                      <option value="">{$t('register.ticketTypePlaceholder')}</option>
+                      {#each applicableTicketTypes(true) as ticketType (ticketType.id)}
+                        <option value={ticketType.id}>{ticketType.name} — {ticketType.price} kr</option>
+                      {/each}
+                    </select>
+                  </div>
+                {/if}
+
+                {#each applicablePersonExtras(true).filter((extra) => extra.required) as extra (extra.id)}
+                  {@const state = extraState(child.extraSelections, extra)}
+                  <div class="md:col-span-2">
+                    <div class="block text-xs text-neutral-600 mb-1">
+                      {extra.name} {extra.price !== '0.00' ? `(${extra.price} kr)` : ''} *
+                    </div>
+                    {#if extra.requires_choice}
+                      <div class="flex items-center gap-3 flex-wrap">
+                        {#each extra.choices as choice (choice.id)}
+                          <label class="flex items-center gap-1 text-sm text-neutral-700">
+                            <input
+                              type="radio"
+                              name={`extra-${extra.id}-child-${index}`}
+                              checked={state.choiceId === choice.id}
+                              on:change={() => setExtraChoice(child.extraSelections, extra, choice.id)}
+                            />
+                            {choice.label}{choice.price_delta !== '0.00' ? ` (+${choice.price_delta} kr)` : ''}
+                          </label>
+                        {/each}
+                      </div>
+                    {/if}
+                  </div>
+                {/each}
+
+                {#if applicablePersonExtras(true).filter((extra) => !extra.required).length > 0}
+                  <div class="md:col-span-2 space-y-1.5">
+                    <div class="block text-xs text-neutral-600">{$t('register.extrasLabel')}</div>
+                    {#each applicablePersonExtras(true).filter((extra) => !extra.required) as extra (extra.id)}
+                      {@const state = extraState(child.extraSelections, extra)}
+                      <div class="flex items-center gap-2 flex-wrap">
+                        <label class="flex items-center gap-1.5 text-sm text-neutral-700">
+                          <input
+                            type="checkbox"
+                            checked={state.selected}
+                            on:change={(e) =>
+                              setExtraSelected(
+                                child.extraSelections,
+                                extra,
+                                (e.currentTarget as HTMLInputElement).checked
+                              )}
+                          />
+                          {extra.name} ({extra.price} kr)
+                        </label>
+                        {#if extra.requires_choice && state.selected}
+                          <select
+                            value={state.choiceId}
+                            on:change={(e) =>
+                              setExtraChoice(
+                                child.extraSelections,
+                                extra,
+                                (e.currentTarget as HTMLSelectElement).value
+                              )}
+                            class="px-2 py-1 text-sm border border-neutral-300 rounded"
+                          >
+                            <option value="">{$t('register.extraChoicePlaceholder')}</option>
+                            {#each extra.choices as choice (choice.id)}
+                              <option value={choice.id}>{choice.label}</option>
+                            {/each}
+                          </select>
+                        {/if}
+                      </div>
+                    {/each}
+                  </div>
+                {/if}
 
                 <div class="md:col-span-2">
                   <ConsentCapture
@@ -429,6 +792,98 @@
           + {$t('checkin.addAnotherChild')}
         </button>
       </div>
+
+      {#each registrationExtras().filter((extra) => extra.required) as extra (extra.id)}
+        {@const state = extraState(registrationExtraSelections, extra)}
+        <div class="mb-4">
+          <div class="block text-xs text-neutral-600 mb-1">
+            {extra.name} {extra.price !== '0.00' ? `(${extra.price} kr)` : ''} *
+          </div>
+          {#if extra.requires_choice}
+            <div class="flex items-center gap-3 flex-wrap">
+              {#each extra.choices as choice (choice.id)}
+                <label class="flex items-center gap-1 text-sm text-neutral-700">
+                  <input
+                    type="radio"
+                    name={`extra-${extra.id}-registration`}
+                    checked={state.choiceId === choice.id}
+                    on:change={() => setExtraChoice(registrationExtraSelections, extra, choice.id)}
+                  />
+                  {choice.label}{choice.price_delta !== '0.00' ? ` (+${choice.price_delta} kr)` : ''}
+                </label>
+              {/each}
+            </div>
+          {/if}
+        </div>
+      {/each}
+
+      {#if registrationExtras().filter((extra) => !extra.required).length > 0}
+        <div class="mb-4">
+          <div class="block text-sm font-semibold text-neutral-700 mb-2">
+            {$t('register.registrationExtrasHeading')}:
+          </div>
+          <div class="space-y-2">
+            {#each registrationExtras().filter((extra) => !extra.required) as extra (extra.id)}
+              {@const state = extraState(registrationExtraSelections, extra)}
+              <div class="flex items-center gap-2 flex-wrap border border-neutral-200 rounded p-2 bg-neutral-50">
+                <label class="flex items-center gap-1.5 text-sm text-neutral-700">
+                  <input
+                    type="checkbox"
+                    checked={state.selected}
+                    on:change={(e) =>
+                      setExtraSelected(
+                        registrationExtraSelections,
+                        extra,
+                        (e.currentTarget as HTMLInputElement).checked
+                      )}
+                  />
+                  {extra.name} ({extra.price} kr)
+                </label>
+                {#if extra.requires_choice && state.selected}
+                  <select
+                    value={state.choiceId}
+                    on:change={(e) =>
+                      setExtraChoice(
+                        registrationExtraSelections,
+                        extra,
+                        (e.currentTarget as HTMLSelectElement).value
+                      )}
+                    class="px-2 py-1 text-sm border border-neutral-300 rounded"
+                  >
+                    <option value="">{$t('register.extraChoicePlaceholder')}</option>
+                    {#each extra.choices as choice (choice.id)}
+                      <option value={choice.id}>{choice.label}</option>
+                    {/each}
+                  </select>
+                {/if}
+                {#if state.selected}
+                  <label class="flex items-center gap-1.5 text-sm text-neutral-700">
+                    {$t('register.quantityLabel')}
+                    <input
+                      type="number"
+                      min="1"
+                      value={state.quantity}
+                      on:change={(e) =>
+                        setExtraQuantity(
+                          registrationExtraSelections,
+                          extra,
+                          parseInt((e.currentTarget as HTMLInputElement).value, 10) || 1
+                        )}
+                      class="w-16 px-2 py-1 text-sm border border-neutral-300 rounded"
+                    />
+                  </label>
+                {/if}
+              </div>
+            {/each}
+          </div>
+        </div>
+      {/if}
+
+      {#if eventInfo.ticket_types.length > 0}
+        <div class="mb-4 text-right text-sm font-semibold text-neutral-700" data-testid="register-running-total">
+          {$t('register.totalLabel')}: {runningTotal.toFixed(2)} kr
+        </div>
+      {/if}
 
       <div class="flex items-center justify-end gap-3">
         <button
