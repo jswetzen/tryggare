@@ -16,6 +16,7 @@ reviewed by someone qualified before relying on it.
 | [`DPA_TEMPLATE.md`](DPA_TEMPLATE.md) | Signable Art. 28 DPA draft for the hosted/SaaS scenario. |
 | [`TECHNICAL_ANNEX.md`](TECHNICAL_ANNEX.md) | Confidential infra/security detail backing DPA §6 and DPIA §4/§6 (hosted/SaaS scenario). |
 | [`BREACH_NOTIFICATION_PROCESS.md`](BREACH_NOTIFICATION_PROCESS.md) | What to do if data is breached. |
+| [`ONBOARDING_CHECKLIST_TEMPLATE.md`](ONBOARDING_CHECKLIST_TEMPLATE.md) | Step-by-step checklist tying all of the above together before go-live. |
 
 ## Real (non-template) drafts — gitignored, not in this listing's repo copy
 

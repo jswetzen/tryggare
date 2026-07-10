@@ -10,7 +10,17 @@ from django.core.management.base import BaseCommand
 from django.utils import timezone
 
 from checkins.models import AuditLog, CheckInRecord, QRCode
-from events.models import Event, EventTicket, Session, SessionTicket, Ticket
+from events.models import (
+    AppliesTo,
+    Event,
+    EventTicket,
+    Extra,
+    ExtraChoice,
+    Session,
+    SessionTicket,
+    Ticket,
+    TicketType,
+)
 from families.models import Child, Family, Parent
 
 
@@ -297,5 +307,335 @@ class Command(BaseCommand):
             self.style.SUCCESS(
                 f"Demo data seeded: {len(children)} children in {len(families)} families, "
                 f"{len(checkin_data)} checked in to Morning Session."
+            )
+        )
+
+        self._seed_registration_demo_event()
+
+    def _seed_registration_demo_event(self):
+        """A second, separate event configured (not populated with
+        registrations — those are meant to be created live via the public
+        /register/[eventId] form) to showcase self-serve registration's
+        itemized ticket types and extras as completely as one event
+        reasonably can: birthdate-tiered pricing, a hidden volunteer
+        ticket, a session-scoped extra with dietary choices, a
+        must-choose-one extra, an opt-out-by-default extra, and a
+        per-registration (shared cabin) extra with quantity.
+        """
+        today = date.today()
+        camp, _ = Event.objects.get_or_create(
+            name="Sommarläger 2026",
+            defaults={
+                "start_date": today + timedelta(days=30),
+                "end_date": today + timedelta(days=32),
+            },
+        )
+        # Self-serve registration is closed by default (see
+        # Event.registration_window_status) — demo/seed events opt in
+        # explicitly so the public form stays reachable for testing. Set
+        # unconditionally (not just in `defaults`) so a re-run against a
+        # dev DB seeded before this field existed still opens it.
+        if camp.registration_opens_at is None:
+            camp.registration_opens_at = timezone.now() - timedelta(days=1)
+            camp.save(update_fields=["registration_opens_at"])
+
+        session_defs = [
+            ("Fredag", 0, 16, 22),
+            ("Lördag", 1, 8, 22),
+            ("Söndag", 2, 8, 14),
+        ]
+        camp_sessions = {}
+        for name, day_offset, start_hour, end_hour in session_defs:
+            day = camp.start_date + timedelta(days=day_offset)
+            session, _ = Session.objects.get_or_create(
+                event=camp,
+                name=name,
+                defaults={
+                    "start_time": timezone.make_aware(
+                        timezone.datetime.combine(
+                            day, timezone.datetime.min.time()
+                        ).replace(hour=start_hour)
+                    ),
+                    "end_time": timezone.make_aware(
+                        timezone.datetime.combine(
+                            day, timezone.datetime.min.time()
+                        ).replace(hour=end_hour)
+                    ),
+                    "is_active": False,
+                },
+            )
+            camp_sessions[name] = session
+
+        # --- Ticket types: birthdate-tiered pricing (case 2.2) + a hidden
+        # volunteer type unlocked only via a direct link (case 5.4/10.2) ---
+        TicketType.objects.get_or_create(
+            event=camp,
+            name="Barn (0-12 år)",
+            defaults={
+                "price": 400,
+                "applies_to": AppliesTo.CHILD,
+                "min_birthdate": camp.start_date.replace(
+                    year=camp.start_date.year - 12
+                ),
+                "max_birthdate": camp.start_date,
+                "sort_order": 1,
+            },
+        )
+        TicketType.objects.get_or_create(
+            event=camp,
+            name="Ungdom (13-17 år)",
+            defaults={
+                "price": 700,
+                "applies_to": AppliesTo.CHILD,
+                "min_birthdate": camp.start_date.replace(
+                    year=camp.start_date.year - 17
+                ),
+                "max_birthdate": camp.start_date.replace(
+                    year=camp.start_date.year - 13
+                ),
+                "sort_order": 2,
+            },
+        )
+        TicketType.objects.get_or_create(
+            event=camp,
+            name="Vuxen",
+            defaults={
+                "price": 1100,
+                "applies_to": AppliesTo.PARENT,
+                "sort_order": 3,
+            },
+        )
+        TicketType.objects.get_or_create(
+            event=camp,
+            name="Ledare",
+            defaults={
+                "price": 0,
+                "applies_to": AppliesTo.EITHER,
+                "is_hidden": True,
+                "sort_order": 4,
+            },
+        )
+
+        # --- Extras ---
+        # Session-scoped, with a structured dietary choice (case 3.1/3.2) —
+        # a kitchen-facing choice, never a disclosed health condition.
+        dinner, _ = Extra.objects.get_or_create(
+            event=camp,
+            name="Lördagsmiddag",
+            defaults={
+                "session": camp_sessions["Lördag"],
+                "price": 150,
+                "per_attendee": True,
+                "applies_to": AppliesTo.EITHER,
+                "requires_choice": True,
+            },
+        )
+        for label, sort_order in [("Vanlig", 0), ("Vegetarisk", 1), ("Vegansk", 2), ("Glutenfri", 3)]:
+            ExtraChoice.objects.get_or_create(
+                extra=dinner, label=label, defaults={"sort_order": sort_order}
+            )
+
+        # Plain choice extra, no session scope.
+        shirt, _ = Extra.objects.get_or_create(
+            event=camp,
+            name="T-shirt",
+            defaults={
+                "price": 100,
+                "per_attendee": True,
+                "applies_to": AppliesTo.EITHER,
+                "requires_choice": True,
+            },
+        )
+        for label, sort_order in [("S", 0), ("M", 1), ("L", 2), ("XL", 3)]:
+            ExtraChoice.objects.get_or_create(
+                extra=shirt, label=label, defaults={"sort_order": sort_order}
+            )
+
+        # Must-choose-one extra (case 3.2's `required` field — renders as
+        # radio, not an optional checkbox).
+        accommodation, _ = Extra.objects.get_or_create(
+            event=camp,
+            name="Boende",
+            defaults={
+                "price": 0,
+                "per_attendee": True,
+                "applies_to": AppliesTo.EITHER,
+                "requires_choice": True,
+                "required": True,
+            },
+        )
+        for label, sort_order in [("Tält (eget)", 0), ("Stuga", 1), ("Bor hemma", 2)]:
+            ExtraChoice.objects.get_or_create(
+                extra=accommodation, label=label, defaults={"sort_order": sort_order}
+            )
+
+        # Opt-out-by-default extra (case 2.1) — meals included unless the
+        # guardian actively declines, never modeled as a negative price.
+        Extra.objects.get_or_create(
+            event=camp,
+            name="Måltider hela helgen",
+            defaults={
+                "price": 300,
+                "per_attendee": True,
+                "applies_to": AppliesTo.EITHER,
+                "default_selected": True,
+            },
+        )
+
+        # Per-registration extra with quantity (case 3.3) — one shared
+        # cabin per family, not per attendee.
+        Extra.objects.get_or_create(
+            event=camp,
+            name="Delat boende (stuga) - extra bäddar",
+            defaults={
+                "price": 300,
+                "per_attendee": False,
+            },
+        )
+
+        self.stdout.write(
+            self.style.SUCCESS(
+                "Registration demo event seeded: 'Sommarläger 2026' "
+                "(4 ticket types, 5 extras) — register at /register/"
+                f"{camp.id}"
+            )
+        )
+
+        self._seed_church_weekend_demo_event()
+
+    def _seed_church_weekend_demo_event(self):
+        """A real-world reproduction of a live ChurchSuite event
+        ("Weekend 2026", brokyrkan.churchsuite.com/events/sp1vw0ma),
+        modeled as faithfully as this system currently allows — see the
+        conversation this was built from for the full comparison. Two
+        deliberate improvements over the original: the "VIP" special-
+        arrangement ticket is hidden (case 5.4/10.2) rather than publicly
+        listed on the honor system, and payment reconciliation uses this
+        system's per-registration reference code instead of one static
+        Swish message shared by every family. One deliberate gap, noted
+        rather than faked: ChurchSuite's "which tent/room" question is
+        only shown/required if the guardian said they're staying
+        overnight — conditional-required fields aren't a case this system
+        has a story for yet, so both accommodation questions render
+        unconditionally required here.
+        """
+        today = date.today()
+        weekend, _ = Event.objects.get_or_create(
+            name="Weekend 2026",
+            defaults={
+                "start_date": today + timedelta(days=60),
+                "end_date": today + timedelta(days=62),
+            },
+        )
+        if weekend.registration_opens_at is None:
+            weekend.registration_opens_at = timezone.now() - timedelta(days=1)
+            weekend.save(update_fields=["registration_opens_at"])
+
+        TicketType.objects.get_or_create(
+            event=weekend,
+            name="All inclusive",
+            defaults={
+                "price": 600,
+                "applies_to": AppliesTo.EITHER,
+                "sort_order": 1,
+            },
+        )
+        TicketType.objects.get_or_create(
+            event=weekend,
+            name="0-6 år",
+            defaults={
+                "price": 0,
+                "applies_to": AppliesTo.CHILD,
+                "min_birthdate": weekend.start_date.replace(
+                    year=weekend.start_date.year - 6
+                ),
+                "max_birthdate": weekend.start_date,
+                "sort_order": 2,
+            },
+        )
+        TicketType.objects.get_or_create(
+            event=weekend,
+            name="Familjebiljett",
+            defaults={
+                "price": 2000,
+                "applies_to": AppliesTo.EITHER,
+                "sort_order": 3,
+            },
+        )
+        TicketType.objects.get_or_create(
+            event=weekend,
+            name="Familjebiljett - familjemedlem",
+            defaults={
+                "price": 0,
+                "applies_to": AppliesTo.EITHER,
+                "sort_order": 4,
+            },
+        )
+        # ChurchSuite lists this publicly, trusting guests not to pick it
+        # without a real arrangement — hidden here instead (case 5.4/10.2).
+        TicketType.objects.get_or_create(
+            event=weekend,
+            name="VIP",
+            defaults={
+                "price": 0,
+                "applies_to": AppliesTo.EITHER,
+                "is_hidden": True,
+                "sort_order": 5,
+            },
+        )
+
+        Extra.objects.get_or_create(
+            event=weekend,
+            name="Övernattning",
+            defaults={
+                "price": 0,
+                "per_attendee": True,
+                "applies_to": AppliesTo.EITHER,
+                "requires_choice": True,
+                "required": True,
+            },
+        )
+        overnight = Extra.objects.get(event=weekend, name="Övernattning")
+        for label, sort_order in [
+            ("Nej", 0),
+            ("Fredag - Lördag", 1),
+            ("Lördag - Söndag", 2),
+            ("Båda nätterna", 3),
+        ]:
+            ExtraChoice.objects.get_or_create(
+                extra=overnight, label=label, defaults={"sort_order": sort_order}
+            )
+
+        # Genuinely only relevant if `overnight` != "Nej" — ChurchSuite
+        # marks it unconditionally required too, so this isn't a
+        # regression, but it's still the gap worth naming: this system has
+        # no conditional-required mechanism.
+        Extra.objects.get_or_create(
+            event=weekend,
+            name="Boendeform",
+            defaults={
+                "price": 0,
+                "per_attendee": True,
+                "applies_to": AppliesTo.EITHER,
+                "requires_choice": True,
+                "required": True,
+            },
+        )
+        accommodation_kind = Extra.objects.get(event=weekend, name="Boendeform")
+        for label, sort_order in [
+            ("Husvagn/husbil", 0),
+            ("Tält", 1),
+            ("Rum", 2),
+            ("Annat", 3),
+        ]:
+            ExtraChoice.objects.get_or_create(
+                extra=accommodation_kind, label=label, defaults={"sort_order": sort_order}
+            )
+
+        self.stdout.write(
+            self.style.SUCCESS(
+                "Registration demo event seeded: 'Weekend 2026' "
+                "(5 ticket types, 2 required extras) — register at "
+                f"/register/{weekend.id}"
             )
         )

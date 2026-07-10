@@ -10,4 +10,6 @@ Future work and deferred ideas. Each file is a lightweight stub — enough conte
 | `print_queue_stale_on_checkout.md` | Cancel pending print queue entries on checkout | Low |
 | `open_source_launch.md` | Repo cleanup, governance docs, CI/CD, and marketing for public launch | Medium |
 | `gdpr_compliance.md` | GDPR hardening follow-ups (scheduler, encryption-at-rest, self-service DSAR) | Low |
+| `event_registration_and_mailing.md` | Self-serve registration, consent renewal, transactional/marketing email | Medium-High |
+| `payment_processing.md` | Swish/Bankgiro manual payment verification | Medium |
 | `archive/` | Completed deferred items, kept for context | — |

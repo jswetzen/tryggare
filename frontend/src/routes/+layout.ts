@@ -22,12 +22,17 @@ interface AuthCheckResponse {
 }
 
 export async function load({ url }) {
-  // Skip auth check entirely on login page, the privacy notice, or if not in
-  // browser — both are publicly accessible without logging in. QR pages are
-  // also publicly accessible but are handled separately below: they still
-  // attempt an auth check (without redirecting) so logged-in staff see the
-  // fuller view.
-  if (!browser || url.pathname === '/login' || url.pathname === '/privacy') {
+  // Skip auth check entirely on login page, the privacy notice, the public
+  // self-serve registration form/verify pages, or if not in browser — all
+  // are publicly accessible without logging in. QR pages are also publicly
+  // accessible but are handled separately below: they still attempt an auth
+  // check (without redirecting) so logged-in staff see the fuller view.
+  if (
+    !browser ||
+    url.pathname === '/login' ||
+    url.pathname === '/privacy' ||
+    url.pathname.startsWith('/register/')
+  ) {
     return { user: null };
   }
 

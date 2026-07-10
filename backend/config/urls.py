@@ -29,6 +29,13 @@ from imports.views import (
     source_detail_view,
 )
 from printing.views import label_page_view
+from registrations.views import (
+    registration_event_info,
+    registration_payment_status,
+    submit_registration,
+    validate_promo_code,
+    verify_registration,
+)
 
 # Create API router
 router = DefaultRouter()
@@ -67,6 +74,28 @@ urlpatterns = [
     path(
         "api/privacy/", privacy_info, name="privacy-info"
     ),  # Public data-controller info for the privacy page/notice
+    # Public self-serve registration endpoints (unauthenticated, own throttle scope)
+    path("api/registrations/", submit_registration, name="registration-submit"),
+    path(
+        "api/registrations/verify/<str:token>/",
+        verify_registration,
+        name="registration-verify",
+    ),
+    path(
+        "api/registrations/events/<uuid:event_id>/",
+        registration_event_info,
+        name="registration-event-info",
+    ),
+    path(
+        "api/registrations/payment-status/",
+        registration_payment_status,
+        name="registration-payment-status",
+    ),
+    path(
+        "api/registrations/validate-promo-code/",
+        validate_promo_code,
+        name="registration-validate-promo-code",
+    ),
     # Import endpoints (must be before the catch-all)
     path(
         "api/imports/discover-prefixes/",

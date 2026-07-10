@@ -56,7 +56,7 @@ test: test-unit test-e2e
 
 test-unit:
 	@echo "Running unit tests..."
-	@uv run --group test python manage.py test accounts checkins events families printing
+	@uv run --group test python manage.py test accounts checkins events families printing registrations
 
 test-integration:
 	@echo "Running integration tests..."

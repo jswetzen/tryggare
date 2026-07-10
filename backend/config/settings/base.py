@@ -40,6 +40,8 @@ INSTALLED_APPS = [
     "imports",
     "reports",
     "demo",
+    "notifications",
+    "registrations",
 ]
 
 MIDDLEWARE = [
@@ -172,6 +174,18 @@ REST_FRAMEWORK = {
         "anon": "10/minute",  # Anonymous users
         "user": "100/minute",  # Authenticated users
         "login": "5/minute",  # Login attempts
+        # Deliberately loose, not the initially-considered 3/hour: on-site
+        # bulk registration by one youth leader on shared venue wifi is a
+        # normal workload for this product (see registrations/views.py).
+        # Dedup + resend-cooldown on (event, contact_email) is the actual
+        # abuse control, not this per-IP cap.
+        "registration_submit": "30/hour",
+        "registration_payment_status": "20/hour",
+        # Live-typing validation while filling the form — looser than the
+        # submit rate itself since one guardian may retype a code a few
+        # times, but still bounded (this is also the only place an
+        # unauthenticated caller can probe for valid promo codes).
+        "registration_validate_promo_code": "60/hour",
     },
 }
 
@@ -197,11 +211,52 @@ DATA_CONTROLLER_CONTACT_EMAIL = os.getenv("DATA_CONTROLLER_CONTACT_EMAIL", "")
 DATA_CONTROLLER_URL = os.getenv("DATA_CONTROLLER_URL", "")
 PRIVACY_POLICY_URL = os.getenv("PRIVACY_POLICY_URL", "")
 
+# Swish/Bankgiro payee config (registrations/swish.py). Single-tenant,
+# per-deployment — one congregation, one number each — matching the
+# DATA_CONTROLLER_* pattern above rather than a DB-configurable multi-tenant
+# field. Blank-safe: a deployment with no Swish number configured simply
+# omits swish_url/swish_qr_data_url from payment instructions (Bankgiro-only).
+SWISH_PAYEE_NUMBER = os.getenv("SWISH_PAYEE_NUMBER", "")
+BANKGIRO_NUMBER = os.getenv("BANKGIRO_NUMBER", "")
+
 # Version tag for the health-data consent notice shown at registration
 # (Art. 9(2)(a)). Bump this whenever the notice text changes — existing
 # consent records keep the version they were granted under (grandfathered);
 # only new registrations see the new text. See Child.health_consent_notice_version.
 HEALTH_CONSENT_NOTICE_VERSION = os.getenv("HEALTH_CONSENT_NOTICE_VERSION", "v2-2026-07")
+
+# Demo mode also gates the notifications NullProvider fallback (see
+# notifications/providers.py) — kept as a proper setting rather than a
+# scattered os.getenv so it's overridable in tests. demo/apps.py's own
+# scheduler still reads the env var directly; this doesn't replace that.
+DEMO_MODE = os.getenv("DEMO_MODE", "false").lower() == "true"
+
+# Email sending (see notifications/providers.py). Deliberately optional —
+# leaving EMAIL_HOST unset is a supported "no email" deployment mode (e.g.
+# the public demo instance), not a misconfiguration. EMAIL_PROVIDER selects
+# the implementation; "smtp" is the only one that exists today.
+EMAIL_PROVIDER = os.getenv("EMAIL_PROVIDER", "smtp")
+EMAIL_HOST = os.getenv("EMAIL_HOST", "")
+EMAIL_PORT = int(os.getenv("EMAIL_PORT", "587"))
+EMAIL_HOST_USER = os.getenv("EMAIL_HOST_USER", "")
+EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD", "")
+EMAIL_USE_TLS = os.getenv("EMAIL_USE_TLS", "true").lower() == "true"
+DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL", "")
+
+# Base URL of the SvelteKit frontend, used to build links sent by email (e.g.
+# the registration verification link) — these must resolve to the frontend's
+# real routes even though the Django backend is on a different origin in dev
+# (localhost:5173 vs :8000); in prod-like/production a single container
+# serves both, so this is normally the same origin as the API.
+FRONTEND_BASE_URL = os.getenv("FRONTEND_BASE_URL", "http://localhost:5173")
+
+# Send-budget circuit breaker (see notifications/providers.py::SmtpProvider.send()).
+# A burst from one feature (e.g. self-serve registration) must not exhaust the
+# shared transactional channel that other features (consent-renewal mail) also
+# depend on. Default cap is well under Simply.com's ~300msg/4h auto-suspend
+# threshold, leaving headroom for other senders sharing the same window.
+EMAIL_SEND_BUDGET_MAX = int(os.getenv("EMAIL_SEND_BUDGET_MAX", "200"))
+EMAIL_SEND_BUDGET_WINDOW_HOURS = int(os.getenv("EMAIL_SEND_BUDGET_WINDOW_HOURS", "4"))
 
 CHANNEL_LAYERS = {
     "default": {

@@ -11,7 +11,7 @@ from rest_framework.response import Response
 from families.models import Attendee, Parent
 from events.models import Session
 
-from .eligibility import parent_checkin_gate_error
+from .eligibility import parent_checkin_gate_error, registration_checkin_gate_error
 from .audit import log_audit
 from .models import AuditLog, CheckInRecord
 from .serializers import (
@@ -70,6 +70,12 @@ class CheckInRecordViewSet(viewsets.ModelViewSet):
         if parent is not None:
             attendee = parent
         is_parent = parent is not None
+
+        registration_gate_error = registration_checkin_gate_error(attendee, session)
+        if registration_gate_error:
+            return Response(
+                {"error": registration_gate_error}, status=status.HTTP_400_BAD_REQUEST
+            )
 
         if is_parent:
             # Parent check-in: gated by the session's parent_checkin_policy,

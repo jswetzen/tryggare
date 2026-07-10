@@ -8,7 +8,16 @@ from django.test import TestCase
 from django.utils import timezone
 from rest_framework.test import APIClient
 
-from events.models import Event, EventTicket, Session, SessionTicket
+from events.models import (
+    Event,
+    Extra,
+    ExtraChoice,
+    EventTicket,
+    RegistrationWindowStatus,
+    Session,
+    SessionTicket,
+    TicketType,
+)
 from families.models import Child, Family
 from accounts.models import AdminUser
 
@@ -349,3 +358,186 @@ class AutoCheckoutOnDeactivateTest(TestCase):
             supervised=False,
         ).exclude(session=new_session)
         self.assertFalse(open_standard.exists())
+
+
+class TicketTypeExtraModelTest(TestCase):
+    """Phase 3 itemization models: TicketType, Extra, ExtraChoice."""
+
+    def setUp(self):
+        self.event = Event.objects.create(
+            name="Summer Camp",
+            start_date=timezone.now().date(),
+            end_date=timezone.now().date() + timezone.timedelta(days=2),
+        )
+        self.session = Session.objects.create(
+            event=self.event,
+            name="Saturday",
+            start_time=timezone.now(),
+            end_time=timezone.now() + timezone.timedelta(hours=8),
+        )
+        self.family = Family.objects.create()
+        self.child = Child.objects.create(
+            family=self.family,
+            first_name="Ebba",
+            last_name="Test",
+            birthdate=timezone.now().date(),
+        )
+
+    def test_ticket_type_str(self):
+        ticket_type = TicketType.objects.create(
+            event=self.event, name="Child 0-12", price=400
+        )
+        self.assertEqual(str(ticket_type), "Summer Camp - Child 0-12")
+
+    def test_ticket_type_defaults(self):
+        ticket_type = TicketType.objects.create(
+            event=self.event, name="Adult", price=1100
+        )
+        self.assertEqual(ticket_type.applies_to, "either")
+        self.assertEqual(ticket_type.kind, TicketType.Kind.EVENT)
+        self.assertTrue(ticket_type.is_active)
+        self.assertFalse(ticket_type.is_hidden)
+        self.assertIsNone(ticket_type.capacity)
+
+    def test_ticket_type_session_bundle(self):
+        ticket_type = TicketType.objects.create(
+            event=self.event,
+            name="Saturday only",
+            price=350,
+            kind=TicketType.Kind.SESSION_BUNDLE,
+        )
+        ticket_type.sessions.add(self.session)
+        self.assertIn(self.session, ticket_type.sessions.all())
+        self.assertIn(ticket_type, self.session.bundle_ticket_types.all())
+
+    def test_extra_choice_relation(self):
+        extra = Extra.objects.create(
+            event=self.event, name="T-shirt", requires_choice=True
+        )
+        small = ExtraChoice.objects.create(extra=extra, label="S")
+        large = ExtraChoice.objects.create(
+            extra=extra, label="L", price_delta=20, sort_order=1
+        )
+        self.assertEqual(list(extra.choice_rows.all()), [small, large])
+        self.assertEqual(str(small), "T-shirt - S")
+
+    def test_extra_session_scoping(self):
+        extra = Extra.objects.create(
+            event=self.event, name="Saturday dinner", session=self.session, price=150
+        )
+        self.assertEqual(extra.session, self.session)
+        self.assertIn(extra, self.session.extras.all())
+
+    def test_event_ticket_protects_ticket_type_from_deletion(self):
+        ticket_type = TicketType.objects.create(
+            event=self.event, name="Child 0-12", price=400
+        )
+        EventTicket.objects.create(
+            attendee=self.child,
+            event=self.event,
+            ticket_type=ticket_type,
+            price_at_registration=400,
+        )
+        with self.assertRaises(Exception):
+            ticket_type.delete()
+
+    def test_registration_extra_protects_extra_from_deletion(self):
+        from registrations.models import Registration, RegistrationExtra
+
+        extra = Extra.objects.create(event=self.event, name="Cabin", per_attendee=False)
+        registration = Registration.objects.create(
+            event=self.event,
+            family=self.family,
+            contact_email="a@example.com",
+            verification_token_hash="x" * 64,
+        )
+        RegistrationExtra.objects.create(
+            registration=registration,
+            extra=extra,
+            attendee=None,
+            price_at_registration=0,
+        )
+        with self.assertRaises(Exception):
+            extra.delete()
+
+    def test_registration_extra_unique_per_attendee(self):
+        from django.db import IntegrityError, transaction
+
+        from registrations.models import Registration, RegistrationExtra
+
+        extra = Extra.objects.create(event=self.event, name="Lunch", price=50)
+        registration = Registration.objects.create(
+            event=self.event,
+            family=self.family,
+            contact_email="a@example.com",
+            verification_token_hash="y" * 64,
+        )
+        RegistrationExtra.objects.create(
+            registration=registration,
+            extra=extra,
+            attendee=self.child,
+            price_at_registration=50,
+        )
+        with self.assertRaises(IntegrityError):
+            with transaction.atomic():
+                RegistrationExtra.objects.create(
+                    registration=registration,
+                    extra=extra,
+                    attendee=self.child,
+                    price_at_registration=50,
+                )
+
+
+class RegistrationWindowStatusTest(TestCase):
+    """Event.registration_window_status — the actual enforcement point for
+    the public registration endpoint gate, and what the landing page reads
+    to decide what to show (see event_registration_ux_case_catalog.md,
+    punch-list item 13: nothing gated the public endpoint before this)."""
+
+    def _make_event(self, **kwargs):
+        return Event.objects.create(
+            name="Camp",
+            start_date=timezone.now().date(),
+            end_date=timezone.now().date(),
+            **kwargs,
+        )
+
+    def test_both_unset_is_not_configured(self):
+        event = self._make_event()
+        self.assertEqual(
+            event.registration_window_status, RegistrationWindowStatus.NOT_CONFIGURED
+        )
+
+    def test_before_opens_at_is_not_open_yet(self):
+        event = self._make_event(
+            registration_opens_at=timezone.now() + timezone.timedelta(days=1)
+        )
+        self.assertEqual(
+            event.registration_window_status, RegistrationWindowStatus.NOT_OPEN_YET
+        )
+
+    def test_within_window_is_open(self):
+        event = self._make_event(
+            registration_opens_at=timezone.now() - timezone.timedelta(days=1),
+            registration_closes_at=timezone.now() + timezone.timedelta(days=1),
+        )
+        self.assertEqual(event.registration_window_status, RegistrationWindowStatus.OPEN)
+
+    def test_open_ended_after_opens_at_is_open(self):
+        event = self._make_event(
+            registration_opens_at=timezone.now() - timezone.timedelta(days=1)
+        )
+        self.assertEqual(event.registration_window_status, RegistrationWindowStatus.OPEN)
+
+    def test_after_closes_at_is_closed(self):
+        event = self._make_event(
+            registration_opens_at=timezone.now() - timezone.timedelta(days=2),
+            registration_closes_at=timezone.now() - timezone.timedelta(days=1),
+        )
+        self.assertEqual(event.registration_window_status, RegistrationWindowStatus.CLOSED)
+
+    def test_closes_at_only_is_open_before_deadline(self):
+        event = self._make_event(
+            registration_closes_at=timezone.now() + timezone.timedelta(days=1)
+        )
+        self.assertEqual(event.registration_window_status, RegistrationWindowStatus.OPEN)

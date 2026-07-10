@@ -208,6 +208,135 @@ export interface PrivacyInfoResponse {
   retention_days: number;
 }
 
+export interface RegistrationTicketType {
+  id: string;
+  name: string;
+  price: string;
+  applies_to: 'parent' | 'child' | 'either';
+  min_birthdate: string | null;
+  max_birthdate: string | null;
+  kind: 'event' | 'session_bundle';
+}
+
+export interface RegistrationExtraChoice {
+  id: string;
+  label: string;
+  price_delta: string;
+}
+
+export interface RegistrationExtraInfo {
+  id: string;
+  name: string;
+  price: string;
+  session_id: string | null;
+  per_attendee: boolean;
+  applies_to: 'parent' | 'child' | 'either';
+  requires_choice: boolean;
+  required: boolean;
+  default_selected: boolean;
+  choices: RegistrationExtraChoice[];
+}
+
+export type RegistrationWindowStatus = 'not_configured' | 'not_open_yet' | 'open' | 'closed';
+
+export interface RegistrationEventInfo {
+  id: string;
+  name: string;
+  start_date: string;
+  end_date: string;
+  is_paid: boolean;
+  price: string | null;
+  currency: string;
+  ticket_types: RegistrationTicketType[];
+  extras: RegistrationExtraInfo[];
+  registration_window_status: RegistrationWindowStatus;
+  registration_opens_at: string | null;
+  registration_closes_at: string | null;
+}
+
+export interface RegistrationExtraSelectionPayload {
+  extra: string;
+  choice?: string | null;
+  quantity?: number;
+}
+
+export interface RegistrationParentPayload {
+  first_name: string;
+  last_name?: string;
+  phone?: string;
+  email?: string;
+  relationship_type: string;
+  ticket_type?: string | null;
+  extras?: RegistrationExtraSelectionPayload[];
+}
+
+export interface RegistrationChildPayload {
+  first_name: string;
+  last_name?: string;
+  birthdate?: string;
+  allergies?: string;
+  notes?: string;
+  health_consent_status?: 'not_applicable' | 'granted' | 'declined';
+  ticket_type?: string | null;
+  extras?: RegistrationExtraSelectionPayload[];
+}
+
+export interface RegistrationSubmitPayload {
+  event: string;
+  last_name?: string;
+  contact_email: string;
+  parents: RegistrationParentPayload[];
+  children: RegistrationChildPayload[];
+  // Per-registration extras (a shared cabin) — distinct from
+  // parents[*]/children[*].extras, which are per-attendee.
+  extras?: RegistrationExtraSelectionPayload[];
+  // Resolved/locked/validated server-side — see validate_promo_code for
+  // the pre-submit preview of the same code.
+  promo_code?: string;
+  // Honeypot: must stay empty. Hidden from real users via CSS.
+  website?: string;
+}
+
+export interface RegistrationSubmitResponse {
+  reference_code: string | null;
+  message: string;
+}
+
+export interface PromoCodeValidation {
+  valid: boolean;
+  discount_type?: 'percent' | 'fixed';
+  discount_value?: string;
+  applies_to_ticket_type_ids?: string[];
+  unlocks_ticket_types?: RegistrationTicketType[];
+}
+
+export type RegistrationStatus =
+  | 'pending_verification'
+  | 'confirmed'
+  | 'pending_payment'
+  | 'pending_review'
+  | 'cancelled';
+
+export interface PaymentInstructionsPayload {
+  amount: string;
+  currency: string;
+  reference_code: string;
+  swish_url: string | null;
+  swish_qr_data_url: string | null;
+  bankgiro_number: string | null;
+}
+
+export interface RegistrationVerifyResponse extends Partial<PaymentInstructionsPayload> {
+  status: RegistrationStatus;
+  reference_code: string;
+  event_name: string;
+}
+
+export interface RegistrationPaymentStatusResponse extends PaymentInstructionsPayload {
+  status: RegistrationStatus;
+  event_name: string;
+}
+
 export interface CheckOutMessage {
   type: 'child_checked_out';
   data: {

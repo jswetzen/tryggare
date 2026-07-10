@@ -1,6 +1,16 @@
 from django.contrib import admin
 
-from .models import Event, EventTicket, Session, SessionTicket, Ticket
+from .models import (
+    Event,
+    EventTicket,
+    Extra,
+    ExtraChoice,
+    PromoCode,
+    Session,
+    SessionTicket,
+    Ticket,
+    TicketType,
+)
 
 
 @admin.register(Event)
@@ -10,6 +20,8 @@ class EventAdmin(admin.ModelAdmin):
         "start_date",
         "end_date",
         "parent_checkin_policy_default",
+        "price",
+        "registration_window_status",
     )
     list_filter = ("parent_checkin_policy_default",)
     search_fields = ("name",)
@@ -97,3 +109,76 @@ class SessionTicketAdmin(admin.ModelAdmin):
 
     get_event.short_description = "Event"
     get_event.admin_order_field = "session__event"
+
+
+@admin.register(TicketType)
+class TicketTypeAdmin(admin.ModelAdmin):
+    list_display = (
+        "name",
+        "event",
+        "price",
+        "applies_to",
+        "kind",
+        "is_hidden",
+        "is_active",
+        "sort_order",
+    )
+    list_filter = ("event", "applies_to", "kind", "is_hidden", "is_active")
+    search_fields = ("name", "event__name")
+    autocomplete_fields = ["event"]
+    filter_horizontal = ["sessions"]
+
+
+@admin.register(PromoCode)
+class PromoCodeAdmin(admin.ModelAdmin):
+    list_display = (
+        "code",
+        "event",
+        "discount_type",
+        "discount_value",
+        "uses_count",
+        "max_uses",
+        "is_active",
+    )
+    list_filter = ("event", "discount_type", "is_active")
+    search_fields = ("code", "event__name")
+    autocomplete_fields = ["event"]
+    filter_horizontal = ["applies_to_ticket_types", "unlocks_ticket_types"]
+    readonly_fields = ("uses_count",)
+
+
+class ExtraChoiceInline(admin.TabularInline):
+    model = ExtraChoice
+    extra = 1
+    fields = ("label", "price_delta", "sort_order", "is_active")
+
+
+@admin.register(Extra)
+class ExtraAdmin(admin.ModelAdmin):
+    list_display = (
+        "name",
+        "event",
+        "session",
+        "price",
+        "per_attendee",
+        "applies_to",
+        "is_active",
+        "sort_order",
+    )
+    list_filter = ("event", "applies_to", "per_attendee", "is_active")
+    search_fields = ("name", "event__name")
+    autocomplete_fields = ["event", "session"]
+    inlines = [ExtraChoiceInline]
+
+
+@admin.register(ExtraChoice)
+class ExtraChoiceAdmin(admin.ModelAdmin):
+    """Standalone registration alongside the ExtraAdmin inline above —
+    needed so RegistrationExtraAdmin.choice can use autocomplete_fields
+    (Django requires the target model have its own registered ModelAdmin
+    with search_fields, inlines don't count)."""
+
+    list_display = ("label", "extra", "price_delta", "is_active", "sort_order")
+    list_filter = ("extra__event", "is_active")
+    search_fields = ("label", "extra__name")
+    autocomplete_fields = ["extra"]

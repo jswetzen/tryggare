@@ -17,7 +17,10 @@
       "mcp__playwright__browser_click",
       "mcp__playwright__browser_network_requests",
       "mcp__playwright__browser_close",
-      "Bash(make status:*)"
+      "Bash(make status:*)",
+      "mcp__knowitall__query_memory",
+      "mcp__knowitall__list_memories",
+      "mcp__knowitall__get_memory"
     ],
     "deny": [],
     "ask": []

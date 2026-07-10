@@ -123,6 +123,7 @@ See `docs/architecture.md` for the full system diagram.
 | Printed label | Physical possession | Name + QR code only |
 | `GET /api/qr/{code}/` | **None (`AllowAny`)** | Allergies, notes, birthdate, guardian name/phone (no email — see §2) |
 | DSAR export/erasure | Staff login | Full record, on request |
+| Outbound transactional email (if configured) | N/A — outbound, not an access point | Guardian name, email address, message content sent to the email sub-processor — see `DPA_NOTE.md` §2 and `DPA_TEMPLATE.md` §5 |
 
 **Why the QR endpoint is unauthenticated (by design, not oversight):** it must
 be usable by whoever is physically handed the label at pickup, without a staff
