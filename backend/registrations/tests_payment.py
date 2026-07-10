@@ -9,6 +9,7 @@ public payment-status lookup endpoint.
 from decimal import Decimal
 from unittest.mock import patch
 
+from django.core.cache import cache
 from django.test import TestCase, override_settings
 from django.utils import timezone
 from rest_framework.test import APIClient
@@ -149,6 +150,36 @@ class MarkPaymentPaidTests(TestCase):
         self.registration.save(update_fields=["status"])
         with self.assertRaises(InvalidPaymentTransition):
             mark_payment_paid(self.payment, method=Payment.Method.SWISH, marked_by=None)
+
+    def test_rejected_transition_from_concurrent_cancel_does_not_set_method_or_marked_by(
+        self,
+    ):
+        """Regression: mark_payment_paid used to write method/marked_by
+        before calling record_payment_event, so a transition rejected
+        because of a concurrent cancel (e.g. the hourly sweep, racing an
+        admin bulk mark-paid action) still left a false method/marked_by
+        trail on a payment with no matching PaymentEvent."""
+        from accounts.models import AdminUser
+
+        staff = AdminUser.objects.create_user(
+            username="racer", password="testpass123", name="Racer"
+        )
+        # The caller's in-memory `payment` still reads PENDING — simulates
+        # the sweep cancelling the row between admin's queryset fetch and
+        # this call.
+        Payment.objects.filter(pk=self.payment.pk).update(
+            status=Payment.Status.CANCELLED
+        )
+
+        with self.assertRaises(InvalidPaymentTransition):
+            mark_payment_paid(
+                self.payment, method=Payment.Method.SWISH, marked_by=staff
+            )
+
+        self.payment.refresh_from_db()
+        self.assertEqual(self.payment.status, Payment.Status.CANCELLED)
+        self.assertEqual(self.payment.method, "")
+        self.assertIsNone(self.payment.marked_by)
 
 
 class PaymentEventLedgerTests(TestCase):
@@ -454,9 +485,30 @@ class ConfirmDespiteBalanceTests(TestCase):
         with self.assertRaises(InvalidPaymentTransition):
             confirm_registration_despite_balance(self.registration, confirmed_by=None)
 
+    def test_concurrent_cancel_is_not_resurrected_by_stale_in_memory_read(self):
+        """Regression: this used to check registration.status on the
+        caller's stale in-memory instance with no lock/refresh, so a
+        concurrent cancel (e.g. the hourly TTL sweep, racing a slow admin
+        bulk action) could go unnoticed and get silently flipped back to
+        confirmed."""
+        Registration.objects.filter(pk=self.registration.pk).update(
+            status=Registration.Status.CANCELLED
+        )
+
+        with self.assertRaises(InvalidPaymentTransition):
+            confirm_registration_despite_balance(self.registration, confirmed_by=None)
+
+        self.registration.refresh_from_db()
+        self.assertEqual(self.registration.status, Registration.Status.CANCELLED)
+
 
 class VerifyRegistrationPaymentBranchTests(TestCase):
     def setUp(self):
+        # Shared anon-throttle cache persists across test classes within a
+        # run (see registrations/tests_throttling.py's setUp for the same
+        # pattern) — clear it so this class's own request volume doesn't
+        # depend on run order.
+        cache.clear()
         self.client = APIClient()
 
     def _submit_and_get_token(self, event, contact_email="guardian@example.com"):
@@ -538,6 +590,34 @@ class VerifyRegistrationPaymentBranchTests(TestCase):
         registration.refresh_from_db()
         self.assertEqual(registration.status, Registration.Status.PENDING_REVIEW)
         self.assertTrue(Payment.objects.filter(registration=registration).exists())
+        mock_confirm.assert_not_called()
+        mock_payment_email.assert_not_called()
+
+    @patch("registrations.views.send_payment_instructions_email")
+    @patch("registrations.views.send_confirmation_email")
+    def test_email_match_is_case_insensitive(self, mock_confirm, mock_payment_email):
+        """A differently-cased contact_email (mobile autocapitalize, or a
+        deliberate spoofing attempt) must still be caught by the dedup gate
+        — a case-sensitive filter() would let it auto-attach to a brand-new
+        family instead of routing to pending_review."""
+        event = _make_event(price=Decimal("120.00"))
+        other_family = Family.objects.create(last_name="Existing")
+        Parent.objects.create(
+            first_name="Someone",
+            relationship_type="Other",
+            email="guardian@example.com",
+            family=other_family,
+        )
+
+        registration, token = self._submit_and_get_token(
+            event, contact_email="Guardian@Example.com"
+        )
+
+        response = self.client.get(f"/api/registrations/verify/{token}/")
+
+        self.assertEqual(response.status_code, 200, response.data)
+        registration.refresh_from_db()
+        self.assertEqual(registration.status, Registration.Status.PENDING_REVIEW)
         mock_confirm.assert_not_called()
         mock_payment_email.assert_not_called()
 

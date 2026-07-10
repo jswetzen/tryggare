@@ -132,9 +132,17 @@ class RegistrationAdmin(admin.ModelAdmin):
                 skipped += 1
                 continue
             outstanding = payment.balance
-            confirm_registration_despite_balance(
-                registration, confirmed_by=request.user
-            )
+            try:
+                confirm_registration_despite_balance(
+                    registration, confirmed_by=request.user
+                )
+            except InvalidPaymentTransition:
+                # Re-read under lock inside the service can now reject a row
+                # that looked pending_payment in this admin queryset's stale
+                # snapshot but was cancelled concurrently (e.g. by the
+                # hourly TTL sweep) between the query above and this call.
+                skipped += 1
+                continue
             log_audit(
                 request,
                 action="registration_confirmed_despite_balance",

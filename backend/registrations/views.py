@@ -3,7 +3,7 @@ from datetime import timedelta
 from decimal import Decimal
 
 from django.db import transaction
-from django.db.models import F, Q
+from django.db.models import F, Prefetch, Q
 from django.http import Http404
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
@@ -21,6 +21,7 @@ from events.models import (
     Event,
     EventTicket,
     Extra,
+    ExtraChoice,
     PromoCode,
     RegistrationWindowStatus,
     SessionTicket,
@@ -346,13 +347,17 @@ def _attach_extra(*, registration, attendee, selection, is_child):
         # attendee) unique constraint's NULL semantics (Postgres treats
         # every NULL as distinct), so a second selection of the same
         # per-registration extra bumps quantity via get_or_create instead
-        # of relying on the DB constraint.
+        # of relying on the DB constraint. `choice` is part of the lookup,
+        # not just the defaults — two selections of the same extra with
+        # different choices (e.g. "Large cabin" vs "Small cabin") are
+        # different line items, each with their own snapshotted price, not
+        # one row whose quantity happens to grow.
         reg_extra, created = RegistrationExtra.objects.get_or_create(
             registration=registration,
             extra=extra,
             attendee=None,
+            choice=choice,
             defaults={
-                "choice": choice,
                 "quantity": quantity,
                 "price_at_registration": price,
             },
@@ -532,12 +537,18 @@ def registration_event_info(request, event_id):
     """
     event = get_object_or_404(Event, pk=event_id)
 
+    active_ticket_types = event.ticket_types.filter(is_active=True)
     ticket_types = [
         _ticket_type_payload(ticket_type)
-        for ticket_type in event.ticket_types.filter(
-            is_active=True, is_hidden=False
-        ).order_by("sort_order", "name")
+        for ticket_type in active_ticket_types.filter(is_hidden=False).order_by(
+            "sort_order", "name"
+        )
     ]
+    # A code-only, invite-only event (every active TicketType hidden) would
+    # otherwise leave the form with an empty ticket_types list and no visible
+    # promo-code box to unlock any — this tells the frontend to show the box
+    # anyway so there's a way in.
+    has_hidden_ticket_types = active_ticket_types.filter(is_hidden=True).exists()
     extras = [
         {
             "id": str(extra.id),
@@ -555,12 +566,19 @@ def registration_event_info(request, event_id):
                     "label": choice.label,
                     "price_delta": str(choice.price_delta),
                 }
-                for choice in extra.choice_rows.filter(is_active=True).order_by(
-                    "sort_order", "label"
-                )
+                for choice in extra.choice_rows.all()
             ],
         }
-        for extra in event.extras.filter(is_active=True).order_by("sort_order", "name")
+        for extra in event.extras.filter(is_active=True)
+        .order_by("sort_order", "name")
+        .prefetch_related(
+            Prefetch(
+                "choice_rows",
+                queryset=ExtraChoice.objects.filter(is_active=True).order_by(
+                    "sort_order", "label"
+                ),
+            )
+        )
     ]
 
     return Response(
@@ -573,6 +591,7 @@ def registration_event_info(request, event_id):
             "price": str(event.price) if event.price is not None else None,
             "currency": "SEK",
             "ticket_types": ticket_types,
+            "has_hidden_ticket_types": has_hidden_ticket_types,
             "extras": extras,
             "registration_window_status": event.registration_window_status,
             "registration_opens_at": (
@@ -694,7 +713,7 @@ def submit_registration(request):
     existing = (
         Registration.objects.filter(
             event=event,
-            contact_email=contact_email,
+            contact_email__iexact=contact_email,
             status=Registration.Status.PENDING_VERIFICATION,
         )
         .order_by("-submitted_at")
@@ -796,7 +815,7 @@ def verify_registration(request, token):
 
     email_matches_other_family = (
         Parent.objects.filter(
-            email=registration.contact_email, anonymized_at__isnull=True
+            email__iexact=registration.contact_email, anonymized_at__isnull=True
         )
         .exclude(family=registration.family)
         .exists()

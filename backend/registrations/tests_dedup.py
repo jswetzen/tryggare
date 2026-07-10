@@ -131,6 +131,31 @@ class RegistrationDedupTests(TestCase):
         self.assertEqual(Registration.objects.count(), 2)
 
     @patch("registrations.views.send_verification_email")
+    def test_resubmission_with_differently_cased_email_resends_not_duplicates(
+        self, mock_send
+    ):
+        """A case-varied resubmission (autofill vs. manual typing) must hit
+        the same resend path as an exact match — a case-sensitive filter()
+        would create a second Family/Registration with duplicate child data
+        and bypass the resend-cooldown abuse control."""
+        self.client.post(self.url, self._payload(), format="json")
+        self.assertEqual(Registration.objects.count(), 1)
+        registration = Registration.objects.get()
+        Registration.objects.filter(pk=registration.pk).update(
+            verification_sent_at=timezone.now() - timedelta(minutes=11)
+        )
+
+        response = self.client.post(
+            self.url,
+            self._payload(contact_email="Guardian@Example.com"),
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 201, response.data)
+        self.assertEqual(Registration.objects.count(), 1)
+        self.assertEqual(mock_send.call_count, 2)
+
+    @patch("registrations.views.send_verification_email")
     def test_same_email_different_event_is_independent(self, mock_send):
         self.client.post(self.url, self._payload(), format="json")
         other_event = _make_event(name="Winter Camp")

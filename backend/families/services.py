@@ -48,7 +48,11 @@ def create_family_with_members(
     consented_by = None
     if consent_attestor_email:
         consented_by = next(
-            (p for p in created_parents if p.email == consent_attestor_email),
+            (
+                p
+                for p in created_parents
+                if p.email and p.email.lower() == consent_attestor_email.lower()
+            ),
             None,
         )
     if consented_by is None:

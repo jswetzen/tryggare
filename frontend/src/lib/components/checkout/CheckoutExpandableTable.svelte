@@ -52,7 +52,7 @@
   // Track which families are expanded
   let expandedFamilies = $state<Set<string>>(new Set());
 
-  function toggleFamily(familyId: string, event: MouseEvent) {
+  function toggleFamily(familyId: string, event: MouseEvent | KeyboardEvent) {
     // Prevent expansion if clicking on a button
     const target = event.target as HTMLElement;
     if (target.closest('button')) {

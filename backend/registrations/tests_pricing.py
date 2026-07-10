@@ -181,6 +181,78 @@ class MaterializeTicketEmptyBundleTests(TestCase):
         self.assertEqual(calculate_total(registration), Decimal("520.00"))
 
 
+class AttachExtraChoiceDedupTests(TestCase):
+    """A per-registration extra selected twice with different choices (e.g.
+    "Large cabin" then "Small cabin") must materialize as two line items,
+    not one row whose quantity silently bumps at the first choice's price —
+    get_or_create's lookup must include `choice`, not just
+    (registration, extra, attendee=None)."""
+
+    def test_same_extra_different_choice_creates_separate_line_items(self):
+        from .views import _attach_extra
+
+        event = _make_event()
+        TicketType.objects.create(event=event, name="Adult", price=0)
+        registration = _make_registration(event)
+        cabin = Extra.objects.create(
+            event=event,
+            name="Cabin",
+            price=0,
+            per_attendee=False,
+            requires_choice=True,
+        )
+        large = ExtraChoice.objects.create(extra=cabin, label="Large", price_delta=300)
+        small = ExtraChoice.objects.create(extra=cabin, label="Small", price_delta=150)
+
+        _attach_extra(
+            registration=registration,
+            attendee=None,
+            selection={"extra": cabin, "choice": large, "quantity": 1},
+            is_child=None,
+        )
+        _attach_extra(
+            registration=registration,
+            attendee=None,
+            selection={"extra": cabin, "choice": small, "quantity": 1},
+            is_child=None,
+        )
+
+        rows = RegistrationExtra.objects.filter(registration=registration, extra=cabin)
+        self.assertEqual(rows.count(), 2)
+        large_row = rows.get(choice=large)
+        small_row = rows.get(choice=small)
+        self.assertEqual(large_row.quantity, 1)
+        self.assertEqual(large_row.price_at_registration, Decimal("300.00"))
+        self.assertEqual(small_row.quantity, 1)
+        self.assertEqual(small_row.price_at_registration, Decimal("150.00"))
+        self.assertEqual(calculate_total(registration), Decimal("450.00"))
+
+    def test_same_extra_same_choice_still_bumps_quantity(self):
+        from .views import _attach_extra
+
+        event = _make_event()
+        registration = _make_registration(event)
+        cabin = Extra.objects.create(
+            event=event, name="Cabin", price=100, per_attendee=False
+        )
+
+        _attach_extra(
+            registration=registration,
+            attendee=None,
+            selection={"extra": cabin, "quantity": 1},
+            is_child=None,
+        )
+        _attach_extra(
+            registration=registration,
+            attendee=None,
+            selection={"extra": cabin, "quantity": 2},
+            is_child=None,
+        )
+
+        row = RegistrationExtra.objects.get(registration=registration, extra=cabin)
+        self.assertEqual(row.quantity, 3)
+
+
 class SubmitWithTicketTypesTests(TestCase):
     def setUp(self):
         # Shared anon-throttle cache persists across test classes within a
@@ -407,9 +479,7 @@ class VerifyRegistrationPaidnessTests(TestCase):
         return client.get(f"/api/registrations/verify/{token}/")
 
     def test_zero_total_itemized_registration_confirms_directly(self):
-        free_type = TicketType.objects.create(
-            event=self.event, name="Ledare", price=0
-        )
+        free_type = TicketType.objects.create(event=self.event, name="Ledare", price=0)
         registration = _make_registration(self.event)
         parent = Parent.objects.create(
             family=registration.family, first_name="Anna", relationship_type="Mother"
@@ -425,9 +495,7 @@ class VerifyRegistrationPaidnessTests(TestCase):
         registration.verification_token_hash = hash_token(token)
         registration.save(update_fields=["verification_token_hash"])
 
-        with patch(
-            "registrations.views.send_confirmation_email"
-        ):
+        with patch("registrations.views.send_confirmation_email"):
             response = self._verify(self.client, token)
 
         self.assertEqual(response.status_code, 200, response.data)
@@ -454,9 +522,7 @@ class VerifyRegistrationPaidnessTests(TestCase):
         registration.verification_token_hash = hash_token(token)
         registration.save(update_fields=["verification_token_hash"])
 
-        with patch(
-            "registrations.views.send_payment_instructions_email"
-        ):
+        with patch("registrations.views.send_payment_instructions_email"):
             response = self._verify(self.client, token)
 
         self.assertEqual(response.status_code, 200, response.data)

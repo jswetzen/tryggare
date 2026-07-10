@@ -248,6 +248,7 @@ export interface RegistrationEventInfo {
   price: string | null;
   currency: string;
   ticket_types: RegistrationTicketType[];
+  has_hidden_ticket_types: boolean;
   extras: RegistrationExtraInfo[];
   registration_window_status: RegistrationWindowStatus;
   registration_opens_at: string | null;

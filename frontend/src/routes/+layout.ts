@@ -11,8 +11,9 @@ import { browser } from '$app/environment';
 export const ssr = false;
 export const prerender = false;
 
-interface AuthCheckResponse {
+export interface AuthCheckResponse {
   authenticated: boolean;
+  demo_mode?: boolean;
   user?: {
     id: string;
     username: string;

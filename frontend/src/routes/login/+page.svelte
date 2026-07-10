@@ -4,6 +4,7 @@
   import { t } from 'svelte-i18n';
   import { apiClient } from '$lib/api/client';
   import LanguageSwitcher from '$lib/components/LanguageSwitcher.svelte';
+  import type { AuthCheckResponse } from '../+layout';
 
   let errorMessage = $state('');
   let isLoading = $state(false);
@@ -11,7 +12,7 @@
 
   onMount(async () => {
     try {
-      const data = await apiClient.get('/auth/check/');
+      const data = await apiClient.get<AuthCheckResponse>('/auth/check/');
       demoMode = data.demo_mode ?? false;
     } catch {
       // ignore — demo banner is non-critical

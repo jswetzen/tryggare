@@ -71,9 +71,7 @@ def record_payment_event(
             adjusted += amount
 
         if refunded > received:
-            raise InvalidPaymentTransition(
-                "Cannot refund more than has been received"
-            )
+            raise InvalidPaymentTransition("Cannot refund more than has been received")
         if (
             kind != PaymentEvent.Kind.RECEIVED
             and received - refunded + adjusted > payment.amount
@@ -115,15 +113,20 @@ def mark_payment_paid(payment: Payment, *, method: str, marked_by) -> None:
         )
 
     outstanding = payment.balance
-    payment.method = method
-    payment.marked_by = marked_by
-    payment.save(update_fields=["method", "marked_by"])
+    # method/marked_by are written only once record_payment_event has
+    # actually committed the transition — it re-reads the row under
+    # select_for_update and can reject it (e.g. the hourly sweep cancelled
+    # this payment concurrently), and a rejected transition must not leave
+    # method/marked_by set on a payment with no matching PaymentEvent.
     record_payment_event(
         payment,
         kind=PaymentEvent.Kind.RECEIVED,
         amount=outstanding,
         created_by=marked_by,
     )
+    payment.method = method
+    payment.marked_by = marked_by
+    payment.save(update_fields=["method", "marked_by"])
 
 
 def confirm_registration_despite_balance(
@@ -135,13 +138,24 @@ def confirm_registration_despite_balance(
     auto-confirm in record_payment_event() so it's independently auditable:
     this is a staff decision to let someone in without full payment, not a
     consequence of money actually arriving."""
-    if registration.status != Registration.Status.PENDING_PAYMENT:
-        raise InvalidPaymentTransition(
-            f"Registration is {registration.status}, not pending_payment"
+    with transaction.atomic():
+        # Re-read under lock rather than trusting the caller's in-memory
+        # instance (e.g. an admin bulk action's queryset row) — otherwise a
+        # concurrent transition (the hourly sweep cancelling this
+        # registration past its payment TTL) can go unnoticed and this call
+        # resurrects an already-cancelled registration. Mirrors
+        # record_payment_event's own select_for_update re-read.
+        registration.refresh_from_db(
+            from_queryset=Registration.objects.select_for_update()
         )
+        if registration.status != Registration.Status.PENDING_PAYMENT:
+            raise InvalidPaymentTransition(
+                f"Registration is {registration.status}, not pending_payment"
+            )
 
-    registration.status = Registration.Status.CONFIRMED
-    registration.save(update_fields=["status"])
+        registration.status = Registration.Status.CONFIRMED
+        registration.save(update_fields=["status"])
+
     send_confirmation_email(registration)
 
 

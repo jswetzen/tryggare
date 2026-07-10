@@ -4,7 +4,7 @@ from decimal import Decimal
 
 from django.core.validators import MinValueValidator
 from django.db import models
-from django.db.models import Sum
+from django.db.models import Q, Sum
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
@@ -230,26 +230,20 @@ class Payment(models.Model):
     def ledger_totals(self) -> tuple[Decimal, Decimal, Decimal]:
         """Cumulative (received, refunded, adjusted) from the PaymentEvent
         ledger — the shared read both ``balance`` and
-        ``services.record_payment_event``'s C1 invariant checks build on."""
-        received = (
-            self.events.filter(kind=PaymentEvent.Kind.RECEIVED).aggregate(
-                total=Sum("amount")
-            )["total"]
-            or ZERO
+        ``services.record_payment_event``'s C1 invariant checks build on.
+        One query with three conditional aggregates, not three separate
+        round trips — this runs per admin changelist row and multiple times
+        per mark-paid call."""
+        totals = self.events.aggregate(
+            received=Sum("amount", filter=Q(kind=PaymentEvent.Kind.RECEIVED)),
+            refunded=Sum("amount", filter=Q(kind=PaymentEvent.Kind.REFUNDED)),
+            adjusted=Sum("amount", filter=Q(kind=PaymentEvent.Kind.ADJUSTMENT)),
         )
-        refunded = (
-            self.events.filter(kind=PaymentEvent.Kind.REFUNDED).aggregate(
-                total=Sum("amount")
-            )["total"]
-            or ZERO
+        return (
+            totals["received"] or ZERO,
+            totals["refunded"] or ZERO,
+            totals["adjusted"] or ZERO,
         )
-        adjusted = (
-            self.events.filter(kind=PaymentEvent.Kind.ADJUSTMENT).aggregate(
-                total=Sum("amount")
-            )["total"]
-            or ZERO
-        )
-        return received, refunded, adjusted
 
     @property
     def balance(self) -> Decimal:

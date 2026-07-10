@@ -54,12 +54,9 @@
   });
 
   function handleWebSocketMessage(message: WebSocketMessage) {
-    // Check if message matches active session filter
-    const matchesSession = !activeSession || message.data?.session_id === activeSession.id;
-
     if (message.type === 'child_checked_in') {
       // Skip if doesn't match current session filter
-      if (!matchesSession) return;
+      if (activeSession && message.data.session_id !== activeSession.id) return;
       // Parents are check-in only — never surface them as checkout candidates.
       if (message.data?.is_parent) return;
 
@@ -106,7 +103,7 @@
     else if (message.type === 'checkout_undone') {
       // Child was re-checked-in after checkout undo
       // Fetch the record from API since we don't have full data
-      if (matchesSession) {
+      if (!activeSession || message.data.session_id === activeSession.id) {
         fetchSingleCheckIn(message.data.record_id);
       }
     }

@@ -35,7 +35,7 @@ describe('SearchBox', () => {
   });
 
   it('renders with custom label when provided', () => {
-    render(SearchBox, { props: { label: 'Custom Label' } });
+    render(SearchBox, { props: { value: '', label: 'Custom Label' } });
 
     expect(screen.getByText('Custom Label')).toBeInTheDocument();
   });
@@ -47,7 +47,7 @@ describe('SearchBox', () => {
   });
 
   it('renders with custom placeholder', () => {
-    render(SearchBox, { props: { placeholder: 'Custom placeholder' } });
+    render(SearchBox, { props: { value: '', placeholder: 'Custom placeholder' } });
 
     const input = screen.getByTestId('family-search');
     expect(input).toHaveAttribute('placeholder', 'Custom placeholder');
@@ -66,7 +66,7 @@ describe('SearchBox', () => {
   it('calls onInput callback when text is entered', async () => {
     const user = userEvent.setup();
     const onInputMock = vi.fn();
-    render(SearchBox, { props: { onInput: onInputMock } });
+    render(SearchBox, { props: { value: '', onInput: onInputMock } });
 
     const input = screen.getByTestId('family-search');
     await user.type(input, 'Jones');
@@ -118,7 +118,7 @@ describe('SearchBox', () => {
   it('clears input when clear button is clicked', async () => {
     const user = userEvent.setup();
     const onInputMock = vi.fn();
-    render(SearchBox, { props: { onInput: onInputMock } });
+    render(SearchBox, { props: { value: '', onInput: onInputMock } });
 
     const input = screen.getByTestId('family-search') as HTMLInputElement;
     await user.type(input, 'Smith');
