@@ -431,7 +431,9 @@
       expandedChildId = null;
     } catch (err) {
       const apiError = err as ApiError;
-      error = apiError.message || 'Failed to check in child';
+      const msg = apiError.message || 'Failed to check in child';
+      errorToast = msg;
+      setTimeout(() => { if (errorToast === msg) errorToast = null; }, 4000);
       console.error('Error checking in child:', err);
     }
   }
@@ -521,7 +523,9 @@
       });
     } catch (err) {
       const apiError = err as ApiError;
-      error = apiError.message || 'Failed to check in family';
+      const msg = apiError.message || 'Failed to check in family';
+      errorToast = msg;
+      setTimeout(() => { if (errorToast === msg) errorToast = null; }, 4000);
       console.error('Error checking in family:', err);
     }
   }
@@ -569,7 +573,9 @@
       }
     } catch (err) {
       const apiError = err as ApiError;
-      error = apiError.message || 'Failed to undo check-in';
+      const msg = apiError.message || 'Failed to undo check-in';
+      errorToast = msg;
+      setTimeout(() => { if (errorToast === msg) errorToast = null; }, 4000);
       console.error('Error undoing check-in:', err);
     }
   }
@@ -635,7 +641,9 @@
       successToast = $_('checkin.familyCheckInUndone', { values: { name: family.name } });
     } catch (err) {
       const apiError = err as ApiError;
-      error = apiError.message || 'Failed to undo family check-in';
+      const msg = apiError.message || 'Failed to undo family check-in';
+      errorToast = msg;
+      setTimeout(() => { if (errorToast === msg) errorToast = null; }, 4000);
       console.error('Error undoing family check-in:', err);
     }
   }
@@ -719,7 +727,9 @@
       await checkInChild(familyId, childId);
     } catch (err) {
       const apiError = err as ApiError;
-      error = apiError.message || 'Failed to assign ticket';
+      const msg = apiError.message || 'Failed to assign ticket';
+      errorToast = msg;
+      setTimeout(() => { if (errorToast === msg) errorToast = null; }, 4000);
       console.error('Error assigning ticket:', err);
     }
   }
@@ -774,7 +784,9 @@
       expandedChildId = null;
     } catch (err) {
       const apiError = err as ApiError;
-      error = apiError.message || 'Failed to check in parent';
+      const msg = apiError.message || 'Failed to check in parent';
+      errorToast = msg;
+      setTimeout(() => { if (errorToast === msg) errorToast = null; }, 4000);
       console.error('Error checking in parent:', err);
     }
   }
@@ -820,7 +832,9 @@
       successToast = $_('checkin.checkInUndone', { values: { name: parent.name } });
     } catch (err) {
       const apiError = err as ApiError;
-      error = apiError.message || 'Failed to undo check-in';
+      const msg = apiError.message || 'Failed to undo check-in';
+      errorToast = msg;
+      setTimeout(() => { if (errorToast === msg) errorToast = null; }, 4000);
       console.error('Error undoing parent check-in:', err);
     }
   }
@@ -862,7 +876,9 @@
       await checkInParent(familyId, parentId);
     } catch (err) {
       const apiError = err as ApiError;
-      error = apiError.message || 'Failed to assign ticket';
+      const msg = apiError.message || 'Failed to assign ticket';
+      errorToast = msg;
+      setTimeout(() => { if (errorToast === msg) errorToast = null; }, 4000);
       console.error('Error assigning ticket:', err);
     }
   }
