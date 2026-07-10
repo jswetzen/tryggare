@@ -1,6 +1,16 @@
 # Development environment: separate frontend (port 5173) and backend (port 8000)
 # containers with hot reload. Run with `podman compose up -d` from repo root.
+#
+# name: pinned rather than left to default to the repo directory's basename.
+# Without this, `podman compose` here resolves the project name to "tryggare"
+# (this directory), which collides on ports with the "check-ins"-named
+# containers actually serving 5173/8000/5432 (a leftover from before this
+# repo was renamed from check-ins/ to tryggare/) — every restart.txt-triggered
+# rebuild failed with "address already in use" and never reached the running
+# containers. Pinning to "check-ins" makes --force-recreate target the
+# containers that are actually live instead of fighting them for ports.
 version: '3.9'
+name: ${COMPOSE_PROJECT_NAME:-check-ins}
 
 services:
   web:
