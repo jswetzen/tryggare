@@ -180,6 +180,9 @@ export const checkinApi = {
       phone?: string;
       email?: string;
       relationship_type: string;
+      allergies?: string;
+      notes?: string;
+      health_consent_status?: 'not_applicable' | 'granted' | 'declined';
     }>;
     children: Array<{
       first_name: string;

@@ -934,6 +934,9 @@
       phone: string;
       email: string;
       relationship_type: string;
+      allergies: string;
+      notes: string;
+      health_consent_status: 'not_applicable' | 'granted' | 'declined';
     }>;
   }) {
     try {
@@ -955,6 +958,9 @@
             phone: p.phone,
             email: p.email,
             relationship_type: p.relationship_type,
+            allergies: p.allergies.trim() || undefined,
+            notes: p.notes.trim() || undefined,
+            health_consent_status: p.health_consent_status,
           };
         }),
         children: data.children.map((c) => ({

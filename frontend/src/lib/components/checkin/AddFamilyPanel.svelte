@@ -32,6 +32,27 @@
     health_consent_status: HealthConsentStatus;
   }
 
+  interface Parent {
+    name: string;
+    phone: string;
+    email: string;
+    relationship_type: string;
+    allergies: string;
+    notes: string;
+    healthInfoStatus: HealthInfoStatus;
+    consentNoticeShared: boolean;
+  }
+
+  interface OutgoingParent {
+    name: string;
+    phone: string;
+    email: string;
+    relationship_type: string;
+    allergies: string;
+    notes: string;
+    health_consent_status: HealthConsentStatus;
+  }
+
   let {
     onAdd,
     onClose
@@ -40,12 +61,7 @@
       familyName: string;
       children: OutgoingChild[];
       ticketType: TicketType;
-      parents: Array<{
-        name: string;
-        phone: string;
-        email: string;
-        relationship_type: string;
-      }>;
+      parents: OutgoingParent[];
     }) => void;
     onClose: () => void;
   } = $props();
@@ -62,17 +78,23 @@
     };
   }
 
-  let familyName = $state('');
-  let children = $state<Child[]>([emptyChild()]);
-  let ticketType = $state<TicketType>('none');
-  let parents = $state([
-    {
+  function emptyParent(): Parent {
+    return {
       name: '',
       phone: '',
       email: '',
       relationship_type: 'OTHER',
-    },
-  ]);
+      allergies: '',
+      notes: '',
+      healthInfoStatus: 'none',
+      consentNoticeShared: false
+    };
+  }
+
+  let familyName = $state('');
+  let children = $state<Child[]>([emptyChild()]);
+  let ticketType = $state<TicketType>('none');
+  let parents = $state<Parent[]>([emptyParent()]);
   let error = $state('');
   let familyNameInput = $state<HTMLInputElement>();
 
@@ -97,15 +119,7 @@
   }
 
   function handleAddParent() {
-    parents = [
-      ...parents,
-      {
-        name: '',
-        phone: '',
-        email: '',
-        relationship_type: 'OTHER',
-      },
-    ];
+    parents = [...parents, emptyParent()];
   }
 
   function handleRemoveParent(index: number) {
@@ -132,6 +146,12 @@
       return;
     }
 
+    const statusMap: Record<HealthInfoStatus, HealthConsentStatus> = {
+      none: 'not_applicable',
+      consented: 'granted',
+      declined: 'declined',
+    };
+
     // A family is a household of attendees — all-children, all-parents, or
     // mixed are all valid, it just can't be empty (checked below, once we
     // know how many parents survived the empty-row filter).
@@ -146,14 +166,28 @@
       }
     }
 
+    // Parents are optional rows (unlike children) — only the ones with a
+    // name entered are validated/submitted; a still-empty row is silently
+    // dropped, same as before this consent block existed.
+    for (const parent of parents) {
+      if (!parent.name.trim()) continue;
+      if (parent.healthInfoStatus === 'consented' && !parent.consentNoticeShared) {
+        error = $_('checkin.adultHealthConsentRequired');
+        return;
+      }
+    }
+
     // Filter out parents with empty names and validate
-    const validParents = parents
+    const validParents: OutgoingParent[] = parents
       .filter((parent) => parent.name.trim().length > 0)
       .map((parent) => ({
         name: parent.name.trim(),
         phone: parent.phone.trim(),
         email: parent.email.trim(),
         relationship_type: parent.relationship_type,
+        allergies: parent.healthInfoStatus === 'consented' ? parent.allergies : '',
+        notes: parent.healthInfoStatus === 'consented' ? parent.notes : '',
+        health_consent_status: statusMap[parent.healthInfoStatus],
       }));
 
     if (children.length === 0 && validParents.length === 0) {
@@ -170,11 +204,6 @@
     }
 
     // Submit
-    const statusMap: Record<HealthInfoStatus, HealthConsentStatus> = {
-      none: 'not_applicable',
-      consented: 'granted',
-      declined: 'declined',
-    };
     const outgoingChildren: OutgoingChild[] = children.map((child) => ({
       first_name: child.first_name,
       last_name: child.last_name,
@@ -306,6 +335,22 @@
                   class="w-full px-2 py-1.5 text-sm border border-neutral-300 rounded focus:outline-none focus:ring-2 focus:ring-primary-500"
                 />
               </div>
+            </div>
+            <div class="mt-2">
+              <ConsentCapture
+                bind:status={parent.healthInfoStatus}
+                bind:allergies={parent.allergies}
+                bind:notes={parent.notes}
+                bind:consentNoticeShared={parent.consentNoticeShared}
+                idPrefix={`parent-${index}`}
+                testIdPrefix="parent"
+                attestLabelKey="checkin.adultHealthConsentAttest"
+                questionKey="checkin.adultHealthInfoQuestion"
+                consentLabelKey="checkin.adultHealthInfoConsent"
+                declineLabelKey="checkin.adultHealthInfoDecline"
+                noticeKey="checkin.adultHealthConsentNotice"
+                declinedNoteKey="checkin.adultHealthInfoDeclinedNote"
+              />
             </div>
             <button
               type="button"
