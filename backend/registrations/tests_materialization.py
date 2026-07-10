@@ -12,7 +12,7 @@ from decimal import Decimal
 from django.test import TestCase
 from django.utils import timezone
 
-from events.models import Event, EventTicket
+from events.models import Event, EventTicket, PromoCode
 from families.models import Child, Family, Parent
 
 from .models import Payment, PaymentEvent, Registration
@@ -125,6 +125,21 @@ class ExpirySweepTests(TestCase):
         self.assertTrue(Family.objects.filter(pk=existing_family.pk).exists())
         self.assertTrue(Child.objects.filter(pk=pre_existing_child.pk).exists())
 
+    def test_expiry_sweep_releases_promo_code_use(self):
+        """B2: a code's slot must come back once the registration that
+        consumed it never verifies — identical semantics to capacity."""
+        promo = PromoCode.objects.create(
+            event=self.event, code="EXPIRE", max_uses=1, uses_count=1
+        )
+        registration, _family = self._make_registration(expired=True)
+        registration.promo_code = promo
+        registration.save(update_fields=["promo_code"])
+
+        sweep_expired_registrations()
+
+        promo.refresh_from_db()
+        self.assertEqual(promo.uses_count, 0)
+
 
 class UnpaidSweepTests(TestCase):
     def setUp(self):
@@ -200,3 +215,18 @@ class UnpaidSweepTests(TestCase):
         payment.refresh_from_db()
         self.assertEqual(registration.status, Registration.Status.CANCELLED)
         self.assertEqual(payment.status, Payment.Status.PARTIALLY_PAID)
+
+    def test_unpaid_sweep_releases_promo_code_use(self):
+        promo = PromoCode.objects.create(
+            event=self.event, code="UNPAID", max_uses=1, uses_count=1
+        )
+        registration, _family, _payment = self._make_pending_payment_registration(
+            expired=True
+        )
+        registration.promo_code = promo
+        registration.save(update_fields=["promo_code"])
+
+        sweep_unpaid_registrations()
+
+        promo.refresh_from_db()
+        self.assertEqual(promo.uses_count, 0)

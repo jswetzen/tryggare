@@ -3,7 +3,7 @@ from datetime import timedelta
 from decimal import Decimal
 
 from django.db import transaction
-from django.db.models import Q
+from django.db.models import F, Prefetch, Q
 from django.http import Http404
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
@@ -17,9 +17,11 @@ from rest_framework.throttling import AnonRateThrottle
 
 from checkins.audit import log_audit
 from events.models import (
+    AppliesTo,
     Event,
     EventTicket,
     Extra,
+    ExtraChoice,
     PromoCode,
     RegistrationWindowStatus,
     SessionTicket,
@@ -37,7 +39,6 @@ from .models import (
     Payment,
     Registration,
     RegistrationExtra,
-    default_expires_at,
     default_payment_expires_at,
 )
 from .pricing import calculate_discount, calculate_total
@@ -113,13 +114,20 @@ def _ticket_type_payload(ticket_type):
 
 
 def _resolve_promo_code(*, event, code_str):
-    """Resolve and lock a submitted promo code string, or return None if
+    """Resolve and count a submitted promo code string, or return None if
     none was submitted. Must be called inside the same transaction.atomic()
     block as the rest of registration creation, and before the attendee
-    loop (so is_hidden ticket-type validation below can see it) — the
-    select_for_update() lock plus the max_uses check happening under it is
-    what makes case catalog §5.4(d)'s simultaneous-last-slot race resolve
-    to exactly one winner.
+    loop (so is_hidden ticket-type validation below can see it).
+
+    D1: the max_uses check and the increment are one atomic conditional
+    UPDATE (``WHERE uses_count < max_uses``), not a select_for_update()
+    held across the rest of registration creation — Postgres serializes two
+    concurrent UPDATEs against the same row, so the second one to commit
+    re-evaluates the WHERE clause against the first's new count, which is
+    exactly what still makes case catalog §5.4(d)'s simultaneous-last-slot
+    race resolve to exactly one winner, without holding a lock on a
+    popular, unlimited-use code for the duration of an unrelated
+    registration's whole write.
 
     Not-found/inactive/expired/exhausted all raise the same generic
     message, deliberately — a distinguishable error would let someone
@@ -134,7 +142,7 @@ def _resolve_promo_code(*, event, code_str):
         code="invalid_promo_code",
     )
     try:
-        promo_code = PromoCode.objects.select_for_update().get(
+        promo_code = PromoCode.objects.get(
             event=event, code=code_str.upper(), is_active=True
         )
     except PromoCode.DoesNotExist:
@@ -145,11 +153,18 @@ def _resolve_promo_code(*, event, code_str):
         raise invalid
     if promo_code.valid_until and now > promo_code.valid_until:
         raise invalid
-    if promo_code.max_uses is not None and promo_code.uses_count >= promo_code.max_uses:
-        raise invalid
 
-    promo_code.uses_count += 1
-    promo_code.save(update_fields=["uses_count"])
+    if promo_code.max_uses is not None:
+        updated = PromoCode.objects.filter(
+            pk=promo_code.pk, uses_count__lt=promo_code.max_uses
+        ).update(uses_count=F("uses_count") + 1)
+        if not updated:
+            raise invalid
+    else:
+        PromoCode.objects.filter(pk=promo_code.pk).update(
+            uses_count=F("uses_count") + 1
+        )
+
     return promo_code
 
 
@@ -167,8 +182,8 @@ def _validate_ticket_type_for_attendee(
             # Same generic message as the branch above — a hidden type
             # should look indistinguishable from a nonexistent one.
             raise ValidationError(_("Invalid ticket type for this event."))
-    attendee_kind = "child" if is_child else "parent"
-    if ticket_type.applies_to not in (attendee_kind, "either"):
+    attendee_kind = AppliesTo.CHILD if is_child else AppliesTo.PARENT
+    if ticket_type.applies_to not in (attendee_kind, AppliesTo.EITHER):
         raise ValidationError(_("This ticket type isn't available for this attendee."))
     now = timezone.now()
     if ticket_type.available_from and now < ticket_type.available_from:
@@ -193,9 +208,26 @@ def _materialize_ticket(*, attendee, event, ticket_type, registration):
     """Snapshot the ticket type's price onto the ticket at submission time
     (P2: never recomputed afterwards). A session_bundle type materializes
     one SessionTicket per covered session, all sharing this ticket_type —
-    see pricing.py::calculate_total for how that avoids double-counting."""
+    see pricing.py::calculate_total for how that avoids double-counting.
+
+    A2: TicketTypeAdminForm.clean() is supposed to stop a session_bundle
+    with no sessions attached from ever being saved, but this is the
+    belt-and-suspenders backstop for any other path that could produce one
+    (a fixture, a data migration, an is_active toggle after its sessions
+    were removed) — without it, this loop silently creates zero
+    SessionTicket rows and the attendee finishes submit→verify with no
+    ticket at all."""
     if ticket_type.kind == TicketType.Kind.SESSION_BUNDLE:
-        for session in ticket_type.sessions.all():
+        sessions = list(ticket_type.sessions.all())
+        if not sessions:
+            logger.error(
+                "TicketType %s (%r) is a session_bundle with no sessions "
+                "attached — refusing to materialize an empty ticket",
+                ticket_type.id,
+                ticket_type.name,
+            )
+            raise ValidationError(_("This ticket type isn't available right now."))
+        for session in sessions:
             SessionTicket.objects.create(
                 attendee=attendee,
                 session=session,
@@ -315,13 +347,17 @@ def _attach_extra(*, registration, attendee, selection, is_child):
         # attendee) unique constraint's NULL semantics (Postgres treats
         # every NULL as distinct), so a second selection of the same
         # per-registration extra bumps quantity via get_or_create instead
-        # of relying on the DB constraint.
+        # of relying on the DB constraint. `choice` is part of the lookup,
+        # not just the defaults — two selections of the same extra with
+        # different choices (e.g. "Large cabin" vs "Small cabin") are
+        # different line items, each with their own snapshotted price, not
+        # one row whose quantity happens to grow.
         reg_extra, created = RegistrationExtra.objects.get_or_create(
             registration=registration,
             extra=extra,
             attendee=None,
+            choice=choice,
             defaults={
-                "choice": choice,
                 "quantity": quantity,
                 "price_at_registration": price,
             },
@@ -468,7 +504,14 @@ def _create_registration(
 
 
 def _resend_verification(registration):
-    """Returns (registration, token, was_throttled)."""
+    """Returns (registration, token, was_throttled).
+
+    Deliberately never touches expires_at — a resend gets a fresh token and
+    cooldown, but the registration's lifetime stays pinned to its original
+    submitted_at + REGISTRATION_TTL_HOURS. Otherwise each resend would push
+    the row's expiry out further, letting an attacker who's put a victim's
+    address in contact_email keep the row (and the resend cooldown's ~144/
+    day email volume) alive indefinitely (A1)."""
     if (
         registration.verification_sent_at is not None
         and timezone.now() - registration.verification_sent_at < RESEND_COOLDOWN
@@ -478,10 +521,7 @@ def _resend_verification(registration):
     token = generate_verification_token()
     registration.verification_token_hash = hash_token(token)
     registration.verification_sent_at = timezone.now()
-    registration.expires_at = default_expires_at()
-    registration.save(
-        update_fields=["verification_token_hash", "verification_sent_at", "expires_at"]
-    )
+    registration.save(update_fields=["verification_token_hash", "verification_sent_at"])
     return registration, token, False
 
 
@@ -497,12 +537,18 @@ def registration_event_info(request, event_id):
     """
     event = get_object_or_404(Event, pk=event_id)
 
+    active_ticket_types = event.ticket_types.filter(is_active=True)
     ticket_types = [
         _ticket_type_payload(ticket_type)
-        for ticket_type in event.ticket_types.filter(
-            is_active=True, is_hidden=False
-        ).order_by("sort_order", "name")
+        for ticket_type in active_ticket_types.filter(is_hidden=False).order_by(
+            "sort_order", "name"
+        )
     ]
+    # A code-only, invite-only event (every active TicketType hidden) would
+    # otherwise leave the form with an empty ticket_types list and no visible
+    # promo-code box to unlock any — this tells the frontend to show the box
+    # anyway so there's a way in.
+    has_hidden_ticket_types = active_ticket_types.filter(is_hidden=True).exists()
     extras = [
         {
             "id": str(extra.id),
@@ -520,12 +566,19 @@ def registration_event_info(request, event_id):
                     "label": choice.label,
                     "price_delta": str(choice.price_delta),
                 }
-                for choice in extra.choice_rows.filter(is_active=True).order_by(
-                    "sort_order", "label"
-                )
+                for choice in extra.choice_rows.all()
             ],
         }
-        for extra in event.extras.filter(is_active=True).order_by("sort_order", "name")
+        for extra in event.extras.filter(is_active=True)
+        .order_by("sort_order", "name")
+        .prefetch_related(
+            Prefetch(
+                "choice_rows",
+                queryset=ExtraChoice.objects.filter(is_active=True).order_by(
+                    "sort_order", "label"
+                ),
+            )
+        )
     ]
 
     return Response(
@@ -538,6 +591,7 @@ def registration_event_info(request, event_id):
             "price": str(event.price) if event.price is not None else None,
             "currency": "SEK",
             "ticket_types": ticket_types,
+            "has_hidden_ticket_types": has_hidden_ticket_types,
             "extras": extras,
             "registration_window_status": event.registration_window_status,
             "registration_opens_at": (
@@ -659,7 +713,7 @@ def submit_registration(request):
     existing = (
         Registration.objects.filter(
             event=event,
-            contact_email=contact_email,
+            contact_email__iexact=contact_email,
             status=Registration.Status.PENDING_VERIFICATION,
         )
         .order_by("-submitted_at")
@@ -761,7 +815,7 @@ def verify_registration(request, token):
 
     email_matches_other_family = (
         Parent.objects.filter(
-            email=registration.contact_email, anonymized_at__isnull=True
+            email__iexact=registration.contact_email, anonymized_at__isnull=True
         )
         .exclude(family=registration.family)
         .exists()

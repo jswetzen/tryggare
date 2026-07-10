@@ -151,3 +151,68 @@ class RegistrationCheckinGateApiTests(TestCase):
             format="json",
         )
         self.assertEqual(response.status_code, 201, response.data)
+
+
+class RegistrationCheckinGateGenericEndpointTests(TestCase):
+    """The gate must also hold on a plain POST to the generic
+    CheckInRecordViewSet create endpoint (config/urls.py's "checkins"
+    router), not just the custom check_in action — mirrors
+    parent_checkin_gate_error's equivalent coverage."""
+
+    def setUp(self):
+        self.client = APIClient()
+        self.staff = AdminUser.objects.create_user(
+            username="staff2", password="testpass123", name="Staff"
+        )
+        self.client.force_authenticate(user=self.staff)
+        self.event, self.session = _make_event_and_session()
+        self.family = Family.objects.create(last_name="Test")
+        self.child = Child.objects.create(first_name="Kim", family=self.family)
+
+    def test_generic_endpoint_blocked_for_unconfirmed_registration(self):
+        registration = Registration.objects.create(
+            event=self.event,
+            family=self.family,
+            contact_email="guardian@example.com",
+            verification_token_hash=hash_token(generate_verification_token()),
+        )
+        EventTicket.objects.create(
+            attendee=self.child, event=self.event, registration=registration
+        )
+
+        response = self.client.post(
+            "/api/checkins/",
+            {
+                "child": str(self.child.id),
+                "session": str(self.session.id),
+                "check_in_staff": str(self.staff.id),
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 400, response.data)
+        self.assertIn("not yet confirmed", str(response.data))
+
+    def test_generic_endpoint_allowed_once_confirmed(self):
+        registration = Registration.objects.create(
+            event=self.event,
+            family=self.family,
+            contact_email="guardian@example.com",
+            verification_token_hash=hash_token(generate_verification_token()),
+            status=Registration.Status.CONFIRMED,
+        )
+        EventTicket.objects.create(
+            attendee=self.child, event=self.event, registration=registration
+        )
+
+        response = self.client.post(
+            "/api/checkins/",
+            {
+                "child": str(self.child.id),
+                "session": str(self.session.id),
+                "check_in_staff": str(self.staff.id),
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 201, response.data)

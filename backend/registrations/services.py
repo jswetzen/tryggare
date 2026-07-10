@@ -3,11 +3,16 @@ no DRF coupling — callers own validation, error handling, and audit logging).
 """
 
 from decimal import Decimal
+from typing import Literal
 
 from django.db import transaction
+from django.db.models import F
+from django.db.models.functions import Greatest
 
-from .emails import send_confirmation_email
-from .models import Payment, PaymentEvent, Registration
+from events.models import PromoCode
+
+from .emails import send_confirmation_email, send_payment_instructions_email
+from .models import Payment, PaymentEvent, Registration, default_payment_expires_at
 
 
 class InvalidPaymentTransition(Exception):
@@ -25,14 +30,56 @@ def record_payment_event(
     recomputes Payment.status, and — only if that recompute lands on PAID
     while the registration is still pending_payment — confirms the
     registration (mirrors the pre-ledger mark_payment_paid side effect
-    exactly). Confirmation email is sent outside the transaction."""
+    exactly). Confirmation email is sent outside the transaction.
+
+    C1: enforces two prefix invariants on the ledger before the new event is
+    created, checked against cumulative totals *including* it:
+    1. refunded can never exceed received — you can't refund money that was
+       never received (this is what stopped a single oversized refund from
+       jumping a partially_paid Payment straight to a pending-looking state
+       while real money was still sitting un-returned).
+    2. for a REFUNDED or ADJUSTMENT event specifically, received − refunded
+       + adjusted can't exceed amount. Deliberately *not* checked for a
+       RECEIVED event — event_registration_ux_case_catalog.md §5.3 makes
+       overpayment (a negative balance, surfaced to staff as a "registrera
+       återbetalning" action) an intentional, supported state, not a bug.
+       Combined with invariant 1 (refunded events can only ever shrink this
+       expression), the only event kind invariant 2 can actually reject is
+       an oversized ADJUSTMENT — a write-off larger than what's currently
+       owed.
+    """
     if amount <= Decimal("0"):
         raise ValueError("PaymentEvent amount must be positive")
-    if payment.status == Payment.Status.CANCELLED:
-        raise InvalidPaymentTransition("Payment is cancelled")
 
     should_send_confirmation = False
     with transaction.atomic():
+        # Locks the row and refreshes onto the *same* object the caller
+        # passed in (rather than rebinding to a freshly fetched one) — some
+        # callers (mark_payment_paid's own "already paid" guard) read
+        # payment.status again afterwards and need to see this call's
+        # effect, not a stale in-memory copy.
+        payment.refresh_from_db(from_queryset=Payment.objects.select_for_update())
+        if payment.status == Payment.Status.CANCELLED:
+            raise InvalidPaymentTransition("Payment is cancelled")
+
+        received, refunded, adjusted = payment.ledger_totals()
+        if kind == PaymentEvent.Kind.RECEIVED:
+            received += amount
+        elif kind == PaymentEvent.Kind.REFUNDED:
+            refunded += amount
+        elif kind == PaymentEvent.Kind.ADJUSTMENT:
+            adjusted += amount
+
+        if refunded > received:
+            raise InvalidPaymentTransition("Cannot refund more than has been received")
+        if (
+            kind != PaymentEvent.Kind.RECEIVED
+            and received - refunded + adjusted > payment.amount
+        ):
+            raise InvalidPaymentTransition(
+                "This would write off more than is currently owed"
+            )
+
         event = PaymentEvent.objects.create(
             payment=payment, kind=kind, amount=amount, note=note, created_by=created_by
         )
@@ -66,15 +113,20 @@ def mark_payment_paid(payment: Payment, *, method: str, marked_by) -> None:
         )
 
     outstanding = payment.balance
-    payment.method = method
-    payment.marked_by = marked_by
-    payment.save(update_fields=["method", "marked_by"])
+    # method/marked_by are written only once record_payment_event has
+    # actually committed the transition — it re-reads the row under
+    # select_for_update and can reject it (e.g. the hourly sweep cancelled
+    # this payment concurrently), and a rejected transition must not leave
+    # method/marked_by set on a payment with no matching PaymentEvent.
     record_payment_event(
         payment,
         kind=PaymentEvent.Kind.RECEIVED,
         amount=outstanding,
         created_by=marked_by,
     )
+    payment.method = method
+    payment.marked_by = marked_by
+    payment.save(update_fields=["method", "marked_by"])
 
 
 def confirm_registration_despite_balance(
@@ -86,11 +138,93 @@ def confirm_registration_despite_balance(
     auto-confirm in record_payment_event() so it's independently auditable:
     this is a staff decision to let someone in without full payment, not a
     consequence of money actually arriving."""
-    if registration.status != Registration.Status.PENDING_PAYMENT:
+    with transaction.atomic():
+        # Re-read under lock rather than trusting the caller's in-memory
+        # instance (e.g. an admin bulk action's queryset row) — otherwise a
+        # concurrent transition (the hourly sweep cancelling this
+        # registration past its payment TTL) can go unnoticed and this call
+        # resurrects an already-cancelled registration. Mirrors
+        # record_payment_event's own select_for_update re-read.
+        registration.refresh_from_db(
+            from_queryset=Registration.objects.select_for_update()
+        )
+        if registration.status != Registration.Status.PENDING_PAYMENT:
+            raise InvalidPaymentTransition(
+                f"Registration is {registration.status}, not pending_payment"
+            )
+
+        registration.status = Registration.Status.CONFIRMED
+        registration.save(update_fields=["status"])
+
+    send_confirmation_email(registration)
+
+
+def release_promo_code_use(registration: Registration) -> None:
+    """Gives back a PromoCode slot a registration consumed but never
+    completed — identical semantics to TicketType.capacity's (unimplemented)
+    release, per event_registration_ux_case_catalog.md §5.4. Called from
+    both TTL sweeps (tasks.py), RegistrationAdmin.cancel_registrations, and
+    resolve_pending_review's reject path — the four ways a registration that
+    used a code can end without confirming. An F()-based update so
+    concurrent releases can't race each other; floored at 0 defensively
+    (Greatest), though in practice each registration's promo use is only
+    ever released once, since the four call sites are mutually exclusive by
+    status transition."""
+    if registration.promo_code_id is None:
+        return
+    PromoCode.objects.filter(pk=registration.promo_code_id).update(
+        uses_count=Greatest(F("uses_count") - 1, 0)
+    )
+
+
+def resolve_pending_review(
+    registration: Registration,
+    *,
+    action: Literal["confirm", "reject"],
+    resolved_by,
+) -> None:
+    """Gives pending_review (verify_registration's anti-spoofing dedup gate —
+    a verified email matched an existing Parent on a *different* family) a
+    real resolution path. Mirrors confirm_registration_despite_balance's
+    pattern: a dedicated service function so every transition out of
+    pending_review gets the same Payment handling, email, and (via the
+    caller's admin action) audit log that every other transition gets —
+    unlike the raw Django-admin field edit this replaces, which skipped all
+    three.
+
+    ``action="confirm"``: routes exactly like a from-scratch
+    verify_registration call would have if the email hadn't matched another
+    family — pending_payment (with the payment-instructions email) if this
+    registration's Payment (already created at verify time whenever its
+    total is nonzero) is outstanding, confirmed (with the confirmation
+    email) otherwise.
+
+    ``action="reject"``: cancels the registration, cancels its Payment if
+    one exists and is still untouched, and releases any promo-code use.
+    """
+    if registration.status != Registration.Status.PENDING_REVIEW:
         raise InvalidPaymentTransition(
-            f"Registration is {registration.status}, not pending_payment"
+            f"Registration is {registration.status}, not pending_review"
         )
 
-    registration.status = Registration.Status.CONFIRMED
-    registration.save(update_fields=["status"])
-    send_confirmation_email(registration)
+    if action == "confirm":
+        payment = getattr(registration, "payment", None)
+        if payment is not None:
+            registration.status = Registration.Status.PENDING_PAYMENT
+            registration.expires_at = default_payment_expires_at()
+            registration.save(update_fields=["status", "expires_at"])
+            send_payment_instructions_email(registration)
+        else:
+            registration.status = Registration.Status.CONFIRMED
+            registration.save(update_fields=["status"])
+            send_confirmation_email(registration)
+    elif action == "reject":
+        registration.status = Registration.Status.CANCELLED
+        registration.save(update_fields=["status"])
+        payment = getattr(registration, "payment", None)
+        if payment is not None and payment.status == Payment.Status.PENDING:
+            payment.status = Payment.Status.CANCELLED
+            payment.save(update_fields=["status"])
+        release_promo_code_use(registration)
+    else:
+        raise ValueError(f"Unknown action: {action!r}")

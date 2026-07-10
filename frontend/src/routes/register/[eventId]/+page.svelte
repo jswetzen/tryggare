@@ -1003,7 +1003,7 @@
         </div>
       {/if}
 
-      {#if eventInfo.ticket_types.length > 0 || eventInfo.is_paid}
+      {#if eventInfo.ticket_types.length > 0 || eventInfo.is_paid || eventInfo.has_hidden_ticket_types}
         <div class="mb-4">
           <div class="flex items-center gap-2">
             <input

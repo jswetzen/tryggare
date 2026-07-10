@@ -4,7 +4,7 @@ from decimal import Decimal
 
 from django.core.validators import MinValueValidator
 from django.db import models
-from django.db.models import Sum
+from django.db.models import Q, Sum
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
@@ -227,44 +227,59 @@ class Payment(models.Model):
     def reference_code(self) -> str:
         return self.registration.reference_code
 
+    def ledger_totals(self) -> tuple[Decimal, Decimal, Decimal]:
+        """Cumulative (received, refunded, adjusted) from the PaymentEvent
+        ledger — the shared read both ``balance`` and
+        ``services.record_payment_event``'s C1 invariant checks build on.
+        One query with three conditional aggregates, not three separate
+        round trips — this runs per admin changelist row and multiple times
+        per mark-paid call."""
+        totals = self.events.aggregate(
+            received=Sum("amount", filter=Q(kind=PaymentEvent.Kind.RECEIVED)),
+            refunded=Sum("amount", filter=Q(kind=PaymentEvent.Kind.REFUNDED)),
+            adjusted=Sum("amount", filter=Q(kind=PaymentEvent.Kind.ADJUSTMENT)),
+        )
+        return (
+            totals["received"] or ZERO,
+            totals["refunded"] or ZERO,
+            totals["adjusted"] or ZERO,
+        )
+
     @property
     def balance(self) -> Decimal:
         """Amount still owed: amount minus what the PaymentEvent ledger says
-        has actually happened. received reduces it, refunded and adjustment
-        (a goodwill write-off — no money moves) reduce and increase it
+        has actually happened. received reduces it; refunded and adjustment
+        (a goodwill write-off — no money moves) increase and reduce it
         respectively per their real-world meaning: a refund gives money back
         to the payer, so it reopens the balance; an adjustment writes off
         part of what's owed."""
-        received = (
-            self.events.filter(kind=PaymentEvent.Kind.RECEIVED).aggregate(
-                total=Sum("amount")
-            )["total"]
-            or ZERO
-        )
-        refunded = (
-            self.events.filter(kind=PaymentEvent.Kind.REFUNDED).aggregate(
-                total=Sum("amount")
-            )["total"]
-            or ZERO
-        )
-        adjusted = (
-            self.events.filter(kind=PaymentEvent.Kind.ADJUSTMENT).aggregate(
-                total=Sum("amount")
-            )["total"]
-            or ZERO
-        )
+        received, refunded, adjusted = self.ledger_totals()
         return self.amount - received + refunded - adjusted
 
     def recompute_status(self) -> None:
         """Derive and persist status from the ledger. Idempotent; called by
         record_payment_event() inside its transaction. Never touches an
         existing `cancelled` status — that transition belongs to the sweep/
-        admin cancel action, not the ledger (see payment_processing.md)."""
+        admin cancel action, not the ledger (see payment_processing.md).
+
+        C1: a fully-refunded payment (everything ever received has since
+        been refunded back out) reads as REFUNDED rather than falling into
+        the balance-threshold split below — otherwise it lands on PENDING,
+        indistinguishable from "never paid" even though real money moved
+        twice. Deliberately narrower than "any refund at all": a *partial*
+        refund of a fully-paid payment (some of what was received is still
+        held) must stay PARTIALLY_PAID, not flip to REFUNDED — see
+        tests_payment.py::test_refund_after_confirmed_reopens_balance_
+        without_reverting_status."""
         if self.status == self.Status.CANCELLED:
             return
 
-        balance = self.balance
-        if balance <= ZERO:
+        received, refunded, adjusted = self.ledger_totals()
+        balance = self.amount - received + refunded - adjusted
+
+        if refunded > ZERO and refunded >= received:
+            new_status = self.Status.REFUNDED
+        elif balance <= ZERO:
             new_status = self.Status.PAID
         elif balance < self.amount:
             new_status = self.Status.PARTIALLY_PAID

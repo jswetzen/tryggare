@@ -1,6 +1,17 @@
 <script lang="ts">
   import { _ } from 'svelte-i18n';
-  import type { Session } from '$lib/api/types';
+
+  // A narrow local shape, not the full `$lib/api/types` or `$lib/checkin/types`
+  // Session — this component only ever reads these fields, and the two
+  // callers (checkin/+page.svelte, checkout/+page.svelte) pass structurally
+  // different Session types that both happen to be supersets of this one.
+  interface Session {
+    id: string;
+    name: string;
+    event_name: string;
+    start_time: string;
+    end_time?: string;
+  }
 
   interface SessionSelectorProps {
     show?: boolean;

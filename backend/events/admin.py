@@ -1,4 +1,6 @@
+from django import forms
 from django.contrib import admin
+from django.utils.translation import gettext_lazy as _
 
 from .models import (
     Event,
@@ -111,8 +113,34 @@ class SessionTicketAdmin(admin.ModelAdmin):
     get_event.admin_order_field = "session__event"
 
 
+class TicketTypeAdminForm(forms.ModelForm):
+    """A2: catch a session_bundle TicketType with no sessions attached at
+    save time. Must live on the form's clean(), not TicketType.clean() —
+    the sessions M2M isn't written to the instance until after save() (via
+    form.save_m2m()), so a model-level clean() would see stale/empty state
+    on every add and most edits regardless of what was actually submitted.
+    cleaned_data, by contrast, reflects the submitted selection immediately.
+    See registrations/views.py::_materialize_ticket for the runtime
+    backstop this doesn't replace."""
+
+    class Meta:
+        model = TicketType
+        fields = "__all__"
+
+    def clean(self):
+        cleaned_data = super().clean()
+        if cleaned_data.get("kind") == TicketType.Kind.SESSION_BUNDLE and not cleaned_data.get(
+            "sessions"
+        ):
+            raise forms.ValidationError(
+                _("A session-bundle ticket type must cover at least one session.")
+            )
+        return cleaned_data
+
+
 @admin.register(TicketType)
 class TicketTypeAdmin(admin.ModelAdmin):
+    form = TicketTypeAdminForm
     list_display = (
         "name",
         "event",

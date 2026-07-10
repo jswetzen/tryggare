@@ -4,7 +4,7 @@ from rest_framework import serializers
 
 from families.models import Parent
 from families.serializers import ParentSerializer
-from .eligibility import parent_checkin_gate_error
+from .eligibility import parent_checkin_gate_error, registration_checkin_gate_error
 from .models import AuditLog, CheckInRecord
 
 
@@ -65,6 +65,15 @@ class CheckInRecordSerializer(serializers.ModelSerializer):
         # always False here (the PK field resolves to a base Attendee); query
         # the Parent table directly instead.
         parent = Parent.objects.filter(pk=attendee.pk).first() if attendee else None
+
+        if attendee and session:
+            # Same gate the check_in view action enforces (checked before
+            # branching on parent-vs-child there too), kept here so a plain
+            # POST to the generic CheckInRecord endpoint can't bypass it for
+            # a child whose registration isn't confirmed yet.
+            registration_gate_error = registration_checkin_gate_error(attendee, session)
+            if registration_gate_error:
+                raise serializers.ValidationError(registration_gate_error)
 
         if parent is not None:
             # Parents are check-in only — skip multi-session validation, but

@@ -23,6 +23,7 @@ from families.models import Family, Parent
 
 from .models import Registration
 from .pricing import calculate_discount, calculate_total
+from .services import release_promo_code_use
 from .tokens import generate_verification_token, hash_token
 from .views import _resolve_promo_code
 
@@ -347,6 +348,86 @@ class ResolvePromoCodeUnitTests(TestCase):
         self.assertEqual(resolved.id, promo.id)
         promo.refresh_from_db()
         self.assertEqual(promo.uses_count, 1)
+
+
+class ReleasePromoCodeUseTests(TestCase):
+    """B2: usage accounting must be released by the TTL sweep on expiry/
+    cancellation — identical semantics to capacity (case catalog §5.4).
+    Sweep-integration coverage lives in tests_materialization.py; this
+    covers release_promo_code_use itself."""
+
+    def setUp(self):
+        self.event = _make_event()
+
+    def test_no_promo_code_is_a_no_op(self):
+        registration = _make_registration(self.event)
+        release_promo_code_use(registration)  # must not raise
+
+    def test_decrements_uses_count(self):
+        promo = _make_promo_code(self.event, max_uses=5, uses_count=2)
+        registration = _make_registration(self.event)
+        registration.promo_code = promo
+        registration.save(update_fields=["promo_code"])
+
+        release_promo_code_use(registration)
+
+        promo.refresh_from_db()
+        self.assertEqual(promo.uses_count, 1)
+
+    def test_floored_at_zero(self):
+        promo = _make_promo_code(self.event, max_uses=5, uses_count=0)
+        registration = _make_registration(self.event)
+        registration.promo_code = promo
+        registration.save(update_fields=["promo_code"])
+
+        release_promo_code_use(registration)
+
+        promo.refresh_from_db()
+        self.assertEqual(promo.uses_count, 0)
+
+    def test_frees_a_slot_for_the_next_submission(self):
+        promo = _make_promo_code(self.event, code="ONCE", max_uses=1)
+        _resolve_promo_code(event=self.event, code_str="ONCE")
+        promo.refresh_from_db()
+        self.assertEqual(promo.uses_count, 1)
+        registration = _make_registration(self.event)
+        registration.promo_code = promo
+        registration.save(update_fields=["promo_code"])
+
+        release_promo_code_use(registration)
+
+        resolved_again = _resolve_promo_code(event=self.event, code_str="ONCE")
+        self.assertIsNotNone(resolved_again)
+        promo.refresh_from_db()
+        self.assertEqual(promo.uses_count, 1)
+
+
+class AdminCancelRegistrationsReleasesPromoCodeTests(TestCase):
+    def test_cancel_registrations_action_releases_promo_code_use(self):
+        from accounts.models import AdminUser
+
+        event = _make_event()
+        promo = _make_promo_code(event, code="CANCEL", max_uses=1, uses_count=1)
+        registration = _make_registration(event)
+        registration.promo_code = promo
+        registration.save(update_fields=["promo_code"])
+        staff = AdminUser.objects.create_superuser(
+            username="admin_cancel", password="testpass123", name="Admin Cancel"
+        )
+        client = APIClient()
+        client.force_authenticate(user=staff)
+        client.force_login(staff)
+
+        response = client.post(
+            "/admin/registrations/registration/",
+            {"action": "cancel_registrations", "_selected_action": [str(registration.pk)]},
+        )
+
+        self.assertIn(response.status_code, (200, 302))
+        registration.refresh_from_db()
+        promo.refresh_from_db()
+        self.assertEqual(registration.status, Registration.Status.CANCELLED)
+        self.assertEqual(promo.uses_count, 0)
 
 
 class PromoCodeMaxUsesRaceTests(TransactionTestCase):

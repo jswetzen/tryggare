@@ -410,6 +410,46 @@ class TicketTypeExtraModelTest(TestCase):
         self.assertIn(self.session, ticket_type.sessions.all())
         self.assertIn(ticket_type, self.session.bundle_ticket_types.all())
 
+    def test_admin_form_rejects_session_bundle_with_no_sessions(self):
+        """A2: staff-facing backstop — TicketTypeAdminForm.clean() must
+        reject this at save time rather than silently producing a
+        zero-SessionTicket ticket type."""
+        from events.admin import TicketTypeAdminForm
+
+        form = TicketTypeAdminForm(
+            data={
+                "event": str(self.event.id),
+                "name": "Saturday only",
+                "price": "350",
+                "applies_to": "either",
+                "kind": TicketType.Kind.SESSION_BUNDLE,
+                "sort_order": "0",
+                "is_active": "on",
+                "sessions": [],
+            }
+        )
+        self.assertFalse(form.is_valid())
+        self.assertIn(
+            "session", str(form.errors).lower(),
+        )
+
+    def test_admin_form_accepts_session_bundle_with_a_session(self):
+        from events.admin import TicketTypeAdminForm
+
+        form = TicketTypeAdminForm(
+            data={
+                "event": str(self.event.id),
+                "name": "Saturday only",
+                "price": "350",
+                "applies_to": "either",
+                "kind": TicketType.Kind.SESSION_BUNDLE,
+                "sort_order": "0",
+                "is_active": "on",
+                "sessions": [str(self.session.id)],
+            }
+        )
+        self.assertTrue(form.is_valid(), form.errors)
+
     def test_extra_choice_relation(self):
         extra = Extra.objects.create(
             event=self.event, name="T-shirt", requires_choice=True
@@ -541,3 +581,23 @@ class RegistrationWindowStatusTest(TestCase):
             registration_closes_at=timezone.now() + timezone.timedelta(days=1)
         )
         self.assertEqual(event.registration_window_status, RegistrationWindowStatus.OPEN)
+
+    def test_clean_rejects_closes_at_before_opens_at(self):
+        """D2: this misconfiguration reads as NOT_OPEN_YET/CLOSED forever —
+        registration_window_status itself has no way to flag it, so
+        Event.clean() must catch it at save time."""
+        from django.core.exceptions import ValidationError
+
+        event = self._make_event(
+            registration_opens_at=timezone.now() + timezone.timedelta(days=2),
+            registration_closes_at=timezone.now() + timezone.timedelta(days=1),
+        )
+        with self.assertRaises(ValidationError):
+            event.full_clean()
+
+    def test_clean_allows_closes_at_after_opens_at(self):
+        event = self._make_event(
+            registration_opens_at=timezone.now() - timezone.timedelta(days=1),
+            registration_closes_at=timezone.now() + timezone.timedelta(days=1),
+        )
+        event.full_clean()  # must not raise

@@ -9,6 +9,8 @@ from .services import (
     confirm_registration_despite_balance,
     mark_payment_paid,
     record_payment_event,
+    release_promo_code_use,
+    resolve_pending_review,
 )
 
 
@@ -69,6 +71,12 @@ class RegistrationAdmin(admin.ModelAdmin):
         "verification_sent_at",
         "expires_at",
         "created_new_family",
+        # B1: status now transitions only through service functions (this
+        # admin's actions, or the public verify/payment endpoints) — a raw
+        # field edit used to be the only escape hatch out of pending_review,
+        # and it skipped Payment creation, the confirmation/payment-
+        # instructions email, and log_audit.
+        "status",
     )
     actions = [
         "cancel_registrations",
@@ -76,6 +84,8 @@ class RegistrationAdmin(admin.ModelAdmin):
         "mark_paid_bankgiro",
         "mark_paid_other",
         "confirm_despite_balance",
+        "resolve_pending_review_confirm",
+        "resolve_pending_review_reject",
     ]
 
     def get_queryset(self, request):
@@ -96,6 +106,7 @@ class RegistrationAdmin(admin.ModelAdmin):
             if payment is not None and payment.status == Payment.Status.PENDING:
                 payment.status = Payment.Status.CANCELLED
                 payment.save(update_fields=["status"])
+            release_promo_code_use(registration)
             updated += 1
         self.message_user(request, _(f"{updated} registration(s) cancelled."))
 
@@ -121,9 +132,17 @@ class RegistrationAdmin(admin.ModelAdmin):
                 skipped += 1
                 continue
             outstanding = payment.balance
-            confirm_registration_despite_balance(
-                registration, confirmed_by=request.user
-            )
+            try:
+                confirm_registration_despite_balance(
+                    registration, confirmed_by=request.user
+                )
+            except InvalidPaymentTransition:
+                # Re-read under lock inside the service can now reject a row
+                # that looked pending_payment in this admin queryset's stale
+                # snapshot but was cancelled concurrently (e.g. by the
+                # hourly TTL sweep) between the query above and this call.
+                skipped += 1
+                continue
             log_audit(
                 request,
                 action="registration_confirmed_despite_balance",
@@ -139,6 +158,48 @@ class RegistrationAdmin(admin.ModelAdmin):
             request,
             _("%(confirmed)d confirmed, %(skipped)d skipped (not pending payment).")
             % {"confirmed": confirmed, "skipped": skipped},
+        )
+
+    def _resolve_pending_review(self, request, queryset, *, action, audit_action):
+        resolved = skipped = 0
+        for registration in queryset.select_related("payment"):
+            try:
+                resolve_pending_review(
+                    registration, action=action, resolved_by=request.user
+                )
+            except InvalidPaymentTransition:
+                skipped += 1
+                continue
+            log_audit(
+                request,
+                action=audit_action,
+                entity_type="Registration",
+                entity_id=str(registration.id),
+                details={"reference_code": registration.reference_code},
+            )
+            resolved += 1
+        self.message_user(
+            request,
+            _("%(resolved)d resolved, %(skipped)d skipped (not pending review).")
+            % {"resolved": resolved, "skipped": skipped},
+        )
+
+    @admin.action(description=_("Resolve pending review: confirm"))
+    def resolve_pending_review_confirm(self, request, queryset):
+        self._resolve_pending_review(
+            request,
+            queryset,
+            action="confirm",
+            audit_action="registration_pending_review_confirmed",
+        )
+
+    @admin.action(description=_("Resolve pending review: reject (cancel)"))
+    def resolve_pending_review_reject(self, request, queryset):
+        self._resolve_pending_review(
+            request,
+            queryset,
+            action="reject",
+            audit_action="registration_pending_review_rejected",
         )
 
 

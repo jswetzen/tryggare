@@ -14,6 +14,7 @@
     onclick?: () => void;
     children?: Snippet;
     class?: string;
+    title?: string;
   }
 
   let {
@@ -25,7 +26,8 @@
     type = 'button',
     onclick,
     children,
-    class: className = ''
+    class: className = '',
+    title
   }: Props = $props();
 
   const baseStyles = 'inline-flex items-center justify-center font-semibold transition-colors rounded-button focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed';
@@ -54,6 +56,7 @@
 
 <button
   {type}
+  {title}
   class={buttonClass}
   disabled={disabled || loading}
   onclick={onclick}

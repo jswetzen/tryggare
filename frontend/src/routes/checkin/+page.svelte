@@ -129,9 +129,9 @@
   }
 
   // Load data on mount
-  onMount(async () => {
-    // Load initial data - await to ensure loading state is properly managed
-    await Promise.all([loadFamilies(), loadActiveSession(), loadPrinters()]);
+  onMount(() => {
+    // Load initial data - each loader manages its own loading/error state
+    Promise.all([loadFamilies(), loadActiveSession(), loadPrinters()]);
 
     // Connect to WebSocket for real-time updates
     websocketStore.connect();
@@ -139,7 +139,9 @@
     // Subscribe to WebSocket messages
     const unsubscribe = websocketStore.onMessage(handleWebSocketMessage);
 
-    // Return cleanup function
+    // Return cleanup function — onMount's callback must stay synchronous for
+    // this to actually run on unmount; an async callback's return value is a
+    // Promise, which Svelte never awaits to find the real cleanup function.
     return () => {
       unsubscribe();
     };
@@ -1087,15 +1089,11 @@
         title={searchQuery
           ? $_('checkin.noFamiliesFound', { values: { query: searchQuery } })
           : $_('checkin.noFamilies')}
+        description={searchQuery ? $_('checkin.tryDifferentSearch') : undefined}
       >
         {#snippet icon()}
           <Icon name="users" size="xl" />
         {/snippet}
-        {#if searchQuery}
-          {#snippet description()}
-            <p class="text-sm">{$_('checkin.tryDifferentSearch')}</p>
-          {/snippet}
-        {/if}
       </EmptyState>
     {:else}
       <CheckinExpandableTable

@@ -79,7 +79,7 @@ export const checkInApi = {
   get: (id: string) => apiClient.get<CheckInRecord>(`/checkins/${id}/`),
   active: () => apiClient.get<CheckInRecord[]>('/checkins/active/'),
 
-  checkIn: (data: { child: string; session: string }) =>
+  checkIn: (data: { child: string; session: string; supervised?: boolean }) =>
     apiClient.post<CheckInRecord>('/checkins/check_in/', data),
 
   checkOut: (recordId: string, pickedUpBy?: string) =>
@@ -155,7 +155,7 @@ export const checkinApi = {
   /**
    * Check in a child to a session
    */
-  checkIn: (data: { child: string; session: string }) =>
+  checkIn: (data: { child: string; session: string; supervised?: boolean }) =>
     apiClient.post<CheckInRecord>('/checkins/check_in/', data),
 
   /**
