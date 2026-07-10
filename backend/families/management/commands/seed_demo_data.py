@@ -4,6 +4,7 @@ Idempotent — safe to re-run (uses get_or_create throughout).
 """
 
 from datetime import date, timedelta
+from decimal import Decimal
 
 from django.contrib.auth import get_user_model
 from django.core.management.base import BaseCommand
@@ -22,6 +23,8 @@ from events.models import (
     TicketType,
 )
 from families.models import Child, Family, Parent
+from registrations.models import Payment, Registration
+from registrations.tokens import generate_verification_token, hash_token
 
 
 class Command(BaseCommand):
@@ -310,7 +313,62 @@ class Command(BaseCommand):
             )
         )
 
+        self._seed_unpaid_registration_demo_family(event, morning)
         self._seed_registration_demo_event()
+
+    def _seed_unpaid_registration_demo_family(self, event, session):
+        """A ninth Spring Conference 2026 family, arrived via self-serve
+        registration but not yet paid — showcases the check-in screen's
+        "unpaid at the door" banner (case catalog §9.3) without a staff
+        member having to submit a real registration first. Distinct from
+        every other seed family here: this one has a real Registration/
+        Payment pair and a ticket whose registration FK is set, so both
+        halves of the feature are demoable out of the box — the amber
+        banner with the amount owed, and the check-in gate actually
+        blocking the child until staff use "Ta betalt nu" (or the
+        override) to clear it.
+        """
+        family, _ = Family.objects.get_or_create(last_name="Karlsson")
+        Parent.objects.get_or_create(
+            family=family,
+            first_name="Nina",
+            last_name="Karlsson",
+            defaults={
+                "relationship_type": "Mother",
+                "phone": "+46709012345",
+                "email": "nina.karlsson@example.com",
+            },
+        )
+        today = date.today()
+        child, _ = Child.objects.get_or_create(
+            family=family,
+            first_name="Alice",
+            last_name="Karlsson",
+            defaults={"birthdate": today.replace(year=today.year - 8)},
+        )
+
+        registration, reg_created = Registration.objects.get_or_create(
+            event=event,
+            family=family,
+            contact_email="nina.karlsson@example.com",
+            defaults={
+                "status": Registration.Status.PENDING_PAYMENT,
+                "verification_token_hash": hash_token(generate_verification_token()),
+            },
+        )
+        if reg_created:
+            Payment.objects.create(registration=registration, amount=Decimal("500.00"))
+
+        SessionTicket.objects.get_or_create(
+            attendee=child, session=session, defaults={"registration": registration}
+        )
+
+        self.stdout.write(
+            self.style.SUCCESS(
+                "Unpaid registration demo family seeded: Karlsson "
+                "(500.00 SEK owed, blocks check-in until paid)."
+            )
+        )
 
     def _seed_registration_demo_event(self):
         """A second, separate event configured (not populated with
