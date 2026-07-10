@@ -129,9 +129,9 @@ class TicketTypeAdminForm(forms.ModelForm):
 
     def clean(self):
         cleaned_data = super().clean()
-        if cleaned_data.get("kind") == TicketType.Kind.SESSION_BUNDLE and not cleaned_data.get(
-            "sessions"
-        ):
+        if cleaned_data.get(
+            "kind"
+        ) == TicketType.Kind.SESSION_BUNDLE and not cleaned_data.get("sessions"):
             raise forms.ValidationError(
                 _("A session-bundle ticket type must cover at least one session.")
             )

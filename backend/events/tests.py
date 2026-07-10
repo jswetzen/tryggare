@@ -430,7 +430,8 @@ class TicketTypeExtraModelTest(TestCase):
         )
         self.assertFalse(form.is_valid())
         self.assertIn(
-            "session", str(form.errors).lower(),
+            "session",
+            str(form.errors).lower(),
         )
 
     def test_admin_form_accepts_session_bundle_with_a_session(self):
@@ -561,26 +562,34 @@ class RegistrationWindowStatusTest(TestCase):
             registration_opens_at=timezone.now() - timezone.timedelta(days=1),
             registration_closes_at=timezone.now() + timezone.timedelta(days=1),
         )
-        self.assertEqual(event.registration_window_status, RegistrationWindowStatus.OPEN)
+        self.assertEqual(
+            event.registration_window_status, RegistrationWindowStatus.OPEN
+        )
 
     def test_open_ended_after_opens_at_is_open(self):
         event = self._make_event(
             registration_opens_at=timezone.now() - timezone.timedelta(days=1)
         )
-        self.assertEqual(event.registration_window_status, RegistrationWindowStatus.OPEN)
+        self.assertEqual(
+            event.registration_window_status, RegistrationWindowStatus.OPEN
+        )
 
     def test_after_closes_at_is_closed(self):
         event = self._make_event(
             registration_opens_at=timezone.now() - timezone.timedelta(days=2),
             registration_closes_at=timezone.now() - timezone.timedelta(days=1),
         )
-        self.assertEqual(event.registration_window_status, RegistrationWindowStatus.CLOSED)
+        self.assertEqual(
+            event.registration_window_status, RegistrationWindowStatus.CLOSED
+        )
 
     def test_closes_at_only_is_open_before_deadline(self):
         event = self._make_event(
             registration_closes_at=timezone.now() + timezone.timedelta(days=1)
         )
-        self.assertEqual(event.registration_window_status, RegistrationWindowStatus.OPEN)
+        self.assertEqual(
+            event.registration_window_status, RegistrationWindowStatus.OPEN
+        )
 
     def test_clean_rejects_closes_at_before_opens_at(self):
         """D2: this misconfiguration reads as NOT_OPEN_YET/CLOSED forever —
