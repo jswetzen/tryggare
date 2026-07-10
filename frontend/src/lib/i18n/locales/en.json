@@ -179,7 +179,10 @@
     "confirmDespiteBalance": "Let in, settle payment later",
     "confirmDespiteBalanceConfirm": "Let this family in without full payment? This is recorded as a staff decision, separate from the outstanding balance.",
     "confirmDespiteBalanceSuccess": "Registration confirmed — balance still owed",
-    "confirmDespiteBalanceError": "Could not confirm registration"
+    "confirmDespiteBalanceError": "Could not confirm registration",
+    "pendingPaymentShort": "Unpaid",
+    "pendingPaymentAwaiting": "Awaiting payment",
+    "pendingPaymentBlockedTitle": "Registration is unpaid — resolve via the banner above before checking in"
   },
   "checkout": {
     "pageTitle": "Check-Out Station",

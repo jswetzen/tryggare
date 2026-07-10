@@ -41,6 +41,10 @@ vi.mock('svelte-i18n', () => ({
           'checkin.markPaidOther': 'Other',
           'checkin.confirmDespiteBalance': 'Let in, settle payment later',
           'checkin.confirmDespiteBalanceConfirm': 'Let this family in without full payment?',
+          'checkin.pendingPaymentAwaiting': 'Awaiting payment',
+          'checkin.pendingPaymentShort': 'Unpaid',
+          'checkin.pendingPaymentBlockedTitle':
+            'Registration is unpaid — resolve via the banner above before checking in',
         };
 
         if (options?.values) {
@@ -713,20 +717,68 @@ describe('CheckinExpandableTable', () => {
       }
     ];
 
+    async function expandFamily(user: ReturnType<typeof userEvent.setup>) {
+      const toggleButtons = screen.getAllByTestId('family-toggle-button-family-1');
+      await user.click(toggleButtons[0]);
+    }
+
     it('does not render the banner when there is no pending payment', () => {
       render(CheckinExpandableTable, { props: defaultProps });
 
       expect(screen.queryByText(/Unpaid registration/i)).not.toBeInTheDocument();
     });
 
-    it('renders the unpaid banner with the amount owed', () => {
+    it('shows the "awaiting payment" badge on the collapsed family row instead of a check-in button', () => {
       render(CheckinExpandableTable, {
         props: { ...defaultProps, families: familyWithPendingPayment }
       });
 
+      expect(screen.getAllByText('Awaiting payment').length).toBeGreaterThan(0);
+      expect(screen.queryByTestId('family-check-in-button-family-1')).not.toBeInTheDocument();
+    });
+
+    it('does not render the banner while the family is collapsed', () => {
+      render(CheckinExpandableTable, {
+        props: { ...defaultProps, families: familyWithPendingPayment }
+      });
+
+      expect(screen.queryByText(/Unpaid registration/i)).not.toBeInTheDocument();
+      expect(
+        screen.queryByTestId('pending-payment-banner-family-1')
+      ).not.toBeInTheDocument();
+    });
+
+    it('renders the unpaid banner with the amount owed once expanded', async () => {
+      const user = userEvent.setup();
+      render(CheckinExpandableTable, {
+        props: { ...defaultProps, families: familyWithPendingPayment }
+      });
+
+      await expandFamily(user);
+
       expect(
         screen.getAllByText('Unpaid registration — 1500.00 SEK owed').length
       ).toBeGreaterThan(0);
+    });
+
+    it('disables individual check-in buttons for a family with a pending payment', async () => {
+      const user = userEvent.setup();
+      const onCheckInChild = vi.fn();
+      render(CheckinExpandableTable, {
+        props: { ...defaultProps, families: familyWithPendingPayment, onCheckInChild }
+      });
+
+      await expandFamily(user);
+
+      const unpaidButtons = screen.getAllByText('Unpaid');
+      expect(unpaidButtons.length).toBeGreaterThan(0);
+      for (const button of unpaidButtons) {
+        expect(button).toBeDisabled();
+      }
+      expect(screen.queryByTestId('child-check-in-button-child-1')).not.toBeInTheDocument();
+
+      await user.click(unpaidButtons[0]);
+      expect(onCheckInChild).not.toHaveBeenCalled();
     });
 
     it('calls onMarkPaid with the registration id and method when a payment button is clicked', async () => {
@@ -736,6 +788,8 @@ describe('CheckinExpandableTable', () => {
       render(CheckinExpandableTable, {
         props: { ...defaultProps, families: familyWithPendingPayment, onMarkPaid }
       });
+
+      await expandFamily(user);
 
       const swishButtons = screen.getAllByText('Swish');
       await user.click(swishButtons[0]);
@@ -755,6 +809,8 @@ describe('CheckinExpandableTable', () => {
           onConfirmDespiteBalance
         }
       });
+
+      await expandFamily(user);
 
       const overrideButtons = screen.getAllByText('Let in, settle payment later');
       await user.click(overrideButtons[0]);
@@ -777,6 +833,8 @@ describe('CheckinExpandableTable', () => {
           onConfirmDespiteBalance
         }
       });
+
+      await expandFamily(user);
 
       const overrideButtons = screen.getAllByText('Let in, settle payment later');
       await user.click(overrideButtons[0]);

@@ -17,7 +17,8 @@
     onUndo = undefined,
     onNoTicketClick = undefined,
     remainingSeconds,
-    expanded = false
+    expanded = false,
+    pendingPayment = false
   }: {
     child: Child;
     onCheckIn?: (() => void) | undefined;
@@ -25,6 +26,11 @@
     onNoTicketClick?: (() => void) | undefined;
     remainingSeconds: number | null;
     expanded?: boolean;
+    /** 9.3 "unpaid at the door" — the family's registration is pending
+     * payment, so check-in is blocked server-side regardless of ticket
+     * status. Disabling here keeps staff from hitting that gate error at
+     * all; resolve via the family-level unpaid banner instead. */
+    pendingPayment?: boolean;
   } = $props();
 </script>
 
@@ -46,6 +52,16 @@
     class="px-3 py-1.5 bg-neutral-400 text-white text-sm font-semibold rounded-button cursor-not-allowed min-w-[100px]"
   >
     {$_('checkin.alreadyCheckedIn')}
+  </button>
+{:else if pendingPayment}
+  <!-- Registration pending payment — resolve via the family's unpaid banner -->
+  <button
+    disabled
+    title={$_('checkin.pendingPaymentBlockedTitle')}
+    class="px-3 py-1.5 bg-warning-100 text-warning-800 text-sm font-semibold rounded-button border border-warning-300 cursor-not-allowed min-w-[100px]"
+    data-testid={`child-pending-payment-${child.id}`}
+  >
+    {$_('checkin.pendingPaymentShort')}
   </button>
 {:else if child.ticket === 'none'}
   <!-- No ticket - show button only (expansion handled by parent) -->

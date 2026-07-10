@@ -179,7 +179,10 @@
     "confirmDespiteBalance": "Släpp in, lös betalning senare",
     "confirmDespiteBalanceConfirm": "Släppa in familjen utan full betalning? Detta registreras som ett personalbeslut, skilt från den utestående skulden.",
     "confirmDespiteBalanceSuccess": "Anmälan bekräftad — skuld kvarstår",
-    "confirmDespiteBalanceError": "Kunde inte bekräfta anmälan"
+    "confirmDespiteBalanceError": "Kunde inte bekräfta anmälan",
+    "pendingPaymentShort": "Obetald",
+    "pendingPaymentAwaiting": "Väntar på betalning",
+    "pendingPaymentBlockedTitle": "Anmälan är obetald — lös det via anmälan ovan innan incheckning"
   },
   "checkout": {
     "pageTitle": "Utcheckningsstation",

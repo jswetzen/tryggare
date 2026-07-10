@@ -374,6 +374,14 @@
               >
                 {$_('checkin.undoSeconds', { values: { seconds: familyUndoSeconds } })}
               </button>
+            {:else if family.pending_payment}
+              <!-- 9.3 "unpaid at the door" — resolve via the banner below -->
+              <span
+                class="px-3 py-1.5 sm:px-4 sm:py-2 bg-warning-100 text-warning-800 font-semibold rounded-button text-xs sm:text-sm whitespace-nowrap inline-block border border-warning-300"
+                data-testid={`family-pending-payment-badge-${family.id}`}
+              >
+                {$_('checkin.pendingPaymentAwaiting')}
+              </span>
             {:else if !allCheckedIn && canCheckInCount > 0 && !noTicketChildren}
               <!-- Check In Family button -->
               <button
@@ -395,7 +403,7 @@
         </div>
       </div>
 
-      {#if family.pending_payment}
+      {#if expanded && family.pending_payment}
         <!-- 9.3 "unpaid at the door" -->
         <div class="p-2 sm:p-3 pt-0" data-testid={`pending-payment-banner-${family.id}`}>
           <Alert type="warning">
@@ -494,6 +502,7 @@
                     onNoTicketClick={() => onToggleChildExpansion(isChildExpanded ? null : child.id)}
                     remainingSeconds={childRemainingSeconds}
                     expanded={isChildExpanded}
+                    pendingPayment={!!family.pending_payment}
                   />
                 </div>
               </div>
@@ -566,6 +575,7 @@
                         onNoTicketClick={() => onToggleChildExpansion(isParentExpanded ? null : parent.id)}
                         remainingSeconds={parentRemainingSeconds}
                         expanded={isParentExpanded}
+                        pendingPayment={!!family.pending_payment}
                       />
                     </div>
                   </div>
@@ -697,6 +707,14 @@
                 >
                   {$_('checkin.undoSeconds', { values: { seconds: familyUndoSeconds } })}
                 </button>
+              {:else if family.pending_payment}
+                <!-- 9.3 "unpaid at the door" — resolve via the banner below -->
+                <span
+                  class="px-4 py-1.5 bg-warning-100 text-warning-800 text-sm font-medium rounded-button inline-block border border-warning-300"
+                  data-testid={`family-pending-payment-badge-${family.id}`}
+                >
+                  {$_('checkin.pendingPaymentAwaiting')}
+                </span>
               {:else if !allCheckedIn && canCheckInCount > 0 && !noTicketChildren}
                 <button
                   type="button"
@@ -715,7 +733,7 @@
           </td>
         </tr>
 
-        {#if family.pending_payment}
+        {#if expanded && family.pending_payment}
           <!-- 9.3 "unpaid at the door" -->
           <tr class="border-b border-neutral-200" data-testid={`pending-payment-banner-${family.id}`}>
             <td class="px-4 py-3" colspan="3">
@@ -838,6 +856,7 @@
                     onNoTicketClick={() => onToggleChildExpansion(isChildExpanded ? null : child.id)}
                     remainingSeconds={childRemainingSeconds}
                     expanded={isChildExpanded}
+                    pendingPayment={!!family.pending_payment}
                   />
                 </div>
               </td>
@@ -911,6 +930,7 @@
                       onNoTicketClick={() => onToggleChildExpansion(isParentExpanded ? null : parent.id)}
                       remainingSeconds={parentRemainingSeconds}
                       expanded={isParentExpanded}
+                      pendingPayment={!!family.pending_payment}
                     />
                   </div>
                 </td>
