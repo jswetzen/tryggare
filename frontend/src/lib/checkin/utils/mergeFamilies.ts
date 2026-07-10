@@ -101,6 +101,7 @@ export function transformFamily(apiFamily: FamilyApiResponse, session: Session |
       };
     }),
     last_participation_date: apiFamily.last_participation_date,
+    pending_payment: apiFamily.pending_payment ?? null,
   } as Family;
 }
 

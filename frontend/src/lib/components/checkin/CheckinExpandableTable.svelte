@@ -22,6 +22,7 @@
   import type { Child, Parent, Family, TicketType } from '$lib/checkin/types';
   import ChildCheckInButton from './ChildCheckInButton.svelte';
   import ParentCheckInButton from './ParentCheckInButton.svelte';
+  import { Alert, Button } from '$lib/components/ui';
   import { undoActionsWithTick } from '$lib/checkin/stores/undoTimer';
 
   interface Props {
@@ -42,6 +43,8 @@
     onAssignParentTicket?: (familyId: string, parentId: string, ticketType: TicketType) => Promise<void>;
     /** False when the active session's effective_parent_checkin_policy is 'disabled'. */
     parentCheckinEnabled?: boolean;
+    onMarkPaid?: (registrationId: string, method: 'swish' | 'bankgiro' | 'manual_other') => Promise<void>;
+    onConfirmDespiteBalance?: (registrationId: string) => Promise<void>;
   }
 
   let {
@@ -60,8 +63,40 @@
     onCheckInParent = async () => {},
     onUndoParent = async () => {},
     onAssignParentTicket = async () => {},
-    parentCheckinEnabled = true
+    parentCheckinEnabled = true,
+    onMarkPaid = async () => {},
+    onConfirmDespiteBalance = async () => {}
   }: Props = $props();
+
+  // 9.3 "unpaid at the door" — which families currently have a mark-paid /
+  // confirm-despite-balance request in flight, keyed by family id so the
+  // mobile and desktop renderings of the same family share one state.
+  let paymentActionInFlight = $state<Set<string>>(new Set());
+
+  async function handleMarkPaid(family: Family, method: 'swish' | 'bankgiro' | 'manual_other') {
+    if (!family.pending_payment || paymentActionInFlight.has(family.id)) return;
+    paymentActionInFlight = new Set(paymentActionInFlight).add(family.id);
+    try {
+      await onMarkPaid(family.pending_payment.registration_id, method);
+    } finally {
+      const next = new Set(paymentActionInFlight);
+      next.delete(family.id);
+      paymentActionInFlight = next;
+    }
+  }
+
+  async function handleConfirmDespiteBalance(family: Family) {
+    if (!family.pending_payment || paymentActionInFlight.has(family.id)) return;
+    if (!confirm($_('checkin.confirmDespiteBalanceConfirm'))) return;
+    paymentActionInFlight = new Set(paymentActionInFlight).add(family.id);
+    try {
+      await onConfirmDespiteBalance(family.pending_payment.registration_id);
+    } finally {
+      const next = new Set(paymentActionInFlight);
+      next.delete(family.id);
+      paymentActionInFlight = next;
+    }
+  }
 
   // Track which families are manually toggled by the user
   let manuallyExpanded = $state<Set<string>>(new Set());
@@ -360,6 +395,59 @@
         </div>
       </div>
 
+      {#if family.pending_payment}
+        <!-- 9.3 "unpaid at the door" -->
+        <div class="p-2 sm:p-3 pt-0" data-testid={`pending-payment-banner-${family.id}`}>
+          <Alert type="warning">
+            <div class="flex flex-col gap-2">
+              <p class="font-medium">
+                {$_('checkin.pendingPaymentBanner', {
+                  values: {
+                    amount: family.pending_payment.amount_owed,
+                    currency: family.pending_payment.currency
+                  }
+                })}
+              </p>
+              <div class="flex items-center gap-2 flex-wrap">
+                <span class="text-xs font-medium">{$_('checkin.markPaidNow')}</span>
+                <Button
+                  size="sm"
+                  variant="warning"
+                  disabled={paymentActionInFlight.has(family.id)}
+                  onclick={() => handleMarkPaid(family, 'swish')}
+                >
+                  {$_('checkin.markPaidSwish')}
+                </Button>
+                <Button
+                  size="sm"
+                  variant="warning"
+                  disabled={paymentActionInFlight.has(family.id)}
+                  onclick={() => handleMarkPaid(family, 'bankgiro')}
+                >
+                  {$_('checkin.markPaidBankgiro')}
+                </Button>
+                <Button
+                  size="sm"
+                  variant="warning"
+                  disabled={paymentActionInFlight.has(family.id)}
+                  onclick={() => handleMarkPaid(family, 'manual_other')}
+                >
+                  {$_('checkin.markPaidOther')}
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  disabled={paymentActionInFlight.has(family.id)}
+                  onclick={() => handleConfirmDespiteBalance(family)}
+                >
+                  {$_('checkin.confirmDespiteBalance')}
+                </Button>
+              </div>
+            </div>
+          </Alert>
+        </div>
+      {/if}
+
       <!-- Expanded children list -->
       {#if expanded}
         <div class="p-2 sm:p-3 space-y-2">
@@ -626,6 +714,61 @@
             </div>
           </td>
         </tr>
+
+        {#if family.pending_payment}
+          <!-- 9.3 "unpaid at the door" -->
+          <tr class="border-b border-neutral-200" data-testid={`pending-payment-banner-${family.id}`}>
+            <td class="px-4 py-3" colspan="3">
+              <Alert type="warning">
+                <div class="flex items-center justify-between gap-3 flex-wrap">
+                  <p class="font-medium">
+                    {$_('checkin.pendingPaymentBanner', {
+                      values: {
+                        amount: family.pending_payment.amount_owed,
+                        currency: family.pending_payment.currency
+                      }
+                    })}
+                  </p>
+                  <div class="flex items-center gap-2 flex-wrap">
+                    <span class="text-xs font-medium">{$_('checkin.markPaidNow')}</span>
+                    <Button
+                      size="sm"
+                      variant="warning"
+                      disabled={paymentActionInFlight.has(family.id)}
+                      onclick={() => handleMarkPaid(family, 'swish')}
+                    >
+                      {$_('checkin.markPaidSwish')}
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="warning"
+                      disabled={paymentActionInFlight.has(family.id)}
+                      onclick={() => handleMarkPaid(family, 'bankgiro')}
+                    >
+                      {$_('checkin.markPaidBankgiro')}
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="warning"
+                      disabled={paymentActionInFlight.has(family.id)}
+                      onclick={() => handleMarkPaid(family, 'manual_other')}
+                    >
+                      {$_('checkin.markPaidOther')}
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      disabled={paymentActionInFlight.has(family.id)}
+                      onclick={() => handleConfirmDespiteBalance(family)}
+                    >
+                      {$_('checkin.confirmDespiteBalance')}
+                    </Button>
+                  </div>
+                </div>
+              </Alert>
+            </td>
+          </tr>
+        {/if}
 
         <!-- Children rows (when expanded) -->
         {#if expanded}

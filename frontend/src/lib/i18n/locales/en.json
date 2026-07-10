@@ -168,7 +168,18 @@
     "qrCameraInsecureContext": "Camera access requires HTTPS. Please use the app via a secure (https://) connection.",
     "qrCameraUnavailable": "No camera found or camera is in use by another app.",
     "qrNotFound": "Ticket not found. Try searching by name.",
-    "qrLookupError": "Ticket lookup failed. Try searching by name."
+    "qrLookupError": "Ticket lookup failed. Try searching by name.",
+    "pendingPaymentBanner": "Unpaid registration — {amount} {currency} owed",
+    "markPaidNow": "Mark paid now:",
+    "markPaidSwish": "Swish",
+    "markPaidBankgiro": "Bankgiro",
+    "markPaidOther": "Other",
+    "markPaidSuccess": "Payment recorded — registration confirmed",
+    "markPaidError": "Could not record payment",
+    "confirmDespiteBalance": "Let in, settle payment later",
+    "confirmDespiteBalanceConfirm": "Let this family in without full payment? This is recorded as a staff decision, separate from the outstanding balance.",
+    "confirmDespiteBalanceSuccess": "Registration confirmed — balance still owed",
+    "confirmDespiteBalanceError": "Could not confirm registration"
   },
   "checkout": {
     "pageTitle": "Check-Out Station",

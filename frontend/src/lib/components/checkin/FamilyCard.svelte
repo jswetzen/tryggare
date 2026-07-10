@@ -11,6 +11,7 @@
    */
   import type { Family, TicketType } from '$lib/checkin/types';
   import ChildCheckInButton from './ChildCheckInButton.svelte';
+  import { Alert, Button } from '$lib/components/ui';
   import { _ } from 'svelte-i18n';
 
   import { undoActionsWithTick } from '$lib/checkin/stores/undoTimer';
@@ -28,7 +29,9 @@
     onToggleChildExpansion,
     getRemainingTime,
     familyUndoSeconds,
-    supervisedState = $bindable()
+    supervisedState = $bindable(),
+    onMarkPaid,
+    onConfirmDespiteBalance
   }: {
     family: Family;
     expanded: boolean;
@@ -43,7 +46,36 @@
     getRemainingTime: (actionId: string) => number | null;
     familyUndoSeconds: number | null;
     supervisedState?: Record<string, boolean>;
+    onMarkPaid: (registrationId: string, method: 'swish' | 'bankgiro' | 'manual_other') => Promise<void>;
+    onConfirmDespiteBalance: (registrationId: string) => Promise<void>;
   } = $props();
+
+  // 9.3 "unpaid at the door" — local to this card since each family's
+  // pending-payment action is independent; the card instance persists
+  // across a families refresh (keyed by family.id), so this survives a
+  // reload started by the action itself.
+  let paymentActionInFlight = $state(false);
+
+  async function handleMarkPaid(method: 'swish' | 'bankgiro' | 'manual_other') {
+    if (!family.pending_payment || paymentActionInFlight) return;
+    paymentActionInFlight = true;
+    try {
+      await onMarkPaid(family.pending_payment.registration_id, method);
+    } finally {
+      paymentActionInFlight = false;
+    }
+  }
+
+  async function handleConfirmDespiteBalance() {
+    if (!family.pending_payment || paymentActionInFlight) return;
+    if (!confirm($_('checkin.confirmDespiteBalanceConfirm'))) return;
+    paymentActionInFlight = true;
+    try {
+      await onConfirmDespiteBalance(family.pending_payment.registration_id);
+    } finally {
+      paymentActionInFlight = false;
+    }
+  }
 
   // Subscribe to tick store for reactive countdown
   // Use $derived with $ prefix for proper Svelte 5 store auto-subscription
@@ -142,6 +174,59 @@
         {/if}
       </div>
     </div>
+
+    {#if family.pending_payment}
+      <!-- 9.3 "unpaid at the door" -->
+      <div class="mt-2" data-testid={`pending-payment-banner-${family.id}`}>
+        <Alert type="warning">
+          <div class="flex flex-col gap-2">
+            <p class="font-medium">
+              {$_('checkin.pendingPaymentBanner', {
+                values: {
+                  amount: family.pending_payment.amount_owed,
+                  currency: family.pending_payment.currency
+                }
+              })}
+            </p>
+            <div class="flex items-center gap-2 flex-wrap">
+              <span class="text-xs font-medium">{$_('checkin.markPaidNow')}</span>
+              <Button
+                size="sm"
+                variant="warning"
+                disabled={paymentActionInFlight}
+                onclick={() => handleMarkPaid('swish')}
+              >
+                {$_('checkin.markPaidSwish')}
+              </Button>
+              <Button
+                size="sm"
+                variant="warning"
+                disabled={paymentActionInFlight}
+                onclick={() => handleMarkPaid('bankgiro')}
+              >
+                {$_('checkin.markPaidBankgiro')}
+              </Button>
+              <Button
+                size="sm"
+                variant="warning"
+                disabled={paymentActionInFlight}
+                onclick={() => handleMarkPaid('manual_other')}
+              >
+                {$_('checkin.markPaidOther')}
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                disabled={paymentActionInFlight}
+                onclick={handleConfirmDespiteBalance}
+              >
+                {$_('checkin.confirmDespiteBalance')}
+              </Button>
+            </div>
+          </div>
+        </Alert>
+      </div>
+    {/if}
   </div>
 
   <!-- Children List (when expanded) -->

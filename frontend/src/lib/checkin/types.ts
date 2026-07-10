@@ -65,6 +65,13 @@ export interface Parent {
   is_parent?: boolean;
 }
 
+export interface PendingPayment {
+  registration_id: string;
+  reference_code: string;
+  amount_owed: string;
+  currency: string;
+}
+
 export interface Family {
   id: string;
   last_name: string;
@@ -74,6 +81,7 @@ export interface Family {
   parents: Parent[];
   lastCheckInTime?: number; // Unix timestamp
   last_participation_date?: string;
+  pending_payment?: PendingPayment | null;
 }
 
 export type ParentCheckinPolicy = 'disabled' | 'open' | 'ticket_required';
@@ -162,6 +170,7 @@ export interface FamilyApiResponse {
     active_checkin_id?: string | null;
   }>;
   last_participation_date?: string;
+  pending_payment?: PendingPayment | null;
 }
 
 export interface CheckInResponse {

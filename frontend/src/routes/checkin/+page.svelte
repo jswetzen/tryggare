@@ -867,6 +867,40 @@
     }
   }
 
+  // 9.3 "unpaid at the door": staff check-in-screen payment actions.
+  // Both reload the family list rather than patching local state — the
+  // pending_payment field, ticket gate, and check-in eligibility all shift
+  // together once a registration confirms, and a full refresh is cheap and
+  // matches the existing handleSessionSelect() pattern.
+  async function markRegistrationPaid(
+    registrationId: string,
+    method: 'swish' | 'bankgiro' | 'manual_other'
+  ) {
+    try {
+      await checkinApi.markRegistrationPaid(registrationId, method);
+      successToast = $_('checkin.markPaidSuccess');
+      await loadFamilies();
+    } catch (err) {
+      const apiError = err as ApiError;
+      const msg = apiError.message || $_('checkin.markPaidError');
+      errorToast = msg;
+      setTimeout(() => { if (errorToast === msg) errorToast = null; }, 4000);
+    }
+  }
+
+  async function confirmDespiteBalance(registrationId: string) {
+    try {
+      await checkinApi.confirmRegistrationDespiteBalance(registrationId);
+      successToast = $_('checkin.confirmDespiteBalanceSuccess');
+      await loadFamilies();
+    } catch (err) {
+      const apiError = err as ApiError;
+      const msg = apiError.message || $_('checkin.confirmDespiteBalanceError');
+      errorToast = msg;
+      setTimeout(() => { if (errorToast === msg) errorToast = null; }, 4000);
+    }
+  }
+
   // Add new family
   async function handleAddFamily(data: {
     familyName: string;
@@ -1106,6 +1140,8 @@
         onCheckInParent={checkInParent}
         onUndoParent={undoParentCheckIn}
         onAssignParentTicket={assignParentTicket}
+        onMarkPaid={markRegistrationPaid}
+        onConfirmDespiteBalance={confirmDespiteBalance}
         {parentCheckinEnabled}
         {getRemainingTime}
         bind:supervisedState

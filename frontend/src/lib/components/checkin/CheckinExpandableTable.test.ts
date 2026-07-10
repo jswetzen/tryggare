@@ -34,6 +34,13 @@ vi.mock('svelte-i18n', () => ({
           'checkin.guardian': 'Guardian',
           'checkin.guardians': 'Guardians',
           'checkin.noTicketClickToAssign': 'No ticket - click to assign',
+          'checkin.pendingPaymentBanner': 'Unpaid registration — {amount} {currency} owed',
+          'checkin.markPaidNow': 'Mark paid now:',
+          'checkin.markPaidSwish': 'Swish',
+          'checkin.markPaidBankgiro': 'Bankgiro',
+          'checkin.markPaidOther': 'Other',
+          'checkin.confirmDespiteBalance': 'Let in, settle payment later',
+          'checkin.confirmDespiteBalanceConfirm': 'Let this family in without full payment?',
         };
 
         if (options?.values) {
@@ -690,6 +697,93 @@ describe('CheckinExpandableTable', () => {
 
       // Neither branch has anything to count — should render without crashing.
       expect(screen.getAllByTestId(/family-card/).length).toBeGreaterThan(0);
+    });
+  });
+
+  describe('Pending Payment', () => {
+    const familyWithPendingPayment: Family[] = [
+      {
+        ...mockFamilies[0],
+        pending_payment: {
+          registration_id: 'reg-1',
+          reference_code: 'ABC123',
+          amount_owed: '1500.00',
+          currency: 'SEK'
+        }
+      }
+    ];
+
+    it('does not render the banner when there is no pending payment', () => {
+      render(CheckinExpandableTable, { props: defaultProps });
+
+      expect(screen.queryByText(/Unpaid registration/i)).not.toBeInTheDocument();
+    });
+
+    it('renders the unpaid banner with the amount owed', () => {
+      render(CheckinExpandableTable, {
+        props: { ...defaultProps, families: familyWithPendingPayment }
+      });
+
+      expect(
+        screen.getAllByText('Unpaid registration — 1500.00 SEK owed').length
+      ).toBeGreaterThan(0);
+    });
+
+    it('calls onMarkPaid with the registration id and method when a payment button is clicked', async () => {
+      const user = userEvent.setup();
+      const onMarkPaid = vi.fn().mockResolvedValue(undefined);
+
+      render(CheckinExpandableTable, {
+        props: { ...defaultProps, families: familyWithPendingPayment, onMarkPaid }
+      });
+
+      const swishButtons = screen.getAllByText('Swish');
+      await user.click(swishButtons[0]);
+
+      expect(onMarkPaid).toHaveBeenCalledWith('reg-1', 'swish');
+    });
+
+    it('calls onConfirmDespiteBalance after staff confirms the override dialog', async () => {
+      const user = userEvent.setup();
+      const onConfirmDespiteBalance = vi.fn().mockResolvedValue(undefined);
+      const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
+
+      render(CheckinExpandableTable, {
+        props: {
+          ...defaultProps,
+          families: familyWithPendingPayment,
+          onConfirmDespiteBalance
+        }
+      });
+
+      const overrideButtons = screen.getAllByText('Let in, settle payment later');
+      await user.click(overrideButtons[0]);
+
+      expect(confirmSpy).toHaveBeenCalled();
+      expect(onConfirmDespiteBalance).toHaveBeenCalledWith('reg-1');
+
+      confirmSpy.mockRestore();
+    });
+
+    it('does not call onConfirmDespiteBalance when staff cancels the override dialog', async () => {
+      const user = userEvent.setup();
+      const onConfirmDespiteBalance = vi.fn().mockResolvedValue(undefined);
+      const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(false);
+
+      render(CheckinExpandableTable, {
+        props: {
+          ...defaultProps,
+          families: familyWithPendingPayment,
+          onConfirmDespiteBalance
+        }
+      });
+
+      const overrideButtons = screen.getAllByText('Let in, settle payment later');
+      await user.click(overrideButtons[0]);
+
+      expect(onConfirmDespiteBalance).not.toHaveBeenCalled();
+
+      confirmSpy.mockRestore();
     });
   });
 });

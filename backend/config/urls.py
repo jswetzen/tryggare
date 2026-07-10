@@ -30,6 +30,8 @@ from imports.views import (
 )
 from printing.views import label_page_view
 from registrations.views import (
+    confirm_registration_despite_balance_view,
+    mark_registration_paid,
     registration_event_info,
     registration_payment_status,
     submit_registration,
@@ -95,6 +97,17 @@ urlpatterns = [
         "api/registrations/validate-promo-code/",
         validate_promo_code,
         name="registration-validate-promo-code",
+    ),
+    # Staff-authenticated check-in screen actions (case catalog §9.3)
+    path(
+        "api/registrations/<uuid:registration_id>/mark-paid/",
+        mark_registration_paid,
+        name="registration-mark-paid",
+    ),
+    path(
+        "api/registrations/<uuid:registration_id>/confirm-despite-balance/",
+        confirm_registration_despite_balance_view,
+        name="registration-confirm-despite-balance",
     ),
     # Import endpoints (must be before the catch-all)
     path(

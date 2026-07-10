@@ -7,6 +7,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
 from events.models import EventTicket, SessionTicket
+from registrations.models import Registration
 from .dsar import (
     build_family_export,
     family_export_to_csv,
@@ -79,9 +80,22 @@ class FamilyViewSet(viewsets.ModelViewSet):
             ),
         )
 
+        # 9.3 "unpaid at the door": the check-in family list needs to know
+        # which families have a pending_payment registration, and for how
+        # much, without an N+1 per family — prefetched once here rather
+        # than resolved in the serializer.
+        pending_payment_qs = Registration.objects.filter(
+            status=Registration.Status.PENDING_PAYMENT
+        ).select_related("payment")
+
         return Family.objects.prefetch_related(
             Prefetch("attendees", queryset=children_qs, to_attr="children"),
             Prefetch("attendees", queryset=parents_qs, to_attr="parents"),
+            Prefetch(
+                "registrations",
+                queryset=pending_payment_qs,
+                to_attr="pending_payment_registrations",
+            ),
         ).all()
 
     def get_serializer_class(self):
