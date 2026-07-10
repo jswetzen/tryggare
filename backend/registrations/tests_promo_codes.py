@@ -420,7 +420,10 @@ class AdminCancelRegistrationsReleasesPromoCodeTests(TestCase):
 
         response = client.post(
             "/admin/registrations/registration/",
-            {"action": "cancel_registrations", "_selected_action": [str(registration.pk)]},
+            {
+                "action": "cancel_registrations",
+                "_selected_action": [str(registration.pk)],
+            },
         )
 
         self.assertIn(response.status_code, (200, 302))

@@ -39,6 +39,10 @@
     phone: string;
     email: string;
     relationship_type: string;
+    allergies: string;
+    notes: string;
+    healthInfoStatus: HealthInfoStatus;
+    consentNoticeShared: boolean;
     ticketTypeId: string;
     extraSelections: Record<string, ExtraSelectionState>;
   }
@@ -79,6 +83,10 @@
       phone: '',
       email: '',
       relationship_type: 'OTHER',
+      allergies: '',
+      notes: '',
+      healthInfoStatus: 'none',
+      consentNoticeShared: false,
       ticketTypeId: '',
       extraSelections: {}
     };
@@ -385,6 +393,10 @@
         error = $t('checkin.invalidPhone');
         return;
       }
+      if (p.healthInfoStatus === 'consented' && !p.consentNoticeShared) {
+        error = $t('register.adultHealthConsentRequired');
+        return;
+      }
     }
 
     const requiresTicketType = !!eventInfo && eventInfo.ticket_types.length > 0;
@@ -423,6 +435,9 @@
           phone: p.phone.trim(),
           email: p.email.trim(),
           relationship_type: p.relationship_type,
+          allergies: p.healthInfoStatus === 'consented' ? p.allergies : '',
+          notes: p.healthInfoStatus === 'consented' ? p.notes : '',
+          health_consent_status: statusMap[p.healthInfoStatus],
           ticket_type: p.ticketTypeId || null,
           extras: buildExtraSelections(p.extraSelections, applicablePersonExtras(false))
         })),
@@ -723,6 +738,24 @@
                   {/each}
                 </div>
               {/if}
+
+              <div class="mt-2">
+                <ConsentCapture
+                  bind:status={parent.healthInfoStatus}
+                  bind:allergies={parent.allergies}
+                  bind:notes={parent.notes}
+                  bind:consentNoticeShared={parent.consentNoticeShared}
+                  idPrefix={`parent-${index}`}
+                  testIdPrefix="parent"
+                  attestLabelKey="register.consentAttest"
+                  questionKey="register.adultHealthInfoQuestion"
+                  consentLabelKey="register.adultHealthInfoConsent"
+                  declineLabelKey="register.adultHealthInfoDecline"
+                  noticeKey="register.adultHealthConsentNotice"
+                  declinedNoteKey="register.adultHealthInfoDeclinedNote"
+                  noticeLinkHref="/privacy"
+                />
+              </div>
 
               {#if parents.length > 1}
                 <button

@@ -252,6 +252,60 @@ class SubmitRegistrationTests(TestCase):
         self.assertEqual(child.health_consent_status, "declined")
 
     @patch("registrations.views.send_verification_email")
+    def test_adult_health_info_granted_via_self_serve_submission(self, mock_send):
+        """An adult attendee's own allergy capture (previously nonexistent —
+        see docs/roadmap/event_registration_ux_case_catalog.md §10.1) goes
+        through the same RegistrationParentSerializer/create_family_with_members
+        path as a child's, end to end from the public submission endpoint."""
+        response = self.client.post(
+            self.url,
+            self._payload(
+                contact_email="pat@example.com",
+                parents=[
+                    {
+                        "first_name": "Pat",
+                        "relationship_type": "MOM",
+                        "email": "pat@example.com",
+                        "allergies": "Shellfish",
+                        "health_consent_status": "granted",
+                    }
+                ],
+                children=[],
+            ),
+            format="json",
+        )
+        self.assertEqual(response.status_code, 201, response.data)
+        parent = Parent.objects.get()
+        self.assertEqual(parent.allergies, "Shellfish")
+        self.assertEqual(parent.health_consent_status, "granted")
+        self.assertEqual(parent.health_consent_by_id, parent.id)
+        self.assertIsNotNone(parent.health_consent_at)
+
+    @patch("registrations.views.send_verification_email")
+    def test_adult_health_info_trust_boundary_cleared_at_submission(self, mock_send):
+        response = self.client.post(
+            self.url,
+            self._payload(
+                contact_email="pat@example.com",
+                parents=[
+                    {
+                        "first_name": "Pat",
+                        "relationship_type": "MOM",
+                        "email": "pat@example.com",
+                        "allergies": "Shellfish",
+                        "health_consent_status": "declined",
+                    }
+                ],
+                children=[],
+            ),
+            format="json",
+        )
+        self.assertEqual(response.status_code, 201, response.data)
+        parent = Parent.objects.get()
+        self.assertIsNone(parent.allergies)
+        self.assertEqual(parent.health_consent_status, "declined")
+
+    @patch("registrations.views.send_verification_email")
     def test_submission_logs_audit(self, mock_send):
         self.client.post(self.url, self._payload(), format="json")
         self.assertTrue(

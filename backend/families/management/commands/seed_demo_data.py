@@ -430,7 +430,12 @@ class Command(BaseCommand):
                 "requires_choice": True,
             },
         )
-        for label, sort_order in [("Vanlig", 0), ("Vegetarisk", 1), ("Vegansk", 2), ("Glutenfri", 3)]:
+        for label, sort_order in [
+            ("Vanlig", 0),
+            ("Vegetarisk", 1),
+            ("Vegansk", 2),
+            ("Glutenfri", 3),
+        ]:
             ExtraChoice.objects.get_or_create(
                 extra=dinner, label=label, defaults={"sort_order": sort_order}
             )
@@ -629,7 +634,9 @@ class Command(BaseCommand):
             ("Annat", 3),
         ]:
             ExtraChoice.objects.get_or_create(
-                extra=accommodation_kind, label=label, defaults={"sort_order": sort_order}
+                extra=accommodation_kind,
+                label=label,
+                defaults={"sort_order": sort_order},
             )
 
         self.stdout.write(

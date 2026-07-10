@@ -58,6 +58,32 @@ def create_family_with_members(
     if consented_by is None:
         consented_by = created_parents[0] if created_parents else None
 
+    # Parents' own health-data consent (allergies/notes) is attested by
+    # whoever is present submitting the form on behalf of the whole party —
+    # same `consented_by` as children's, since a per-adult self-attestation
+    # link doesn't exist until Phase 4 self-service edit is built. Applied
+    # as a post-creation update (not passed into Parent.objects.create
+    # above) because resolving `consented_by` itself depends on the parents
+    # already existing.
+    parent_live_statuses = (
+        Parent.HealthConsentStatus.GRANTED,
+        Parent.HealthConsentStatus.DECLINED,
+    )
+    for parent in created_parents:
+        if parent.health_consent_status in parent_live_statuses:
+            parent.health_consent_by = consented_by
+            parent.health_consent_at = timezone.now()
+            parent.health_consent_notice_version = (
+                settings.HEALTH_CONSENT_NOTICE_VERSION
+            )
+            parent.save(
+                update_fields=[
+                    "health_consent_by",
+                    "health_consent_at",
+                    "health_consent_notice_version",
+                ]
+            )
+
     created_children = []
     for child_data in children_data:
         status = child_data.get(

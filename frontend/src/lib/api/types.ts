@@ -267,6 +267,9 @@ export interface RegistrationParentPayload {
   phone?: string;
   email?: string;
   relationship_type: string;
+  allergies?: string;
+  notes?: string;
+  health_consent_status?: 'not_applicable' | 'granted' | 'declined';
   ticket_type?: string | null;
   extras?: RegistrationExtraSelectionPayload[];
 }

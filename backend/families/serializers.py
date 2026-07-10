@@ -237,6 +237,15 @@ class FamilyDetailSerializer(serializers.ModelSerializer):
 class ParentCreateSerializer(serializers.ModelSerializer):
     """Serializer for creating parents (without family field)"""
 
+    health_consent_status = serializers.ChoiceField(
+        choices=[
+            Parent.HealthConsentStatus.NOT_APPLICABLE,
+            Parent.HealthConsentStatus.GRANTED,
+            Parent.HealthConsentStatus.DECLINED,
+        ],
+        default=Parent.HealthConsentStatus.NOT_APPLICABLE,
+    )
+
     class Meta:
         model = Parent
         fields = [
@@ -246,8 +255,21 @@ class ParentCreateSerializer(serializers.ModelSerializer):
             "phone",
             "email",
             "relationship_type",
+            "allergies",
+            "notes",
+            "health_consent_status",
         ]
         read_only_fields = ["id"]
+
+    def validate(self, attrs):
+        """Same invariant as ChildCreateSerializer.validate() — see there."""
+        status = attrs.get(
+            "health_consent_status", Parent.HealthConsentStatus.NOT_APPLICABLE
+        )
+        if status != Parent.HealthConsentStatus.GRANTED:
+            attrs["allergies"] = None
+            attrs["notes"] = None
+        return attrs
 
 
 class ChildCreateSerializer(serializers.ModelSerializer):

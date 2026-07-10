@@ -82,9 +82,15 @@ class ParentAdmin(admin.ModelAdmin):
         "family",
         "phone_locked",
         "email_locked",
+        "health_consent_status",
     )
     search_fields = ("first_name", "last_name", "email", "phone")
-    list_filter = ("relationship_type", "phone_locked", "email_locked")
+    list_filter = (
+        "relationship_type",
+        "phone_locked",
+        "email_locked",
+        "health_consent_status",
+    )
 
 
 @admin.register(Child)

@@ -237,6 +237,16 @@ class Attendee(models.Model):
 
 
 class Parent(Attendee):
+    class HealthConsentStatus(models.TextChoices):
+        NOT_APPLICABLE = "not_applicable", _("No health information indicated")
+        GRANTED = "granted", _("Consented to recording details")
+        DECLINED = "declined", _("Declined to have details recorded")
+        WITHDRAWN = "withdrawn", _("Withdrew previously granted consent")
+        NEEDS_RECONFIRMATION = (
+            "needs_reconfirmation",
+            _("Consent needs to be reconfirmed"),
+        )
+
     phone = models.CharField(
         max_length=50, null=True, blank=True, verbose_name=_("Phone")
     )
@@ -254,6 +264,37 @@ class Parent(Attendee):
     relationship_type = models.CharField(
         max_length=64, verbose_name=_("Relationship Type")
     )
+    allergies = models.TextField(null=True, blank=True, verbose_name=_("Allergies"))
+    notes = models.TextField(null=True, blank=True, verbose_name=_("Notes"))
+    health_consent_status = models.CharField(
+        max_length=32,
+        choices=HealthConsentStatus.choices,
+        default=HealthConsentStatus.NOT_APPLICABLE,
+        verbose_name=_("Health Data Consent Status"),
+    )
+    health_consent_by = models.ForeignKey(
+        "self",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="adult_health_consents_attested",
+        verbose_name=_("Health Consent Given By"),
+        help_text=_(
+            "Whoever attested to this consent decision — at initial "
+            "registration, the registrant present filling in the form on "
+            "behalf of the whole party (same attestor as a child's "
+            "consent); may be this same parent when self-attesting."
+        ),
+    )
+    health_consent_at = models.DateTimeField(
+        null=True, blank=True, verbose_name=_("Health Consent Recorded At")
+    )
+    health_consent_notice_version = models.CharField(
+        max_length=32,
+        null=True,
+        blank=True,
+        verbose_name=_("Health Consent Notice Version"),
+    )
 
     class Meta:
         db_table = "parents"
@@ -267,6 +308,29 @@ class Parent(Attendee):
 
     def __str__(self) -> str:
         return f"{self.name} ({self.relationship_type})"
+
+    def save(self, *args, **kwargs):
+        """Same invariant as Child.save() — see there for the rationale.
+        Kept as a near-duplicate rather than a shared mixin: this mirrors
+        the roadmap's explicit "additive on Parent first, Attendee-level
+        unification later" migration path (see
+        docs/roadmap/event_registration_ux_case_catalog.md §10.1) rather
+        than touching Child's already-shipped consent machinery.
+        """
+        has_text = bool(self.allergies or self.notes)
+        live_statuses = (
+            self.HealthConsentStatus.GRANTED,
+            self.HealthConsentStatus.NEEDS_RECONFIRMATION,
+        )
+        if has_text and self.health_consent_status not in live_statuses:
+            self.health_consent_status = self.HealthConsentStatus.NEEDS_RECONFIRMATION
+            update_fields = kwargs.get("update_fields")
+            if (
+                update_fields is not None
+                and "health_consent_status" not in update_fields
+            ):
+                kwargs["update_fields"] = [*update_fields, "health_consent_status"]
+        super().save(*args, **kwargs)
 
 
 class Child(Attendee):
