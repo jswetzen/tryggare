@@ -181,8 +181,14 @@ export interface QRInfoResponse {
     first_name: string;
     last_name: string;
     birthdate?: string;
-    allergies?: string;
-    notes?: string;
+    // null for an anonymous caller — gated behind the reveal-safety-info
+    // action; only present directly for authenticated (staff) callers.
+    allergies?: string | null;
+    notes?: string | null;
+    // True if there's allergy/notes text to reveal, regardless of auth —
+    // lets the frontend decide whether to show the safety card at all
+    // without knowing the content.
+    has_safety_info: boolean;
     is_parent: boolean;
   };
   current_session: {
@@ -198,6 +204,11 @@ export interface QRInfoResponse {
   }>;
   family_id: string;
   supervised: boolean;
+}
+
+export interface QRRevealSafetyInfoResponse {
+  allergies: string;
+  notes: string;
 }
 
 export interface PrivacyInfoResponse {

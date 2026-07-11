@@ -15,7 +15,7 @@ import time
 from selenium.webdriver.common.by import By
 
 from tests.e2e.base import E2ETestBase, TestDataMixin
-from checkins.models import CheckInRecord
+from checkins.models import AuditLog, CheckInRecord
 from checkins.qr_utils import allocate_code_for_checkin
 
 
@@ -141,6 +141,16 @@ class TestQRPage(E2ETestBase, TestDataMixin):
         )
         print(f"   ✓ Parent displayed: {self.test_parent.name}")
 
+        # Staff see safety info directly — no "reveal" button should ever
+        # appear for an authenticated viewer.
+        buttons = self.driver.find_elements(By.TAG_NAME, "button")
+        button_texts = [btn.text.lower() for btn in buttons if btn.text]
+        assert not any(
+            "show safety info" in text or "visa säkerhetsinformation" in text
+            for text in button_texts
+        ), "Staff should never see the anonymous reveal button"
+        print("   ✓ No reveal button shown to authenticated staff")
+
         print("\n" + "=" * 60)
         print("✅ Child info display test PASSED")
 
@@ -216,28 +226,54 @@ class TestQRPage(E2ETestBase, TestDataMixin):
         print("✅ Action buttons test PASSED")
 
     def test_allergy_banner_displayed(self):
-        """Allergy alert renders as a prominent role='alert' banner at the top."""
-        print("\n🔍 Testing Allergy Alert Banner")
+        """Anonymous viewer: safety info is gated behind an explicit, logged
+        reveal action — not shown on page load. Clicking the reveal button
+        surfaces the allergy alert as a prominent role='alert' banner."""
+        print("\n🔍 Testing Allergy Alert Reveal Flow (anonymous)")
         print("=" * 60)
 
         qr_url = f"{self.config['frontend_url']}/qr/{self.qr_code_value}"
         self.driver.get(qr_url)
         time.sleep(3)
 
+        # Locked state: no allergy text anywhere in the page, no role='alert'.
+        page_source = self.driver.page_source
+        assert "Peanuts" not in page_source, (
+            "Allergy text must not be present before the reveal action"
+        )
+        assert not self.driver.find_elements(By.CSS_SELECTOR, "[role='alert']"), (
+            "No role='alert' banner expected before reveal"
+        )
+        print("   ✓ Allergy text hidden on initial anonymous load")
+
+        # Locate and click the reveal button.
+        reveal = None
+        for btn in self.driver.find_elements(By.TAG_NAME, "button"):
+            if btn.text and (
+                "show safety info" in btn.text.lower()
+                or "visa säkerhetsinformation" in btn.text.lower()
+            ):
+                reveal = btn
+                break
+        assert reveal, "Expected a 'show safety info' reveal button"
+        print("   ✓ Reveal button present")
+
+        reveal.click()
+        time.sleep(2)
+
+        # Unlocked state: allergy text now visible in a role='alert' banner.
         alerts = self.driver.find_elements(By.CSS_SELECTOR, "[role='alert']")
-        assert alerts, "Expected an allergy alert banner (role='alert')"
+        assert alerts, "Expected an allergy alert banner (role='alert') after reveal"
 
         banner_text = alerts[0].text
         assert "Peanuts" in banner_text, (
             f"Allergy text missing from banner: {banner_text!r}"
         )
-        # The label is rendered through a CSS uppercase transform, so match
-        # case-insensitively and accept either locale (app defaults to Swedish).
         banner_lower = banner_text.lower()
         assert "allergy alert" in banner_lower or "allergivarning" in banner_lower, (
             f"Allergy alert label missing from banner: {banner_text!r}"
         )
-        print(f"   ✓ Allergy banner shown: {banner_text!r}")
+        print(f"   ✓ Allergy banner shown after reveal: {banner_text!r}")
 
         # Banner should sit above the child info card (safety info above the fold).
         body = self.driver.find_element(By.TAG_NAME, "body").text.lower()
@@ -247,8 +283,14 @@ class TestQRPage(E2ETestBase, TestDataMixin):
         )
         print("   ✓ Banner positioned above the info card")
 
+        # The reveal is individually audit-logged, distinct from qr_viewed.
+        assert AuditLog.objects.filter(
+            action="qr_safety_info_revealed", entity_id=str(self.test_child.id)
+        ).exists(), "Expected a qr_safety_info_revealed audit log entry"
+        print("   ✓ Reveal action audit-logged")
+
         print("\n" + "=" * 60)
-        print("✅ Allergy banner test PASSED")
+        print("✅ Allergy banner reveal-flow test PASSED")
 
     def test_age_displayed(self):
         """Child age (whole years from birthdate) is shown to staff next to the name.
@@ -285,8 +327,9 @@ class TestQRPage(E2ETestBase, TestDataMixin):
         print("✅ Age display test PASSED")
 
     def test_no_allergy_no_banner(self):
-        """A child without allergies shows no allergy banner."""
-        print("\n🔍 Testing No-Allergy Child (no banner)")
+        """A child without allergies/notes shows no banner and no reveal
+        button at all — has_safety_info is false, so the card never renders."""
+        print("\n🔍 Testing No-Allergy Child (no banner, no reveal button)")
         print("=" * 60)
 
         child2 = self.create_test_child(
@@ -307,7 +350,14 @@ class TestQRPage(E2ETestBase, TestDataMixin):
 
         alerts = self.driver.find_elements(By.CSS_SELECTOR, "[role='alert']")
         assert not alerts, "No allergy banner expected for a child without allergies"
-        print("   ✓ No allergy banner for child without allergies")
+
+        buttons = self.driver.find_elements(By.TAG_NAME, "button")
+        button_texts = [btn.text.lower() for btn in buttons if btn.text]
+        assert not any(
+            "show safety info" in text or "visa säkerhetsinformation" in text
+            for text in button_texts
+        ), "No reveal button expected when there's nothing to reveal"
+        print("   ✓ No allergy banner or reveal button for child without safety info")
 
         print("\n" + "=" * 60)
         print("✅ No-allergy banner test PASSED")

@@ -3,7 +3,7 @@
  */
 
 import { apiClient } from './client';
-import type { Family, Child, Session, CheckInRecord, AuditLog, PrintQueueItem, QRInfoResponse, PrivacyInfoResponse, Printer, PrinterWithToken, PrintJob, Event, EventReportListItem, EventReport } from './types';
+import type { Family, Child, Session, CheckInRecord, AuditLog, PrintQueueItem, QRInfoResponse, QRRevealSafetyInfoResponse, PrivacyInfoResponse, Printer, PrinterWithToken, PrintJob, Event, EventReportListItem, EventReport } from './types';
 import type { FamilyApiResponse } from '$lib/checkin/types';
 
 /**
@@ -50,6 +50,13 @@ export const qrApi = {
    * Returns 404 if code is invalid or child is not currently checked in.
    */
   getInfo: (code: string) => apiClient.get<QRInfoResponse>(`/qr/${code}/`),
+
+  /**
+   * Reveal allergy/emergency-medical text for an anonymous QR-page viewer.
+   * Writes exactly one audit-log entry (qr_safety_info_revealed) per call.
+   */
+  revealSafetyInfo: (code: string) =>
+    apiClient.post<QRRevealSafetyInfoResponse>(`/qr/${code}/reveal-safety-info/`, {}),
 };
 
 /**

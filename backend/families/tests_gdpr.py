@@ -243,6 +243,57 @@ class AuditAccessLoggingTests(TestCase):
         self.assertIsNone(log.user)
         self.assertEqual(log.source_ip, "198.51.100.7")
 
+    def test_qr_reveal_logs_distinct_anonymous_event(self):
+        """The reveal endpoint's audit event is separate from qr_viewed —
+        loading the page and revealing the safety-critical text are two
+        distinguishable, individually logged events (DPIA §4)."""
+        from checkins.qr_utils import allocate_code_for_checkin
+
+        family, child = _make_family("QrRevealed")
+        event = Event.objects.create(
+            name="Conf", start_date=date(2025, 1, 1), end_date=date(2025, 1, 2)
+        )
+        session = Session.objects.create(
+            name="Morning",
+            event=event,
+            start_time="2025-01-01T09:00:00Z",
+            end_time="2025-01-01T12:00:00Z",
+        )
+        record = CheckInRecord.objects.create(
+            attendee=child, session=session, check_in_staff=self.staff
+        )
+        qr_code = allocate_code_for_checkin(record)
+
+        anon_client = APIClient()
+        view_resp = anon_client.get(
+            f"/api/qr/{qr_code.code}/", REMOTE_ADDR="198.51.100.8"
+        )
+        self.assertEqual(view_resp.status_code, 200)
+        self.assertIsNone(view_resp.data["child"]["allergies"])
+
+        reveal_resp = anon_client.post(
+            f"/api/qr/{qr_code.code}/reveal-safety-info/", REMOTE_ADDR="198.51.100.8"
+        )
+        self.assertEqual(reveal_resp.status_code, 200)
+        self.assertEqual(reveal_resp.data["allergies"], "Peanuts")
+
+        # Two genuinely separate rows — not one overwritten.
+        self.assertEqual(
+            AuditLog.objects.filter(
+                action="qr_viewed", entity_id=str(child.id)
+            ).count(),
+            1,
+        )
+        reveal_log = AuditLog.objects.get(
+            action="qr_safety_info_revealed", entity_id=str(child.id)
+        )
+        self.assertIsNone(reveal_log.user)
+        self.assertEqual(reveal_log.source_ip, "198.51.100.8")
+        self.assertEqual(
+            reveal_log.details,
+            {"qr_code": qr_code.code, "had_allergies": True, "had_notes": True},
+        )
+
 
 class PrivacyEndpointTests(TestCase):
     @override_settings(
