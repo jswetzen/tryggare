@@ -12,7 +12,7 @@ description: >
   DPA/DPIA/privacy policy/breach process, or redo a prior legal review.
 metadata:
   author: "Johan Swetzén (project skill, compiled from a 2026-07-04 review)"
-  scope: "check-ins / Tryggare"
+  scope: "Tryggare"
   type: "project orchestrator skill"
 ---
 

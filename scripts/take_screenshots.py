@@ -12,7 +12,7 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.chrome.options import Options
 
 FRONTEND_URL = "http://localhost:5173"
-SCREENSHOTS_DIR = "/workspace/check-ins/docs/screenshots"
+SCREENSHOTS_DIR = "/workspace/tryggare/docs/screenshots"
 USERNAME = "admin"
 PASSWORD = "admin123"
 QR_CODE = "8YDNIP"  # Noah Dahl's QR code

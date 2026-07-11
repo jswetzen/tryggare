@@ -22,7 +22,7 @@ data with demo mode enabled (`admin` / `admin123`). Either may be down; use
 - **Access**: Frontend `http://localhost:5173`, Backend `http://localhost:8000` (localhost only — not exposed on the LAN)
 - **Database**: PostgreSQL on port 5432
 - **Settings**: `config.settings.local`
-- **Refresh**: hot reload — code changes apply **without a rebuild**. If you must force a restart, write to `restart.txt`.
+- **Refresh**: the **frontend only** is genuinely hot-reload (Vite). The **backend is not** — it runs plain daphne (needed for WebSocket/ASGI support; `django.contrib.staticfiles` still wins the `runserver` command override even with `channels` installed, so swapping to `manage.py runserver` would silently drop WebSocket support), and daphne only imports Python once at startup. Backend code changes land in the container immediately via the bind mount but need a container restart to take effect: write to `restart.txt` (`date > restart.txt`), or `podman restart tryggare_web_1`.
 - **Note**: `backend/config/settings/local.py` overrides `STATIC_URL = "/static/"` to avoid conflicts with `MEDIA_URL` in dev mode
 
 ### Prod-like (`docker-compose.prod.yml`) — LAN-accessible, rebuild on change
@@ -51,7 +51,21 @@ data with demo mode enabled (`admin` / `admin123`). Either may be down; use
 1. **Django Unit Tests** - Fast, isolated tests of backend models/views
 2. **E2E (Selenium) Tests** - Browser-based tests that interact with the actual running frontend/backend using the live development database
 
-**Root-level commands** (from `/workspace/check-ins/`):
+**Two test runners, not fully unified.** `manage.py test` only discovers
+`TestCase`-based tests; it does **not** discover the pytest-style tests under
+`backend/tests/unit/` (plain classes using `@pytest.mark.django_db`, no
+`TestCase` inheritance). `make test-unit`/`make test` therefore miss that
+directory. Run `cd backend && uv run pytest tests/unit/` (or `make verify`)
+separately to get full backend coverage — don't rely on `manage.py test`
+alone when touching anything under `tests/unit/`.
+
+**Frontend route test files must never be named `+page.test.ts`.** SvelteKit
+reserves `+`-prefixed filenames project-wide; a colocated test file using that
+prefix (e.g. `src/routes/qr/[token]/+page.test.ts`) breaks `npm run check`
+(`svelte-check`) across unrelated files with "Files prefixed with + are
+reserved." Name it `page.test.ts` (no plus) instead.
+
+**Root-level commands** (from `/workspace/tryggare/`):
 ```bash
 make help              # Show all available commands
 make status            # Show health of all environments (dev + prod)
@@ -104,7 +118,7 @@ make test-e2e-prod     # Test against production
 
 **Backend model changes:**
 ```bash
-cd /workspace/check-ins/backend
+cd /workspace/tryggare/backend
 uv run python manage.py makemigrations
 uv run python manage.py migrate
 make verify            # Quick verification
@@ -115,9 +129,9 @@ make verify            # Quick verification
 When E2E tests fail:
 1. **Check screenshots**: `ls -lt /tmp/*.png | head -5` - Selenium saves screenshots on failure
 2. **Check logs**:
-   - Backend runtime: `tail -50 /workspace/check-ins/web.log`
-   - Frontend dev: `tail -50 /workspace/check-ins/frontend.log`
-   - Production builds: `tail -50 /workspace/check-ins/build.prod.log`
+   - Backend runtime: `tail -50 /workspace/tryggare/web.log`
+   - Frontend dev: `tail -50 /workspace/tryggare/frontend.log`
+   - Production builds: `tail -50 /workspace/tryggare/build.prod.log`
 3. **Run with verbose output**: `cd backend && uv run pytest tests/e2e/test_auth.py -v -s`
 4. **Check test coverage**: `cat backend/tests/e2e/TEST_COVERAGE.md`
 
@@ -139,11 +153,11 @@ Common issues:
 ## Task Completion Checklist
 
 Before considering an implementation phase complete, make sure to:
-- **Trigger a rebuild** by writing to `restart.txt`: `date > /workspace/check-ins/restart.txt`
+- **Trigger a rebuild** by writing to `restart.txt`: `date > /workspace/tryggare/restart.txt`
 - Write tests that cover your new functionality (see `backend/tests/e2e/TEST_COVERAGE.md`)
 - **Format and lint Python with ruff** (blocks CI in `.github/workflows/test.yml`):
   ```bash
-  cd /workspace/check-ins/backend
+  cd /workspace/tryggare/backend
   uv run ruff format .
   uv run ruff check .    # must pass — CI fails the Test workflow otherwise
   ```

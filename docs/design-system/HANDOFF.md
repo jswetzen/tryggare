@@ -2,7 +2,7 @@
 
 ## Overview
 
-The marketing landing page (`tryggare.app`) and the check-in app (SvelteKit, `github.com/jswetzen/check-ins`) currently **look similar but share nothing**. The app re-declares its own colors, spacing, and component styles by hand. The result is *drift*: every time the design system changes, the app falls a little further out of sync.
+The marketing landing page (`tryggare.app`) and the check-in app (SvelteKit, `github.com/jswetzen/tryggare`) currently **look similar but share nothing**. The app re-declares its own colors, spacing, and component styles by hand. The result is *drift*: every time the design system changes, the app falls a little further out of sync.
 
 The goal of this handoff is **closer integration** — not a new feature. Concretely: make the design system a set of files the app **imports and consumes**, so that "matching the brand" stops being a manual copy job and becomes structural.
 

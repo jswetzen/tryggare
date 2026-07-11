@@ -12,7 +12,7 @@ This design system documents the visual + content language of the marketing land
 - `logo-colors.html` — the exploration that led to the current sky-blue + green palette. Kept around as reference, not active design.
 - `assets/logo-current.svg` — the production logo (sweep + accent paths, two gradients).
 - `uploads/Screenshot_20260429-122431_Firefox.png` — a screenshot of the check-in screen used as the hero phone image.
-- GitHub repo: <https://github.com/jswetzen/check-ins> (Django + SvelteKit + PostgreSQL).
+- GitHub repo: <https://github.com/jswetzen/tryggare> (Django + SvelteKit + PostgreSQL).
 
 ---
 

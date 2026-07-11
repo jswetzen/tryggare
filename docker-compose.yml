@@ -1,16 +1,21 @@
-# Development environment: separate frontend (port 5173) and backend (port 8000)
-# containers with hot reload. Run with `podman compose up -d` from repo root.
+# Development environment: separate frontend (port 5173, genuinely hot-reload
+# via Vite) and backend (port 8000) containers. Run with `podman compose up -d`
+# from repo root.
 #
-# name: pinned rather than left to default to the repo directory's basename.
-# Without this, `podman compose` here resolves the project name to "tryggare"
-# (this directory), which collides on ports with the "check-ins"-named
-# containers actually serving 5173/8000/5432 (a leftover from before this
-# repo was renamed from check-ins/ to tryggare/) — every restart.txt-triggered
-# rebuild failed with "address already in use" and never reached the running
-# containers. Pinning to "check-ins" makes --force-recreate target the
-# containers that are actually live instead of fighting them for ports.
+# The backend does NOT autoreload — it runs plain daphne (needed for
+# WebSocket/ASGI support; django.contrib.staticfiles still wins the
+# `runserver` command override even with channels installed, so swapping to
+# `manage.py runserver` would silently drop WebSocket support). Code changes
+# land in the container immediately via the bind mount below, but daphne only
+# imports Python once at startup — restart the container to pick them up:
+# `podman restart tryggare_web_1` (or `podman compose restart web`).
+#
+# name: pinned explicitly (matching docker-compose.prod.yml's own
+# COMPOSE_PROJECT_NAME-overridable pattern) rather than left to default to the
+# repo directory's basename, so `podman compose` here always resolves to the
+# same project regardless of what directory it's invoked from.
 version: '3.9'
-name: ${COMPOSE_PROJECT_NAME:-check-ins}
+name: ${COMPOSE_PROJECT_NAME:-tryggare}
 
 services:
   web:

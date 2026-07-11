@@ -6,7 +6,7 @@ Welcome to the reorganized test suite! This directory contains all tests for the
 
 ```bash
 # Run all tests
-cd /workspace/check-ins/backend
+cd /workspace/tryggare/backend
 make test
 
 # Run just E2E tests against dev environment
@@ -109,7 +109,7 @@ make test-e2e-prod
 ### Using pytest Directly
 
 ```bash
-cd /workspace/check-ins/backend
+cd /workspace/tryggare/backend
 
 # Run all tests in a directory
 pytest tests/e2e/ -v
@@ -131,7 +131,7 @@ pytest tests/ --cov=backend --cov-report=html
 ### Using Django test runner
 
 ```bash
-cd /workspace/check-ins/backend
+cd /workspace/tryggare/backend
 
 # Run Django unit tests
 uv run python manage.py test accounts checkins events families printing
@@ -214,13 +214,13 @@ ls -lt /tmp/*.png | head -5
 Check application logs:
 ```bash
 # Backend
-tail -f /workspace/check-ins/web.log
+tail -f /workspace/tryggare/web.log
 
 # Frontend
-tail -f /workspace/check-ins/frontend.log
+tail -f /workspace/tryggare/frontend.log
 
 # Build logs
-tail -f /workspace/check-ins/build.prod.log
+tail -f /workspace/tryggare/build.prod.log
 ```
 
 ### Verbose Output
@@ -291,7 +291,7 @@ uv run python manage.py flush --no-input
 
 Ensure you're in the correct directory:
 ```bash
-cd /workspace/check-ins/backend
+cd /workspace/tryggare/backend
 pytest tests/e2e/test_auth.py -v
 ```
 

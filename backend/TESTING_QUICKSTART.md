@@ -5,7 +5,7 @@ This is your quick reference for running tests in the Conference Check-In System
 ## TL;DR - Most Common Commands
 
 ```bash
-cd /workspace/check-ins/backend
+cd /workspace/tryggare/backend
 
 # See all available commands
 make help
@@ -163,7 +163,7 @@ uv run python manage.py flush --no-input
 ### Import errors
 Make sure you're in the right directory:
 ```bash
-cd /workspace/check-ins/backend
+cd /workspace/tryggare/backend
 pytest tests/e2e/test_auth.py -v
 ```
 
