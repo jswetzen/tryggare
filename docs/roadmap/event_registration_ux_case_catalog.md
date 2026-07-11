@@ -492,13 +492,26 @@ this system.** `Extra` supports exactly three input shapes: toggle
 extras only). Anything health-, diet-, or accessibility-shaped is
 captured in the *dedicated, consent-gated* fields (existing
 `Child.allergies` + the new attendee-level fields from case 10.1) which
-carry notice versions and flow through export/erase. The dinner extra's
-choice list can carry structured options ("Vegetarisk", "Vegansk",
-"Glutenfri" — dietary *choice* offered by the kitchen, not disclosed
-health condition); the free-text "other allergies" prompt next to it
-links into the health-consent block instead. Add
+carry notice versions and flow through export/erase. Add
 `Extra.required = BooleanField` for must-choose-one cases
 (accommodation: tält/stuga/bor hemma) — renders as radio, not checkbox.
+
+**Amendment (2026-07-11).** This section originally sketched the dinner
+extra's choice list ("Vegetarisk"/"Vegansk"/"Glutenfri") as the answer
+to food-dietary capture, with `allergies` reserved for the free-text
+"other allergies" case beside it. Reconsidered and dropped: real-world
+dietary needs (allergen combinations, halal/kosher, low-FODMAP, plain
+personal preference) don't fit any predefined list, closed or not — the
+list just relocates the free-text problem one field over instead of
+solving it. `allergies` is now the single, general capture point for
+*all* food-related needs, not only clinical allergens — relabeled
+"Allergies & dietary needs" in the UI, placeholder text gives concrete
+non-medical examples ("vegetarian, gluten-free") so a guardian typing
+"vegetarian" isn't left guessing which field it belongs in. `ExtraChoice`
+remains available for an organizer who genuinely needs a closed catering
+headcount (e.g. "how many of the 3 pre-set menus to cook"), but it's no
+longer positioned as *the* dietary-needs mechanism — that's `allergies`
+now, and a structured choice list is the narrower, opt-in exception.
 
 ### 3.3 Per-registration extras and quantity
 
