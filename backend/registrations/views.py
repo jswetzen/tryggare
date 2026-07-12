@@ -43,6 +43,7 @@ from .models import (
 )
 from .pricing import calculate_discount, calculate_total
 from .serializers import RegistrationSubmitSerializer
+from .ticket_rules import validate_ticket_composition
 from .services import (
     InvalidPaymentTransition,
     confirm_registration_despite_balance,
@@ -115,6 +116,12 @@ def _ticket_type_payload(ticket_type):
             str(ticket_type.max_birthdate) if ticket_type.max_birthdate else None
         ),
         "kind": ticket_type.kind,
+        "requires_ticket_type_id": (
+            str(ticket_type.requires_ticket_type_id)
+            if ticket_type.requires_ticket_type_id
+            else None
+        ),
+        "max_per_required": ticket_type.max_per_required,
     }
 
 
@@ -475,6 +482,8 @@ def _create_registration(
                 is_child=is_child,
             )
 
+    validate_ticket_composition(registration)
+
     missing_required_registration = _missing_required_registration_extras(
         event=event,
         submitted_extra_ids={sel["extra"].id for sel in extras_data},
@@ -595,6 +604,8 @@ def registration_event_info(request, event_id):
             "is_paid": event.is_paid,
             "price": str(event.price) if event.price is not None else None,
             "currency": "SEK",
+            "header_image_url": event.header_image_url or None,
+            "accent_color": event.accent_color or None,
             "ticket_types": ticket_types,
             "has_hidden_ticket_types": has_hidden_ticket_types,
             "extras": extras,

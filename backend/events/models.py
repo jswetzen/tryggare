@@ -1,6 +1,7 @@
 import uuid
 
 from django.core.exceptions import ValidationError
+from django.core.validators import RegexValidator
 from django.db import models
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
@@ -83,6 +84,26 @@ class Event(models.Model):
         blank=True,
         verbose_name=_("Registration Closes At"),
         help_text=_("Leave blank for no closing deadline."),
+    )
+    header_image_url = models.URLField(
+        blank=True,
+        verbose_name=_("Header Image URL"),
+        help_text=_(
+            "Optional hero image shown on the public registration page. "
+            "Paste a hosted image URL — this system doesn't store "
+            "uploaded images."
+        ),
+    )
+    accent_color = models.CharField(
+        max_length=7,
+        blank=True,
+        validators=[RegexValidator(r"^#[0-9A-Fa-f]{6}$")],
+        verbose_name=_("Accent Color"),
+        help_text=_(
+            "Optional hex accent color (e.g. #2563EB) for the public "
+            "registration page hero. Leave blank for the default brand "
+            "color."
+        ),
     )
 
     class Meta:
@@ -268,6 +289,31 @@ class TicketType(models.Model):
             "anywhere; a future capacity-accounting pass reads this field."
         ),
     )
+    requires_ticket_type = models.ForeignKey(
+        "self",
+        null=True,
+        blank=True,
+        on_delete=models.PROTECT,
+        related_name="dependent_ticket_types",
+        verbose_name=_("Requires Ticket Type"),
+        help_text=_(
+            "If set, this ticket type may only be selected on a "
+            "registration that also has at least one ticket of the "
+            "required type (e.g. a free 'family member' type requiring a "
+            "paid 'family ticket' type)."
+        ),
+    )
+    max_per_required = models.PositiveIntegerField(
+        null=True,
+        blank=True,
+        verbose_name=_("Max Per Required"),
+        help_text=_(
+            "Only used with requires_ticket_type set. Max count of this "
+            "ticket type per one ticket of the required type (e.g. 4 free "
+            "family members per paid family ticket). Null = unlimited, but "
+            "at least one of the required type is still mandatory."
+        ),
+    )
     sort_order = models.PositiveIntegerField(default=0, verbose_name=_("Sort Order"))
     is_active = models.BooleanField(
         default=True,
@@ -287,6 +333,23 @@ class TicketType(models.Model):
 
     def __str__(self) -> str:
         return f"{self.event.name} - {self.name}"
+
+    def clean(self):
+        super().clean()
+        if self.requires_ticket_type_id is None:
+            return
+        if self.requires_ticket_type_id == self.id:
+            raise ValidationError(
+                {"requires_ticket_type": _("A ticket type cannot require itself.")}
+            )
+        if self.requires_ticket_type.event_id != self.event_id:
+            raise ValidationError(
+                {
+                    "requires_ticket_type": _(
+                        "The required ticket type must belong to the same event."
+                    )
+                }
+            )
 
 
 class PromoCode(models.Model):

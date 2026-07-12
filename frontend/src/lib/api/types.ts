@@ -227,6 +227,8 @@ export interface RegistrationTicketType {
   min_birthdate: string | null;
   max_birthdate: string | null;
   kind: 'event' | 'session_bundle';
+  requires_ticket_type_id: string | null;
+  max_per_required: number | null;
 }
 
 export interface RegistrationExtraChoice {
@@ -258,6 +260,8 @@ export interface RegistrationEventInfo {
   is_paid: boolean;
   price: string | null;
   currency: string;
+  header_image_url: string | null;
+  accent_color: string | null;
   ticket_types: RegistrationTicketType[];
   has_hidden_ticket_types: boolean;
   extras: RegistrationExtraInfo[];

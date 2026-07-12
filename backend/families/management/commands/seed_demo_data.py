@@ -3,7 +3,7 @@ Management command to seed realistic demo data for screenshots and development.
 Idempotent — safe to re-run (uses get_or_create throughout).
 """
 
-from datetime import date, timedelta
+from datetime import date, datetime, time, timedelta
 from decimal import Decimal
 
 from django.contrib.auth import get_user_model
@@ -616,7 +616,7 @@ class Command(BaseCommand):
                 "sort_order": 2,
             },
         )
-        TicketType.objects.get_or_create(
+        family_ticket, _ = TicketType.objects.get_or_create(
             event=weekend,
             name="Familjebiljett",
             defaults={
@@ -625,7 +625,7 @@ class Command(BaseCommand):
                 "sort_order": 3,
             },
         )
-        TicketType.objects.get_or_create(
+        member_type, _ = TicketType.objects.get_or_create(
             event=weekend,
             name="Familjebiljett - familjemedlem",
             defaults={
@@ -634,6 +634,17 @@ class Command(BaseCommand):
                 "sort_order": 4,
             },
         )
+        # get_or_create's defaults never apply to a pre-existing row (this
+        # type predates the requires_ticket_type/max_per_required fields) —
+        # backfill explicitly, same pattern as registration_opens_at above.
+        # Real-world loophole this closes: without a cap, a registration
+        # could add unlimited free "family member" attendees without ever
+        # buying a Familjebiljett. 4 is a demo default (a typical family
+        # size), not a hard system limit — adjust per event as needed.
+        if member_type.requires_ticket_type_id is None:
+            member_type.requires_ticket_type = family_ticket
+            member_type.max_per_required = 4
+            member_type.save(update_fields=["requires_ticket_type", "max_per_required"])
         # ChurchSuite lists this publicly, trusting guests not to pick it
         # without a real arrangement — hidden here instead (case 5.4/10.2).
         TicketType.objects.get_or_create(
@@ -646,6 +657,54 @@ class Command(BaseCommand):
                 "sort_order": 5,
             },
         )
+
+        # One Session per day — proves partial-day attendance already
+        # works via the existing session_bundle mechanism (case catalog
+        # §2.6), it just wasn't demonstrated in this event's seed data yet.
+        day_names = ["Fredag", "Lördag", "Söndag"]
+        days = []
+        for offset, day_name in enumerate(day_names):
+            day_date = weekend.start_date + timedelta(days=offset)
+            session, _ = Session.objects.get_or_create(
+                event=weekend,
+                name=day_name,
+                defaults={
+                    "start_time": timezone.make_aware(
+                        datetime.combine(day_date, time(9, 0))
+                    ),
+                    "end_time": timezone.make_aware(
+                        datetime.combine(day_date, time(22, 0))
+                    ),
+                    "is_active": False,
+                    "requires_ticket": False,
+                },
+            )
+            days.append(session)
+        _friday, saturday, sunday = days
+
+        saturday_only, _ = TicketType.objects.get_or_create(
+            event=weekend,
+            name="Lördag",
+            kind=TicketType.Kind.SESSION_BUNDLE,
+            defaults={
+                "price": 250,
+                "applies_to": AppliesTo.EITHER,
+                "sort_order": 6,
+            },
+        )
+        saturday_only.sessions.set([saturday])
+
+        saturday_sunday, _ = TicketType.objects.get_or_create(
+            event=weekend,
+            name="Lördag-Söndag",
+            kind=TicketType.Kind.SESSION_BUNDLE,
+            defaults={
+                "price": 400,
+                "applies_to": AppliesTo.EITHER,
+                "sort_order": 7,
+            },
+        )
+        saturday_sunday.sessions.set([saturday, sunday])
 
         Extra.objects.get_or_create(
             event=weekend,
@@ -700,7 +759,7 @@ class Command(BaseCommand):
         self.stdout.write(
             self.style.SUCCESS(
                 "Registration demo event seeded: 'Weekend 2026' "
-                "(5 ticket types, 2 required extras) — register at "
-                f"/register/{weekend.id}"
+                "(7 ticket types incl. 2 day-bundle passes, 2 required "
+                f"extras) — register at /register/{weekend.id}"
             )
         )

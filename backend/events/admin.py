@@ -135,6 +135,17 @@ class TicketTypeAdminForm(forms.ModelForm):
             raise forms.ValidationError(
                 _("A session-bundle ticket type must cover at least one session.")
             )
+        requires_ticket_type = cleaned_data.get("requires_ticket_type")
+        if requires_ticket_type is not None:
+            event = cleaned_data.get("event")
+            if event is not None and requires_ticket_type.event_id != event.id:
+                raise forms.ValidationError(
+                    {
+                        "requires_ticket_type": _(
+                            "The required ticket type must belong to the same event."
+                        )
+                    }
+                )
         return cleaned_data
 
 
@@ -150,10 +161,12 @@ class TicketTypeAdmin(admin.ModelAdmin):
         "is_hidden",
         "is_active",
         "sort_order",
+        "requires_ticket_type",
+        "max_per_required",
     )
     list_filter = ("event", "applies_to", "kind", "is_hidden", "is_active")
     search_fields = ("name", "event__name")
-    autocomplete_fields = ["event"]
+    autocomplete_fields = ["event", "requires_ticket_type"]
     filter_horizontal = ["sessions"]
 
 

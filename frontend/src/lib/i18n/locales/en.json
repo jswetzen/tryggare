@@ -331,6 +331,8 @@
     "ticketTypeLabel": "Ticket type",
     "ticketTypePlaceholder": "Select a ticket type",
     "ticketTypeRequired": "Please select a ticket type for everyone.",
+    "ticketRequiresOther": "{name} requires at least one {required} ticket in this booking.",
+    "ticketCapExceeded": "Only {max} {name} ticket(s) allowed per {required} ticket.",
     "requiredExtraMissing": "Please make a required choice for everyone.",
     "extrasLabel": "Extras",
     "extraChoicePlaceholder": "Choose...",
