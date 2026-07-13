@@ -16,6 +16,35 @@ export interface ApiError {
   details?: unknown;
 }
 
+/**
+ * Pulls a human-readable message out of a DRF error body. Covers the
+ * shapes actually in use across this backend: plain views returning
+ * {"error": "..."} (most custom @api_view/@action endpoints), DRF's own
+ * {"detail": "..."} (permission/throttle/404 errors), serializer
+ * {"non_field_errors": [...]}, and per-field validation errors
+ * ({"field_name": ["..."]}) — falls back to the HTTP status text if none
+ * of those shapes match.
+ */
+function extractErrorMessage(details: unknown, fallback: string): string {
+  if (!details || typeof details !== 'object') return fallback;
+  const body = details as Record<string, unknown>;
+
+  if (typeof body.error === 'string') return body.error;
+  if (typeof body.detail === 'string') return body.detail;
+
+  const nonFieldErrors = body.non_field_errors;
+  if (Array.isArray(nonFieldErrors) && typeof nonFieldErrors[0] === 'string') {
+    return nonFieldErrors[0];
+  }
+
+  for (const value of Object.values(body)) {
+    if (Array.isArray(value) && typeof value[0] === 'string') return value[0];
+    if (typeof value === 'string') return value;
+  }
+
+  return fallback;
+}
+
 export class ApiClient {
   private baseUrl: string;
   private csrfToken: string | null = null;
@@ -113,6 +142,13 @@ export class ApiClient {
 
         try {
           error.details = await response.json();
+          // The backend already returns a descriptive, request-locale-aware
+          // message (Django's LocaleMiddleware reads the django_language
+          // cookie i18n.ts sets on every locale switch) — response.statusText
+          // is just the raw HTTP status line ("Bad Request") and was masking
+          // it entirely. Extract the real message so callers' error toasts
+          // show something a guardian/staff member can act on.
+          error.message = extractErrorMessage(error.details, response.statusText);
         } catch {
           // Response body is not JSON
         }

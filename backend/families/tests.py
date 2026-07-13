@@ -521,6 +521,53 @@ class HealthConsentModelTests(TestCase):
         )
 
 
+class AdultHealthConsentModelTests(TestCase):
+    """Parent.save() invariant — mirrors HealthConsentModelTests for Child;
+    see Parent.save()'s docstring for why this is a near-duplicate rather
+    than a shared mixin."""
+
+    def setUp(self):
+        self.family = Family.objects.create(last_name="Nguyen")
+
+    def test_health_text_without_explicit_status_flags_reconfirmation(self):
+        parent = Parent.objects.create(
+            first_name="Kim",
+            last_name="Nguyen",
+            relationship_type="Mother",
+            allergies="Peanuts",
+            family=self.family,
+        )
+        self.assertEqual(
+            parent.health_consent_status,
+            Parent.HealthConsentStatus.NEEDS_RECONFIRMATION,
+        )
+
+    def test_no_health_text_defaults_to_not_applicable(self):
+        parent = Parent.objects.create(
+            first_name="Lee",
+            last_name="Nguyen",
+            relationship_type="Father",
+            family=self.family,
+        )
+        self.assertEqual(
+            parent.health_consent_status, Parent.HealthConsentStatus.NOT_APPLICABLE
+        )
+
+    def test_declined_status_with_text_is_quarantined(self):
+        parent = Parent.objects.create(
+            first_name="Ana",
+            last_name="Nguyen",
+            relationship_type="Mother",
+            allergies="Peanuts",
+            health_consent_status=Parent.HealthConsentStatus.DECLINED,
+            family=self.family,
+        )
+        self.assertEqual(
+            parent.health_consent_status,
+            Parent.HealthConsentStatus.NEEDS_RECONFIRMATION,
+        )
+
+
 class HealthConsentCreateAPITests(TestCase):
     """POST /api/families/ consent handling via FamilyCreateSerializer."""
 
@@ -603,3 +650,80 @@ class HealthConsentCreateAPITests(TestCase):
             child.health_consent_status, Child.HealthConsentStatus.NOT_APPLICABLE
         )
         self.assertIsNone(child.health_consent_by)
+
+    def _parent_payload(self, parent_extra):
+        return {
+            "last_name": "Alvarez",
+            "parents": [
+                {
+                    "first_name": "Pat",
+                    "last_name": "Alvarez",
+                    "phone": "555-0100",
+                    "relationship_type": "MOM",
+                    **parent_extra,
+                }
+            ],
+            "children": [],
+        }
+
+    def test_adult_granted_consent_stores_text_and_stamps_metadata(self):
+        """An adult's own allergy/notes text is self-attested at initial
+        registration by whoever is present filling in the form — the same
+        create_family_with_members attestor as a child's consent — see
+        families/services.py."""
+        response = self.client.post(
+            "/api/families/",
+            self._parent_payload(
+                {
+                    "allergies": "Shellfish",
+                    "health_consent_status": "granted",
+                }
+            ),
+            format="json",
+        )
+        self.assertEqual(response.status_code, 201)
+        parent = Parent.objects.get(family_id=response.data["id"])
+
+        self.assertEqual(parent.allergies, "Shellfish")
+        self.assertEqual(
+            parent.health_consent_status, Parent.HealthConsentStatus.GRANTED
+        )
+        self.assertEqual(parent.health_consent_by, parent)
+        self.assertIsNotNone(parent.health_consent_at)
+        self.assertEqual(
+            parent.health_consent_notice_version,
+            settings.HEALTH_CONSENT_NOTICE_VERSION,
+        )
+
+    def test_adult_declined_consent_blanks_text_even_if_sent(self):
+        response = self.client.post(
+            "/api/families/",
+            self._parent_payload(
+                {
+                    "allergies": "Shellfish",
+                    "notes": "Carries an EpiPen",
+                    "health_consent_status": "declined",
+                }
+            ),
+            format="json",
+        )
+        self.assertEqual(response.status_code, 201)
+        parent = Parent.objects.get(family_id=response.data["id"])
+
+        self.assertIsNone(parent.allergies)
+        self.assertIsNone(parent.notes)
+        self.assertEqual(
+            parent.health_consent_status, Parent.HealthConsentStatus.DECLINED
+        )
+
+    def test_adult_no_health_info_indicated_leaves_status_not_applicable(self):
+        response = self.client.post(
+            "/api/families/", self._parent_payload({}), format="json"
+        )
+        self.assertEqual(response.status_code, 201)
+        parent = Parent.objects.get(family_id=response.data["id"])
+
+        self.assertEqual(
+            parent.health_consent_status, Parent.HealthConsentStatus.NOT_APPLICABLE
+        )
+        self.assertIsNone(parent.health_consent_by)

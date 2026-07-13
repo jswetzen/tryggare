@@ -8,7 +8,7 @@ from django.views.generic import TemplateView
 from rest_framework.routers import DefaultRouter
 
 from families.views import ChildViewSet, FamilyViewSet, ParentViewSet
-from families.qr_views import privacy_info, qr_info
+from families.qr_views import privacy_info, qr_info, qr_reveal_safety_info
 from events.views import (
     EventViewSet,
     EventTicketViewSet,
@@ -30,6 +30,8 @@ from imports.views import (
 )
 from printing.views import label_page_view
 from registrations.views import (
+    confirm_registration_despite_balance_view,
+    mark_registration_paid,
     registration_event_info,
     registration_payment_status,
     submit_registration,
@@ -72,6 +74,11 @@ urlpatterns = [
         "api/qr/<str:code>/", qr_info, name="qr-info"
     ),  # Public QR code endpoint (privacy-first)
     path(
+        "api/qr/<str:code>/reveal-safety-info/",
+        qr_reveal_safety_info,
+        name="qr-reveal-safety-info",
+    ),  # Public, throttled reveal for allergy/medical-notes text (logged separately from qr_viewed)
+    path(
         "api/privacy/", privacy_info, name="privacy-info"
     ),  # Public data-controller info for the privacy page/notice
     # Public self-serve registration endpoints (unauthenticated, own throttle scope)
@@ -95,6 +102,17 @@ urlpatterns = [
         "api/registrations/validate-promo-code/",
         validate_promo_code,
         name="registration-validate-promo-code",
+    ),
+    # Staff-authenticated check-in screen actions (case catalog §9.3)
+    path(
+        "api/registrations/<uuid:registration_id>/mark-paid/",
+        mark_registration_paid,
+        name="registration-mark-paid",
+    ),
+    path(
+        "api/registrations/<uuid:registration_id>/confirm-despite-balance/",
+        confirm_registration_despite_balance_view,
+        name="registration-confirm-despite-balance",
     ),
     # Import endpoints (must be before the catch-all)
     path(

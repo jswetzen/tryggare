@@ -394,6 +394,166 @@ class TestQrInfoAttendeeType:
         assert resp.data["child"]["allergies"] == ""
         assert resp.data["child"]["birthdate"] is None
 
+    def test_qr_info_omits_allergies_and_notes_for_anonymous_caller(self):
+        """9.3-style gate: an anonymous caller gets has_safety_info only,
+        never the text itself — see qr_reveal_safety_info for the actual
+        reveal path."""
+        staff = _make_staff("qri_staff_3")
+        family = _make_family("Qri3")
+        child = Child.objects.create(
+            first_name="Dana",
+            last_name="QriChild",
+            family=family,
+            allergies="Peanuts",
+            notes="Epilepsy",
+            birthdate=timezone.now().date(),
+        )
+        event = _make_event()
+        session = _make_session(event)
+        EventTicket.objects.create(attendee=child, event=event)
+
+        staff_client = _authed_client(staff)
+        code = self._checkin(staff_client, child, session)
+
+        anon_resp = APIClient().get(reverse("qr-info", args=[code]))
+        assert anon_resp.status_code == 200, anon_resp.data
+        assert anon_resp.data["child"]["allergies"] is None
+        assert anon_resp.data["child"]["notes"] is None
+        assert anon_resp.data["child"]["has_safety_info"] is True
+
+        # Authenticated response is unchanged by this gate.
+        staff_resp = staff_client.get(reverse("qr-info", args=[code]))
+        assert staff_resp.data["child"]["allergies"] == "Peanuts"
+        assert staff_resp.data["child"]["notes"] == "Epilepsy"
+        assert staff_resp.data["child"]["has_safety_info"] is True
+
+    def test_qr_info_has_safety_info_false_when_no_allergies_or_notes(self):
+        staff = _make_staff("qri_staff_4")
+        family = _make_family("Qri4")
+        child = Child.objects.create(
+            first_name="Eli",
+            last_name="QriChild",
+            family=family,
+            birthdate=timezone.now().date(),
+        )
+        event = _make_event()
+        session = _make_session(event)
+        EventTicket.objects.create(attendee=child, event=event)
+
+        staff_client = _authed_client(staff)
+        code = self._checkin(staff_client, child, session)
+
+        anon_resp = APIClient().get(reverse("qr-info", args=[code]))
+        assert anon_resp.status_code == 200, anon_resp.data
+        assert anon_resp.data["child"]["has_safety_info"] is False
+
+
+@pytest.mark.django_db
+class TestQrRevealSafetyInfo:
+    """POST /api/qr/{code}/reveal-safety-info/ — the anonymous, throttled,
+    individually audit-logged path to allergy/emergency-medical text."""
+
+    def _checkin(self, client, attendee, session) -> str:
+        resp = client.post(
+            CHECKIN_URL,
+            {"child": str(attendee.id), "session": str(session.id)},
+            format="json",
+        )
+        assert resp.status_code == 201, resp.data
+        return CheckInRecord.objects.get(attendee_id=attendee.id).qr_code.code
+
+    def test_reveal_returns_allergies_and_notes_for_anonymous_caller(self):
+        staff = _make_staff("qrr_staff_1")
+        family = _make_family("Qrr1")
+        child = Child.objects.create(
+            first_name="Finn",
+            last_name="QrrChild",
+            family=family,
+            allergies="Peanuts",
+            notes="Epilepsy",
+            birthdate=timezone.now().date(),
+        )
+        event = _make_event()
+        session = _make_session(event)
+        EventTicket.objects.create(attendee=child, event=event)
+
+        staff_client = _authed_client(staff)
+        code = self._checkin(staff_client, child, session)
+
+        resp = APIClient().post(reverse("qr-reveal-safety-info", args=[code]))
+        assert resp.status_code == 200, resp.data
+        assert resp.data["allergies"] == "Peanuts"
+        assert resp.data["notes"] == "Epilepsy"
+
+    def test_reveal_404_for_invalid_code(self):
+        resp = APIClient().post(reverse("qr-reveal-safety-info", args=["ZZZZZ"]))
+        assert resp.status_code == 404
+
+    def test_reveal_404_when_child_checked_out(self):
+        staff = _make_staff("qrr_staff_2")
+        family = _make_family("Qrr2")
+        child = Child.objects.create(
+            first_name="Gwen",
+            last_name="QrrChild",
+            family=family,
+            allergies="Peanuts",
+            birthdate=timezone.now().date(),
+        )
+        event = _make_event()
+        session = _make_session(event)
+        EventTicket.objects.create(attendee=child, event=event)
+
+        staff_client = _authed_client(staff)
+        code = self._checkin(staff_client, child, session)
+        record = CheckInRecord.objects.get(attendee_id=child.id)
+        checkout_resp = staff_client.post(
+            reverse("checkin-check-out", args=[record.id]), {}, format="json"
+        )
+        assert checkout_resp.status_code == 200, checkout_resp.data
+
+        resp = APIClient().post(reverse("qr-reveal-safety-info", args=[code]))
+        assert resp.status_code == 404
+
+    def test_reveal_respects_quarantine_policy(self):
+        """A needs_reconfirmation child still reveals text — same safety
+        rationale as qr_info's own quarantine display policy (DPIA §4)."""
+        staff = _make_staff("qrr_staff_3")
+        family = _make_family("Qrr3")
+        child = Child.objects.create(
+            first_name="Hana",
+            last_name="QrrChild",
+            family=family,
+            allergies="Peanuts",
+            health_consent_status=Child.HealthConsentStatus.NEEDS_RECONFIRMATION,
+            birthdate=timezone.now().date(),
+        )
+        event = _make_event()
+        session = _make_session(event)
+        EventTicket.objects.create(attendee=child, event=event)
+
+        staff_client = _authed_client(staff)
+        code = self._checkin(staff_client, child, session)
+
+        resp = APIClient().post(reverse("qr-reveal-safety-info", args=[code]))
+        assert resp.status_code == 200, resp.data
+        assert resp.data["allergies"] == "Peanuts"
+
+    def test_reveal_blank_for_parent_self_checkin(self):
+        staff = _make_staff("qrr_staff_4")
+        family = _make_family("Qrr4")
+        parent = _make_parent(family)
+        event = _make_event()
+        session = _make_session(event)
+        SessionTicket.objects.create(attendee=parent, session=session)
+
+        staff_client = _authed_client(staff)
+        code = self._checkin(staff_client, parent, session)
+
+        resp = APIClient().post(reverse("qr-reveal-safety-info", args=[code]))
+        assert resp.status_code == 200, resp.data
+        assert resp.data["allergies"] == ""
+        assert resp.data["notes"] == ""
+
 
 @pytest.mark.django_db
 class TestParentCheckinPolicy:

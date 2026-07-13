@@ -1,5 +1,6 @@
 from rest_framework import serializers
 
+from registrations.models import Registration
 from .models import Child, Family, Parent
 from .services import create_family_with_members
 
@@ -184,10 +185,46 @@ class ChildSerializer(serializers.ModelSerializer):
         return str(active_checkin.id) if active_checkin else None
 
 
+def _pending_payment_payload(family: Family) -> dict | None:
+    """9.3 "unpaid at the door": the family's single pending_payment
+    registration (if any), shaped for the check-in screen's unpaid banner.
+    A family registers once per event and Registration.status blocks
+    check-in the moment it isn't confirmed, so at most one row is relevant
+    here — take the first. Uses the FamilyViewSet prefetch
+    (`pending_payment_registrations`) when present; falls back to a direct
+    query for serializer uses that don't go through that queryset (e.g. the
+    walk-up FamilyCreateSerializer response, which never has one anyway).
+    """
+    if hasattr(family, "pending_payment_registrations"):
+        registrations = family.pending_payment_registrations
+    else:
+        registrations = list(
+            family.registrations.filter(
+                status=Registration.Status.PENDING_PAYMENT
+            ).select_related("payment")
+        )
+
+    registration = registrations[0] if registrations else None
+    if registration is None:
+        return None
+
+    payment = getattr(registration, "payment", None)
+    if payment is None:
+        return None
+
+    return {
+        "registration_id": str(registration.id),
+        "reference_code": registration.reference_code,
+        "amount_owed": str(payment.balance),
+        "currency": payment.currency,
+    }
+
+
 class FamilySerializer(serializers.ModelSerializer):
     parents = ParentSerializer(many=True, read_only=True)
     children = ChildSerializer(many=True, read_only=True)
     display_name = serializers.ReadOnlyField()
+    pending_payment = serializers.SerializerMethodField()
 
     class Meta:
         model = Family
@@ -199,13 +236,18 @@ class FamilySerializer(serializers.ModelSerializer):
             "children",
             "display_name",
             "external_booking_id",
+            "pending_payment",
         ]
         read_only_fields = [
             "id",
             "last_participation_date",
             "display_name",
             "external_booking_id",
+            "pending_payment",
         ]
+
+    def get_pending_payment(self, obj: Family) -> dict | None:
+        return _pending_payment_payload(obj)
 
 
 class FamilyDetailSerializer(serializers.ModelSerializer):
@@ -214,6 +256,7 @@ class FamilyDetailSerializer(serializers.ModelSerializer):
     parents = ParentSerializer(many=True, read_only=True)
     children = ChildSerializer(many=True, read_only=True)
     display_name = serializers.ReadOnlyField()
+    pending_payment = serializers.SerializerMethodField()
 
     class Meta:
         model = Family
@@ -225,17 +268,31 @@ class FamilyDetailSerializer(serializers.ModelSerializer):
             "children",
             "display_name",
             "external_booking_id",
+            "pending_payment",
         ]
         read_only_fields = [
             "id",
             "last_participation_date",
             "display_name",
             "external_booking_id",
+            "pending_payment",
         ]
+
+    def get_pending_payment(self, obj: Family) -> dict | None:
+        return _pending_payment_payload(obj)
 
 
 class ParentCreateSerializer(serializers.ModelSerializer):
     """Serializer for creating parents (without family field)"""
+
+    health_consent_status = serializers.ChoiceField(
+        choices=[
+            Parent.HealthConsentStatus.NOT_APPLICABLE,
+            Parent.HealthConsentStatus.GRANTED,
+            Parent.HealthConsentStatus.DECLINED,
+        ],
+        default=Parent.HealthConsentStatus.NOT_APPLICABLE,
+    )
 
     class Meta:
         model = Parent
@@ -246,8 +303,21 @@ class ParentCreateSerializer(serializers.ModelSerializer):
             "phone",
             "email",
             "relationship_type",
+            "allergies",
+            "notes",
+            "health_consent_status",
         ]
         read_only_fields = ["id"]
+
+    def validate(self, attrs):
+        """Same invariant as ChildCreateSerializer.validate() — see there."""
+        status = attrs.get(
+            "health_consent_status", Parent.HealthConsentStatus.NOT_APPLICABLE
+        )
+        if status != Parent.HealthConsentStatus.GRANTED:
+            attrs["allergies"] = None
+            attrs["notes"] = None
+        return attrs
 
 
 class ChildCreateSerializer(serializers.ModelSerializer):

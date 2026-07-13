@@ -14,14 +14,15 @@ To safely manage children at our event we collect:
 - **Children:** first name, last name, date of birth, allergies, and free-text
   medical/behavioural notes.
 - **Parents/guardians:** name, phone number, email address, relationship to the
-  child.
+  child, and — only if voluntarily given at registration — their own
+  allergy/medical information (e.g. for catered events).
 - **Check-in records:** when a child was checked in and out, by which staff
   member, and who collected them.
 
-Allergy and medical-notes information is **special-category (health) data**
-under Article 9 GDPR. We only collect it with your **explicit consent** — you
-are free to decline, and this will never affect your child's ability to
-attend.
+Allergy and medical-notes information — for children and for adults alike —
+is **special-category (health) data** under Article 9 GDPR. We only collect
+it with your **explicit consent** — you are free to decline, and this will
+never affect anyone's ability to attend.
 
 ## Why we use it and our legal basis
 

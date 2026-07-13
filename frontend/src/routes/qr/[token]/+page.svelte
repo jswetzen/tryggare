@@ -24,6 +24,17 @@
   let printers = $state<Printer[]>([]);
   let printersLoaded = $state(false);
   let showPrinterPicker = $state(false);
+  let revealingSafetyInfo = $state(false);
+  let revealedSafety = $state<{ allergies: string; notes: string } | null>(null);
+
+  // Staff see allergy/emergency-medical text directly (qr_info already
+  // includes it for an authenticated caller); an anonymous viewer only
+  // gets it after the explicit, logged reveal action below.
+  const effectiveAllergies = $derived(
+    data.user ? qrInfo?.child.allergies : revealedSafety?.allergies
+  );
+  const effectiveNotes = $derived(data.user ? qrInfo?.child.notes : revealedSafety?.notes);
+  const safetyInfoRevealed = $derived(Boolean(data.user) || revealedSafety !== null);
 
   // Age computed from birthdate (whole years)
   const age = $derived.by(() => {
@@ -74,6 +85,21 @@
       }
     } finally {
       loading = false;
+    }
+  }
+
+  async function handleRevealSafetyInfo() {
+    if (!qrInfo) return;
+    revealingSafetyInfo = true;
+    error = null;
+
+    try {
+      revealedSafety = await qrApi.revealSafetyInfo(code);
+    } catch (err) {
+      console.error('Failed to reveal safety info:', err);
+      error = $t('qr.revealSafetyInfoError');
+    } finally {
+      revealingSafetyInfo = false;
     }
   }
 
@@ -202,19 +228,48 @@
       </div>
     {/if}
 
-    <!-- Allergy alert: most safety-critical info, surfaced at the very top -->
-    {#if qrInfo.child.allergies}
-      <div
-        class="bg-danger-50 border-2 border-danger-400 rounded-card p-4 mb-4 flex items-start gap-3"
-        role="alert"
-      >
-        <span class="text-2xl leading-none" aria-hidden="true">⚠️</span>
-        <div>
-          <div class="text-sm font-bold uppercase tracking-wide text-danger-700">
-            {$t('qr.allergyAlert')}
+    <!-- Safety Information: allergies + emergency-medical, most safety-critical
+         info, surfaced at the very top. Staff see it immediately; an anonymous
+         viewer must take an explicit, logged action to reveal it (see
+         handleRevealSafetyInfo) — see DPIA §2/§4 for the Art. 9(2)(a) vs
+         Art. 9(2)(c) legal-basis split this implements. -->
+    {#if qrInfo.child.has_safety_info}
+      <div class="mb-4">
+        {#if safetyInfoRevealed}
+          {#if effectiveAllergies}
+            <div
+              class="bg-danger-50 border-2 border-danger-400 rounded-card p-4 mb-2 flex items-start gap-3"
+              role="alert"
+            >
+              <span class="text-2xl leading-none" aria-hidden="true">⚠️</span>
+              <div>
+                <div class="text-sm font-bold uppercase tracking-wide text-danger-700">
+                  {$t('qr.allergyAlert')}
+                </div>
+                <div class="text-lg text-danger-800 font-semibold">{effectiveAllergies}</div>
+              </div>
+            </div>
+          {/if}
+          {#if effectiveNotes}
+            <div class="bg-warning-50 border border-warning-300 rounded-card p-4">
+              <div class="text-sm text-neutral-600">{$t('qr.medicalConditions')}</div>
+              <div class="text-lg text-warning-600 font-semibold">{effectiveNotes}</div>
+            </div>
+          {/if}
+        {:else}
+          <div class="bg-danger-50 border-2 border-danger-400 rounded-card p-4">
+            <div class="text-sm font-bold uppercase tracking-wide text-danger-700 mb-2">
+              {$t('qr.safetyInfoTitle')}
+            </div>
+            <button
+              class="bg-danger-600 hover:bg-danger-700 text-white font-semibold px-5 py-3 rounded-card w-full"
+              onclick={handleRevealSafetyInfo}
+              disabled={revealingSafetyInfo}
+            >
+              {revealingSafetyInfo ? $t('common.loading') : $t('qr.showSafetyInfo')}
+            </button>
           </div>
-          <div class="text-lg text-danger-800 font-semibold">{qrInfo.child.allergies}</div>
-        </div>
+        {/if}
       </div>
     {/if}
 
@@ -238,15 +293,6 @@
             <div>
               <div class="text-sm text-neutral-600">{$t('qr.dateOfBirth')}</div>
               <div class="text-lg">{qrInfo.child.birthdate}</div>
-            </div>
-          {/if}
-
-          {#if qrInfo.child.notes}
-            <div>
-              <div class="text-sm text-neutral-600">{$t('qr.medicalConditions')}</div>
-              <div class="text-lg text-warning-600 font-semibold">
-                {qrInfo.child.notes}
-              </div>
             </div>
           {/if}
         </div>

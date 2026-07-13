@@ -181,8 +181,14 @@ export interface QRInfoResponse {
     first_name: string;
     last_name: string;
     birthdate?: string;
-    allergies?: string;
-    notes?: string;
+    // null for an anonymous caller — gated behind the reveal-safety-info
+    // action; only present directly for authenticated (staff) callers.
+    allergies?: string | null;
+    notes?: string | null;
+    // True if there's allergy/notes text to reveal, regardless of auth —
+    // lets the frontend decide whether to show the safety card at all
+    // without knowing the content.
+    has_safety_info: boolean;
     is_parent: boolean;
   };
   current_session: {
@@ -198,6 +204,11 @@ export interface QRInfoResponse {
   }>;
   family_id: string;
   supervised: boolean;
+}
+
+export interface QRRevealSafetyInfoResponse {
+  allergies: string;
+  notes: string;
 }
 
 export interface PrivacyInfoResponse {
@@ -216,6 +227,8 @@ export interface RegistrationTicketType {
   min_birthdate: string | null;
   max_birthdate: string | null;
   kind: 'event' | 'session_bundle';
+  requires_ticket_type_id: string | null;
+  max_per_required: number | null;
 }
 
 export interface RegistrationExtraChoice {
@@ -247,6 +260,8 @@ export interface RegistrationEventInfo {
   is_paid: boolean;
   price: string | null;
   currency: string;
+  header_image_url: string | null;
+  accent_color: string | null;
   ticket_types: RegistrationTicketType[];
   has_hidden_ticket_types: boolean;
   extras: RegistrationExtraInfo[];
@@ -267,6 +282,9 @@ export interface RegistrationParentPayload {
   phone?: string;
   email?: string;
   relationship_type: string;
+  allergies?: string;
+  notes?: string;
+  health_consent_status?: 'not_applicable' | 'granted' | 'declined';
   ticket_type?: string | null;
   extras?: RegistrationExtraSelectionPayload[];
 }

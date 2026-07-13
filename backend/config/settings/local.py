@@ -55,5 +55,6 @@ REST_FRAMEWORK = {
         "registration_submit": "1000/minute",
         "registration_payment_status": "1000/minute",
         "registration_validate_promo_code": "1000/minute",
+        "qr_safety_info_reveal": "1000/minute",
     },
 }

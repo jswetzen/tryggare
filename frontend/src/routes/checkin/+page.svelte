@@ -431,7 +431,9 @@
       expandedChildId = null;
     } catch (err) {
       const apiError = err as ApiError;
-      error = apiError.message || 'Failed to check in child';
+      const msg = apiError.message || 'Failed to check in child';
+      errorToast = msg;
+      setTimeout(() => { if (errorToast === msg) errorToast = null; }, 4000);
       console.error('Error checking in child:', err);
     }
   }
@@ -521,7 +523,9 @@
       });
     } catch (err) {
       const apiError = err as ApiError;
-      error = apiError.message || 'Failed to check in family';
+      const msg = apiError.message || 'Failed to check in family';
+      errorToast = msg;
+      setTimeout(() => { if (errorToast === msg) errorToast = null; }, 4000);
       console.error('Error checking in family:', err);
     }
   }
@@ -569,7 +573,9 @@
       }
     } catch (err) {
       const apiError = err as ApiError;
-      error = apiError.message || 'Failed to undo check-in';
+      const msg = apiError.message || 'Failed to undo check-in';
+      errorToast = msg;
+      setTimeout(() => { if (errorToast === msg) errorToast = null; }, 4000);
       console.error('Error undoing check-in:', err);
     }
   }
@@ -635,7 +641,9 @@
       successToast = $_('checkin.familyCheckInUndone', { values: { name: family.name } });
     } catch (err) {
       const apiError = err as ApiError;
-      error = apiError.message || 'Failed to undo family check-in';
+      const msg = apiError.message || 'Failed to undo family check-in';
+      errorToast = msg;
+      setTimeout(() => { if (errorToast === msg) errorToast = null; }, 4000);
       console.error('Error undoing family check-in:', err);
     }
   }
@@ -719,7 +727,9 @@
       await checkInChild(familyId, childId);
     } catch (err) {
       const apiError = err as ApiError;
-      error = apiError.message || 'Failed to assign ticket';
+      const msg = apiError.message || 'Failed to assign ticket';
+      errorToast = msg;
+      setTimeout(() => { if (errorToast === msg) errorToast = null; }, 4000);
       console.error('Error assigning ticket:', err);
     }
   }
@@ -774,7 +784,9 @@
       expandedChildId = null;
     } catch (err) {
       const apiError = err as ApiError;
-      error = apiError.message || 'Failed to check in parent';
+      const msg = apiError.message || 'Failed to check in parent';
+      errorToast = msg;
+      setTimeout(() => { if (errorToast === msg) errorToast = null; }, 4000);
       console.error('Error checking in parent:', err);
     }
   }
@@ -820,7 +832,9 @@
       successToast = $_('checkin.checkInUndone', { values: { name: parent.name } });
     } catch (err) {
       const apiError = err as ApiError;
-      error = apiError.message || 'Failed to undo check-in';
+      const msg = apiError.message || 'Failed to undo check-in';
+      errorToast = msg;
+      setTimeout(() => { if (errorToast === msg) errorToast = null; }, 4000);
       console.error('Error undoing parent check-in:', err);
     }
   }
@@ -862,8 +876,44 @@
       await checkInParent(familyId, parentId);
     } catch (err) {
       const apiError = err as ApiError;
-      error = apiError.message || 'Failed to assign ticket';
+      const msg = apiError.message || 'Failed to assign ticket';
+      errorToast = msg;
+      setTimeout(() => { if (errorToast === msg) errorToast = null; }, 4000);
       console.error('Error assigning ticket:', err);
+    }
+  }
+
+  // 9.3 "unpaid at the door": staff check-in-screen payment actions.
+  // Both reload the family list rather than patching local state — the
+  // pending_payment field, ticket gate, and check-in eligibility all shift
+  // together once a registration confirms, and a full refresh is cheap and
+  // matches the existing handleSessionSelect() pattern.
+  async function markRegistrationPaid(
+    registrationId: string,
+    method: 'swish' | 'bankgiro' | 'manual_other'
+  ) {
+    try {
+      await checkinApi.markRegistrationPaid(registrationId, method);
+      successToast = $_('checkin.markPaidSuccess');
+      await loadFamilies();
+    } catch (err) {
+      const apiError = err as ApiError;
+      const msg = apiError.message || $_('checkin.markPaidError');
+      errorToast = msg;
+      setTimeout(() => { if (errorToast === msg) errorToast = null; }, 4000);
+    }
+  }
+
+  async function confirmDespiteBalance(registrationId: string) {
+    try {
+      await checkinApi.confirmRegistrationDespiteBalance(registrationId);
+      successToast = $_('checkin.confirmDespiteBalanceSuccess');
+      await loadFamilies();
+    } catch (err) {
+      const apiError = err as ApiError;
+      const msg = apiError.message || $_('checkin.confirmDespiteBalanceError');
+      errorToast = msg;
+      setTimeout(() => { if (errorToast === msg) errorToast = null; }, 4000);
     }
   }
 
@@ -884,6 +934,9 @@
       phone: string;
       email: string;
       relationship_type: string;
+      allergies: string;
+      notes: string;
+      health_consent_status: 'not_applicable' | 'granted' | 'declined';
     }>;
   }) {
     try {
@@ -905,6 +958,9 @@
             phone: p.phone,
             email: p.email,
             relationship_type: p.relationship_type,
+            allergies: p.allergies.trim() || undefined,
+            notes: p.notes.trim() || undefined,
+            health_consent_status: p.health_consent_status,
           };
         }),
         children: data.children.map((c) => ({
@@ -1106,6 +1162,8 @@
         onCheckInParent={checkInParent}
         onUndoParent={undoParentCheckIn}
         onAssignParentTicket={assignParentTicket}
+        onMarkPaid={markRegistrationPaid}
+        onConfirmDespiteBalance={confirmDespiteBalance}
         {parentCheckinEnabled}
         {getRemainingTime}
         bind:supervisedState

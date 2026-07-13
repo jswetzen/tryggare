@@ -186,6 +186,12 @@ REST_FRAMEWORK = {
         # times, but still bounded (this is also the only place an
         # unauthenticated caller can probe for valid promo codes).
         "registration_validate_promo_code": "60/hour",
+        # Deliberately tighter than qr_info's own generic unscoped "anon"
+        # rate: revealing allergy/emergency-medical text is a rarer, more
+        # sensitive action than loading the page. Per-IP, so a busy shared-
+        # venue-wifi pickup point could plausibly bump into this — revisit
+        # if that turns out to be a problem in practice.
+        "qr_safety_info_reveal": "20/hour",
     },
 }
 

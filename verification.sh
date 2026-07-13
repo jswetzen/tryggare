@@ -3,7 +3,7 @@
 # Comprehensive Verification Script for Check-Ins System
 #
 # This script replaces restart.sh with a complete verification workflow:
-# 1. Triggers server restart via restart.txt
+# 1. Triggers a prod-like rebuild via restart-prod.txt
 # 2. Monitors web.log for restart completion
 # 3. Optionally runs Selenium E2E tests
 # 4. Provides clear feedback at each step
@@ -34,7 +34,7 @@ TEST_FILE=""
 PROJECT_ROOT="$(cd "$(dirname "$0")" && pwd)"
 WEB_LOG="$PROJECT_ROOT/web.log"
 FRONTEND_LOG="$PROJECT_ROOT/frontend.log"
-RESTART_FILE="$PROJECT_ROOT/restart.txt"
+RESTART_FILE="$PROJECT_ROOT/restart-prod.txt"
 BUILD_LOG="$PROJECT_ROOT/build.log"
 COMPOSE_BUILD_TIMEOUT=300  # 5 minutes for build to complete
 
@@ -158,7 +158,7 @@ check_build_logs() {
 
   if [[ ! -f "$BUILD_LOG" ]]; then
     print_warning "Build log not found at: $BUILD_LOG"
-    print_info "Build logs are captured by the 'watch restart.txt' process"
+    print_info "Build logs are captured by the 'nu watch.nu' prod watcher"
     print_info "Check if the watcher is running and redirecting output to build.log"
     return 1
   fi
@@ -223,7 +223,7 @@ trigger_restart() {
   # Record timestamp before restart
   local before_timestamp=$(stat -c %Y "$WEB_LOG" 2>/dev/null || echo 0)
 
-  # Touch restart.txt to trigger restart
+  # Touch restart-prod.txt to trigger a prod-like rebuild
   date > "$RESTART_FILE"
 
   print_success "Restart triggered at $(date '+%H:%M:%S')"

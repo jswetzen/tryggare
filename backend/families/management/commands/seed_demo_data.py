@@ -3,7 +3,8 @@ Management command to seed realistic demo data for screenshots and development.
 Idempotent — safe to re-run (uses get_or_create throughout).
 """
 
-from datetime import date, timedelta
+from datetime import date, datetime, time, timedelta
+from decimal import Decimal
 
 from django.contrib.auth import get_user_model
 from django.core.management.base import BaseCommand
@@ -22,6 +23,8 @@ from events.models import (
     TicketType,
 )
 from families.models import Child, Family, Parent
+from registrations.models import Payment, Registration
+from registrations.tokens import generate_verification_token, hash_token
 
 
 class Command(BaseCommand):
@@ -56,6 +59,14 @@ class Command(BaseCommand):
             Parent.objects.all().delete()
             Family.objects.all().delete()
             Session.objects.all().delete()
+            # TicketType.requires_ticket_type is a self-referential PROTECT FK
+            # (e.g. "family member" requiring "family ticket" within the same
+            # event). Django's cascade collector raises ProtectedError on that
+            # relation even when both rows are being deleted in the same
+            # Event cascade, so it must be cleared explicitly first.
+            TicketType.objects.exclude(requires_ticket_type__isnull=True).update(
+                requires_ticket_type=None
+            )
             Event.objects.all().delete()
             AdminUser.objects.filter(username="maria").delete()
 
@@ -310,7 +321,62 @@ class Command(BaseCommand):
             )
         )
 
+        self._seed_unpaid_registration_demo_family(event, morning)
         self._seed_registration_demo_event()
+
+    def _seed_unpaid_registration_demo_family(self, event, session):
+        """A ninth Spring Conference 2026 family, arrived via self-serve
+        registration but not yet paid — showcases the check-in screen's
+        "unpaid at the door" banner (case catalog §9.3) without a staff
+        member having to submit a real registration first. Distinct from
+        every other seed family here: this one has a real Registration/
+        Payment pair and a ticket whose registration FK is set, so both
+        halves of the feature are demoable out of the box — the amber
+        banner with the amount owed, and the check-in gate actually
+        blocking the child until staff use "Ta betalt nu" (or the
+        override) to clear it.
+        """
+        family, _ = Family.objects.get_or_create(last_name="Karlsson")
+        Parent.objects.get_or_create(
+            family=family,
+            first_name="Nina",
+            last_name="Karlsson",
+            defaults={
+                "relationship_type": "Mother",
+                "phone": "+46709012345",
+                "email": "nina.karlsson@example.com",
+            },
+        )
+        today = date.today()
+        child, _ = Child.objects.get_or_create(
+            family=family,
+            first_name="Alice",
+            last_name="Karlsson",
+            defaults={"birthdate": today.replace(year=today.year - 8)},
+        )
+
+        registration, reg_created = Registration.objects.get_or_create(
+            event=event,
+            family=family,
+            contact_email="nina.karlsson@example.com",
+            defaults={
+                "status": Registration.Status.PENDING_PAYMENT,
+                "verification_token_hash": hash_token(generate_verification_token()),
+            },
+        )
+        if reg_created:
+            Payment.objects.create(registration=registration, amount=Decimal("500.00"))
+
+        SessionTicket.objects.get_or_create(
+            attendee=child, session=session, defaults={"registration": registration}
+        )
+
+        self.stdout.write(
+            self.style.SUCCESS(
+                "Unpaid registration demo family seeded: Karlsson "
+                "(500.00 SEK owed, blocks check-in until paid)."
+            )
+        )
 
     def _seed_registration_demo_event(self):
         """A second, separate event configured (not populated with
@@ -430,7 +496,12 @@ class Command(BaseCommand):
                 "requires_choice": True,
             },
         )
-        for label, sort_order in [("Vanlig", 0), ("Vegetarisk", 1), ("Vegansk", 2), ("Glutenfri", 3)]:
+        for label, sort_order in [
+            ("Vanlig", 0),
+            ("Vegetarisk", 1),
+            ("Vegansk", 2),
+            ("Glutenfri", 3),
+        ]:
             ExtraChoice.objects.get_or_create(
                 extra=dinner, label=label, defaults={"sort_order": sort_order}
             )
@@ -553,7 +624,7 @@ class Command(BaseCommand):
                 "sort_order": 2,
             },
         )
-        TicketType.objects.get_or_create(
+        family_ticket, _ = TicketType.objects.get_or_create(
             event=weekend,
             name="Familjebiljett",
             defaults={
@@ -562,7 +633,7 @@ class Command(BaseCommand):
                 "sort_order": 3,
             },
         )
-        TicketType.objects.get_or_create(
+        member_type, _ = TicketType.objects.get_or_create(
             event=weekend,
             name="Familjebiljett - familjemedlem",
             defaults={
@@ -571,6 +642,17 @@ class Command(BaseCommand):
                 "sort_order": 4,
             },
         )
+        # get_or_create's defaults never apply to a pre-existing row (this
+        # type predates the requires_ticket_type/max_per_required fields) —
+        # backfill explicitly, same pattern as registration_opens_at above.
+        # Real-world loophole this closes: without a cap, a registration
+        # could add unlimited free "family member" attendees without ever
+        # buying a Familjebiljett. 4 is a demo default (a typical family
+        # size), not a hard system limit — adjust per event as needed.
+        if member_type.requires_ticket_type_id is None:
+            member_type.requires_ticket_type = family_ticket
+            member_type.max_per_required = 4
+            member_type.save(update_fields=["requires_ticket_type", "max_per_required"])
         # ChurchSuite lists this publicly, trusting guests not to pick it
         # without a real arrangement — hidden here instead (case 5.4/10.2).
         TicketType.objects.get_or_create(
@@ -583,6 +665,54 @@ class Command(BaseCommand):
                 "sort_order": 5,
             },
         )
+
+        # One Session per day — proves partial-day attendance already
+        # works via the existing session_bundle mechanism (case catalog
+        # §2.6), it just wasn't demonstrated in this event's seed data yet.
+        day_names = ["Fredag", "Lördag", "Söndag"]
+        days = []
+        for offset, day_name in enumerate(day_names):
+            day_date = weekend.start_date + timedelta(days=offset)
+            session, _ = Session.objects.get_or_create(
+                event=weekend,
+                name=day_name,
+                defaults={
+                    "start_time": timezone.make_aware(
+                        datetime.combine(day_date, time(9, 0))
+                    ),
+                    "end_time": timezone.make_aware(
+                        datetime.combine(day_date, time(22, 0))
+                    ),
+                    "is_active": False,
+                    "requires_ticket": False,
+                },
+            )
+            days.append(session)
+        _friday, saturday, sunday = days
+
+        saturday_only, _ = TicketType.objects.get_or_create(
+            event=weekend,
+            name="Lördag",
+            kind=TicketType.Kind.SESSION_BUNDLE,
+            defaults={
+                "price": 250,
+                "applies_to": AppliesTo.EITHER,
+                "sort_order": 6,
+            },
+        )
+        saturday_only.sessions.set([saturday])
+
+        saturday_sunday, _ = TicketType.objects.get_or_create(
+            event=weekend,
+            name="Lördag-Söndag",
+            kind=TicketType.Kind.SESSION_BUNDLE,
+            defaults={
+                "price": 400,
+                "applies_to": AppliesTo.EITHER,
+                "sort_order": 7,
+            },
+        )
+        saturday_sunday.sessions.set([saturday, sunday])
 
         Extra.objects.get_or_create(
             event=weekend,
@@ -629,13 +759,15 @@ class Command(BaseCommand):
             ("Annat", 3),
         ]:
             ExtraChoice.objects.get_or_create(
-                extra=accommodation_kind, label=label, defaults={"sort_order": sort_order}
+                extra=accommodation_kind,
+                label=label,
+                defaults={"sort_order": sort_order},
             )
 
         self.stdout.write(
             self.style.SUCCESS(
                 "Registration demo event seeded: 'Weekend 2026' "
-                "(5 ticket types, 2 required extras) — register at "
-                f"/register/{weekend.id}"
+                "(7 ticket types incl. 2 day-bundle passes, 2 required "
+                f"extras) — register at /register/{weekend.id}"
             )
         )

@@ -53,8 +53,13 @@ notes) they need during the event. This is the same purpose documented in
    allocated (`checkins/qr_utils.py`); staff/system broadcasts allergy/notes over
    the internal WebSocket channel for the check-in station.
 3. During the event — staff view the family record (`GET /api/families/{id}/`,
-   authenticated) or scan the QR code (`GET /api/qr/{code}/`, unauthenticated by
-   design — see §4) to see the allergy alert at pickup.
+   authenticated) and see allergy/emergency-medical text directly. Anyone who
+   scans the QR code (`GET /api/qr/{code}/`, unauthenticated by design — see
+   §4) sees the page immediately, but the allergy/notes text itself is
+   withheld until an explicit "show safety info" action is taken, which calls
+   a separate throttled endpoint (`POST /api/qr/{code}/reveal-safety-info/`)
+   and is individually audit-logged (`qr_safety_info_revealed`) — distinct
+   from the `qr_viewed` event logged on every page load.
 4. Check-out — QR code enters a 24h grace period, then returns to the reuse pool.
 5. Retention — `anonymize_expired_data` scrubs PII once a family has been
    inactive for `DATA_RETENTION_DAYS` ({{value}}, default 1095/3 years),
@@ -121,7 +126,8 @@ See `docs/architecture.md` for the full system diagram.
 | `FamilyViewSet` (admin UI) | Staff login, individual accounts (no shared/event passwords) | Full family record incl. allergies/notes |
 | Check-in WebSocket broadcast | Staff login (station-scoped) | Allergies/notes for the checked-in child |
 | Printed label | Physical possession | Name + QR code only |
-| `GET /api/qr/{code}/` | **None (`AllowAny`)** | Allergies, notes, birthdate, guardian name/phone (no email — see §2) |
+| `GET /api/qr/{code}/` | **None (`AllowAny`)** | Birthdate, guardian name/phone (no email — see §2), always; allergies/notes text only for authenticated staff — an anonymous caller gets only a `has_safety_info` boolean, not the text |
+| `POST /api/qr/{code}/reveal-safety-info/` | **None (`AllowAny`)**, throttled tighter than page load (20/hour/IP, see §5) | Allergies, notes text — reachable by anonymous callers only via an explicit "show safety info" action; each call individually logged as `qr_safety_info_revealed`, distinct from the `qr_viewed` event logged on every page load |
 | DSAR export/erasure | Staff login | Full record, on request |
 | Outbound transactional email (if configured) | N/A — outbound, not an access point | Guardian name, email address, message content sent to the email sub-processor — see `DPA_NOTE.md` §2 and `DPA_TEMPLATE.md` §5 |
 
@@ -130,25 +136,43 @@ be usable by whoever is physically handed the label at pickup, without a staff
 login. Mitigations: the code is only valid while the child is actively checked
 in (data disappears from this surface within the grace period after
 checkout); it is a 5-character code from a 32-symbol confusable-free alphabet
-(~33.5M combinations); anonymous requests are throttled to 10/minute per IP.
-Brute-forcing a single active code from one IP is impractical inside its
-validity window; a distributed brute-force attempt is a residual risk (see §5).
+(~33.5M combinations); anonymous requests to `GET /api/qr/{code}/` are
+throttled to 10/minute per IP, and the separate reveal endpoint to 20/hour
+per IP (tighter, since revealing health text is a rarer, more deliberate act
+than loading the page). Brute-forcing a single active code from one IP is
+impractical inside its validity window; a distributed brute-force attempt is
+a residual risk (see §5).
+
+**Legal basis split for the two-step reveal (ties directly to §2):**
+Art. 9(2)(a) explicit guardian consent is the basis for *collecting* the data
+and for staff's direct, ungated access once authenticated. Art. 9(2)(c) vital
+interests is the basis GDPR offers for genuine emergency disclosure — meant
+to attach to an actual access *event*, not blanket ambient exposure. Before
+this reveal mechanism existed, anonymous page load and staff viewing looked
+identical, so there was no code-level distinction between "the page loaded"
+and "someone is using this data in an emergency." The reveal endpoint gives
+Art. 9(2)(c) a concrete, individually audited event to attach to
+(`qr_safety_info_revealed`), separate from the ambient `qr_viewed` event
+logged on every load regardless of who's looking.
 
 **Tenant isolation:** each {{ORGANISATION_NAME}} instance is a separate
 deployment — no cross-congregation data path exists at the application layer.
 
-**Quarantine display policy (deliberate, not an oversight):** the QR endpoint
-and all staff-facing serializers return allergy/notes text identically
-regardless of `health_consent_status`, including `needs_reconfirmation` —
-health text quarantined because its Art. 9 consent basis is unconfirmed (e.g.
-pre-existing data from before consent capture shipped, migration 0013). The
-safety argument: at the point someone is physically collecting a child, a
+**Quarantine display policy (deliberate, not an oversight):** the QR reveal
+endpoint and all staff-facing serializers return allergy/notes text
+identically regardless of `health_consent_status`, including
+`needs_reconfirmation` — health text quarantined because its Art. 9 consent
+basis is unconfirmed (e.g. pre-existing data from before consent capture
+shipped, migration 0013). The safety argument: at the point someone is
+physically collecting a child, or explicitly requesting emergency info, a
 possibly-unconfirmed allergy warning is more valuable shown than hidden — the
 harm from a false negative (anaphylaxis) outweighs the harm from displaying
-data whose consent paperwork is incomplete. This is a considered trade-off,
-not a bug, but it is not yet paired with the operational half of the fix: a
-staff-facing banner surfacing which children are in `needs_reconfirmation` so
-staff can actually chase down reconfirmation, rather than the quarantine
+data whose consent paperwork is incomplete. This applies equally to both the
+authenticated staff view and the anonymous reveal endpoint. This is a
+considered trade-off, not a bug, but it is not yet paired with the
+operational half of the fix: a staff-facing banner surfacing which children
+are in `needs_reconfirmation` so staff can actually chase down
+reconfirmation, rather than the quarantine
 state sitting invisible in the database. Track that banner as a prerequisite
 for calling this risk closed rather than merely mitigated.
 
@@ -158,14 +182,15 @@ for calling this risk closed rather than merely mitigated.
 
 | # | Risk | Likelihood | Severity | Notes |
 |---|---|---|---|---|
-| R1 | QR code guessed/brute-forced from multiple IPs, exposing one child's health + guardian data | Low | High | Per-IP throttling only; a distributed attempt could evade it |
+| R1 | QR code guessed/brute-forced from multiple IPs, exposing one child's guardian data (birthdate, guardian name/phone) | Low | High | Per-IP throttling only; a distributed attempt could evade it. Health data itself is no longer exposed by guessing the code alone — see R9 |
 | R2 | Lost/discarded printed label read by an unauthorised person | Low | Low | Label carries no health data, only name + QR |
 | R3 | Staff account compromise (credential theft, unattended session) | Low–Medium | High | Individual accounts; no shared logins |
 | R4 | Insider misuse — staff browsing records without operational need | Low | Medium | Now mitigated by `record_viewed`/`qr_viewed` audit events (added {{DATE}}) |
 | R5 | Data retained longer than necessary | Low | Medium | Automated `anonymize_expired_data`, run daily by an in-app scheduler (no operator cron setup required) |
 | R6 | Backup/export leakage, and erased/anonymised data outliving its stated retention inside backup copies | Low | Medium | {{describe backup encryption/access controls for your deployment, and confirm the backup rotation's actual worst-case retention ceiling matches what DPA_TEMPLATE.md §9/§10.1a and TECHNICAL_ANNEX.md §2 state}} |
 | R7 | Guardian email over-collected relative to need on the QR surface | Low | Low | Resolved — email dropped from this endpoint, see §2 |
-| R8 | Health data with unconfirmed Art. 9 basis (`needs_reconfirmation`) is displayed identically to consented data | Medium | Medium | Deliberate safety trade-off, see §4 "Quarantine display policy"; mitigated further once the staff reconfirmation banner exists |
+| R8 | Health data with unconfirmed Art. 9 basis (`needs_reconfirmation`) is displayed identically to consented data | Medium | Medium | Deliberate safety trade-off, see §4 "Quarantine display policy"; mitigated further once the staff reconfirmation banner exists. Applies to both the authenticated staff view and the anonymous reveal endpoint |
+| R9 | Anonymous QR viewer accesses a child's allergy/emergency-medical text | Low | Medium | Reduced from the previous design: an anonymous page load no longer includes the text at all, only a `has_safety_info` boolean; the text is only served via a separate, more tightly throttled (20/hour/IP) endpoint requiring an explicit "show safety info" click, individually audit-logged as `qr_safety_info_revealed` |
 
 ---
 
@@ -202,6 +227,9 @@ for calling this risk closed rather than merely mitigated.
       operator-configured cron needed.
 - [ ] Document backup encryption and access controls (R6).
 - [ ] Legal sign-off on the Art. 9 condition relied upon (§2).
+- [ ] Legal sign-off on the updated child health-consent notice wording
+      (`checkin.healthConsentNotice`) describing the anonymous-reveal
+      mechanism (R9).
 - [ ] Build the staff-facing reconfirmation banner for `needs_reconfirmation`
       children so the quarantine decision in §4 is actionable, not silent (R8).
 

@@ -24,6 +24,7 @@
     RegistrationExtraSelectionPayload
   } from '$lib/api/types';
   import ConsentCapture, { type HealthInfoStatus } from '$lib/components/checkin/ConsentCapture.svelte';
+  import EyebrowLabel from '$lib/components/ui/EyebrowLabel.svelte';
   import { isValidPhone } from '$lib/utils/phone';
 
   type HealthConsentStatus = 'not_applicable' | 'granted' | 'declined';
@@ -39,6 +40,10 @@
     phone: string;
     email: string;
     relationship_type: string;
+    allergies: string;
+    notes: string;
+    healthInfoStatus: HealthInfoStatus;
+    consentNoticeShared: boolean;
     ticketTypeId: string;
     extraSelections: Record<string, ExtraSelectionState>;
   }
@@ -73,12 +78,24 @@
     });
   }
 
+  function formatDateRange(startIso: string, endIso: string): string {
+    const localeTag = $locale === 'sv' ? 'sv-SE' : 'en-GB';
+    const start = new Date(startIso).toLocaleDateString(localeTag, { dateStyle: 'long' });
+    if (startIso === endIso) return start;
+    const end = new Date(endIso).toLocaleDateString(localeTag, { dateStyle: 'long' });
+    return `${start} – ${end}`;
+  }
+
   function emptyParent(): ParentRow {
     return {
       first_name: '',
       phone: '',
       email: '',
       relationship_type: 'OTHER',
+      allergies: '',
+      notes: '',
+      healthInfoStatus: 'none',
+      consentNoticeShared: false,
       ticketTypeId: '',
       extraSelections: {}
     };
@@ -256,6 +273,46 @@
     return unit * (state.quantity || 1);
   }
 
+  // Distinct-attendee counts per selected ticket type — mirrors the
+  // server-side grouping in registrations/ticket_rules.py::
+  // validate_ticket_composition so the UX hint below never contradicts
+  // what the server will actually enforce. UX hint only; the server call
+  // is the real enforcement (see registrationWindowStatus's precedent).
+  let ticketTypeCounts = $derived.by(() => {
+    const counts: Record<string, number> = {};
+    for (const person of [...parents, ...children]) {
+      if (person.ticketTypeId) {
+        counts[person.ticketTypeId] = (counts[person.ticketTypeId] ?? 0) + 1;
+      }
+    }
+    return counts;
+  });
+
+  function ticketCompositionWarning(ticketTypeId: string): string | null {
+    if (!eventInfo || !ticketTypeId) return null;
+    const ticketType = eventInfo.ticket_types.find((tt) => tt.id === ticketTypeId);
+    if (!ticketType?.requires_ticket_type_id) return null;
+    const requiredType = eventInfo.ticket_types.find(
+      (tt) => tt.id === ticketType.requires_ticket_type_id
+    );
+    const requiredName = requiredType?.name ?? '';
+    const requiredCount = ticketTypeCounts[ticketType.requires_ticket_type_id] ?? 0;
+    if (requiredCount === 0) {
+      return $t('register.ticketRequiresOther', {
+        values: { name: ticketType.name, required: requiredName }
+      });
+    }
+    if (ticketType.max_per_required != null) {
+      const count = ticketTypeCounts[ticketTypeId] ?? 0;
+      if (count > requiredCount * ticketType.max_per_required) {
+        return $t('register.ticketCapExceeded', {
+          values: { name: ticketType.name, max: ticketType.max_per_required, required: requiredName }
+        });
+      }
+    }
+    return null;
+  }
+
   let runningTotal = $derived.by(() => {
     if (!eventInfo) return 0;
     let total = 0;
@@ -385,6 +442,10 @@
         error = $t('checkin.invalidPhone');
         return;
       }
+      if (p.healthInfoStatus === 'consented' && !p.consentNoticeShared) {
+        error = $t('register.adultHealthConsentRequired');
+        return;
+      }
     }
 
     const requiresTicketType = !!eventInfo && eventInfo.ticket_types.length > 0;
@@ -423,6 +484,9 @@
           phone: p.phone.trim(),
           email: p.email.trim(),
           relationship_type: p.relationship_type,
+          allergies: p.healthInfoStatus === 'consented' ? p.allergies : '',
+          notes: p.healthInfoStatus === 'consented' ? p.notes : '',
+          health_consent_status: statusMap[p.healthInfoStatus],
           ticket_type: p.ticketTypeId || null,
           extras: buildExtraSelections(p.extraSelections, applicablePersonExtras(false))
         })),
@@ -506,6 +570,13 @@
       {/if}
     </div>
   {:else}
+    {#if eventInfo.header_image_url}
+      <img
+        src={eventInfo.header_image_url}
+        alt=""
+        class="w-full h-40 object-cover rounded-card border border-neutral-300 mb-4"
+      />
+    {/if}
     {#if isPreview}
       <div
         class="mb-4 p-3 bg-warning-50 border border-warning-200 rounded text-warning-800 text-sm font-semibold text-center"
@@ -519,6 +590,9 @@
       class="bg-white border border-neutral-300 rounded-card p-6 shadow-sm"
       data-testid="register-form"
     >
+      <EyebrowLabel color={eventInfo.accent_color ?? undefined}>
+        {formatDateRange(eventInfo.start_date, eventInfo.end_date)}
+      </EyebrowLabel>
       <h1 class="text-2xl font-bold text-neutral-900 mb-1">
         {$t('register.heading', { values: { event: eventInfo.name } })}
       </h1>
@@ -656,6 +730,9 @@
                       <option value={ticketType.id}>{ticketType.name} — {ticketType.price} kr</option>
                     {/each}
                   </select>
+                  {#if ticketCompositionWarning(parent.ticketTypeId)}
+                    <p class="mt-1 text-xs text-danger-700">{ticketCompositionWarning(parent.ticketTypeId)}</p>
+                  {/if}
                 </div>
               {/if}
 
@@ -723,6 +800,24 @@
                   {/each}
                 </div>
               {/if}
+
+              <div class="mt-2">
+                <ConsentCapture
+                  bind:status={parent.healthInfoStatus}
+                  bind:allergies={parent.allergies}
+                  bind:notes={parent.notes}
+                  bind:consentNoticeShared={parent.consentNoticeShared}
+                  idPrefix={`parent-${index}`}
+                  testIdPrefix="parent"
+                  attestLabelKey="register.consentAttest"
+                  questionKey="register.adultHealthInfoQuestion"
+                  consentLabelKey="register.adultHealthInfoConsent"
+                  declineLabelKey="register.adultHealthInfoDecline"
+                  noticeKey="register.adultHealthConsentNotice"
+                  declinedNoteKey="register.adultHealthInfoDeclinedNote"
+                  noticeLinkHref="/privacy"
+                />
+              </div>
 
               {#if parents.length > 1}
                 <button
@@ -826,6 +921,9 @@
                         <option value={ticketType.id}>{ticketType.name} — {ticketType.price} kr</option>
                       {/each}
                     </select>
+                    {#if ticketCompositionWarning(child.ticketTypeId)}
+                      <p class="mt-1 text-xs text-danger-700">{ticketCompositionWarning(child.ticketTypeId)}</p>
+                    {/if}
                   </div>
                 {/if}
 

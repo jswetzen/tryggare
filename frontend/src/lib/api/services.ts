@@ -3,7 +3,7 @@
  */
 
 import { apiClient } from './client';
-import type { Family, Child, Session, CheckInRecord, AuditLog, PrintQueueItem, QRInfoResponse, PrivacyInfoResponse, Printer, PrinterWithToken, PrintJob, Event, EventReportListItem, EventReport } from './types';
+import type { Family, Child, Session, CheckInRecord, AuditLog, PrintQueueItem, QRInfoResponse, QRRevealSafetyInfoResponse, PrivacyInfoResponse, Printer, PrinterWithToken, PrintJob, Event, EventReportListItem, EventReport } from './types';
 import type { FamilyApiResponse } from '$lib/checkin/types';
 
 /**
@@ -50,6 +50,13 @@ export const qrApi = {
    * Returns 404 if code is invalid or child is not currently checked in.
    */
   getInfo: (code: string) => apiClient.get<QRInfoResponse>(`/qr/${code}/`),
+
+  /**
+   * Reveal allergy/emergency-medical text for an anonymous QR-page viewer.
+   * Writes exactly one audit-log entry (qr_safety_info_revealed) per call.
+   */
+  revealSafetyInfo: (code: string) =>
+    apiClient.post<QRRevealSafetyInfoResponse>(`/qr/${code}/reveal-safety-info/`, {}),
 };
 
 /**
@@ -180,6 +187,9 @@ export const checkinApi = {
       phone?: string;
       email?: string;
       relationship_type: string;
+      allergies?: string;
+      notes?: string;
+      health_consent_status?: 'not_applicable' | 'granted' | 'declined';
     }>;
     children: Array<{
       first_name: string;
@@ -190,6 +200,27 @@ export const checkinApi = {
       health_consent_status?: 'not_applicable' | 'granted' | 'declined';
     }>;
   }) => apiClient.post<FamilyApiResponse>('/families/', data),
+
+  /**
+   * Staff check-in-screen action (case catalog §9.3, "ta betalt nu"):
+   * record a pending_payment registration's full outstanding balance as
+   * received, confirming it so the check-in gate opens.
+   */
+  markRegistrationPaid: (registrationId: string, method: 'swish' | 'bankgiro' | 'manual_other') =>
+    apiClient.post<{ status: string; reference_code: string }>(
+      `/registrations/${registrationId}/mark-paid/`,
+      { method }
+    ),
+
+  /**
+   * Staff check-in-screen override (case catalog §9.3, "släpp in, lös
+   * betalning senare"): confirm a pending_payment registration despite an
+   * outstanding balance — a deliberate, audited judgment call.
+   */
+  confirmRegistrationDespiteBalance: (registrationId: string) =>
+    apiClient.post<{ status: string; reference_code: string }>(
+      `/registrations/${registrationId}/confirm-despite-balance/`
+    ),
 };
 
 /**

@@ -11,7 +11,7 @@ from django.utils.translation import gettext as _
 from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes, throttle_classes
 from rest_framework.exceptions import ValidationError
-from rest_framework.permissions import AllowAny
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.throttling import AnonRateThrottle
 
@@ -43,6 +43,12 @@ from .models import (
 )
 from .pricing import calculate_discount, calculate_total
 from .serializers import RegistrationSubmitSerializer
+from .ticket_rules import validate_ticket_composition
+from .services import (
+    InvalidPaymentTransition,
+    confirm_registration_despite_balance,
+    mark_payment_paid,
+)
 from .swish import payment_instructions
 from .tokens import generate_verification_token, hash_token
 
@@ -110,6 +116,12 @@ def _ticket_type_payload(ticket_type):
             str(ticket_type.max_birthdate) if ticket_type.max_birthdate else None
         ),
         "kind": ticket_type.kind,
+        "requires_ticket_type_id": (
+            str(ticket_type.requires_ticket_type_id)
+            if ticket_type.requires_ticket_type_id
+            else None
+        ),
+        "max_per_required": ticket_type.max_per_required,
     }
 
 
@@ -470,6 +482,8 @@ def _create_registration(
                 is_child=is_child,
             )
 
+    validate_ticket_composition(registration)
+
     missing_required_registration = _missing_required_registration_extras(
         event=event,
         submitted_extra_ids={sel["extra"].id for sel in extras_data},
@@ -590,6 +604,8 @@ def registration_event_info(request, event_id):
             "is_paid": event.is_paid,
             "price": str(event.price) if event.price is not None else None,
             "currency": "SEK",
+            "header_image_url": event.header_image_url or None,
+            "accent_color": event.accent_color or None,
             "ticket_types": ticket_types,
             "has_hidden_ticket_types": has_hidden_ticket_types,
             "extras": extras,
@@ -918,4 +934,91 @@ def registration_payment_status(request):
             "event_name": registration.event.name,
             **payment_instructions(registration.payment),
         }
+    )
+
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def mark_registration_paid(request, registration_id):
+    """Check-in screen's "ta betalt nu" action (case catalog §9.3): a family
+    with a pending_payment registration is at the front of the check-in
+    queue, pays on the spot, and staff clear the gate right there — one
+    screen, no admin round-trip. Records the full outstanding balance as
+    received, same as the Django admin's mark-paid actions
+    (RegistrationAdmin/PaymentAdmin), just reachable from the check-in UI.
+    """
+    method = request.data.get("method", "")
+    if method not in Payment.Method.values:
+        return Response(
+            {"error": _("Unknown payment method")}, status=status.HTTP_400_BAD_REQUEST
+        )
+
+    registration = get_object_or_404(
+        Registration.objects.select_related("payment"), pk=registration_id
+    )
+    payment = getattr(registration, "payment", None)
+    if payment is None:
+        return Response(
+            {"error": _("Registration has no payment")},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    try:
+        mark_payment_paid(payment, method=method, marked_by=request.user)
+    except InvalidPaymentTransition as exc:
+        return Response({"error": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+
+    # mark_payment_paid mutates payment.registration, not necessarily the
+    # same Python object as the `registration` fetched above — re-read
+    # rather than assume the in-memory instance was updated in place.
+    registration.refresh_from_db()
+
+    log_audit(
+        request,
+        action="registration_payment_marked_paid",
+        entity_type="Registration",
+        entity_id=str(registration.id),
+        details={
+            "reference_code": registration.reference_code,
+            "method": method,
+            "amount": str(payment.amount),
+            "source": "checkin_ui",
+        },
+    )
+
+    return Response(
+        {"status": registration.status, "reference_code": registration.reference_code}
+    )
+
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def confirm_registration_despite_balance_view(request, registration_id):
+    """Check-in screen's "släpp in, lös betalning senare" override (case
+    catalog §9.3): a deliberate staff judgment call to let a family in
+    without full payment, independently audited from money actually
+    arriving — see confirm_registration_despite_balance's own docstring.
+    """
+    registration = get_object_or_404(
+        Registration.objects.select_related("payment"), pk=registration_id
+    )
+
+    try:
+        confirm_registration_despite_balance(registration, confirmed_by=request.user)
+    except InvalidPaymentTransition as exc:
+        return Response({"error": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+
+    log_audit(
+        request,
+        action="registration_confirmed_despite_balance",
+        entity_type="Registration",
+        entity_id=str(registration.id),
+        details={
+            "reference_code": registration.reference_code,
+            "source": "checkin_ui",
+        },
+    )
+
+    return Response(
+        {"status": registration.status, "reference_code": registration.reference_code}
     )

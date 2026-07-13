@@ -58,7 +58,7 @@ Until pytest discovery is fixed:
 
 The old test files in `OLD_TESTS/` can still be run directly:
 ```bash
-cd /workspace/check-ins/backend
+cd /workspace/tryggare/backend
 uv run python OLD_TESTS/test_selenium_full_flows.py
 ```
 
@@ -66,7 +66,7 @@ uv run python OLD_TESTS/test_selenium_full_flows.py
 
 The Makefile commands work for rebuild/restart:
 ```bash
-cd /workspace/check-ins
+cd /workspace/tryggare
 make rebuild-prod        # Rebuild production
 make restart-dev         # Restart dev
 ```
@@ -75,7 +75,7 @@ make restart-dev         # Restart dev
 
 Django's test runner works for unit tests:
 ```bash
-cd /workspace/check-ins/backend
+cd /workspace/tryggare/backend
 uv run python manage.py test accounts checkins
 ```
 
@@ -124,7 +124,7 @@ The main value of reorganization (clear structure, documentation, Makefile) is s
 
 ## Files Reference
 
-- **Makefiles**: `/workspace/check-ins/Makefile`, `backend/Makefile`
+- **Makefiles**: `/workspace/tryggare/Makefile`, `backend/Makefile`
 - **Base classes**: `backend/tests/e2e/base.py`
 - **Test files**: `backend/tests/e2e/test_*.py`
 - **Old tests**: `backend/OLD_TESTS/`

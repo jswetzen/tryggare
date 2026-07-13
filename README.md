@@ -37,7 +37,7 @@ A self-hosted child check-in system for churches and organizations. Staff check 
 | Backend (Django/Daphne) | http://localhost:8000 |
 | PostgreSQL | port 5432 |
 
-Auto-rebuild on file change via hot reload. To force restart, write to `restart.txt`.
+Auto-rebuild on file change via hot reload. To force restart, write to `restart-dev.txt`.
 
 ### Production (`docker-compose.prod.yml`)
 
@@ -46,7 +46,7 @@ Auto-rebuild on file change via hot reload. To force restart, write to `restart.
 | Django (serves API + built SPA) | http://localhost:8080 |
 | PostgreSQL | port 5433 (internal) |
 
-Auto-rebuild triggered by writing to `restart.txt`. Build log: `build.prod.log`.
+Auto-rebuild triggered by writing to `restart-prod.txt` — reserved for final/human verification, not every dev change. Build log: `build.prod.log`.
 
 ## Quick Start (Dev)
 

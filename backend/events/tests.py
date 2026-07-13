@@ -430,7 +430,8 @@ class TicketTypeExtraModelTest(TestCase):
         )
         self.assertFalse(form.is_valid())
         self.assertIn(
-            "session", str(form.errors).lower(),
+            "session",
+            str(form.errors).lower(),
         )
 
     def test_admin_form_accepts_session_bundle_with_a_session(self):
@@ -528,6 +529,133 @@ class TicketTypeExtraModelTest(TestCase):
                 )
 
 
+class ExtraDuplicationTest(TestCase):
+    """Reusable-extras via clone: events/services.py::duplicate_extra_to_event
+    plus the Extra.origin / lineage_siblings lineage helpers it feeds."""
+
+    def setUp(self):
+        self.event = Event.objects.create(
+            name="Summer Camp",
+            start_date=timezone.now().date(),
+            end_date=timezone.now().date() + timezone.timedelta(days=2),
+        )
+        self.other_event = Event.objects.create(
+            name="Winter Retreat",
+            start_date=timezone.now().date() + timezone.timedelta(days=90),
+            end_date=timezone.now().date() + timezone.timedelta(days=92),
+        )
+        self.session = Session.objects.create(
+            event=self.event,
+            name="Saturday",
+            start_time=timezone.now(),
+            end_time=timezone.now() + timezone.timedelta(hours=8),
+        )
+
+    def test_duplicate_copies_fields_and_choices(self):
+        from events.services import duplicate_extra_to_event
+
+        extra = Extra.objects.create(
+            event=self.event,
+            name="T-shirt",
+            price=100,
+            per_attendee=True,
+            applies_to="child",
+            requires_choice=True,
+            required=True,
+            default_selected=True,
+            sort_order=3,
+            is_active=True,
+        )
+        small = ExtraChoice.objects.create(extra=extra, label="S", price_delta=0)
+        large = ExtraChoice.objects.create(
+            extra=extra, label="L", price_delta=20, sort_order=1
+        )
+
+        clone = duplicate_extra_to_event(extra, self.other_event)
+
+        self.assertNotEqual(clone.id, extra.id)
+        self.assertEqual(clone.event, self.other_event)
+        self.assertEqual(clone.name, "T-shirt")
+        self.assertEqual(clone.price, extra.price)
+        self.assertEqual(clone.per_attendee, extra.per_attendee)
+        self.assertEqual(clone.applies_to, extra.applies_to)
+        self.assertEqual(clone.requires_choice, extra.requires_choice)
+        self.assertEqual(clone.required, extra.required)
+        self.assertEqual(clone.default_selected, extra.default_selected)
+        self.assertEqual(clone.sort_order, extra.sort_order)
+        self.assertEqual(clone.is_active, extra.is_active)
+        self.assertEqual(clone.cloned_from, extra)
+
+        clone_labels = set(clone.choice_rows.values_list("label", "price_delta"))
+        self.assertEqual(
+            clone_labels,
+            {("S", small.price_delta), ("L", large.price_delta)},
+        )
+        # Choice rows are independent copies, not the same rows.
+        self.assertFalse(clone.choice_rows.filter(id__in=[small.id, large.id]).exists())
+
+    def test_duplicate_clears_session_across_events(self):
+        from events.services import duplicate_extra_to_event
+
+        extra = Extra.objects.create(
+            event=self.event, name="Saturday dinner", session=self.session, price=150
+        )
+
+        clone = duplicate_extra_to_event(extra, self.other_event)
+
+        self.assertIsNone(clone.session)
+
+    def test_duplicate_preserves_session_within_same_event(self):
+        from events.services import duplicate_extra_to_event
+
+        extra = Extra.objects.create(
+            event=self.event, name="Saturday dinner", session=self.session, price=150
+        )
+
+        clone = duplicate_extra_to_event(extra, self.event)
+
+        self.assertEqual(clone.session, self.session)
+
+    def test_duplicate_leaves_source_untouched(self):
+        from events.services import duplicate_extra_to_event
+
+        extra = Extra.objects.create(event=self.event, name="Parking", price=30)
+
+        duplicate_extra_to_event(extra, self.other_event)
+        extra.refresh_from_db()
+
+        self.assertEqual(extra.event, self.event)
+        self.assertEqual(extra.price, 30)
+        self.assertIsNone(extra.cloned_from)
+
+    def test_origin_and_lineage_siblings_across_a_chain(self):
+        from events.services import duplicate_extra_to_event
+
+        third_event = Event.objects.create(
+            name="Autumn Weekend",
+            start_date=timezone.now().date() + timezone.timedelta(days=180),
+            end_date=timezone.now().date() + timezone.timedelta(days=182),
+        )
+
+        a = Extra.objects.create(event=self.event, name="T-shirt", price=100)
+        b = duplicate_extra_to_event(a, self.other_event)
+        c = duplicate_extra_to_event(b, third_event)
+
+        self.assertEqual(a.origin, a)
+        self.assertEqual(b.origin, a)
+        self.assertEqual(c.origin, a)
+
+        self.assertEqual(set(a.lineage_siblings()), {b, c})
+        self.assertEqual(set(b.lineage_siblings()), {a, c})
+        self.assertEqual(set(c.lineage_siblings()), {a, b})
+
+    def test_extra_with_no_clones_has_empty_lineage(self):
+        extra = Extra.objects.create(event=self.event, name="Parking", price=30)
+
+        self.assertEqual(extra.origin, extra)
+        self.assertEqual(extra.lineage_siblings(), [])
+
+
 class RegistrationWindowStatusTest(TestCase):
     """Event.registration_window_status — the actual enforcement point for
     the public registration endpoint gate, and what the landing page reads
@@ -561,26 +689,34 @@ class RegistrationWindowStatusTest(TestCase):
             registration_opens_at=timezone.now() - timezone.timedelta(days=1),
             registration_closes_at=timezone.now() + timezone.timedelta(days=1),
         )
-        self.assertEqual(event.registration_window_status, RegistrationWindowStatus.OPEN)
+        self.assertEqual(
+            event.registration_window_status, RegistrationWindowStatus.OPEN
+        )
 
     def test_open_ended_after_opens_at_is_open(self):
         event = self._make_event(
             registration_opens_at=timezone.now() - timezone.timedelta(days=1)
         )
-        self.assertEqual(event.registration_window_status, RegistrationWindowStatus.OPEN)
+        self.assertEqual(
+            event.registration_window_status, RegistrationWindowStatus.OPEN
+        )
 
     def test_after_closes_at_is_closed(self):
         event = self._make_event(
             registration_opens_at=timezone.now() - timezone.timedelta(days=2),
             registration_closes_at=timezone.now() - timezone.timedelta(days=1),
         )
-        self.assertEqual(event.registration_window_status, RegistrationWindowStatus.CLOSED)
+        self.assertEqual(
+            event.registration_window_status, RegistrationWindowStatus.CLOSED
+        )
 
     def test_closes_at_only_is_open_before_deadline(self):
         event = self._make_event(
             registration_closes_at=timezone.now() + timezone.timedelta(days=1)
         )
-        self.assertEqual(event.registration_window_status, RegistrationWindowStatus.OPEN)
+        self.assertEqual(
+            event.registration_window_status, RegistrationWindowStatus.OPEN
+        )
 
     def test_clean_rejects_closes_at_before_opens_at(self):
         """D2: this misconfiguration reads as NOT_OPEN_YET/CLOSED forever —
