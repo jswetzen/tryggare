@@ -11,12 +11,29 @@ from .dsar import (
 from .models import Attendee, Child, Family, Parent
 
 
+class ParentInline(admin.TabularInline):
+    model = Parent
+    fk_name = "family"
+    extra = 1
+    fields = ("first_name", "last_name", "relationship_type", "phone", "email")
+    show_change_link = True
+
+
+class ChildInline(admin.TabularInline):
+    model = Child
+    fk_name = "family"
+    extra = 1
+    fields = ("first_name", "last_name", "birthdate")
+    show_change_link = True
+
+
 @admin.register(Family)
 class FamilyAdmin(admin.ModelAdmin):
     list_display = ("id", "last_name", "last_participation_date", "anonymized_at")
     search_fields = ("id", "last_name")
     list_filter = ("last_participation_date", "anonymized_at")
     actions = ["export_as_json", "export_as_csv", "erase_families"]
+    inlines = [ParentInline, ChildInline]
 
     @admin.action(description="Export selected families (JSON, GDPR access request)")
     def export_as_json(self, request, queryset):
@@ -91,6 +108,7 @@ class ParentAdmin(admin.ModelAdmin):
         "email_locked",
         "health_consent_status",
     )
+    autocomplete_fields = ["family"]
 
 
 @admin.register(Child)
@@ -104,3 +122,4 @@ class ChildAdmin(admin.ModelAdmin):
     )
     search_fields = ("first_name", "last_name")
     list_filter = ("last_participation_date", "anonymized_at", "health_consent_status")
+    autocomplete_fields = ["family"]
