@@ -36,7 +36,8 @@
 
   interface Parent {
     id?: string;
-    name: string;
+    first_name: string;
+    last_name: string;
     phone: string;
     email: string;
     relationship_type: string;
@@ -48,7 +49,8 @@
 
   interface OutgoingParent {
     id?: string;
-    name: string;
+    first_name: string;
+    last_name: string;
     phone: string;
     email: string;
     relationship_type: string;
@@ -97,7 +99,8 @@
 
   function emptyParent(): Parent {
     return {
-      name: '',
+      first_name: '',
+      last_name: '',
       phone: '',
       email: '',
       relationship_type: 'OTHER',
@@ -135,7 +138,8 @@
   function parentFromExisting(parent: Family['parents'][number]): Parent {
     return {
       id: parent.id,
-      name: parent.name || `${parent.first_name} ${parent.last_name}`.trim(),
+      first_name: parent.first_name,
+      last_name: parent.last_name,
       phone: parent.phone ?? '',
       email: parent.email ?? '',
       relationship_type: parent.relationship_type,
@@ -183,7 +187,7 @@
 
   function handleParentChange(
     index: number,
-    field: 'name' | 'phone' | 'email' | 'relationship_type',
+    field: 'first_name' | 'last_name' | 'phone' | 'email' | 'relationship_type',
     value: string
   ) {
     const newParents = [...parents];
@@ -225,7 +229,7 @@
     // name entered are validated/submitted; a still-empty row is silently
     // dropped, same as before this consent block existed.
     for (const parent of parents) {
-      if (!parent.name.trim()) continue;
+      if (!parent.first_name.trim()) continue;
       if (parent.healthInfoStatus === 'consented' && !parent.consentNoticeShared) {
         error = $_('checkin.adultHealthConsentRequired');
         return;
@@ -234,10 +238,11 @@
 
     // Filter out parents with empty names and validate
     const validParents: OutgoingParent[] = parents
-      .filter((parent) => parent.name.trim().length > 0)
+      .filter((parent) => parent.first_name.trim().length > 0)
       .map((parent) => ({
         id: parent.id,
-        name: parent.name.trim(),
+        first_name: parent.first_name.trim(),
+        last_name: parent.last_name.trim(),
         phone: parent.phone.trim(),
         email: parent.email.trim(),
         relationship_type: parent.relationship_type,
@@ -349,18 +354,33 @@
           <div class="border border-neutral-200 rounded p-3 bg-neutral-50">
             <div class="grid grid-cols-2 gap-2 mb-2">
               <div>
-                <label for={`parent-name-${index}`} class="block text-xs text-neutral-600 mb-1">
-                  {$_('checkin.parentName')} *
+                <label for={`parent-first-name-${index}`} class="block text-xs text-neutral-600 mb-1">
+                  {$_('checkin.parentFirstName')} *
                 </label>
                 <input
-                  id={`parent-name-${index}`}
+                  id={`parent-first-name-${index}`}
                   type="text"
-                  value={parent.name}
-                  on:input={(e) => handleParentChange(index, 'name', e.currentTarget.value)}
-                  placeholder={$_('checkin.parentNamePlaceholder')}
+                  value={parent.first_name}
+                  on:input={(e) => handleParentChange(index, 'first_name', e.currentTarget.value)}
+                  placeholder={$_('checkin.parentFirstNamePlaceholder')}
                   class="w-full px-2 py-1.5 text-sm border border-neutral-300 rounded focus:outline-none focus:ring-2 focus:ring-primary-500"
                 />
               </div>
+              <div>
+                <label for={`parent-last-name-${index}`} class="block text-xs text-neutral-600 mb-1">
+                  {$_('checkin.parentLastName')}
+                </label>
+                <input
+                  id={`parent-last-name-${index}`}
+                  type="text"
+                  value={parent.last_name}
+                  on:input={(e) => handleParentChange(index, 'last_name', e.currentTarget.value)}
+                  placeholder={$_('checkin.parentLastNamePlaceholder')}
+                  class="w-full px-2 py-1.5 text-sm border border-neutral-300 rounded focus:outline-none focus:ring-2 focus:ring-primary-500"
+                />
+              </div>
+            </div>
+            <div class="grid grid-cols-2 gap-2 mb-2">
               <div>
                 <label for={`parent-relationship-${index}`} class="block text-xs text-neutral-600 mb-1">
                   {$_('checkin.relationshipType')}
@@ -377,8 +397,6 @@
                   <option value="OTHER">{$_('checkin.relationshipOther')}</option>
                 </select>
               </div>
-            </div>
-            <div class="grid grid-cols-2 gap-2">
               <div>
                 <label for={`parent-phone-${index}`} class="block text-xs text-neutral-600 mb-1">
                   {$_('checkin.parentPhone')}
@@ -392,6 +410,8 @@
                   class="w-full px-2 py-1.5 text-sm border border-neutral-300 rounded focus:outline-none focus:ring-2 focus:ring-primary-500"
                 />
               </div>
+            </div>
+            <div class="grid grid-cols-2 gap-2">
               <div>
                 <label for={`parent-email-${index}`} class="block text-xs text-neutral-600 mb-1">
                   {$_('checkin.parentEmail')}
