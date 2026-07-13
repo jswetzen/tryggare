@@ -19,6 +19,7 @@ from .serializers import (
     FamilyCreateSerializer,
     FamilyDetailSerializer,
     FamilySerializer,
+    FamilyUpdateSerializer,
     ParentSerializer,
 )
 
@@ -101,9 +102,32 @@ class FamilyViewSet(viewsets.ModelViewSet):
     def get_serializer_class(self):
         if self.action == "create":
             return FamilyCreateSerializer
+        if self.action in ("update", "partial_update"):
+            return FamilyUpdateSerializer
         if self.action == "retrieve":
             return FamilyDetailSerializer
         return FamilySerializer
+
+    def update(self, request, *args, **kwargs):
+        """FamilyUpdateSerializer is input-only — its nested upsert
+        serializers don't carry the ticket/check-in fields the check-in UI
+        needs back. Re-fetch through the fully-prefetched queryset and
+        reserialize with FamilyDetailSerializer for the response, the same
+        shape retrieve() already returns."""
+        partial = kwargs.pop("partial", False)
+        instance = self.get_object()
+        serializer = self.get_serializer(instance, data=request.data, partial=partial)
+        serializer.is_valid(raise_exception=True)
+        family = serializer.save()
+        output = FamilyDetailSerializer(
+            self.get_queryset().get(pk=family.pk),
+            context=self.get_serializer_context(),
+        )
+        return Response(output.data)
+
+    def partial_update(self, request, *args, **kwargs):
+        kwargs["partial"] = True
+        return self.update(request, *args, **kwargs)
 
     def retrieve(self, request, *args, **kwargs):
         """Full family detail includes allergies/notes — log the access."""

@@ -22,7 +22,7 @@
   import type { Child, Parent, Family, TicketType } from '$lib/checkin/types';
   import ChildCheckInButton from './ChildCheckInButton.svelte';
   import ParentCheckInButton from './ParentCheckInButton.svelte';
-  import { Alert, Button } from '$lib/components/ui';
+  import { Alert, Button, Icon } from '$lib/components/ui';
   import { undoActionsWithTick } from '$lib/checkin/stores/undoTimer';
 
   interface Props {
@@ -45,6 +45,7 @@
     parentCheckinEnabled?: boolean;
     onMarkPaid?: (registrationId: string, method: 'swish' | 'bankgiro' | 'manual_other') => Promise<void>;
     onConfirmDespiteBalance?: (registrationId: string) => Promise<void>;
+    onEditFamily?: (familyId: string) => void;
   }
 
   let {
@@ -65,7 +66,8 @@
     onAssignParentTicket = async () => {},
     parentCheckinEnabled = true,
     onMarkPaid = async () => {},
-    onConfirmDespiteBalance = async () => {}
+    onConfirmDespiteBalance = async () => {},
+    onEditFamily = undefined
   }: Props = $props();
 
   // 9.3 "unpaid at the door" — which families currently have a mark-paid /
@@ -343,6 +345,17 @@
                 <h3 class="font-bold text-primary-900 text-base sm:text-lg truncate">
                   {family.name}
                 </h3>
+                {#if onEditFamily}
+                  <button
+                    type="button"
+                    onclick={() => onEditFamily?.(family.id)}
+                    class="flex-shrink-0 text-neutral-400 hover:text-primary-600 transition-colors"
+                    aria-label={$_('checkin.editFamily', { values: { familyName: family.name } })}
+                    data-testid={`family-edit-button-${family.id}`}
+                  >
+                    <Icon name="edit" size="sm" />
+                  </button>
+                {/if}
                 {#if allCheckedIn}
                   <span class="px-1.5 py-0.5 text-xs font-semibold bg-success-100 text-success-800 rounded whitespace-nowrap">
                     {$_('checkin.allCheckedIn')}
@@ -679,6 +692,17 @@
                 {/if}
               </div>
               <span class="font-bold text-primary-900">{family.name}</span>
+              {#if onEditFamily}
+                <button
+                  type="button"
+                  onclick={() => onEditFamily?.(family.id)}
+                  class="flex-shrink-0 text-neutral-400 hover:text-primary-600 transition-colors"
+                  aria-label={$_('checkin.editFamily', { values: { familyName: family.name } })}
+                  data-testid={`family-edit-button-${family.id}`}
+                >
+                  <Icon name="edit" size="sm" />
+                </button>
+              {/if}
               {#if allCheckedIn}
                 <span class="px-1.5 py-0.5 text-xs font-semibold bg-success-100 text-success-800 rounded">
                   {$_('checkin.allCheckedIn')}

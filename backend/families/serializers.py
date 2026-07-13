@@ -2,7 +2,7 @@ from rest_framework import serializers
 
 from registrations.models import Registration
 from .models import Child, Family, Parent
-from .services import create_family_with_members
+from .services import create_family_with_members, update_family_with_members
 
 
 class ParentSerializer(serializers.ModelSerializer):
@@ -22,6 +22,12 @@ class ParentSerializer(serializers.ModelSerializer):
             "phone",
             "email",
             "relationship_type",
+            "allergies",
+            "notes",
+            "health_consent_status",
+            "health_consent_by",
+            "health_consent_at",
+            "health_consent_notice_version",
             "last_participation_date",
             "family",
             "ticket_type",
@@ -32,6 +38,10 @@ class ParentSerializer(serializers.ModelSerializer):
         read_only_fields = [
             "id",
             "name",
+            "health_consent_status",
+            "health_consent_by",
+            "health_consent_at",
+            "health_consent_notice_version",
             "last_participation_date",
             "ticket_type",
             "ticket_details",
@@ -395,4 +405,111 @@ class FamilyCreateSerializer(serializers.ModelSerializer):
             parents_data=validated_data.pop("parents"),
             children_data=validated_data.pop("children"),
         )
+        return family
+
+
+class ParentUpsertSerializer(serializers.ModelSerializer):
+    """Nested parent row inside FamilyUpdateSerializer — ``id`` present
+    updates that existing Parent (ownership checked in
+    ``update_family_with_members``), absent creates a new one attached to
+    the family being edited. Otherwise identical to ParentCreateSerializer,
+    including the same consent cross-field rule."""
+
+    id = serializers.UUIDField(required=False)
+    health_consent_status = serializers.ChoiceField(
+        choices=[
+            Parent.HealthConsentStatus.NOT_APPLICABLE,
+            Parent.HealthConsentStatus.GRANTED,
+            Parent.HealthConsentStatus.DECLINED,
+        ],
+        default=Parent.HealthConsentStatus.NOT_APPLICABLE,
+    )
+
+    class Meta:
+        model = Parent
+        fields = [
+            "id",
+            "first_name",
+            "last_name",
+            "phone",
+            "email",
+            "relationship_type",
+            "allergies",
+            "notes",
+            "health_consent_status",
+        ]
+
+    def validate(self, attrs):
+        """Same invariant as ParentCreateSerializer.validate() — see there."""
+        status = attrs.get(
+            "health_consent_status", Parent.HealthConsentStatus.NOT_APPLICABLE
+        )
+        if status != Parent.HealthConsentStatus.GRANTED:
+            attrs["allergies"] = None
+            attrs["notes"] = None
+        return attrs
+
+
+class ChildUpsertSerializer(serializers.ModelSerializer):
+    """Nested child row inside FamilyUpdateSerializer — see
+    ParentUpsertSerializer's docstring for the id-present-means-update
+    convention."""
+
+    id = serializers.UUIDField(required=False)
+    health_consent_status = serializers.ChoiceField(
+        choices=[
+            Child.HealthConsentStatus.NOT_APPLICABLE,
+            Child.HealthConsentStatus.GRANTED,
+            Child.HealthConsentStatus.DECLINED,
+        ],
+        default=Child.HealthConsentStatus.NOT_APPLICABLE,
+    )
+
+    class Meta:
+        model = Child
+        fields = [
+            "id",
+            "first_name",
+            "last_name",
+            "birthdate",
+            "allergies",
+            "notes",
+            "health_consent_status",
+        ]
+
+    def validate(self, attrs):
+        """Same invariant as ChildCreateSerializer.validate() — see there."""
+        status = attrs.get(
+            "health_consent_status", Child.HealthConsentStatus.NOT_APPLICABLE
+        )
+        if status != Child.HealthConsentStatus.GRANTED:
+            attrs["allergies"] = None
+            attrs["notes"] = None
+        return attrs
+
+
+class FamilyUpdateSerializer(serializers.ModelSerializer):
+    """Serializer for editing an existing family: change last_name and/or
+    upsert nested parents/children in one atomic call. Never removes a
+    member — see update_family_with_members's docstring."""
+
+    parents = ParentUpsertSerializer(many=True, required=False)
+    children = ChildUpsertSerializer(many=True, required=False)
+    display_name = serializers.ReadOnlyField()
+
+    class Meta:
+        model = Family
+        fields = ["id", "last_name", "parents", "children", "display_name"]
+        read_only_fields = ["id", "display_name"]
+
+    def update(self, instance, validated_data):
+        try:
+            family, _updated_parents, _updated_children = update_family_with_members(
+                family=instance,
+                last_name=validated_data.get("last_name"),
+                parents_data=validated_data.pop("parents", None),
+                children_data=validated_data.pop("children", None),
+            )
+        except ValueError as exc:
+            raise serializers.ValidationError(str(exc)) from exc
         return family

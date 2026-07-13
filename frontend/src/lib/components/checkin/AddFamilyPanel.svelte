@@ -7,13 +7,14 @@
    */
   import { onMount } from 'svelte';
   import { _ } from 'svelte-i18n';
-  import type { TicketType } from '$lib/checkin/types';
+  import type { Family, TicketType } from '$lib/checkin/types';
   import { isValidPhone } from '$lib/utils/phone';
   import ConsentCapture, { type HealthInfoStatus } from './ConsentCapture.svelte';
 
   type HealthConsentStatus = 'not_applicable' | 'granted' | 'declined';
 
   interface Child {
+    id?: string;
     first_name: string;
     last_name: string;
     birthdate: string;
@@ -24,6 +25,7 @@
   }
 
   interface OutgoingChild {
+    id?: string;
     first_name: string;
     last_name: string;
     birthdate: string;
@@ -33,6 +35,7 @@
   }
 
   interface Parent {
+    id?: string;
     name: string;
     phone: string;
     email: string;
@@ -44,6 +47,7 @@
   }
 
   interface OutgoingParent {
+    id?: string;
     name: string;
     phone: string;
     email: string;
@@ -54,10 +58,21 @@
   }
 
   let {
+    family,
     onAdd,
+    onSave,
     onClose
   }: {
+    /** Present = edit an existing family; absent = create a new one. */
+    family?: Family | null;
     onAdd: (data: {
+      familyName: string;
+      children: OutgoingChild[];
+      ticketType: TicketType;
+      parents: OutgoingParent[];
+    }) => void;
+    onSave?: (data: {
+      familyId: string;
       familyName: string;
       children: OutgoingChild[];
       ticketType: TicketType;
@@ -65,6 +80,8 @@
     }) => void;
     onClose: () => void;
   } = $props();
+
+  const isEditMode = !!family;
 
   function emptyChild(): Child {
     return {
@@ -91,10 +108,48 @@
     };
   }
 
-  let familyName = $state('');
-  let children = $state<Child[]>([emptyChild()]);
+  // Reverse of the create-path statusMap below — an already-granted consent
+  // pre-fills consentNoticeShared=true so editing an unrelated field doesn't
+  // force re-attesting a notice that was already shown. withdrawn/
+  // needs_reconfirmation aren't directly settable through this form's
+  // three-state toggle, so they fall back to 'none' rather than crashing.
+  function statusFromBackend(status: string | undefined): HealthInfoStatus {
+    if (status === 'granted') return 'consented';
+    if (status === 'declined') return 'declined';
+    return 'none';
+  }
+
+  function childFromExisting(child: Family['children'][number]): Child {
+    return {
+      id: child.id,
+      first_name: child.first_name,
+      last_name: child.last_name,
+      birthdate: child.birthdate ?? '',
+      allergies: child.allergies ?? '',
+      notes: child.notes ?? '',
+      healthInfoStatus: statusFromBackend(child.health_consent_status),
+      consentNoticeShared: child.health_consent_status === 'granted'
+    };
+  }
+
+  function parentFromExisting(parent: Family['parents'][number]): Parent {
+    return {
+      id: parent.id,
+      name: parent.name || `${parent.first_name} ${parent.last_name}`.trim(),
+      phone: parent.phone ?? '',
+      email: parent.email ?? '',
+      relationship_type: parent.relationship_type,
+      allergies: parent.allergies ?? '',
+      notes: parent.notes ?? '',
+      healthInfoStatus: statusFromBackend(parent.health_consent_status),
+      consentNoticeShared: parent.health_consent_status === 'granted'
+    };
+  }
+
+  let familyName = $state(family?.last_name ?? '');
+  let children = $state<Child[]>(family ? family.children.map(childFromExisting) : [emptyChild()]);
   let ticketType = $state<TicketType>('none');
-  let parents = $state<Parent[]>([emptyParent()]);
+  let parents = $state<Parent[]>(family ? family.parents.map(parentFromExisting) : [emptyParent()]);
   let error = $state('');
   let familyNameInput = $state<HTMLInputElement>();
 
@@ -181,6 +236,7 @@
     const validParents: OutgoingParent[] = parents
       .filter((parent) => parent.name.trim().length > 0)
       .map((parent) => ({
+        id: parent.id,
         name: parent.name.trim(),
         phone: parent.phone.trim(),
         email: parent.email.trim(),
@@ -205,6 +261,7 @@
 
     // Submit
     const outgoingChildren: OutgoingChild[] = children.map((child) => ({
+      id: child.id,
       first_name: child.first_name,
       last_name: child.last_name,
       birthdate: child.birthdate,
@@ -212,6 +269,17 @@
       notes: child.healthInfoStatus === 'consented' ? child.notes : '',
       health_consent_status: statusMap[child.healthInfoStatus],
     }));
+
+    if (isEditMode && family && onSave) {
+      onSave({
+        familyId: family.id,
+        familyName: familyName.trim(),
+        children: outgoingChildren,
+        ticketType,
+        parents: validParents,
+      });
+      return;
+    }
 
     onAdd({
       familyName: familyName.trim(),
@@ -231,7 +299,9 @@
   <form on:submit={handleSubmit}>
     <!-- Header -->
     <div class="flex items-center justify-between mb-4">
-      <h2 class="text-lg font-bold text-neutral-900">{$_('checkin.addFamilyTitle')}</h2>
+      <h2 class="text-lg font-bold text-neutral-900">
+        {$_(isEditMode ? 'checkin.editFamilyTitle' : 'checkin.addFamilyTitle')}
+      </h2>
       <button
         type="button"
         on:click={onClose}
@@ -488,7 +558,7 @@
         class="px-4 py-2 bg-primary-600 text-white font-semibold rounded-button hover:bg-primary-700 transition-colors"
         data-testid="add-family-submit-button"
       >
-        {$_('checkin.addNewFamily')}
+        {$_(isEditMode ? 'checkin.saveFamilyChanges' : 'checkin.addNewFamily')}
       </button>
     </div>
   </form>

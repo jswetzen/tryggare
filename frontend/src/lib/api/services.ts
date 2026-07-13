@@ -202,6 +202,40 @@ export const checkinApi = {
   }) => apiClient.post<FamilyApiResponse>('/families/', data),
 
   /**
+   * Edit an existing family: change last_name and/or upsert nested
+   * parents/children. An "id" on a parent/child updates that existing row
+   * (must already belong to this family); no "id" adds a new one. Members
+   * omitted entirely are left untouched — this endpoint never removes a
+   * family member.
+   */
+  updateFamily: (
+    familyId: string,
+    data: {
+      last_name?: string;
+      parents?: Array<{
+        id?: string;
+        first_name: string;
+        last_name?: string;
+        phone?: string;
+        email?: string;
+        relationship_type: string;
+        allergies?: string;
+        notes?: string;
+        health_consent_status?: 'not_applicable' | 'granted' | 'declined';
+      }>;
+      children?: Array<{
+        id?: string;
+        first_name: string;
+        last_name: string;
+        birthdate: string;
+        allergies?: string;
+        notes?: string;
+        health_consent_status?: 'not_applicable' | 'granted' | 'declined';
+      }>;
+    }
+  ) => apiClient.patch<FamilyApiResponse>(`/families/${familyId}/`, data),
+
+  /**
    * Staff check-in-screen action (case catalog §9.3, "ta betalt nu"):
    * record a pending_payment registration's full outstanding balance as
    * received, confirming it so the check-in gate opens.

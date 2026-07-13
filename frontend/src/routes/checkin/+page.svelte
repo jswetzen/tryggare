@@ -55,6 +55,7 @@
   let searchQuery = $state('');
   let expandedChildId = $state<string | null>(null);
   let showAddPanel = $state(false);
+  let editingFamily = $state<Family | null>(null);
   let successToast = $state<string | null>(null);
   let errorToast = $state<string | null>(null);
   let showCheckedInFamilies = $state(false);
@@ -1016,6 +1017,107 @@
       console.error('Error creating family:', err);
     }
   }
+
+  // Edit an existing family
+  async function handleEditFamily(data: {
+    familyId: string;
+    familyName: string;
+    children: Array<{
+      id?: string;
+      first_name: string;
+      last_name: string;
+      birthdate: string;
+      allergies: string;
+      notes: string;
+      health_consent_status: 'not_applicable' | 'granted' | 'declined';
+    }>;
+    ticketType: TicketType;
+    parents: Array<{
+      id?: string;
+      name: string;
+      phone: string;
+      email: string;
+      relationship_type: string;
+      allergies: string;
+      notes: string;
+      health_consent_status: 'not_applicable' | 'granted' | 'declined';
+    }>;
+  }) {
+    // Snapshot which child ids already existed before this edit, so a
+    // ticket type picked in the panel is only assigned to genuinely new
+    // rows — existing children keep whatever tickets they already have.
+    const previousChildIds = new Set(
+      (editingFamily?.children ?? []).map((c) => c.id)
+    );
+
+    try {
+      const updatedFamily = await checkinApi.updateFamily(data.familyId, {
+        last_name: data.familyName,
+        // Same first/last split as handleAddFamily — see there.
+        parents: data.parents.map((p) => {
+          const trimmed = p.name.trim();
+          const spaceIndex = trimmed.indexOf(' ');
+          const first_name = spaceIndex === -1 ? trimmed : trimmed.slice(0, spaceIndex);
+          const last_name = spaceIndex === -1 ? '' : trimmed.slice(spaceIndex + 1);
+          return {
+            id: p.id,
+            first_name,
+            last_name,
+            phone: p.phone,
+            email: p.email,
+            relationship_type: p.relationship_type,
+            allergies: p.allergies.trim() || undefined,
+            notes: p.notes.trim() || undefined,
+            health_consent_status: p.health_consent_status,
+          };
+        }),
+        children: data.children.map((c) => ({
+          id: c.id,
+          first_name: c.first_name.trim(),
+          last_name: c.last_name.trim(),
+          birthdate: c.birthdate.trim(),
+          allergies: c.allergies.trim() || undefined,
+          notes: c.notes.trim() || undefined,
+          health_consent_status: c.health_consent_status,
+        })),
+      });
+
+      const transformedFamily = transformFamilyResponse(updatedFamily);
+
+      if (data.ticketType !== 'none' && activeSession) {
+        for (const child of transformedFamily.children) {
+          if (previousChildIds.has(child.id)) continue;
+          if (data.ticketType === 'event') {
+            await ticketApi.assignEventTicket({
+              child: child.id,
+              event: activeSession.event,
+            });
+          } else if (data.ticketType === 'session') {
+            await ticketApi.assignSessionTicket({
+              child: child.id,
+              session: activeSession.id,
+            });
+          }
+          child.ticket = data.ticketType;
+          child.ticket_type = data.ticketType;
+        }
+      }
+
+      families = families
+        .map((f) => (f.id === data.familyId ? transformedFamily : f))
+        .sort((a, b) => a.name.localeCompare(b.name));
+      showAddPanel = false;
+      editingFamily = null;
+
+      successToast = $_('checkin.familyUpdated', {
+        values: { familyName: data.familyName },
+      });
+    } catch (err) {
+      const apiError = err as ApiError;
+      error = apiError.message || 'Failed to update family';
+      console.error('Error updating family:', err);
+    }
+  }
 </script>
 
 <svelte:head>
@@ -1061,7 +1163,10 @@
           : ''}
         showChangeSession={activeSessions.length > 1}
         onChangeSession={handleChangeSession}
-        onAddFamily={() => (showAddPanel = true)}
+        onAddFamily={() => {
+          editingFamily = null;
+          showAddPanel = true;
+        }}
       />
 
     <!-- Printer Selector (only shown when printers exist) -->
@@ -1095,8 +1200,13 @@
     <!-- Add Family Panel -->
     {#if showAddPanel}
       <AddFamilyPanel
+        family={editingFamily}
         onAdd={handleAddFamily}
-        onClose={() => (showAddPanel = false)}
+        onSave={handleEditFamily}
+        onClose={() => {
+          showAddPanel = false;
+          editingFamily = null;
+        }}
       />
     {/if}
 
@@ -1164,6 +1274,10 @@
         onAssignParentTicket={assignParentTicket}
         onMarkPaid={markRegistrationPaid}
         onConfirmDespiteBalance={confirmDespiteBalance}
+        onEditFamily={(familyId) => {
+          editingFamily = families.find((f) => f.id === familyId) ?? null;
+          showAddPanel = true;
+        }}
         {parentCheckinEnabled}
         {getRemainingTime}
         bind:supervisedState
