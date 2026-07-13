@@ -78,6 +78,7 @@ export function transformFamily(apiFamily: FamilyApiResponse, session: Session |
         birthdate: child.birthdate,
         allergies: child.allergies,
         notes: child.notes,
+        health_consent_status: child.health_consent_status,
         qr_token: child.qr_token,
       };
     }),
@@ -98,6 +99,9 @@ export function transformFamily(apiFamily: FamilyApiResponse, session: Session |
         checkInRecordId: parent.active_checkin_id ?? undefined,
         family: parent.family,
         is_parent: true,
+        allergies: parent.allergies,
+        notes: parent.notes,
+        health_consent_status: parent.health_consent_status,
       };
     }),
     last_participation_date: apiFamily.last_participation_date,

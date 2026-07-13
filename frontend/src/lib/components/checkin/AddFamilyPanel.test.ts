@@ -6,6 +6,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen } from '@testing-library/svelte';
 import userEvent from '@testing-library/user-event';
 import AddFamilyPanel from './AddFamilyPanel.svelte';
+import type { Family } from '$lib/checkin/types';
 
 // Mock svelte-i18n: unmapped keys fall back to the raw key string, so only
 // keys actually asserted on below need a real translation.
@@ -134,5 +135,123 @@ describe('AddFamilyPanel — parent health consent', () => {
     expect(onAdd).toHaveBeenCalledTimes(1);
     const payload = onAdd.mock.calls[0][0];
     expect(payload.parents).toEqual([]);
+  });
+});
+
+describe('AddFamilyPanel — edit mode', () => {
+  const onAdd = vi.fn();
+  const onSave = vi.fn();
+  const onClose = vi.fn();
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  function makeFamily(overrides: Partial<Family> = {}): Family {
+    return {
+      id: 'family-1',
+      last_name: 'Karlsson',
+      display_name: 'Karlsson',
+      name: 'Karlsson',
+      children: [
+        {
+          id: 'child-1',
+          first_name: 'Liam',
+          last_name: 'Karlsson',
+          name: 'Liam Karlsson',
+          ticket: 'none',
+          ticket_type: 'none',
+          checkedIn: false,
+          family: 'family-1',
+          birthdate: '2018-05-01',
+          allergies: 'Peanuts',
+          notes: '',
+          health_consent_status: 'granted'
+        }
+      ],
+      parents: [
+        {
+          id: 'parent-1',
+          first_name: 'Nina',
+          last_name: 'Karlsson',
+          name: 'Nina Karlsson',
+          phone: '0701234567',
+          email: 'nina@example.com',
+          relationship_type: 'MOM',
+          ticket: 'none',
+          ticket_type: 'none',
+          checkedIn: false,
+          family: 'family-1',
+          is_parent: true
+        }
+      ],
+      ...overrides
+    } as Family;
+  }
+
+  it('shows edit copy and pre-fills fields from the family prop', () => {
+    render(AddFamilyPanel, { props: { family: makeFamily(), onAdd, onClose } });
+
+    expect(screen.getByText('checkin.editFamilyTitle')).toBeInTheDocument();
+    expect(screen.getByTestId('add-family-submit-button')).toHaveTextContent(
+      'checkin.saveFamilyChanges'
+    );
+    expect(screen.getByTestId('add-family-name-input')).toHaveValue('Karlsson');
+    expect(document.getElementById('child-first-name-0')).toHaveValue('Liam');
+    expect(document.getElementById('child-last-name-0')).toHaveValue('Karlsson');
+    expect(document.getElementById('child-birthdate-0')).toHaveValue('2018-05-01');
+    expect(document.getElementById('parent-name-0')).toHaveValue('Nina Karlsson');
+  });
+
+  it('calls onSave (not onAdd) with familyId and existing member ids on submit', async () => {
+    const user = userEvent.setup();
+    render(AddFamilyPanel, { props: { family: makeFamily(), onAdd, onSave, onClose } });
+
+    await user.click(screen.getByTestId('add-family-submit-button'));
+
+    expect(onAdd).not.toHaveBeenCalled();
+    expect(onSave).toHaveBeenCalledTimes(1);
+    const payload = onSave.mock.calls[0][0];
+    expect(payload.familyId).toBe('family-1');
+    expect(payload.children).toEqual([
+      expect.objectContaining({ id: 'child-1', first_name: 'Liam' })
+    ]);
+    expect(payload.parents).toEqual([
+      expect.objectContaining({ id: 'parent-1', name: 'Nina Karlsson' })
+    ]);
+  });
+
+  it('a newly-added child during edit has no id in the outgoing payload', async () => {
+    const user = userEvent.setup();
+    render(AddFamilyPanel, { props: { family: makeFamily(), onAdd, onSave, onClose } });
+
+    await user.click(screen.getByText(/checkin\.addAnotherChild/));
+    await user.type(document.getElementById('child-first-name-1') as HTMLInputElement, 'Nyla');
+    await user.type(document.getElementById('child-last-name-1') as HTMLInputElement, 'Karlsson');
+    await user.type(document.getElementById('child-birthdate-1') as HTMLInputElement, '2022-02-02');
+
+    await user.click(screen.getByTestId('add-family-submit-button'));
+
+    const payload = onSave.mock.calls[0][0];
+    expect(payload.children).toHaveLength(2);
+    expect(payload.children[0].id).toBe('child-1');
+    expect(payload.children[1].id).toBeUndefined();
+    expect(payload.children[1].first_name).toBe('Nyla');
+  });
+
+  it('pre-fills consentNoticeShared for an already-granted consent so editing an unrelated field does not block submit', async () => {
+    const user = userEvent.setup();
+    render(AddFamilyPanel, { props: { family: makeFamily(), onAdd, onSave, onClose } });
+
+    // The child's health consent was already 'granted' in the fixture —
+    // submitting untouched must not raise the "notice not shared" error,
+    // since the notice was already shared at the original consent capture.
+    await user.click(screen.getByTestId('add-family-submit-button'));
+
+    expect(onSave).toHaveBeenCalledTimes(1);
+    const payload = onSave.mock.calls[0][0];
+    expect(payload.children[0]).toEqual(
+      expect.objectContaining({ health_consent_status: 'granted', allergies: 'Peanuts' })
+    );
   });
 });

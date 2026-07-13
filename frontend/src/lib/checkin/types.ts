@@ -32,6 +32,7 @@ export interface Child {
   birthdate?: string;
   allergies?: string;
   notes?: string;
+  health_consent_status?: 'not_applicable' | 'granted' | 'declined' | 'withdrawn' | 'needs_reconfirmation';
   qr_token?: string;
 }
 
@@ -63,6 +64,9 @@ export interface Parent {
   checkInRecordId?: string;
   family?: string;
   is_parent?: boolean;
+  allergies?: string;
+  notes?: string;
+  health_consent_status?: 'not_applicable' | 'granted' | 'declined' | 'withdrawn' | 'needs_reconfirmation';
 }
 
 export interface PendingPayment {
@@ -140,6 +144,9 @@ export interface FamilyApiResponse {
       }>;
     } | null;
     family: string;
+    allergies?: string;
+    notes?: string;
+    health_consent_status?: 'not_applicable' | 'granted' | 'declined' | 'withdrawn' | 'needs_reconfirmation';
     last_participation_date?: string;
     is_checked_in?: boolean;
     active_checkin_id?: string | null;
@@ -165,6 +172,7 @@ export interface FamilyApiResponse {
     birthdate?: string;
     allergies?: string;
     notes?: string;
+    health_consent_status?: 'not_applicable' | 'granted' | 'declined' | 'withdrawn' | 'needs_reconfirmation';
     qr_token?: string;
     is_checked_in?: boolean;
     active_checkin_id?: string | null;
