@@ -208,6 +208,62 @@ describe('AddFamilyPanel — edit mode', () => {
     expect(document.getElementById('parent-last-name-0')).toHaveValue('Karlsson');
   });
 
+  it('shows each existing member\'s actual ticket, not the (new-members-only) ticket type selector', () => {
+    const family = makeFamily({
+      children: [
+        {
+          id: 'child-1',
+          first_name: 'Liam',
+          last_name: 'Karlsson',
+          name: 'Liam Karlsson',
+          ticket: 'event',
+          ticket_type: 'event',
+          checkedIn: false,
+          family: 'family-1',
+          birthdate: '2018-05-01',
+          allergies: '',
+          notes: '',
+          health_consent_status: 'not_applicable'
+        }
+      ],
+      parents: [
+        {
+          id: 'parent-1',
+          first_name: 'Nina',
+          last_name: 'Karlsson',
+          name: 'Nina Karlsson',
+          phone: '0701234567',
+          email: 'nina@example.com',
+          relationship_type: 'MOM',
+          ticket: 'session',
+          ticket_type: 'session',
+          checkedIn: false,
+          family: 'family-1',
+          is_parent: true
+        }
+      ]
+    });
+    render(AddFamilyPanel, { props: { family, onAdd, onClose } });
+
+    expect(screen.getByTestId('child-ticket-badge-0')).toHaveTextContent('checkin.ticketEvent');
+    expect(screen.getByTestId('parent-ticket-badge-0')).toHaveTextContent('checkin.ticketSession');
+    // The bulk selector itself always starts at "none" — it only ever
+    // assigns a ticket to newly-added rows, never reflects existing ones.
+    expect(document.getElementById('ticket-type')).toHaveValue('none');
+  });
+
+  it('shows no ticket badge for a freshly-added (not-yet-saved) row', async () => {
+    const user = userEvent.setup();
+    render(AddFamilyPanel, { props: { family: makeFamily(), onAdd, onSave, onClose } });
+
+    await user.click(screen.getByText(/checkin\.addAnotherChild/));
+
+    // The existing child (child-1, ticket 'none') still shows its badge...
+    expect(screen.getByTestId('child-ticket-badge-0')).toHaveTextContent('checkin.ticketNone');
+    // ...but the newly-added row (no id yet) shows no badge at all.
+    expect(screen.queryByTestId('child-ticket-badge-1')).not.toBeInTheDocument();
+  });
+
   it('calls onSave (not onAdd) with familyId and existing member ids on submit', async () => {
     const user = userEvent.setup();
     render(AddFamilyPanel, { props: { family: makeFamily(), onAdd, onSave, onClose } });
