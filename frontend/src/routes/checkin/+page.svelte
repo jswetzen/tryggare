@@ -931,7 +931,8 @@
     }>;
     ticketType: TicketType;
     parents: Array<{
-      name: string;
+      first_name: string;
+      last_name: string;
       phone: string;
       email: string;
       relationship_type: string;
@@ -944,26 +945,16 @@
       // Create family via API
       const newFamily = await checkinApi.createFamily({
         last_name: data.familyName,
-        // AddFamilyPanel collects one "full name" field per parent; the API
-        // needs first_name/last_name separately (Parent has no name column
-        // post-MTI — split on the first space, same convention used by the
-        // historical Attendee-backfill migration for the same legacy shape).
-        parents: data.parents.map((p) => {
-          const trimmed = p.name.trim();
-          const spaceIndex = trimmed.indexOf(' ');
-          const first_name = spaceIndex === -1 ? trimmed : trimmed.slice(0, spaceIndex);
-          const last_name = spaceIndex === -1 ? '' : trimmed.slice(spaceIndex + 1);
-          return {
-            first_name,
-            last_name,
-            phone: p.phone,
-            email: p.email,
-            relationship_type: p.relationship_type,
-            allergies: p.allergies.trim() || undefined,
-            notes: p.notes.trim() || undefined,
-            health_consent_status: p.health_consent_status,
-          };
-        }),
+        parents: data.parents.map((p) => ({
+          first_name: p.first_name.trim(),
+          last_name: p.last_name.trim(),
+          phone: p.phone,
+          email: p.email,
+          relationship_type: p.relationship_type,
+          allergies: p.allergies.trim() || undefined,
+          notes: p.notes.trim() || undefined,
+          health_consent_status: p.health_consent_status,
+        })),
         children: data.children.map((c) => ({
           first_name: c.first_name.trim(),
           last_name: c.last_name.trim(),
@@ -1034,7 +1025,8 @@
     ticketType: TicketType;
     parents: Array<{
       id?: string;
-      name: string;
+      first_name: string;
+      last_name: string;
       phone: string;
       email: string;
       relationship_type: string;
@@ -1053,24 +1045,17 @@
     try {
       const updatedFamily = await checkinApi.updateFamily(data.familyId, {
         last_name: data.familyName,
-        // Same first/last split as handleAddFamily — see there.
-        parents: data.parents.map((p) => {
-          const trimmed = p.name.trim();
-          const spaceIndex = trimmed.indexOf(' ');
-          const first_name = spaceIndex === -1 ? trimmed : trimmed.slice(0, spaceIndex);
-          const last_name = spaceIndex === -1 ? '' : trimmed.slice(spaceIndex + 1);
-          return {
-            id: p.id,
-            first_name,
-            last_name,
-            phone: p.phone,
-            email: p.email,
-            relationship_type: p.relationship_type,
-            allergies: p.allergies.trim() || undefined,
-            notes: p.notes.trim() || undefined,
-            health_consent_status: p.health_consent_status,
-          };
-        }),
+        parents: data.parents.map((p) => ({
+          id: p.id,
+          first_name: p.first_name.trim(),
+          last_name: p.last_name.trim(),
+          phone: p.phone,
+          email: p.email,
+          relationship_type: p.relationship_type,
+          allergies: p.allergies.trim() || undefined,
+          notes: p.notes.trim() || undefined,
+          health_consent_status: p.health_consent_status,
+        })),
         children: data.children.map((c) => ({
           id: c.id,
           first_name: c.first_name.trim(),

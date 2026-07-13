@@ -57,7 +57,8 @@ describe('AddFamilyPanel — parent health consent', () => {
     render(AddFamilyPanel, { props: { onAdd, onClose } });
 
     await user.type(screen.getByTestId('add-family-name-input'), 'Testsson');
-    await user.type(document.getElementById('parent-name-0') as HTMLInputElement, 'Nina Karlsson');
+    await user.type(document.getElementById('parent-first-name-0') as HTMLInputElement, 'Nina');
+    await user.type(document.getElementById('parent-last-name-0') as HTMLInputElement, 'Karlsson');
     await fillRequiredChildRow(user);
 
     // Select "consented" for the parent's own health info without ticking
@@ -77,7 +78,8 @@ describe('AddFamilyPanel — parent health consent', () => {
     render(AddFamilyPanel, { props: { onAdd, onClose } });
 
     await user.type(screen.getByTestId('add-family-name-input'), 'Testsson');
-    await user.type(document.getElementById('parent-name-0') as HTMLInputElement, 'Nina Karlsson');
+    await user.type(document.getElementById('parent-first-name-0') as HTMLInputElement, 'Nina');
+    await user.type(document.getElementById('parent-last-name-0') as HTMLInputElement, 'Karlsson');
     await fillRequiredChildRow(user);
 
     await user.click(screen.getByText('Yes — they consent to recording details'));
@@ -92,7 +94,8 @@ describe('AddFamilyPanel — parent health consent', () => {
     const payload = onAdd.mock.calls[0][0];
     expect(payload.parents).toEqual([
       expect.objectContaining({
-        name: 'Nina Karlsson',
+        first_name: 'Nina',
+        last_name: 'Karlsson',
         health_consent_status: 'granted',
         allergies: 'Peanuts'
       })
@@ -104,7 +107,8 @@ describe('AddFamilyPanel — parent health consent', () => {
     render(AddFamilyPanel, { props: { onAdd, onClose } });
 
     await user.type(screen.getByTestId('add-family-name-input'), 'Testsson');
-    await user.type(document.getElementById('parent-name-0') as HTMLInputElement, 'Nina Karlsson');
+    await user.type(document.getElementById('parent-first-name-0') as HTMLInputElement, 'Nina');
+    await user.type(document.getElementById('parent-last-name-0') as HTMLInputElement, 'Karlsson');
     await fillRequiredChildRow(user);
 
     await user.click(screen.getByTestId('add-family-submit-button'));
@@ -200,7 +204,8 @@ describe('AddFamilyPanel — edit mode', () => {
     expect(document.getElementById('child-first-name-0')).toHaveValue('Liam');
     expect(document.getElementById('child-last-name-0')).toHaveValue('Karlsson');
     expect(document.getElementById('child-birthdate-0')).toHaveValue('2018-05-01');
-    expect(document.getElementById('parent-name-0')).toHaveValue('Nina Karlsson');
+    expect(document.getElementById('parent-first-name-0')).toHaveValue('Nina');
+    expect(document.getElementById('parent-last-name-0')).toHaveValue('Karlsson');
   });
 
   it('calls onSave (not onAdd) with familyId and existing member ids on submit', async () => {
@@ -217,7 +222,7 @@ describe('AddFamilyPanel — edit mode', () => {
       expect.objectContaining({ id: 'child-1', first_name: 'Liam' })
     ]);
     expect(payload.parents).toEqual([
-      expect.objectContaining({ id: 'parent-1', name: 'Nina Karlsson' })
+      expect.objectContaining({ id: 'parent-1', first_name: 'Nina', last_name: 'Karlsson' })
     ]);
   });
 

@@ -37,6 +37,7 @@
 
   interface ParentRow {
     first_name: string;
+    last_name: string;
     phone: string;
     email: string;
     relationship_type: string;
@@ -89,6 +90,7 @@
   function emptyParent(): ParentRow {
     return {
       first_name: '',
+      last_name: '',
       phone: '',
       email: '',
       relationship_type: 'OTHER',
@@ -481,6 +483,7 @@
         contact_email: contactEmail.trim(),
         parents: validParents.map((p) => ({
           first_name: p.first_name.trim(),
+          last_name: p.last_name.trim(),
           phone: p.phone.trim(),
           email: p.email.trim(),
           relationship_type: p.relationship_type,
@@ -660,17 +663,31 @@
             <div class="border border-neutral-200 rounded p-3 bg-neutral-50">
               <div class="grid grid-cols-2 gap-2 mb-2">
                 <div>
-                  <label for={`parent-name-${index}`} class="block text-xs text-neutral-600 mb-1">
-                    {$t('checkin.parentName')} *
+                  <label for={`parent-first-name-${index}`} class="block text-xs text-neutral-600 mb-1">
+                    {$t('checkin.parentFirstName')} *
                   </label>
                   <input
-                    id={`parent-name-${index}`}
+                    id={`parent-first-name-${index}`}
                     type="text"
                     bind:value={parent.first_name}
-                    placeholder={$t('checkin.parentNamePlaceholder')}
+                    placeholder={$t('checkin.parentFirstNamePlaceholder')}
                     class="w-full px-2 py-1.5 text-sm border border-neutral-300 rounded focus:outline-none focus:ring-2 focus:ring-primary-500"
                   />
                 </div>
+                <div>
+                  <label for={`parent-last-name-${index}`} class="block text-xs text-neutral-600 mb-1">
+                    {$t('checkin.parentLastName')}
+                  </label>
+                  <input
+                    id={`parent-last-name-${index}`}
+                    type="text"
+                    bind:value={parent.last_name}
+                    placeholder={$t('checkin.parentLastNamePlaceholder')}
+                    class="w-full px-2 py-1.5 text-sm border border-neutral-300 rounded focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  />
+                </div>
+              </div>
+              <div class="grid grid-cols-2 gap-2 mb-2">
                 <div>
                   <label for={`parent-relationship-${index}`} class="block text-xs text-neutral-600 mb-1">
                     {$t('checkin.relationshipType')}
@@ -686,8 +703,6 @@
                     <option value="OTHER">{$t('checkin.relationshipOther')}</option>
                   </select>
                 </div>
-              </div>
-              <div class="grid grid-cols-2 gap-2">
                 <div>
                   <label for={`parent-phone-${index}`} class="block text-xs text-neutral-600 mb-1">
                     {$t('checkin.parentPhone')}
@@ -700,6 +715,8 @@
                     class="w-full px-2 py-1.5 text-sm border border-neutral-300 rounded focus:outline-none focus:ring-2 focus:ring-primary-500"
                   />
                 </div>
+              </div>
+              <div class="grid grid-cols-2 gap-2">
                 <div>
                   <label for={`parent-email-${index}`} class="block text-xs text-neutral-600 mb-1">
                     {$t('checkin.parentEmail')}
