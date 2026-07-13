@@ -110,6 +110,7 @@ class Event(models.Model):
         db_table = "events"
         verbose_name = _("Event")
         verbose_name_plural = _("Events")
+        ordering = ["name"]
 
     def __str__(self) -> str:
         return self.name
@@ -187,6 +188,7 @@ class Session(models.Model):
         db_table = "sessions"
         verbose_name = _("Session")
         verbose_name_plural = _("Sessions")
+        ordering = ["event__name", "start_time"]
         indexes = [
             models.Index(fields=["event"]),
             models.Index(fields=["is_active"]),

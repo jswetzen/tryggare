@@ -93,6 +93,7 @@ class Family(models.Model):
         db_table = "families"
         verbose_name = _("Family")
         verbose_name_plural = _("Families")
+        ordering = ["last_name"]
         indexes = [
             models.Index(fields=["last_name"]),
         ]
@@ -151,6 +152,7 @@ class Attendee(models.Model):
         db_table = "attendees"
         verbose_name = _("Attendee")
         verbose_name_plural = _("Attendees")
+        ordering = ["last_name", "first_name"]
 
     def __str__(self) -> str:
         return f"{self.first_name} {self.last_name}".strip()
@@ -300,6 +302,7 @@ class Parent(Attendee):
         db_table = "parents"
         verbose_name = _("Parent")
         verbose_name_plural = _("Parents")
+        ordering = ["last_name", "first_name"]
 
     @property
     def name(self) -> str:
@@ -375,6 +378,7 @@ class Child(Attendee):
         db_table = "children"
         verbose_name = _("Child")
         verbose_name_plural = _("Children")
+        ordering = ["last_name", "first_name"]
 
     def __str__(self) -> str:
         return f"{self.first_name} {self.last_name}"
