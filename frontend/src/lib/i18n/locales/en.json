@@ -75,6 +75,7 @@
     "ticketNone": "No Ticket",
     "ticketSession": "Session Only",
     "ticketEvent": "Full Event Pass",
+    "ticketTypeNewMembersHint": "Only applies to parents or children added just now — existing members keep whatever ticket they already have.",
     "checkIn": "Check In",
     "checkInFamily": "Check in {family} ({count})",
     "checkInCount": "Check In ({count})",

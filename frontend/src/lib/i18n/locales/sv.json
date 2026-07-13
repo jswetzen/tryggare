@@ -75,6 +75,7 @@
     "ticketNone": "Ingen biljett",
     "ticketSession": "Endast session",
     "ticketEvent": "Fullt evenemangspass",
+    "ticketTypeNewMembersHint": "Gäller endast föräldrar eller barn som just lagts till — befintliga medlemmar behåller sin nuvarande biljett.",
     "checkIn": "Checka in",
     "checkInFamily": "Checka in {family} ({count})",
     "checkInCount": "Checka in ({count})",
