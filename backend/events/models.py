@@ -520,6 +520,18 @@ class Extra(models.Model):
     )
     sort_order = models.PositiveIntegerField(default=0, verbose_name=_("Sort Order"))
     is_active = models.BooleanField(default=True, verbose_name=_("Active"))
+    cloned_from = models.ForeignKey(
+        "self",
+        null=True,
+        blank=True,
+        related_name="clones",
+        on_delete=models.SET_NULL,
+        verbose_name=_("Cloned From"),
+        help_text=_(
+            "Informational only — the extra this was duplicated from, if "
+            "any. No live link: editing either copy never affects the other."
+        ),
+    )
 
     class Meta:
         db_table = "extras"
@@ -533,6 +545,44 @@ class Extra(models.Model):
 
     def __str__(self) -> str:
         return f"{self.event.name} - {self.name}"
+
+    @property
+    def origin(self) -> "Extra":
+        """Walk cloned_from up to the root of this extra's clone chain."""
+        node = self
+        while node.cloned_from_id:
+            node = node.cloned_from
+        return node
+
+    def lineage_siblings(self) -> list["Extra"]:
+        """All other extras sharing this one's origin (the full clone tree,
+        not just direct parent/children). Small trees expected (a handful
+        of events), so a plain Python walk over `clones` is enough — no
+        need for a recursive query.
+
+        Example: A clones to B, B clones to C (A.cloned_from is None,
+        B.cloned_from is A, C.cloned_from is B). Every node's origin is A,
+        and each node's lineage_siblings() is the *other two* — not just
+        its direct parent/child:
+
+            A.lineage_siblings() == [B, C]
+            B.lineage_siblings() == [A, C]
+            C.lineage_siblings() == [A, B]
+        """
+        root = self.origin
+        seen = {root.id}
+        frontier = [root]
+        result = [] if self.id == root.id else [root]
+        while frontier:
+            node = frontier.pop()
+            for child in node.clones.select_related("event").all():
+                if child.id in seen:
+                    continue
+                seen.add(child.id)
+                frontier.append(child)
+                if child.id != self.id:
+                    result.append(child)
+        return result
 
 
 class ExtraChoice(models.Model):

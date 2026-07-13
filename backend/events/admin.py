@@ -1,7 +1,11 @@
 from django import forms
 from django.conf import settings
-from django.contrib import admin
-from django.utils.html import format_html
+from django.contrib import admin, messages
+from django.contrib.admin import helpers
+from django.template.response import TemplateResponse
+from django.urls import reverse
+from django.utils.html import format_html, format_html_join
+from django.utils.safestring import mark_safe
 from django.utils.translation import gettext_lazy as _
 
 from .models import (
@@ -15,6 +19,7 @@ from .models import (
     Ticket,
     TicketType,
 )
+from .services import duplicate_extra_to_event
 
 
 @admin.register(Event)
@@ -208,6 +213,13 @@ class ExtraChoiceInline(admin.TabularInline):
     fields = ("label", "price_delta", "sort_order", "is_active")
 
 
+class DuplicateExtraToEventForm(forms.Form):
+    target_event = forms.ModelChoiceField(
+        queryset=Event.objects.order_by("-start_date"),
+        label=_("Target event"),
+    )
+
+
 @admin.register(Extra)
 class ExtraAdmin(admin.ModelAdmin):
     list_display = (
@@ -219,11 +231,86 @@ class ExtraAdmin(admin.ModelAdmin):
         "applies_to",
         "is_active",
         "sort_order",
+        "reuse_badge",
     )
     list_filter = ("event", "applies_to", "per_attendee", "is_active")
     search_fields = ("name", "event__name")
     autocomplete_fields = ["event", "session"]
     inlines = [ExtraChoiceInline]
+    actions = ["duplicate_to_event"]
+    exclude = ("cloned_from",)
+    readonly_fields = ("lineage_display",)
+
+    @admin.display(description=_("Reuse"))
+    def reuse_badge(self, obj):
+        count = len(obj.lineage_siblings())
+        return f"Duplicated ({count})" if count else "—"
+
+    @admin.display(description=_("Clone lineage"))
+    def lineage_display(self, obj):
+        if obj.pk is None:
+            return "—"
+        lines = []
+        if obj.cloned_from:
+            lines.append(
+                format_html(
+                    'Cloned from <a href="{}">{}</a> ({})',
+                    reverse("admin:events_extra_change", args=[obj.cloned_from_id]),
+                    obj.cloned_from.name,
+                    obj.cloned_from.event.name,
+                )
+            )
+        siblings = obj.lineage_siblings()
+        if siblings:
+            links = format_html_join(
+                mark_safe(", "),
+                '<a href="{}">{} ({})</a>',
+                (
+                    (
+                        reverse("admin:events_extra_change", args=[s.id]),
+                        s.name,
+                        s.event.name,
+                    )
+                    for s in siblings
+                ),
+            )
+            lines.append(format_html("Also used at: {}", links))
+        if not lines:
+            return _("Not duplicated elsewhere.")
+        return format_html_join(mark_safe("<br>"), "{}", ((line,) for line in lines))
+
+    @admin.action(description=_("Duplicate to another event…"))
+    def duplicate_to_event(self, request, queryset):
+        if "apply" in request.POST:
+            form = DuplicateExtraToEventForm(request.POST)
+            if form.is_valid():
+                target_event = form.cleaned_data["target_event"]
+                count = queryset.count()
+                for extra in queryset:
+                    duplicate_extra_to_event(extra, target_event)
+                self.message_user(
+                    request,
+                    _("Duplicated %(count)d extra(s) to '%(event)s'.")
+                    % {"count": count, "event": target_event.name},
+                    messages.SUCCESS,
+                )
+                return None
+        else:
+            form = DuplicateExtraToEventForm()
+
+        context = {
+            **self.admin_site.each_context(request),
+            "title": _("Duplicate extras to another event"),
+            "queryset": queryset,
+            "form": form,
+            "opts": self.model._meta,
+            "action_checkbox_name": helpers.ACTION_CHECKBOX_NAME,
+        }
+        return TemplateResponse(
+            request,
+            "admin/events/extra/duplicate_confirmation.html",
+            context,
+        )
 
 
 @admin.register(ExtraChoice)
