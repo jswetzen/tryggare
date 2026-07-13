@@ -59,6 +59,14 @@ class Command(BaseCommand):
             Parent.objects.all().delete()
             Family.objects.all().delete()
             Session.objects.all().delete()
+            # TicketType.requires_ticket_type is a self-referential PROTECT FK
+            # (e.g. "family member" requiring "family ticket" within the same
+            # event). Django's cascade collector raises ProtectedError on that
+            # relation even when both rows are being deleted in the same
+            # Event cascade, so it must be cleared explicitly first.
+            TicketType.objects.exclude(requires_ticket_type__isnull=True).update(
+                requires_ticket_type=None
+            )
             Event.objects.all().delete()
             AdminUser.objects.filter(username="maria").delete()
 

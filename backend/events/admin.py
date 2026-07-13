@@ -1,5 +1,7 @@
 from django import forms
+from django.conf import settings
 from django.contrib import admin
+from django.utils.html import format_html
 from django.utils.translation import gettext_lazy as _
 
 from .models import (
@@ -24,10 +26,22 @@ class EventAdmin(admin.ModelAdmin):
         "parent_checkin_policy_default",
         "price",
         "registration_window_status",
+        "registration_link",
     )
     list_filter = ("parent_checkin_policy_default",)
     search_fields = ("name",)
     actions = ("generate_report",)
+
+    # No event-management UI exists in the frontend yet (just checkin/checkout/
+    # printing/reports), so Django admin is the only place staff can grab a
+    # given event's public registration URL.
+    @admin.display(description="Registration page")
+    def registration_link(self, obj):
+        url = f"{settings.FRONTEND_BASE_URL}/register/{obj.id}/"
+        return format_html('<a href="{0}" target="_blank">Open</a>', url)
+
+    def view_on_site(self, obj):
+        return f"{settings.FRONTEND_BASE_URL}/register/{obj.id}/"
 
     @admin.action(description="Generate / refresh report snapshot")
     def generate_report(self, request, queryset):

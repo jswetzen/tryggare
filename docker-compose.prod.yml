@@ -20,6 +20,11 @@ services:
       - VALKEY_URL=${VALKEY_URL}
       - CORS_ALLOWED_ORIGINS=${CORS_ALLOWED_ORIGINS:-}
       - CSRF_TRUSTED_ORIGINS=${CSRF_TRUSTED_ORIGINS:-}
+      # Absolute base URL used server-side for links this container can't render
+      # relative (registration/payment emails, admin "view on site"). Empty =
+      # root-relative, correct for same-origin browser links but breaks emails,
+      # set to this deployment's real external URL for a real deployment.
+      - FRONTEND_BASE_URL=${FRONTEND_BASE_URL:-}
       # Cookie security: set to 'false' for HTTP testing, 'true' for HTTPS/reverse proxy
       - SESSION_COOKIE_SECURE=${SESSION_COOKIE_SECURE:-false}
       - CSRF_COOKIE_SECURE=${CSRF_COOKIE_SECURE:-false}
