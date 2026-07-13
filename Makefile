@@ -9,9 +9,9 @@ help:
 	@echo "  make rebuild-prod      Trigger production environment rebuild"
 	@echo "  make restart-dev       Restart dev containers (hot reload should work)"
 	@echo "  make restart-prod      Restart production containers"
-	@echo "  make watch             Watch restart.txt, auto-rebuild both on change"
-	@echo "  make watch-dev         Watch restart.txt, auto-rebuild dev only"
-	@echo "  make watch-prod        Watch restart.txt, auto-rebuild prod only"
+	@echo "  make watch             Watch restart-dev.txt + restart-prod.txt, rebuild whichever changed"
+	@echo "  make watch-dev         Watch restart-dev.txt, auto-rebuild dev only"
+	@echo "  make watch-prod        Watch restart-prod.txt, auto-rebuild prod only"
 	@echo ""
 	@echo "Test Commands:"
 	@echo "  make test              Run all tests (delegates to backend/)"
@@ -39,13 +39,13 @@ help:
 # Build and restart commands
 rebuild-dev:
 	@echo "Triggering development environment rebuild..."
-	@echo "rebuild-$$(date +%s)" > restart.txt
+	@echo "rebuild-$$(date +%s)" > restart-dev.txt
 	@echo "✓ Rebuild triggered - check build.dev.log for progress"
 	@echo "  tail -f build.dev.log"
 
 rebuild-prod:
 	@echo "Triggering production environment rebuild..."
-	@echo "rebuild-$$(date +%s)" > restart.txt
+	@echo "rebuild-$$(date +%s)" > restart-prod.txt
 	@echo "✓ Rebuild triggered - check build.prod.log for progress"
 	@echo "  tail -f build.prod.log"
 	@echo ""
@@ -54,15 +54,15 @@ rebuild-prod:
 
 restart-dev:
 	@echo "Restarting development environment (hot reload)..."
-	@echo "restart-$$(date +%s)" > restart.txt
+	@echo "restart-$$(date +%s)" > restart-dev.txt
 	@echo "✓ Restart triggered"
 
 restart-prod:
 	@echo "Restarting production environment..."
-	@echo "restart-$$(date +%s)" > restart.txt
+	@echo "restart-$$(date +%s)" > restart-prod.txt
 	@echo "✓ Restart triggered"
 
-# Watch restart.txt and auto-rebuild on change
+# Watch restart-dev.txt / restart-prod.txt and auto-rebuild on change
 watch:
 	@nu watch.nu
 

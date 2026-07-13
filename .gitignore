@@ -23,7 +23,8 @@ backend/test_db.sqlite3
 # logs and build output
 *.log
 build*.txt
-restart.txt
+restart-dev.txt
+restart-prod.txt
 
 # environment files (only .env*.example is committed)
 .env
