@@ -844,4 +844,37 @@ describe('CheckinExpandableTable', () => {
       confirmSpy.mockRestore();
     });
   });
+
+  describe('Edit family trigger', () => {
+    it('does not render an edit button when onEditFamily is not provided', () => {
+      render(CheckinExpandableTable, { props: defaultProps });
+
+      expect(screen.queryAllByTestId('family-edit-button-family-1')).toHaveLength(0);
+    });
+
+    it('renders an edit button and calls onEditFamily with the family id when clicked', async () => {
+      const user = userEvent.setup();
+      const onEditFamily = vi.fn();
+      render(CheckinExpandableTable, { props: { ...defaultProps, onEditFamily } });
+
+      const editButtons = screen.getAllByTestId('family-edit-button-family-1');
+      expect(editButtons.length).toBeGreaterThan(0);
+      await user.click(editButtons[0]);
+
+      expect(onEditFamily).toHaveBeenCalledWith('family-1');
+    });
+
+    it('clicking the edit button does not also toggle the family row expansion', async () => {
+      const user = userEvent.setup();
+      const onEditFamily = vi.fn();
+      render(CheckinExpandableTable, { props: { ...defaultProps, onEditFamily } });
+
+      const editButtons = screen.getAllByTestId('family-edit-button-family-1');
+      await user.click(editButtons[0]);
+
+      // Still collapsed — a click on the nested edit button must not also
+      // bubble into toggleFamily's expand/collapse handler.
+      expect(screen.queryByText('John Smith')).not.toBeInTheDocument();
+    });
+  });
 });
