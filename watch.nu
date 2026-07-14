@@ -32,6 +32,12 @@ def main [
 def watch_dev [root: string] {
     let build_dev = ($root | path join "build.dev.log")
     let trigger = ($root | path join "restart-dev.txt")
+    # restart-*.txt is gitignored — a fresh clone won't have it yet, and
+    # nu's `watch` errors immediately (nu::shell::io::not_found) on a path
+    # that doesn't exist. Touch it first so watching survives that case.
+    if not ($trigger | path exists) {
+        "" | save $trigger
+    }
     print $"Watching ($trigger) for changes..."
     print $"  dev → ($build_dev)"
     print "Press Ctrl-C to stop."
@@ -49,6 +55,9 @@ def watch_dev [root: string] {
 def watch_prod [root: string] {
     let build_prod = ($root | path join "build.prod.log")
     let trigger = ($root | path join "restart-prod.txt")
+    if not ($trigger | path exists) {
+        "" | save $trigger
+    }
     print $"Watching ($trigger) for changes..."
     print $"  prod → ($build_prod)"
     print "Press Ctrl-C to stop."
