@@ -22,9 +22,6 @@
     notes: string;
     healthInfoStatus: HealthInfoStatus;
     consentNoticeShared: boolean;
-    /** Read-only: the ticket this child already has. Undefined for a
-     * freshly-added row — only set via childFromExisting. */
-    existingTicket?: TicketType;
   }
 
   interface OutgoingChild {
@@ -48,9 +45,6 @@
     notes: string;
     healthInfoStatus: HealthInfoStatus;
     consentNoticeShared: boolean;
-    /** Read-only: the ticket this parent already has. Undefined for a
-     * freshly-added row — only set via parentFromExisting. */
-    existingTicket?: TicketType;
   }
 
   interface OutgoingParent {
@@ -137,8 +131,7 @@
       allergies: child.allergies ?? '',
       notes: child.notes ?? '',
       healthInfoStatus: statusFromBackend(child.health_consent_status),
-      consentNoticeShared: child.health_consent_status === 'granted',
-      existingTicket: child.ticket
+      consentNoticeShared: child.health_consent_status === 'granted'
     };
   }
 
@@ -153,8 +146,7 @@
       allergies: parent.allergies ?? '',
       notes: parent.notes ?? '',
       healthInfoStatus: statusFromBackend(parent.health_consent_status),
-      consentNoticeShared: parent.health_consent_status === 'granted',
-      existingTicket: parent.ticket
+      consentNoticeShared: parent.health_consent_status === 'granted'
     };
   }
 
@@ -163,23 +155,11 @@
   // Only ever assigns tickets to newly-added rows (see handleAddFamily/
   // handleEditFamily in +page.svelte) — never reflects or changes a
   // pre-existing member's ticket, so it has no sensible pre-fill from
-  // `family` in edit mode. Each row's actual current ticket is shown
-  // separately via existingTicket below.
+  // `family` in edit mode (see the hint shown alongside it below).
   let ticketType = $state<TicketType>('none');
   let parents = $state<Parent[]>(family ? family.parents.map(parentFromExisting) : [emptyParent()]);
   let error = $state('');
   let familyNameInput = $state<HTMLInputElement>();
-
-  function existingTicketLabel(ticket: TicketType | undefined): string {
-    switch (ticket) {
-      case 'event':
-        return $_('checkin.ticketEvent');
-      case 'session':
-        return $_('checkin.ticketSession');
-      default:
-        return $_('checkin.ticketNone');
-    }
-  }
 
   // Focus family name input on mount
   onMount(() => {
@@ -376,16 +356,6 @@
       <div class="space-y-3">
         {#each parents as parent, index (index)}
           <div class="border border-neutral-200 rounded p-3 bg-neutral-50">
-            {#if parent.id}
-              <div class="mb-2">
-                <span
-                  data-testid={`parent-ticket-badge-${index}`}
-                  class="inline-block px-2 py-0.5 text-xs font-medium bg-neutral-200 text-neutral-700 rounded-pill"
-                >
-                  {existingTicketLabel(parent.existingTicket)}
-                </span>
-              </div>
-            {/if}
             <div class="grid grid-cols-2 gap-2 mb-2">
               <div>
                 <label for={`parent-first-name-${index}`} class="block text-xs text-neutral-600 mb-1">
@@ -527,23 +497,13 @@
           <div class="border border-neutral-200 rounded p-3 bg-neutral-50">
             <div class="flex justify-between items-center mb-2">
               <span class="text-sm font-semibold text-neutral-700">{$_('checkin.childNumber', { values: { number: index + 1 } })}</span>
-              <div class="flex items-center gap-2">
-                {#if child.id}
-                  <span
-                    data-testid={`child-ticket-badge-${index}`}
-                    class="inline-block px-2 py-0.5 text-xs font-medium bg-neutral-200 text-neutral-700 rounded-pill"
-                  >
-                    {existingTicketLabel(child.existingTicket)}
-                  </span>
-                {/if}
-                <button
-                  type="button"
-                  on:click={() => handleRemoveChild(index)}
-                  class="text-danger-600 hover:text-danger-700 text-xs font-medium"
-                >
-                  {$_('checkin.removeChild')}
-                </button>
-              </div>
+              <button
+                type="button"
+                on:click={() => handleRemoveChild(index)}
+                class="text-danger-600 hover:text-danger-700 text-xs font-medium"
+              >
+                {$_('checkin.removeChild')}
+              </button>
             </div>
 
             <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
