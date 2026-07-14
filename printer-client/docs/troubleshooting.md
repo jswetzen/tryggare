@@ -86,3 +86,20 @@ printer.write(b"\x1b\x69\x53")  # "ESC i S" Status information request
 - Printable area: **306×991 px** at 300 DPI (portrait: 306 wide, 991 tall)
 - Use `rotate="90"` (not `"auto"`) — `auto` did not reliably rotate the image; explicit `"90"` was required for correct output
 - The image fed into `convert()` should be portrait 306×991; `rotate="90"` tells brother_ql to rotate it internally before sending to the printer
+
+## Dymo on Windows: `RuntimeError: No paper form matching '<size>' ...`
+
+The Windows backend looks up the driver's own paper-size list (via
+`win32print.DeviceCapabilities(..., DC_PAPERNAMES)`) for an entry containing
+the `LABEL_SIZE` identifier (e.g. `30252`), rather than hardcoding the
+driver's exact label strings — those can vary by driver version. This error
+means none of the driver's paper names matched.
+
+1. Open the printer's properties in *Devices & Printers* → *Printing
+   Preferences* and check the paper-size dropdown lists an entry for the
+   label media you have loaded (e.g. *"30252 Address Labels"*). If it's
+   missing, update the Dymo driver — older versions may not list every size.
+2. Confirm `LABEL_SIZE` is one of `30252`, `30334`, `30256`, `4xl` and matches
+   what's physically loaded.
+3. The error message includes the driver's actual paper-name list — compare
+   it against `LABEL_SIZE` to spot a naming mismatch.
