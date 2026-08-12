@@ -87,6 +87,15 @@
     return `${start} – ${end}`;
   }
 
+  function formatCurrency(amount: number | string): string {
+    // Follow the page's own sv/en toggle (see formatDateTime above) rather
+    // than the browser's OS locale, so the decimal separator matches the
+    // surrounding Swedish (comma) or English (period) copy.
+    const value = typeof amount === 'string' ? parseFloat(amount) : amount;
+    const localeTag = $locale === 'sv' ? 'sv-SE' : 'en-GB';
+    return value.toLocaleString(localeTag, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+
   function emptyParent(): ParentRow {
     return {
       first_name: '',
@@ -602,7 +611,7 @@
       <p class="text-sm text-neutral-600 mb-1">{$t('register.introText')}</p>
       {#if eventInfo.is_paid && eventInfo.price && eventInfo.ticket_types.length === 0}
         <p class="text-sm font-semibold text-neutral-700 mb-4">
-          {$t('register.eventPriceNotice', { values: { amount: eventInfo.price, currency: eventInfo.currency } })}
+          {$t('register.eventPriceNotice', { values: { amount: formatCurrency(eventInfo.price), currency: eventInfo.currency } })}
         </p>
       {/if}
 
@@ -612,8 +621,19 @@
         </div>
       {/if}
 
-      <!-- Honeypot field: visually hidden, never shown to real users -->
-      <div class="absolute -left-[9999px]" aria-hidden="true">
+      <!--
+        Honeypot field: visually hidden, never shown to real users. `inert`
+        (not just aria-hidden) is what actually keeps it out of the
+        accessibility tree here — aria-hidden alone on a container with a
+        focusable descendant is an invalid combination per the ARIA spec,
+        and some assistive tech still surfaces the field to screen-reader
+        users despite aria-hidden, which is exactly the trap this exists to
+        avoid. `inert` makes the field genuinely non-focusable/non-
+        interactive for real users while a naive spam bot — which fills
+        form fields by name without respecting focus or ARIA state — still
+        finds and fills it.
+      -->
+      <div class="absolute -left-[9999px]" aria-hidden="true" inert>
         <label for="website">Website</label>
         <input
           id="website"
@@ -744,7 +764,7 @@
                   >
                     <option value="">{$t('register.ticketTypePlaceholder')}</option>
                     {#each applicableTicketTypes(false) as ticketType (ticketType.id)}
-                      <option value={ticketType.id}>{ticketType.name} — {ticketType.price} kr</option>
+                      <option value={ticketType.id}>{ticketType.name} — {formatCurrency(ticketType.price)} kr</option>
                     {/each}
                   </select>
                   {#if ticketCompositionWarning(parent.ticketTypeId)}
@@ -757,7 +777,7 @@
                 {@const state = extraState(parent.extraSelections, extra)}
                 <div class="mt-2">
                   <div class="block text-xs text-neutral-600 mb-1">
-                    {extra.name} {extra.price !== '0.00' ? `(${extra.price} kr)` : ''} *
+                    {extra.name} {extra.price !== '0.00' ? `(${formatCurrency(extra.price)} kr)` : ''} *
                   </div>
                   {#if extra.requires_choice}
                     <div class="flex items-center gap-3 flex-wrap">
@@ -769,7 +789,7 @@
                             checked={state.choiceId === choice.id}
                             on:change={() => setExtraChoice(parent.extraSelections, extra, choice.id)}
                           />
-                          {choice.label}{choice.price_delta !== '0.00' ? ` (+${choice.price_delta} kr)` : ''}
+                          {choice.label}{choice.price_delta !== '0.00' ? ` (+${formatCurrency(choice.price_delta)} kr)` : ''}
                         </label>
                       {/each}
                     </div>
@@ -794,7 +814,7 @@
                               (e.currentTarget as HTMLInputElement).checked
                             )}
                         />
-                        {extra.name} ({extra.price} kr)
+                        {extra.name} ({formatCurrency(extra.price)} kr)
                       </label>
                       {#if extra.requires_choice && state.selected}
                         <select
@@ -935,7 +955,7 @@
                     >
                       <option value="">{$t('register.ticketTypePlaceholder')}</option>
                       {#each applicableTicketTypes(true) as ticketType (ticketType.id)}
-                        <option value={ticketType.id}>{ticketType.name} — {ticketType.price} kr</option>
+                        <option value={ticketType.id}>{ticketType.name} — {formatCurrency(ticketType.price)} kr</option>
                       {/each}
                     </select>
                     {#if ticketCompositionWarning(child.ticketTypeId)}
@@ -948,7 +968,7 @@
                   {@const state = extraState(child.extraSelections, extra)}
                   <div class="md:col-span-2">
                     <div class="block text-xs text-neutral-600 mb-1">
-                      {extra.name} {extra.price !== '0.00' ? `(${extra.price} kr)` : ''} *
+                      {extra.name} {extra.price !== '0.00' ? `(${formatCurrency(extra.price)} kr)` : ''} *
                     </div>
                     {#if extra.requires_choice}
                       <div class="flex items-center gap-3 flex-wrap">
@@ -960,7 +980,7 @@
                               checked={state.choiceId === choice.id}
                               on:change={() => setExtraChoice(child.extraSelections, extra, choice.id)}
                             />
-                            {choice.label}{choice.price_delta !== '0.00' ? ` (+${choice.price_delta} kr)` : ''}
+                            {choice.label}{choice.price_delta !== '0.00' ? ` (+${formatCurrency(choice.price_delta)} kr)` : ''}
                           </label>
                         {/each}
                       </div>
@@ -985,7 +1005,7 @@
                                 (e.currentTarget as HTMLInputElement).checked
                               )}
                           />
-                          {extra.name} ({extra.price} kr)
+                          {extra.name} ({formatCurrency(extra.price)} kr)
                         </label>
                         {#if extra.requires_choice && state.selected}
                           <select
@@ -1036,7 +1056,7 @@
         {@const state = extraState(registrationExtraSelections, extra)}
         <div class="mb-4">
           <div class="block text-xs text-neutral-600 mb-1">
-            {extra.name} {extra.price !== '0.00' ? `(${extra.price} kr)` : ''} *
+            {extra.name} {extra.price !== '0.00' ? `(${formatCurrency(extra.price)} kr)` : ''} *
           </div>
           {#if extra.requires_choice}
             <div class="flex items-center gap-3 flex-wrap">
@@ -1048,7 +1068,7 @@
                     checked={state.choiceId === choice.id}
                     on:change={() => setExtraChoice(registrationExtraSelections, extra, choice.id)}
                   />
-                  {choice.label}{choice.price_delta !== '0.00' ? ` (+${choice.price_delta} kr)` : ''}
+                  {choice.label}{choice.price_delta !== '0.00' ? ` (+${formatCurrency(choice.price_delta)} kr)` : ''}
                 </label>
               {/each}
             </div>
@@ -1076,7 +1096,7 @@
                         (e.currentTarget as HTMLInputElement).checked
                       )}
                   />
-                  {extra.name} ({extra.price} kr)
+                  {extra.name} ({formatCurrency(extra.price)} kr)
                 </label>
                 {#if extra.requires_choice && state.selected}
                   <select
@@ -1152,14 +1172,14 @@
         <div class="mb-4 text-right text-sm text-neutral-700" data-testid="register-running-total">
           {#if discountAmount > 0}
             <div class="text-xs font-normal text-neutral-500">
-              {$t('register.subtotalLabel')}: {runningTotal.toFixed(2)} kr
+              {$t('register.subtotalLabel')}: {formatCurrency(runningTotal)} kr
             </div>
             <div class="text-xs font-normal text-success-700">
-              {$t('register.discountLabel')}: -{discountAmount.toFixed(2)} kr
+              {$t('register.discountLabel')}: -{formatCurrency(discountAmount)} kr
             </div>
           {/if}
           <div class="font-semibold">
-            {$t('register.totalLabel')}: {discountedTotal.toFixed(2)} kr
+            {$t('register.totalLabel')}: {formatCurrency(discountedTotal)} kr
           </div>
         </div>
       {/if}
