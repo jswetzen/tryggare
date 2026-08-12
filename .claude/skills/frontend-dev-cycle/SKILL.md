@@ -28,11 +28,21 @@ If dev is down: `podman start tryggare_db_1 tryggare_valkey_1 tryggare_web_1 try
 The SvelteKit dev server compiles a route on first hit, so the very first page load can
 return an empty document — load it twice before concluding anything is broken.
 
-Then confirm the browser probe is alive:
+Then confirm the browser is alive:
 
 ```bash
-cd backend && uv run python ../scripts/ux_probe.py start
+podman ps --filter name=playwright --format '{{.Names}} {{.Status}}'   # or: ~/playwright-start.sh
 ```
+
+The Playwright MCP server runs in a container on `:8931` and Claude Code connects to it over
+HTTP. **If it was not running when this session started, the `mcp__playwright__*` tools will
+not be registered** — starting the container mid-session may register them, but if it does
+not, ask the user to reconnect the MCP server rather than working around it.
+
+Fallback if Playwright is unavailable: `scripts/ux_probe.py` (selenium + local Chrome, see its
+docstring). It is less capable — no accessibility tree, no console capture — but it takes a
+`UX_PROBE_PORT`/`UX_PROBE_PROFILE` per instance, so it is the only option if you ever need
+genuinely concurrent browsers.
 
 Establish the target URLs for this increment (event ids change between re-seeds):
 
@@ -55,11 +65,22 @@ Spawn `fe-coder` with **one increment**. If you cannot state the increment in tw
 it is too big — split it. Give it the increment and the relevant findings from the last
 round, not the whole backlog.
 
-### 2. Critique — all in parallel, in a single message
+### 2. Critique — one at a time
 
-Spawn together, so they judge the same build and you wait once:
+**There is exactly one browser.** The Playwright MCP server is a single container driving a
+single Chrome, shared by every agent that holds those tools. Spawning the critics in parallel
+means four agents navigating the same tab out from under each other, and the reports come back
+confidently describing pages they were never on.
 
-- **`fe-designer`** — the surface that changed. One deliberate Opus spend per round.
+So spawn them **sequentially**, each finishing before the next starts. This is the one place
+the loop pays wall-clock time for correctness. (If you ever need true concurrency, the critics
+would have to fall back to `scripts/ux_probe.py` with a distinct `UX_PROBE_PORT` and
+`UX_PROBE_PROFILE` per agent.)
+
+Order matters: run the **personas first, designer last**. The personas tell you where users
+actually struggle, and the designer's report is the expensive one — it is worth more when you
+can point it at the surfaces that hurt.
+
 - **`fe-persona-tester` ×3**, each with a persona, a concrete task, and the URL. Override the
   model per call:
 
@@ -78,16 +99,26 @@ Spawn together, so they judge the same build and you wait once:
   a weekend away in September. You have two kids, 7 and 12. Sign your family up on your
   phone." — not "test the registration form's validation".
 
+- **`fe-designer`** last — the surface that changed, pointed at whatever the personas
+  struggled with. One deliberate Opus spend per round.
+
+Every critic files findings in the same form (`severity` / `where` / `saw` / `expected` /
+`cost`, plus `direction` for the designer). Do not let a report through in free prose — the
+form is what makes step 3 possible.
+
 ### 3. Compile
 
 Turn the reports into a revision plan. This is a **diff against the current increment**, not
 a re-derivation of the feature.
 
-- Merge findings the same way from different seats — a designer's "the ticket select has no
-  label" and a persona's "I couldn't tell what I was picking" are one item, and the fact that
-  two seats hit it is evidence of severity.
-- Mark each item blocking or polish. Be honest; a plan where everything is blocking is a plan
-  with no priorities.
+- **Merge on the `where:` line.** That is what the form is for: the same quoted on-screen text
+  from two different seats is one finding, not two. A designer's "the ticket select has no
+  label" and a persona's "I couldn't tell what I was picking" collapse into one item — and the
+  fact that two seats hit it independently is itself evidence of severity, so raise it.
+- **Severity is the personas' call, not yours.** A `blocker` from the parent-on-haiku persona
+  outranks a `polish` from the designer, even when the designer's point is more sophisticated.
+  You may downgrade a persona's severity, but only with a stated reason.
+- Be honest about priorities; a plan where everything is blocking is a plan with none.
 - When two critics want opposite things, **pick one and say why**. Do not average them.
 - Drop findings you are choosing not to act on, explicitly, with a reason. Silent drops are
   what the next gate exists to catch.
