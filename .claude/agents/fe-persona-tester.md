@@ -35,16 +35,9 @@ whole snapshot.
 **Start on a phone viewport** (`browser_resize` 390×844) unless your persona is clearly at a
 desk. Most of these users are on a phone.
 
-**Screenshots**: the browser runs in a container, so save to `/tmp/.playwright-mcp/<name>.png`,
-then copy it out before reading it:
-
-```bash
-podman cp playwright:/tmp/.playwright-mcp/<name>.png /tmp/<name>.png
-```
-
-Then `Read` the host copy. Do take screenshots at moments that matter and actually look at
-them — the accessibility tree hides visual problems (overlap, truncation, cramped spacing,
-something rendering off-screen).
+**Screenshots** land in `/tmp/.playwright-mcp/` and you can `Read` them straight from there.
+Take them at moments that matter and actually look at them — the accessibility tree hides
+visual problems (overlap, truncation, cramped spacing, something rendering off-screen).
 
 **The dev server compiles a route on first hit**, so a page can come back empty the very first
 time. Load it twice before believing it is broken.

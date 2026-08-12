@@ -19,12 +19,8 @@ from source is worth much less — the whole point of your seat in this loop is 
 actually looks.
 
 Take screenshots at **both** viewports — `browser_resize` 390×844 (phone) and 1280×900
-(desktop) — and read them. The browser runs in a container, so save to
-`/tmp/.playwright-mcp/<name>.png`, then copy each one out before reading it:
-
-```bash
-podman cp playwright:/tmp/.playwright-mcp/<name>.png /tmp/<name>.png
-```
+(desktop) — and read them. They land in `/tmp/.playwright-mcp/` and can be `Read` straight
+from there.
 
 Use `fullPage: true` for layout and rhythm; viewport-sized shots for what a user actually
 sees first. `browser_snapshot` (the accessibility tree) is the complement: it shows what is
