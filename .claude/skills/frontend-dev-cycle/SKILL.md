@@ -1,6 +1,6 @@
 ---
 name: frontend-dev-cycle
-description: Build-and-critique loop for frontend work — implement one increment, then judge it in parallel with a design critic and context-free user personas, gate the revision plan, and decide whether to ship or loop. Use when polishing or building a UI surface and you want reflection rather than one agent's unchecked opinion of its own work.
+description: Build-and-critique loop for frontend work — implement one increment, then judge it with context-free user personas and a design critic driving a real browser, gate the revision plan, and decide whether to ship or loop. Use when polishing or building a UI surface and you want reflection rather than one agent's unchecked opinion of its own work.
 ---
 
 # Frontend dev cycle
