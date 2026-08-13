@@ -21,6 +21,10 @@ vi.mock('svelte-i18n', () => {
     'register.birthdateInvalid': "That date isn't valid — check the day, month, and year.",
     'register.totalProvisional': '(provisional — includes a ticket that needs to change)',
     'register.totalLabel': 'Total so far',
+    'register.ticketRequiresOther': '{name} requires at least one {required} ticket in this booking.',
+    'register.ticketCapExceeded': 'Only {max} {name} ticket(s) allowed per {required} ticket.',
+    'register.ticketCompositionOptionRequires': 'requires {required}',
+    'register.ticketCompositionOptionCapReached': 'max {max} per {required}',
     'checkin.childFirstName': 'First name',
     'checkin.childLastName': 'Last name',
     'checkin.childBirthdate': 'Birthdate',
@@ -28,6 +32,8 @@ vi.mock('svelte-i18n', () => {
     'checkin.addAnotherChild': 'Add another child',
     'checkin.parentInfo': 'Parent info',
     'checkin.addParent': 'Add parent',
+    'checkin.removeParent': 'Remove parent',
+    'checkin.removeChild': 'Remove child',
     'checkin.familyName': 'Family name',
     'register.contactEmail': 'Contact email',
     'register.introText': '',
@@ -266,5 +272,150 @@ describe('Register page — ticket type eligibility by birthdate', () => {
     // Switching to the now-eligible ticket clears the qualifier.
     await user.selectOptions(select, 'tt-child');
     expect(screen.queryByTestId('register-total-provisional')).toBeNull();
+  });
+});
+
+// requires_ticket_type_id / max_per_required — mirrors the seeded demo pair
+// (Familjebiljett / Familjebiljett - familjemedlem, max_per_required=4);
+// max_per_required=1 here just to make the cap test compact.
+function familyEventInfo(overrides: Partial<Record<string, unknown>> = {}) {
+  return baseEventInfo({
+    ticket_types: [
+      {
+        id: 'tt-family',
+        name: 'Familjebiljett',
+        price: '2000.00',
+        applies_to: 'either',
+        min_birthdate: null,
+        max_birthdate: null,
+        kind: 'event',
+        requires_ticket_type_id: null,
+        max_per_required: null
+      },
+      {
+        id: 'tt-member',
+        name: 'Familjebiljett - familjemedlem',
+        price: '0.00',
+        applies_to: 'either',
+        min_birthdate: null,
+        max_birthdate: null,
+        kind: 'event',
+        requires_ticket_type_id: 'tt-family',
+        max_per_required: 1
+      },
+      {
+        id: 'tt-solo',
+        name: 'Solo',
+        price: '300.00',
+        applies_to: 'either',
+        min_birthdate: null,
+        max_birthdate: null,
+        kind: 'event',
+        requires_ticket_type_id: null,
+        max_per_required: null
+      }
+    ],
+    ...overrides
+  });
+}
+
+describe('Register page — ticket composition (family ticket) rules', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('disables the dependent option when no required ticket is present in the booking', async () => {
+    getEvent.mockResolvedValue(familyEventInfo());
+    render(RegisterPage);
+
+    const select = (await screen.findByTestId('child-ticket-type-0')) as HTMLSelectElement;
+    const options = Array.from(select.options).filter((o) => o.value !== '');
+    const familyOption = options.find((o) => o.value === 'tt-family')!;
+    const memberOption = options.find((o) => o.value === 'tt-member')!;
+    // Disabled, not removed — same convention as the age-window case.
+    expect(options).toHaveLength(3);
+    expect(familyOption.disabled).toBe(false);
+    expect(memberOption.disabled).toBe(true);
+    expect(memberOption.textContent).toContain('requires Familjebiljett');
+  });
+
+  it('disables the dependent option for a new picker once the cap is reached', async () => {
+    const user = userEvent.setup();
+    getEvent.mockResolvedValue(familyEventInfo());
+    render(RegisterPage);
+
+    const parentSelect = (await screen.findByTestId('parent-ticket-type-0')) as HTMLSelectElement;
+    await user.selectOptions(parentSelect, 'tt-family');
+
+    const childSelect0 = (await screen.findByTestId('child-ticket-type-0')) as HTMLSelectElement;
+    await user.selectOptions(childSelect0, 'tt-member');
+    expect(childSelect0.value).toBe('tt-member');
+
+    await user.click(screen.getByText(/Add another child/));
+    const childSelect1 = (await screen.findByTestId('child-ticket-type-1')) as HTMLSelectElement;
+    const options1 = Array.from(childSelect1.options).filter((o) => o.value !== '');
+    const memberOption1 = options1.find((o) => o.value === 'tt-member')!;
+    expect(memberOption1.disabled).toBe(true);
+    expect(memberOption1.textContent).toContain('max 1 per Familjebiljett');
+
+    // The first child's own pick stays put — it's already inside the cap,
+    // not blocked by it.
+    expect(childSelect0.value).toBe('tt-member');
+  });
+
+  it('keeps a family-member selection (flagged, not cleared) when the family ticket is changed away', async () => {
+    const user = userEvent.setup();
+    getEvent.mockResolvedValue(familyEventInfo());
+    render(RegisterPage);
+
+    const parentSelect = (await screen.findByTestId('parent-ticket-type-0')) as HTMLSelectElement;
+    await user.selectOptions(parentSelect, 'tt-family');
+    const childSelect = (await screen.findByTestId('child-ticket-type-0')) as HTMLSelectElement;
+    await user.selectOptions(childSelect, 'tt-member');
+    expect(childSelect.value).toBe('tt-member');
+
+    // The guardian changes their own ticket away from the required type.
+    await user.selectOptions(parentSelect, 'tt-solo');
+
+    // The child's selection survives — not silently cleared.
+    expect(childSelect.value).toBe('tt-member');
+    const warning = await screen.findByTestId('child-ticket-composition-0');
+    expect(warning.textContent).toContain('requires at least one Familjebiljett');
+    // Flagged on the control itself, not just a caption beside it.
+    expect(childSelect.getAttribute('aria-invalid')).toBe('true');
+    expect(childSelect.getAttribute('aria-describedby')).toContain('child-ticket-composition-0');
+
+    // The total keeps pricing the flagged selection but marks it provisional.
+    await screen.findByTestId('register-total-provisional');
+  });
+
+  it('flags the family-member selection when the person holding the required ticket is removed', async () => {
+    const user = userEvent.setup();
+    getEvent.mockResolvedValue(familyEventInfo());
+    render(RegisterPage);
+
+    // A second parent so the first can be removed (the remove button only
+    // shows once there's more than one row).
+    await screen.findByTestId('parent-ticket-type-0');
+    await user.click(screen.getByText(/Add parent/));
+    const parentSelect0 = (await screen.findByTestId('parent-ticket-type-0')) as HTMLSelectElement;
+    await user.selectOptions(parentSelect0, 'tt-family');
+
+    const childSelect = (await screen.findByTestId('child-ticket-type-0')) as HTMLSelectElement;
+    await user.selectOptions(childSelect, 'tt-member');
+    expect(childSelect.value).toBe('tt-member');
+
+    // Remove the parent holding the only Familjebiljett — not a select
+    // edit at all, the route this increment exists to cover.
+    const removeButtons = screen.getAllByText('Remove parent');
+    await user.click(removeButtons[0]);
+
+    // The child's member ticket is preserved, not silently cleared — and
+    // is now visibly flagged rather than left looking fine.
+    expect(childSelect.value).toBe('tt-member');
+    const warning = await screen.findByTestId('child-ticket-composition-0');
+    expect(warning.textContent).toContain('requires at least one Familjebiljett');
+    expect(childSelect.getAttribute('aria-invalid')).toBe('true');
+    await screen.findByTestId('register-total-provisional');
   });
 });

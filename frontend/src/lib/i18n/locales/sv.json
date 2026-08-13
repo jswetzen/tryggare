@@ -351,6 +351,8 @@
     "ticketTypeRequired": "Välj biljettyp för alla deltagare.",
     "ticketRequiresOther": "{name} kräver minst en biljett av typen {required} i samma anmälan.",
     "ticketCapExceeded": "Max {max} {name}-biljett(er) per {required}-biljett.",
+    "ticketCompositionOptionRequires": "kräver {required}",
+    "ticketCompositionOptionCapReached": "max {max} per {required}",
     "ticketAgeRangeBoth": "{min}–{max} år",
     "ticketAgeRangeMin": "{min}+ år",
     "ticketAgeRangeMax": "upp till {max} år",
