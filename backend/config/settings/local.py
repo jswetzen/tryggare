@@ -58,3 +58,10 @@ REST_FRAMEWORK = {
         "qr_safety_info_reveal": "1000/minute",
     },
 }
+
+# Local development is not a deployment: acknowledge the no-email state so the
+# notifications startup check (notifications/apps.py) doesn't refuse to boot.
+# pytest.ini points DJANGO_SETTINGS_MODULE here, so without this every local
+# test run would fail at app-registry population. Real deployments must set
+# EMAIL_HOST or EMAIL_DISABLED_ACK deliberately.
+EMAIL_DISABLED_ACK = True

@@ -66,18 +66,45 @@ class SmtpProvider:
 
 
 class NullProvider:
-    """No-op provider for deployments with no email configured (e.g. the demo instance)."""
+    """No-op provider for DEMO_MODE — logging the full body is deliberate.
+
+    DEMO_MODE is a supported, *deliberate* no-email deployment state (the
+    public demo instance). Logging the body (not just the recipient) here is
+    intentional: it's the only way to recover a verification link on that
+    instance, since no real inbox exists to check. Do not reuse this class
+    for "email just isn't configured" — that's a different state with
+    different (much stricter) logging requirements; see DisabledProvider.
+    """
 
     def send(self, to: str, subject: str, body: str) -> None:
-        # Logging the body (not just the recipient) is deliberate here: in
-        # DEMO_MODE — the exact environment self-serve registration gets
-        # tested in — this log line is the only way to recover a
-        # verification link, since no real inbox exists to check.
         logger.warning(
-            "Email sending disabled/unconfigured; skipping send to %s\nSubject: %s\n%s",
+            "DEMO_MODE: email sending disabled; skipping send to %s\nSubject: %s\n%s",
             to,
             subject,
             body,
+        )
+
+
+class DisabledProvider:
+    """No-op provider for an *unconfigured* (non-demo) deployment.
+
+    This is the production-safety fallback: DEMO_MODE is off but no
+    EMAIL_HOST was set. Unlike NullProvider, this must never log the body —
+    it may contain a verification/payment link with a live, unguessable
+    token, and logs are not a place that data belongs. We log only enough
+    for an operator to notice and diagnose the drop: recipient and subject,
+    at error level so it's loud.
+    """
+
+    def send(self, to: str, subject: str, body: str) -> None:
+        logger.error(
+            "Email is not configured (EMAIL_HOST is unset) and DEMO_MODE is "
+            "off; dropping message instead of sending it. To: %s Subject: %s "
+            "Set EMAIL_HOST (and related EMAIL_* settings) to enable sending, "
+            "or set EMAIL_DISABLED_ACK=true to confirm this deployment is "
+            "deliberately running without email.",
+            to,
+            subject,
         )
 
 
@@ -88,13 +115,22 @@ _PROVIDERS: dict[str, type[NotificationProvider]] = {
 
 def get_provider() -> NotificationProvider:
     """
-    Returns NullProvider whenever email isn't configured or is deliberately
-    disabled (DEMO_MODE) — both are supported deployment states, not error
-    conditions. Otherwise dispatches on EMAIL_PROVIDER; an unrecognised
-    value fails loudly here rather than silently falling back to a no-op.
+    Dispatches to the right provider for the deployment's state. Two distinct
+    no-op states are kept explicit rather than conflated:
+
+    - DEMO_MODE: deliberate, logs the full body (see NullProvider).
+    - EMAIL_HOST unset (and not DEMO_MODE): treated as "email not configured
+      for this deployment" — see DisabledProvider, which does not log the
+      body/token. (Startup-time loud-refusal for this state lives in
+      NotificationsConfig.ready(), gated by EMAIL_DISABLED_ACK.)
+
+    Otherwise dispatches on EMAIL_PROVIDER; an unrecognised value fails
+    loudly here rather than silently falling back to a no-op.
     """
-    if settings.DEMO_MODE or not settings.EMAIL_HOST:
+    if settings.DEMO_MODE:
         return NullProvider()
+    if not settings.EMAIL_HOST:
+        return DisabledProvider()
 
     try:
         provider_cls = _PROVIDERS[settings.EMAIL_PROVIDER]

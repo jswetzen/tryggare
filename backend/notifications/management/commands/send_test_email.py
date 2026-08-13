@@ -1,6 +1,6 @@
 from django.core.management.base import BaseCommand
 
-from notifications.providers import NullProvider, get_provider
+from notifications.providers import DisabledProvider, NullProvider, get_provider
 
 
 class Command(BaseCommand):
@@ -16,7 +16,7 @@ class Command(BaseCommand):
         to = options["to"]
         provider = get_provider()
 
-        if isinstance(provider, NullProvider):
+        if isinstance(provider, (NullProvider, DisabledProvider)):
             self.stdout.write(
                 self.style.WARNING(
                     "No email provider is configured (EMAIL_HOST unset or "
