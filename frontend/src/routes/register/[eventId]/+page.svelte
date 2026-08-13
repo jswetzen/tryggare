@@ -22,10 +22,13 @@
     PromoCodeValidation,
     RegistrationEventInfo,
     RegistrationExtraInfo,
-    RegistrationExtraSelectionPayload
+    RegistrationExtraSelectionPayload,
+    RegistrationSubmitPayload
   } from '$lib/api/types';
   import ConsentCapture, { type HealthInfoStatus } from '$lib/components/checkin/ConsentCapture.svelte';
   import EyebrowLabel from '$lib/components/ui/EyebrowLabel.svelte';
+  import Button from '$lib/components/ui/Button.svelte';
+  import Icon from '$lib/components/ui/Icon.svelte';
   import { isValidPhone } from '$lib/utils/phone';
 
   type HealthConsentStatus = 'not_applicable' | 'granted' | 'declined';
@@ -95,6 +98,40 @@
     const value = typeof amount === 'string' ? parseFloat(amount) : amount;
     const localeTag = $locale === 'sv' ? 'sv-SE' : 'en-GB';
     return value.toLocaleString(localeTag, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+
+  // A transposed-but-valid date (2021-03-12 entered as 2021-12-03) is
+  // otherwise accepted silently by the native picker and nobody notices —
+  // native mm/dd vs dd/mm picker order isn't actually the bug (a real
+  // Swedish browser renders it in Swedish order), but a word month is
+  // unambiguous in *any* locale, so echoing the parsed date back as prose
+  // lets the guardian catch a transposition themselves. Age is computed as
+  // of the event's start date (not today) since that's the age that
+  // actually matters for ticket age-band eligibility.
+  function ageAt(birthdateIso: string, asOfIso: string): number {
+    const b = new Date(`${birthdateIso}T00:00:00`);
+    const asOf = new Date(`${asOfIso}T00:00:00`);
+    let age = asOf.getFullYear() - b.getFullYear();
+    const hadBirthdayThisYear =
+      asOf.getMonth() > b.getMonth() ||
+      (asOf.getMonth() === b.getMonth() && asOf.getDate() >= b.getDate());
+    if (!hadBirthdayThisYear) age -= 1;
+    return age;
+  }
+
+  function birthdateProse(birthdateIso: string): string {
+    if (!birthdateIso) return '';
+    const parsed = new Date(`${birthdateIso}T00:00:00`);
+    if (Number.isNaN(parsed.getTime())) return '';
+    const localeTag = $locale === 'sv' ? 'sv-SE' : 'en-GB';
+    const dateStr = parsed.toLocaleDateString(localeTag, {
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric'
+    });
+    const asOfIso = eventInfo?.start_date ?? todayIso;
+    const age = ageAt(birthdateIso, asOfIso);
+    return $t('register.birthdateProse', { values: { date: dateStr, age } });
   }
 
   // Bounds for the birthdate <input type="date">: never a future date, and
@@ -175,6 +212,12 @@
   let submitting = $state(false);
   let submitted = $state(false);
   let referenceCode = $state<string | null>(null);
+  // Replayed by the confirmation screen's "resend" action — see
+  // handleSubmit's payload comment for why this is a plain resubmit rather
+  // than a dedicated resend endpoint.
+  let lastSubmitPayload = $state<RegistrationSubmitPayload | null>(null);
+  let resending = $state(false);
+  let resendStatus = $state<'sent' | 'error' | null>(null);
 
   // Scroll/focus the failure banner into view on every new error — on this
   // 2000+px page a failed submit otherwise looks like nothing happened from
@@ -525,39 +568,48 @@
       declined: 'declined'
     };
 
+    const payload: RegistrationSubmitPayload = {
+      event: eventId,
+      last_name: familyName.trim(),
+      contact_email: contactEmail.trim(),
+      parents: validParents.map((p) => ({
+        first_name: p.first_name.trim(),
+        last_name: p.last_name.trim(),
+        phone: p.phone.trim(),
+        email: p.email.trim(),
+        relationship_type: p.relationship_type,
+        allergies: p.healthInfoStatus === 'consented' ? p.allergies : '',
+        notes: p.healthInfoStatus === 'consented' ? p.notes : '',
+        health_consent_status: statusMap[p.healthInfoStatus],
+        ticket_type: p.ticketTypeId || null,
+        extras: buildExtraSelections(p.extraSelections, applicablePersonExtras(false))
+      })),
+      children: children.map((child) => ({
+        first_name: child.first_name.trim(),
+        last_name: child.last_name.trim(),
+        birthdate: child.birthdate,
+        allergies: child.healthInfoStatus === 'consented' ? child.allergies : '',
+        notes: child.healthInfoStatus === 'consented' ? child.notes : '',
+        health_consent_status: statusMap[child.healthInfoStatus],
+        ticket_type: child.ticketTypeId || null,
+        extras: buildExtraSelections(child.extraSelections, applicablePersonExtras(true))
+      })),
+      extras: buildExtraSelections(registrationExtraSelections, registrationExtras()),
+      promo_code: promoCode.trim(),
+      website
+    };
+
     submitting = true;
     try {
-      const response = await registrationApi.submit({
-        event: eventId,
-        last_name: familyName.trim(),
-        contact_email: contactEmail.trim(),
-        parents: validParents.map((p) => ({
-          first_name: p.first_name.trim(),
-          last_name: p.last_name.trim(),
-          phone: p.phone.trim(),
-          email: p.email.trim(),
-          relationship_type: p.relationship_type,
-          allergies: p.healthInfoStatus === 'consented' ? p.allergies : '',
-          notes: p.healthInfoStatus === 'consented' ? p.notes : '',
-          health_consent_status: statusMap[p.healthInfoStatus],
-          ticket_type: p.ticketTypeId || null,
-          extras: buildExtraSelections(p.extraSelections, applicablePersonExtras(false))
-        })),
-        children: children.map((child) => ({
-          first_name: child.first_name.trim(),
-          last_name: child.last_name.trim(),
-          birthdate: child.birthdate,
-          allergies: child.healthInfoStatus === 'consented' ? child.allergies : '',
-          notes: child.healthInfoStatus === 'consented' ? child.notes : '',
-          health_consent_status: statusMap[child.healthInfoStatus],
-          ticket_type: child.ticketTypeId || null,
-          extras: buildExtraSelections(child.extraSelections, applicablePersonExtras(true))
-        })),
-        extras: buildExtraSelections(registrationExtraSelections, registrationExtras()),
-        promo_code: promoCode.trim(),
-        website
-      });
+      const response = await registrationApi.submit(payload);
       referenceCode = response.reference_code;
+      // Kept so the confirmation screen's "resend" action can replay the
+      // exact same submission — the backend's own dedup logic (same event +
+      // contact_email while still pending_verification) treats a repeat as
+      // a resend rather than a duplicate, cooldown and all, so there's no
+      // separate resend endpoint to build or throttle here.
+      lastSubmitPayload = payload;
+      resendStatus = null;
       submitted = true;
     } catch (err) {
       console.error('Registration submission failed:', err);
@@ -574,6 +626,41 @@
     } finally {
       submitting = false;
     }
+  }
+
+  // Resends to the SAME address the original submission used — never a
+  // caller-supplied address. Deliberately reuses submit_registration's
+  // existing (event, contact_email)-pending dedup path (fresh token,
+  // 10-minute cooldown, same RegistrationSubmitThrottle) rather than adding
+  // a new "resend by reference code/registration id" endpoint: that shape
+  // would let anyone who lands on this public confirmation screen (or
+  // guesses/observes a reference code) redirect a stranger's registration
+  // to an address they control. This is the safe subset — see report.
+  async function handleResend() {
+    if (!lastSubmitPayload || resending) return;
+    resending = true;
+    resendStatus = null;
+    try {
+      await registrationApi.submit(lastSubmitPayload);
+      // Whether the backend actually re-sent or short-circuited on its own
+      // cooldown, a confirmation email was sent to this address recently
+      // either way — same advice to the guardian in both cases, so there's
+      // no need to parse the (unlocalized) response message to tell them apart.
+      resendStatus = 'sent';
+    } catch (err) {
+      console.error('Resend failed:', err);
+      resendStatus = 'error';
+    } finally {
+      resending = false;
+    }
+  }
+
+  // Drops back into the form, still populated with everything already
+  // entered, so a mistyped contact email can be corrected and resubmitted
+  // without re-keying the whole registration.
+  function handleEditEmail() {
+    submitted = false;
+    resendStatus = null;
   }
 </script>
 
@@ -622,13 +709,53 @@
   {:else if submitted}
     <div class="bg-white border border-neutral-300 rounded-card p-6 shadow-sm text-center">
       <h1 class="text-2xl font-bold text-neutral-900 mb-2">{$t('register.successTitle')}</h1>
-      <p class="text-neutral-700 mb-4">
-        {$t('register.successMessage', { values: { email: contactEmail.trim() } })}
-      </p>
+      <p class="text-neutral-700 mb-3">{$t('register.successIntro')}</p>
+
+      <div
+        class="inline-flex items-center gap-2 px-4 py-2 mb-3 bg-primary-50 border border-primary-200 rounded-card"
+        data-testid="register-success-email"
+      >
+        <Icon name="mail" size="sm" class="text-primary-600 shrink-0" />
+        <span class="font-semibold text-neutral-900 break-all">{contactEmail.trim()}</span>
+      </div>
+
+      <p class="text-sm text-neutral-600 mb-4">{$t('register.successHint')}</p>
+
       {#if referenceCode}
-        <p class="text-sm text-neutral-500">
+        <p class="text-sm text-neutral-500 mb-4">
           {$t('register.referenceCode', { values: { code: referenceCode } })}
         </p>
+      {/if}
+
+      <div class="flex flex-col sm:flex-row items-center justify-center gap-2 sm:gap-3">
+        <Button
+          variant="secondary"
+          size="sm"
+          loading={resending}
+          disabled={resending}
+          onclick={handleResend}
+        >
+          {resending ? $t('register.resending') : $t('register.resendButton')}
+        </Button>
+        <span class="text-sm text-neutral-500">
+          {$t('register.wrongEmailPrompt')}
+          <button
+            type="button"
+            class="text-primary-600 hover:text-primary-700 hover:underline font-medium"
+            on:click={handleEditEmail}
+            data-testid="register-edit-email"
+          >
+            {$t('register.editEmailButton')}
+          </button>
+        </span>
+      </div>
+
+      {#if resendStatus === 'sent'}
+        <p class="mt-3 text-xs text-success-700" data-testid="register-resend-sent">
+          {$t('register.resendSent')}
+        </p>
+      {:else if resendStatus === 'error'}
+        <p class="mt-3 text-xs text-danger-700">{$t('register.resendError')}</p>
       {/if}
     </div>
   {:else}
@@ -999,6 +1126,14 @@
                     required
                   />
                   <p class="mt-1 text-xs text-neutral-500">{$t('register.birthdateFormatHint')}</p>
+                  {#if birthdateProse(child.birthdate)}
+                    <p
+                      class="mt-1 text-xs font-medium text-neutral-700"
+                      data-testid={`child-birthdate-prose-${index}`}
+                    >
+                      {birthdateProse(child.birthdate)}
+                    </p>
+                  {/if}
                 </div>
 
                 {#if applicableTicketTypes(true).length > 0}
