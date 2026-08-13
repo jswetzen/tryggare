@@ -249,6 +249,15 @@ EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD", "")
 EMAIL_USE_TLS = os.getenv("EMAIL_USE_TLS", "true").lower() == "true"
 DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL", "")
 
+# Escape hatch for NotificationsConfig.ready()'s startup check (see
+# notifications/apps.py): when DEMO_MODE is off and EMAIL_HOST is unset,
+# that's treated as a misconfigured production deployment and refused at
+# startup. Setting this to true is a deliberate operator acknowledgement —
+# "yes, I really am running this deployment without email" — that boots
+# normally but still logs a loud warning. Never default this to true
+# anywhere; it must be a conscious choice per deployment.
+EMAIL_DISABLED_ACK = os.getenv("EMAIL_DISABLED_ACK", "false").lower() == "true"
+
 # Base URL of the SvelteKit frontend, used to build links sent by email (e.g.
 # the registration verification link) — these must resolve to the frontend's
 # real routes even though the Django backend is on a different origin in dev

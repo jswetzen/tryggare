@@ -7,8 +7,14 @@ from django.core import mail
 from django.core.exceptions import ImproperlyConfigured
 from django.test import override_settings
 
+from notifications.apps import NotificationsConfig
 from notifications.models import EmailSendLog
-from notifications.providers import NullProvider, SmtpProvider, get_provider
+from notifications.providers import (
+    DisabledProvider,
+    NullProvider,
+    SmtpProvider,
+    get_provider,
+)
 
 
 class TestGetProvider:
@@ -17,8 +23,8 @@ class TestGetProvider:
         assert isinstance(get_provider(), SmtpProvider)
 
     @override_settings(DEMO_MODE=False, EMAIL_HOST="")
-    def test_returns_null_provider_when_email_host_blank(self):
-        assert isinstance(get_provider(), NullProvider)
+    def test_returns_disabled_provider_when_email_host_blank_and_not_demo(self):
+        assert isinstance(get_provider(), DisabledProvider)
 
     @override_settings(DEMO_MODE=True, EMAIL_HOST="smtp.simply.com")
     def test_returns_null_provider_in_demo_mode_even_if_configured(self):
@@ -99,3 +105,55 @@ class TestNullProvider:
             body="Click https://example.com/verify/abc123 to confirm.",
         )
         assert "https://example.com/verify/abc123" in caplog.text
+
+
+class TestDisabledProvider:
+    def test_send_is_a_true_no_op(self, caplog):
+        DisabledProvider().send(
+            to="guardian@example.com", subject="Subject", body="Body"
+        )
+        assert len(mail.outbox) == 0
+
+    def test_send_does_not_log_the_body_or_token(self, caplog):
+        DisabledProvider().send(
+            to="guardian@example.com",
+            subject="Verify your registration",
+            body="Click https://example.com/verify/abc123 to confirm.",
+        )
+        assert "https://example.com/verify/abc123" not in caplog.text
+        assert "abc123" not in caplog.text
+
+    def test_send_still_names_recipient_and_subject(self, caplog):
+        DisabledProvider().send(
+            to="guardian@example.com",
+            subject="Verify your registration",
+            body="Click https://example.com/verify/abc123 to confirm.",
+        )
+        assert "guardian@example.com" in caplog.text
+        assert "Verify your registration" in caplog.text
+
+
+class TestNotificationsConfigReady:
+    """Startup-time refusal for an unconfigured (non-demo) deployment."""
+
+    @override_settings(DEMO_MODE=True, EMAIL_HOST="", EMAIL_DISABLED_ACK=False)
+    def test_demo_mode_boots_without_ack(self):
+        NotificationsConfig("notifications", __import__("notifications")).ready()
+
+    @override_settings(DEMO_MODE=False, EMAIL_HOST="smtp.simply.com")
+    def test_configured_email_boots_without_ack(self):
+        NotificationsConfig("notifications", __import__("notifications")).ready()
+
+    @override_settings(DEMO_MODE=False, EMAIL_HOST="", EMAIL_DISABLED_ACK=True)
+    def test_ack_boots_and_warns(self, caplog):
+        NotificationsConfig("notifications", __import__("notifications")).ready()
+        assert "EMAIL_DISABLED_ACK" in caplog.text
+
+    @override_settings(DEMO_MODE=False, EMAIL_HOST="", EMAIL_DISABLED_ACK=False)
+    def test_neither_refuses_to_start(self):
+        try:
+            NotificationsConfig("notifications", __import__("notifications")).ready()
+            raise AssertionError("expected ImproperlyConfigured")
+        except ImproperlyConfigured as e:
+            assert "EMAIL_HOST" in str(e)
+            assert "EMAIL_DISABLED_ACK" in str(e)

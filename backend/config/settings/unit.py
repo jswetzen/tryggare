@@ -38,3 +38,8 @@ ALLOWED_HOSTS = ["*"]
 PASSWORD_HASHERS = ["django.contrib.auth.hashers.MD5PasswordHasher"]
 
 EMAIL_BACKEND = "django.core.mail.backends.locmem.EmailBackend"
+
+# Not a real deployment, so the "unconfigured production" startup refusal in
+# notifications/apps.py doesn't apply here — acknowledge explicitly rather
+# than requiring every test runner to export EMAIL_HOST/DEMO_MODE.
+EMAIL_DISABLED_ACK = True

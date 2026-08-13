@@ -35,6 +35,11 @@ ALLOWED_HOSTS = ["*"]
 # Don't send real emails during tests
 EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
 
+# Not a real deployment, so the "unconfigured production" startup refusal in
+# notifications/apps.py doesn't apply here — acknowledge explicitly rather
+# than requiring every test runner to export EMAIL_HOST/DEMO_MODE.
+EMAIL_DISABLED_ACK = True
+
 # Use faster password hashing for tests (significantly speeds up user creation)
 PASSWORD_HASHERS = [
     "django.contrib.auth.hashers.MD5PasswordHasher",

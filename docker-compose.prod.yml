@@ -32,6 +32,19 @@ services:
       - DEMO_MODE=${DEMO_MODE:-false}
       - SEED_DEMO_DATA=${SEED_DEMO_DATA:-false}
       - SEED_DEMO_RESET=${SEED_DEMO_RESET:-false}
+      # Email (SMTP) — optional, see notifications/providers.py. Leave
+      # EMAIL_HOST blank only with DEMO_MODE=true or EMAIL_DISABLED_ACK=true
+      # set below, or this deployment refuses to start (notifications/apps.py).
+      - EMAIL_PROVIDER=${EMAIL_PROVIDER:-smtp}
+      - EMAIL_HOST=${EMAIL_HOST:-}
+      - EMAIL_PORT=${EMAIL_PORT:-587}
+      - EMAIL_HOST_USER=${EMAIL_HOST_USER:-}
+      - EMAIL_HOST_PASSWORD=${EMAIL_HOST_PASSWORD:-}
+      - EMAIL_USE_TLS=${EMAIL_USE_TLS:-true}
+      - DEFAULT_FROM_EMAIL=${DEFAULT_FROM_EMAIL:-}
+      # Explicit "yes, I really am running this without email" acknowledgement
+      # (see notifications/apps.py). Never default this to true.
+      - EMAIL_DISABLED_ACK=${EMAIL_DISABLED_ACK:-false}
     ports:
       - "${WEB_HOST_PORT:-8080}:8000"
     labels:
