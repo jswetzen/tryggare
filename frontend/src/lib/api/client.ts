@@ -25,8 +25,20 @@ export interface ApiError {
  * ({"field_name": ["..."]}) — falls back to the HTTP status text if none
  * of those shapes match.
  */
-function extractErrorMessage(details: unknown, fallback: string): string {
-  if (!details || typeof details !== 'object') return fallback;
+export function extractErrorMessage(details: unknown, fallback: string): string {
+  return findFirstErrorString(details, 1) ?? fallback;
+}
+
+/**
+ * Descends into a DRF error body looking for the first human-readable
+ * string. `depth` bounds how many extra levels to recurse into nested
+ * field-keyed shapes, e.g. registrations/views.py's per-attendee
+ * `{"children": {"1": ["..."]}}` — one level beyond the flat shapes
+ * (`{"field": ["..."]}`) this already handled is enough for every shape
+ * currently in use across this backend.
+ */
+function findFirstErrorString(details: unknown, depth: number): string | null {
+  if (!details || typeof details !== 'object') return null;
   const body = details as Record<string, unknown>;
 
   if (typeof body.error === 'string') return body.error;
@@ -40,9 +52,33 @@ function extractErrorMessage(details: unknown, fallback: string): string {
   for (const value of Object.values(body)) {
     if (Array.isArray(value) && typeof value[0] === 'string') return value[0];
     if (typeof value === 'string') return value;
+    if (depth > 0) {
+      const nested = findFirstErrorString(value, depth - 1);
+      if (nested) return nested;
+    }
   }
 
-  return fallback;
+  return null;
+}
+
+/**
+ * Pulls a single attendee's field error out of a DRF error body shaped like
+ * `{"children": {"1": ["message"]}}` (see registrations/views.py's
+ * per-attendee ValidationError, e.g. the ticket age-band check) — null if
+ * that attendee has no error. `details` is the `ApiError.details` a failed
+ * `apiClient.post` throws.
+ */
+export function extractFieldError(
+  details: unknown,
+  group: 'parents' | 'children',
+  index: number
+): string | null {
+  if (!details || typeof details !== 'object') return null;
+  const groupErrors = (details as Record<string, unknown>)[group];
+  if (!groupErrors || typeof groupErrors !== 'object') return null;
+  const entry = (groupErrors as Record<string, unknown>)[String(index)];
+  if (Array.isArray(entry) && typeof entry[0] === 'string') return entry[0];
+  return null;
 }
 
 export class ApiClient {
