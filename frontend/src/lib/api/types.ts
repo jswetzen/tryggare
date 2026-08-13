@@ -319,6 +319,11 @@ export interface RegistrationSubmitPayload {
 export interface RegistrationSubmitResponse {
   reference_code: string | null;
   message: string;
+  // False when the registration was stored but the confirmation email did
+  // not leave the server. Absent on the "already sent recently" cooldown
+  // response, where nothing was attempted — treat only an explicit false as
+  // a failure.
+  email_sent?: boolean;
 }
 
 export interface PromoCodeValidation {

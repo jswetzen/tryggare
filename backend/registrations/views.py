@@ -794,7 +794,7 @@ def submit_registration(request):
                 },
                 status=status.HTTP_200_OK,
             )
-        send_verification_email(registration, token)
+        email_sent = send_verification_email(registration, token)
         log_audit(
             request,
             action="registration_resent",
@@ -805,6 +805,11 @@ def submit_registration(request):
         return Response(
             {
                 "reference_code": registration.reference_code,
+                # False means the registration is stored but the mail didn't
+                # go out (see emails.py::_send_or_degrade) — the client says
+                # so plainly and offers the resend action rather than
+                # claiming an email is on its way.
+                "email_sent": email_sent,
                 "message": _("Thanks — check your email to confirm."),
             },
             status=status.HTTP_201_CREATED,
@@ -821,7 +826,7 @@ def submit_registration(request):
             promo_code_str=data.get("promo_code"),
         )
 
-    send_verification_email(registration, token)
+    email_sent = send_verification_email(registration, token)
 
     log_audit(
         request,
@@ -837,6 +842,7 @@ def submit_registration(request):
     return Response(
         {
             "reference_code": registration.reference_code,
+            "email_sent": email_sent,
             "message": _("Thanks — check your email to confirm."),
         },
         status=status.HTTP_201_CREATED,
@@ -920,15 +926,20 @@ def verify_registration(request, token):
         },
     )
 
+    email_sent = True
     if registration.status == Registration.Status.CONFIRMED:
-        send_confirmation_email(registration)
+        email_sent = send_confirmation_email(registration)
     elif registration.status == Registration.Status.PENDING_PAYMENT:
-        send_payment_instructions_email(registration)
+        email_sent = send_payment_instructions_email(registration)
 
     response_data = {
         "status": registration.status,
         "reference_code": registration.reference_code,
         "event_name": registration.event.name,
+        # The verification itself has already committed regardless — this
+        # only says whether the follow-up mail (confirmation, or payment
+        # instructions) actually left. See emails.py::_send_or_degrade.
+        "email_sent": email_sent,
     }
     if payment is not None:
         response_data.update(payment_instructions(payment))

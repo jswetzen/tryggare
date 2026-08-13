@@ -4,6 +4,7 @@ email-match staff-review routing, and consent trust-boundary clearing.
 """
 
 from datetime import timedelta
+from smtplib import SMTPException
 from unittest.mock import patch
 
 from django.core.cache import cache
@@ -16,6 +17,7 @@ from events.models import Event, EventTicket
 from families.models import Child, Family, Parent
 
 from .models import Registration
+from .services import confirm_registration_despite_balance
 
 
 def _make_event(name="Summer Camp"):
@@ -113,7 +115,12 @@ class RegistrationWindowGateTests(TestCase):
         self.assertEqual(response.status_code, 400, response.data)
         self.assertFalse(Registration.objects.filter(event=event).exists())
 
-    @patch("registrations.views.send_verification_email")
+    # ``return_value=True`` here and at every other send_*_email patch in the
+    # suite is load-bearing, not decoration: the senders now report delivery as
+    # a bool that the view puts in its JSON response, and a bare MagicMock in
+    # that slot sends the JSON renderer into an unbounded walk of auto-created
+    # attributes — the test hangs and eats memory rather than failing.
+    @patch("registrations.views.send_verification_email", return_value=True)
     def test_open_event_accepts_submission(self, mock_send):
         event = _make_event()
         response = self.client.post(self.url, self._payload(event), format="json")
@@ -150,7 +157,7 @@ class SubmitRegistrationTests(TestCase):
         payload.update(overrides)
         return payload
 
-    @patch("registrations.views.send_verification_email")
+    @patch("registrations.views.send_verification_email", return_value=True)
     def test_valid_submission_materializes_family_and_tickets(self, mock_send):
         response = self.client.post(self.url, self._payload(), format="json")
 
@@ -174,7 +181,7 @@ class SubmitRegistrationTests(TestCase):
         self.assertEqual(sent_registration.id, registration.id)
         self.assertTrue(sent_token)
 
-    @patch("registrations.views.send_verification_email")
+    @patch("registrations.views.send_verification_email", return_value=True)
     def test_honeypot_filled_creates_nothing(self, mock_send):
         response = self.client.post(
             self.url, self._payload(website="http://spam.example"), format="json"
@@ -192,7 +199,7 @@ class SubmitRegistrationTests(TestCase):
         self.assertEqual(response.status_code, 400)
         self.assertFalse(Registration.objects.exists())
 
-    @patch("registrations.views.send_verification_email")
+    @patch("registrations.views.send_verification_email", return_value=True)
     def test_two_guardian_submission_attests_by_verified_email_not_first(
         self, mock_send
     ):
@@ -225,7 +232,7 @@ class SubmitRegistrationTests(TestCase):
             {p.first_name for p in child.family.parents.all()}, {"Anna", "Bo"}
         )
 
-    @patch("registrations.views.send_verification_email")
+    @patch("registrations.views.send_verification_email", return_value=True)
     def test_consent_trust_boundary_cleared_at_submission(self, mock_send):
         """allergies/notes must be blanked server-side when consent isn't
         GRANTED, even if the client sent text anyway — same rigor as the
@@ -251,7 +258,7 @@ class SubmitRegistrationTests(TestCase):
         self.assertIsNone(child.notes)
         self.assertEqual(child.health_consent_status, "declined")
 
-    @patch("registrations.views.send_verification_email")
+    @patch("registrations.views.send_verification_email", return_value=True)
     def test_adult_health_info_granted_via_self_serve_submission(self, mock_send):
         """An adult attendee's own allergy capture (previously nonexistent —
         see docs/roadmap/event_registration_ux_case_catalog.md §10.1) goes
@@ -281,7 +288,7 @@ class SubmitRegistrationTests(TestCase):
         self.assertEqual(parent.health_consent_by_id, parent.id)
         self.assertIsNotNone(parent.health_consent_at)
 
-    @patch("registrations.views.send_verification_email")
+    @patch("registrations.views.send_verification_email", return_value=True)
     def test_adult_health_info_trust_boundary_cleared_at_submission(self, mock_send):
         response = self.client.post(
             self.url,
@@ -305,7 +312,7 @@ class SubmitRegistrationTests(TestCase):
         self.assertIsNone(parent.allergies)
         self.assertEqual(parent.health_consent_status, "declined")
 
-    @patch("registrations.views.send_verification_email")
+    @patch("registrations.views.send_verification_email", return_value=True)
     def test_submission_logs_audit(self, mock_send):
         self.client.post(self.url, self._payload(), format="json")
         self.assertTrue(
@@ -332,7 +339,9 @@ class VerifyRegistrationTests(TestCase):
             "children": [{"first_name": "Kim", "birthdate": "2018-01-01"}],
         }
         payload.update(overrides)
-        with patch("registrations.views.send_verification_email") as mock_send:
+        with patch(
+            "registrations.views.send_verification_email", return_value=True
+        ) as mock_send:
             response = self.client.post("/api/registrations/", payload, format="json")
         self.assertEqual(response.status_code, 201, response.data)
         _, token = mock_send.call_args[0]
@@ -341,7 +350,7 @@ class VerifyRegistrationTests(TestCase):
         )
         return registration, token
 
-    @patch("registrations.views.send_confirmation_email")
+    @patch("registrations.views.send_confirmation_email", return_value=True)
     def test_valid_token_confirms_registration(self, mock_confirm):
         registration, token = self._submit_and_get_token()
 
@@ -357,7 +366,7 @@ class VerifyRegistrationTests(TestCase):
         response = self.client.get("/api/registrations/verify/not-a-real-token/")
         self.assertEqual(response.status_code, 404)
 
-    @patch("registrations.views.send_confirmation_email")
+    @patch("registrations.views.send_confirmation_email", return_value=True)
     def test_expired_registration_returns_410(self, mock_confirm):
         registration, token = self._submit_and_get_token()
         Registration.objects.filter(pk=registration.pk).update(
@@ -371,7 +380,7 @@ class VerifyRegistrationTests(TestCase):
         self.assertEqual(registration.status, Registration.Status.PENDING_VERIFICATION)
         mock_confirm.assert_not_called()
 
-    @patch("registrations.views.send_confirmation_email")
+    @patch("registrations.views.send_confirmation_email", return_value=True)
     def test_email_matching_existing_parent_on_other_family_routes_to_review(
         self, mock_confirm
     ):
@@ -394,7 +403,7 @@ class VerifyRegistrationTests(TestCase):
         self.assertEqual(registration.status, Registration.Status.PENDING_REVIEW)
         mock_confirm.assert_not_called()
 
-    @patch("registrations.views.send_confirmation_email")
+    @patch("registrations.views.send_confirmation_email", return_value=True)
     def test_email_matching_anonymized_parent_is_ignored(self, mock_confirm):
         other_family = Family.objects.create(last_name="Existing")
         Parent.objects.create(
@@ -416,10 +425,101 @@ class VerifyRegistrationTests(TestCase):
         self.assertEqual(registration.status, Registration.Status.CONFIRMED)
         mock_confirm.assert_called_once()
 
-    @patch("registrations.views.send_confirmation_email")
+    @patch("registrations.views.send_confirmation_email", return_value=True)
     def test_verification_logs_audit(self, mock_confirm):
         registration, token = self._submit_and_get_token()
         self.client.get(f"/api/registrations/verify/{token}/")
         self.assertTrue(
             AuditLog.objects.filter(action="registration_verified").exists()
         )
+
+
+class EmailDeliveryFailureTests(TestCase):
+    """An SMTP failure must degrade, not 500.
+
+    Every send happens after the registration (or payment) row has already
+    committed, so a raising provider would report failure for an operation
+    that succeeded — and invite the guardian or staff member to redo it.
+    These patch the transport itself rather than the ``send_*_email``
+    wrappers, so ``emails.py::_send_or_degrade`` is genuinely exercised.
+    """
+
+    def setUp(self):
+        self.client = APIClient()
+        self.event = _make_event()
+
+    def _payload(self, contact_email="guardian@example.com"):
+        return {
+            "event": str(self.event.id),
+            "contact_email": contact_email,
+            "parents": [
+                {
+                    "first_name": "Anna",
+                    "relationship_type": "Mother",
+                    "email": contact_email,
+                }
+            ],
+            "children": [{"first_name": "Kim", "birthdate": "2018-01-01"}],
+        }
+
+    @patch(
+        "registrations.emails.send_transactional_email",
+        side_effect=SMTPException("relay unavailable"),
+    )
+    def test_submission_survives_send_failure(self, mock_send):
+        with self.assertLogs("registrations.emails", level="ERROR"):
+            response = self.client.post(
+                "/api/registrations/", self._payload(), format="json"
+            )
+
+        self.assertEqual(response.status_code, 201, response.data)
+        self.assertFalse(response.data["email_sent"])
+        registration = Registration.objects.get()
+        self.assertEqual(registration.status, Registration.Status.PENDING_VERIFICATION)
+        mock_send.assert_called_once()
+
+    def test_successful_submission_reports_email_sent(self):
+        with patch("registrations.emails.send_transactional_email"):
+            response = self.client.post(
+                "/api/registrations/", self._payload(), format="json"
+            )
+        self.assertEqual(response.status_code, 201, response.data)
+        self.assertTrue(response.data["email_sent"])
+
+    def test_verification_survives_send_failure(self):
+        with patch("registrations.emails.send_transactional_email") as mock_send:
+            self.client.post("/api/registrations/", self._payload(), format="json")
+            _, kwargs = mock_send.call_args
+            token = kwargs["body"].split("/register/verify/")[1].split("\n")[0]
+
+        with patch(
+            "registrations.emails.send_transactional_email",
+            side_effect=SMTPException("relay unavailable"),
+        ):
+            with self.assertLogs("registrations.emails", level="ERROR"):
+                response = self.client.get(f"/api/registrations/verify/{token}/")
+
+        self.assertEqual(response.status_code, 200, response.data)
+        self.assertFalse(response.data["email_sent"])
+        registration = Registration.objects.get()
+        self.assertEqual(registration.status, Registration.Status.CONFIRMED)
+
+    def test_confirm_despite_balance_survives_send_failure(self):
+        """The staff-side path: the money is already recorded, so a mail
+        failure must not raise back into the admin action and make staff
+        think the payment didn't land."""
+        registration = Registration.objects.create(
+            event=self.event,
+            family=Family.objects.create(last_name="Andersson"),
+            contact_email="guardian@example.com",
+            status=Registration.Status.PENDING_PAYMENT,
+        )
+        with patch(
+            "registrations.emails.send_transactional_email",
+            side_effect=OSError("connection timed out"),
+        ):
+            with self.assertLogs("registrations.emails", level="ERROR"):
+                confirm_registration_despite_balance(registration, confirmed_by=None)
+
+        registration.refresh_from_db()
+        self.assertEqual(registration.status, Registration.Status.CONFIRMED)

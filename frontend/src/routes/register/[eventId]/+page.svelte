@@ -218,6 +218,10 @@
   let lastSubmitPayload = $state<RegistrationSubmitPayload | null>(null);
   let resending = $state(false);
   let resendStatus = $state<'sent' | 'error' | null>(null);
+  // False when the server stored the registration but couldn't send the
+  // confirmation email — the guardian is told plainly rather than being sent
+  // to watch an inbox nothing is coming to.
+  let emailSent = $state(true);
 
   // Scroll/focus the failure banner into view on every new error — on this
   // 2000+px page a failed submit otherwise looks like nothing happened from
@@ -610,6 +614,10 @@
       // separate resend endpoint to build or throttle here.
       lastSubmitPayload = payload;
       resendStatus = null;
+      // The registration is saved either way; this only says whether the
+      // email actually left. Only an explicit false counts as a failure —
+      // the backend omits the field on its "already sent recently" path.
+      emailSent = response.email_sent !== false;
       submitted = true;
     } catch (err) {
       console.error('Registration submission failed:', err);
@@ -641,12 +649,16 @@
     resending = true;
     resendStatus = null;
     try {
-      await registrationApi.submit(lastSubmitPayload);
+      const response = await registrationApi.submit(lastSubmitPayload);
       // Whether the backend actually re-sent or short-circuited on its own
       // cooldown, a confirmation email was sent to this address recently
       // either way — same advice to the guardian in both cases, so there's
       // no need to parse the (unlocalized) response message to tell them apart.
-      resendStatus = 'sent';
+      // An explicit email_sent:false is the exception: the send was tried and
+      // failed, so saying "sent" would be a lie.
+      const delivered = response.email_sent !== false;
+      resendStatus = delivered ? 'sent' : 'error';
+      emailSent = delivered;
     } catch (err) {
       console.error('Resend failed:', err);
       resendStatus = 'error';
@@ -709,7 +721,9 @@
   {:else if submitted}
     <div class="bg-white border border-neutral-300 rounded-card p-6 shadow-sm text-center">
       <h1 class="text-2xl font-bold text-neutral-900 mb-2">{$t('register.successTitle')}</h1>
-      <p class="text-neutral-700 mb-3">{$t('register.successIntro')}</p>
+      <p class="text-neutral-700 mb-3">
+        {emailSent ? $t('register.successIntro') : $t('register.successIntroNotSent')}
+      </p>
 
       <div
         class="inline-flex items-center gap-2 px-4 py-2 mb-3 bg-primary-50 border border-primary-200 rounded-card"
@@ -719,7 +733,17 @@
         <span class="font-semibold text-neutral-900 break-all">{contactEmail.trim()}</span>
       </div>
 
-      <p class="text-sm text-neutral-600 mb-4">{$t('register.successHint')}</p>
+      {#if emailSent}
+        <p class="text-sm text-neutral-600 mb-4">{$t('register.successHint')}</p>
+      {:else}
+        <p
+          class="text-sm text-warning-800 bg-warning-50 border border-warning-200 rounded-card px-4 py-3 mb-4 text-left"
+          role="status"
+          data-testid="register-email-not-sent"
+        >
+          {$t('register.emailNotSent')}
+        </p>
+      {/if}
 
       {#if referenceCode}
         <p class="text-sm text-neutral-500 mb-4">
