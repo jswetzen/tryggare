@@ -23,7 +23,8 @@
     RegistrationEventInfo,
     RegistrationExtraInfo,
     RegistrationExtraSelectionPayload,
-    RegistrationSubmitPayload
+    RegistrationSubmitPayload,
+    RegistrationTicketType
   } from '$lib/api/types';
   import ConsentCapture, { type HealthInfoStatus } from '$lib/components/checkin/ConsentCapture.svelte';
   import EyebrowLabel from '$lib/components/ui/EyebrowLabel.svelte';
@@ -57,6 +58,15 @@
     first_name: string;
     last_name: string;
     birthdate: string;
+    // True when the browser's own validity check on the date input
+    // (rangeUnderflow/rangeOverflow against the min/max this page already
+    // sets) says the current value isn't submittable — e.g. a digit-by-digit
+    // typo like "0001-02-02", or a future date. Read straight off
+    // input.validity on change, never re-derived with a custom parser. While
+    // true, the birthdate is treated as "not really entered yet": no age
+    // prose, no ticket-eligibility warning, so a bad date never masquerades
+    // as a ticket problem.
+    birthdateRangeInvalid: boolean;
     allergies: string;
     notes: string;
     healthInfoStatus: HealthInfoStatus;
@@ -167,6 +177,7 @@
       first_name: '',
       last_name: '',
       birthdate: '',
+      birthdateRangeInvalid: false,
       allergies: '',
       notes: '',
       healthInfoStatus: 'none',
@@ -318,6 +329,21 @@
     selections[extra.id] = { ...extraState(selections, extra), quantity: Math.max(1, quantity) };
   }
 
+  // Reads the browser's own computed validity straight off the date input
+  // rather than re-parsing the string — the input already carries min/max
+  // (see minBirthdateIso/todayIso above), so rangeUnderflow/rangeOverflow
+  // is exactly "digit-by-digit typo" / "future date" with no extra logic
+  // needed. Deliberately not `.valid` as a whole: an empty, merely
+  // not-yet-filled field is also invalid (valueMissing) but must not be
+  // treated as a bad date — there's no date to be wrong yet.
+  function handleChildBirthdateChange(child: ChildRow, event: Event) {
+    const input = event.currentTarget as HTMLInputElement;
+    child.birthdateRangeInvalid = input.validity.rangeUnderflow || input.validity.rangeOverflow;
+    if (!child.birthdateRangeInvalid) {
+      suggestChildTicketType(child);
+    }
+  }
+
   function suggestChildTicketType(child: ChildRow) {
     if (!eventInfo || child.ticketTypeId || !child.birthdate) return;
     const candidates = applicableTicketTypes(true).filter(
@@ -333,6 +359,87 @@
     const bounded = candidates.find((tt) => tt.min_birthdate || tt.max_birthdate);
     const match = bounded ?? candidates[0];
     if (match) child.ticketTypeId = match.id;
+  }
+
+  // Whether a child's entered birthdate falls inside a ticket type's
+  // min/max birthdate window. No birthdate yet => everything is eligible
+  // (constraint: nothing is disabled until we actually know the birthdate).
+  function childTicketEligible(ticketType: RegistrationTicketType, birthdate: string): boolean {
+    if (!birthdate) return true;
+    const minOk = !ticketType.min_birthdate || birthdate >= ticketType.min_birthdate;
+    const maxOk = !ticketType.max_birthdate || birthdate <= ticketType.max_birthdate;
+    return minOk && maxOk;
+  }
+
+  // Renders a ticket type's age window as prose, e.g. "0–12 yrs". Mirrors
+  // birthdateProse's age-at-event-start-date convention. min_birthdate is
+  // the *oldest* allowed birthdate (bounds the type's max age) and
+  // max_birthdate is the *youngest* allowed birthdate (bounds the type's
+  // min age) — the naming is about the birthdate value, not the age.
+  function ticketAgeRangeLabel(ticketType: RegistrationTicketType, asOfIso: string): string {
+    const maxAge = ticketType.min_birthdate ? ageAt(ticketType.min_birthdate, asOfIso) : null;
+    const minAge = ticketType.max_birthdate ? ageAt(ticketType.max_birthdate, asOfIso) : null;
+    if (minAge != null && maxAge != null) {
+      return $t('register.ticketAgeRangeBoth', { values: { min: minAge, max: maxAge } });
+    }
+    if (minAge != null) return $t('register.ticketAgeRangeMin', { values: { min: minAge } });
+    if (maxAge != null) return $t('register.ticketAgeRangeMax', { values: { max: maxAge } });
+    return '';
+  }
+
+  // A staff-authored ticket name that already states its own age window
+  // (e.g. "Barn (0-12 år)") makes a second, independently-formatted range
+  // repeated in the warning below pure noise — and on a narrow screen it's
+  // the nested-parens part that gets clipped. Two numbers joined by a
+  // hyphen/en dash is a good-enough proxy for "the name already says this".
+  function nameStatesAgeRange(name: string): boolean {
+    return /\d+\s*[-–]\s*\d+/.test(name);
+  }
+
+  // Full <option> label. Out-of-window options get a bare age-range marker
+  // (not a full sentence — the warning paragraph below the select carries
+  // that) so the label stays short. The *currently selected* option is the
+  // one shown, truncated, in the select's own closed control — so it drops
+  // the marker entirely there; the same reason is already available as the
+  // field-level warning right below the select. Every other disabled row
+  // still carries the marker so it's informative while browsing the open
+  // list. The option is disabled (never removed) so the list never reorders
+  // or shrinks while someone is mid-edit — see childTicketEligible above.
+  function childTicketOptionLabel(
+    ticketType: RegistrationTicketType,
+    birthdate: string,
+    isSelected: boolean
+  ): string {
+    const base = `${ticketType.name} — ${formatCurrency(ticketType.price)} kr`;
+    if (childTicketEligible(ticketType, birthdate) || isSelected) return base;
+    const asOfIso = eventInfo?.start_date ?? todayIso;
+    const range = ticketAgeRangeLabel(ticketType, asOfIso);
+    return range ? `${base} (${range})` : base;
+  }
+
+  // If a birthdate edit makes an *already-selected* ticket ineligible, we
+  // deliberately keep the selection rather than silently clearing it — the
+  // guardian picked it for a reason (maybe the birthdate typo is what's
+  // wrong, not the ticket), and clearing it would erase that signal and
+  // could even let a required-extra/composition state quietly go stale.
+  // Instead we surface a clear, visible warning next to the field so they
+  // can decide whether to fix the birthdate or the ticket. The server is
+  // still the real gate at submission either way.
+  function childSelectedTicketWarning(child: ChildRow): string | null {
+    // An invalid birthdate (see birthdateRangeInvalid) was never a real
+    // date to check tickets against — don't let it masquerade as a ticket
+    // problem.
+    if (!child.ticketTypeId || !child.birthdate || !eventInfo || child.birthdateRangeInvalid) {
+      return null;
+    }
+    const ticketType = eventInfo.ticket_types.find((tt) => tt.id === child.ticketTypeId);
+    if (!ticketType || childTicketEligible(ticketType, child.birthdate)) return null;
+    if (nameStatesAgeRange(ticketType.name)) {
+      return $t('register.ticketTypeIneligibleWarningNoRange', { values: { name: ticketType.name } });
+    }
+    const asOfIso = eventInfo.start_date ?? todayIso;
+    const range = ticketAgeRangeLabel(ticketType, asOfIso);
+    return $t('register.ticketTypeIneligibleWarning', { values: { name: ticketType.name, range } });
   }
 
   function buildExtraSelections(
@@ -426,6 +533,16 @@
     }
     return total;
   });
+
+  // The running total's arithmetic already prices whatever is currently
+  // selected, including a ticket a birthdate edit just flagged as
+  // ineligible (see childSelectedTicketWarning's keep-the-selection
+  // decision) — the total must not silently exclude it, but it also must
+  // not present that figure as settled. This only flags it; the price
+  // itself is untouched.
+  let hasIneligibleTicketSelection = $derived(
+    children.some((child) => childSelectedTicketWarning(child) !== null)
+  );
 
   async function checkPromoCode() {
     const code = promoCode.trim();
@@ -1142,15 +1259,32 @@
                     id={`child-birthdate-${index}`}
                     type="date"
                     bind:value={child.birthdate}
-                    on:change={() => suggestChildTicketType(child)}
+                    on:change={(e) => handleChildBirthdateChange(child, e)}
                     lang={$locale === 'sv' ? 'sv-SE' : 'en-US'}
                     max={todayIso}
                     min={minBirthdateIso}
-                    class="w-full px-2 py-1.5 text-sm border border-neutral-300 rounded focus:outline-none focus:ring-2 focus:ring-primary-500"
+                    aria-invalid={child.birthdateRangeInvalid ? 'true' : 'false'}
+                    aria-describedby={child.birthdateRangeInvalid
+                      ? `child-birthdate-invalid-${index}`
+                      : undefined}
+                    class={`w-full px-2 py-1.5 text-sm border rounded focus:outline-none focus:ring-2 ${
+                      child.birthdateRangeInvalid
+                        ? 'border-danger-600 focus:ring-danger-500 focus:border-danger-600'
+                        : 'border-neutral-300 focus:ring-primary-500'
+                    }`}
                     required
                   />
                   <p class="mt-1 text-xs text-neutral-500">{$t('register.birthdateFormatHint')}</p>
-                  {#if birthdateProse(child.birthdate)}
+                  {#if child.birthdateRangeInvalid}
+                    <p
+                      id={`child-birthdate-invalid-${index}`}
+                      class="mt-1 text-xs font-medium text-danger-700"
+                      role="alert"
+                      data-testid={`child-birthdate-invalid-${index}`}
+                    >
+                      {$t('register.birthdateInvalid')}
+                    </p>
+                  {:else if birthdateProse(child.birthdate)}
                     <p
                       class="mt-1 text-xs font-medium text-neutral-700"
                       data-testid={`child-birthdate-prose-${index}`}
@@ -1168,14 +1302,37 @@
                     <select
                       id={`child-ticket-type-${index}`}
                       bind:value={child.ticketTypeId}
-                      class="w-full px-2 py-1.5 text-sm border border-neutral-300 rounded focus:outline-none focus:ring-2 focus:ring-primary-500"
+                      aria-invalid={childSelectedTicketWarning(child) !== null ? 'true' : 'false'}
+                      aria-describedby={childSelectedTicketWarning(child) !== null
+                        ? `child-ticket-ineligible-${index}`
+                        : undefined}
+                      class={`w-full px-2 py-1.5 text-sm border rounded focus:outline-none focus:ring-2 ${
+                        childSelectedTicketWarning(child) !== null
+                          ? 'border-danger-600 focus:ring-danger-500 focus:border-danger-600'
+                          : 'border-neutral-300 focus:ring-primary-500'
+                      }`}
                       data-testid={`child-ticket-type-${index}`}
                     >
                       <option value="">{$t('register.ticketTypePlaceholder')}</option>
                       {#each applicableTicketTypes(true) as ticketType (ticketType.id)}
-                        <option value={ticketType.id}>{ticketType.name} — {formatCurrency(ticketType.price)} kr</option>
+                        <option
+                          value={ticketType.id}
+                          disabled={!childTicketEligible(ticketType, child.birthdate)}
+                        >
+                          {childTicketOptionLabel(ticketType, child.birthdate, ticketType.id === child.ticketTypeId)}
+                        </option>
                       {/each}
                     </select>
+                    {#if childSelectedTicketWarning(child)}
+                      <p
+                        id={`child-ticket-ineligible-${index}`}
+                        class="mt-1 text-xs text-danger-700"
+                        role="alert"
+                        data-testid={`child-ticket-ineligible-${index}`}
+                      >
+                        {childSelectedTicketWarning(child)}
+                      </p>
+                    {/if}
                     {#if ticketCompositionWarning(child.ticketTypeId)}
                       <p class="mt-1 text-xs text-danger-700">{ticketCompositionWarning(child.ticketTypeId)}</p>
                     {/if}
@@ -1411,6 +1568,11 @@
           {/if}
           <div class="font-semibold">
             {$t('register.totalLabel')}: {formatCurrency(discountedTotal)} kr
+            {#if hasIneligibleTicketSelection}
+              <span class="font-medium text-danger-700" data-testid="register-total-provisional">
+                {$t('register.totalProvisional')}
+              </span>
+            {/if}
           </div>
         </div>
       {/if}
