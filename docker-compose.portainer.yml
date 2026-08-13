@@ -19,9 +19,11 @@ services:
       - CORS_ALLOWED_ORIGINS=${CORS_ALLOWED_ORIGINS:-}
       - CSRF_TRUSTED_ORIGINS=${CSRF_TRUSTED_ORIGINS:-}
       # Absolute base URL used server-side for links this container can't render
-      # relative (registration/payment emails, admin "view on site"). Empty =
-      # root-relative, correct for same-origin browser links but breaks emails,
-      # set to this deployment's real external URL for a real deployment.
+      # relative (registration/payment emails, admin "view on site"). This is
+      # the real production deployment: config.settings.prod now refuses to
+      # start if this is left unset (empty string), rather than silently
+      # falling back to root-relative links that break in email. Set this
+      # deployment's real external URL below.
       - FRONTEND_BASE_URL=${FRONTEND_BASE_URL:-}
       # Cookie security: set to 'false' for HTTP testing, 'true' for HTTPS/reverse proxy
       - SESSION_COOKIE_SECURE=${SESSION_COOKIE_SECURE:-false}

@@ -10,6 +10,23 @@ if SECRET_KEY == "insecure-change-me":
     )
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 
+# Require FRONTEND_BASE_URL to be explicitly set to an absolute URL in
+# production. base.py already applied its dev-only default
+# ("http://localhost:5173") before this module runs, so by the time we get
+# here the value is either what the operator set or the empty string that
+# docker-compose.portainer.yml forwards for an unset env var — never
+# "unset". Links emailed to registrants (verification, payment status) have
+# no browser origin to resolve against, unlike the Django admin, so a
+# missing/relative value fails silently in exactly the place it matters most.
+if not FRONTEND_BASE_URL or not FRONTEND_BASE_URL.startswith(("http://", "https://")):
+    raise ValueError(
+        "FRONTEND_BASE_URL must be set to the absolute URL of the frontend "
+        "(e.g. https://app.example.com) in production. Emailed links "
+        "(registration verification, payment status) are built from this "
+        "value with no other origin to resolve against, so leaving it "
+        "unset or non-absolute silently ships broken links."
+    )
+
 # Allow overriding via env vars (base.py already reads these, but prod defaults to True)
 # For HTTPS/reverse proxy: set both to true
 # For HTTP testing: set both to false
