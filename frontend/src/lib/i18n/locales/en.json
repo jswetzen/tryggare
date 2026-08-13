@@ -351,6 +351,8 @@
     "ticketTypeRequired": "Please select a ticket type for everyone.",
     "ticketRequiresOther": "{name} requires at least one {required} ticket in this booking.",
     "ticketCapExceeded": "Only {max} {name} ticket(s) allowed per {required} ticket.",
+    "ticketCompositionOptionRequires": "requires {required}",
+    "ticketCompositionOptionCapReached": "max {max} per {required}",
     "ticketAgeRangeBoth": "{min}–{max} yrs",
     "ticketAgeRangeMin": "{min}+ yrs",
     "ticketAgeRangeMax": "up to {max} yrs",

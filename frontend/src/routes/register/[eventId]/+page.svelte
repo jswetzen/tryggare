@@ -396,27 +396,6 @@
     return /\d+\s*[-–]\s*\d+/.test(name);
   }
 
-  // Full <option> label. Out-of-window options get a bare age-range marker
-  // (not a full sentence — the warning paragraph below the select carries
-  // that) so the label stays short. The *currently selected* option is the
-  // one shown, truncated, in the select's own closed control — so it drops
-  // the marker entirely there; the same reason is already available as the
-  // field-level warning right below the select. Every other disabled row
-  // still carries the marker so it's informative while browsing the open
-  // list. The option is disabled (never removed) so the list never reorders
-  // or shrinks while someone is mid-edit — see childTicketEligible above.
-  function childTicketOptionLabel(
-    ticketType: RegistrationTicketType,
-    birthdate: string,
-    isSelected: boolean
-  ): string {
-    const base = `${ticketType.name} — ${formatCurrency(ticketType.price)} kr`;
-    if (childTicketEligible(ticketType, birthdate) || isSelected) return base;
-    const asOfIso = eventInfo?.start_date ?? todayIso;
-    const range = ticketAgeRangeLabel(ticketType, asOfIso);
-    return range ? `${base} (${range})` : base;
-  }
-
   // If a birthdate edit makes an *already-selected* ticket ineligible, we
   // deliberately keep the selection rather than silently clearing it — the
   // guardian picked it for a reason (maybe the birthdate typo is what's
@@ -440,6 +419,19 @@
     const asOfIso = eventInfo.start_date ?? todayIso;
     const range = ticketAgeRangeLabel(ticketType, asOfIso);
     return $t('register.ticketTypeIneligibleWarning', { values: { name: ticketType.name, range } });
+  }
+
+  // A child's ticket select can be flagged for two independent reasons —
+  // age-window (childSelectedTicketWarning) and composition
+  // (ticketCompositionWarning) — each with its own paragraph/id below the
+  // field. This combines them for the select's own aria-invalid/
+  // aria-describedby so the control itself is marked whichever reason (or
+  // both) applies, matching the parent select's single-reason version.
+  function childTicketDescribedBy(index: number, child: ChildRow): string | undefined {
+    const ids: string[] = [];
+    if (childSelectedTicketWarning(child)) ids.push(`child-ticket-ineligible-${index}`);
+    if (ticketCompositionWarning(child.ticketTypeId)) ids.push(`child-ticket-composition-${index}`);
+    return ids.length > 0 ? ids.join(' ') : undefined;
   }
 
   function buildExtraSelections(
@@ -511,6 +503,78 @@
     return null;
   }
 
+  // Whether *picking* this ticket type is currently allowed — mirrors
+  // registrations/ticket_rules.py::validate_ticket_composition so the
+  // option list never offers a combination the server will reject.
+  // isSelected is whether this option is the row's *own current* pick:
+  // same convention as childTicketEligible/disabled above — a selection
+  // that was valid when made and has since gone bad (the required ticket
+  // was changed away, or someone else's pick pushed the count over cap)
+  // is NOT specially exempted here (still comes back disabled, same as
+  // the age-window case), it's ticketCompositionWarning below that keeps
+  // it selected and flags it rather than this function silently un-
+  // selecting it. isSelected only matters for the cap arithmetic: this
+  // row's own pick is already inside `count`, so the boundary (exactly at
+  // cap) reads as fine for the row that's already there, but as "full,
+  // don't add another" for everyone else.
+  function ticketCompositionEligible(ticketType: RegistrationTicketType, isSelected: boolean): boolean {
+    if (!ticketType.requires_ticket_type_id) return true;
+    const requiredCount = ticketTypeCounts[ticketType.requires_ticket_type_id] ?? 0;
+    if (requiredCount === 0) return false;
+    if (ticketType.max_per_required == null) return true;
+    const count = ticketTypeCounts[ticketType.id] ?? 0;
+    const cap = requiredCount * ticketType.max_per_required;
+    return isSelected ? count <= cap : count < cap;
+  }
+
+  // Short "(requires X)" / "(max N per X)" marker for an ineligible option
+  // in the open list — mirrors ticketAgeRangeLabel's role for the age
+  // case: the full sentence lives in ticketCompositionWarning below the
+  // select, this stays short so the option row doesn't wrap.
+  function ticketCompositionOptionMarker(ticketType: RegistrationTicketType): string {
+    if (!eventInfo || !ticketType.requires_ticket_type_id) return '';
+    const requiredType = eventInfo.ticket_types.find(
+      (tt) => tt.id === ticketType.requires_ticket_type_id
+    );
+    const requiredName = requiredType?.name ?? '';
+    const requiredCount = ticketTypeCounts[ticketType.requires_ticket_type_id] ?? 0;
+    if (requiredCount === 0) {
+      return $t('register.ticketCompositionOptionRequires', { values: { required: requiredName } });
+    }
+    if (ticketType.max_per_required != null) {
+      return $t('register.ticketCompositionOptionCapReached', {
+        values: { max: ticketType.max_per_required, required: requiredName }
+      });
+    }
+    return '';
+  }
+
+  // Full <option> label shared by both the parent and child selects.
+  // birthdate is '' for a parent row, and childTicketEligible treats an
+  // empty birthdate as always-eligible, so the age check is a no-op there
+  // — this stays one function rather than forking parent/child copies.
+  // isSelected drops both markers (same reasoning as childTicketOptionLabel
+  // before this increment): the reason is already shown as the field-level
+  // warning right below the select.
+  function ticketOptionLabel(
+    ticketType: RegistrationTicketType,
+    birthdate: string,
+    isSelected: boolean
+  ): string {
+    const base = `${ticketType.name} — ${formatCurrency(ticketType.price)} kr`;
+    if (isSelected) return base;
+    if (!childTicketEligible(ticketType, birthdate)) {
+      const asOfIso = eventInfo?.start_date ?? todayIso;
+      const range = ticketAgeRangeLabel(ticketType, asOfIso);
+      return range ? `${base} (${range})` : base;
+    }
+    if (!ticketCompositionEligible(ticketType, isSelected)) {
+      const marker = ticketCompositionOptionMarker(ticketType);
+      return marker ? `${base} (${marker})` : base;
+    }
+    return base;
+  }
+
   let runningTotal = $derived.by(() => {
     if (!eventInfo) return 0;
     let total = 0;
@@ -539,9 +603,17 @@
   // ineligible (see childSelectedTicketWarning's keep-the-selection
   // decision) — the total must not silently exclude it, but it also must
   // not present that figure as settled. This only flags it; the price
-  // itself is untouched.
+  // itself is untouched. Also covers a composition violation (missing/
+  // removed required ticket, or over cap) on either a parent or a child —
+  // e.g. removing the person holding the only Familjebiljett leaves the
+  // dependent "familjemedlem" selections in place but no longer valid, and
+  // that must show here too, not just as a per-row caption.
   let hasIneligibleTicketSelection = $derived(
-    children.some((child) => childSelectedTicketWarning(child) !== null)
+    children.some(
+      (child) =>
+        childSelectedTicketWarning(child) !== null ||
+        ticketCompositionWarning(child.ticketTypeId) !== null
+    ) || parents.some((parent) => ticketCompositionWarning(parent.ticketTypeId) !== null)
   );
 
   async function checkPromoCode() {
@@ -1082,16 +1154,36 @@
                   <select
                     id={`parent-ticket-type-${index}`}
                     bind:value={parent.ticketTypeId}
-                    class="w-full px-2 py-1.5 text-sm border border-neutral-300 rounded focus:outline-none focus:ring-2 focus:ring-primary-500"
+                    aria-invalid={ticketCompositionWarning(parent.ticketTypeId) !== null ? 'true' : 'false'}
+                    aria-describedby={ticketCompositionWarning(parent.ticketTypeId) !== null
+                      ? `parent-ticket-composition-${index}`
+                      : undefined}
+                    class={`w-full px-2 py-1.5 text-sm border rounded focus:outline-none focus:ring-2 ${
+                      ticketCompositionWarning(parent.ticketTypeId) !== null
+                        ? 'border-danger-600 focus:ring-danger-500 focus:border-danger-600'
+                        : 'border-neutral-300 focus:ring-primary-500'
+                    }`}
                     data-testid={`parent-ticket-type-${index}`}
                   >
                     <option value="">{$t('register.ticketTypePlaceholder')}</option>
                     {#each applicableTicketTypes(false) as ticketType (ticketType.id)}
-                      <option value={ticketType.id}>{ticketType.name} — {formatCurrency(ticketType.price)} kr</option>
+                      <option
+                        value={ticketType.id}
+                        disabled={!ticketCompositionEligible(ticketType, ticketType.id === parent.ticketTypeId)}
+                      >
+                        {ticketOptionLabel(ticketType, '', ticketType.id === parent.ticketTypeId)}
+                      </option>
                     {/each}
                   </select>
                   {#if ticketCompositionWarning(parent.ticketTypeId)}
-                    <p class="mt-1 text-xs text-danger-700">{ticketCompositionWarning(parent.ticketTypeId)}</p>
+                    <p
+                      id={`parent-ticket-composition-${index}`}
+                      class="mt-1 text-xs text-danger-700"
+                      role="alert"
+                      data-testid={`parent-ticket-composition-${index}`}
+                    >
+                      {ticketCompositionWarning(parent.ticketTypeId)}
+                    </p>
                   {/if}
                 </div>
               {/if}
@@ -1302,12 +1394,14 @@
                     <select
                       id={`child-ticket-type-${index}`}
                       bind:value={child.ticketTypeId}
-                      aria-invalid={childSelectedTicketWarning(child) !== null ? 'true' : 'false'}
-                      aria-describedby={childSelectedTicketWarning(child) !== null
-                        ? `child-ticket-ineligible-${index}`
-                        : undefined}
+                      aria-invalid={childSelectedTicketWarning(child) !== null ||
+                      ticketCompositionWarning(child.ticketTypeId) !== null
+                        ? 'true'
+                        : 'false'}
+                      aria-describedby={childTicketDescribedBy(index, child)}
                       class={`w-full px-2 py-1.5 text-sm border rounded focus:outline-none focus:ring-2 ${
-                        childSelectedTicketWarning(child) !== null
+                        childSelectedTicketWarning(child) !== null ||
+                        ticketCompositionWarning(child.ticketTypeId) !== null
                           ? 'border-danger-600 focus:ring-danger-500 focus:border-danger-600'
                           : 'border-neutral-300 focus:ring-primary-500'
                       }`}
@@ -1317,9 +1411,10 @@
                       {#each applicableTicketTypes(true) as ticketType (ticketType.id)}
                         <option
                           value={ticketType.id}
-                          disabled={!childTicketEligible(ticketType, child.birthdate)}
+                          disabled={!childTicketEligible(ticketType, child.birthdate) ||
+                            !ticketCompositionEligible(ticketType, ticketType.id === child.ticketTypeId)}
                         >
-                          {childTicketOptionLabel(ticketType, child.birthdate, ticketType.id === child.ticketTypeId)}
+                          {ticketOptionLabel(ticketType, child.birthdate, ticketType.id === child.ticketTypeId)}
                         </option>
                       {/each}
                     </select>
@@ -1334,7 +1429,14 @@
                       </p>
                     {/if}
                     {#if ticketCompositionWarning(child.ticketTypeId)}
-                      <p class="mt-1 text-xs text-danger-700">{ticketCompositionWarning(child.ticketTypeId)}</p>
+                      <p
+                        id={`child-ticket-composition-${index}`}
+                        class="mt-1 text-xs text-danger-700"
+                        role="alert"
+                        data-testid={`child-ticket-composition-${index}`}
+                      >
+                        {ticketCompositionWarning(child.ticketTypeId)}
+                      </p>
                     {/if}
                     {#if childAgeError(index)}
                       <p class="mt-1 text-xs text-danger-700" data-testid={`child-age-error-${index}`}>
