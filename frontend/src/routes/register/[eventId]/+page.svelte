@@ -17,6 +17,7 @@
   import { t, locale } from 'svelte-i18n';
   import { page } from '$app/stores';
   import { registrationApi } from '$lib/api/registrationService';
+  import { extractErrorMessage, extractFieldError, type ApiError } from '$lib/api/client';
   import type {
     PromoCodeValidation,
     RegistrationEventInfo,
@@ -96,6 +97,18 @@
     return value.toLocaleString(localeTag, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   }
 
+  // Bounds for the birthdate <input type="date">: never a future date, and
+  // never more than 120 years back (a plausible outer bound for anyone
+  // attending with a parent/guardian). `max`/`min` alone don't fix the
+  // locale-format confusion below, but they do stop an obviously-wrong
+  // typo (e.g. a transposed year) from being submittable at all.
+  const todayIso = new Date().toISOString().slice(0, 10);
+  const minBirthdateIso = (() => {
+    const d = new Date();
+    d.setFullYear(d.getFullYear() - 120);
+    return d.toISOString().slice(0, 10);
+  })();
+
   function emptyParent(): ParentRow {
     return {
       first_name: '',
@@ -153,9 +166,29 @@
   let promoCodeError = $state('');
 
   let error = $state('');
+  // The raw DRF error body from a failed submit, e.g.
+  // {"children": {"1": ["..."]}} for a per-attendee ticket-type failure
+  // (see registrations/views.py::submit_registration). Drives the inline
+  // per-attendee errors below; `error` above carries the banner text.
+  let errorDetails = $state<unknown>(null);
+  let errorBannerEl = $state<HTMLElement | null>(null);
   let submitting = $state(false);
   let submitted = $state(false);
   let referenceCode = $state<string | null>(null);
+
+  // Scroll/focus the failure banner into view on every new error — on this
+  // 2000+px page a failed submit otherwise looks like nothing happened from
+  // the submit button at the bottom (see build's blocker #2).
+  $effect(() => {
+    if (error && errorBannerEl) {
+      errorBannerEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      errorBannerEl.focus();
+    }
+  });
+
+  function childAgeError(index: number): string | null {
+    return extractFieldError(errorDetails, 'children', index);
+  }
 
   onMount(async () => {
     try {
@@ -421,7 +454,15 @@
 
   async function handleSubmit(e: Event) {
     e.preventDefault();
+
+    // `disabled` on the submit button is flushed a microtask after
+    // `submitting` is set (see finally block below), so a fast second tap
+    // can still land here before the DOM catches up — guard the handler
+    // itself rather than relying on the disabled attribute alone.
+    if (submitting) return;
+
     error = '';
+    errorDetails = null;
 
     if (isPreview) return;
 
@@ -520,7 +561,16 @@
       submitted = true;
     } catch (err) {
       console.error('Registration submission failed:', err);
-      error = $t('register.submitError');
+      const apiError = err as ApiError;
+      errorDetails = apiError.details ?? null;
+      // Prefer the server's specific reason (e.g. "This attendee doesn't
+      // meet this ticket type's age requirements.") — extracted straight
+      // from apiError.details rather than apiError.message, since the
+      // latter already falls back to the raw HTTP status text
+      // (client.ts::extractErrorMessage's own fallback) and that's exactly
+      // the non-specific case this must not surface as if it were real
+      // information.
+      error = extractErrorMessage(apiError.details, '') || $t('register.submitError');
     } finally {
       submitting = false;
     }
@@ -616,7 +666,12 @@
       {/if}
 
       {#if error}
-        <div class="mb-4 p-2 bg-danger-50 border border-danger-200 rounded text-danger-700 text-sm">
+        <div
+          class="mb-4 p-2 bg-danger-50 border border-danger-200 rounded text-danger-700 text-sm focus:outline-none focus:ring-2 focus:ring-danger-500"
+          role="alert"
+          tabindex="-1"
+          bind:this={errorBannerEl}
+        >
           {error}
         </div>
       {/if}
@@ -937,9 +992,13 @@
                     type="date"
                     bind:value={child.birthdate}
                     on:change={() => suggestChildTicketType(child)}
+                    lang={$locale === 'sv' ? 'sv-SE' : 'en-US'}
+                    max={todayIso}
+                    min={minBirthdateIso}
                     class="w-full px-2 py-1.5 text-sm border border-neutral-300 rounded focus:outline-none focus:ring-2 focus:ring-primary-500"
                     required
                   />
+                  <p class="mt-1 text-xs text-neutral-500">{$t('register.birthdateFormatHint')}</p>
                 </div>
 
                 {#if applicableTicketTypes(true).length > 0}
@@ -960,6 +1019,11 @@
                     </select>
                     {#if ticketCompositionWarning(child.ticketTypeId)}
                       <p class="mt-1 text-xs text-danger-700">{ticketCompositionWarning(child.ticketTypeId)}</p>
+                    {/if}
+                    {#if childAgeError(index)}
+                      <p class="mt-1 text-xs text-danger-700" data-testid={`child-age-error-${index}`}>
+                        {childAgeError(index)}
+                      </p>
                     {/if}
                   </div>
                 {/if}
@@ -1144,6 +1208,14 @@
             <input
               type="text"
               bind:value={promoCode}
+              on:input={() => {
+                // Editing the code invalidates whatever "Använd" last
+                // checked — without this, clearing the field leaves the
+                // stale invalid-code message on screen with no way to
+                // dismiss it (Använd stays disabled on an empty field).
+                promoCodeError = '';
+                promoCodeValidation = null;
+              }}
               placeholder={$t('register.promoCodePlaceholder')}
               class="flex-1 px-3 py-2 text-sm border border-neutral-300 rounded focus:outline-none focus:ring-2 focus:ring-primary-500"
               data-testid="register-promo-code-input"
@@ -1188,10 +1260,24 @@
         <button
           type="submit"
           disabled={submitting || isPreview}
+          aria-busy={submitting}
           title={isPreview ? $t('register.previewSubmitDisabled') : undefined}
-          class="px-4 py-2 bg-primary-600 text-white font-semibold rounded-button hover:bg-primary-700 transition-colors disabled:opacity-50"
+          class="inline-flex items-center gap-2 px-4 py-2 bg-primary-600 text-white font-semibold rounded-button hover:bg-primary-700 transition-colors disabled:opacity-50"
           data-testid="register-submit-button"
         >
+          {#if submitting}
+            <svg
+              class="animate-spin h-4 w-4"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              aria-hidden="true"
+            >
+              <path d="M12 3a9 9 0 1 0 9 9" />
+            </svg>
+          {/if}
           {submitting ? $t('register.submitting') : $t('register.submitButton')}
         </button>
       </div>

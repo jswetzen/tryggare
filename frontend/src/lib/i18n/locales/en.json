@@ -335,6 +335,7 @@
     "privacyNotice": "This information is processed for child safeguarding during the event.",
     "privacyLink": "Privacy notice",
     "eventPriceNotice": "This event costs {amount} {currency}. Payment instructions will be sent after you confirm your email.",
+    "birthdateFormatHint": "Format: YYYY-MM-DD",
     "ticketTypeLabel": "Ticket type",
     "ticketTypePlaceholder": "Select a ticket type",
     "ticketTypeRequired": "Please select a ticket type for everyone.",

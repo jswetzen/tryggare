@@ -335,6 +335,7 @@
     "privacyNotice": "Uppgifterna behandlas för barnens säkerhet under evenemanget.",
     "privacyLink": "Integritetspolicy",
     "eventPriceNotice": "Detta evenemang kostar {amount} {currency}. Betalningsinstruktioner skickas när du bekräftat din e-post.",
+    "birthdateFormatHint": "Format: ÅÅÅÅ-MM-DD",
     "ticketTypeLabel": "Biljettyp",
     "ticketTypePlaceholder": "Välj biljettyp",
     "ticketTypeRequired": "Välj biljettyp för alla deltagare.",

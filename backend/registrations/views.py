@@ -8,6 +8,7 @@ from django.http import Http404
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from django.utils.translation import gettext as _
+from django.utils.translation import get_language
 from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes, throttle_classes
 from rest_framework.exceptions import ValidationError
@@ -180,6 +181,21 @@ def _resolve_promo_code(*, event, code_str):
     return promo_code
 
 
+def _bilingual(en: str, sv: str) -> str:
+    """Pick between an EN/SV string by the request's active language.
+
+    Bypasses gettext's catalog lookup on purpose: this deployment's
+    django.po has never had `compilemessages` run against it (no gettext
+    tools in the image), so every `_("...")` call currently renders English
+    regardless of the django_language cookie LocaleMiddleware honors
+    correctly — get_language() itself is accurate, only the .mo lookup is
+    silently missing. Use this for new user-facing strings that must
+    actually be bilingual today; existing `_()` calls elsewhere are a
+    pre-existing gap this increment doesn't attempt to fix wholesale.
+    """
+    return sv if get_language() == "sv" else en
+
+
 def _validate_ticket_type_for_attendee(
     ticket_type, *, event, attendee, is_child, promo_code
 ):
@@ -202,18 +218,31 @@ def _validate_ticket_type_for_attendee(
         raise ValidationError(_("This ticket type isn't available yet."))
     if ticket_type.available_until and now > ticket_type.available_until:
         raise ValidationError(_("This ticket type is no longer available."))
-    if is_child:
-        birthdate = attendee.birthdate
-        too_young = ticket_type.min_birthdate and (
-            birthdate is None or birthdate < ticket_type.min_birthdate
+    # Age-band check deliberately lives in _child_ticket_age_error, not here:
+    # the caller needs this one specific failure reported as a field error
+    # keyed to the offending child's index (see _create_registration), not
+    # folded into the generic non-field message the rest of this function
+    # raises.
+
+
+def _child_ticket_age_error(ticket_type, birthdate) -> str | None:
+    """Returns a bilingual message if `birthdate` falls outside
+    `ticket_type`'s configured age band, else None. Split out from
+    _validate_ticket_type_for_attendee so the caller can attach it to the
+    specific child's index in the response instead of a bare string (a
+    banner alone doesn't say *which* of up to six attendees failed)."""
+    too_young = ticket_type.min_birthdate and (
+        birthdate is None or birthdate < ticket_type.min_birthdate
+    )
+    too_old = ticket_type.max_birthdate and (
+        birthdate is None or birthdate > ticket_type.max_birthdate
+    )
+    if too_young or too_old:
+        return _bilingual(
+            "This attendee doesn't meet this ticket type's age requirements.",
+            "Barnet uppfyller inte åldersgränsen för den valda biljettypen.",
         )
-        too_old = ticket_type.max_birthdate and (
-            birthdate is None or birthdate > ticket_type.max_birthdate
-        )
-        if too_young or too_old:
-            raise ValidationError(
-                _("This attendee doesn't meet this ticket type's age requirements.")
-            )
+    return None
 
 
 def _materialize_ticket(*, attendee, event, ticket_type, registration):
@@ -432,6 +461,13 @@ def _create_registration(
         for child, selection in zip(created_children, child_selections)
     ]
 
+    # Per-kind position within the frontend's own parents[]/children[]
+    # arrays (not the combined `attendees` list below) — this is what lets
+    # a field error point at the exact row the guardian needs to fix
+    # (see the age-band ValidationError just below).
+    child_index = 0
+    parent_index = 0
+
     for is_child, attendee, selection in attendees:
         ticket_type = selection["ticket_type"]
         if itemized:
@@ -446,6 +482,10 @@ def _create_registration(
                 is_child=is_child,
                 promo_code=promo_code,
             )
+            if is_child:
+                age_error = _child_ticket_age_error(ticket_type, attendee.birthdate)
+                if age_error:
+                    raise ValidationError({"children": {str(child_index): [age_error]}})
             _materialize_ticket(
                 attendee=attendee,
                 event=event,
@@ -481,6 +521,11 @@ def _create_registration(
                 selection=extra_selection,
                 is_child=is_child,
             )
+
+        if is_child:
+            child_index += 1
+        else:
+            parent_index += 1
 
     validate_ticket_composition(registration)
 
