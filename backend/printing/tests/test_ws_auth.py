@@ -2,12 +2,20 @@
 
 from channels.testing import WebsocketCommunicator
 from channels.db import database_sync_to_async
-from django.test import TransactionTestCase
+from django.test import TransactionTestCase, override_settings
 
 from config.asgi import application
 from printing.models import Printer
 
 
+# ``config/asgi.py`` wraps the websocket app in Channels'
+# ``AllowedHostsOriginValidator``, which rejects an Origin-less connection
+# unless ``"*"`` is in ALLOWED_HOSTS. ``WebsocketCommunicator`` never sends an
+# Origin header, so without this every connection below is refused at the
+# validator — the valid-token tests fail and, worse, the negative tests pass
+# vacuously. Pinning ALLOWED_HOSTS here makes the assertions depend on the
+# auth path rather than on which settings module the runner happened to load.
+@override_settings(ALLOWED_HOSTS=["*"])
 class PrinterWebSocketAuthTest(TransactionTestCase):
     async def _connect(self, token):
         communicator = WebsocketCommunicator(

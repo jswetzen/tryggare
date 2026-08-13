@@ -48,7 +48,7 @@ class RegistrationDedupTests(TestCase):
         payload.update(overrides)
         return payload
 
-    @patch("registrations.views.send_verification_email")
+    @patch("registrations.views.send_verification_email", return_value=True)
     def test_second_submission_past_cooldown_resends_not_duplicates(self, mock_send):
         self.client.post(self.url, self._payload(), format="json")
         self.assertEqual(Registration.objects.count(), 1)
@@ -68,7 +68,7 @@ class RegistrationDedupTests(TestCase):
         second_token = mock_send.call_args_list[1][0][1]
         self.assertNotEqual(first_token, second_token)
 
-    @patch("registrations.views.send_verification_email")
+    @patch("registrations.views.send_verification_email", return_value=True)
     def test_resend_never_extends_expiry_past_original_ttl(self, mock_send):
         """A1: a resend must not refresh expires_at — otherwise an attacker
         who put a victim's address in contact_email could keep the row (and
@@ -86,7 +86,7 @@ class RegistrationDedupTests(TestCase):
         registration.refresh_from_db()
         self.assertEqual(registration.expires_at, original_expires_at)
 
-    @patch("registrations.views.send_verification_email")
+    @patch("registrations.views.send_verification_email", return_value=True)
     def test_second_submission_within_cooldown_is_throttled(self, mock_send):
         self.client.post(self.url, self._payload(), format="json")
         mock_send.reset_mock()
@@ -97,7 +97,7 @@ class RegistrationDedupTests(TestCase):
         self.assertEqual(Registration.objects.count(), 1)
         mock_send.assert_not_called()
 
-    @patch("registrations.views.send_verification_email")
+    @patch("registrations.views.send_verification_email", return_value=True)
     def test_expired_pending_registration_gets_a_fresh_row_not_resent(self, mock_send):
         self.client.post(self.url, self._payload(), format="json")
         old = Registration.objects.get()
@@ -110,7 +110,7 @@ class RegistrationDedupTests(TestCase):
         self.assertEqual(response.status_code, 201, response.data)
         self.assertEqual(Registration.objects.count(), 2)
 
-    @patch("registrations.views.send_verification_email")
+    @patch("registrations.views.send_verification_email", return_value=True)
     def test_different_email_same_event_is_independent(self, mock_send):
         self.client.post(self.url, self._payload(), format="json")
         response = self.client.post(
@@ -130,7 +130,7 @@ class RegistrationDedupTests(TestCase):
         self.assertEqual(response.status_code, 201, response.data)
         self.assertEqual(Registration.objects.count(), 2)
 
-    @patch("registrations.views.send_verification_email")
+    @patch("registrations.views.send_verification_email", return_value=True)
     def test_resubmission_with_differently_cased_email_resends_not_duplicates(
         self, mock_send
     ):
@@ -155,7 +155,7 @@ class RegistrationDedupTests(TestCase):
         self.assertEqual(Registration.objects.count(), 1)
         self.assertEqual(mock_send.call_count, 2)
 
-    @patch("registrations.views.send_verification_email")
+    @patch("registrations.views.send_verification_email", return_value=True)
     def test_same_email_different_event_is_independent(self, mock_send):
         self.client.post(self.url, self._payload(), format="json")
         other_event = _make_event(name="Winter Camp")

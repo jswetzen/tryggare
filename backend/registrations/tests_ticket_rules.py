@@ -198,7 +198,7 @@ class TicketCompositionSubmissionTests(TestCase):
             child_ticket_type=self.member_type,
         )
 
-        with patch("registrations.views.send_verification_email"):
+        with patch("registrations.views.send_verification_email", return_value=True):
             response = self.client.post(self.url, payload, format="json")
 
         self.assertEqual(response.status_code, 400, response.data)
@@ -211,7 +211,7 @@ class TicketCompositionSubmissionTests(TestCase):
             child_ticket_type=self.member_type,
         )
 
-        with patch("registrations.views.send_verification_email"):
+        with patch("registrations.views.send_verification_email", return_value=True):
             response = self.client.post(self.url, payload, format="json")
 
         self.assertEqual(response.status_code, 201, response.data)
@@ -223,7 +223,7 @@ class TicketCompositionSubmissionTests(TestCase):
             child_ticket_type=self.member_type,
         )
 
-        with patch("registrations.views.send_verification_email"):
+        with patch("registrations.views.send_verification_email", return_value=True):
             response = self.client.post(self.url, payload, format="json")
 
         self.assertEqual(response.status_code, 400, response.data)
