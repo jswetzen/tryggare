@@ -123,6 +123,27 @@ a re-derivation of the feature.
 - Drop findings you are choosing not to act on, explicitly, with a reason. Silent drops are
   what the next gate exists to catch.
 
+**Critics are reliable about what confused them and unreliable about exact detail.** Three
+rounds of this loop produced three false positives, all of the same shape: a quoted string
+that was actually correct ("Født" for "Född"), and twice an accessibility finding read off
+Playwright's `browser_snapshot` — which is not the accessibility tree and ignores
+`aria-hidden`/`inert` by design. Trust the struggle, verify the specifics:
+
+- Before acting on a **quoted string**, grep the locale files for it.
+- Before acting on an **a11y finding**, confirm with CDP `Accessibility.getFullAXTree`, not a
+  Playwright snapshot.
+- Before acting on a **locale-rendering finding**, remember the container browser is en-US;
+  ask whether a real user's browser would do the same thing.
+
+Verifying costs seconds. A false positive costs a build round and can talk you into replacing
+something that was never broken.
+
+**When two seats contradict each other on fact** — not on judgement — send `fe-designer` to
+adjudicate rather than picking a side. It has browser and source access, and it settled one
+such conflict by finding both reports true under different conditions (an in-flight guard that
+held on a valid submit but re-armed on a rejected one). Ask it for the mechanism, not the
+verdict.
+
 ### 4. Gate
 
 Spawn `fe-dev-prompt-reviewer` with just the findings and your plan. On `BOUNCED`, revise and
