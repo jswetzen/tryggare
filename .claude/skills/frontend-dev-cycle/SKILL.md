@@ -39,6 +39,15 @@ HTTP. **If it was not running when this session started, the `mcp__playwright__*
 not be registered** — starting the container mid-session may register them, but if it does
 not, ask the user to reconnect the MCP server rather than working around it.
 
+**Confirm the browser tools actually exist before spawning the first critic, not after one
+fails.** `podman ps` showing the container up proves nothing about whether the tools are
+registered in *this* session — a session that started before the container did will show a
+healthy container and have no `mcp__playwright__*` tools at all. Check for the tools
+themselves. A persona that gets three paragraphs into its situation before discovering it has
+no browser is a wasted spawn, and a persona that quietly substitutes `WebFetch` and reports
+on a page it could not really drive is worse — the report reads normal and the finding is
+fiction.
+
 Fallback if Playwright is unavailable: `scripts/ux_probe.py` (selenium + local Chrome, see its
 docstring). It is less capable — no accessibility tree, no console capture — but it takes a
 `UX_PROBE_PORT`/`UX_PROBE_PROFILE` per instance, so it is the only option if you ever need
@@ -167,6 +176,38 @@ reviewer's verdict against the severity of what is still open, and choose:
 Three rounds on one increment without the blocking count dropping means something is wrong
 with the increment, not the implementation. Stop and say so.
 
+### 6. Commit — every shipped increment, no exceptions
+
+**An increment that ships gets a commit before the next one starts.** Not a batch at the end,
+not "when it's all working". The commit is how the increment stops being something only you
+remember.
+
+This is not bookkeeping. You are the only one who reads the subagent reports — the user sees
+your summaries and the diff, and nothing else. If ten increments land in one working tree, the
+reasoning that produced them exists nowhere but your context, which is exactly the thing this
+loop is designed to keep discarding. A commit per increment is what survives you.
+
+It also keeps the boundaries recoverable. Ten increments deep, "which change added that
+column?" is answerable by `git log` or not at all — reconstructing it from a 70-file working
+tree is guesswork, and the guess gets baked in.
+
+Write the message for someone who wasn't here:
+
+- **What changed**, in one line anyone can scan.
+- **Why** — the finding that drove it. Name the persona or critic seat if one did: "the parent
+  persona couldn't tell which ticket she was picking" beats "improve select labelling".
+- **What you declined**, when a report asked for something you chose not to do. Silent drops
+  are invisible in a diff, and this is the only place they get recorded.
+- **What is deliberately still open**, if the increment shipped with a known gap.
+
+Keep the working tree clean between increments. If an unrelated fix happens mid-loop —
+tooling, a stale doc, someone else's bug — commit it **separately**, and do it before the
+increment lands rather than letting it ride along. A commit that mixes a UI increment with a
+build fix is two commits nobody can revert independently.
+
+Run the project's gates before committing, not after. A commit that fails CI is a commit
+someone else has to bisect around.
+
 ## Reporting to the user
 
 After each increment, keep it short: what changed, what the personas hit, what you chose not
@@ -177,5 +218,6 @@ reports either.
 
 When an increment ships, record it in knowitall (`kind="task"`,
 `anchors=[{"kind":"project","name":"tryggare"}]`): what changed, which findings drove it,
-what was deliberately declined, and any product question raised. Note the commit if one was
-made. Skip the play-by-play of the loop itself — it is not useful later.
+what was deliberately declined, and any product question raised. **Reference the increment's
+commit hash** — step 6 guarantees there is one, and it is what lets a later reader get from
+the note to the actual diff. Skip the play-by-play of the loop itself — it is not useful later.
