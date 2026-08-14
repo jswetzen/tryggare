@@ -2,9 +2,13 @@
 Tests for event ticket models and API endpoints.
 """
 
+from datetime import date
 from unittest.mock import patch, AsyncMock
 
-from django.test import TestCase
+from django.db import connection
+from django.test import TestCase, override_settings
+from django.test.utils import CaptureQueriesContext
+from django.urls import reverse
 from django.utils import timezone
 from rest_framework.test import APIClient
 
@@ -18,7 +22,7 @@ from events.models import (
     SessionTicket,
     TicketType,
 )
-from families.models import Child, Family
+from families.models import Child, Family, Parent
 from accounts.models import AdminUser
 
 
@@ -737,3 +741,286 @@ class RegistrationWindowStatusTest(TestCase):
             registration_closes_at=timezone.now() + timezone.timedelta(days=1),
         )
         event.full_clean()  # must not raise
+
+
+# The project ships WhiteNoise's manifest static storage, which refuses to
+# resolve admin CSS unless collectstatic has run. Rendering an admin page in
+# a test is unrelated to static-asset hashing, so swap in the plain backend.
+@override_settings(
+    STORAGES={
+        "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
+        "staticfiles": {
+            "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage"
+        },
+    }
+)
+class TicketTriageAdminTest(TestCase):
+    """The failure this exists to prevent: a coordinator was told "a family
+    says their 13-year-old is on the 0-12 ticket, fix it" and gave up after
+    20+ minutes, because no screen showed a child's name, age and ticket
+    type together. These tests pin the columns, the search, and the age
+    arithmetic that make that a one-screen answer."""
+
+    @classmethod
+    def setUpTestData(cls):
+        cls.user = AdminUser.objects.create_superuser("triage", "pw12345")
+        # A five-day summer camp. Deliberately fixed dates, not relative to
+        # today: the birthday-boundary assertions below only mean anything
+        # against a known event window.
+        cls.event = Event.objects.create(
+            name="Sommarläger 2026",
+            start_date=date(2026, 7, 1),
+            end_date=date(2026, 7, 5),
+        )
+        cls.session = Session.objects.create(
+            event=cls.event,
+            name="Kväll 1",
+            start_time=timezone.now(),
+            end_time=timezone.now() + timezone.timedelta(hours=2),
+        )
+        cls.child_type = TicketType.objects.create(
+            event=cls.event, name="Barn 0-12", price=0
+        )
+        cls.youth_type = TicketType.objects.create(
+            event=cls.event, name="Ungdom 13-17", price=500
+        )
+        cls.family = Family.objects.create(last_name="Lindqvist")
+        # Already 13 on the first day of the event, sitting on the 0-12
+        # ticket — the exact row the coordinator could not find.
+        cls.alva = Child.objects.create(
+            family=cls.family,
+            first_name="Alva",
+            last_name="Lindqvist",
+            birthdate=date(2013, 6, 15),
+        )
+        cls.alva_ticket = EventTicket.objects.create(
+            attendee=cls.alva, event=cls.event, ticket_type=cls.child_type
+        )
+        # Turns 13 *during* the event (3 July). Correct answer at event
+        # start is 12, so this child is legitimately on the 0-12 ticket.
+        cls.nils = Child.objects.create(
+            family=cls.family,
+            first_name="Nils",
+            last_name="Lindqvist",
+            birthdate=date(2013, 7, 3),
+        )
+        cls.nils_ticket = EventTicket.objects.create(
+            attendee=cls.nils, event=cls.event, ticket_type=cls.child_type
+        )
+        # Birthday falls exactly on the event's first day: already 13.
+        cls.saga = Child.objects.create(
+            family=cls.family,
+            first_name="Saga",
+            last_name="Lindqvist",
+            birthdate=date(2013, 7, 1),
+        )
+        cls.saga_ticket = EventTicket.objects.create(
+            attendee=cls.saga, event=cls.event, ticket_type=cls.child_type
+        )
+
+    def setUp(self):
+        self.client.force_login(self.user)
+
+    def _admin(self, model):
+        # Looked up at call time rather than cached on the class:
+        # setUpTestData deep-copies class attributes, and an AdminSite is
+        # not deep-copyable (it holds module references).
+        from django.contrib.admin.sites import site
+
+        return site._registry[model]
+
+    # --- age arithmetic -------------------------------------------------
+
+    def test_age_at_event_is_whole_years_on_the_first_day(self):
+        model_admin = self._admin(EventTicket)
+        self.assertEqual(model_admin.age_at_event(self.alva_ticket), 13)
+
+    def test_age_at_event_does_not_count_a_birthday_during_the_event(self):
+        """Nils turns 13 on 3 July, mid-event. Age is measured at
+        event.start_date (1 July), so he is 12 — consistent with
+        reports.services, which buckets the same child the same way."""
+        model_admin = self._admin(EventTicket)
+        self.assertEqual(model_admin.age_at_event(self.nils_ticket), 12)
+
+    def test_age_at_event_counts_a_birthday_on_the_first_day(self):
+        model_admin = self._admin(EventTicket)
+        self.assertEqual(model_admin.age_at_event(self.saga_ticket), 13)
+
+    def test_age_at_event_matches_reports_services(self):
+        """One age calculation, not two — a second implementation would
+        eventually disagree with the reports snapshot on a boundary."""
+        from reports.services import age_on
+
+        model_admin = self._admin(EventTicket)
+        for ticket, child in (
+            (self.alva_ticket, self.alva),
+            (self.nils_ticket, self.nils),
+            (self.saga_ticket, self.saga),
+        ):
+            self.assertEqual(
+                model_admin.age_at_event(ticket),
+                age_on(child.birthdate, self.event.start_date),
+            )
+
+    def test_age_at_event_is_blank_without_a_birthdate(self):
+        child = Child.objects.create(
+            family=self.family, first_name="Okänd", last_name="Lindqvist"
+        )
+        ticket = EventTicket.objects.create(attendee=child, event=self.event)
+        self.assertIsNone(self._admin(EventTicket).age_at_event(ticket))
+
+    def test_age_at_event_is_blank_for_a_parent_ticket(self):
+        """Tickets point at Attendee; birthdate only exists on the Child
+        subclass, so a parent's ticket must render blank rather than
+        raising Child.DoesNotExist."""
+        parent = Parent.objects.create(
+            family=self.family, first_name="Karin", last_name="Lindqvist"
+        )
+        ticket = EventTicket.objects.create(attendee=parent, event=self.event)
+        self.assertIsNone(self._admin(EventTicket).age_at_event(ticket))
+
+    def test_session_ticket_age_uses_the_events_start_date(self):
+        ticket = SessionTicket.objects.create(
+            attendee=self.nils, session=self.session, ticket_type=self.child_type
+        )
+        self.assertEqual(self._admin(SessionTicket).age_at_event(ticket), 12)
+
+    # --- the changelist itself ------------------------------------------
+
+    def test_event_ticket_changelist_renders_age_and_ticket_type(self):
+        response = self.client.get(reverse("admin:events_eventticket_changelist"))
+        self.assertEqual(response.status_code, 200)
+        body = response.content.decode()
+        self.assertIn("Barn 0-12", body)
+        self.assertIn("Alva", body)
+        self.assertIn("Lindqvist", body)
+
+    def test_session_ticket_changelist_renders(self):
+        SessionTicket.objects.create(
+            attendee=self.alva, session=self.session, ticket_type=self.child_type
+        )
+        response = self.client.get(reverse("admin:events_sessionticket_changelist"))
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("Barn 0-12", response.content.decode())
+
+    def test_search_finds_a_child_by_first_name(self):
+        """The abandoned job's first blocker: no ticket screen could be
+        searched by a child's name."""
+        response = self.client.get(
+            reverse("admin:events_eventticket_changelist"), {"q": "Alva"}
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            [t.pk for t in response.context["cl"].result_list], [self.alva_ticket.pk]
+        )
+
+    def test_search_finds_a_child_by_family_last_name(self):
+        response = self.client.get(
+            reverse("admin:events_eventticket_changelist"), {"q": "Lindqvist"}
+        )
+        self.assertEqual(len(response.context["cl"].result_list), 3)
+
+    def test_search_finds_a_ticket_by_external_code(self):
+        ticket = EventTicket.objects.create(
+            attendee=Child.objects.create(
+                family=self.family, first_name="Ext", last_name="Lindqvist"
+            ),
+            event=self.event,
+            external_ticket_code="ETK-4711",
+        )
+        response = self.client.get(
+            reverse("admin:events_eventticket_changelist"), {"q": "ETK-4711"}
+        )
+        self.assertEqual(
+            [t.pk for t in response.context["cl"].result_list], [ticket.pk]
+        )
+
+    def test_ticket_type_filter_narrows_the_changelist(self):
+        EventTicket.objects.create(
+            attendee=Child.objects.create(
+                family=self.family,
+                first_name="Teen",
+                last_name="Lindqvist",
+                birthdate=date(2010, 1, 1),
+            ),
+            event=self.event,
+            ticket_type=self.youth_type,
+        )
+        response = self.client.get(
+            reverse("admin:events_eventticket_changelist"),
+            {"ticket_type__id__exact": str(self.child_type.id)},
+        )
+        self.assertEqual(len(response.context["cl"].result_list), 3)
+
+    def test_registration_status_column(self):
+        from registrations.models import Registration
+
+        registration = Registration.objects.create(
+            event=self.event,
+            family=self.family,
+            contact_email="karin@example.com",
+            verification_token_hash="a" * 64,
+            status=Registration.Status.CONFIRMED,
+        )
+        self.alva_ticket.registration = registration
+        self.alva_ticket.save(update_fields=["registration"])
+        model_admin = self._admin(EventTicket)
+        self.assertEqual(
+            model_admin.registration_status(
+                EventTicket.objects.get(pk=self.alva_ticket.pk)
+            ),
+            "Confirmed",
+        )
+        self.assertIsNone(model_admin.registration_status(self.nils_ticket))
+
+    # --- N+1 guard ------------------------------------------------------
+
+    def test_changelist_query_count_does_not_scale_with_rows(self):
+        """age_at_event/family/registration_status are per-row Python, which
+        is exactly where an N+1 hides. Same page, 3 rows vs 33 rows: the
+        query count must not move."""
+        url = reverse("admin:events_eventticket_changelist")
+        self.client.get(url)  # warm any per-process caches
+
+        with CaptureQueriesContext(connection) as small:
+            self.client.get(url)
+        baseline = len(small.captured_queries)
+
+        for i in range(30):
+            child = Child.objects.create(
+                family=Family.objects.create(last_name=f"Extra{i}"),
+                first_name=f"Barn{i}",
+                last_name=f"Extra{i}",
+                birthdate=date(2012, 3, 4),
+            )
+            EventTicket.objects.create(
+                attendee=child, event=self.event, ticket_type=self.child_type
+            )
+
+        with CaptureQueriesContext(connection) as large:
+            response = self.client.get(url)
+        self.assertEqual(len(response.context["cl"].result_list), 33)
+        self.assertEqual(
+            len(large.captured_queries),
+            baseline,
+            f"changelist query count moved from {baseline} (3 rows) to "
+            f"{len(large.captured_queries)} (33 rows) — an N+1 crept in",
+        )
+
+    def test_changelist_query_count_does_not_scale_with_filter_options(self):
+        """The ticket_type sidebar renders str(TicketType), which
+        interpolates the type's event name — stock RelatedFieldListFilter
+        pays a query per option. TicketTypeListFilter pre-joins it."""
+        url = reverse("admin:events_eventticket_changelist")
+        self.client.get(url)
+
+        with CaptureQueriesContext(connection) as small:
+            self.client.get(url)
+        baseline = len(small.captured_queries)
+
+        for i in range(20):
+            TicketType.objects.create(event=self.event, name=f"Typ {i}", price=i)
+
+        with CaptureQueriesContext(connection) as large:
+            self.client.get(url)
+        self.assertEqual(len(large.captured_queries), baseline)
