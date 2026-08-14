@@ -3,6 +3,7 @@ import os
 import sys
 
 from django.apps import AppConfig
+from django.utils.translation import gettext_lazy as _
 
 logger = logging.getLogger(__name__)
 
@@ -41,6 +42,7 @@ def should_start_scheduler() -> bool:
 class FamiliesConfig(AppConfig):
     default_auto_field = "django.db.models.BigAutoField"
     name = "families"
+    verbose_name = _("Families")
 
     def ready(self):
         if not should_start_scheduler():

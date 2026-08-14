@@ -1,4 +1,4 @@
-.PHONY: help test test-e2e test-unit test-integration rebuild-dev rebuild-prod clean coverage ping
+.PHONY: help test test-e2e test-unit test-integration rebuild-dev rebuild-prod clean coverage ping check-messages
 
 # E2E tests run on the host but drive the already-running containers, so the
 # pytest process must talk to that stack's PostgreSQL. Without DATABASE_URL the
@@ -44,6 +44,7 @@ help:
 	@echo "  make clean             Clean up test artifacts"
 	@echo "  make coverage          Run tests with coverage report"
 	@echo "  make verify            Run backend verification (quick sanity check)"
+	@echo "  make check-messages    Check the sv/en catalogues are complete (CI-enforced)"
 	@echo "  make ping              Check health of dev/prod backend endpoints"
 	@echo ""
 	@echo "Examples:"
@@ -141,6 +142,12 @@ coverage:
 verify:
 	@echo "Running quick backend verification (unit tests)..."
 	@uv run --group test pytest tests/unit/ -q
+
+# Same guard CI runs (.github/workflows/test.yml, `messages` job). Needs
+# xgettext; if the host has no gettext, run it in the backend container:
+#   podman exec tryggare_web_1 sh -c 'cd /app && uv run python scripts/check_messages.py'
+check-messages:
+	@uv run python scripts/check_messages.py
 
 ping:
 	@curl -s -o /dev/null -w "Dev backend (8000): %{http_code}\n" http://localhost:8000/api/auth/check/ || echo "Dev backend (8000): UNREACHABLE"

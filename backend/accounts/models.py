@@ -4,6 +4,7 @@ from django.contrib.auth.base_user import AbstractBaseUser, BaseUserManager
 from django.contrib.auth.models import PermissionsMixin
 from django.db import models
 from django.utils import timezone
+from django.utils.translation import gettext_lazy as _
 
 
 class AdminUserManager(BaseUserManager):
@@ -33,11 +34,13 @@ class AdminUserManager(BaseUserManager):
 
 class AdminUser(AbstractBaseUser, PermissionsMixin):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    username = models.CharField(max_length=150, unique=True)
-    name = models.CharField(max_length=255)
-    created_at = models.DateTimeField(default=timezone.now)
-    is_active = models.BooleanField(default=True)
-    is_staff = models.BooleanField(default=False)
+    username = models.CharField(max_length=150, unique=True, verbose_name=_("Username"))
+    name = models.CharField(max_length=255, verbose_name=_("Name"))
+    created_at = models.DateTimeField(
+        default=timezone.now, verbose_name=_("Created At")
+    )
+    is_active = models.BooleanField(default=True, verbose_name=_("Active"))
+    is_staff = models.BooleanField(default=False, verbose_name=_("Staff"))
 
     objects = AdminUserManager()
 
@@ -46,8 +49,8 @@ class AdminUser(AbstractBaseUser, PermissionsMixin):
 
     class Meta:
         db_table = "admin_users"
-        verbose_name = "Admin User"
-        verbose_name_plural = "Admin Users"
+        verbose_name = _("Admin User")
+        verbose_name_plural = _("Admin Users")
 
     def __str__(self) -> str:
         return self.username

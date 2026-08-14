@@ -513,7 +513,10 @@ class PrintQueueViewSet(viewsets.ReadOnlyModelViewSet):
                 pass
 
         return Response(
-            {"message": _(f"{updated} labels marked as printed"), "count": updated}
+            {
+                "message": _("%(count)d labels marked as printed") % {"count": updated},
+                "count": updated,
+            }
         )
 
     @action(detail=True, methods=["get"])

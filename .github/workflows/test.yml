@@ -67,3 +67,26 @@ jobs:
           node-version: 20
       - name: Check design tokens stay in sync
         run: npm run check:tokens
+
+  # Same shape as design-tokens above, for the other surface that degrades
+  # silently: Django admin is customer-facing (decision D4) and Swedish
+  # volunteers read it, but a missing catalogue entry does not raise — gettext
+  # just falls back to English. Its own job, not a step in `test`, so the
+  # failure reads as "catalogue is stale", not "tests broke".
+  messages:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v4
+        with:
+          enable-cache: true
+      # makemessages shells out to xgettext, which is not on the runner image.
+      - name: Install gettext
+        run: sudo apt-get update && sudo apt-get install -y gettext
+      - name: Install dependencies
+        run: uv sync --group dev
+      - name: Check translation catalogues are complete
+        run: uv run python scripts/check_messages.py

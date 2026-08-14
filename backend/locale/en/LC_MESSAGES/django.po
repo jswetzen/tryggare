@@ -1,12 +1,16 @@
-# English translation for Conference Child Management System
+# English catalogue for Tryggare (Conference Child Management System)
 # Copyright (C) 2025
 # This file is distributed under the same license as the project.
+#
+# Every msgstr equals its msgid, by repo convention: `en` exists so both
+# catalogues are checkable by the same rules in scripts/check_messages.py,
+# not because English needs translating.
 #
 msgid ""
 msgstr ""
 "Project-Id-Version: 1.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2025-11-25 12:00+0000\n"
+"POT-Creation-Date: 2026-08-14 11:11+0000\n"
 "PO-Revision-Date: 2025-11-25 12:00+0000\n"
 "Last-Translator: \n"
 "Language-Team: English\n"
@@ -16,18 +20,30 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
 
-# Error messages - checkins/views.py
-msgid "Both child and session are required"
-msgstr "Both child and session are required"
+msgid "Accounts"
+msgstr "Accounts"
 
-msgid "Child or session not found"
-msgstr "Child or session not found"
+msgid "Username"
+msgstr "Username"
 
-msgid "Child is already checked in to this session"
-msgstr "Child is already checked in to this session"
+# Model field labels - families/models.py
+msgid "Name"
+msgstr "Name"
 
-msgid "Child is already checked out"
-msgstr "Child is already checked out"
+msgid "Created At"
+msgstr "Created At"
+
+msgid "Active"
+msgstr "Active"
+
+msgid "Staff"
+msgstr "Staff"
+
+msgid "Admin User"
+msgstr "Admin User"
+
+msgid "Admin Users"
+msgstr "Admin Users"
 
 # Error messages - accounts/views.py
 msgid "Username and password are required"
@@ -36,75 +52,294 @@ msgstr "Username and password are required"
 msgid "Invalid credentials"
 msgstr "Invalid credentials"
 
-# Error messages - families/qr_views.py
-msgid "Invalid QR code"
-msgstr "Invalid QR code"
+# Model field labels - checkins/models.py
+msgid "Check-In"
+msgstr "Check-In"
+
+msgid "Registration is not yet confirmed"
+msgstr "Registration is not yet confirmed"
+
+msgid "Parent check-in is not enabled for this session"
+msgstr "Parent check-in is not enabled for this session"
+
+msgid "Parent does not have a ticket for this event"
+msgstr "Parent does not have a ticket for this event"
+
+# Model field labels - checkins/models.py
+msgid "Check-In Time"
+msgstr "Check-In Time"
+
+msgid "Check-Out Time"
+msgstr "Check-Out Time"
+
+msgid "Picked Up By"
+msgstr "Picked Up By"
+
+msgid "Attendee"
+msgstr "Attendee"
+
+msgid "Session"
+msgstr "Session"
+
+msgid "Check-In Staff"
+msgstr "Check-In Staff"
+
+msgid "Check-Out Staff"
+msgstr "Check-Out Staff"
+
+msgid ""
+"The child stays with their guardian, so no separate check-out is needed."
+msgstr ""
+"The child stays with their guardian, so no separate check-out is needed."
+
+msgid "Supervised"
+msgstr "Supervised"
+
+msgid "Label Printed"
+msgstr "Label Printed"
+
+msgid "Label Printed At"
+msgstr "Label Printed At"
+
+msgid "Label Printed By"
+msgstr "Label Printed By"
+
+msgid "Check-In Record"
+msgstr "Check-In Record"
+
+msgid "Check-In Records"
+msgstr "Check-In Records"
+
+msgid "QR Code"
+msgstr "QR Code"
+
+msgid "Allocated At"
+msgstr "Allocated At"
+
+msgid "Released At"
+msgstr "Released At"
+
+msgid ""
+"When the check-out happened. The code goes back into the pool 24 hours after "
+"this."
+msgstr ""
+"When the check-out happened. The code goes back into the pool 24 hours after "
+"this."
+
+msgid "QR Codes"
+msgstr "QR Codes"
+
+msgid "Timestamp"
+msgstr "Timestamp"
+
+msgid "User"
+msgstr "User"
+
+msgid "Action"
+msgstr "Action"
+
+msgid "Entity Type"
+msgstr "Entity Type"
+
+msgid "Entity ID"
+msgstr "Entity ID"
+
+msgid "Details"
+msgstr "Details"
+
+msgid "Source IP"
+msgstr "Source IP"
+
+msgid "Session ID"
+msgstr "Session ID"
+
+msgid "Audit Log"
+msgstr "Audit Log"
+
+msgid "Audit Logs"
+msgstr "Audit Logs"
 
 # Error messages - checkins/serializers.py
 msgid "This child is already checked in to this session."
 msgstr "This child is already checked in to this session."
 
-# Ticket types - events/models.py
-msgid "Event Pass"
-msgstr "Event Pass"
+msgid "Child has active check-in to another session."
+msgstr "Child has active check-in to another session."
 
-msgid "Session Ticket"
-msgstr "Session Ticket"
+msgid "Child still in active supervised session."
+msgstr "Child still in active supervised session."
 
-msgid "None"
-msgstr "None"
+# Error messages - checkins/views.py
+msgid "Both child and session are required"
+msgstr "Both child and session are required"
 
-# Model field labels - families/models.py
-msgid "Name"
-msgstr "Name"
+msgid "Child or session not found"
+msgstr "Child or session not found"
 
-msgid "Phone"
-msgstr "Phone"
+msgid "Parent is already checked in to this session"
+msgstr "Parent is already checked in to this session"
 
-msgid "Email"
-msgstr "Email"
+msgid "Child is already checked in to this session"
+msgstr "Child is already checked in to this session"
 
-msgid "Relationship Type"
-msgstr "Relationship Type"
+msgid "Child has active check-in to another session"
+msgstr "Child has active check-in to another session"
 
-msgid "Last Participation Date"
-msgstr "Last Participation Date"
+msgid "Child still in active supervised session"
+msgstr "Child still in active supervised session"
 
-msgid "Parent"
-msgstr "Parent"
+msgid "Parents are check-in only and cannot be checked out"
+msgstr "Parents are check-in only and cannot be checked out"
 
-msgid "Parents"
-msgstr "Parents"
+msgid "Child is already checked out"
+msgstr "Child is already checked out"
 
-msgid "First Name"
-msgstr "First Name"
+msgid "Child is not checked out"
+msgstr "Child is not checked out"
 
-msgid "Last Name"
-msgstr "Last Name"
+msgid "Cannot undo - too much time has passed (max 5 minutes)"
+msgstr "Cannot undo - too much time has passed (max 5 minutes)"
 
-msgid "Birthdate"
-msgstr "Birthdate"
+msgid "Cannot undo: child already checked out"
+msgstr "Cannot undo: child already checked out"
 
-msgid "Allergies"
-msgstr "Allergies"
+msgid "Cannot undo: check-in was more than 5 minutes ago"
+msgstr "Cannot undo: check-in was more than 5 minutes ago"
 
-msgid "Notes"
-msgstr "Notes"
+msgid "Check-in successfully undone"
+msgstr "Check-in successfully undone"
 
-msgid "QR Token"
-msgstr "QR Token"
+msgid "No check-in IDs provided"
+msgstr "No check-in IDs provided"
 
-msgid "Child"
-msgstr "Child"
+#, python-format
+msgid "%(count)d labels marked as printed"
+msgstr "%(count)d labels marked as printed"
 
-msgid "Children"
-msgstr "Children"
+# Admin site branding - config/admin.py
+msgid "Tryggare administration"
+msgstr "Tryggare administration"
+
+msgid "Tryggare admin"
+msgstr "Tryggare admin"
+
+msgid "Choose what to manage"
+msgstr "Choose what to manage"
+
+msgid "Registration page"
+msgstr "Registration page"
+
+msgid "Generate / refresh report snapshot"
+msgstr "Generate / refresh report snapshot"
+
+msgid "Effective parent policy"
+msgstr "Effective parent policy"
+
+#| msgid "Ticket Type"
+msgid "New ticket type"
+msgstr "New ticket type"
+
+msgid "The age does not fit, and I want to make this change anyway"
+msgstr "The age does not fit, and I want to make this change anyway"
+
+msgid ""
+"A child who has a birthday during the event is a valid reason to sit outside "
+"the age range."
+msgstr ""
+"A child who has a birthday during the event is a valid reason to sit "
+"outside the age range."
 
 msgid "Family"
 msgstr "Family"
 
-msgid "Families"
-msgstr "Families"
+# Admin changelist columns - events/admin.py (ticket triage)
+msgid "Age at event"
+msgstr "Age at event"
+
+msgid "Registration status"
+msgstr "Registration status"
+
+msgid "Change ticket type…"
+msgstr "Change ticket type…"
+
+msgid ""
+"Select tickets from a single event — a ticket type belongs to one event only."
+msgstr ""
+"Select tickets from a single event — a ticket type belongs to one event "
+"only."
+
+#, python-format
+msgid "%(changed)d ticket(s) changed, %(skipped)d skipped."
+msgstr "%(changed)d ticket(s) changed, %(skipped)d skipped."
+
+#| msgid "Ticket Type"
+msgid "Change ticket type"
+msgstr "Change ticket type"
+
+msgid "Event"
+msgstr "Event"
+
+msgid "A session-bundle ticket type must cover at least one session."
+msgstr "A session-bundle ticket type must cover at least one session."
+
+msgid "The required ticket type must belong to the same event."
+msgstr "The required ticket type must belong to the same event."
+
+# Admin changelist columns - events/admin.py (ticket triage)
+msgid "Target event"
+msgstr "Target event"
+
+msgid "Reuse"
+msgstr "Reuse"
+
+msgid "Clone lineage"
+msgstr "Clone lineage"
+
+msgid "Not duplicated elsewhere."
+msgstr "Not duplicated elsewhere."
+
+msgid "Duplicate to another event…"
+msgstr "Duplicate to another event…"
+
+#, python-format
+msgid "Duplicated %(count)d extra(s) to '%(event)s'."
+msgstr "Duplicated %(count)d extra(s) to '%(event)s'."
+
+msgid "Duplicate extras to another event"
+msgstr "Duplicate extras to another event"
+
+msgid "Events"
+msgstr "Events"
+
+msgid "Disabled"
+msgstr "Disabled"
+
+msgid "Open (no ticket required)"
+msgstr "Open (no ticket required)"
+
+msgid "Ticket required"
+msgstr "Ticket required"
+
+msgid "Parent"
+msgstr "Parent"
+
+msgid "Child"
+msgstr "Child"
+
+msgid "Either"
+msgstr "Either"
+
+msgid "Not configured"
+msgstr "Not configured"
+
+msgid "Not open yet"
+msgstr "Not open yet"
+
+msgid "Open"
+msgstr "Open"
+
+msgid "Closed"
+msgstr "Closed"
 
 # Model field labels - events/models.py
 msgid "Event Name"
@@ -116,11 +351,64 @@ msgstr "Start Date"
 msgid "End Date"
 msgstr "End Date"
 
-msgid "Event"
-msgstr "Event"
+msgid "Default Parent Check-In Policy"
+msgstr "Default Parent Check-In Policy"
 
-msgid "Events"
-msgstr "Events"
+msgid "Applied to sessions of this event that don't set their own policy."
+msgstr "Applied to sessions of this event that don't set their own policy."
+
+msgid "Price"
+msgstr "Price"
+
+msgid ""
+"Leave blank for a free event. SEK only — Swish/Bankgiro are Sweden-only "
+"payment rails."
+msgstr ""
+"Leave blank for a free event. SEK only — Swish/Bankgiro are Sweden-only "
+"payment rails."
+
+msgid "Registration Opens At"
+msgstr "Registration Opens At"
+
+msgid ""
+"Public self-serve registration only accepts submissions from this moment on. "
+"Leave this AND 'closes at' both blank to keep self-serve registration off "
+"for this event entirely — the correct default for events not meant for "
+"public sign-up (staff-only events, imports)."
+msgstr ""
+"Public self-serve registration only accepts submissions from this moment on. "
+"Leave this AND 'closes at' both blank to keep self-serve registration off "
+"for this event entirely — the correct default for events not meant for "
+"public sign-up (staff-only events, imports)."
+
+msgid "Registration Closes At"
+msgstr "Registration Closes At"
+
+msgid "Leave blank for no closing deadline."
+msgstr "Leave blank for no closing deadline."
+
+msgid "Header Image URL"
+msgstr "Header Image URL"
+
+msgid ""
+"Optional hero image shown on the public registration page. Paste a hosted "
+"image URL — this system doesn't store uploaded images."
+msgstr ""
+"Optional hero image shown on the public registration page. Paste a hosted "
+"image URL — this system doesn't store uploaded images."
+
+msgid "Accent Color"
+msgstr "Accent Color"
+
+msgid ""
+"Optional hex accent color (e.g. #2563EB) for the public registration page "
+"hero. Leave blank for the default brand color."
+msgstr ""
+"Optional hex accent color (e.g. #2563EB) for the public registration page "
+"hero. Leave blank for the default brand color."
+
+msgid "Registration closes-at must be after opens-at."
+msgstr "Registration closes-at must be after opens-at."
 
 msgid "Session Name"
 msgstr "Session Name"
@@ -137,30 +425,1167 @@ msgstr "Is Active"
 msgid "Requires Ticket"
 msgstr "Requires Ticket"
 
-msgid "Session"
-msgstr "Session"
+msgid "Parent Check-In Policy"
+msgstr "Parent Check-In Policy"
+
+msgid "Leave blank to inherit the event's default policy."
+msgstr "Leave blank to inherit the event's default policy."
 
 msgid "Sessions"
 msgstr "Sessions"
 
-# Model field labels - checkins/models.py
-msgid "Check-In Time"
-msgstr "Check-In Time"
+# Admin changelist columns - events/admin.py (ticket triage)
+msgid "Whole event"
+msgstr "Whole event"
 
-msgid "Check-Out Time"
-msgstr "Check-Out Time"
+msgid "Session bundle (e.g. one day)"
+msgstr "Session bundle (e.g. one day)"
 
-msgid "Picked Up By"
-msgstr "Picked Up By"
+msgid "Applies To"
+msgstr "Applies To"
 
-msgid "Check-In Staff"
-msgstr "Check-In Staff"
+msgid "Minimum Birthdate"
+msgstr "Minimum Birthdate"
 
-msgid "Check-Out Staff"
-msgstr "Check-Out Staff"
+# Model field help text - events/models.py (TicketType)
+msgid ""
+"The attendee must be born on or after this date. Leave blank for no lower "
+"age limit."
+msgstr ""
+"The attendee must be born on or after this date. Leave blank for no lower "
+"age limit."
 
-msgid "Check-In Record"
-msgstr "Check-In Record"
+msgid "Maximum Birthdate"
+msgstr "Maximum Birthdate"
 
-msgid "Check-In Records"
-msgstr "Check-In Records"
+msgid ""
+"The attendee must be born on or before this date. Leave blank for no upper "
+"age limit."
+msgstr ""
+"The attendee must be born on or before this date. Leave blank for no upper "
+"age limit."
+
+msgid "Available From"
+msgstr "Available From"
+
+msgid "Available Until"
+msgstr "Available Until"
+
+msgid ""
+"E.g. an early-bird cutoff. Checked at submission time only — never "
+"recomputed for an existing registration."
+msgstr ""
+"E.g. an early-bird cutoff. Checked at submission time only — never "
+"recomputed for an existing registration."
+
+msgid "Hidden"
+msgstr "Hidden"
+
+msgid ""
+"Hidden from the public form; only selectable via a direct link/code (e.g. "
+"volunteer tickets)."
+msgstr ""
+"Hidden from the public form; only selectable via a direct link/code (e.g. "
+"volunteer tickets)."
+
+msgid "Kind"
+msgstr "Kind"
+
+msgid ""
+"The sessions this ticket covers (e.g. a single day of a multi-day event). "
+"Only used when the kind above is a session bundle."
+msgstr ""
+"The sessions this ticket covers (e.g. a single day of a multi-day event). "
+"Only used when the kind above is a session bundle."
+
+msgid "Capacity"
+msgstr "Capacity"
+
+msgid ""
+"Leave blank for no limit. This number is not enforced yet — setting 50 will "
+"not stop a 51st booking."
+msgstr ""
+"Leave blank for no limit. This number is not enforced yet — setting 50 will "
+"not stop a 51st booking."
+
+msgid "Requires Ticket Type"
+msgstr "Requires Ticket Type"
+
+msgid ""
+"If set, this ticket type may only be selected on a registration that also "
+"has at least one ticket of the required type (e.g. a free 'family member' "
+"type requiring a paid 'family ticket' type)."
+msgstr ""
+"If set, this ticket type may only be selected on a registration that also "
+"has at least one ticket of the required type (e.g. a free 'family member' "
+"type requiring a paid 'family ticket' type)."
+
+msgid "Max Per Required"
+msgstr "Max Per Required"
+
+msgid ""
+"How many tickets of this type each required ticket allows (e.g. 4 free "
+"family members per paid family ticket). Leave blank for no limit — one "
+"required ticket is still needed. Only used when 'Requires ticket type' is "
+"set."
+msgstr ""
+"How many tickets of this type each required ticket allows (e.g. 4 free "
+"family members per paid family ticket). Leave blank for no limit — one "
+"required ticket is still needed. Only used when 'Requires ticket type' is "
+"set."
+
+msgid "Sort Order"
+msgstr "Sort Order"
+
+msgid ""
+"Uncheck to take this ticket type out of use: it disappears from the "
+"registration form, and tickets already sold keep working."
+msgstr ""
+"Uncheck to take this ticket type out of use: it disappears from the "
+"registration form, and tickets already sold keep working."
+
+msgid "Ticket Type"
+msgstr "Ticket Type"
+
+msgid "Ticket Types"
+msgstr "Ticket Types"
+
+msgid "A ticket type cannot require itself."
+msgstr "A ticket type cannot require itself."
+
+msgid "Percent"
+msgstr "Percent"
+
+msgid "Fixed amount"
+msgstr "Fixed amount"
+
+msgid "Code"
+msgstr "Code"
+
+msgid "Matched case-insensitively. Unique per event."
+msgstr "Matched case-insensitively. Unique per event."
+
+msgid "Discount Type"
+msgstr "Discount Type"
+
+msgid "Discount Value"
+msgstr "Discount Value"
+
+msgid ""
+"0-100 for percent, kr for fixed. 0 is valid — a pure unlock code with no "
+"discount of its own (e.g. the ticket it unlocks is already 0 kr)."
+msgstr ""
+"0-100 for percent, kr for fixed. 0 is valid — a pure unlock code with no "
+"discount of its own (e.g. the ticket it unlocks is already 0 kr)."
+
+msgid "Applies To Ticket Types"
+msgstr "Applies To Ticket Types"
+
+msgid ""
+"Leave empty to take the discount off the whole order. Pick ticket types to "
+"take it off only those lines."
+msgstr ""
+"Leave empty to take the discount off the whole order. Pick ticket types to "
+"take it off only those lines."
+
+msgid "Unlocks Ticket Types"
+msgstr "Unlocks Ticket Types"
+
+# Model field help text - events/models.py (PromoCode)
+msgid ""
+"Hidden ticket types that this code makes selectable — e.g. VIP2026 unlocking "
+"the VIP type for Weekend 2026."
+msgstr ""
+"Hidden ticket types that this code makes selectable — e.g. VIP2026 unlocking "
+"the VIP type for Weekend 2026."
+
+msgid "Max Uses"
+msgstr "Max Uses"
+
+msgid "Leave blank to let the code be used any number of times."
+msgstr "Leave blank to let the code be used any number of times."
+
+msgid "Uses Count"
+msgstr "Uses Count"
+
+msgid "Valid From"
+msgstr "Valid From"
+
+msgid "Valid Until"
+msgstr "Valid Until"
+
+msgid "Promo Code"
+msgstr "Promo Code"
+
+msgid "Promo Codes"
+msgstr "Promo Codes"
+
+msgid ""
+"Set for a session-scoped extra (e.g. one evening's dinner). Blank = event-"
+"wide."
+msgstr ""
+"Set for a session-scoped extra (e.g. one evening's dinner). Blank = event-"
+"wide."
+
+msgid "Per Attendee"
+msgstr "Per Attendee"
+
+msgid ""
+"Unchecked for a per-registration extra shared by the whole booking (e.g. a "
+"cabin, a parking pass with quantity > 1)."
+msgstr ""
+"Unchecked for a per-registration extra shared by the whole booking (e.g. a "
+"cabin, a parking pass with quantity > 1)."
+
+msgid "Requires Choice"
+msgstr "Requires Choice"
+
+msgid "Required"
+msgstr "Required"
+
+msgid ""
+"Must-choose-one, e.g. accommodation — renders as radio, not an optional "
+"checkbox."
+msgstr ""
+"Must-choose-one, e.g. accommodation — renders as radio, not an optional "
+"checkbox."
+
+msgid "Default Selected"
+msgstr "Default Selected"
+
+msgid ""
+"For an opt-out extra (e.g. food included by default, guardian can decline) — "
+"never model an opt-out as a negative price."
+msgstr ""
+"For an opt-out extra (e.g. food included by default, guardian can decline) — "
+"never model an opt-out as a negative price."
+
+msgid "Cloned From"
+msgstr "Cloned From"
+
+msgid ""
+"Informational only — the extra this was duplicated from, if any. No live "
+"link: editing either copy never affects the other."
+msgstr ""
+"Informational only — the extra this was duplicated from, if any. No live "
+"link: editing either copy never affects the other."
+
+msgid "Extra"
+msgstr "Extra"
+
+msgid "Extras"
+msgstr "Extras"
+
+msgid "Label"
+msgstr "Label"
+
+msgid "Price Delta"
+msgstr "Price Delta"
+
+msgid "Extra Choice"
+msgstr "Extra Choice"
+
+msgid "Extra Choices"
+msgstr "Extra Choices"
+
+# Ticket types - events/models.py
+msgid "Event Pass"
+msgstr "Event Pass"
+
+msgid "Session Ticket"
+msgstr "Session Ticket"
+
+msgid "None"
+msgstr "None"
+
+msgid "Ticket"
+msgstr "Ticket"
+
+msgid "Tickets"
+msgstr "Tickets"
+
+msgid "External Ticket Code"
+msgstr "External Ticket Code"
+
+msgid "ETicket code from the external registration system."
+msgstr "ETicket code from the external registration system."
+
+msgid "Registration"
+msgstr "Registration"
+
+# Model field help text - events/models.py (EventTicket, SessionTicket)
+msgid ""
+"The registration this ticket came from, when a family signed up themselves "
+"online. Blank for tickets created by staff or brought in by an import."
+msgstr ""
+"The registration this ticket came from, when a family signed up themselves "
+"online. Blank for tickets created by staff or brought in by an import."
+
+msgid ""
+"The ticket type the family chose when registering. Blank for tickets created "
+"by staff or brought in by an import."
+msgstr ""
+"The ticket type the family chose when registering. Blank for tickets created "
+"by staff or brought in by an import."
+
+msgid "Price At Registration"
+msgstr "Price At Registration"
+
+msgid ""
+"The price this ticket was sold at. Editing a price is safe — tickets already "
+"sold keep the price they were sold at."
+msgstr ""
+"The price this ticket was sold at. Editing a price is safe — tickets already "
+"sold keep the price they were sold at."
+
+msgid "Event Ticket"
+msgstr "Event Ticket"
+
+msgid "Event Tickets"
+msgstr "Event Tickets"
+
+msgid "Session Tickets"
+msgstr "Session Tickets"
+
+msgid "Home"
+msgstr "Home"
+
+#, python-format
+msgid ""
+"Choose the ticket type these tickets should have at %(event)s. Nothing is "
+"changed yet — the next screen shows what it does to each family's balance."
+msgstr ""
+"Choose the ticket type these tickets should have at %(event)s. Nothing "
+"is changed yet — the next screen shows what it does to each family's "
+"balance."
+
+#| msgid "Ticket Type"
+msgid "No ticket type"
+msgstr "No ticket type"
+
+msgid ""
+"Check this before you confirm. The price a ticket was sold at is never "
+"rewritten — the difference is settled on the family's payment instead."
+msgstr ""
+"Check this before you confirm. The price a ticket was sold at is never "
+"rewritten — the difference is settled on the family's payment instead."
+
+# Admin changelist columns - events/admin.py (ticket triage)
+#| msgid "Age at event"
+msgid "Age at start of event"
+msgstr "Age at start of event"
+
+msgid "From"
+msgstr "From"
+
+msgid "To"
+msgstr "To"
+
+msgid "Price difference"
+msgstr "Price difference"
+
+msgid "Effect on the payment"
+msgstr "Effect on the payment"
+
+#| msgid "Choose what to manage"
+msgid "Show what this changes"
+msgstr "Show what this changes"
+
+msgid "Cancel"
+msgstr "Cancel"
+
+msgid "Duplicate to another event"
+msgstr "Duplicate to another event"
+
+msgid ""
+"Duplicate the following extra(s) to another event. Each becomes an "
+"independent copy — editing one afterward (including its price) never affects "
+"the others."
+msgstr ""
+"Duplicate the following extra(s) to another event. Each becomes an "
+"independent copy — editing one afterward (including its price) never affects "
+"the others."
+
+msgid "Duplicate"
+msgstr "Duplicate"
+
+msgid "Export selected families (JSON, GDPR access request)"
+msgstr "Export selected families (JSON, GDPR access request)"
+
+msgid "Export selected families (CSV, GDPR access request)"
+msgstr "Export selected families (CSV, GDPR access request)"
+
+msgid "No family selected."
+msgstr "No family selected."
+
+msgid "Erase selected families (GDPR right to erasure)"
+msgstr "Erase selected families (GDPR right to erasure)"
+
+#, python-format
+msgid "Erased %(count)d families (data deleted, audit trail scrubbed)."
+msgstr "Erased %(count)d families (data deleted, audit trail scrubbed)."
+
+msgid "Families"
+msgstr "Families"
+
+msgid "Last Name"
+msgstr "Last Name"
+
+msgid "Last Participation Date"
+msgstr "Last Participation Date"
+
+msgid "External Booking ID"
+msgstr "External Booking ID"
+
+msgid "Booking ID from the external registration system (e.g. '10869')."
+msgstr "Booking ID from the external registration system (e.g. '10869')."
+
+msgid "Anonymized At"
+msgstr "Anonymized At"
+
+msgid "Set when GDPR retention anonymization scrubbed this family's PII."
+msgstr "Set when GDPR retention anonymization scrubbed this family's PII."
+
+msgid "First Name"
+msgstr "First Name"
+
+msgid "Set when GDPR retention anonymization scrubbed this attendee's PII."
+msgstr "Set when GDPR retention anonymization scrubbed this attendee's PII."
+
+msgid "Attendees"
+msgstr "Attendees"
+
+msgid "No health information indicated"
+msgstr "No health information indicated"
+
+msgid "Consented to recording details"
+msgstr "Consented to recording details"
+
+msgid "Declined to have details recorded"
+msgstr "Declined to have details recorded"
+
+msgid "Withdrew previously granted consent"
+msgstr "Withdrew previously granted consent"
+
+msgid "Consent needs to be reconfirmed"
+msgstr "Consent needs to be reconfirmed"
+
+msgid "Phone"
+msgstr "Phone"
+
+msgid "Phone Locked"
+msgstr "Phone Locked"
+
+msgid "When checked, re-imports will not overwrite this phone number."
+msgstr "When checked, re-imports will not overwrite this phone number."
+
+msgid "Email"
+msgstr "Email"
+
+msgid "Email Locked"
+msgstr "Email Locked"
+
+msgid "When checked, re-imports will not overwrite this email address."
+msgstr "When checked, re-imports will not overwrite this email address."
+
+msgid "Relationship Type"
+msgstr "Relationship Type"
+
+msgid "Allergies"
+msgstr "Allergies"
+
+msgid "Notes"
+msgstr "Notes"
+
+msgid "Health Data Consent Status"
+msgstr "Health Data Consent Status"
+
+msgid "Health Consent Given By"
+msgstr "Health Consent Given By"
+
+msgid ""
+"Whoever attested to this consent decision — at initial registration, the "
+"registrant present filling in the form on behalf of the whole party (same "
+"attestor as a child's consent); may be this same parent when self-attesting."
+msgstr ""
+"Whoever attested to this consent decision — at initial registration, the "
+"registrant present filling in the form on behalf of the whole party (same "
+"attestor as a child's consent); may be this same parent when self-attesting."
+
+msgid "Health Consent Recorded At"
+msgstr "Health Consent Recorded At"
+
+msgid "Health Consent Notice Version"
+msgstr "Health Consent Notice Version"
+
+msgid "Parents"
+msgstr "Parents"
+
+msgid "Guardian consented to recording details"
+msgstr "Guardian consented to recording details"
+
+msgid "Guardian declined to have details recorded"
+msgstr "Guardian declined to have details recorded"
+
+msgid "Guardian withdrew previously granted consent"
+msgstr "Guardian withdrew previously granted consent"
+
+msgid "Birthdate"
+msgstr "Birthdate"
+
+msgid "Children"
+msgstr "Children"
+
+msgid "QR code not found or child is not currently checked in"
+msgstr "QR code not found or child is not currently checked in"
+
+msgid "FestivalPro Configuration"
+msgstr "FestivalPro Configuration"
+
+msgid "Imports"
+msgstr "Imports"
+
+msgid "Provider Type"
+msgstr "Provider Type"
+
+msgid "Credentials"
+msgstr "Credentials"
+
+msgid "Updated At"
+msgstr "Updated At"
+
+msgid "Import Source"
+msgstr "Import Source"
+
+msgid "Import Sources"
+msgstr "Import Sources"
+
+msgid "Login URL"
+msgstr "Login URL"
+
+msgid "Export URL"
+msgstr "Export URL"
+
+msgid "Export POST Body"
+msgstr "Export POST Body"
+
+msgid ""
+"Raw form-encoded body to POST to export_url. Paste from browser network "
+"capture."
+msgstr ""
+"Raw form-encoded body to POST to export_url. Paste from browser network "
+"capture."
+
+msgid "Field Mappings"
+msgstr "Field Mappings"
+
+msgid "Maps booking prefix keys to 'full_event', a session UUID, or 'ignore'."
+msgstr "Maps booking prefix keys to 'full_event', a session UUID, or 'ignore'."
+
+msgid "FestivalPro Import Source"
+msgstr "FestivalPro Import Source"
+
+msgid "FestivalPro Import Sources"
+msgstr "FestivalPro Import Sources"
+
+msgid "Pending"
+msgstr "Pending"
+
+msgid "Running"
+msgstr "Running"
+
+msgid "Completed"
+msgstr "Completed"
+
+msgid "Failed"
+msgstr "Failed"
+
+msgid "Triggered By"
+msgstr "Triggered By"
+
+msgid "Status"
+msgstr "Status"
+
+msgid "Started At"
+msgstr "Started At"
+
+msgid "Finished At"
+msgstr "Finished At"
+
+msgid "Source File Name"
+msgstr "Source File Name"
+
+msgid "Raw Data"
+msgstr "Raw Data"
+
+msgid "Raw parsed JSON from the import source, for debugging."
+msgstr "Raw parsed JSON from the import source, for debugging."
+
+msgid "Log"
+msgstr "Log"
+
+msgid "Array of per-booking log entries."
+msgstr "Array of per-booking log entries."
+
+msgid "Summary"
+msgstr "Summary"
+
+msgid "Aggregated import statistics."
+msgstr "Aggregated import statistics."
+
+msgid "Import Run"
+msgstr "Import Run"
+
+msgid "Import Runs"
+msgstr "Import Runs"
+
+msgid "Notifications"
+msgstr "Notifications"
+
+msgid "Token active"
+msgstr "Token active"
+
+msgid "Rotate token (invalidates the old one)"
+msgstr "Rotate token (invalidates the old one)"
+
+#, python-format
+msgid ""
+"Rotated tokens for %(count)d printer(s). Update each printer-client with its "
+"new token."
+msgstr ""
+"Rotated tokens for %(count)d printer(s). Update each printer-client with its "
+"new token."
+
+msgid "Revoke token (disables the printer)"
+msgstr "Revoke token (disables the printer)"
+
+#, python-format
+msgid "Revoked tokens for %(count)d printer(s)."
+msgstr "Revoked tokens for %(count)d printer(s)."
+
+msgid "Printing"
+msgstr "Printing"
+
+msgid "Online"
+msgstr "Online"
+
+msgid "Last Seen At"
+msgstr "Last Seen At"
+
+msgid "Token"
+msgstr "Token"
+
+msgid "Token Created At"
+msgstr "Token Created At"
+
+msgid "Token Revoked At"
+msgstr "Token Revoked At"
+
+msgid "Printer"
+msgstr "Printer"
+
+msgid "Printers"
+msgstr "Printers"
+
+msgid "Sent"
+msgstr "Sent"
+
+msgid "Sent At"
+msgstr "Sent At"
+
+msgid "Completed At"
+msgstr "Completed At"
+
+msgid "Print Job"
+msgstr "Print Job"
+
+msgid "Print Jobs"
+msgstr "Print Jobs"
+
+#, python-format
+msgid "%(paid)d marked paid, %(skipped)d skipped (not pending payment)."
+msgstr "%(paid)d marked paid, %(skipped)d skipped (not pending payment)."
+
+msgid "Cancel selected registrations"
+msgstr "Cancel selected registrations"
+
+#, python-format
+msgid "%(count)d registration(s) cancelled."
+msgstr "%(count)d registration(s) cancelled."
+
+msgid "Mark selected as paid (Swish)"
+msgstr "Mark selected as paid (Swish)"
+
+msgid "Mark selected as paid (Bankgiro)"
+msgstr "Mark selected as paid (Bankgiro)"
+
+msgid "Mark selected as paid (other)"
+msgstr "Mark selected as paid (other)"
+
+msgid "Confirm despite outstanding balance"
+msgstr "Confirm despite outstanding balance"
+
+#, python-format
+msgid "%(confirmed)d confirmed, %(skipped)d skipped (not pending payment)."
+msgstr "%(confirmed)d confirmed, %(skipped)d skipped (not pending payment)."
+
+#, python-format
+msgid "%(resolved)d resolved, %(skipped)d skipped (not pending review)."
+msgstr "%(resolved)d resolved, %(skipped)d skipped (not pending review)."
+
+msgid "Resolve pending review: confirm"
+msgstr "Resolve pending review: confirm"
+
+msgid "Resolve pending review: reject (cancel)"
+msgstr "Resolve pending review: reject (cancel)"
+
+msgid "Reference Code"
+msgstr "Reference Code"
+
+msgid "Balance"
+msgstr "Balance"
+
+msgid "Registrations"
+msgstr "Registrations"
+
+#, python-format
+msgid "Confirm your registration for %(event)s"
+msgstr "Confirm your registration for %(event)s"
+
+#, python-format
+msgid ""
+"Thanks for registering for %(event)s!\n"
+"\n"
+"Please confirm your email address by visiting the link below:\n"
+"%(url)s\n"
+"\n"
+"This link expires in 48 hours. Your reference code is %(code)s."
+msgstr ""
+"Thanks for registering for %(event)s!\n"
+"\n"
+"Please confirm your email address by visiting the link below:\n"
+"%(url)s\n"
+"\n"
+"This link expires in 48 hours. Your reference code is %(code)s."
+
+#, python-format
+msgid "Registration confirmed: %(event)s"
+msgstr "Registration confirmed: %(event)s"
+
+#, python-format
+msgid ""
+"Your registration for %(event)s is confirmed. Your reference code is "
+"%(code)s."
+msgstr ""
+"Your registration for %(event)s is confirmed. Your reference code is "
+"%(code)s."
+
+#, python-format
+msgid "Payment needed to confirm your registration: %(event)s"
+msgstr "Payment needed to confirm your registration: %(event)s"
+
+#, python-format
+msgid ""
+"Your registration for %(event)s is verified, but not yet confirmed — payment "
+"of %(amount)s %(currency)s is needed first."
+msgstr ""
+"Your registration for %(event)s is verified, but not yet confirmed — payment "
+"of %(amount)s %(currency)s is needed first."
+
+#, python-format
+msgid "Your reference code is %(code)s."
+msgstr "Your reference code is %(code)s."
+
+#, python-format
+msgid "Pay with Swish: %(url)s"
+msgstr "Pay with Swish: %(url)s"
+
+#, python-format
+msgid "Or pay via Bankgiro to %(bankgiro)s, using %(code)s as the message."
+msgstr "Or pay via Bankgiro to %(bankgiro)s, using %(code)s as the message."
+
+#, python-format
+msgid "Check your payment status any time at: %(url)s"
+msgstr "Check your payment status any time at: %(url)s"
+
+msgid "Pending email verification"
+msgstr "Pending email verification"
+
+msgid "Confirmed"
+msgstr "Confirmed"
+
+msgid "Pending payment"
+msgstr "Pending payment"
+
+msgid "Pending staff review"
+msgstr "Pending staff review"
+
+msgid "Cancelled"
+msgstr "Cancelled"
+
+# Model field help text - registrations/models.py (Registration)
+msgid "The family this registration belongs to."
+msgstr "The family this registration belongs to."
+
+msgid "Short code shown to the guardian for support lookups."
+msgstr "Short code shown to the guardian for support lookups."
+
+msgid "Contact Email"
+msgstr "Contact Email"
+
+msgid "Verification Token Hash"
+msgstr "Verification Token Hash"
+
+msgid "SHA-256 hash of the one-time token sent by email."
+msgstr "SHA-256 hash of the one-time token sent by email."
+
+msgid "Verified At"
+msgstr "Verified At"
+
+msgid "Submitted At"
+msgstr "Submitted At"
+
+msgid "Verification Email Last Sent At"
+msgstr "Verification Email Last Sent At"
+
+msgid "Tracks the resend cooldown for a still-pending registration."
+msgstr "Tracks the resend cooldown for a still-pending registration."
+
+msgid "Expires At"
+msgstr "Expires At"
+
+msgid ""
+"When an unfinished registration is removed automatically. The deadline is "
+"extended once the guardian confirms their email address, to give them time "
+"to pay."
+msgstr ""
+"When an unfinished registration is removed automatically. The deadline is "
+"extended once the guardian confirms their email address, to give them time "
+"to pay."
+
+msgid "Created New Family"
+msgstr "Created New Family"
+
+msgid ""
+"Checked when this registration created a new family. If it is removed for "
+"being unfinished, only the family and tickets it created go with it — an "
+"existing family is never touched."
+msgstr ""
+"Checked when this registration created a new family. If it is removed for "
+"being unfinished, only the family and tickets it created go with it — an "
+"existing family is never touched."
+
+msgid "Discount Amount"
+msgstr "Discount Amount"
+
+msgid ""
+"The discount this registration was given. Editing the promo code afterwards "
+"is safe — it does not change what this family was charged."
+msgstr ""
+"The discount this registration was given. Editing the promo code afterwards "
+"is safe — it does not change what this family was charged."
+
+msgid "Swish"
+msgstr "Swish"
+
+msgid "Bankgiro"
+msgstr "Bankgiro"
+
+msgid "Other (manual)"
+msgstr "Other (manual)"
+
+msgid "Partially paid"
+msgstr "Partially paid"
+
+msgid "Paid"
+msgstr "Paid"
+
+msgid "Refunded"
+msgstr "Refunded"
+
+msgid "Amount"
+msgstr "Amount"
+
+msgid "Currency"
+msgstr "Currency"
+
+msgid "Method"
+msgstr "Method"
+
+msgid ""
+"Set only once marked paid — a guardian may pay via either rail, so it isn't "
+"known in advance."
+msgstr ""
+"Set only once marked paid — a guardian may pay via either rail, so it isn't "
+"known in advance."
+
+msgid "Paid At"
+msgstr "Paid At"
+
+msgid "Marked By"
+msgstr "Marked By"
+
+msgid "Payment"
+msgstr "Payment"
+
+msgid "Payments"
+msgstr "Payments"
+
+msgid "Received"
+msgstr "Received"
+
+msgid "Adjustment"
+msgstr "Adjustment"
+
+msgid ""
+"Always positive — kind determines the sign of its effect on the payment's "
+"balance."
+msgstr ""
+"Always positive — kind determines the sign of its effect on the payment's "
+"balance."
+
+msgid "Note"
+msgstr "Note"
+
+msgid "Created By"
+msgstr "Created By"
+
+msgid "Payment Event"
+msgstr "Payment Event"
+
+msgid "Payment Events"
+msgstr "Payment Events"
+
+# Model field help text - registrations/models.py (RegistrationExtra)
+msgid ""
+"Leave blank for an extra that belongs to the whole booking rather than to "
+"one attendee."
+msgstr ""
+"Leave blank for an extra that belongs to the whole booking rather than to "
+"one attendee."
+
+msgid "Choice"
+msgstr "Choice"
+
+msgid "Quantity"
+msgstr "Quantity"
+
+msgid ""
+"More than 1 is only allowed for an extra that belongs to the whole booking "
+"rather than to one attendee."
+msgstr ""
+"More than 1 is only allowed for an extra that belongs to the whole booking "
+"rather than to one attendee."
+
+msgid ""
+"The price per unit this extra was sold at. Editing a price is safe — extras "
+"already sold keep the price they were sold at."
+msgstr ""
+"The price per unit this extra was sold at. Editing a price is safe — extras "
+"already sold keep the price they were sold at."
+
+msgid "Registration Extra"
+msgstr "Registration Extra"
+
+msgid "Registration Extras"
+msgstr "Registration Extras"
+
+msgid "No change to what the family owes."
+msgstr "No change to what the family owes."
+
+msgid ""
+"Recorded as an adjustment on the payment ledger: the outstanding balance "
+"goes down by the difference."
+msgstr ""
+"Recorded as an adjustment on the payment ledger: the outstanding balance "
+"goes down by the difference."
+
+msgid ""
+"The amount owed goes up by the difference. The family has more to pay after "
+"this change."
+msgstr ""
+"The amount owed goes up by the difference. The family has more to pay "
+"after this change."
+
+msgid ""
+"The amount owed goes down by the difference. The family has already paid "
+"more than the new price, so the balance turns negative — repay the "
+"difference and record it as a refund."
+msgstr ""
+"The amount owed goes down by the difference. The family has already paid "
+"more than the new price, so the balance turns negative — repay the "
+"difference and record it as a refund."
+
+#, python-format
+msgid ""
+"%(attendee)s is not registered as a child, so the age range for "
+"%(ticket_type)s could not be checked."
+msgstr ""
+"%(attendee)s is not registered as a child, so the age range for "
+"%(ticket_type)s could not be checked."
+
+#, python-format
+msgid ""
+"No birthdate is recorded for %(attendee)s, so the age range for "
+"%(ticket_type)s could not be checked."
+msgstr ""
+"No birthdate is recorded for %(attendee)s, so the age range for "
+"%(ticket_type)s could not be checked."
+
+#, python-format
+msgid ""
+"%(attendee)s was born %(birthdate)s and is %(age)s on the first day of the "
+"event, which falls outside the age range for %(ticket_type)s. Continue only "
+"if this is deliberate."
+msgstr ""
+"%(attendee)s was born %(birthdate)s and is %(age)s on the first day of "
+"the event, which falls outside the age range for %(ticket_type)s. "
+"Continue only if this is deliberate."
+
+#| msgid "The required ticket type must belong to the same event."
+msgid "%(ticket_type)s belongs to a different event."
+msgstr "%(ticket_type)s belongs to a different event."
+
+#, python-format
+msgid "%(ticket_type)s has been retired and can no longer be assigned."
+msgstr "%(ticket_type)s has been retired and can no longer be assigned."
+
+# Error messages - checkins/serializers.py
+#| msgid "This extra is already attached to this attendee."
+msgid "This ticket is already on %(ticket_type)s."
+msgstr "This ticket is already on %(ticket_type)s."
+
+#, python-format
+msgid "Ticket type changed from %(old)s to %(new)s"
+msgstr "Ticket type changed from %(old)s to %(new)s"
+
+msgid "none"
+msgstr "none"
+
+msgid "This ticket was changed by someone else — review it again."
+msgstr "This ticket was changed by someone else — review it again."
+
+#, python-format
+msgid "%(name)s requires at least one %(required)s ticket."
+msgstr "%(name)s requires at least one %(required)s ticket."
+
+#, python-format
+msgid ""
+"Too many %(name)s tickets for the number of %(required)s tickets (max "
+"%(max)s per)."
+msgstr ""
+"Too many %(name)s tickets for the number of %(required)s tickets (max "
+"%(max)s per)."
+
+msgid "This promo code is not valid."
+msgstr "This promo code is not valid."
+
+msgid "Invalid ticket type for this event."
+msgstr "Invalid ticket type for this event."
+
+msgid "This ticket type isn't available for this attendee."
+msgstr "This ticket type isn't available for this attendee."
+
+msgid "This ticket type isn't available yet."
+msgstr "This ticket type isn't available yet."
+
+msgid "This ticket type is no longer available."
+msgstr "This ticket type is no longer available."
+
+msgid "This ticket type isn't available right now."
+msgstr "This ticket type isn't available right now."
+
+msgid "Invalid extra for this event."
+msgstr "Invalid extra for this event."
+
+msgid "Invalid choice for this extra."
+msgstr "Invalid choice for this extra."
+
+msgid "This extra requires a choice."
+msgstr "This extra requires a choice."
+
+msgid "This extra must be attached to an attendee."
+msgstr "This extra must be attached to an attendee."
+
+msgid "This extra can't be attached to a specific attendee."
+msgstr "This extra can't be attached to a specific attendee."
+
+msgid ""
+"A quantity greater than one is only allowed for per-registration extras."
+msgstr ""
+"A quantity greater than one is only allowed for per-registration extras."
+
+msgid "This extra isn't available for this attendee."
+msgstr "This extra isn't available for this attendee."
+
+msgid "A session-scoped extra must be attached to an attendee."
+msgstr "A session-scoped extra must be attached to an attendee."
+
+msgid "This attendee isn't registered for that session."
+msgstr "This attendee isn't registered for that session."
+
+# Error messages - checkins/serializers.py
+msgid "This extra is already attached to this attendee."
+msgstr "This extra is already attached to this attendee."
+
+msgid "Please select a ticket type for every attendee."
+msgstr "Please select a ticket type for every attendee."
+
+#, python-format
+msgid "Please make a required choice for %(name)s: %(extras)s"
+msgstr "Please make a required choice for %(name)s: %(extras)s"
+
+#, python-format
+msgid "Please make a required choice: %(extras)s"
+msgstr "Please make a required choice: %(extras)s"
+
+msgid "Thanks — check your email to confirm."
+msgstr "Thanks — check your email to confirm."
+
+msgid "Registration is not currently open for this event."
+msgstr "Registration is not currently open for this event."
+
+msgid ""
+"A confirmation email was already sent recently — please check your inbox."
+msgstr ""
+"A confirmation email was already sent recently — please check your inbox."
+
+msgid "This verification link has expired."
+msgstr "This verification link has expired."
+
+msgid "Unknown payment method"
+msgstr "Unknown payment method"
+
+msgid "Registration has no payment"
+msgstr "Registration has no payment"
+
+msgid "Reports"
+msgstr "Reports"
+
+msgid "Event Start Date"
+msgstr "Event Start Date"
+
+msgid "Event End Date"
+msgstr "Event End Date"
+
+msgid "Generated At"
+msgstr "Generated At"
+
+msgid "Generated By"
+msgstr "Generated By"
+
+msgid "Unique Children"
+msgstr "Unique Children"
+
+msgid "Total Check-Ins"
+msgstr "Total Check-Ins"
+
+msgid "Snapshot Data"
+msgstr "Snapshot Data"
+
+# Model field labels - events/models.py
+msgid "Event Report"
+msgstr "Event Report"
+
+msgid "Event Reports"
+msgstr "Event Reports"

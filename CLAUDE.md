@@ -201,6 +201,14 @@ The app and the marketing site (`gh-pages`, `tryggare.app`) share one brand laye
   `Logo` components in `src/lib/components/ui/`, not the `nav.title` string, for the brand mark).
 - **Bilingual by default** — every visible string gets EN + SV in the same change (`en.json` +
   `sv.json`); Swedish conveys intent, not literal words.
+- **The same rule holds for the backend/admin surface**, which has its own catalogues
+  (`backend/locale/{en,sv}/LC_MESSAGES/django.po`). Django admin is customer-facing (D4), so wrap
+  every `verbose_name`, `help_text`, choice label and `@admin.display(description=…)` in
+  `gettext_lazy` and add both catalogue entries in the same change. Enforced by
+  `backend/scripts/check_messages.py` (`cd backend && make check-messages`; CI runs it as the
+  `messages` job in `.github/workflows/test.yml`) — it fails on a msgid missing from a catalogue,
+  an empty `sv` msgstr, or a `#, fuzzy` entry. A Swedish msgstr equal to its msgid is fine
+  ("Status", "Swish"); the guard never compares file bytes or `#:` line references.
 - **No emoji.** Allowed glyphs only: ✓ ✗ →. Icons are inline SVG, stroke-only, width 2,
   `currentColor`, rounded caps/joins (Lucide as the substitute set).
 - **Plus Jakarta Sans** only (loaded in `app.html`). Restrained motion: `0.15s ease`, 1–2px

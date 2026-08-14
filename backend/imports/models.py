@@ -38,12 +38,14 @@ class ImportSource(models.Model):
     credentials = models.BinaryField(
         null=True, blank=True, verbose_name=_("Credentials")
     )
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name=_("Created At"))
+    updated_at = models.DateTimeField(auto_now=True, verbose_name=_("Updated At"))
 
     class Meta:
         db_table = "import_sources"
         ordering = ["name"]
+        verbose_name = _("Import Source")
+        verbose_name_plural = _("Import Sources")
 
     def __str__(self) -> str:
         return self.name
