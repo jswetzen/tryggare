@@ -2,17 +2,27 @@
 no DRF coupling — callers own validation, error handling, and audit logging).
 """
 
+from dataclasses import dataclass
 from decimal import Decimal
+from enum import Enum
 from typing import Literal
 
+from django.core.exceptions import ObjectDoesNotExist
 from django.db import transaction
 from django.db.models import F
 from django.db.models.functions import Greatest
+from django.utils.translation import gettext_lazy as _
 
-from events.models import PromoCode
+from events.models import EventTicket, PromoCode, TicketType
 
 from .emails import send_confirmation_email, send_payment_instructions_email
-from .models import Payment, PaymentEvent, Registration, default_payment_expires_at
+from .models import (
+    ZERO,
+    Payment,
+    PaymentEvent,
+    Registration,
+    default_payment_expires_at,
+)
 
 
 class InvalidPaymentTransition(Exception):
@@ -228,3 +238,357 @@ def resolve_pending_review(
         release_promo_code_use(registration)
     else:
         raise ValueError(f"Unknown action: {action!r}")
+
+
+# ---------------------------------------------------------------------------
+# Ticket-type correction (case catalog §2.2 / §8.2)
+# ---------------------------------------------------------------------------
+
+
+class TicketTypeChangeRejected(Exception):
+    """Raised when a ticket-type change must not happen at all — a type from
+    another event, a retired type, or an unacknowledged age warning.
+
+    Deliberately separate from InvalidPaymentTransition: that one means "the
+    money is not in a state for this", this one means "this is not a legal
+    re-tiering". Callers (the admin action) catch it per-row so one bad
+    selection doesn't abort a bulk correction.
+    """
+
+
+class PriceEffect(str, Enum):
+    """What ``change_attendee_ticket_type`` will do to the family's balance.
+
+    Computed *before* the write so the admin's confirmation page can tell
+    the operator which of these is about to happen — the whole point of the
+    intermediate page is that nobody discovers the financial consequence
+    afterwards.
+
+    NONE
+        No Payment to move (staff-created/imported ticket with no
+        Registration, a free registration, a cancelled Payment), the price
+        is unchanged, or the ticket carries no price snapshot to compare
+        against.
+    LEDGER_ADJUSTMENT
+        The family owes *less* and the reduction fits inside what is still
+        outstanding, so it is recorded as a PaymentEvent ADJUSTMENT — a
+        write-off of part of a debt that still stands. ``Payment.amount``
+        and ``price_at_registration`` are both left alone.
+    AMOUNT_INCREASED / AMOUNT_REDUCED
+        The ledger cannot express the change (see the module note on
+        ``change_attendee_ticket_type``), so the owed side — the Payment's
+        own amount — moves instead.
+    """
+
+    NONE = "none"
+    LEDGER_ADJUSTMENT = "ledger_adjustment"
+    AMOUNT_INCREASED = "amount_increased"
+    AMOUNT_REDUCED = "amount_reduced"
+
+
+EFFECT_LABELS = {
+    PriceEffect.NONE: _("No change to what the family owes."),
+    PriceEffect.LEDGER_ADJUSTMENT: _(
+        "Recorded as an adjustment on the payment ledger: the outstanding "
+        "balance goes down by the difference."
+    ),
+    PriceEffect.AMOUNT_INCREASED: _(
+        "The amount owed goes up by the difference. The family has more to "
+        "pay after this change."
+    ),
+    PriceEffect.AMOUNT_REDUCED: _(
+        "The amount owed goes down by the difference. The family has "
+        "already paid more than the new price, so the balance turns "
+        "negative — repay the difference and record it as a refund."
+    ),
+}
+
+
+@dataclass(frozen=True)
+class TicketTypeChangePlan:
+    """Everything the operator must be shown before the change is committed,
+    and everything ``change_attendee_ticket_type`` needs to commit it."""
+
+    ticket: EventTicket
+    old_ticket_type: TicketType | None
+    new_ticket_type: TicketType
+    old_price: Decimal | None
+    new_price: Decimal
+    delta: Decimal
+    payment: Payment | None
+    effect: PriceEffect
+    age_warning: str | None
+    age_at_event: int | None
+
+    @property
+    def effect_label(self) -> str:
+        return EFFECT_LABELS[self.effect]
+
+    @property
+    def requires_acknowledgement(self) -> bool:
+        return self.age_warning is not None
+
+
+def _age_warning_for(ticket: EventTicket, ticket_type: TicketType):
+    """(warning, age_at_event) for putting ``ticket``'s attendee on
+    ``ticket_type``.
+
+    A *warning*, never a rejection: case catalog §2.2 (the birthday-crossing
+    child) is a legitimate reason to sit outside the window, and the whole
+    recommendation there is that a mis-tiering is fixed by "a staff-initiated
+    ticket-type change through the edit flow, visible and audited". Blocking
+    it would leave the operator with no way to do the thing the catalog says
+    they must be able to do.
+
+    The window is compared against the attendee's *birthdate*, not a derived
+    age, because that is how TicketType stores it (a cohort/årskurs window).
+    ``age_at_event`` is returned alongside purely so the confirmation page
+    can show the number a human actually reasons about, and uses the same
+    ``reports.services.age_on`` the 0.2 changelist column uses — two age
+    calculations in one codebase eventually disagree on a birthday boundary.
+    """
+    from reports.services import age_on
+
+    has_window = (
+        ticket_type.min_birthdate is not None or ticket_type.max_birthdate is not None
+    )
+
+    try:
+        child = ticket.attendee.child
+    except ObjectDoesNotExist:
+        # A parent's ticket. No birthdate exists to check, and an adult
+        # ticket type legitimately has no window either.
+        if has_window:
+            return (
+                _(
+                    "%(attendee)s is not registered as a child, so the age "
+                    "range for %(ticket_type)s could not be checked."
+                )
+                % {
+                    "attendee": str(ticket.attendee),
+                    "ticket_type": ticket_type.name,
+                },
+                None,
+            )
+        return None, None
+
+    age = age_on(child.birthdate, ticket.event.start_date)
+
+    if not has_window:
+        return None, age
+
+    if child.birthdate is None:
+        return (
+            _(
+                "No birthdate is recorded for %(attendee)s, so the age range "
+                "for %(ticket_type)s could not be checked."
+            )
+            % {"attendee": str(ticket.attendee), "ticket_type": ticket_type.name},
+            None,
+        )
+
+    too_old = (
+        ticket_type.min_birthdate is not None
+        and child.birthdate < ticket_type.min_birthdate
+    )
+    too_young = (
+        ticket_type.max_birthdate is not None
+        and child.birthdate > ticket_type.max_birthdate
+    )
+    if not (too_old or too_young):
+        return None, age
+
+    return (
+        _(
+            "%(attendee)s was born %(birthdate)s and is %(age)s on the first "
+            "day of the event, which falls outside the age range for "
+            "%(ticket_type)s. Continue only if this is deliberate."
+        )
+        % {
+            "attendee": str(ticket.attendee),
+            "birthdate": child.birthdate.isoformat(),
+            "age": age,
+            "ticket_type": ticket_type.name,
+        },
+        age,
+    )
+
+
+def plan_ticket_type_change(
+    ticket: EventTicket, new_ticket_type: TicketType
+) -> TicketTypeChangePlan:
+    """Validate a proposed re-tiering and work out what it would do, without
+    writing anything. Raises TicketTypeChangeRejected for the three things
+    that are never allowed; everything else — including an age mismatch — is
+    reported back for the operator to decide on.
+    """
+    if new_ticket_type.event_id != ticket.event_id:
+        raise TicketTypeChangeRejected(
+            _("%(ticket_type)s belongs to a different event.")
+            % {"ticket_type": str(new_ticket_type)}
+        )
+    if not new_ticket_type.is_active:
+        raise TicketTypeChangeRejected(
+            _("%(ticket_type)s has been retired and can no longer be assigned.")
+            % {"ticket_type": new_ticket_type.name}
+        )
+    if ticket.ticket_type_id == new_ticket_type.id:
+        raise TicketTypeChangeRejected(
+            _("This ticket is already on %(ticket_type)s.")
+            % {"ticket_type": new_ticket_type.name}
+        )
+
+    age_warning, age_at_event = _age_warning_for(ticket, new_ticket_type)
+
+    old_price = ticket.price_at_registration
+    new_price = new_ticket_type.price
+    payment = None
+    if ticket.registration_id is not None:
+        payment = getattr(ticket.registration, "payment", None)
+
+    if old_price is None:
+        # Nothing to compare against: this ticket was never priced into the
+        # registration's total (staff-created, imported, or a flat-price
+        # event). Inventing a charge from an absent snapshot would be a
+        # guess, and price_at_registration is written once at submission and
+        # never recomputed, so there is nothing to repair it from either.
+        delta = ZERO
+        effect = PriceEffect.NONE
+    else:
+        delta = new_price - old_price
+        if payment is None or payment.status == Payment.Status.CANCELLED or delta == 0:
+            effect = PriceEffect.NONE
+        elif delta > 0:
+            effect = PriceEffect.AMOUNT_INCREASED
+        elif payment.balance >= -delta:
+            # The write-off fits inside what is still owed, which is exactly
+            # what an ADJUSTMENT means.
+            effect = PriceEffect.LEDGER_ADJUSTMENT
+        else:
+            effect = PriceEffect.AMOUNT_REDUCED
+
+    return TicketTypeChangePlan(
+        ticket=ticket,
+        old_ticket_type=ticket.ticket_type,
+        new_ticket_type=new_ticket_type,
+        old_price=old_price,
+        new_price=new_price,
+        delta=delta,
+        payment=payment,
+        effect=effect,
+        age_warning=age_warning,
+        age_at_event=age_at_event,
+    )
+
+
+def change_attendee_ticket_type(
+    ticket: EventTicket,
+    *,
+    new_ticket_type: TicketType,
+    changed_by,
+    acknowledge_age_warning: bool = False,
+) -> TicketTypeChangePlan:
+    """Move one EventTicket onto another TicketType and carry the money with
+    it. The safe version of the raw Django-admin field edit, which changed
+    the type and left the family's balance describing the old one.
+
+    Validates (hard failures, TicketTypeChangeRejected):
+      * the new type belongs to the same Event as the ticket;
+      * the new type is still ``is_active``;
+      * it is not the type the ticket already has;
+      * any age warning has been acknowledged by the caller.
+
+    Warns (never blocks): the attendee's birthdate falling outside the new
+    type's min/max window — see ``_age_warning_for`` and case catalog §2.2.
+
+    Writes:
+      * ``EventTicket.ticket_type``;
+      * and, depending on ``plan.effect``, either a PaymentEvent ADJUSTMENT
+        or a new ``Payment.amount``.
+
+    ``price_at_registration`` is never touched. It is the snapshot written
+    once at submission that makes mid-sale price edits safe by construction
+    (case catalog §9.4), and the operator-facing help text on that field
+    promises exactly that. The correction therefore lands on the *owed*
+    side, per case catalog §8.2 ("status and balance are orthogonal;
+    edits update the owed side and the derived balance").
+
+    Why not always a PaymentEvent ADJUSTMENT: the ledger has three kinds and
+    ``balance = amount - received + refunded - adjusted``, so an ADJUSTMENT
+    can only ever make a family owe *less*. The headline case — a 13-year-old
+    sitting on the 0-12 ticket — makes them owe *more*, and the only kind
+    that raises a balance is REFUNDED, which would both lie about money
+    having moved and flip ``recompute_status`` to REFUNDED. Likewise a
+    reduction larger than what is still outstanding is rejected outright by
+    ``record_payment_event``'s C1 invariant 2. So the ledger is used wherever
+    it can express the change honestly, and ``Payment.amount`` moves in the
+    two cases where it cannot. See ``PriceEffect``.
+
+    Returns the executed plan, so the caller can audit-log and report exactly
+    what happened.
+    """
+    plan = plan_ticket_type_change(ticket, new_ticket_type)
+    if plan.requires_acknowledgement and not acknowledge_age_warning:
+        raise TicketTypeChangeRejected(plan.age_warning)
+
+    note = str(
+        _("Ticket type changed from %(old)s to %(new)s")
+        % {
+            "old": plan.old_ticket_type.name if plan.old_ticket_type else _("none"),
+            "new": plan.new_ticket_type.name,
+        }
+    )[:255]
+
+    registration_to_confirm = None
+    with transaction.atomic():
+        # Re-read under lock rather than trusting the admin queryset's
+        # snapshot, mirroring record_payment_event: another operator may have
+        # re-tiered this same ticket between the confirmation page rendering
+        # and this submit, and the delta shown was computed against the old
+        # row.
+        ticket.refresh_from_db(from_queryset=EventTicket.objects.select_for_update())
+        if ticket.ticket_type_id != (
+            plan.old_ticket_type.id if plan.old_ticket_type else None
+        ):
+            raise TicketTypeChangeRejected(
+                _("This ticket was changed by someone else — review it again.")
+            )
+
+        ticket.ticket_type = new_ticket_type
+        ticket.save(update_fields=["ticket_type"])
+
+        if plan.effect == PriceEffect.LEDGER_ADJUSTMENT:
+            record_payment_event(
+                plan.payment,
+                kind=PaymentEvent.Kind.ADJUSTMENT,
+                amount=-plan.delta,
+                note=note,
+                created_by=changed_by,
+            )
+        elif plan.effect in (
+            PriceEffect.AMOUNT_INCREASED,
+            PriceEffect.AMOUNT_REDUCED,
+        ):
+            payment = plan.payment
+            payment.refresh_from_db(from_queryset=Payment.objects.select_for_update())
+            payment.amount = payment.amount + plan.delta
+            payment.save(update_fields=["amount"])
+            payment.recompute_status()
+            registration = payment.registration
+            if (
+                payment.status == Payment.Status.PAID
+                and registration.status == Registration.Status.PENDING_PAYMENT
+            ):
+                # Same side effect record_payment_event owns for the ledger
+                # path: a payment that lands on PAID confirms a registration
+                # still waiting on money. Repeated here rather than folded
+                # into that function, which is deliberately the *ledger's*
+                # entry point and is not modified by this change.
+                registration.status = Registration.Status.CONFIRMED
+                registration.save(update_fields=["status"])
+                registration_to_confirm = registration
+
+    if registration_to_confirm is not None:
+        send_confirmation_email(registration_to_confirm)
+
+    return plan
