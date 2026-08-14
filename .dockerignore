@@ -8,6 +8,15 @@ node_modules
 **/.svelte-kit
 frontend/build
 
+# Compiled translation catalogs — host-side build artifacts, kept out of the
+# image so the Dockerfiles' own `compilemessages` always compiles from the .po
+# sources. This matters because compilemessages SKIPS any .po whose .mo is
+# newer ("already compiled and up to date"): the dev stack now writes .mo files
+# into backend/locale via its bind mount (see docker-compose.yml), so without
+# this a prod image built from a dev working tree would silently ship the
+# developer's local .mo instead of compiling its own.
+**/*.mo
+
 # Next.js build output
 .next
 out
