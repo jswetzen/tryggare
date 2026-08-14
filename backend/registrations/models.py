@@ -50,6 +50,19 @@ class Registration(models.Model):
     Track 1 plan for why (keeps special-category child data inside every
     existing compliance mechanism: export/erase, scrub_family, the
     Child.save() consent-invariant backstop, audit logging).
+
+    ``expires_at`` is when the row becomes eligible for the expiry sweep:
+    the verification TTL (REGISTRATION_TTL_HOURS) while
+    status=pending_verification, reset to the payment TTL (PAYMENT_TTL_DAYS)
+    on entering pending_payment.
+
+    ``created_new_family`` is True when the submission materialized a
+    brand-new family (the phase-1 default). The expiry sweep only
+    hard-deletes the family/children/tickets it created — it must never
+    delete a pre-existing family.
+
+    ``discount_amount`` is snapshotted once at submission (P2) and never
+    recomputed, even if the promo code is edited afterwards.
     """
 
     class Status(models.TextChoices):
@@ -71,7 +84,7 @@ class Registration(models.Model):
         on_delete=models.CASCADE,
         related_name="registrations",
         verbose_name=_("Family"),
-        help_text=_("The family materialized by this submission."),
+        help_text=_("The family this registration belongs to."),
     )
     status = models.CharField(
         max_length=32,
@@ -109,18 +122,18 @@ class Registration(models.Model):
         default=default_expires_at,
         verbose_name=_("Expires At"),
         help_text=_(
-            "When this registration becomes eligible for the expiry sweep — "
-            "the verification TTL while pending_verification, reset to the "
-            "payment TTL when entering pending_payment."
+            "When an unfinished registration is removed automatically. The "
+            "deadline is extended once the guardian confirms their email "
+            "address, to give them time to pay."
         ),
     )
     created_new_family = models.BooleanField(
         default=True,
         verbose_name=_("Created New Family"),
         help_text=_(
-            "True if this submission materialized a brand-new family (the phase-1 "
-            "default). The expiry sweep only hard-deletes the family/children/"
-            "tickets it created — it must never delete a pre-existing family."
+            "Checked when this registration created a new family. If it is "
+            "removed for being unfinished, only the family and tickets it "
+            "created go with it — an existing family is never touched."
         ),
     )
     promo_code = models.ForeignKey(
@@ -137,8 +150,9 @@ class Registration(models.Model):
         default=0,
         verbose_name=_("Discount Amount"),
         help_text=_(
-            "Snapshotted once at submission (P2) — never recomputed, even "
-            "if the promo code is edited afterwards."
+            "The discount this registration was given. Editing the promo "
+            "code afterwards is safe — it does not change what this family "
+            "was charged."
         ),
     )
 
@@ -401,6 +415,15 @@ class RegistrationExtra(models.Model):
     The unique constraint below is the row-level guard against the
     double-tap/two-tab duplicate-submission case: the same per-attendee
     extra can't be attached to the same attendee twice.
+
+    ``attendee`` is null exactly when ``extra.per_attendee`` is False, and
+    only such a per-registration extra may carry ``quantity`` > 1.
+
+    ``price_at_registration`` is the per-unit price
+    (``extra.price + choice.price_delta``) snapshotted at submission time
+    and never recomputed afterwards — the same snapshot discipline as
+    EventTicket/SessionTicket, which is what makes mid-sale price edits
+    safe (case catalog §9.4).
     """
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
@@ -423,7 +446,10 @@ class RegistrationExtra(models.Model):
         on_delete=models.CASCADE,
         related_name="registration_extras",
         verbose_name=_("Attendee"),
-        help_text=_("Null for a per-registration extra (extra.per_attendee=False)."),
+        help_text=_(
+            "Leave blank for an extra that belongs to the whole booking "
+            "rather than to one attendee."
+        ),
     )
     choice = models.ForeignKey(
         "events.ExtraChoice",
@@ -437,7 +463,8 @@ class RegistrationExtra(models.Model):
         default=1,
         verbose_name=_("Quantity"),
         help_text=_(
-            "Only >1 allowed for a per-registration extra (per_attendee=False)."
+            "More than 1 is only allowed for an extra that belongs to the "
+            "whole booking rather than to one attendee."
         ),
     )
     price_at_registration = models.DecimalField(
@@ -445,8 +472,8 @@ class RegistrationExtra(models.Model):
         decimal_places=2,
         verbose_name=_("Price At Registration"),
         help_text=_(
-            "Snapshotted per-unit price (extra.price + choice.price_delta) "
-            "at submission time — never recomputed afterwards."
+            "The price per unit this extra was sold at. Editing a price is "
+            "safe — extras already sold keep the price they were sold at."
         ),
     )
     created_at = models.DateTimeField(auto_now_add=True, verbose_name=_("Created At"))
