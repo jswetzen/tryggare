@@ -7,6 +7,7 @@
 import { apiClient } from '$lib/api/client';
 import { goto } from '$app/navigation';
 import { browser } from '$app/environment';
+import type { SessionUser } from '$lib/auth/permissions';
 
 export const ssr = false;
 export const prerender = false;
@@ -14,12 +15,13 @@ export const prerender = false;
 export interface AuthCheckResponse {
   authenticated: boolean;
   demo_mode?: boolean;
-  user?: {
-    id: string;
-    username: string;
-    name: string;
-    is_staff: boolean;
-  };
+  /**
+   * Carries `roles` (display only) and `permissions` — the strings every guard
+   * beneath this layout gates on — alongside the identity fields. `is_staff`
+   * is still here but now means only "can open Django admin". See
+   * $lib/auth/permissions.
+   */
+  user?: SessionUser;
 }
 
 export async function load({ url }) {

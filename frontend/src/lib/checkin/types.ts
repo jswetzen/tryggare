@@ -30,8 +30,16 @@ export interface Child {
   checkInRecordId?: string; // Backend check-in record ID for API calls
   family: string; // Family ID
   birthdate?: string;
-  allergies?: string;
-  notes?: string;
+  /** Null when the viewer may not read the text — see has_safety_info. */
+  allergies?: string | null;
+  notes?: string | null;
+  /**
+   * There is allergy/emergency-medical text on this record. Always present,
+   * for every viewer. A viewer who may not read the text still needs to know
+   * it exists — a door volunteer is the person who most needs to know about a
+   * peanut allergy — and reveals it through an explicit, audited action.
+   */
+  has_safety_info?: boolean;
   health_consent_status?: 'not_applicable' | 'granted' | 'declined' | 'withdrawn' | 'needs_reconfirmation';
   qr_token?: string;
 }
@@ -64,8 +72,11 @@ export interface Parent {
   checkInRecordId?: string;
   family?: string;
   is_parent?: boolean;
-  allergies?: string;
-  notes?: string;
+  /** Null when the viewer may not read the text — see has_safety_info. */
+  allergies?: string | null;
+  notes?: string | null;
+  /** See Child.has_safety_info. Adults carry these fields too. */
+  has_safety_info?: boolean;
   health_consent_status?: 'not_applicable' | 'granted' | 'declined' | 'withdrawn' | 'needs_reconfirmation';
 }
 
@@ -144,8 +155,9 @@ export interface FamilyApiResponse {
       }>;
     } | null;
     family: string;
-    allergies?: string;
-    notes?: string;
+    allergies?: string | null;
+    notes?: string | null;
+    has_safety_info?: boolean;
     health_consent_status?: 'not_applicable' | 'granted' | 'declined' | 'withdrawn' | 'needs_reconfirmation';
     last_participation_date?: string;
     is_checked_in?: boolean;
@@ -170,8 +182,9 @@ export interface FamilyApiResponse {
     };
     family: string;
     birthdate?: string;
-    allergies?: string;
-    notes?: string;
+    allergies?: string | null;
+    notes?: string | null;
+    has_safety_info?: boolean;
     health_consent_status?: 'not_applicable' | 'granted' | 'declined' | 'withdrawn' | 'needs_reconfirmation';
     qr_token?: string;
     is_checked_in?: boolean;

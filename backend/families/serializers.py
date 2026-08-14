@@ -5,12 +5,68 @@ from .models import Child, Family, Parent
 from .services import create_family_with_members, update_family_with_members
 
 
-class ParentSerializer(serializers.ModelSerializer):
+class SafetyInfoDisclosureMixin:
+    """Read-behind-reveal for the allergy/emergency-medical text.
+
+    The staff API used to hand ``allergies``/``notes`` to anyone who could read
+    a family at all, which under the seeded roles means every Volontär on every
+    ``GET /api/families/`` — the whole event's special-category health data, on
+    every poll of the check-in screen, with nothing in the audit log to say it
+    happened. That is the same ambient exposure ``qr_info`` was split up to
+    avoid (see ``families/qr_views.py`` and DPIA §2/§4); this mirrors the split
+    on the authenticated check-in path.
+
+    So the list/detail payload carries ``has_safety_info`` — a boolean saying
+    *there is something here* — and the text itself only for a viewer who may
+    already change it. Everyone else asks for it through
+    ``FamilyViewSet.reveal_safety_info``, which writes one
+    ``safety_info_revealed`` row per reveal. A glance at the roster stays
+    distinguishable from an access to a child's allergy.
+
+    Why "may change it" is the line, rather than a role name or a new
+    permission: a viewer who can edit the field necessarily has to see it (an
+    edit form that hides its own current value is not an edit form), and
+    ``change_child``/``change_parent`` is exactly the grant that separates
+    Koordinator/Administratör from Volontär in ``accounts/roles.py``. It is
+    also the same string the write path checks, so moving the grant between
+    roles needs no change here. ``Parent`` carries these fields too — an adult
+    attendee's allergy is not less sensitive than a child's — so both
+    serializers get this.
+    """
+
+    #: ``"app_label.codename"`` whose holder sees the text without revealing.
+    health_text_permission: str
+
+    def viewer_may_read_health_text(self) -> bool:
+        request = self.context.get("request")
+        user = getattr(request, "user", None)
+        if user is None or not getattr(user, "is_authenticated", False):
+            return False
+        return user.has_perm(self.health_text_permission)
+
+    def get_has_safety_info(self, obj) -> bool:
+        return bool(obj.allergies) or bool(obj.notes)
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        if not self.viewer_may_read_health_text():
+            # Masked to None rather than dropped: the check-in UI branches on
+            # has_safety_info, and a missing key would read as "no consent
+            # captured" instead of "not disclosed to you yet".
+            data["allergies"] = None
+            data["notes"] = None
+        return data
+
+
+class ParentSerializer(SafetyInfoDisclosureMixin, serializers.ModelSerializer):
+    health_text_permission = "families.change_parent"
+
     name = serializers.ReadOnlyField()
     ticket_type = serializers.SerializerMethodField()
     ticket_details = serializers.SerializerMethodField()
     is_checked_in = serializers.SerializerMethodField()
     active_checkin_id = serializers.SerializerMethodField()
+    has_safety_info = serializers.SerializerMethodField()
 
     class Meta:
         model = Parent
@@ -24,6 +80,7 @@ class ParentSerializer(serializers.ModelSerializer):
             "relationship_type",
             "allergies",
             "notes",
+            "has_safety_info",
             "health_consent_status",
             "health_consent_by",
             "health_consent_at",
@@ -38,6 +95,7 @@ class ParentSerializer(serializers.ModelSerializer):
         read_only_fields = [
             "id",
             "name",
+            "has_safety_info",
             "health_consent_status",
             "health_consent_by",
             "health_consent_at",
@@ -78,11 +136,14 @@ class ParentSerializer(serializers.ModelSerializer):
         return str(record.id) if record else None
 
 
-class ChildSerializer(serializers.ModelSerializer):
+class ChildSerializer(SafetyInfoDisclosureMixin, serializers.ModelSerializer):
+    health_text_permission = "families.change_child"
+
     ticket_type = serializers.SerializerMethodField()
     ticket_details = serializers.SerializerMethodField()
     is_checked_in = serializers.SerializerMethodField()
     active_checkin_id = serializers.SerializerMethodField()
+    has_safety_info = serializers.SerializerMethodField()
 
     class Meta:
         model = Child
@@ -93,6 +154,7 @@ class ChildSerializer(serializers.ModelSerializer):
             "birthdate",
             "allergies",
             "notes",
+            "has_safety_info",
             "health_consent_status",
             "health_consent_by",
             "health_consent_at",
@@ -106,6 +168,7 @@ class ChildSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = [
             "id",
+            "has_safety_info",
             "health_consent_status",
             "health_consent_by",
             "health_consent_at",

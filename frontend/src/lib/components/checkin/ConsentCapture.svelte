@@ -31,8 +31,18 @@
    * noticeLinkHref/noticeLinkLabelKey optionally render a link under the
    * notice text (e.g. to the privacy policy) instead of restating the full
    * legal detail inline.
+   *
+   * canEdit=false switches the whole block to read-behind-reveal: no radios,
+   * no inputs, just a flag saying safety info exists and a control that asks
+   * for it. That is a Volontär's view of an existing family — they may not
+   * change a record, but the person at the door is precisely the person who
+   * needs to know about a peanut allergy, so this is reveal-with-audit rather
+   * than hidden. Performing the reveal is the parent's job (one API call per
+   * attendee, one audit row); this component owns only the control and the two
+   * states either side of it.
    */
   import { _ } from 'svelte-i18n';
+  import Icon from '$lib/components/ui/Icon.svelte';
 
   let {
     status = $bindable<HealthInfoStatus>('none'),
@@ -48,7 +58,13 @@
     noticeKey = 'checkin.healthConsentNotice',
     declinedNoteKey = 'checkin.healthInfoDeclinedNote',
     noticeLinkHref = undefined,
-    noticeLinkLabelKey = 'register.privacyLink'
+    noticeLinkLabelKey = 'register.privacyLink',
+    canEdit = true,
+    hasSafetyInfo = false,
+    revealed = false,
+    revealing = false,
+    revealError = '',
+    onReveal = undefined
   }: {
     status?: HealthInfoStatus;
     allergies?: string;
@@ -64,6 +80,15 @@
     declinedNoteKey?: string;
     noticeLinkHref?: string;
     noticeLinkLabelKey?: string;
+    /** False = read-behind-reveal (see the component docstring). */
+    canEdit?: boolean;
+    /** The record carries allergy/medical text, whether or not it's shown. */
+    hasSafetyInfo?: boolean;
+    /** The text below has been through an audited reveal. */
+    revealed?: boolean;
+    revealing?: boolean;
+    revealError?: string;
+    onReveal?: () => void;
   } = $props();
 
   function handleStatusChange(newStatus: HealthInfoStatus) {
@@ -78,6 +103,58 @@
   }
 </script>
 
+{#if !canEdit}
+  <!-- Read-behind-reveal. Amber, not green: green is the trust/success/live
+       signal in this design system, and a safety flag is neither. -->
+  {#if hasSafetyInfo}
+    <div class="border border-warning-600 bg-warning-50 rounded-card p-3 space-y-2">
+      <div class="flex items-start gap-2">
+        <span class="text-warning-800 flex-shrink-0 mt-0.5" aria-hidden="true">
+          <Icon name="alert-triangle" size="sm" />
+        </span>
+        <div class="text-sm font-semibold text-warning-800">
+          {$_('checkin.safetyInfoOnFile')}
+        </div>
+      </div>
+
+      {#if revealed}
+        <div class="space-y-2" data-testid={`${testIdPrefix}-safety-info-revealed-${idPrefix}`}>
+          {#if allergies}
+            <div class="bg-white border border-danger-200 rounded-card p-2">
+              <div class="text-xs text-neutral-600">{$_('checkin.childAllergies')}</div>
+              <div class="text-sm font-semibold text-danger-800">{allergies}</div>
+            </div>
+          {/if}
+          {#if notes}
+            <div class="bg-white border border-warning-600 rounded-card p-2">
+              <div class="text-xs text-neutral-600">{$_('checkin.childNotes')}</div>
+              <div class="text-sm font-semibold text-warning-800">{notes}</div>
+            </div>
+          {/if}
+          <p class="text-xs text-neutral-600">{$_('checkin.safetyInfoRevealLogged')}</p>
+        </div>
+      {:else}
+        <p class="text-xs text-neutral-700">{$_('checkin.safetyInfoRevealHint')}</p>
+        <button
+          type="button"
+          on:click={() => onReveal?.()}
+          disabled={revealing}
+          class="inline-flex items-center gap-2 px-3 py-2 rounded-button bg-warning-600 text-white text-sm font-semibold hover:bg-warning-700 disabled:opacity-60 focus:outline-none focus:ring-2 focus:ring-warning-600 focus:ring-offset-2"
+          data-testid={`${testIdPrefix}-safety-info-reveal-${idPrefix}`}
+        >
+          <Icon name="eye" size="sm" />
+          {revealing ? $_('common.loading') : $_('checkin.safetyInfoReveal')}
+        </button>
+      {/if}
+
+      {#if revealError}
+        <p class="text-xs font-semibold text-danger-800" role="alert">{revealError}</p>
+      {/if}
+    </div>
+  {:else}
+    <p class="text-xs text-neutral-500 italic">{$_('checkin.safetyInfoNone')}</p>
+  {/if}
+{:else}
 <div>
   <div class="block text-xs text-neutral-600 mb-1">
     {$_(questionKey)}
@@ -159,4 +236,5 @@
   </div>
 {:else if status === 'declined'}
   <p class="text-xs text-neutral-500 italic">{$_(declinedNoteKey)}</p>
+{/if}
 {/if}
