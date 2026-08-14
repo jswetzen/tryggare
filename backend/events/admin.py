@@ -29,6 +29,18 @@ from .models import (
 # finished loading every app's models.
 from reports.services import age_on
 
+# Same reasoning as the reports.services import above: admin modules load at
+# autodiscover, so a module-level import of another app's service layer is
+# safe. registrations.services imports events.models (not events.admin), so
+# this is not a cycle.
+from checkins.audit import log_audit
+from registrations.services import (
+    InvalidPaymentTransition,
+    TicketTypeChangeRejected,
+    change_attendee_ticket_type,
+    plan_ticket_type_change,
+)
+
 from .services import duplicate_extra_to_event
 
 
@@ -129,6 +141,39 @@ class TicketTypeListFilter(admin.RelatedFieldListFilter):
         ]
 
 
+class ChangeTicketTypeForm(forms.Form):
+    """Step-1 form for ``EventTicketAdmin.change_ticket_type``.
+
+    The queryset is narrowed to the selected tickets' own event and to
+    active types, so the two hard rejections in
+    ``plan_ticket_type_change`` are unreachable from this screen rather
+    than merely caught by it — the service still enforces both, because
+    it is the domain guarantee and this form is only one of its callers.
+    """
+
+    ticket_type = forms.ModelChoiceField(
+        queryset=TicketType.objects.none(),
+        label=_("New ticket type"),
+    )
+    acknowledge_age_warning = forms.BooleanField(
+        required=False,
+        label=_("The age does not fit, and I want to make this change anyway"),
+        help_text=_(
+            "A child who has a birthday during the event is a valid reason "
+            "to sit outside the age range."
+        ),
+    )
+
+    def __init__(self, *args, event=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["ticket_type"].queryset = TicketType.objects.filter(
+            event=event, is_active=True
+        ).order_by("sort_order", "name")
+        self.fields["ticket_type"].label_from_instance = (
+            lambda obj: f"{obj.name} — {obj.price}"
+        )
+
+
 class TicketTriageMixin:
     """Shared changelist columns for EventTicketAdmin and SessionTicketAdmin.
 
@@ -213,9 +258,144 @@ class EventTicketAdmin(TicketTriageMixin, admin.ModelAdmin):
         "registration",
     )
     autocomplete_fields = ["attendee", "event"]
+    actions = ["change_ticket_type"]
 
     def _event_for(self, obj):
         return obj.event
+
+    @admin.action(description=_("Change ticket type…"))
+    def change_ticket_type(self, request, queryset):
+        """The safe version of editing ``ticket_type`` on the change form.
+
+        Two intermediate steps rather than the single one
+        ``ExtraAdmin.duplicate_to_event`` needs, for one reason: the price
+        difference and the age warning cannot be computed until a target
+        type has been picked, and showing them *after* the write would
+        defeat the point. Step 1 picks the type, step 2 shows what it will
+        do to each family's balance and to the age fit, step 3 commits.
+
+        Scoped to one event per run. A TicketType belongs to exactly one
+        event, so a mixed selection has no single legal answer — and
+        silently correcting only the matching half is precisely the class of
+        half-done admin write this whole increment exists to remove.
+        """
+        tickets = list(
+            queryset.select_related(
+                "attendee",
+                "attendee__child",
+                "event",
+                "ticket_type",
+                "registration",
+                "registration__payment",
+            )
+        )
+        if not tickets:
+            return None
+
+        event_ids = {ticket.event_id for ticket in tickets}
+        if len(event_ids) > 1:
+            self.message_user(
+                request,
+                _(
+                    "Select tickets from a single event — a ticket type "
+                    "belongs to one event only."
+                ),
+                messages.ERROR,
+            )
+            return None
+
+        event = tickets[0].event
+        submitted = "preview" in request.POST or "apply" in request.POST
+        form = ChangeTicketTypeForm(request.POST if submitted else None, event=event)
+
+        plans = []
+        rejections = []
+        if submitted and form.is_valid():
+            new_ticket_type = form.cleaned_data["ticket_type"]
+            acknowledged = form.cleaned_data["acknowledge_age_warning"]
+            for ticket in tickets:
+                try:
+                    plans.append(plan_ticket_type_change(ticket, new_ticket_type))
+                except TicketTypeChangeRejected as exc:
+                    rejections.append((ticket, str(exc)))
+
+            if "apply" in request.POST:
+                changed = skipped = 0
+                for plan in plans:
+                    try:
+                        change_attendee_ticket_type(
+                            plan.ticket,
+                            new_ticket_type=new_ticket_type,
+                            changed_by=request.user,
+                            acknowledge_age_warning=acknowledged,
+                        )
+                    except (TicketTypeChangeRejected, InvalidPaymentTransition) as exc:
+                        # Per-row, like every other staff write path here: a
+                        # concurrent edit or an unacknowledged warning on one
+                        # ticket must not abandon the rest.
+                        self.message_user(request, str(exc), messages.WARNING)
+                        skipped += 1
+                        continue
+                    log_audit(
+                        request,
+                        action="event_ticket_type_changed",
+                        entity_type="EventTicket",
+                        entity_id=str(plan.ticket.id),
+                        details={
+                            "attendee": str(plan.ticket.attendee),
+                            "event": event.name,
+                            "from_ticket_type": (
+                                plan.old_ticket_type.name
+                                if plan.old_ticket_type
+                                else None
+                            ),
+                            "to_ticket_type": plan.new_ticket_type.name,
+                            "old_price": (
+                                None if plan.old_price is None else str(plan.old_price)
+                            ),
+                            "new_price": str(plan.new_price),
+                            "delta": str(plan.delta),
+                            "price_effect": plan.effect.value,
+                            "payment_id": (
+                                None if plan.payment is None else str(plan.payment.id)
+                            ),
+                            "age_warning": (
+                                None
+                                if plan.age_warning is None
+                                else str(plan.age_warning)
+                            ),
+                            "age_warning_acknowledged": bool(
+                                plan.age_warning and acknowledged
+                            ),
+                        },
+                    )
+                    changed += 1
+                self.message_user(
+                    request,
+                    _("%(changed)d ticket(s) changed, %(skipped)d skipped.")
+                    % {"changed": changed, "skipped": skipped + len(rejections)},
+                    messages.SUCCESS if changed else messages.WARNING,
+                )
+                return None
+
+        context = {
+            **self.admin_site.each_context(request),
+            "title": _("Change ticket type"),
+            "queryset": tickets,
+            "event": event,
+            "form": form,
+            "plans": plans,
+            "rejections": rejections,
+            "is_preview": bool(plans or rejections),
+            "needs_acknowledgement": any(p.requires_acknowledgement for p in plans),
+            "opts": self.model._meta,
+            "action_checkbox_name": helpers.ACTION_CHECKBOX_NAME,
+        }
+        return TemplateResponse(
+            request,
+            "admin/events/eventticket/change_ticket_type.html",
+            context,
+        )
 
 
 @admin.register(SessionTicket)
