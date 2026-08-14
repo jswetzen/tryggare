@@ -45,7 +45,9 @@ class CheckInRecord(models.Model):
     # Supervised check-in field
     supervised = models.BooleanField(
         default=False,
-        help_text="Child is supervised by guardian, no explicit checkout required",
+        help_text=_(
+            "The child stays with their guardian, so no separate check-out is needed."
+        ),
         verbose_name=_("Supervised"),
     )
 
@@ -115,7 +117,10 @@ class QRCode(models.Model):
         null=True,
         blank=True,
         verbose_name=_("Released At"),
-        help_text="When checkout occurred. Code returns to pool 24h after this.",
+        help_text=_(
+            "When the check-out happened. The code goes back into the pool "
+            "24 hours after this."
+        ),
     )
 
     class Meta:
@@ -147,7 +152,7 @@ class QRCode(models.Model):
 
 class AuditLog(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    timestamp = models.DateTimeField(auto_now_add=True)
+    timestamp = models.DateTimeField(auto_now_add=True, verbose_name=_("Timestamp"))
     user = models.ForeignKey(
         "accounts.AdminUser",
         on_delete=models.PROTECT,
@@ -155,15 +160,21 @@ class AuditLog(models.Model):
         blank=True,
         verbose_name=_("User"),
     )
-    action = models.CharField(max_length=64)
-    entity_type = models.CharField(max_length=64)
-    entity_id = models.CharField(max_length=255)
-    details = models.JSONField(null=True, blank=True)
-    source_ip = models.GenericIPAddressField(null=True, blank=True)
-    session_id = models.CharField(max_length=40, null=True, blank=True)
+    action = models.CharField(max_length=64, verbose_name=_("Action"))
+    entity_type = models.CharField(max_length=64, verbose_name=_("Entity Type"))
+    entity_id = models.CharField(max_length=255, verbose_name=_("Entity ID"))
+    details = models.JSONField(null=True, blank=True, verbose_name=_("Details"))
+    source_ip = models.GenericIPAddressField(
+        null=True, blank=True, verbose_name=_("Source IP")
+    )
+    session_id = models.CharField(
+        max_length=40, null=True, blank=True, verbose_name=_("Session ID")
+    )
 
     class Meta:
         db_table = "audit_logs"
+        verbose_name = _("Audit Log")
+        verbose_name_plural = _("Audit Logs")
         indexes = [
             models.Index(fields=["timestamp"]),
             models.Index(fields=["user"]),

@@ -50,7 +50,7 @@ class EventAdmin(admin.ModelAdmin):
     # No event-management UI exists in the frontend yet (just checkin/checkout/
     # printing/reports), so Django admin is the only place staff can grab a
     # given event's public registration URL.
-    @admin.display(description="Registration page")
+    @admin.display(description=_("Registration page"))
     def registration_link(self, obj):
         url = f"{settings.FRONTEND_BASE_URL}/register/{obj.id}/"
         return format_html('<a href="{0}" target="_blank">Open</a>', url)
@@ -58,7 +58,7 @@ class EventAdmin(admin.ModelAdmin):
     def view_on_site(self, obj):
         return f"{settings.FRONTEND_BASE_URL}/register/{obj.id}/"
 
-    @admin.action(description="Generate / refresh report snapshot")
+    @admin.action(description=_("Generate / refresh report snapshot"))
     def generate_report(self, request, queryset):
         # Imported here to avoid a hard import cycle between the apps at load.
         from reports.services import generate_event_report
@@ -87,7 +87,7 @@ class SessionAdmin(admin.ModelAdmin):
     list_filter = ("is_active", "event", "parent_checkin_policy")
     search_fields = ("name", "event__name")
 
-    @admin.display(description="Effective parent policy")
+    @admin.display(description=_("Effective parent policy"))
     def effective_parent_checkin_policy(self, obj):
         return obj.effective_parent_checkin_policy
 

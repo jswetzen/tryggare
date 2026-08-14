@@ -671,6 +671,13 @@ class Ticket(models.Model):
 
     class Meta:
         db_table = "tickets"
+        # Explicit and title-cased: Django would otherwise derive
+        # "ticket"/"tickets" from the class name, rendering lowercase next to
+        # every sibling model's title-cased name. The model is deprecated and
+        # hidden from the admin index, but autocomplete results and validation
+        # errors still show this name.
+        verbose_name = _("Ticket")
+        verbose_name_plural = _("Tickets")
         indexes = [
             models.Index(fields=["attendee"], name="tickets_attend_0ad1b0_idx"),
             models.Index(fields=["session"]),

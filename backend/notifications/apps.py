@@ -2,6 +2,7 @@ import logging
 
 from django.apps import AppConfig
 from django.core.exceptions import ImproperlyConfigured
+from django.utils.translation import gettext_lazy as _
 
 logger = logging.getLogger(__name__)
 
@@ -9,6 +10,7 @@ logger = logging.getLogger(__name__)
 class NotificationsConfig(AppConfig):
     default_auto_field = "django.db.models.BigAutoField"
     name = "notifications"
+    verbose_name = _("Notifications")
 
     def ready(self):
         from django.conf import settings

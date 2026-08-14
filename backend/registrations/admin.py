@@ -108,7 +108,10 @@ class RegistrationAdmin(admin.ModelAdmin):
                 payment.save(update_fields=["status"])
             release_promo_code_use(registration)
             updated += 1
-        self.message_user(request, _(f"{updated} registration(s) cancelled."))
+        self.message_user(
+            request,
+            _("%(count)d registration(s) cancelled.") % {"count": updated},
+        )
 
     mark_paid_swish = _mark_paid_action(
         Payment.Method.SWISH, _("Mark selected as paid (Swish)")

@@ -1,6 +1,7 @@
 import logging
 
 from django.apps import AppConfig
+from django.utils.translation import gettext_lazy as _
 
 logger = logging.getLogger(__name__)
 
@@ -8,6 +9,7 @@ logger = logging.getLogger(__name__)
 class RegistrationsConfig(AppConfig):
     default_auto_field = "django.db.models.BigAutoField"
     name = "registrations"
+    verbose_name = _("Registrations")
 
     def ready(self):
         from families.apps import should_start_scheduler
