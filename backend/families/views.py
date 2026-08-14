@@ -3,8 +3,9 @@ from django.http import HttpResponse
 from django.utils import timezone
 from rest_framework import viewsets
 from rest_framework.decorators import action
-from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
+
+from config.permissions import DjangoModelPermissionsWithView, model_permissions
 
 from events.models import EventTicket, SessionTicket
 from registrations.models import Registration
@@ -27,10 +28,36 @@ from .serializers import (
 class FamilyViewSet(viewsets.ModelViewSet):
     """
     ViewSet for managing families.
-    Requires authentication for all actions.
+
+    Gated on the matching ``families`` model permission. The two GDPR actions
+    (``export``/``erase``) are gated on their own permissions instead — see
+    ``get_permissions`` below.
     """
 
-    permission_classes = [IsAuthenticated]
+    permission_classes = [DjangoModelPermissionsWithView]
+
+    # DSAR export is a GET and erasure is a POST, so the default verb mapping
+    # would gate them on ``view_family`` and ``add_family`` respectively — the
+    # first is the permission that opens the check-in screen's family lookup,
+    # the second reads as harmless and hard-deletes a family. Both get a
+    # purpose-named permission of their own (families/models.py Meta).
+    _dsar_export_permission = model_permissions(
+        Family,
+        perms_map={"GET": ["%(app_label)s.export_family_dsar"]},
+        name="DsarExportPermissions",
+    )
+    _dsar_erase_permission = model_permissions(
+        Family,
+        perms_map={"POST": ["%(app_label)s.erase_family_dsar"]},
+        name="DsarErasePermissions",
+    )
+
+    def get_permissions(self):
+        if self.action == "export":
+            return [self._dsar_export_permission()]
+        if self.action == "erase":
+            return [self._dsar_erase_permission()]
+        return super().get_permissions()
 
     def get_queryset(self):
         """
@@ -258,12 +285,12 @@ class FamilyViewSet(viewsets.ModelViewSet):
 class ParentViewSet(viewsets.ModelViewSet):
     """
     ViewSet for managing parents.
-    Requires authentication.
+    Gated on the matching ``families.*_parent`` permission.
     """
 
     queryset = Parent.objects.select_related("family").all()
     serializer_class = ParentSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [DjangoModelPermissionsWithView]
     search_fields = ["first_name", "last_name", "email", "phone"]
     filterset_fields = ["family", "relationship_type"]
 
@@ -271,11 +298,11 @@ class ParentViewSet(viewsets.ModelViewSet):
 class ChildViewSet(viewsets.ModelViewSet):
     """
     ViewSet for managing children.
-    Requires authentication for most actions.
+    Gated on the matching ``families.*_child`` permission.
     """
 
     serializer_class = ChildSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [DjangoModelPermissionsWithView]
     search_fields = ["first_name", "last_name"]
     filterset_fields = ["family"]
 

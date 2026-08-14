@@ -24,6 +24,7 @@ from events.models import (
 )
 from families.models import Child, Family, Parent
 from accounts.models import AdminUser
+from accounts.roles import COORDINATOR, grant
 
 
 class TicketModelTest(TestCase):
@@ -105,6 +106,7 @@ class TicketAPITest(TestCase):
         self.user = AdminUser.objects.create_user(
             username="testuser", password="testpass123", name="Test User"
         )
+        grant(self.user, COORDINATOR)
         self.client.force_authenticate(user=self.user)
 
         self.family = Family.objects.create()

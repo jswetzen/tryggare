@@ -18,6 +18,7 @@ from checkins.models import CheckInRecord
 from events.models import Event, EventTicket, Session, SessionTicket
 from families.models import Child, Family
 from reports.services import build_event_report_data, generate_event_report
+from accounts.roles import COORDINATOR, grant
 
 
 def _aware(y, mo, d, h, mi):
@@ -258,6 +259,7 @@ class ReportApiTest(TestCase):
         self.assertEqual(resp.status_code, 403)
 
     def test_list_and_detail(self):
+        grant(self.user, COORDINATOR)
         self.client.force_authenticate(self.user)
         resp = self.client.get("/api/event-reports/")
         self.assertEqual(resp.status_code, 200)
@@ -272,6 +274,7 @@ class ReportApiTest(TestCase):
         self.assertEqual(detail.data["data"]["event"]["name"], "API Event")
 
     def test_export_csv(self):
+        grant(self.user, COORDINATOR)
         self.client.force_authenticate(self.user)
         # Explicit ?fmt=csv: guards against the DRF "format" reserved-param 404.
         resp = self.client.get(
@@ -283,12 +286,14 @@ class ReportApiTest(TestCase):
         self.assertIn(b"Event report", resp.content)
 
     def test_export_csv_is_default(self):
+        grant(self.user, COORDINATOR)
         self.client.force_authenticate(self.user)
         resp = self.client.get(f"/api/event-reports/{self.report.id}/export/")
         self.assertEqual(resp.status_code, 200)
         self.assertEqual(resp["Content-Type"], "text/csv")
 
     def test_export_json(self):
+        grant(self.user, COORDINATOR)
         self.client.force_authenticate(self.user)
         resp = self.client.get(
             f"/api/event-reports/{self.report.id}/export/", {"fmt": "json"}
@@ -298,6 +303,7 @@ class ReportApiTest(TestCase):
         self.assertIn(".json", resp["Content-Disposition"])
 
     def test_is_read_only(self):
+        grant(self.user, COORDINATOR)
         self.client.force_authenticate(self.user)
         resp = self.client.post("/api/event-reports/", {})
         self.assertEqual(resp.status_code, 405)

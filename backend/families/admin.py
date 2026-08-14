@@ -2,6 +2,7 @@ import json
 
 from django.contrib import admin, messages
 from django.http import HttpResponse
+from django.utils.translation import gettext_lazy as _
 
 from config.admin import HiddenFromIndexAdmin
 
@@ -37,7 +38,21 @@ class FamilyAdmin(admin.ModelAdmin):
     actions = ["export_as_json", "export_as_csv", "erase_families"]
     inlines = [ParentInline, ChildInline]
 
-    @admin.action(description="Export selected families (JSON, GDPR access request)")
+    # Django admin actions carry NO permission check of their own: by default
+    # they run for anyone who can view the changelist. That would make the two
+    # DSAR permissions (families/models.py Meta) enforceable on the API and
+    # bypassable in the admin — which is worse than not having them, because
+    # the API test suite would report the boundary as held.
+    def has_export_family_dsar_permission(self, request):
+        return request.user.has_perm("families.export_family_dsar")
+
+    def has_erase_family_dsar_permission(self, request):
+        return request.user.has_perm("families.erase_family_dsar")
+
+    @admin.action(
+        description=_("Export selected families (JSON, GDPR access request)"),
+        permissions=["export_family_dsar"],
+    )
     def export_as_json(self, request, queryset):
         exports = [build_family_export(family) for family in queryset]
         payload = exports[0] if len(exports) == 1 else exports
@@ -47,12 +62,15 @@ class FamilyAdmin(admin.ModelAdmin):
         response["Content-Disposition"] = 'attachment; filename="family-export.json"'
         return response
 
-    @admin.action(description="Export selected families (CSV, GDPR access request)")
+    @admin.action(
+        description=_("Export selected families (CSV, GDPR access request)"),
+        permissions=["export_family_dsar"],
+    )
     def export_as_csv(self, request, queryset):
         # CSV is single-family oriented; export the first selected family.
         family = queryset.first()
         if family is None:
-            self.message_user(request, "No family selected.", level=messages.WARNING)
+            self.message_user(request, _("No family selected."), level=messages.WARNING)
             return
         csv_data = family_export_to_csv(build_family_export(family))
         response = HttpResponse(csv_data, content_type="text/csv")
@@ -61,7 +79,10 @@ class FamilyAdmin(admin.ModelAdmin):
         )
         return response
 
-    @admin.action(description="Erase selected families (GDPR right to erasure)")
+    @admin.action(
+        description=_("Erase selected families (GDPR right to erasure)"),
+        permissions=["erase_family_dsar"],
+    )
     def erase_families(self, request, queryset):
         from checkins.audit import log_audit
 
@@ -80,7 +101,8 @@ class FamilyAdmin(admin.ModelAdmin):
             count += 1
         self.message_user(
             request,
-            f"Erased {count} families (data deleted, audit trail scrubbed).",
+            _("Erased %(count)d families (data deleted, audit trail scrubbed).")
+            % {"count": count},
             level=messages.SUCCESS,
         )
 
