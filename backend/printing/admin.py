@@ -1,5 +1,7 @@
 from django.contrib import admin, messages
 
+from config.admin import HiddenFromIndexAdmin
+
 from .models import Printer, PrintJob
 
 
@@ -45,7 +47,10 @@ class PrinterAdmin(admin.ModelAdmin):
 
 
 @admin.register(PrintJob)
-class PrintJobAdmin(admin.ModelAdmin):
+class PrintJobAdmin(HiddenFromIndexAdmin, admin.ModelAdmin):
+    """Queue rows the printing service writes and drains by itself. Hidden
+    from the index; still reachable by URL when a badge did not come out."""
+
     list_display = [
         "id",
         "checkin",

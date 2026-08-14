@@ -405,7 +405,16 @@ class PaymentEventAdmin(admin.ModelAdmin):
 @admin.register(RegistrationExtra)
 class RegistrationExtraAdmin(admin.ModelAdmin):
     """Finance/logistics browsing (kitchen counts, T-shirt orders) —
-    materialization happens through the public submission flow, not here."""
+    materialization happens through the public submission flow, not here.
+
+    Deliberately NOT hidden from the index, unlike the other add-on models.
+    The 0.4 triage plan listed it for hiding on the grounds that it is
+    "registered only so another admin's autocomplete works" — that describes
+    ExtraChoice, not this. The event/extra list_filter and the select_related
+    queryset below exist because someone built this as a browsing surface,
+    and until the dedicated extras/logistics screen ships, this is the only
+    way to answer "how many size-M shirts do we need". Hiding it would make
+    that answerable only by typing a URL no volunteer will type."""
 
     list_display = (
         "registration",

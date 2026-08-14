@@ -8,6 +8,7 @@ from django.urls import reverse
 from django.utils.html import format_html, format_html_join
 from django.utils.safestring import mark_safe
 from django.utils.translation import gettext_lazy as _
+from config.admin import HiddenFromIndexAdmin
 
 from .models import (
     Event,
@@ -92,9 +93,13 @@ class SessionAdmin(admin.ModelAdmin):
 
 
 @admin.register(Ticket)
-class TicketAdmin(admin.ModelAdmin):
+class TicketAdmin(HiddenFromIndexAdmin, admin.ModelAdmin):
     """
     DEPRECATED: Use EventTicketAdmin or SessionTicketAdmin instead.
+
+    Hidden from the index (see HiddenFromIndexAdmin): a deprecated model
+    two entries below the two that replaced it is pure confusion. Still
+    registered so existing rows stay reachable by URL until the model goes.
     """
 
     list_display = ("type", "attendee", "session")
@@ -441,11 +446,15 @@ class ExtraAdmin(admin.ModelAdmin):
 
 
 @admin.register(ExtraChoice)
-class ExtraChoiceAdmin(admin.ModelAdmin):
+class ExtraChoiceAdmin(HiddenFromIndexAdmin, admin.ModelAdmin):
     """Standalone registration alongside the ExtraAdmin inline above —
     needed so RegistrationExtraAdmin.choice can use autocomplete_fields
     (Django requires the target model have its own registered ModelAdmin
-    with search_fields, inlines don't count)."""
+    with search_fields, inlines don't count).
+
+    Hidden from the index (see HiddenFromIndexAdmin) precisely because it
+    exists for that autocomplete and for ExtraChoiceInline on ExtraAdmin —
+    nobody navigates to it. Do not unregister it: that breaks the widget."""
 
     list_display = ("label", "extra", "price_delta", "is_active", "sort_order")
     list_filter = ("extra__event", "is_active")
