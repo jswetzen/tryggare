@@ -4,13 +4,20 @@ from decimal import Decimal
 
 from django.core.validators import MinValueValidator
 from django.db import models
-from django.db.models import Q, Sum
+from django.db.models import DecimalField, ExpressionWrapper, F, Q, Sum, Value
+from django.db.models.functions import Coalesce
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
 from .tokens import generate_unique_reference_code
 
 ZERO = Decimal("0")
+
+# Output type for the SQL balance expression (see Payment.balance_expression).
+# Wider than Payment.amount's own 8 digits because the expression sums an
+# unbounded number of ledger rows before subtracting; the individual amounts
+# are still constrained by their own fields.
+BALANCE_FIELD = DecimalField(max_digits=12, decimal_places=2)
 
 # How long an unverified registration is kept before the scheduled sweep
 # hard-deletes it. A fixed business rule, not an operator-tunable setting.
@@ -255,6 +262,43 @@ class Payment(models.Model):
         part of what's owed."""
         received, refunded, adjusted = self.ledger_totals()
         return self.amount - received + refunded - adjusted
+
+    # The SQL twin of ``balance`` above, and deliberately its immediate
+    # neighbour: two implementations of one number that can silently
+    # disagree is the hazard, so they are read and edited together.
+    # ``balance`` stays the source of truth — this exists only because a
+    # Python property cannot be filtered or, crucially, *sorted* by, and
+    # "who owes the most on this event" is a sort.
+    #
+    # Named ``outstanding_balance``, not ``balance``: Django assigns an
+    # annotation onto each instance with setattr(), and ``balance`` is a
+    # property with no setter, so annotating under that name raises
+    # AttributeError the moment the queryset is iterated.
+    BALANCE_ANNOTATION = "outstanding_balance"
+
+    @staticmethod
+    def balance_expression():
+        """``amount - received + refunded - adjusted``, expressed over the
+        PaymentEvent join so the database computes it once for the whole
+        page instead of once per row. Kept sign-for-sign identical to
+        ``balance``; ``PaymentBalanceAnnotationTests`` pins the two
+        together across the empty/partial/refund/adjustment/overpayment
+        cases."""
+
+        def ledger_sum(kind):
+            return Coalesce(
+                Sum("events__amount", filter=Q(events__kind=kind)),
+                Value(ZERO),
+                output_field=BALANCE_FIELD,
+            )
+
+        return ExpressionWrapper(
+            F("amount")
+            - ledger_sum(PaymentEvent.Kind.RECEIVED)
+            + ledger_sum(PaymentEvent.Kind.REFUNDED)
+            - ledger_sum(PaymentEvent.Kind.ADJUSTMENT),
+            output_field=BALANCE_FIELD,
+        )
 
     def recompute_status(self) -> None:
         """Derive and persist status from the ledger. Idempotent; called by

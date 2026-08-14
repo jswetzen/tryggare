@@ -228,6 +228,8 @@ class PaymentAdmin(admin.ModelAdmin):
     list_display = (
         "reference_code",
         "registration",
+        "event",
+        "family",
         "amount",
         "balance_display",
         "currency",
@@ -236,22 +238,71 @@ class PaymentAdmin(admin.ModelAdmin):
         "paid_at",
         "marked_by",
     )
-    list_filter = ("status", "method")
-    search_fields = ("registration__reference_code", "registration__contact_email")
+    # registration__event is the piece whose absence caused a real incident:
+    # asked to fix "someone says they paid but shows as unpaid", a coordinator
+    # could not narrow this changelist to one event, found the only
+    # outstanding balance in the whole system — belonging to a *different*
+    # event — and marked that one paid. RelatedOnlyFieldListFilter rather
+    # than the plain related filter, so the sidebar lists only events that
+    # actually have payments instead of every event ever created.
+    list_filter = (
+        "status",
+        "method",
+        ("registration__event", admin.RelatedOnlyFieldListFilter),
+    )
+    search_fields = (
+        "registration__reference_code",
+        "registration__contact_email",
+        # Guardians phone in by surname far more often than by reference
+        # code; without this, finding "the Lindqvists" required already
+        # knowing their code.
+        "registration__family__last_name",
+    )
     readonly_fields = ("id", "registration", "created_at")
     inlines = [PaymentEventInline]
     actions = ["mark_paid_swish", "mark_paid_bankgiro", "mark_paid_other"]
 
     def get_queryset(self, request):
-        return super().get_queryset(request).select_related("registration", "marked_by")
+        return (
+            super()
+            .get_queryset(request)
+            .select_related(
+                "registration",
+                "registration__event",
+                "registration__family",
+                "marked_by",
+            )
+            # The balance used to cost one aggregate query *per rendered row*
+            # (Payment.balance -> ledger_totals). Computing it in SQL both
+            # flattens that N+1 and makes the column sortable, which is the
+            # actual job: "who owes money on this event, biggest first."
+            .annotate(**{Payment.BALANCE_ANNOTATION: Payment.balance_expression()})
+        )
 
     @admin.display(description=_("Reference Code"))
     def reference_code(self, obj):
         return obj.reference_code
 
-    @admin.display(description=_("Balance"))
+    @admin.display(description=_("Event"), ordering="registration__event__name")
+    def event(self, obj):
+        return obj.registration.event.name
+
+    @admin.display(description=_("Family"), ordering="registration__family__last_name")
+    def family(self, obj):
+        # The raw last_name, not str(Family): Family.__str__ falls back to
+        # querying the family's parents when last_name is blank, which would
+        # reintroduce a per-row query on this changelist.
+        return obj.registration.family.last_name or None
+
+    @admin.display(description=_("Balance"), ordering=Payment.BALANCE_ANNOTATION)
     def balance_display(self, obj):
-        return obj.balance
+        # Prefers the annotation from get_queryset; falls back to the
+        # property for any caller holding an un-annotated Payment (the
+        # shell, tests, a future admin view that builds its own queryset).
+        # Not `or obj.balance` — a zero balance is falsy and would silently
+        # fall through to the per-row query this annotation exists to kill.
+        annotated = getattr(obj, Payment.BALANCE_ANNOTATION, None)
+        return obj.balance if annotated is None else annotated
 
     def _mark_paid(self, request, queryset, method):
         paid = skipped = 0
