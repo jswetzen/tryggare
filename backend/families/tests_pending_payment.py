@@ -15,6 +15,7 @@ from events.models import Event
 from families.models import Family
 from registrations.models import Payment, PaymentEvent, Registration
 from registrations.tokens import generate_verification_token, hash_token
+from accounts.roles import COORDINATOR, grant
 
 User = get_user_model()
 
@@ -34,6 +35,7 @@ class PendingPaymentFieldTests(TestCase):
     def setUp(self):
         self.user = User.objects.create_user(username="staff", password="testpass")
         self.client = APIClient()
+        grant(self.user, COORDINATOR)
         self.client.force_authenticate(user=self.user)
         self.event = _make_event()
 

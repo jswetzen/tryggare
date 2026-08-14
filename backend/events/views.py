@@ -1,7 +1,12 @@
 from rest_framework import viewsets
 from rest_framework.decorators import action
-from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
+
+from config.permissions import (
+    POST_REQUIRES_CHANGE,
+    DjangoModelPermissionsWithView,
+    model_permissions,
+)
 
 from .models import Event, EventTicket, Session, SessionTicket, Ticket
 from .serializers import (
@@ -16,12 +21,13 @@ from .serializers import (
 class EventViewSet(viewsets.ModelViewSet):
     """
     ViewSet for managing events.
-    Requires authentication.
+    Gated on the matching ``events`` model permission (view/add/change/delete);
+    a Volontär holds only the ``view_`` half.
     """
 
     queryset = Event.objects.prefetch_related("sessions").all()
     serializer_class = EventSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [DjangoModelPermissionsWithView]
     search_fields = ["name"]
     ordering = ["-start_date"]
 
@@ -37,15 +43,30 @@ class EventViewSet(viewsets.ModelViewSet):
 class SessionViewSet(viewsets.ModelViewSet):
     """
     ViewSet for managing sessions.
-    Requires authentication.
+    Gated on the matching ``events`` model permission (view/add/change/delete);
+    a Volontär holds only the ``view_`` half.
     """
 
     queryset = Session.objects.select_related("event").all()
     serializer_class = SessionSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [DjangoModelPermissionsWithView]
     search_fields = ["name", "event__name"]
     filterset_fields = ["event", "is_active", "requires_ticket"]
     ordering = ["-start_time"]
+
+    # ``activate``/``deactivate`` are POSTs that edit an existing session. Left
+    # to the default map they would require ``add_session``, so a role allowed
+    # to edit sessions but not create them could not open one — and "can create"
+    # would silently also mean "can flip every session's live state". Say what
+    # they actually do.
+    _toggle_permission = model_permissions(
+        Session, perms_map=POST_REQUIRES_CHANGE, name="SessionTogglePermissions"
+    )
+
+    def get_permissions(self):
+        if self.action in ("activate", "deactivate"):
+            return [self._toggle_permission()]
+        return super().get_permissions()
 
     @action(detail=True, methods=["post"])
     def activate(self, request, pk=None):
@@ -77,12 +98,13 @@ class TicketViewSet(viewsets.ModelViewSet):
     """
     DEPRECATED: Use EventTicketViewSet or SessionTicketViewSet instead.
     ViewSet for managing tickets/passes (legacy).
-    Requires authentication.
+    Gated on the matching ``events`` model permission (view/add/change/delete);
+    a Volontär holds only the ``view_`` half.
     """
 
     queryset = Ticket.objects.select_related("attendee", "session").all()
     serializer_class = TicketSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [DjangoModelPermissionsWithView]
     filterset_fields = ["type", "attendee", "session"]
 
 
@@ -90,12 +112,13 @@ class EventTicketViewSet(viewsets.ModelViewSet):
     """
     ViewSet for managing event tickets (passes).
     Event tickets grant access to all sessions within an event.
-    Requires authentication.
+    Gated on the matching ``events`` model permission (view/add/change/delete);
+    a Volontär holds only the ``view_`` half.
     """
 
     queryset = EventTicket.objects.select_related("attendee", "event").all()
     serializer_class = EventTicketSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [DjangoModelPermissionsWithView]
     filterset_fields = ["attendee", "event"]
     ordering = ["event__start_date"]
 
@@ -104,13 +127,14 @@ class SessionTicketViewSet(viewsets.ModelViewSet):
     """
     ViewSet for managing session tickets.
     Session tickets grant access to a specific session only.
-    Requires authentication.
+    Gated on the matching ``events`` model permission (view/add/change/delete);
+    a Volontär holds only the ``view_`` half.
     """
 
     queryset = SessionTicket.objects.select_related(
         "attendee", "session", "session__event"
     ).all()
     serializer_class = SessionTicketSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [DjangoModelPermissionsWithView]
     filterset_fields = ["attendee", "session"]
     ordering = ["session__start_time"]

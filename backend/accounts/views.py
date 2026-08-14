@@ -22,6 +22,52 @@ class LoginRateThrottle(AnonRateThrottle):
     scope = "login"
 
 
+def session_user_payload(user):
+    """The shape the SPA gates on.
+
+    ``is_staff`` used to carry two unrelated jobs: "can reach Django admin" and
+    "is trusted with the app's privileged screens". The frontend read it for
+    both, so promoting a coordinator to see reports meant handing them the
+    Django admin as well, and demoting them took the admin away as a side
+    effect. Under the seeded roles ``is_staff`` keeps exactly one meaning — can
+    reach Django admin — and every app-tier decision moves to ``permissions``.
+
+    Fields:
+
+    ``id``/``username``/``name``
+        Unchanged.
+    ``is_staff``
+        Now means only "this user can open /admin/". Nothing in the app should
+        branch on it except a link to the admin.
+    ``is_superuser``
+        Ours, not one of the three roles. Present so the frontend can tell "has
+        every permission implicitly" apart from "was granted them", which
+        matters for any screen that explains *why* an action is available.
+    ``roles``
+        Group names, sorted — e.g. ``["Koordinator"]``. For display ("you are
+        signed in as…") and nothing else. Gating on a role name would re-create
+        the ``is_staff`` problem one level up: an organisation that composes a
+        fourth group in the admin gets a name this frontend has never heard of.
+    ``permissions``
+        Sorted ``"app_label.codename"`` strings from ``get_all_permissions()``,
+        i.e. group permissions and per-user permissions combined, and every
+        permission for a superuser. This is the list to gate on. The /reports
+        guard the companion increment adds should check
+        ``permissions.includes("reports.view_eventreport")`` — the same string
+        the backend checks — rather than any derived flag, so a permission moved
+        between roles needs no frontend change at all.
+    """
+    return {
+        "id": str(user.id),
+        "username": user.username,
+        "name": user.name,
+        "is_staff": user.is_staff,
+        "is_superuser": user.is_superuser,
+        "roles": sorted(user.groups.values_list("name", flat=True)),
+        "permissions": sorted(user.get_all_permissions()),
+    }
+
+
 @require_http_methods(["GET"])
 @ensure_csrf_cookie
 @api_view(["GET"])
@@ -47,12 +93,7 @@ def check_auth(request):
             {
                 "authenticated": True,
                 "demo_mode": demo_mode,
-                "user": {
-                    "id": str(request.user.id),
-                    "username": request.user.username,
-                    "name": request.user.name,
-                    "is_staff": request.user.is_staff,
-                },
+                "user": session_user_payload(request.user),
             }
         )
     return Response({"authenticated": False, "demo_mode": demo_mode, "user": None})
@@ -84,12 +125,7 @@ def login_view(request):
         return Response(
             {
                 "success": True,
-                "user": {
-                    "id": str(user.id),
-                    "username": user.username,
-                    "name": user.name,
-                    "is_staff": user.is_staff,
-                },
+                "user": session_user_payload(user),
             }
         )
 

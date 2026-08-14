@@ -36,6 +36,7 @@ from rest_framework.test import APIClient
 from families.models import Child, Family, Parent
 from events.models import Event, EventTicket, Session, SessionTicket
 from checkins.models import CheckInRecord
+from accounts.roles import VOLUNTEER, grant
 
 AdminUser = get_user_model()
 
@@ -48,7 +49,16 @@ PRINT_QUEUE_URL = reverse("print-queue-list")
 
 
 def _make_staff(username: str) -> AdminUser:
-    return AdminUser.objects.create_user(username=username, is_staff=True)
+    """A door-shift worker.
+
+    Used to be ``is_staff=True`` as a stand-in for "trusted with the app" —
+    the overload increment 1.5a removes. ``is_staff`` now means only "can reach
+    Django admin", which a volunteer explicitly cannot; the trust these tests
+    need comes from the Volontär role. That this whole suite passes for a plain
+    Volontär is the assertion that the door job survived the change.
+    """
+    user = AdminUser.objects.create_user(username=username)
+    return grant(user, VOLUNTEER)
 
 
 def _make_family(last_name: str = "TestFamily") -> Family:

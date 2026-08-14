@@ -1,4 +1,5 @@
 from django.contrib import admin, messages
+from django.utils.translation import gettext_lazy as _
 
 from config.admin import HiddenFromIndexAdmin
 
@@ -20,29 +21,56 @@ class PrinterAdmin(admin.ModelAdmin):
     ]
     actions = ["rotate_tokens", "revoke_tokens"]
 
-    @admin.display(boolean=True, description="Token active")
+    def get_fields(self, request, obj=None):
+        fields = super().get_fields(request, obj)
+        if request.user.is_superuser:
+            return fields
+        # The plaintext token IS the printer's credential. Read-only display is
+        # not a weaker form of "can rotate it" — anyone who can read it can
+        # impersonate the printer. Administratör is explicitly not trusted with
+        # the credential's lifecycle, so it does not get to read it either.
+        # ``token_active`` on the changelist still answers "is this printer's
+        # token healthy", which is the question the role actually has.
+        return [field for field in fields if field != "token"]
+
+    @admin.display(boolean=True, description=_("Token active"))
     def token_active(self, obj):
         return obj.token_active
 
-    @admin.action(description="Rotate token (invalidates the old one)")
+    @admin.action(
+        description=_("Rotate token (invalidates the old one)"),
+        # Without this, the action runs for anyone who can *view* the
+        # changelist — which would have handed printer-token rotation to every
+        # Administratör through the back door, the exact grant the role
+        # definition withholds. ``add`` is the permission the equivalent API
+        # action (POST rotate-token) needs, and no seeded role holds it.
+        permissions=["add"],
+    )
     def rotate_tokens(self, request, queryset):
         for printer in queryset:
             printer.rotate_token()
         self.message_user(
             request,
-            f"Rotated tokens for {queryset.count()} printer(s). "
-            "Update each printer-client with its new token.",
+            _(
+                "Rotated tokens for %(count)d printer(s). Update each "
+                "printer-client with its new token."
+            )
+            % {"count": queryset.count()},
             level=messages.SUCCESS,
         )
 
-    @admin.action(description="Revoke token (disables the printer)")
+    @admin.action(
+        description=_("Revoke token (disables the printer)"), permissions=["add"]
+    )
     def revoke_tokens(self, request, queryset):
         count = 0
         for printer in queryset:
             printer.revoke_token()
             count += 1
         self.message_user(
-            request, f"Revoked tokens for {count} printer(s).", level=messages.SUCCESS
+            request,
+            _("Revoked tokens for %(count)d printer(s).") % {"count": count},
+            level=messages.SUCCESS,
         )
 
 

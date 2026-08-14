@@ -15,6 +15,7 @@ from events.models import Event, Session
 from families.admin import FamilyAdmin
 from families.dsar import build_family_export
 from families.models import Child, Family, Parent
+from accounts.roles import COORDINATOR, grant
 
 User = get_user_model()
 
@@ -135,6 +136,7 @@ class DSARTests(TestCase):
     def setUp(self):
         self.staff = User.objects.create_user(username="staff", password="pw")
         self.client = APIClient()
+        grant(self.staff, COORDINATOR)
         self.client.force_authenticate(user=self.staff)
 
     def test_export_contains_nested_data(self):
@@ -206,6 +208,7 @@ class AuditAccessLoggingTests(TestCase):
     def setUp(self):
         self.staff = User.objects.create_user(username="staff", password="pw")
         self.client = APIClient()
+        grant(self.staff, COORDINATOR)
         self.client.force_authenticate(user=self.staff)
 
     def test_family_retrieve_logs_view_with_ip(self):

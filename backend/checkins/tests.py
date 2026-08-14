@@ -11,6 +11,7 @@ from checkins.models import AuditLog, CheckInRecord
 from events.models import Event, Session
 from families.models import Child, Family
 from accounts.models import AdminUser
+from accounts.roles import COORDINATOR, grant
 
 
 class UndoCheckInTest(TestCase):
@@ -22,6 +23,7 @@ class UndoCheckInTest(TestCase):
         self.user = AdminUser.objects.create_user(
             username="testuser", password="testpass123", name="Test User"
         )
+        grant(self.user, COORDINATOR)
         self.client.force_authenticate(user=self.user)
 
         self.family = Family.objects.create()
@@ -213,6 +215,7 @@ class PrintLabelTest(TestCase):
         self.user = AdminUser.objects.create_user(
             username="testuser", password="testpass123", name="Test User"
         )
+        grant(self.user, COORDINATOR)
         self.client.force_authenticate(user=self.user)
 
         self.family = Family.objects.create()
@@ -300,6 +303,7 @@ class SupervisedCheckInTest(TestCase):
         self.user = AdminUser.objects.create_user(
             username="testuser", password="testpass123", name="Test User"
         )
+        grant(self.user, COORDINATOR)
         self.client.force_authenticate(user=self.user)
 
         self.family = Family.objects.create()

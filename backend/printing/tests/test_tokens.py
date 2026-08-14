@@ -42,7 +42,11 @@ class PrinterTokenModelTest(TestCase):
 
 class PrinterProvisioningAPITest(TestCase):
     def setUp(self):
-        self.staff = User.objects.create_user(username="staff", password="pw")
+        # Increment 1.5a: provisioning a printer and rotating its token mint the
+        # credential the printer client authenticates with, so they need
+        # ``printing.add_printer`` — which no seeded role holds. This is a
+        # superuser operation now, and asserting it as one is the point.
+        self.staff = User.objects.create_superuser(username="staff", password="pw")
         self.client = APIClient()
         self.client.force_authenticate(user=self.staff)
 

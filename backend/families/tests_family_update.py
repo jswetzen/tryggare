@@ -12,6 +12,7 @@ from django.test import TestCase
 from rest_framework.test import APIClient
 
 from .models import Child, Family, Parent
+from accounts.roles import COORDINATOR, grant
 
 User = get_user_model()
 
@@ -20,6 +21,7 @@ class FamilyUpdateAPITests(TestCase):
     def setUp(self):
         self.user = User.objects.create_user(username="deskstaff", password="pw")
         self.client = APIClient()
+        grant(self.user, COORDINATOR)
         self.client.force_authenticate(user=self.user)
 
         self.family = Family.objects.create(last_name="Alvarez")
@@ -178,6 +180,7 @@ class ParentSerializerHealthFieldsTests(TestCase):
     def setUp(self):
         self.user = User.objects.create_user(username="deskstaff", password="pw")
         self.client = APIClient()
+        grant(self.user, COORDINATOR)
         self.client.force_authenticate(user=self.user)
 
         self.family = Family.objects.create(last_name="Nguyen")

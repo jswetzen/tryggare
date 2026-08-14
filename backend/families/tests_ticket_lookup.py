@@ -18,6 +18,7 @@ from rest_framework.test import APIClient
 from accounts.models import AdminUser
 from events.models import Event, EventTicket, Session, SessionTicket
 from families.models import Child, Family, Parent
+from accounts.roles import COORDINATOR, grant
 
 
 class TicketLookupAPITest(TestCase):
@@ -28,6 +29,7 @@ class TicketLookupAPITest(TestCase):
         self.user = AdminUser.objects.create_user(
             username="lookuptest", password="pass123", name="Lookup Tester"
         )
+        grant(self.user, COORDINATOR)
         self.client.force_authenticate(user=self.user)
 
         self.family = Family.objects.create(last_name="Scannable")

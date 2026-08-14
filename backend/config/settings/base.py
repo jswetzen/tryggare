@@ -160,6 +160,13 @@ REST_FRAMEWORK = {
         "rest_framework.authentication.SessionAuthentication",
         "rest_framework.authentication.BasicAuthentication",
     ],
+    # Deliberately left as the *floor*, not the policy. Since increment 1.5a
+    # every real endpoint names a DjangoModelPermissions-based class of its own
+    # (config/permissions.py), so this default only ever applies to a view that
+    # forgot to — and "authenticated" is the safest thing for a forgotten view
+    # to be. Raising it to a model-permission class here would fail obscurely on
+    # any view without a queryset; lowering it to AllowAny would make the next
+    # forgotten view public.
     "DEFAULT_PERMISSION_CLASSES": [
         "rest_framework.permissions.IsAuthenticated",
     ],

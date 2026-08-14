@@ -4,7 +4,8 @@ import json
 from django.http import HttpResponse
 from rest_framework import viewsets
 from rest_framework.decorators import action
-from rest_framework.permissions import IsAuthenticated
+
+from config.permissions import DjangoModelPermissionsWithView
 
 from .models import EventReport
 from .serializers import EventReportDetailSerializer, EventReportListSerializer
@@ -22,10 +23,15 @@ class EventReportViewSet(viewsets.ReadOnlyModelViewSet):
     Snapshots are produced in the Django backend (admin action or the
     ``generate_event_report`` management command); this API only exposes them
     for viewing and export from the frontend.
+
+    Gated on ``reports.view_eventreport``. This is the endpoint that most
+    justifies the whole increment: a report snapshot is the event's aggregate
+    financial and attendance picture, and under a flat ``IsAuthenticated`` any
+    volunteer could read it.
     """
 
     queryset = EventReport.objects.select_related("event", "generated_by").all()
-    permission_classes = [IsAuthenticated]
+    permission_classes = [DjangoModelPermissionsWithView]
     filterset_fields = ["event"]
     ordering = ["-generated_at"]
 
