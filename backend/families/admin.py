@@ -3,6 +3,8 @@ import json
 from django.contrib import admin, messages
 from django.http import HttpResponse
 
+from config.admin import HiddenFromIndexAdmin
+
 from .dsar import (
     build_family_export,
     family_export_to_csv,
@@ -84,7 +86,12 @@ class FamilyAdmin(admin.ModelAdmin):
 
 
 @admin.register(Attendee)
-class AttendeeAdmin(admin.ModelAdmin):
+class AttendeeAdmin(HiddenFromIndexAdmin, admin.ModelAdmin):
+    """Multi-table-inheritance base of Child and Parent — every row here is
+    already listed under Children or Parents, so the index entry only ever
+    duplicated them. Hidden, not unregistered: EventTicketAdmin,
+    SessionTicketAdmin and RegistrationExtraAdmin autocomplete against it."""
+
     list_display = ("first_name", "last_name", "family")
     search_fields = ("first_name", "last_name")
     list_filter = ("last_participation_date",)

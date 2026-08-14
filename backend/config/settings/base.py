@@ -22,7 +22,9 @@ else:
     ALLOWED_HOSTS.append("testserver")
 
 INSTALLED_APPS = [
-    "django.contrib.admin",
+    # Replaces "django.contrib.admin": installs TryggareAdminSite (branding
+    # + app ordering) as the site behind django.contrib.admin.site.
+    "config.admin.TryggareAdminConfig",
     "django.contrib.auth",
     "django.contrib.contenttypes",
     "django.contrib.sessions",
