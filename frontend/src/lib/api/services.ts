@@ -236,6 +236,24 @@ export const checkinApi = {
   ) => apiClient.patch<FamilyApiResponse>(`/families/${familyId}/`, data),
 
   /**
+   * Reveal one attendee's allergy/emergency-medical text on the check-in path.
+   *
+   * For a viewer who may not edit the record (a Volontär) the roster carries
+   * only `has_safety_info`; the text comes from here. Writes exactly one
+   * `safety_info_revealed` audit row per call — the authenticated counterpart
+   * to the QR page's `qr_safety_info_revealed`, so a glance at the roster stays
+   * distinguishable from an access to a child's allergy.
+   *
+   * `attendeeId` is a child *or* a parent of this family: adults carry these
+   * fields too.
+   */
+  revealSafetyInfo: (familyId: string, attendeeId: string) =>
+    apiClient.post<{ allergies: string; notes: string }>(
+      `/families/${familyId}/reveal-safety-info/`,
+      { attendee_id: attendeeId }
+    ),
+
+  /**
    * Staff check-in-screen action (case catalog §9.3, "ta betalt nu"):
    * record a pending_payment registration's full outstanding balance as
    * received, confirming it so the check-in gate opens.

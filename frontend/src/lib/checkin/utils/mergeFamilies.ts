@@ -78,6 +78,7 @@ export function transformFamily(apiFamily: FamilyApiResponse, session: Session |
         birthdate: child.birthdate,
         allergies: child.allergies,
         notes: child.notes,
+        has_safety_info: child.has_safety_info ?? false,
         health_consent_status: child.health_consent_status,
         qr_token: child.qr_token,
       };
@@ -101,6 +102,7 @@ export function transformFamily(apiFamily: FamilyApiResponse, session: Session |
         is_parent: true,
         allergies: parent.allergies,
         notes: parent.notes,
+        has_safety_info: parent.has_safety_info ?? false,
         health_consent_status: parent.health_consent_status,
       };
     }),

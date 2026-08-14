@@ -148,7 +148,19 @@ describe('QR page — safety info reveal', () => {
     );
 
     render(QRPage, {
-      props: { data: { user: { id: '1', username: 'staff', name: 'Staff' } } }
+      props: {
+        data: {
+          user: {
+            id: '1',
+            username: 'staff',
+            name: 'Staff',
+            is_staff: false,
+            is_superuser: false,
+            roles: ['Volontär'],
+            permissions: ['families.view_family']
+          }
+        }
+      }
     });
 
     await waitFor(() => {

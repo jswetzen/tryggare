@@ -4,9 +4,13 @@
   import { page } from '$app/stores';
   import { qrApi, checkInApi, printingApi, printQueueApi } from '$lib/api/services';
   import type { QRInfoResponse, Printer } from '$lib/api/types';
+  import type { SessionUser } from '$lib/auth/permissions';
 
   interface PageData {
-    user: { id: string; username: string; name: string; is_staff?: boolean } | null;
+    // Only ever read as a truthiness test ("is someone signed in?"), which is
+    // what decides staff-vs-public detail on this public page — no field of it
+    // gates anything here, `is_staff` included.
+    user: SessionUser | null;
   }
   let { data }: { data: PageData } = $props();
 

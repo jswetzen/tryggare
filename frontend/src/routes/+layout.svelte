@@ -4,6 +4,7 @@
   import { translationsReady } from '$lib/i18n/i18n';
   import { isLoading } from 'svelte-i18n';
   import TopNav from '$lib/components/TopNav.svelte';
+  import { PERMISSION, hasPermission } from '$lib/auth/permissions';
 
   interface LayoutData {
     user: App.Locals['user'];
@@ -19,7 +20,14 @@
   </div>
 {:else}
   {#if data.user}
-    <TopNav userName={data.user.username} isAdmin={data.user.is_staff ?? false} />
+    <!-- Three separate questions, not one `is_staff`. Only the last is about
+         Django admin, which is the one thing `is_staff` still means. -->
+    <TopNav
+      userName={data.user.username}
+      canViewReports={hasPermission(data.user, PERMISSION.viewReports)}
+      canViewImports={hasPermission(data.user, PERMISSION.viewImportSources)}
+      canOpenDjangoAdmin={data.user.is_staff ?? false}
+    />
   {/if}
 
   <main class="min-h-screen bg-neutral-100 p-5">

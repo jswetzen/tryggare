@@ -46,6 +46,14 @@
     onMarkPaid?: (registrationId: string, method: 'swish' | 'bankgiro' | 'manual_other') => Promise<void>;
     onConfirmDespiteBalance?: (registrationId: string) => Promise<void>;
     onEditFamily?: (familyId: string) => void;
+    /**
+     * False = the viewer may not write families (a Volontär). The panel behind
+     * this control is then a read-only detail view, so the control says "view"
+     * rather than "edit". It is still offered: it is the only path to a
+     * child's safety info, and a door volunteer is the person who most needs
+     * that.
+     */
+    canEditFamily?: boolean;
   }
 
   let {
@@ -67,7 +75,8 @@
     parentCheckinEnabled = true,
     onMarkPaid = async () => {},
     onConfirmDespiteBalance = async () => {},
-    onEditFamily = undefined
+    onEditFamily = undefined,
+    canEditFamily = true
   }: Props = $props();
 
   // 9.3 "unpaid at the door" — which families currently have a mark-paid /
@@ -350,10 +359,12 @@
                     type="button"
                     onclick={() => onEditFamily?.(family.id)}
                     class="flex-shrink-0 text-neutral-400 hover:text-primary-600 transition-colors"
-                    aria-label={$_('checkin.editFamily', { values: { familyName: family.name } })}
+                    aria-label={$_(canEditFamily ? 'checkin.editFamily' : 'checkin.viewFamily', {
+                      values: { familyName: family.name }
+                    })}
                     data-testid={`family-edit-button-${family.id}`}
                   >
-                    <Icon name="edit" size="sm" />
+                    <Icon name={canEditFamily ? 'edit' : 'eye'} size="sm" />
                   </button>
                 {/if}
                 {#if allCheckedIn}
@@ -697,10 +708,12 @@
                   type="button"
                   onclick={() => onEditFamily?.(family.id)}
                   class="flex-shrink-0 text-neutral-400 hover:text-primary-600 transition-colors"
-                  aria-label={$_('checkin.editFamily', { values: { familyName: family.name } })}
+                  aria-label={$_(canEditFamily ? 'checkin.editFamily' : 'checkin.viewFamily', {
+                    values: { familyName: family.name }
+                  })}
                   data-testid={`family-edit-button-${family.id}`}
                 >
-                  <Icon name="edit" size="sm" />
+                  <Icon name={canEditFamily ? 'edit' : 'eye'} size="sm" />
                 </button>
               {/if}
               {#if allCheckedIn}
