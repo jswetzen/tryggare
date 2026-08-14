@@ -1,12 +1,11 @@
 #!/usr/bin/env nu
-# Watches restart-dev.txt / restart-prod.txt independently and rebuilds the
-# matching environment only. Two separate trigger files (not a shared
-# restart.txt) so that routine dev iteration never also kicks off the
-# slower prod-like rebuild — prod is only meant to be restarted for final/
-# human verification, not on every dev change. See CLAUDE.md's Deployment
-# Environments section.
+# Watches restart-dev.txt / restart-prod.txt and rebuilds the matching
+# environment only. Two separate trigger files (not a shared restart.txt) so
+# that routine dev iteration never also kicks off the slower prod-like
+# rebuild — prod is only meant to be restarted for final/human verification,
+# not on every dev change. See CLAUDE.md's Deployment Environments section.
 # Runs on the HOST SERVER (has podman access). Not usable from Claude Code's container.
-# Usage: nu watch.nu [--dev] [--prod]  (default: both, as two independent watchers)
+# Usage: nu watch.nu [--dev] [--prod]  (default: both, in this one process)
 
 def main [
     --dev   # Watch and rebuild dev only
@@ -16,61 +15,68 @@ def main [
     let do_dev  = ($dev  or (not $dev and not $prod))
     let do_prod = ($prod or (not $dev and not $prod))
 
-    if $do_dev and $do_prod {
-        # watch() blocks, so a single process can't watch two independent
-        # files at once — re-exec this same script as a background process
-        # for prod and keep dev in the foreground to hold the process open.
-        job spawn { ^nu $env.CURRENT_FILE --prod } | ignore
-        watch_dev $root
-    } else if $do_dev {
-        watch_dev $root
-    } else if $do_prod {
-        watch_prod $root
+    # restart-*.txt is gitignored — a fresh clone won't have them yet, and a
+    # trigger that doesn't exist can never fire. Touch the ones we watch.
+    let triggers = ([
+        (if $do_dev  { "restart-dev.txt" })
+        (if $do_prod { "restart-prod.txt" })
+    ] | compact)
+    for t in $triggers {
+        let p = ($root | path join $t)
+        if not ($p | path exists) { "" | save $p }
+    }
+
+    print $"Watching ($root) for changes to:"
+    if $do_dev  { print $"  restart-dev.txt  → dev  rebuild, log: ($root | path join 'build.dev.log')" }
+    if $do_prod { print $"  restart-prod.txt → prod rebuild, log: ($root | path join 'build.prod.log')" }
+    print "Press Ctrl-C to stop."
+
+    # One `watch` on the directory rather than one per file: `watch` blocks, so
+    # watching two files used to mean a second background process, whose output
+    # was swallowed (it looked like only dev was being watched) and which could
+    # be orphaned if this process died without a clean Ctrl-C. Watching the
+    # directory non-recursively with a glob keeps both triggers in this single
+    # foreground process — one Ctrl-C stops everything, and both streams print
+    # here under [dev]/[prod] prefixes.
+    #
+    # --recursive false matters: the repo root contains node_modules/, .git/ and
+    # frontend/, and a recursive watch would be both slow and liable to exhaust
+    # inotify watches. The glob is also re-checked per event below, since a
+    # single `echo > file` can surface as several ops (Write, Chmod, ...);
+    # --debounce coalesces those into one rebuild.
+    watch $root --glob "restart-*.txt" --recursive false --debounce 500ms {|op, path|
+        let name = ($path | path basename)
+        if $do_dev and $name == "restart-dev.txt" {
+            rebuild_dev $root $op
+        } else if $do_prod and $name == "restart-prod.txt" {
+            rebuild_prod $root $op
+        }
     }
 }
 
-def watch_dev [root: string] {
+def rebuild_dev [root: string, op: string] {
     let build_dev = ($root | path join "build.dev.log")
-    let trigger = ($root | path join "restart-dev.txt")
-    # restart-*.txt is gitignored — a fresh clone won't have it yet, and
-    # nu's `watch` errors immediately (nu::shell::io::not_found) on a path
-    # that doesn't exist. Touch it first so watching survives that case.
-    if not ($trigger | path exists) {
-        "" | save $trigger
-    }
-    print $"Watching ($trigger) for changes..."
-    print $"  dev → ($build_dev)"
-    print "Press Ctrl-C to stop."
-
-    watch $trigger {|op, path|
-        print $"\n[dev] restart-dev.txt changed \(($op)\) — rebuilding..."
-        job spawn {
-            print "[dev] Starting rebuild..."
-            ^podman compose up -d --force-recreate --build out+err> $build_dev
-            print "[dev] Done."
-        } | ignore
-    }
+    print $"\n[dev] restart-dev.txt changed \(($op)\) — rebuilding..."
+    # Spawned so a long rebuild doesn't block the watcher from noticing the
+    # other environment's trigger. Dev and prod are separate compose projects
+    # (tryggare_* on 8000/5173 vs check-in-prod_* on 8080) with distinct image
+    # and container names, so an overlapping dev+prod rebuild doesn't collide.
+    job spawn {
+        print "[dev] Starting rebuild..."
+        ^podman compose up -d --force-recreate --build out+err> $build_dev
+        print "[dev] Done."
+    } | ignore
 }
 
-def watch_prod [root: string] {
+def rebuild_prod [root: string, op: string] {
     let build_prod = ($root | path join "build.prod.log")
-    let trigger = ($root | path join "restart-prod.txt")
-    if not ($trigger | path exists) {
-        "" | save $trigger
-    }
-    print $"Watching ($trigger) for changes..."
-    print $"  prod → ($build_prod)"
-    print "Press Ctrl-C to stop."
-
-    watch $trigger {|op, path|
-        print $"\n[prod] restart-prod.txt changed \(($op)\) — rebuilding..."
-        job spawn {
-            print "[prod] Starting rebuild..."
-            # The prod compose declares an external 'traefik' network; ensure it
-            # exists first or `up` aborts before building (truncates the log).
-            ^bash ($root | path join "scripts" "ensure-prod-network.sh") out+err> $build_prod
-            ^podman compose -f docker-compose.prod.yml --env-file .env.prod up -d --force-recreate --build out+err>> $build_prod
-            print "[prod] Done."
-        } | ignore
-    }
+    print $"\n[prod] restart-prod.txt changed \(($op)\) — rebuilding..."
+    job spawn {
+        print "[prod] Starting rebuild..."
+        # The prod compose declares an external 'traefik' network; ensure it
+        # exists first or `up` aborts before building (truncates the log).
+        ^bash ($root | path join "scripts" "ensure-prod-network.sh") out+err> $build_prod
+        ^podman compose -f docker-compose.prod.yml --env-file .env.prod up -d --force-recreate --build out+err>> $build_prod
+        print "[prod] Done."
+    } | ignore
 }
