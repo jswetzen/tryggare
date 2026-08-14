@@ -31,8 +31,13 @@ SCHEMA_VERSION = 1
 AGE_BUCKETS = ["0-2", "3-5", "6-8", "9-12", "13+", "unknown"]
 
 
-def _age_on(birthdate, ref_date):
-    """Age in whole years on ``ref_date``, or None if birthdate is missing."""
+def age_on(birthdate, ref_date):
+    """Age in whole years on ``ref_date``, or None if birthdate is missing.
+
+    Public because the events admin's ``age_at_event`` column reuses it:
+    two independent age calculations in one codebase will eventually
+    disagree on a birthday boundary.
+    """
     if birthdate is None:
         return None
     return (
@@ -128,7 +133,7 @@ def build_event_report_data(event) -> dict:
     age_buckets = {b: 0 for b in AGE_BUCKETS}
     with_allergies = 0
     for child in checked_in_children:
-        age_buckets[_age_bucket(_age_on(child.birthdate, event.start_date))] += 1
+        age_buckets[_age_bucket(age_on(child.birthdate, event.start_date))] += 1
         if child.allergies and child.allergies.strip():
             with_allergies += 1
 

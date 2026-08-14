@@ -2,6 +2,7 @@ from django import forms
 from django.conf import settings
 from django.contrib import admin, messages
 from django.contrib.admin import helpers
+from django.core.exceptions import ObjectDoesNotExist
 from django.template.response import TemplateResponse
 from django.urls import reverse
 from django.utils.html import format_html, format_html_join
@@ -19,6 +20,14 @@ from .models import (
     Ticket,
     TicketType,
 )
+
+# reports.services is the single source of truth for whole-year age (the
+# age_at_event column below). A module-level import is safe here even though
+# EventAdmin.generate_report defers its own reports.services import: admin
+# modules are only imported by autodiscover, long after the app registry has
+# finished loading every app's models.
+from reports.services import age_on
+
 from .services import duplicate_extra_to_event
 
 
@@ -97,39 +106,157 @@ class TicketAdmin(admin.ModelAdmin):
     )
 
 
+class TicketTypeListFilter(admin.RelatedFieldListFilter):
+    """Ticket-type sidebar filter that builds its options in one query.
+
+    The stock RelatedFieldListFilter renders each option via
+    ``str(TicketType)``, which interpolates the type's *event* name — one
+    extra query per option, every changelist load. Measured at 1 query per
+    ticket type; pre-joining the event makes the whole sidebar flat.
+    """
+
+    def field_choices(self, field, request, model_admin):
+        return [
+            (obj.pk, str(obj))
+            for obj in TicketType.objects.select_related("event").order_by(
+                "event__name", "sort_order", "name"
+            )
+        ]
+
+
+class TicketTriageMixin:
+    """Shared changelist columns for EventTicketAdmin and SessionTicketAdmin.
+
+    Exists so a coordinator can answer "is this named child on the right
+    ticket type?" from a single screen. Before this, neither changelist
+    carried a ticket_type column at all, so pairing a child's age with the
+    ticket they hold meant opening tickets one at a time and cross-
+    referencing birthdates by hand.
+
+    Subclasses implement `_event_for()`: EventTicket owns its event
+    directly, SessionTicket only reaches one through its session.
+    """
+
+    def _event_for(self, obj):
+        raise NotImplementedError
+
+    @admin.display(description=_("Family"), ordering="attendee__family__last_name")
+    def family(self, obj):
+        # Deliberately the raw last_name, not str(Family): Family.__str__ /
+        # display_name fall back to querying self.parents when last_name is
+        # blank, which would be an extra query on every row.
+        return obj.attendee.family.last_name or None
+
+    @admin.display(description=_("Age at event"))
+    def age_at_event(self, obj):
+        # Not sortable — computed in Python, with no DB expression to order
+        # by. birthdate lives on the Child subclass, not on the Attendee a
+        # ticket points at, so a parent's ticket legitimately has no age.
+        try:
+            child = obj.attendee.child
+        except ObjectDoesNotExist:
+            return None
+        event = self._event_for(obj)
+        if event is None:
+            return None
+        return age_on(child.birthdate, event.start_date)
+
+    @admin.display(
+        description=_("Registration status"), ordering="registration__status"
+    )
+    def registration_status(self, obj):
+        # Null on staff-created and imported tickets — those never came
+        # through public self-serve registration.
+        if obj.registration_id is None:
+            return None
+        return obj.registration.get_status_display()
+
+
 @admin.register(EventTicket)
-class EventTicketAdmin(admin.ModelAdmin):
+class EventTicketAdmin(TicketTriageMixin, admin.ModelAdmin):
     """
     Admin interface for event tickets (passes).
     """
 
-    list_display = ("attendee", "event", "id")
-    list_filter = ("event",)
-    search_fields = ("attendee__first_name", "attendee__last_name", "event__name")
+    list_display = (
+        "attendee",
+        "family",
+        "age_at_event",
+        "event",
+        "ticket_type",
+        "registration_status",
+        "external_ticket_code",
+    )
+    list_filter = ("event", ("ticket_type", TicketTypeListFilter))
+    search_fields = (
+        "attendee__first_name",
+        "attendee__last_name",
+        "attendee__family__last_name",
+        "external_ticket_code",
+        "event__name",
+    )
+    # attendee__child: birthdate is on the Child subclass (multi-table
+    # inheritance), so without this join age_at_event costs a query per row.
+    # ticket_type__event: TicketType.__str__ interpolates its event's name.
+    list_select_related = (
+        "attendee",
+        "attendee__family",
+        "attendee__child",
+        "event",
+        "ticket_type",
+        "ticket_type__event",
+        "registration",
+    )
     autocomplete_fields = ["attendee", "event"]
+
+    def _event_for(self, obj):
+        return obj.event
 
 
 @admin.register(SessionTicket)
-class SessionTicketAdmin(admin.ModelAdmin):
+class SessionTicketAdmin(TicketTriageMixin, admin.ModelAdmin):
     """
     Admin interface for session tickets.
     """
 
-    list_display = ("attendee", "session", "get_event", "id")
-    list_filter = ("session__event",)
+    list_display = (
+        "attendee",
+        "family",
+        "age_at_event",
+        "session",
+        "event",
+        "ticket_type",
+        "registration_status",
+        "external_ticket_code",
+    )
+    list_filter = ("session__event", ("ticket_type", TicketTypeListFilter))
     search_fields = (
         "attendee__first_name",
         "attendee__last_name",
+        "attendee__family__last_name",
+        "external_ticket_code",
         "session__name",
         "session__event__name",
     )
+    # session__event: needed by both the `event` column and Session.__str__.
+    list_select_related = (
+        "attendee",
+        "attendee__family",
+        "attendee__child",
+        "session",
+        "session__event",
+        "ticket_type",
+        "ticket_type__event",
+        "registration",
+    )
     autocomplete_fields = ["attendee", "session"]
 
-    def get_event(self, obj):
+    @admin.display(description=_("Event"), ordering="session__event")
+    def event(self, obj):
         return obj.session.event
 
-    get_event.short_description = "Event"
-    get_event.admin_order_field = "session__event"
+    def _event_for(self, obj):
+        return obj.session.event
 
 
 class TicketTypeAdminForm(forms.ModelForm):
