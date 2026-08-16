@@ -1741,6 +1741,22 @@ msgstr "Received"
 msgid "Adjustment"
 msgstr "Adjustment"
 
+msgid "Charge"
+msgstr "Charge"
+
+msgid ""
+"Free text for any event. Mandatory for a Charge — raising what a family "
+"owes must always say why."
+msgstr ""
+"Free text for any event. Mandatory for a Charge — raising what a family "
+"owes must always say why."
+
+msgid "A charge must include a reason — say why the family owes more."
+msgstr "A charge must include a reason — say why the family owes more."
+
+msgid "A charge must include a reason in its note."
+msgstr "A charge must include a reason in its note."
+
 #: registrations/models.py:383
 msgid ""
 "Always positive — kind determines the sign of its effect on the payment's "

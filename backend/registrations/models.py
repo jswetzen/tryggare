@@ -2,6 +2,7 @@ import uuid
 from datetime import timedelta
 from decimal import Decimal
 
+from django.core.exceptions import ValidationError
 from django.core.validators import MinValueValidator
 from django.db import models
 from django.db.models import DecimalField, ExpressionWrapper, F, Q, Sum, Value
@@ -248,34 +249,37 @@ class Payment(models.Model):
     def reference_code(self) -> str:
         return self.registration.reference_code
 
-    def ledger_totals(self) -> tuple[Decimal, Decimal, Decimal]:
-        """Cumulative (received, refunded, adjusted) from the PaymentEvent
-        ledger — the shared read both ``balance`` and
+    def ledger_totals(self) -> tuple[Decimal, Decimal, Decimal, Decimal]:
+        """Cumulative (received, refunded, adjusted, charged) from the
+        PaymentEvent ledger — the shared read both ``balance`` and
         ``services.record_payment_event``'s C1 invariant checks build on.
-        One query with three conditional aggregates, not three separate
+        One query with four conditional aggregates, not four separate
         round trips — this runs per admin changelist row and multiple times
         per mark-paid call."""
         totals = self.events.aggregate(
             received=Sum("amount", filter=Q(kind=PaymentEvent.Kind.RECEIVED)),
             refunded=Sum("amount", filter=Q(kind=PaymentEvent.Kind.REFUNDED)),
             adjusted=Sum("amount", filter=Q(kind=PaymentEvent.Kind.ADJUSTMENT)),
+            charged=Sum("amount", filter=Q(kind=PaymentEvent.Kind.CHARGED)),
         )
         return (
             totals["received"] or ZERO,
             totals["refunded"] or ZERO,
             totals["adjusted"] or ZERO,
+            totals["charged"] or ZERO,
         )
 
     @property
     def balance(self) -> Decimal:
         """Amount still owed: amount minus what the PaymentEvent ledger says
-        has actually happened. received reduces it; refunded and adjustment
-        (a goodwill write-off — no money moves) increase and reduce it
-        respectively per their real-world meaning: a refund gives money back
-        to the payer, so it reopens the balance; an adjustment writes off
-        part of what's owed."""
-        received, refunded, adjusted = self.ledger_totals()
-        return self.amount - received + refunded - adjusted
+        has actually happened. received reduces it; refunded and charged
+        (money coming back, or more being asked for) increase it; adjustment
+        (a goodwill write-off — no money moves) reduces it. Charged is the
+        mirror image of adjustment — both are ledger-only entries with no
+        money movement of their own, but a charge raises what's owed while
+        an adjustment writes part of it off."""
+        received, refunded, adjusted, charged = self.ledger_totals()
+        return self.amount - received + refunded - adjusted + charged
 
     # The SQL twin of ``balance`` above, and deliberately its immediate
     # neighbour: two implementations of one number that can silently
@@ -292,12 +296,12 @@ class Payment(models.Model):
 
     @staticmethod
     def balance_expression():
-        """``amount - received + refunded - adjusted``, expressed over the
-        PaymentEvent join so the database computes it once for the whole
-        page instead of once per row. Kept sign-for-sign identical to
+        """``amount - received + refunded - adjusted + charged``, expressed
+        over the PaymentEvent join so the database computes it once for the
+        whole page instead of once per row. Kept sign-for-sign identical to
         ``balance``; ``PaymentBalanceAnnotationTests`` pins the two
-        together across the empty/partial/refund/adjustment/overpayment
-        cases."""
+        together across the empty/partial/refund/adjustment/charge/
+        overpayment cases."""
 
         def ledger_sum(kind):
             return Coalesce(
@@ -310,7 +314,8 @@ class Payment(models.Model):
             F("amount")
             - ledger_sum(PaymentEvent.Kind.RECEIVED)
             + ledger_sum(PaymentEvent.Kind.REFUNDED)
-            - ledger_sum(PaymentEvent.Kind.ADJUSTMENT),
+            - ledger_sum(PaymentEvent.Kind.ADJUSTMENT)
+            + ledger_sum(PaymentEvent.Kind.CHARGED),
             output_field=BALANCE_FIELD,
         )
 
@@ -328,18 +333,27 @@ class Payment(models.Model):
         refund of a fully-paid payment (some of what was received is still
         held) must stay PARTIALLY_PAID, not flip to REFUNDED — see
         tests_payment.py::test_refund_after_confirmed_reopens_balance_
-        without_reverting_status."""
+        without_reverting_status. Unaffected by CHARGED: that check only
+        looks at refunded vs received, neither of which a charge touches.
+
+        The PARTIALLY_PAID/PENDING split below compares the balance against
+        the *effective* total owed (``amount + charged``), not against
+        ``amount`` alone — a charge raises what's owed the same way the
+        original ``amount`` did, so with no payments yet the balance sits at
+        the full effective total (PENDING), and any money moving away from
+        that (in either direction) reads as PARTIALLY_PAID."""
         if self.status == self.Status.CANCELLED:
             return
 
-        received, refunded, adjusted = self.ledger_totals()
-        balance = self.amount - received + refunded - adjusted
+        received, refunded, adjusted, charged = self.ledger_totals()
+        total_owed = self.amount + charged
+        balance = total_owed - received + refunded - adjusted
 
         if refunded > ZERO and refunded >= received:
             new_status = self.Status.REFUNDED
         elif balance <= ZERO:
             new_status = self.Status.PAID
-        elif balance < self.amount:
+        elif balance < total_owed:
             new_status = self.Status.PARTIALLY_PAID
         else:
             new_status = self.Status.PENDING
@@ -365,6 +379,7 @@ class PaymentEvent(models.Model):
         RECEIVED = "received", _("Received")
         REFUNDED = "refunded", _("Refunded")
         ADJUSTMENT = "adjustment", _("Adjustment")
+        CHARGED = "charged", _("Charge")
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     payment = models.ForeignKey(
@@ -385,7 +400,14 @@ class PaymentEvent(models.Model):
         ),
     )
     note = models.CharField(
-        max_length=255, blank=True, default="", verbose_name=_("Note")
+        max_length=255,
+        blank=True,
+        default="",
+        verbose_name=_("Note"),
+        help_text=_(
+            "Free text for any event. Mandatory for a Charge — raising what "
+            "a family owes must always say why."
+        ),
     )
     created_by = models.ForeignKey(
         "accounts.AdminUser",
@@ -402,9 +424,49 @@ class PaymentEvent(models.Model):
         verbose_name = _("Payment Event")
         verbose_name_plural = _("Payment Events")
         indexes = [models.Index(fields=["payment"])]
+        constraints = [
+            # A charge must carry a reason — the ledger must never again
+            # record an amount moving with nothing behind it. A
+            # CheckConstraint is enforced at the database, so it is the one
+            # guard a raw PaymentEvent.objects.create() (bypassing clean(),
+            # bypassing a ModelForm) cannot slip past. clean()/save() below
+            # give the friendlier ValidationError first; this is the
+            # backstop.
+            models.CheckConstraint(
+                check=~Q(kind="charged", note=""),
+                name="payment_event_charge_requires_note",
+                violation_error_message=_(
+                    "A charge must include a reason in its note."
+                ),
+            ),
+        ]
 
     def __str__(self) -> str:
         return f"{self.kind} {self.amount} {self.payment.currency} for {self.payment.reference_code}"
+
+    def clean(self):
+        super().clean()
+        if self.kind == self.Kind.CHARGED and not self.note.strip():
+            raise ValidationError(
+                {
+                    "note": _(
+                        "A charge must include a reason — say why the family owes more."
+                    )
+                }
+            )
+
+    def save(self, *args, **kwargs):
+        # Belt-and-suspenders with the CheckConstraint above: full_clean()
+        # here catches a missing charge reason with a friendly
+        # ValidationError before it ever reaches the database, for the
+        # in-process callers (record_payment_event, and anything else that
+        # constructs a PaymentEvent directly) that never go through a
+        # ModelForm's own clean/validation. update_fields is never used for
+        # this model (append-only: rows are created, never edited — see the
+        # admin's has_change_permission), so there is no partial-save case
+        # where re-validating unrelated fields would be wrong.
+        self.full_clean()
+        super().save(*args, **kwargs)
 
 
 class RegistrationExtra(models.Model):
