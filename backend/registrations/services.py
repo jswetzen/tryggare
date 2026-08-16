@@ -9,7 +9,7 @@ from typing import Literal
 
 from django.core.exceptions import ObjectDoesNotExist
 from django.db import transaction
-from django.db.models import F
+from django.db.models import F, Q
 from django.db.models.functions import Greatest
 from django.utils.translation import gettext_lazy as _
 
@@ -329,6 +329,49 @@ class TicketTypeChangePlan:
         return self.age_warning is not None
 
 
+# Revision round 1 (R2): a coordinator persona test had to eye-scan 212
+# tickets to answer "is this child on the right tier?" by hand, because
+# nothing on the changelist was filterable on that question. The predicate
+# below is that filter's DB half; ``_age_window_mismatch`` just under it is
+# the same rule stated for one ticket already loaded into Python, and
+# ``_age_warning_for`` calls into it rather than repeating the comparison
+# itself. Keeping both halves next to each other, deliberately not letting
+# either drift into its own copy of "< min_birthdate or > max_birthdate", is
+# the point: a filter that disagrees with the guarded wizard about who is
+# mis-tiered is a worse failure than the scan it replaces.
+#
+# min_birthdate/max_birthdate are ordinary date columns on TicketType, so
+# this is a plain field-to-field comparison — no annotate(), no date
+# arithmetic, no migration.
+AGE_MISMATCH_Q = Q(attendee__child__birthdate__lt=F("ticket_type__min_birthdate")) | Q(
+    attendee__child__birthdate__gt=F("ticket_type__max_birthdate")
+)
+
+# The other half of "Åldern passar biljettypen": the two cases where the fit
+# can't be evaluated at all (no Child row behind the attendee, or a Child
+# with no birthdate recorded) *and* the assigned type actually has a window
+# to check against. Mirrors the two early-return branches in
+# ``_age_warning_for`` below.
+UNCHECKABLE_AGE_FIT_Q = (
+    Q(ticket_type__min_birthdate__isnull=False)
+    | Q(ticket_type__max_birthdate__isnull=False)
+) & (Q(attendee__child__isnull=True) | Q(attendee__child__birthdate__isnull=True))
+
+
+def _age_window_mismatch(birthdate, ticket_type: TicketType) -> tuple[bool, bool]:
+    """(too_old, too_young) for placing a child born on ``birthdate`` onto
+    ``ticket_type``. The Python-side twin of ``AGE_MISMATCH_Q`` above — see
+    its comment. ``_age_warning_for`` is the only caller; it exists as its
+    own function so that comment has one predicate to point at, not two."""
+    too_old = (
+        ticket_type.min_birthdate is not None and birthdate < ticket_type.min_birthdate
+    )
+    too_young = (
+        ticket_type.max_birthdate is not None and birthdate > ticket_type.max_birthdate
+    )
+    return too_old, too_young
+
+
 def _age_warning_for(ticket: EventTicket, ticket_type: TicketType):
     """(warning, age_at_event) for putting ``ticket``'s attendee on
     ``ticket_type``.
@@ -387,14 +430,7 @@ def _age_warning_for(ticket: EventTicket, ticket_type: TicketType):
             None,
         )
 
-    too_old = (
-        ticket_type.min_birthdate is not None
-        and child.birthdate < ticket_type.min_birthdate
-    )
-    too_young = (
-        ticket_type.max_birthdate is not None
-        and child.birthdate > ticket_type.max_birthdate
-    )
+    too_old, too_young = _age_window_mismatch(child.birthdate, ticket_type)
     if not (too_old or too_young):
         return None, age
 

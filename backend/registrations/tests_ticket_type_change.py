@@ -24,7 +24,7 @@ from django.utils import timezone
 
 from accounts.models import AdminUser
 from checkins.models import AuditLog
-from events.models import Event, EventTicket, TicketType
+from events.models import Event, EventTicket, Session, SessionTicket, TicketType
 from families.models import Child, Family, Parent
 
 from .models import Payment, PaymentEvent, Registration
@@ -104,6 +104,45 @@ def _make_ticket(
     return EventTicket.objects.create(
         attendee=attendee,
         event=event,
+        registration=registration,
+        ticket_type=ticket_type,
+        price_at_registration=price,
+    )
+
+
+def _make_session(event, **kwargs):
+    defaults = {
+        "name": "Simning",
+        "start_time": timezone.make_aware(
+            timezone.datetime.combine(EVENT_START, timezone.datetime.min.time())
+        ),
+        "end_time": timezone.make_aware(
+            timezone.datetime.combine(EVENT_START, timezone.datetime.min.time())
+        )
+        + timezone.timedelta(hours=1),
+    }
+    return Session.objects.create(event=event, **{**defaults, **kwargs})
+
+
+def _make_session_ticket(
+    session,
+    ticket_type,
+    *,
+    registration=None,
+    price=Decimal("400.00"),
+    birthdate=date(2013, 5, 12),
+    family=None,
+    first_name="Ebba",
+):
+    family = family or (
+        registration.family if registration else Family.objects.create()
+    )
+    attendee = Child.objects.create(
+        family=family, first_name=first_name, birthdate=birthdate
+    )
+    return SessionTicket.objects.create(
+        attendee=attendee,
+        session=session,
         registration=registration,
         ticket_type=ticket_type,
         price_at_registration=price,
@@ -692,3 +731,271 @@ class ChangeTicketTypeAdminActionTests(TestCase):
         )
         self.assertEqual(len(response.context["rejections"]), 1)
         self.assertEqual(response.context["plans"], [])
+
+
+@override_settings(
+    STORAGES={
+        "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
+        "staticfiles": {
+            "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage"
+        },
+    }
+)
+class TicketTypeIsLockedOnTheChangeFormTests(TestCase):
+    """The raw field edit this whole increment exists to close off.
+
+    Reproduces the 14 August persona finding directly: given an ordinary
+    ``EventTicket`` change form, a POST carrying a different ``ticket_type``
+    must not move the ticket — not for anyone, including a superuser. The
+    guarded action tested above stays the only door in; this class pins that
+    the change form is no longer a second one.
+    """
+
+    def setUp(self):
+        self.user = AdminUser.objects.create_superuser("triage", "pw12345")
+        self.client.force_login(self.user)
+        self.event = _make_event()
+        self.child_type = _child_type(self.event)
+        self.youth_type = _youth_type(self.event)
+        self.ticket = _make_ticket(self.event, self.child_type)
+        self.change_url = reverse(
+            "admin:events_eventticket_change", args=[self.ticket.id]
+        )
+        self.add_url = reverse("admin:events_eventticket_add")
+
+    def test_ticket_type_is_not_a_submittable_field_on_the_change_form(self):
+        response = self.client.get(self.change_url)
+        self.assertNotContains(response, 'name="ticket_type"')
+
+    def test_change_form_signposts_the_guarded_action(self):
+        response = self.client.get(self.change_url)
+        self.assertContains(response, "Change ticket type")
+        self.assertContains(response, "priced correctly and logged")
+        self.assertContains(response, reverse("admin:events_eventticket_changelist"))
+
+    def test_posting_a_different_ticket_type_does_not_move_the_ticket(self):
+        response = self.client.post(
+            self.change_url,
+            {
+                "attendee": str(self.ticket.attendee_id),
+                "event": str(self.event.id),
+                "external_ticket_code": "",
+                "price_at_registration": "400.00",
+                # A field the form no longer exposes at all — this is the
+                # exact write the 14 August persona test made, replayed
+                # straight at the endpoint rather than through the widget.
+                "ticket_type": str(self.youth_type.id),
+                "_save": "Save",
+            },
+            follow=True,
+        )
+        self.assertContains(response, "was changed successfully")
+        self.ticket.refresh_from_db()
+        self.assertEqual(self.ticket.ticket_type_id, self.child_type.id)
+
+    def test_ticket_type_stays_editable_on_the_add_form(self):
+        # Creating a ticket is a different act from re-tiering one — see
+        # TicketTypeGuardMixin's docstring. No price snapshot, no Payment,
+        # and no history exist yet for a raw edit to desynchronise.
+        response = self.client.get(self.add_url)
+        self.assertContains(response, 'name="ticket_type"')
+
+    def test_change_form_does_not_auto_link_the_locked_ticket_type(self):
+        # R3 (revision round 1): the stock readonly-FK rendering is a link
+        # straight to the TicketType's own change page — the page that
+        # edits the tier for every ticket on it. It must be plain text.
+        response = self.client.get(self.change_url)
+        self.assertContains(response, self.child_type.name)
+        self.assertNotContains(
+            response,
+            reverse("admin:events_tickettype_change", args=[self.child_type.id]),
+        )
+
+
+@override_settings(
+    STORAGES={
+        "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
+        "staticfiles": {
+            "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage"
+        },
+    }
+)
+class TicketDeletionIsDeniedTests(TestCase):
+    """R1 (revision round 1): a break-it persona deleted an EventTicket and
+    re-added it at a different tier through the add form in under two
+    minutes — no ``event_ticket_type_changed`` audit row, and the old price
+    carried onto the new tier, underbilling by 300 kr. SessionTicket's add
+    form was identically open (found, not exploited).
+
+    Denying delete outright closes the path at its root: with
+    ``unique_together`` still in force on both models, a second ticket for
+    the same attendee can never be added while the first one still exists,
+    so "delete, then re-add differently" needs the delete step to actually
+    work. These tests pin that it doesn't, for both models, for everyone —
+    including a superuser.
+    """
+
+    def setUp(self):
+        self.user = AdminUser.objects.create_superuser("triage", "pw12345")
+        self.client.force_login(self.user)
+        self.event = _make_event()
+        self.child_type = _child_type(self.event)
+        self.youth_type = _youth_type(self.event)
+
+    def test_event_ticket_delete_confirmation_page_is_refused(self):
+        ticket = _make_ticket(self.event, self.child_type)
+        url = reverse("admin:events_eventticket_delete", args=[ticket.id])
+        self.assertEqual(self.client.get(url).status_code, 403)
+        self.assertEqual(self.client.post(url, {"post": "yes"}).status_code, 403)
+        self.assertTrue(EventTicket.objects.filter(pk=ticket.id).exists())
+
+    def test_session_ticket_delete_confirmation_page_is_refused(self):
+        session = _make_session(self.event)
+        ticket = _make_session_ticket(session, self.child_type)
+        url = reverse("admin:events_sessionticket_delete", args=[ticket.id])
+        self.assertEqual(self.client.get(url).status_code, 403)
+        self.assertEqual(self.client.post(url, {"post": "yes"}).status_code, 403)
+        self.assertTrue(SessionTicket.objects.filter(pk=ticket.id).exists())
+
+    def test_delete_selected_is_not_offered_on_either_changelist(self):
+        _make_ticket(self.event, self.child_type)
+        response = self.client.get(reverse("admin:events_eventticket_changelist"))
+        self.assertNotContains(response, 'value="delete_selected"')
+        session = _make_session(self.event)
+        _make_session_ticket(session, self.child_type)
+        response = self.client.get(reverse("admin:events_sessionticket_changelist"))
+        self.assertNotContains(response, 'value="delete_selected"')
+
+    def test_delete_then_readd_at_a_different_tier_is_blocked_on_event_ticket(self):
+        """Replays the exact break-it sequence: delete, then re-add the same
+        attendee at a different tier through the add form. The delete is
+        refused, so the attendee still holds the original ticket when the
+        add form is posted, and the unique-together constraint refuses a
+        second EventTicket for the same attendee+event rather than quietly
+        accepting a new one at a stale price."""
+        ticket = _make_ticket(self.event, self.child_type, price=Decimal("400.00"))
+        delete_url = reverse("admin:events_eventticket_delete", args=[ticket.id])
+        self.client.post(delete_url, {"post": "yes"})
+
+        add_url = reverse("admin:events_eventticket_add")
+        self.client.post(
+            add_url,
+            {
+                "attendee": str(ticket.attendee_id),
+                "event": str(self.event.id),
+                "ticket_type": str(self.youth_type.id),
+                "price_at_registration": "700.00",
+                "external_ticket_code": "",
+                "_save": "Save",
+            },
+        )
+
+        self.assertEqual(
+            EventTicket.objects.filter(attendee_id=ticket.attendee_id).count(), 1
+        )
+        ticket.refresh_from_db()
+        self.assertEqual(ticket.ticket_type_id, self.child_type.id)
+        self.assertEqual(ticket.price_at_registration, Decimal("400.00"))
+
+    def test_delete_then_readd_at_a_different_tier_is_blocked_on_session_ticket(self):
+        session = _make_session(self.event)
+        ticket = _make_session_ticket(session, self.child_type, price=Decimal("400.00"))
+        delete_url = reverse("admin:events_sessionticket_delete", args=[ticket.id])
+        self.client.post(delete_url, {"post": "yes"})
+
+        add_url = reverse("admin:events_sessionticket_add")
+        self.client.post(
+            add_url,
+            {
+                "attendee": str(ticket.attendee_id),
+                "session": str(session.id),
+                "ticket_type": str(self.youth_type.id),
+                "price_at_registration": "700.00",
+                "external_ticket_code": "",
+                "_save": "Save",
+            },
+        )
+
+        self.assertEqual(
+            SessionTicket.objects.filter(attendee_id=ticket.attendee_id).count(), 1
+        )
+        ticket.refresh_from_db()
+        self.assertEqual(ticket.ticket_type_id, self.child_type.id)
+        self.assertEqual(ticket.price_at_registration, Decimal("400.00"))
+
+
+@override_settings(
+    STORAGES={
+        "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
+        "staticfiles": {
+            "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage"
+        },
+    }
+)
+class AgeFitListFilterTests(TestCase):
+    """R2 (revision round 1): the filter is built from the same
+    ``AGE_MISMATCH_Q`` / ``UNCHECKABLE_AGE_FIT_Q`` predicate
+    ``_age_warning_for`` explains row-by-row, so these tests check the
+    filter's classification against ``_age_warning_for``'s own verdict for
+    the same ticket rather than re-deriving an expectation independently —
+    the two must never be free to disagree."""
+
+    def setUp(self):
+        self.user = AdminUser.objects.create_superuser("triage", "pw12345")
+        self.client.force_login(self.user)
+        self.event = _make_event()
+        self.child_type = _child_type(self.event)
+        self.changelist_url = reverse("admin:events_eventticket_changelist")
+
+    def _get(self, value):
+        return self.client.get(self.changelist_url, {"age_fits_ticket_type": value})
+
+    def test_a_mismatched_ticket_shows_up_under_no(self):
+        ticket = _make_ticket(self.event, self.child_type, birthdate=date(1990, 1, 1))
+        response = self._get("no")
+        self.assertContains(response, ticket.attendee.first_name)
+        response = self._get("yes")
+        self.assertNotContains(response, ticket.attendee.first_name)
+
+    def test_a_fitting_ticket_shows_up_under_yes(self):
+        # child_type's window is "born 2013-07-07 or later" — pick a
+        # birthdate safely inside it rather than relying on _make_ticket's
+        # unrelated default.
+        ticket = _make_ticket(self.event, self.child_type, birthdate=date(2018, 1, 1))
+        response = self._get("yes")
+        self.assertContains(response, ticket.attendee.first_name)
+        response = self._get("no")
+        self.assertNotContains(response, ticket.attendee.first_name)
+
+    def test_a_missing_birthdate_shows_up_under_cannot_be_checked(self):
+        ticket = _make_ticket(self.event, self.child_type, birthdate=None)
+        response = self._get("unknown")
+        self.assertContains(response, ticket.attendee.first_name)
+        for value in ("yes", "no"):
+            self.assertNotContains(self._get(value), ticket.attendee.first_name)
+
+    def test_a_parent_ticket_on_a_windowed_type_shows_up_under_cannot_be_checked(
+        self,
+    ):
+        family = Family.objects.create(last_name="Bergqvist")
+        parent = Parent.objects.create(
+            family=family, first_name="Anna", relationship_type="Mother"
+        )
+        ticket = EventTicket.objects.create(
+            attendee=parent,
+            event=self.event,
+            ticket_type=self.child_type,
+            price_at_registration=Decimal("400.00"),
+        )
+        response = self._get("unknown")
+        self.assertContains(response, ticket.attendee.first_name)
+
+    def test_a_type_with_no_window_never_shows_up_under_no_or_unknown(self):
+        no_window_type = TicketType.objects.create(
+            event=self.event, name="Vuxen", price=Decimal("300.00")
+        )
+        ticket = _make_ticket(self.event, no_window_type, birthdate=None)
+        response = self._get("yes")
+        self.assertContains(response, ticket.attendee.first_name)
+        for value in ("no", "unknown"):
+            self.assertNotContains(self._get(value), ticket.attendee.first_name)
