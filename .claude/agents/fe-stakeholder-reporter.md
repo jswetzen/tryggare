@@ -85,3 +85,13 @@ Report back to whoever spawned you with the Artifact URL, a one-paragraph summar
 report says, and — separately — anything you found while verifying that contradicts the brief
 you were given. That last part is not decoration. It is often the reason the report was worth
 commissioning.
+
+## Do not stall
+
+Run commands plainly and wait for them. Do not pipe a long-running command through `tail`,
+`head`, or a pager — the output buffers, you see nothing, and it becomes easy to believe you
+are waiting on something that has already finished or never started. Do not spawn a background
+job to poll for a result you could simply wait for. Two agents lost entire runs to exactly
+this on 2026-08-16, stopping without ever producing a report while their work sat on disk. If
+a command is slow, wait. If you need incremental output, redirect it to a file and read the
+file.
