@@ -36,7 +36,7 @@ from rest_framework.test import APIClient
 from families.models import Child, Family, Parent
 from events.models import Event, EventTicket, Session, SessionTicket
 from checkins.models import CheckInRecord
-from accounts.roles import VOLUNTEER, grant
+from accounts.roles import COORDINATOR, VOLUNTEER, grant
 
 AdminUser = get_user_model()
 
@@ -365,7 +365,12 @@ class TestQrInfoAttendeeType:
         return CheckInRecord.objects.get(attendee_id=attendee.id).qr_code.code
 
     def test_qr_info_for_child_includes_allergies(self):
+        """A Volontär does the check-in (their door job), but reading the
+        QR-info back needs change_child to see the text unmasked — so this
+        asserts through a Koordinator client, the same viewer who could
+        already see it unrevealed on the check-in screen."""
         staff = _make_staff("qri_staff_1")
+        coordinator = grant(AdminUser.objects.create_user("qri_coord_1"), COORDINATOR)
         family = _make_family("Qri1")
         child = Child.objects.create(
             first_name="Charlie",
@@ -381,7 +386,7 @@ class TestQrInfoAttendeeType:
         client = _authed_client(staff)
         code = self._checkin(client, child, session)
 
-        resp = client.get(reverse("qr-info", args=[code]))
+        resp = _authed_client(coordinator).get(reverse("qr-info", args=[code]))
         assert resp.status_code == 200, resp.data
         assert resp.data["child"]["is_parent"] is False
         assert resp.data["child"]["allergies"] == "Peanuts"
@@ -389,6 +394,7 @@ class TestQrInfoAttendeeType:
 
     def test_qr_info_for_parent_marks_is_parent(self):
         staff = _make_staff("qri_staff_2")
+        coordinator = grant(AdminUser.objects.create_user("qri_coord_2"), COORDINATOR)
         family = _make_family("Qri2")
         parent = _make_parent(family)
         event = _make_event()
@@ -398,17 +404,20 @@ class TestQrInfoAttendeeType:
         client = _authed_client(staff)
         code = self._checkin(client, parent, session)
 
-        resp = client.get(reverse("qr-info", args=[code]))
+        resp = _authed_client(coordinator).get(reverse("qr-info", args=[code]))
         assert resp.status_code == 200, resp.data
         assert resp.data["child"]["is_parent"] is True
         assert resp.data["child"]["allergies"] == ""
         assert resp.data["child"]["birthdate"] is None
 
-    def test_qr_info_omits_allergies_and_notes_for_anonymous_caller(self):
-        """9.3-style gate: an anonymous caller gets has_safety_info only,
-        never the text itself — see qr_reveal_safety_info for the actual
-        reveal path."""
+    def test_qr_info_omits_allergies_and_notes_unless_the_viewer_may_edit(self):
+        """The mask isn't a login check: an anonymous scanner and a
+        logged-in Volontär (view-only) both get has_safety_info only, never
+        the text itself — see qr_reveal_safety_info for the actual reveal
+        path. Only a viewer who already holds change_child (Koordinator+)
+        gets it unmasked, same as the check-in screen's own staff API."""
         staff = _make_staff("qri_staff_3")
+        coordinator = grant(AdminUser.objects.create_user("qri_coord_3"), COORDINATOR)
         family = _make_family("Qri3")
         child = Child.objects.create(
             first_name="Dana",
@@ -431,11 +440,19 @@ class TestQrInfoAttendeeType:
         assert anon_resp.data["child"]["notes"] is None
         assert anon_resp.data["child"]["has_safety_info"] is True
 
-        # Authenticated response is unchanged by this gate.
-        staff_resp = staff_client.get(reverse("qr-info", args=[code]))
-        assert staff_resp.data["child"]["allergies"] == "Peanuts"
-        assert staff_resp.data["child"]["notes"] == "Epilepsy"
-        assert staff_resp.data["child"]["has_safety_info"] is True
+        # A logged-in Volontär (view-only): masked exactly like anonymous —
+        # this is the gap the increment closes, being authenticated is not
+        # by itself enough.
+        volunteer_resp = staff_client.get(reverse("qr-info", args=[code]))
+        assert volunteer_resp.data["child"]["allergies"] is None
+        assert volunteer_resp.data["child"]["notes"] is None
+        assert volunteer_resp.data["child"]["has_safety_info"] is True
+
+        # A Koordinator (change_child): unmasked, same as the check-in screen.
+        coord_resp = _authed_client(coordinator).get(reverse("qr-info", args=[code]))
+        assert coord_resp.data["child"]["allergies"] == "Peanuts"
+        assert coord_resp.data["child"]["notes"] == "Epilepsy"
+        assert coord_resp.data["child"]["has_safety_info"] is True
 
     def test_qr_info_has_safety_info_false_when_no_allergies_or_notes(self):
         staff = _make_staff("qri_staff_4")

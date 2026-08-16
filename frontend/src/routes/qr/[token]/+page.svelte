@@ -31,14 +31,19 @@
   let revealingSafetyInfo = $state(false);
   let revealedSafety = $state<{ allergies: string; notes: string } | null>(null);
 
-  // Staff see allergy/emergency-medical text directly (qr_info already
-  // includes it for an authenticated caller); an anonymous viewer only
-  // gets it after the explicit, logged reveal action below.
-  const effectiveAllergies = $derived(
-    data.user ? qrInfo?.child.allergies : revealedSafety?.allergies
+  // The backend masks allergies/notes to null unless the viewer already
+  // holds change_child/change_parent (an edit form that hides its own value
+  // isn't one — see qr_views.py::_viewer_may_read_health_text). That is a
+  // permission check, not a login check: a logged-in volunteer with only
+  // view access is masked exactly like an anonymous scanner and goes
+  // through the same reveal-and-audit action below. Not gated on
+  // `data.user` — doing so used to unmask on login alone, with no reveal
+  // step and no per-view audit row of its own.
+  const effectiveAllergies = $derived(qrInfo?.child.allergies ?? revealedSafety?.allergies);
+  const effectiveNotes = $derived(qrInfo?.child.notes ?? revealedSafety?.notes);
+  const safetyInfoRevealed = $derived(
+    (qrInfo !== null && qrInfo.child.allergies !== null) || revealedSafety !== null
   );
-  const effectiveNotes = $derived(data.user ? qrInfo?.child.notes : revealedSafety?.notes);
-  const safetyInfoRevealed = $derived(Boolean(data.user) || revealedSafety !== null);
 
   // Age computed from birthdate (whole years)
   const age = $derived.by(() => {
