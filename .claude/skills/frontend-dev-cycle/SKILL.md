@@ -326,8 +326,7 @@ reports either.
 
 ## Recording
 
-When an increment ships, record it in knowitall (`kind="task"`,
-`anchors=[{"kind":"project","name":"tryggare"}]`): what changed, which findings drove it,
-what was deliberately declined, and any product question raised. **Reference the increment's
-commit hash** — step 6 guarantees there is one, and it is what lets a later reader get from
-the note to the actual diff. Skip the play-by-play of the loop itself — it is not useful later.
+The commit is the record. Step 6 already requires the increment's message to carry what
+changed, the finding that drove it, what was declined and what is deliberately still open —
+so a second write-up elsewhere is the same content in a place that can drift from the diff.
+Put the reasoning in the commit message and keep it there.
