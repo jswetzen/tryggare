@@ -48,10 +48,22 @@ no browser is a wasted spawn, and a persona that quietly substitutes `WebFetch` 
 on a page it could not really drive is worse — the report reads normal and the finding is
 fiction.
 
-Fallback if Playwright is unavailable: `scripts/ux_probe.py` (selenium + local Chrome, see its
-docstring). It is less capable — no accessibility tree, no console capture — but it takes a
-`UX_PROBE_PORT`/`UX_PROBE_PROFILE` per instance, so it is the only option if you ever need
-genuinely concurrent browsers.
+**If the tools are missing, ask the user to reconnect the MCP server. Do not build a way
+around it.** Reconnecting takes them seconds (`/mcp`), and Playwright is what the personas and
+the designer are written for: the accessibility tree, console capture and network log are the
+evidence half their findings rest on. Substituting a hand-rolled browser driver costs a
+session's worth of work, produces weaker reports, and hands the next agent a second harness to
+maintain. Ask, and wait.
+
+`scripts/ux_probe.py` (selenium + local Chrome, see its docstring) exists, but it is **not the
+fallback for an unregistered MCP server** — asking the user to reconnect is. It is materially
+weaker: no accessibility tree, no console capture, and it matches elements by visible text, so
+it fails on controls Playwright drives fine (a bare `<input type=submit>`, a select2 dropdown)
+and those failures land in reports looking like UI defects when they are harness artifacts.
+
+Its one real use: it takes a `UX_PROBE_PORT`/`UX_PROBE_PROFILE` per instance, so it is the
+only option if you ever need genuinely concurrent browsers — which the sequential critique
+order below is specifically designed to avoid needing.
 
 Establish the target URLs for this increment (event ids change between re-seeds):
 
