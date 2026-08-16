@@ -242,6 +242,31 @@ a re-derivation of the feature.
 - Drop findings you are choosing not to act on, explicitly, with a reason. Silent drops are
   what the next gate exists to catch.
 
+**Never remove or hide functionality on the strength of a critique.** A critic can see a
+screen; it cannot see intent. An empty table, a menu nobody used, a button that seems to do
+nothing — none of that is evidence the feature is dead, and "seems unused" is the single
+weakest reason to delete anything. If it is there, someone built it on purpose, and the
+purpose is usually still true.
+
+So a plan may never carry "hide it" or "remove it" as a finding-driven action. Removal needs
+positive evidence of intent, gathered deliberately and from outside the browser: `git log`
+for the app and `git log -S` for the model, the spec, `docs/roadmap/`, and whether anything
+generates or consumes the thing. That is an investigation, and it goes to a separate agent —
+never inline, and never as a step inside the increment that wants the removal.
+
+On 2026-08-16 this cost a working feature its place in the admin. A persona found
+"Evenemangsrapporter" empty and inferred a dead end. The designer accepted the inference and
+recommended hiding it. The plan adopted it, the gate approved it — correctly, since the plan
+did match the findings — and the coder shipped it. Five steps, each locally sound, all on one
+unchecked premise. `EventReport` turned out to be a complete tested feature with services, a
+DRF viewset, CSV/JSON export, a management command, an admin action and a SvelteKit page. It
+was empty only because `seed_persona_fixture` deletes every row and creates none, and it could
+never have answered the persona's question anyway — it holds no money, it is a pre-purge GDPR
+snapshot. The owner caught it by asking whether the premise was even true.
+
+The generalisation: **when a critic reports an absence, suspect the fixture before the
+product.** An empty screen in a seeded environment is a claim about the seed.
+
 **Critics are reliable about what confused them and unreliable about exact detail.** Three
 rounds of this loop produced three false positives, all of the same shape: a quoted string
 that was actually correct ("Født" for "Född"), and twice an accessibility finding read off
