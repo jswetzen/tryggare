@@ -1761,6 +1761,24 @@ msgstr "Inbetalning"
 msgid "Adjustment"
 msgstr "Justering"
 
+msgid "Charge"
+msgstr "Debitering"
+
+msgid ""
+"Free text for any event. Mandatory for a Charge — raising what a family "
+"owes must always say why."
+msgstr ""
+"Fritext för valfri händelse. Obligatoriskt för en debitering — att höja "
+"vad en familj är skyldig måste alltid ha ett angivet skäl."
+
+msgid "A charge must include a reason — say why the family owes more."
+msgstr ""
+"En debitering måste ha ett angivet skäl — ange varför familjen är skyldig "
+"mer."
+
+msgid "A charge must include a reason in its note."
+msgstr "En debitering måste ha ett angivet skäl i anteckningen."
+
 #: registrations/models.py:383
 msgid ""
 "Always positive — kind determines the sign of its effect on the payment's "

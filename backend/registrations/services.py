@@ -49,17 +49,27 @@ def record_payment_event(
        jumping a partially_paid Payment straight to a pending-looking state
        while real money was still sitting un-returned).
     2. for a REFUNDED or ADJUSTMENT event specifically, received − refunded
-       + adjusted can't exceed amount. Deliberately *not* checked for a
-       RECEIVED event — event_registration_ux_case_catalog.md §5.3 makes
-       overpayment (a negative balance, surfaced to staff as a "registrera
-       återbetalning" action) an intentional, supported state, not a bug.
-       Combined with invariant 1 (refunded events can only ever shrink this
-       expression), the only event kind invariant 2 can actually reject is
-       an oversized ADJUSTMENT — a write-off larger than what's currently
-       owed.
+       + adjusted − charged can't exceed amount. Deliberately *not* checked
+       for a RECEIVED event — event_registration_ux_case_catalog.md §5.3
+       makes overpayment (a negative balance, surfaced to staff as a
+       "registrera återbetalning" action) an intentional, supported state,
+       not a bug. Also not checked for CHARGED: a charge only ever *raises*
+       what's owed (mirrors ADJUSTMENT's sign the other way), so it can
+       never push this expression past ``amount`` — the same reasoning that
+       exempts RECEIVED. Combined with invariant 1 (refunded events can
+       only ever shrink this expression), the only event kinds invariant 2
+       can actually reject are an oversized REFUNDED or an oversized
+       ADJUSTMENT — either one writing off/refunding more than is
+       currently owed.
     """
     if amount <= Decimal("0"):
         raise ValueError("PaymentEvent amount must be positive")
+    if kind == PaymentEvent.Kind.CHARGED and not note.strip():
+        # Mirrors PaymentEvent.clean()/the CheckConstraint — checked here
+        # too so the caller gets ValueError before the transaction even
+        # opens, rather than discovering it via a ValidationError raised
+        # from inside PaymentEvent.save().
+        raise ValueError("A charge must include a reason")
 
     should_send_confirmation = False
     with transaction.atomic():
@@ -72,19 +82,21 @@ def record_payment_event(
         if payment.status == Payment.Status.CANCELLED:
             raise InvalidPaymentTransition("Payment is cancelled")
 
-        received, refunded, adjusted = payment.ledger_totals()
+        received, refunded, adjusted, charged = payment.ledger_totals()
         if kind == PaymentEvent.Kind.RECEIVED:
             received += amount
         elif kind == PaymentEvent.Kind.REFUNDED:
             refunded += amount
         elif kind == PaymentEvent.Kind.ADJUSTMENT:
             adjusted += amount
+        elif kind == PaymentEvent.Kind.CHARGED:
+            charged += amount
 
         if refunded > received:
             raise InvalidPaymentTransition("Cannot refund more than has been received")
         if (
-            kind != PaymentEvent.Kind.RECEIVED
-            and received - refunded + adjusted > payment.amount
+            kind in (PaymentEvent.Kind.REFUNDED, PaymentEvent.Kind.ADJUSTMENT)
+            and received - refunded + adjusted - charged > payment.amount
         ):
             raise InvalidPaymentTransition(
                 "This would write off more than is currently owed"
@@ -274,15 +286,23 @@ class PriceEffect(str, Enum):
         outstanding, so it is recorded as a PaymentEvent ADJUSTMENT — a
         write-off of part of a debt that still stands. ``Payment.amount``
         and ``price_at_registration`` are both left alone.
-    AMOUNT_INCREASED / AMOUNT_REDUCED
-        The ledger cannot express the change (see the module note on
-        ``change_attendee_ticket_type``), so the owed side — the Payment's
+    LEDGER_CHARGE
+        The family owes *more*, so it is recorded as a PaymentEvent
+        CHARGED — the raise-what's-owed mirror of ADJUSTMENT. Unlike
+        ADJUSTMENT, a charge is never rejected for size (there is no ceiling
+        on what a family can be asked to pay), so this is the only outcome
+        for delta > 0. ``Payment.amount`` and ``price_at_registration`` are
+        both left alone.
+    AMOUNT_REDUCED
+        The reduction does *not* fit inside what is still outstanding (an
+        ADJUSTMENT that size would be rejected by C1 invariant 2), so the
+        ledger cannot express the change and the owed side — the Payment's
         own amount — moves instead.
     """
 
     NONE = "none"
     LEDGER_ADJUSTMENT = "ledger_adjustment"
-    AMOUNT_INCREASED = "amount_increased"
+    LEDGER_CHARGE = "ledger_charge"
     AMOUNT_REDUCED = "amount_reduced"
 
 
@@ -292,7 +312,7 @@ EFFECT_LABELS = {
         "Recorded as an adjustment on the payment ledger: the outstanding "
         "balance goes down by the difference."
     ),
-    PriceEffect.AMOUNT_INCREASED: _(
+    PriceEffect.LEDGER_CHARGE: _(
         "The amount owed goes up by the difference. The family has more to "
         "pay after this change."
     ),
@@ -495,7 +515,7 @@ def plan_ticket_type_change(
         if payment is None or payment.status == Payment.Status.CANCELLED or delta == 0:
             effect = PriceEffect.NONE
         elif delta > 0:
-            effect = PriceEffect.AMOUNT_INCREASED
+            effect = PriceEffect.LEDGER_CHARGE
         elif payment.balance >= -delta:
             # The write-off fits inside what is still owed, which is exactly
             # what an ADJUSTMENT means.
@@ -539,8 +559,9 @@ def change_attendee_ticket_type(
 
     Writes:
       * ``EventTicket.ticket_type``;
-      * and, depending on ``plan.effect``, either a PaymentEvent ADJUSTMENT
-        or a new ``Payment.amount``.
+      * and, depending on ``plan.effect``, a PaymentEvent ADJUSTMENT, a
+        PaymentEvent CHARGED, or (only when a reduction doesn't fit inside
+        what's outstanding) a new ``Payment.amount``.
 
     ``price_at_registration`` is never touched. It is the snapshot written
     once at submission that makes mid-sale price edits safe by construction
@@ -549,16 +570,16 @@ def change_attendee_ticket_type(
     side, per case catalog §8.2 ("status and balance are orthogonal;
     edits update the owed side and the derived balance").
 
-    Why not always a PaymentEvent ADJUSTMENT: the ledger has three kinds and
-    ``balance = amount - received + refunded - adjusted``, so an ADJUSTMENT
-    can only ever make a family owe *less*. The headline case — a 13-year-old
-    sitting on the 0-12 ticket — makes them owe *more*, and the only kind
-    that raises a balance is REFUNDED, which would both lie about money
-    having moved and flip ``recompute_status`` to REFUNDED. Likewise a
-    reduction larger than what is still outstanding is rejected outright by
-    ``record_payment_event``'s C1 invariant 2. So the ledger is used wherever
-    it can express the change honestly, and ``Payment.amount`` moves in the
-    two cases where it cannot. See ``PriceEffect``.
+    The headline case — a 13-year-old sitting on the 0-12 ticket — makes the
+    family owe *more*. That is a PaymentEvent CHARGED: the raise-what's-owed
+    mirror of ADJUSTMENT, carrying its own mandatory reason (the tier-change
+    note below), so the ledger says *why* the number moved instead of the
+    old behaviour of silently rewriting ``Payment.amount``. A reduction is a
+    PaymentEvent ADJUSTMENT when it fits inside what's still outstanding;
+    when it doesn't (rejected outright by ``record_payment_event``'s C1
+    invariant 2), ``Payment.amount`` moves instead, since the ledger cannot
+    express a write-off larger than the debt it would erase. See
+    ``PriceEffect``.
 
     Returns the executed plan, so the caller can audit-log and report exactly
     what happened.
@@ -601,10 +622,19 @@ def change_attendee_ticket_type(
                 note=note,
                 created_by=changed_by,
             )
-        elif plan.effect in (
-            PriceEffect.AMOUNT_INCREASED,
-            PriceEffect.AMOUNT_REDUCED,
-        ):
+        elif plan.effect == PriceEffect.LEDGER_CHARGE:
+            # A charge is never rejected for size (no ceiling on what a
+            # family can owe), so this is the whole story for delta > 0 —
+            # unlike LEDGER_ADJUSTMENT there is no companion "doesn't fit"
+            # fallback onto Payment.amount below.
+            record_payment_event(
+                plan.payment,
+                kind=PaymentEvent.Kind.CHARGED,
+                amount=plan.delta,
+                note=note,
+                created_by=changed_by,
+            )
+        elif plan.effect == PriceEffect.AMOUNT_REDUCED:
             payment = plan.payment
             payment.refresh_from_db(from_queryset=Payment.objects.select_for_update())
             payment.amount = payment.amount + plan.delta

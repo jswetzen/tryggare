@@ -318,12 +318,15 @@ class PriceDeltaTests(TestCase):
         )
         self._reread()
         self.assertEqual(plan.delta, Decimal("300.00"))
-        self.assertEqual(plan.effect, PriceEffect.AMOUNT_INCREASED)
+        self.assertEqual(plan.effect, PriceEffect.LEDGER_CHARGE)
         self.assertEqual(self.payment.balance, Decimal("700.00"))
-        self.assertEqual(self.payment.amount, Decimal("700.00"))
+        # Payment.amount is left alone now — the raise is recorded as a
+        # PaymentEvent CHARGED instead of a direct rewrite (decision 2: "a
+        # charge must carry a reason", which a bare amount edit cannot).
+        self.assertEqual(self.payment.amount, Decimal("400.00"))
         self.assertEqual(self.ticket.price_at_registration, Decimal("400.00"))
 
-    def test_upgrade_writes_no_ledger_event(self):
+    def test_upgrade_writes_a_charge_event_with_a_reason(self):
         change_attendee_ticket_type(
             self.ticket,
             new_ticket_type=self.youth_type,
@@ -332,8 +335,15 @@ class PriceDeltaTests(TestCase):
         )
         # An ADJUSTMENT can only *reduce* a balance and a REFUNDED would lie
         # about money having moved (and flip recompute_status to REFUNDED),
-        # so an upgrade must not touch the ledger at all.
-        self.assertEqual(self.payment.events.count(), 0)
+        # so an upgrade is recorded as the fourth kind, CHARGED — the
+        # ledger entry that raises what's owed and, per decision 2, must
+        # always carry a reason.
+        charge = self.payment.events.get()
+        self.assertEqual(charge.kind, PaymentEvent.Kind.CHARGED)
+        self.assertEqual(charge.amount, Decimal("300.00"))
+        self.assertEqual(charge.created_by, self.user)
+        self.assertIn("Barn 0-12", charge.note)
+        self.assertIn("Ungdom 13-17", charge.note)
 
     def test_downgrade_writes_an_adjustment_that_lowers_the_balance(self):
         # The other direction: an adult wrongly on the 1100 kr type.
@@ -679,7 +689,12 @@ class ChangeTicketTypeAdminActionTests(TestCase):
         self.ticket.refresh_from_db()
         self.payment.refresh_from_db()
         self.assertEqual(self.ticket.ticket_type_id, self.youth_type.id)
-        self.assertEqual(self.payment.amount, Decimal("700.00"))
+        # Payment.amount stays put; the raise is a ledger charge instead.
+        self.assertEqual(self.payment.amount, Decimal("400.00"))
+        self.assertEqual(self.payment.balance, Decimal("700.00"))
+        charge = self.payment.events.get()
+        self.assertEqual(charge.kind, PaymentEvent.Kind.CHARGED)
+        self.assertEqual(charge.amount, Decimal("300.00"))
 
         entry = AuditLog.objects.get(action="event_ticket_type_changed")
         self.assertEqual(entry.entity_type, "EventTicket")
@@ -688,7 +703,7 @@ class ChangeTicketTypeAdminActionTests(TestCase):
         self.assertEqual(entry.details["from_ticket_type"], "Barn 0-12")
         self.assertEqual(entry.details["to_ticket_type"], "Ungdom 13-17")
         self.assertEqual(entry.details["delta"], "300.00")
-        self.assertEqual(entry.details["price_effect"], "amount_increased")
+        self.assertEqual(entry.details["price_effect"], "ledger_charge")
 
     def test_apply_without_acknowledging_an_age_warning_changes_nothing(self):
         self.ticket.attendee.child.birthdate = date(2020, 1, 1)
