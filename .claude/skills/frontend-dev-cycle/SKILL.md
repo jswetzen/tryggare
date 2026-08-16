@@ -28,6 +28,43 @@ If dev is down: `podman start tryggare_db_1 tryggare_valkey_1 tryggare_web_1 try
 The SvelteKit dev server compiles a route on first hit, so the very first page load can
 return an empty document — load it twice before concluding anything is broken.
 
+**`make status` proves a port answers. It does not prove the process behind it is running
+the code you just wrote, and that is the one failure that silently voids a whole round.**
+On 2026-08-16 an entire critique round — two persona spawns, ~20 minutes of browser work —
+measured a daphne process that had been up 44 hours and had imported `admin.py` two days
+before the increment existed. Both reports came back detailed, plausible and worthless: the
+break-it persona filed a `blocker` for walking through a change form the increment had
+already locked, and the staff persona reported a missing column that had shipped in an
+earlier commit. Neither was lying; they were describing a different build.
+
+The mechanism is in CLAUDE.md and worth restating because it defeats every check that looks
+like it should catch it. The `./backend:/app` bind mount keeps the *file* in the container
+current the instant it is written, so `podman exec … grep` finds the new code and the host's
+`manage.py test` passes against it — but daphne imports Python once, at startup. Writing
+`restart-dev.txt` only restarts anything **while a watcher is running** (`make watch`); with
+no watcher the write silently does nothing and `build.dev.log` keeps old content that still
+reads like a successful build. So a coder subagent can honestly report "dev restarted" having
+done everything right.
+
+So check container age, and check the behaviour rather than the file:
+
+```bash
+podman ps --filter name=tryggare_web_1 --format '{{.Names}} {{.Status}}'
+```
+
+If that uptime predates the increment, `podman restart tryggare_web_1` — unconditional, no
+watcher required — wait ~20s, and only then start the critics. Bouncing the web container
+takes the whole dev stack (db + valkey + web) with it, so an immediate `podman exec` will
+fail with "no such container".
+
+Then assert on one thing the increment changed, through HTTP against the running server: log
+in and check the rendered page for the new field, the removed control, the new column. It is
+a few seconds and it is the difference between a round that measures the increment and a
+round that measures whatever was deployed on Tuesday. **This is not "reading the code to
+check" — it is verifying the deployment, and it is the one place the no-reading rule does not
+apply.** Do it after every restart, and never take a restart claim on trust, from a subagent
+or from yourself.
+
 Then confirm the browser is alive:
 
 ```bash
