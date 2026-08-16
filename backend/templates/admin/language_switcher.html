@@ -1,7 +1,9 @@
 {% load i18n %}
-{# Small, standalone include (Django's own idiom for admin/color_theme_toggle.html)
-   so the switcher stays a one-line addition wherever it's included, rather
-   than living inline in a copied base.html. #}
+{% comment %}
+Small, standalone include (Django's own idiom for admin/color_theme_toggle.html)
+so the switcher stays a one-line addition wherever it's included, rather
+than living inline in a copied base.html.
+{% endcomment %}
 <form action="{% url 'set_language' %}" method="post" class="language-switcher">
   {% csrf_token %}
   <input type="hidden" name="next" value="{{ request.get_full_path }}">
