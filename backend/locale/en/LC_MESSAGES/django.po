@@ -297,6 +297,23 @@ msgstr "Tryggare admin"
 msgid "Choose what to manage"
 msgstr "Choose what to manage"
 
+# Stock Django admin fallback strings (only source-extracted because
+# templates/admin/base_site.html copies admin/base_site.html verbatim to
+# reach the userlinks/branding blocks; TryggareAdminSite always supplies
+# site_title/site_header so these defaults never actually render).
+#: templates/admin/base_site.html:11
+msgid "Django site admin"
+msgstr "Django site admin"
+
+#: templates/admin/base_site.html:14
+msgid "Django administration"
+msgstr "Django administration"
+
+# Admin chrome language switcher - templates/admin/language_switcher.html
+#: templates/admin/language_switcher.html:8
+msgid "Change admin language"
+msgstr "Change admin language"
+
 #: events/admin.py:67
 msgid "Registration page"
 msgstr "Registration page"

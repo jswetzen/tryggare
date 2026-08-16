@@ -1,0 +1,42 @@
+{% load i18n %}
+{# Small, standalone include (Django's own idiom for admin/color_theme_toggle.html)
+   so the switcher stays a one-line addition wherever it's included, rather
+   than living inline in a copied base.html. #}
+<form action="{% url 'set_language' %}" method="post" class="language-switcher">
+  {% csrf_token %}
+  <input type="hidden" name="next" value="{{ request.get_full_path }}">
+  <label for="language-switcher-select" class="visually-hidden">{% translate "Change admin language" %}</label>
+  {% get_current_language as CURRENT_LANGUAGE %}
+  {% get_available_languages as AVAILABLE_LANGUAGES %}
+  {% get_language_info_list for AVAILABLE_LANGUAGES as available_languages %}
+  <select name="language" id="language-switcher-select" onchange="this.form.submit()">
+    {% for language in available_languages %}
+      <option value="{{ language.code }}"{% if language.code == CURRENT_LANGUAGE %} selected{% endif %}>
+        {{ language.code|upper }}
+      </option>
+    {% endfor %}
+  </select>
+</form>
+<style>
+  /* Match the header's own idiom (Django admin's CSS custom properties,
+     not the SPA's design tokens — this chrome is Django admin, not Tailwind). */
+  .language-switcher {
+    display: inline-block;
+    margin: 0 8px;
+  }
+  .language-switcher select {
+    background: transparent;
+    color: var(--header-link-color);
+    border: none;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.25);
+    font: inherit;
+    font-weight: 300;
+    font-size: 0.6875rem;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    cursor: pointer;
+  }
+  .language-switcher select option {
+    color: initial;
+  }
+</style>
