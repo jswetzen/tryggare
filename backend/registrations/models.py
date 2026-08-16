@@ -5,7 +5,16 @@ from decimal import Decimal
 from django.core.exceptions import ValidationError
 from django.core.validators import MinValueValidator
 from django.db import models
-from django.db.models import DecimalField, ExpressionWrapper, F, Q, Sum, Value
+from django.db.models import (
+    DecimalField,
+    ExpressionWrapper,
+    F,
+    OuterRef,
+    Q,
+    Subquery,
+    Sum,
+    Value,
+)
 from django.db.models.functions import Coalesce
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
@@ -295,29 +304,98 @@ class Payment(models.Model):
     BALANCE_ANNOTATION = "outstanding_balance"
 
     @staticmethod
-    def balance_expression():
+    def balance_expression(prefix: str = ""):
         """``amount - received + refunded - adjusted + charged``, expressed
         over the PaymentEvent join so the database computes it once for the
         whole page instead of once per row. Kept sign-for-sign identical to
         ``balance``; ``PaymentBalanceAnnotationTests`` pins the two
         together across the empty/partial/refund/adjustment/charge/
-        overpayment cases."""
+        overpayment cases.
+
+        ``prefix`` lets a caller build the same expression from a queryset
+        that isn't rooted on Payment itself — e.g. Registration, annotating
+        via ``Payment.balance_expression(prefix="payment__")`` so a
+        registration changelist can show/sort/filter by outstanding balance
+        without a second, drift-prone reimplementation of this arithmetic."""
+
+        def field(name: str) -> str:
+            return f"{prefix}{name}"
 
         def ledger_sum(kind):
             return Coalesce(
-                Sum("events__amount", filter=Q(events__kind=kind)),
+                Sum(field("events__amount"), filter=Q(**{field("events__kind"): kind})),
                 Value(ZERO),
                 output_field=BALANCE_FIELD,
             )
 
         return ExpressionWrapper(
-            F("amount")
+            F(field("amount"))
             - ledger_sum(PaymentEvent.Kind.RECEIVED)
             + ledger_sum(PaymentEvent.Kind.REFUNDED)
             - ledger_sum(PaymentEvent.Kind.ADJUSTMENT)
             + ledger_sum(PaymentEvent.Kind.CHARGED),
             output_field=BALANCE_FIELD,
         )
+
+    @staticmethod
+    def balance_subquery(outer_field: str = "registration_id", outer_ref: str = "pk"):
+        """A correlated-subquery twin of ``balance_expression`` — same
+        arithmetic, computed inside its own isolated ``SELECT`` instead of
+        as a join on whatever queryset it's annotated onto.
+
+        The join-based ``balance_expression`` is only safe as long as
+        nothing else in the same top-level query joins a *second*
+        multi-valued relation — the admin's search across
+        ``family__attendees__*`` does exactly that, and the combination
+        silently multiplies every ``PaymentEvent`` row by the attendee
+        fan-out (confirmed: a 4-attendee family owing 2300,00 rendered
+        -700,00 kr under search). A correlated subquery can't be touched by
+        joins the outer query adds — it runs as its own statement, executed
+        once per outer row by the database, not as an extra join clause —
+        so it's the version to use on any queryset whose search_fields or
+        list_filter might reach a one-to-many relation.
+
+        Defaults correlate a queryset rooted on ``Registration`` (its own
+        ``pk`` against ``Payment.registration_id``); pass ``outer_field``/
+        ``outer_ref`` to correlate a queryset rooted elsewhere, e.g.
+        ``family_balance_subquery`` below composing this one level up."""
+        inner = (
+            Payment.objects.filter(**{outer_field: OuterRef(outer_ref)})
+            .order_by()
+            .annotate(_balance=Payment.balance_expression())
+            .values("_balance")
+        )
+        return Subquery(inner, output_field=BALANCE_FIELD)
+
+    @staticmethod
+    def family_balance_subquery():
+        """Sum of outstanding balance across every one of a family's
+        registrations — for the family changelist (R6).
+
+        Family -> registrations is already one-to-many, so a join-based
+        ``Sum`` here would double-count exactly like R1, one relation up:
+        stack that join under FamilyAdmin's own ``attendees__*`` search
+        join and every ledger row gets multiplied by the attendee fan-out
+        *again*, on top of the registration fan-out. Composing two
+        correlated subqueries — ``balance_subquery`` per registration,
+        summed per family, both isolated from the outer query's own joins
+        — is what keeps this arithmetic correct regardless of what the
+        family changelist's search reaches. See
+        ``registrations/tests_registration_changelist.py`` for the
+        DB-verified proof (a 4-attendee, multi-registration family, summed
+        under search) and ``Payment.balance_subquery`` above for why a join
+        can't be trusted to sit next to a search join."""
+        inner = (
+            Registration.objects.filter(family_id=OuterRef("pk"))
+            .order_by()
+            .annotate(_balance=Payment.balance_subquery())
+            .values("family_id")
+            .annotate(
+                total=Coalesce(Sum("_balance"), Value(ZERO), output_field=BALANCE_FIELD)
+            )
+            .values("total")
+        )
+        return Subquery(inner, output_field=BALANCE_FIELD)
 
     def recompute_status(self) -> None:
         """Derive and persist status from the ledger. Idempotent; called by
