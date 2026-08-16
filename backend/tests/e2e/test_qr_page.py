@@ -15,6 +15,7 @@ import time
 from selenium.webdriver.common.by import By
 
 from tests.e2e.base import E2ETestBase, TestDataMixin
+from accounts.roles import COORDINATOR, VOLUNTEER, grant
 from checkins.models import AuditLog, CheckInRecord
 from checkins.qr_utils import allocate_code_for_checkin
 
@@ -98,16 +99,23 @@ class TestQRPage(E2ETestBase, TestDataMixin):
         print("✅ Public access test PASSED")
 
     def test_child_info_display(self):
-        """Full child info (last name, parents) is shown to logged-in staff.
+        """Full child info (last name, parents, allergy text) is shown to a
+        logged-in Koordinator — someone who already holds change_child, so
+        an edit form wouldn't hide this text from them either.
 
         The privacy-first QR page only reveals the last name and parent/guardian
         contacts to authenticated staff; anonymous scanners see first name +
-        allergies + "contact staff" (covered by test_public_access).
+        "contact staff" and must reveal allergies explicitly (covered by
+        test_allergy_banner_displayed).
         """
         print("\n🔍 Testing Child Information Display")
         print("=" * 60)
 
-        # Staff login required to see full info (last name, parents).
+        # Koordinator, not just "logged in": the allergy/notes text is masked
+        # for any authenticated viewer who lacks change_child/change_parent
+        # (see families/qr_views.py::_viewer_may_read_health_text) — being
+        # logged in on its own is no longer sufficient.
+        grant(self.test_user, COORDINATOR)
         assert self.login(self.test_user.username, "testpass123")
 
         # Navigate to QR page
@@ -141,18 +149,72 @@ class TestQRPage(E2ETestBase, TestDataMixin):
         )
         print(f"   ✓ Parent displayed: {self.test_parent.name}")
 
-        # Staff see safety info directly — no "reveal" button should ever
-        # appear for an authenticated viewer.
+        # A Koordinator already holds change_child, so no reveal button —
+        # the text is unmasked for them from the start.
         buttons = self.driver.find_elements(By.TAG_NAME, "button")
         button_texts = [btn.text.lower() for btn in buttons if btn.text]
         assert not any(
             "show safety info" in text or "visa säkerhetsinformation" in text
             for text in button_texts
-        ), "Staff should never see the anonymous reveal button"
-        print("   ✓ No reveal button shown to authenticated staff")
+        ), "A Koordinator (change_child) should never see the reveal button"
+        print("   ✓ No reveal button shown to a Koordinator")
 
         print("\n" + "=" * 60)
         print("✅ Child info display test PASSED")
+
+    def test_volunteer_health_text_masked_with_logged_reveal(self):
+        """The gap this increment closes: a logged-in Volontär (view-only,
+        no change_child) used to get the allergy/notes text on page load
+        with no reveal step and no per-view audit row — identical to a
+        Koordinator, and looser than the anonymous path. Now they see the
+        same masked-then-reveal flow as an anonymous scanner, and the reveal
+        is attributed to them in the audit log.
+        """
+        print("\n🔍 Testing Volunteer Health Text Masking + Reveal")
+        print("=" * 60)
+
+        grant(self.test_user, VOLUNTEER)
+        assert self.login(self.test_user.username, "testpass123")
+
+        qr_url = f"{self.config['frontend_url']}/qr/{self.qr_code_value}"
+        self.driver.get(qr_url)
+        time.sleep(3)
+
+        page_source = self.driver.page_source
+        assert "Peanuts" not in page_source, (
+            "Allergy text must not be present before the reveal action, "
+            "even for a logged-in volunteer"
+        )
+
+        reveal = None
+        for btn in self.driver.find_elements(By.TAG_NAME, "button"):
+            if btn.text and (
+                "show safety info" in btn.text.lower()
+                or "visa säkerhetsinformation" in btn.text.lower()
+            ):
+                reveal = btn
+                break
+        assert reveal, "Expected a 'show safety info' reveal button for a Volontär"
+        print("   ✓ Text masked, reveal button present for a logged-in Volontär")
+
+        reveal.click()
+        time.sleep(2)
+
+        page_source = self.driver.page_source
+        assert "Peanuts" in page_source, "Allergy text should appear after reveal"
+        print("   ✓ Allergy text shown after reveal")
+
+        row = AuditLog.objects.filter(
+            action="qr_safety_info_revealed", entity_id=str(self.test_child.id)
+        ).latest("timestamp")
+        assert row.user_id == self.test_user.id, (
+            "Reveal by a logged-in volunteer should be attributed to them, "
+            f"got user_id={row.user_id!r}"
+        )
+        print("   ✓ Reveal audit row names the volunteer")
+
+        print("\n" + "=" * 60)
+        print("✅ Volunteer masking + reveal test PASSED")
 
     def test_checkin_status_display(self):
         """Check-in status (session card) displays for logged-in staff.

@@ -172,4 +172,42 @@ describe('QR page — safety info reveal', () => {
     ).not.toBeInTheDocument();
     expect(revealSafetyInfo).not.toHaveBeenCalled();
   });
+
+  it('masks text and shows the reveal button for a logged-in viewer without edit access', async () => {
+    // The backend masks allergies/notes to null unless the viewer holds
+    // change_child/change_parent; a merely-authenticated viewer (e.g. a
+    // Volontär with only view access) gets the same null the anonymous
+    // path gets, so the frontend must gate on the payload, not on
+    // `data.user` — that used to unmask on login alone with no reveal step.
+    const user = userEvent.setup();
+    getInfo.mockResolvedValue(baseQrInfo());
+    revealSafetyInfo.mockResolvedValue({ allergies: 'Peanuts', notes: 'Epilepsy' });
+
+    render(QRPage, {
+      props: {
+        data: {
+          user: {
+            id: '1',
+            username: 'staff',
+            name: 'Staff',
+            is_staff: false,
+            is_superuser: false,
+            roles: ['Volontär'],
+            permissions: ['families.view_family']
+          }
+        }
+      }
+    });
+
+    const button = await screen.findByText('Show safety info (this access will be logged)');
+    expect(screen.queryByText('Peanuts')).not.toBeInTheDocument();
+
+    await user.click(button);
+
+    await waitFor(() => {
+      expect(screen.getByText('Peanuts')).toBeInTheDocument();
+    });
+    expect(screen.getByText('Epilepsy')).toBeInTheDocument();
+    expect(revealSafetyInfo).toHaveBeenCalledWith('TESTCODE');
+  });
 });
