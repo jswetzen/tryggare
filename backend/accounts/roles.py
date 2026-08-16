@@ -195,17 +195,36 @@ _COORDINATOR_PERMISSIONS = _VOLUNTEER_PERMISSIONS | {
     # which left these grants dead letters for a Koordinator. ``imports/views``
     # now binds each endpoint to the permission it actually needs, so these are
     # live and the frontend's /import guard can read them.
+    #
+    # ``delete_importsource`` / ``delete_importrun`` are deliberately withheld
+    # (decision 6 of the roles review). Coordinators are the people who notice
+    # a booking feed has gone stale and need to run the fix themselves rather
+    # than wait on an administrator — that pressure is exactly what makes
+    # "wait for an admin" fail in practice, so create/run stays here. Deleting
+    # an import source is a different act with a much wider blast radius (it
+    # can take the field mapping and credentials for a live feed with it) and
+    # belongs a tier up, with Administratör.
+    #
+    # ``delete_festivalproimportsource`` is withheld for the same reason.
+    # ``FestivalProImportSource`` is a satellite one-to-one config row (login
+    # URL, export URL, credentials-adjacent field mappings) hanging off an
+    # ``ImportSource`` rather than a subclass of it, so it doesn't share a
+    # codename prefix with ``delete_importsource`` — that's exactly why it was
+    # missed on the first pass of this decision. Destroying it is the same
+    # act, on the same object graph, as destroying the source it configures.
+    #
+    # All three were granted here originally out of necessity during the
+    # roles work rather than by decision;
+    # accounts/migrations/0004_revoke_koordinator_import_delete.py strips them
+    # from any Koordinator group a database already seeded.
     "imports.view_importsource",
     "imports.add_importsource",
     "imports.change_importsource",
-    "imports.delete_importsource",
     "imports.view_festivalproimportsource",
     "imports.add_festivalproimportsource",
     "imports.change_festivalproimportsource",
-    "imports.delete_festivalproimportsource",
     "imports.view_importrun",
     "imports.add_importrun",
-    "imports.delete_importrun",
 }
 
 

@@ -32,6 +32,7 @@ from accounts.roles import ROLE_PERMISSIONS
 from checkins.models import AuditLog, CheckInRecord, QRCode
 from events.models import Event, EventTicket, Session
 from families.models import Child, Family, Parent
+from imports.models import FestivalProImportSource, ImportRun, ImportSource
 from printing.models import Printer, PrintJob
 from registrations.models import Payment, Registration
 from registrations.tokens import generate_verification_token, hash_token
@@ -125,6 +126,8 @@ class RoleFixtureMixin:
             amount=Decimal("500.00"),
             status=Payment.Status.PENDING,
         )
+        self.import_source = ImportSource.objects.create(name="FestivalPro-test")
+        self.import_run = ImportRun.objects.create(source=self.import_source)
 
         self.volunteer = make_user("volontar", VOLUNTEER)
         self.coordinator = make_user("koordinator", COORDINATOR)
@@ -793,6 +796,24 @@ class CoordinatorReachesWhatVolunteerCannotTests(RoleFixtureMixin, TestCase):
         )
         self.assertEqual(response.status_code, 200)
 
+    def test_import_source_create(self):
+        """Create is kept: a Koordinator must be able to configure a source."""
+        response = self.as_coordinator().post(
+            "/api/imports/sources/", {"name": "Ny källa"}, format="json"
+        )
+        self.assertEqual(response.status_code, 201)
+
+    def test_import_run_end_to_end(self):
+        """Run is kept: this is the capability decision 6 was explicit about
+        keeping, precisely so a stale booking feed doesn't sit waiting on an
+        administrator's password being shared."""
+        response = self.as_coordinator().post(
+            f"/api/imports/sources/{self.import_source.id}/run/",
+            {"json_string": "{}", "field_mappings": {}},
+            format="json",
+        )
+        self.assertEqual(response.status_code, 201)
+
     def test_coordinator_reaching_imports_is_not_django_admin(self):
         """The two must not travel together again — that was the whole point."""
         self.assertFalse(self.coordinator.is_staff)
@@ -817,6 +838,22 @@ class CoordinatorReachesWhatVolunteerCannotTests(RoleFixtureMixin, TestCase):
             ).status_code,
             403,
         )
+
+    def test_coordinator_cannot_delete_an_import_source(self):
+        """Decision 6: import yes, delete no. Create/change/run stay above;
+        this is the one grant that moved a tier up to Administratör.
+
+        ``ImportRun`` and ``FestivalProImportSource`` have no corresponding
+        case here — the API exposes no delete route for either (only
+        ``/sources/<id>/`` has a DELETE verb), so the only way to erase either
+        is Django admin, covered under ``CoordinatorImportDeleteAdminTests``
+        below.
+        """
+        response = self.as_coordinator().delete(
+            f"/api/imports/sources/{self.import_source.id}/"
+        )
+        self.assertEqual(response.status_code, 403)
+        self.assertTrue(ImportSource.objects.filter(pk=self.import_source.pk).exists())
 
 
 class VolunteerCanStillWorkTheDoorTests(RoleFixtureMixin, TestCase):
@@ -1184,3 +1221,117 @@ class VolunteerAndCoordinatorHaveNoAdminTests(TestCase):
         user = make_user("koord-admin-test", COORDINATOR)
         self.client.force_login(user)
         self.assertEqual(self.client.get("/admin/").status_code, 302)
+
+
+@PLAIN_STATICFILES
+class CoordinatorImportDeleteAdminTests(TestCase):
+    """A Koordinator has no ``is_staff`` and gets a 302 at the front door of
+    Django admin — ``VolunteerAndCoordinatorHaveNoAdminTests`` above already
+    covers that. That alone would make this class redundant if the only
+    question were "can a Koordinator reach /admin/". It isn't: the concern
+    from c4ea9b2 is that Django admin actions and delete views carry no
+    permission check of their own unless one is declared, so the API boundary
+    could hold while the admin route stayed open — which the API-only test
+    suite would report as closed.
+
+    ``ImportSourceAdmin`` / ``ImportRunAdmin`` are plain ``ModelAdmin``
+    subclasses with no custom actions or ``has_delete_permission`` override,
+    so Django's own default (``request.user.has_perm("<app>.delete_<model>")``)
+    is what's actually doing the work here — same as the audit log case. This
+    class exercises that default directly, past the ``is_staff`` front door,
+    so a future change to ``is_staff`` handling (or to these ModelAdmins)
+    can't reopen deletion without a test failing right here.
+    """
+
+    def setUp(self):
+        self.user = make_user("koord-staff-test", COORDINATOR)
+        # Bypass the normal route to is_staff (Administratör group membership,
+        # via the signal in accounts/signals.py) to reach the ModelAdmin's own
+        # permission check directly, rather than testing the login wall again.
+        self.user.is_staff = True
+        self.user.save(update_fields=["is_staff"])
+        self.client.force_login(self.user)
+
+        self.source = ImportSource.objects.create(name="Admin-test källa")
+        self.run = ImportRun.objects.create(source=self.source)
+        self.festivalpro_config = FestivalProImportSource.objects.create(
+            source=self.source,
+            login_url="https://example.com/login",
+            export_url="https://example.com/export",
+        )
+
+    def test_import_source_delete_view_is_forbidden(self):
+        response = self.client.get(
+            f"/admin/imports/importsource/{self.source.pk}/delete/"
+        )
+        self.assertIn(response.status_code, (403, 302))
+        self.assertTrue(ImportSource.objects.filter(pk=self.source.pk).exists())
+
+    def test_import_source_cannot_be_deleted_via_bulk_action(self):
+        response = self.client.post(
+            "/admin/imports/importsource/",
+            {
+                "action": "delete_selected",
+                "_selected_action": [str(self.source.pk)],
+                "index": 0,
+            },
+        )
+        self.assertNotEqual(response.status_code, 500)
+        self.assertTrue(ImportSource.objects.filter(pk=self.source.pk).exists())
+
+    def test_import_run_delete_view_is_forbidden(self):
+        response = self.client.get(f"/admin/imports/importrun/{self.run.pk}/delete/")
+        self.assertIn(response.status_code, (403, 302))
+        self.assertTrue(ImportRun.objects.filter(pk=self.run.pk).exists())
+
+    def test_import_run_cannot_be_deleted_via_bulk_action(self):
+        response = self.client.post(
+            "/admin/imports/importrun/",
+            {
+                "action": "delete_selected",
+                "_selected_action": [str(self.run.pk)],
+                "index": 0,
+            },
+        )
+        self.assertNotEqual(response.status_code, 500)
+        self.assertTrue(ImportRun.objects.filter(pk=self.run.pk).exists())
+
+    def test_festivalpro_config_delete_view_is_forbidden(self):
+        """The permission this class exists to close: ``FestivalProImportSource``
+        doesn't share a codename prefix with ``ImportSource``/``ImportRun``, so
+        it was missed on the first pass of decision 6. Same object graph, same
+        act — destroying a source's own connection config."""
+        response = self.client.get(
+            f"/admin/imports/festivalproimportsource/{self.festivalpro_config.pk}/delete/"
+        )
+        self.assertIn(response.status_code, (403, 302))
+        self.assertTrue(
+            FestivalProImportSource.objects.filter(
+                pk=self.festivalpro_config.pk
+            ).exists()
+        )
+
+    def test_festivalpro_config_cannot_be_deleted_via_bulk_action(self):
+        response = self.client.post(
+            "/admin/imports/festivalproimportsource/",
+            {
+                "action": "delete_selected",
+                "_selected_action": [str(self.festivalpro_config.pk)],
+                "index": 0,
+            },
+        )
+        self.assertNotEqual(response.status_code, 500)
+        self.assertTrue(
+            FestivalProImportSource.objects.filter(
+                pk=self.festivalpro_config.pk
+            ).exists()
+        )
+
+    def test_import_source_can_still_be_changed(self):
+        """The negative-only version of this test class would pass just as
+        well if the whole import admin were broken; this is the matching
+        positive — Koordinator (via ``is_staff``) still holds ``change_*``."""
+        response = self.client.get(
+            f"/admin/imports/importsource/{self.source.pk}/change/"
+        )
+        self.assertEqual(response.status_code, 200)
