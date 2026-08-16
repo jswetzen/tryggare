@@ -35,6 +35,8 @@ from reports.services import age_on
 # this is not a cycle.
 from checkins.audit import log_audit
 from registrations.services import (
+    AGE_MISMATCH_Q,
+    UNCHECKABLE_AGE_FIT_Q,
     InvalidPaymentTransition,
     TicketTypeChangeRejected,
     change_attendee_ticket_type,
@@ -141,6 +143,41 @@ class TicketTypeListFilter(admin.RelatedFieldListFilter):
         ]
 
 
+class AgeFitListFilter(admin.SimpleListFilter):
+    """ "Åldern passar biljettypen" — the filter R2 (revision round 1) exists
+    for. Two coordinator personas each burned ~25 minutes eye-scanning 212
+    rows because nothing on the changelist could answer "is this child on
+    the right tier?" directly.
+
+    Built entirely from ``AGE_MISMATCH_Q`` / ``UNCHECKABLE_AGE_FIT_Q`` in
+    ``registrations.services`` — the same predicate ``_age_warning_for``
+    explains row-by-row on the change-ticket-type wizard. Deliberately not
+    re-derived here: a filter that computes the mismatch independently of
+    the guarded action would eventually disagree with it in front of an
+    operator, which is a worse failure than the scan this replaces.
+    """
+
+    title = _("Age fits the ticket type")
+    parameter_name = "age_fits_ticket_type"
+
+    def lookups(self, request, model_admin):
+        return (
+            ("no", _("No")),
+            ("unknown", _("Cannot be checked")),
+            ("yes", _("Yes")),
+        )
+
+    def queryset(self, request, queryset):
+        value = self.value()
+        if value == "no":
+            return queryset.filter(AGE_MISMATCH_Q)
+        if value == "unknown":
+            return queryset.filter(UNCHECKABLE_AGE_FIT_Q)
+        if value == "yes":
+            return queryset.exclude(AGE_MISMATCH_Q).exclude(UNCHECKABLE_AGE_FIT_Q)
+        return queryset
+
+
 class ChangeTicketTypeForm(forms.Form):
     """Step-1 form for ``EventTicketAdmin.change_ticket_type``.
 
@@ -174,6 +211,111 @@ class ChangeTicketTypeForm(forms.Form):
         )
 
 
+class TicketTypeGuardMixin:
+    """Locks ``ticket_type`` on the *change* form and points the operator at
+    the guarded ``change_ticket_type`` action instead.
+
+    Why this exists: a 14 August persona test was asked to move a
+    13-year-old off the 0-12 ticket. It used this ordinary change form —
+    the dropdown was right there, nothing warned it existed a better way —
+    and the write went through with no price recompute, no ledger entry,
+    and no audit row. ``change_attendee_ticket_type`` (see
+    registrations/services.py) already does all three correctly; this
+    mixin's whole job is to stop the raw field from being a competing path
+    to the same outcome.
+
+    Locked for every user, including superusers — this is a data-integrity
+    rule, not a permission. The one case the guarded action genuinely
+    cannot express (e.g. a same-price correction with no event at all)
+    still has a way out: the Django shell. That is deliberate. A case that
+    unusual should be visible and deliberate every time, not something a
+    change-form edit quietly slides through.
+
+    Left *editable* on the add form. Creating a ticket is a first-time
+    choice — there is no price snapshot, no Payment, and no history yet for
+    a raw field edit to desynchronise. Locking it there too would make it
+    impossible to enter a staff-created or imported ticket's type in one
+    step.
+
+    Revision round 1 (R1): the add form staying open turned out to be a
+    second door to the exact write this mixin exists to close. A break-it
+    persona deleted an EventTicket and re-added it at a different tier
+    through the add form in under two minutes — no
+    ``event_ticket_type_changed`` audit row, and the old price carried onto
+    the new tier, underbilling by 300 kr. Keeping the add form usable for
+    its real job (entering a genuinely new or imported ticket) while closing
+    "delete, then re-add differently" meant picking the *other* side of that
+    trade: a ticket delete is refund-shaped — real money and a registration
+    sit behind it — so it is denied outright, for every user including
+    superusers, same as the locked field above. Nothing in the production
+    write paths deletes an EventTicket or SessionTicket through admin; only
+    test/seed scripts go straight at the ORM, and those already bypass admin
+    permissions. A genuine cancellation still has a route: the Django shell,
+    deliberately visible and deliberate rather than one click on a
+    changelist.
+    """
+
+    def get_readonly_fields(self, request, obj=None):
+        readonly = list(super().get_readonly_fields(request, obj))
+        if obj is not None:
+            readonly += ["ticket_type_locked", "ticket_type_change_hint"]
+        return readonly
+
+    def get_exclude(self, request, obj=None):
+        exclude = list(super().get_exclude(request, obj) or [])
+        if obj is not None:
+            # The real ``ticket_type`` field is dropped from the form
+            # entirely (rather than left in readonly_fields under its own
+            # name) so it can be re-rendered as ``ticket_type_locked``
+            # below — see that method for why.
+            exclude.append("ticket_type")
+        return exclude
+
+    def has_delete_permission(self, request, obj=None):
+        # See the class docstring's R1 paragraph: a ticket delete is
+        # refund-shaped, and "delete, then re-add at a different tier" is a
+        # silent re-tier path with no audit row and a stale price. Denied
+        # outright rather than gated on staff/superuser — same stance as the
+        # locked field above, this is a data-integrity rule, not a
+        # permission level.
+        return False
+
+    @admin.display(description=_("Ticket Type"))
+    def ticket_type_locked(self, obj):
+        """Plain text, not Django's ordinary readonly-FK rendering.
+
+        R3 (revision round 1): a readonly FK renders as a link to
+        ``/admin/events/tickettype/<id>/change/`` — the page that edits the
+        *tier itself*, for every ticket on it. That is the most link-like
+        thing on this page, and it puts an operator who came to re-tier one
+        child one click from a far worse write. Naming this field something
+        other than ``ticket_type`` and excluding the real field from the
+        form (see ``get_exclude``) is what stops Django's auto-link from
+        firing at all — it only triggers when the readonly field name
+        matches a real ForeignKey field.
+        """
+        if obj.ticket_type_id is None:
+            return self.get_empty_value_display()
+        return str(obj.ticket_type)
+
+    @admin.display(description=_("Change ticket type"))
+    def ticket_type_change_hint(self, obj):
+        changelist_url = reverse(
+            f"admin:{self.model._meta.app_label}_{self.model._meta.model_name}_changelist"
+        )
+        return format_html(
+            '<p class="help">{0} <a href="{1}">{2}</a></p>',
+            _(
+                "This field is locked so a tier change is priced correctly "
+                "and logged. Go to the ticket list, tick this ticket, and "
+                'choose "Change ticket type…" from the action menu above '
+                "the list."
+            ),
+            changelist_url,
+            _("Open the ticket list"),
+        )
+
+
 class TicketTriageMixin:
     """Shared changelist columns for EventTicketAdmin and SessionTicketAdmin.
 
@@ -197,11 +339,18 @@ class TicketTriageMixin:
         # blank, which would be an extra query on every row.
         return obj.attendee.family.last_name or None
 
-    @admin.display(description=_("Age at event"))
+    @admin.display(description=_("Age at event"), ordering="attendee__child__birthdate")
     def age_at_event(self, obj):
-        # Not sortable — computed in Python, with no DB expression to order
-        # by. birthdate lives on the Child subclass, not on the Attendee a
-        # ticket points at, so a parent's ticket legitimately has no age.
+        # Sortable by birthdate: age-at-a-fixed-start is monotone in
+        # birthdate only *within one event* (two events with different
+        # start dates turn the same birthdate into two different ages), so
+        # this ordering is only meaningful once the changelist is filtered
+        # to a single event. It is still the right default — "get me
+        # oldest-first" is the shape coordinators actually want, and
+        # sorting a raw date column costs nothing extra a computed-in-Python
+        # column couldn't offer at all. birthdate lives on the Child
+        # subclass, not on the Attendee a ticket points at, so a parent's
+        # ticket legitimately has no age.
         try:
             child = obj.attendee.child
         except ObjectDoesNotExist:
@@ -210,6 +359,19 @@ class TicketTriageMixin:
         if event is None:
             return None
         return age_on(child.birthdate, event.start_date)
+
+    @admin.display(description=_("Ticket Type"), ordering="ticket_type__name")
+    def ticket_type_name(self, obj):
+        """R8 (revision round 1, designer finding F2): ``TicketType.__str__``
+        prefixes the event name ("Sommarläger 2027 - Ungdom 13-17"), which
+        at 1280px pushes this 985px table past its 631px scroller and
+        truncates "Biljettyp" — the one column the whole triage job depends
+        on — mid-word. The event name is redundant here anyway: both
+        changelists carry an event filter, and once filtered to one event
+        every row's event is the same value repeated 212 times."""
+        if obj.ticket_type_id is None:
+            return self.get_empty_value_display()
+        return obj.ticket_type.name
 
     @admin.display(
         description=_("Registration status"), ordering="registration__status"
@@ -223,7 +385,7 @@ class TicketTriageMixin:
 
 
 @admin.register(EventTicket)
-class EventTicketAdmin(TicketTriageMixin, admin.ModelAdmin):
+class EventTicketAdmin(TicketTriageMixin, TicketTypeGuardMixin, admin.ModelAdmin):
     """
     Admin interface for event tickets (passes).
     """
@@ -232,12 +394,11 @@ class EventTicketAdmin(TicketTriageMixin, admin.ModelAdmin):
         "attendee",
         "family",
         "age_at_event",
-        "event",
-        "ticket_type",
+        "ticket_type_name",
         "registration_status",
         "external_ticket_code",
     )
-    list_filter = ("event", ("ticket_type", TicketTypeListFilter))
+    list_filter = ("event", ("ticket_type", TicketTypeListFilter), AgeFitListFilter)
     search_fields = (
         "attendee__first_name",
         "attendee__last_name",
@@ -399,7 +560,7 @@ class EventTicketAdmin(TicketTriageMixin, admin.ModelAdmin):
 
 
 @admin.register(SessionTicket)
-class SessionTicketAdmin(TicketTriageMixin, admin.ModelAdmin):
+class SessionTicketAdmin(TicketTriageMixin, TicketTypeGuardMixin, admin.ModelAdmin):
     """
     Admin interface for session tickets.
     """
@@ -409,12 +570,15 @@ class SessionTicketAdmin(TicketTriageMixin, admin.ModelAdmin):
         "family",
         "age_at_event",
         "session",
-        "event",
-        "ticket_type",
+        "ticket_type_name",
         "registration_status",
         "external_ticket_code",
     )
-    list_filter = ("session__event", ("ticket_type", TicketTypeListFilter))
+    list_filter = (
+        "session__event",
+        ("ticket_type", TicketTypeListFilter),
+        AgeFitListFilter,
+    )
     search_fields = (
         "attendee__first_name",
         "attendee__last_name",
@@ -423,7 +587,9 @@ class SessionTicketAdmin(TicketTriageMixin, admin.ModelAdmin):
         "session__name",
         "session__event__name",
     )
-    # session__event: needed by both the `event` column and Session.__str__.
+    # session__event: Session.__str__ interpolates the event name, so the
+    # `session` column needs the join even with the separate `event` column
+    # gone (R8, revision round 1 — see TicketTriageMixin.ticket_type_name).
     list_select_related = (
         "attendee",
         "attendee__family",
@@ -435,10 +601,6 @@ class SessionTicketAdmin(TicketTriageMixin, admin.ModelAdmin):
         "registration",
     )
     autocomplete_fields = ["attendee", "session"]
-
-    @admin.display(description=_("Event"), ordering="session__event")
-    def event(self, obj):
-        return obj.session.event
 
     def _event_for(self, obj):
         return obj.session.event
