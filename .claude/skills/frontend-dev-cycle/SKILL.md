@@ -123,6 +123,50 @@ Spawn `fe-coder` with **one increment**. If you cannot state the increment in tw
 it is too big — split it. Give it the increment and the relevant findings from the last
 round, not the whole backlog.
 
+### 1b. Increments with no user-facing surface — skip the critique, do not skip the check
+
+Some increments have nothing for a persona to struggle with: a database constraint, a
+permission revoke, a serializer that masks a field, a migration. Pointing a coordinator
+persona at a `CheckConstraint` costs ~120k tokens to learn nothing, and the designer has no
+surface to judge. **Spawning the critics anyway is not the safe choice — it is a waste that
+also produces a confident report about nothing.**
+
+When an increment changes no screen, replace the critique round with a **verification round**.
+It is not optional and it is not lighter-touch; it is the same gate served differently, because
+correctness here is invisible rather than visual.
+
+**Spawn a separate agent to verify. Do not verify it yourself.** This is the same discipline
+as not reading diffs: verification means writing throwaway scripts, logging in over HTTP,
+dumping state, reading it back — and every line of that output lands in your context and stays
+there. On 2026-08-16 the orchestrator did this inline for four increments and burned a large
+fraction of its window on scaffolding it would never need again. Give a fresh agent the
+invariant and let it come back with the answer.
+
+Brief the verifier with the *invariant in the user's terms*, not the implementation:
+
+- "A charge cannot be written without a reason — prove it through the ORM **and** through raw
+  SQL, since only one of those is bound by a `CheckConstraint`."
+- "A Koordinator cannot delete an import source through the API **or** through Django admin —
+  and admin needs `is_staff` forced on, or the login wall absorbs the test and reports a pass."
+- "A logged-in volunteer's payload does not contain the health text, and one reveal writes
+  exactly one audit row naming them."
+
+Two rules for the verifier, both learned the hard way:
+
+- **Read the resulting state, not only the assertions.** A green suite confirms what someone
+  thought to check. A permission revoke shipped half-applied on 2026-08-16 — two of three
+  models — with tests passing, because they asserted the two removed permissions were gone,
+  which was true and insufficient. For anything that is fundamentally a *list* (permissions,
+  roles, catalogue entries, flags), dump the end state and read it.
+- **Prove the check can fail.** When verifying that something is hidden, blocked or absent,
+  first confirm the positive case renders. The same day, a masking check passed against test
+  data that had never been saved — an allergy set on the wrong model, so the verifier watched
+  empty data render as empty and called it masked. A control that is inert and a control that
+  works look identical from the outside unless you have seen it let something through.
+
+Then commit as usual, and say in the message that the increment was verified rather than
+critiqued, and what the verified invariant was.
+
 ### 2. Critique — one at a time
 
 **There is exactly one browser.** The Playwright MCP server is a single container driving a
@@ -156,6 +200,23 @@ can point it at the surfaces that hurt.
   Write each persona prompt as a situation, not a spec. "You got a link from your church for
   a weekend away in September. You have two kids, 7 and 12. Sign your family up on your
   phone." — not "test the registration form's validation".
+
+  **Check the fixture between persona runs.** Personas do real work on real rows, and a
+  successful run consumes the very thing the next run is supposed to find. On 2026-08-16 a
+  staff persona correctly re-tiered the planted mis-tiered child; the next agent to look at
+  that data reported the age filter as broken, because the error it was built to catch had
+  already been fixed. A break-it persona left a second record retiered and underpriced in the
+  same round.
+
+  ```bash
+  cd backend && uv run python manage.py seed_persona_fixture --verify-only
+  ```
+
+  It reports violated invariants without writing anything ("expected exactly 1 mis-tiered
+  child, found 0"). Run it after every persona and re-seed with the bare command when it
+  complains — the fixture is deterministic, so a re-seed restores byte-identical rows rather
+  than merely similar ones. Comparing two rounds only means something if they ran against the
+  same board.
 
 - **`fe-designer`** last — the surface that changed, pointed at whatever the personas
   struggled with. One deliberate Opus spend per round.
