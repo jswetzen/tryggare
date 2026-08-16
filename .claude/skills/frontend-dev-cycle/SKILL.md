@@ -286,6 +286,26 @@ reviewer's verdict against the severity of what is still open, and choose:
 Three rounds on one increment without the blocking count dropping means something is wrong
 with the increment, not the implementation. Stop and say so.
 
+**Raise decisions as actual questions — `AskUserQuestion`, not a paragraph.** When something
+is genuinely the owner's call, ask it with the options laid out and a recommendation first.
+Do not bury it in a status report and carry on: a decision described in prose at the end of a
+long update reads as commentary, gets skimmed, and you end up either blocked or — worse —
+quietly deciding it yourself.
+
+Keep it to things that actually matter, so the prompt stays worth answering. A good test: if
+both answers lead you to build the same thing, it is not a question. Routine judgement calls
+are yours; anything reversible in a minute is yours. What belongs to the owner is scope,
+product intent, anything touching money or safety wording, and any case where a critic's
+recommendation conflicts with a principle the owner set earlier.
+
+**And state the premise you are asking under, because it may be the thing that is wrong.**
+On 2026-08-16 a design critic called an empty admin menu a dead end and recommended hiding
+it; the plan adopted that, and the question went up as "how far do we go on the index?". The
+owner's answer was neither option — *"there should be a way to generate reports, so is it
+really dead? investigate please."* The critic could see the screen but not the intent, and
+the loop had started building on a premise nobody had checked. Ask in a form that lets the
+owner reject the premise, and treat "that is the wrong question" as one of the useful answers.
+
 ### 6. Commit — every shipped increment, no exceptions
 
 **An increment that ships gets a commit before the next one starts.** Not a batch at the end,
