@@ -1,9 +1,22 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { t } from 'svelte-i18n';
-  import { reportApi } from '$lib/api/services';
-  import type { EventReportListItem, EventReport } from '$lib/api/types';
-  import { PageHeader, Select } from '$lib/components/ui';
+  import { eventApi, reportApi } from '$lib/api/services';
+  // Aliased: the domain `Event` would otherwise shadow the DOM `Event` that
+  // the change handlers below are typed against.
+  import type { EventReportListItem, EventReport, Event as AppEvent } from '$lib/api/types';
+  import { PageHeader, Select, Button } from '$lib/components/ui';
+  import { PERMISSION, hasPermission } from '$lib/auth/permissions';
+
+  let { data } = $props();
+
+  /**
+   * Reading a report and taking a new one are different permissions, so the
+   * whole generate panel is absent — not disabled — for a user who only holds
+   * the read. Server-side `reports.add_eventreport` is the real guarantee;
+   * this only avoids offering an action that would 403.
+   */
+  const canGenerate = $derived(hasPermission(data.user, PERMISSION.addReports));
 
   let reports = $state<EventReportListItem[]>([]);
   let selectedId = $state<string>('');
@@ -12,10 +25,56 @@
   let detailLoading = $state(false);
   let error = $state<string | null>(null);
 
+  let events = $state<AppEvent[]>([]);
+  let generateEventId = $state<string>('');
+  let generating = $state(false);
+  let generateError = $state<string | null>(null);
+  let generateSuccess = $state(false);
+
   // Fixed display order for age buckets (matches the backend snapshot keys).
   const AGE_ORDER = ['0-2', '3-5', '6-8', '9-12', '13+', 'unknown'];
 
-  onMount(load);
+  onMount(async () => {
+    await load();
+    if (canGenerate) await loadEvents();
+  });
+
+  async function loadEvents() {
+    try {
+      events = await eventApi.list();
+    } catch (e) {
+      // A failure here costs the generate panel its event list, but the
+      // reports themselves are already on screen and still readable. Leaving
+      // `events` empty renders the "no events" line, which is honest enough
+      // without turning a side-feature's outage into a page-level error.
+      console.error('Failed to load events', e);
+    }
+  }
+
+  async function generate() {
+    // Generation is not idempotent — every call appends a snapshot — so a
+    // double-click would silently create two. The disabled attribute alone
+    // does not cover the in-flight window.
+    if (generating || !generateEventId) return;
+    generating = true;
+    generateError = null;
+    generateSuccess = false;
+    try {
+      const report = await reportApi.generate(generateEventId);
+      // Re-fetch rather than splicing the new report in: the list serializer
+      // returns different fields from the detail one, and the list is ordered
+      // server-side.
+      reports = await reportApi.list();
+      selectedId = report.id;
+      detail = report;
+      generateSuccess = true;
+    } catch (e) {
+      console.error('Failed to generate report', e);
+      generateError = $t('reports.generateError');
+    } finally {
+      generating = false;
+    }
+  }
 
   async function load() {
     loading = true;
@@ -53,10 +112,15 @@
     if (id) loadDetail(id);
   }
 
+  const eventOptions = $derived([
+    { value: '', label: $t('reports.generateEventPlaceholder') },
+    ...events.map((e) => ({ value: e.id, label: e.name }))
+  ]);
+
   const reportOptions = $derived(
     reports.map((r) => ({
       value: r.id,
-      label: `${r.event_name} — ${formatDateTime(r.generated_at)}`
+      label: `${r.event_name} — ${formatPickerDateTime(r.generated_at)}`
     }))
   );
 
@@ -67,6 +131,25 @@
       day: 'numeric',
       hour: '2-digit',
       minute: '2-digit',
+      hour12: false
+    });
+  }
+
+  /**
+   * Seconds, unlike the display format above, because this label is the only
+   * thing telling two snapshots apart. Generating used to be an admin action
+   * taken rarely; it is now one click, so two snapshots of the same event
+   * within a minute are easy to produce — and to the minute they render as two
+   * identical options with no way to know which is which.
+   */
+  function formatPickerDateTime(iso: string): string {
+    return new Date(iso).toLocaleString([], {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
       hour12: false
     });
   }
@@ -116,6 +199,58 @@
     <div class="mb-4 rounded-lg border border-danger-300 bg-danger-50 text-danger-700 px-4 py-3">
       {error}
     </div>
+  {/if}
+
+  <!--
+    Deliberately outside the `reports.length === 0` branch below: an event with
+    no snapshot yet is exactly when someone needs this, and putting it inside
+    the list would make the empty state a dead end again.
+  -->
+  {#if canGenerate}
+    <section
+      class="mb-6 rounded-card border border-neutral-200 bg-white p-4"
+      aria-labelledby="generate-report-heading"
+    >
+      <h2 id="generate-report-heading" class="text-base font-bold text-neutral-800">
+        {$t('reports.generateHeading')}
+      </h2>
+      <p class="mt-1 mb-3 text-sm text-neutral-600">{$t('reports.generateHelp')}</p>
+
+      {#if events.length === 0}
+        <p class="text-sm text-neutral-500">{$t('reports.generateNoEvents')}</p>
+      {:else}
+        <div class="flex flex-wrap items-end gap-3">
+          <div class="min-w-64 flex-1">
+            <Select
+              label={$t('reports.generateEvent')}
+              options={eventOptions}
+              value={generateEventId}
+              onchange={(e: Event) =>
+                (generateEventId = (e.target as HTMLSelectElement).value)}
+            />
+          </div>
+          <Button onclick={generate} disabled={generating || !generateEventId} loading={generating}>
+            {generating ? $t('reports.generating') : $t('reports.generate')}
+          </Button>
+        </div>
+      {/if}
+
+      {#if generateError}
+        <div
+          class="mt-3 rounded-button border border-danger-300 bg-danger-50 px-3 py-2 text-sm text-danger-700"
+          role="alert"
+        >
+          {generateError}
+        </div>
+      {:else if generateSuccess}
+        <div
+          class="mt-3 rounded-button border border-success-300 bg-success-50 px-3 py-2 text-sm text-success-700"
+          role="status"
+        >
+          ✓ {$t('reports.generateSuccess')}
+        </div>
+      {/if}
+    </section>
   {/if}
 
   {#if loading}
