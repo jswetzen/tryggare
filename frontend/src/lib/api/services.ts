@@ -324,11 +324,19 @@ export const eventApi = {
 };
 
 /**
- * Report API endpoints (read-only; snapshots are generated server-side).
+ * Report API endpoints.
+ *
+ * Snapshots are still built server-side by one shared function; `generate`
+ * only asks for a new one. Each call appends a snapshot rather than replacing
+ * the last, because a report is a historical record of the numbers at a moment
+ * in time — see the backend's `EventReport` docstring.
  */
 export const reportApi = {
   list: (): Promise<EventReportListItem[]> => apiClient.get('/event-reports/'),
   get: (id: string): Promise<EventReport> => apiClient.get(`/event-reports/${id}/`),
+  /** Build a fresh snapshot for `eventId`. Requires `reports.add_eventreport`. */
+  generate: (eventId: string): Promise<EventReport> =>
+    apiClient.post('/event-reports/generate/', { event: eventId }),
   /** Direct backend download URL (session cookie sent on navigation). */
   exportUrl: (id: string, format: 'csv' | 'json'): string =>
     `${apiClient.getBaseUrl()}/event-reports/${id}/export/?fmt=${format}`,

@@ -39,6 +39,12 @@ export interface SessionUser {
 export const PERMISSION = {
   /** Opens /reports — the aggregate financial and attendance picture. */
   viewReports: 'reports.view_eventreport',
+  /**
+   * Builds a new report snapshot. Strictly more than `viewReports`: a
+   * Koordinator holds both, a role granted only the read does not, and the
+   * page must not offer a button that is going to 403.
+   */
+  addReports: 'reports.add_eventreport',
   /** Opens /import — configuring and running a booking-system import. */
   viewImportSources: 'imports.view_importsource',
   /** Edit a child's record, including the allergy/medical text. */
