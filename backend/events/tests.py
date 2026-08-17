@@ -470,6 +470,39 @@ class TicketTypeExtraModelTest(TestCase):
             ticket_type.full_clean()
         self.assertIn("min_birthdate", ctx.exception.message_dict)
 
+    def test_clean_error_message_survives_a_leap_day_anniversary(self):
+        """A leap-year 28 February start must still produce a 400, not a 500.
+
+        The message for min_birthdate is built from ``start + 1 day``, which
+        for 2028-02-28 is 29 February. Shifting that back a flat 18 years
+        lands on 2010, which has no 29 February, and ``date.replace`` raises
+        ValueError — from inside the branch whose whole job is to raise a
+        *ValidationError*. ``full_clean`` only catches ValidationError, so the
+        operator would have got a bare 500 in place of the one message that
+        explains the mistake they just made.
+        """
+        from django.core.exceptions import ValidationError
+
+        leap_event = Event.objects.create(
+            name="Skottårsläger",
+            start_date=timezone.datetime(2028, 2, 28).date(),
+            end_date=timezone.datetime(2028, 3, 1).date(),
+        )
+        ticket_type = TicketType(
+            event=leap_event,
+            name="Ungdom",
+            price=700,
+            min_birthdate=timezone.datetime(2010, 1, 1).date(),
+        )
+        with self.assertRaises(ValidationError) as ctx:
+            ticket_type.full_clean()
+        self.assertIn("min_birthdate", ctx.exception.message_dict)
+
+        # The example offered has to be a value that would itself pass this
+        # check — for a 29 February anniversary, only another 29 February.
+        message = ctx.exception.message_dict["min_birthdate"][0]
+        self.assertIn("2008-02-29", message)
+
     def test_clean_allows_blank_bounds_regardless_of_event_start(self):
         # Blank means "deliberately unrestricted", not "unconfigured" — no
         # anniversary requirement applies to a bound that isn't set.
