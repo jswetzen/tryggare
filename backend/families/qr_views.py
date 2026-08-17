@@ -9,7 +9,7 @@ from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes, throttle_classes
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
-from rest_framework.throttling import AnonRateThrottle
+from rest_framework.throttling import AnonRateThrottle, UserRateThrottle
 
 from checkins.audit import log_audit
 from checkins.qr_utils import get_code_for_active_checkin
@@ -205,14 +205,47 @@ class QRSafetyInfoRevealThrottle(AnonRateThrottle):
     10/minute) rate: revealing special-category health text is a rarer,
     more deliberate act than loading the page, and is the actual point at
     which the Art. 9(2)(c) vital-interests basis attaches (see DPIA §4).
+
+    AnonRateThrottle only ever throttles unauthenticated callers (DRF keys
+    it off request.user.is_authenticated and no-ops otherwise) — see
+    QRSafetyInfoRevealUserThrottle below for the authenticated half of this.
     """
 
     scope = "qr_safety_info_reveal"
 
 
+class QRSafetyInfoRevealUserThrottle(UserRateThrottle):
+    """Per-user counterpart to QRSafetyInfoRevealThrottle.
+
+    Every real reveal is made by a logged-in volunteer or coordinator, so
+    QRSafetyInfoRevealThrottle (AnonRateThrottle) alone was a no-op in
+    practice: DRF's AnonRateThrottle only ever throttles unauthenticated
+    requests. Without this, a compromised or careless volunteer account
+    could enumerate every checked-in child's allergy/medical text as fast
+    as it could issue requests, with each one writing a legitimate-looking
+    qr_safety_info_revealed audit row.
+
+    Rate is deliberately looser than the anonymous scope (100/hour vs.
+    20/hour) but still a real ceiling, not a floor set at "whatever a
+    script can do": a busy check-in desk during a camp morning rush might
+    process on the order of a hundred children total, and only a fraction
+    of those check-ins involve a staff member actually opening the safety
+    panel (most families have no allergies/notes to reveal, or staff
+    already knows them). 100/hour comfortably covers a volunteer working a
+    real queue in a burst, including re-reveals across sessions, while
+    still bounding an automated sweep of an event's full roster to a small
+    fraction of it per hour. The audit trail this endpoint always writes is
+    the primary control (see qr_reveal_safety_info's docstring); this
+    throttle only needs to slow bulk automated access, not distinguish
+    intent request-by-request.
+    """
+
+    scope = "qr_safety_info_reveal_user"
+
+
 @api_view(["POST"])
 @permission_classes([AllowAny])
-@throttle_classes([QRSafetyInfoRevealThrottle])
+@throttle_classes([QRSafetyInfoRevealThrottle, QRSafetyInfoRevealUserThrottle])
 def qr_reveal_safety_info(request, code):
     """
     Public endpoint to reveal a checked-in child's allergy/emergency-medical
@@ -236,7 +269,8 @@ def qr_reveal_safety_info(request, code):
     request.user whenever one is authenticated, so their reveal is named in
     the audit trail exactly like the check-in screen's reveal-safety-info.
     QRSafetyInfoRevealThrottle (AnonRateThrottle) only throttles anonymous
-    callers, so a logged-in volunteer's reveals aren't rate-limited by it.
+    callers; QRSafetyInfoRevealUserThrottle (below) is what rate-limits a
+    logged-in volunteer's own reveals.
 
     Applies the same quarantine display policy as qr_info (DPIA §4): text
     is returned regardless of health_consent_status, including

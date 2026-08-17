@@ -201,6 +201,17 @@ REST_FRAMEWORK = {
         # venue-wifi pickup point could plausibly bump into this — revisit
         # if that turns out to be a problem in practice.
         "qr_safety_info_reveal": "20/hour",
+        # Per-user counterpart: AnonRateThrottle (the scope above) is a
+        # no-op for authenticated requests, and every real reveal is made
+        # by a logged-in volunteer/coordinator, so without this the reveal
+        # endpoint was unthrottled in practice for the accounts that
+        # actually use it. Looser than the anon rate because it's a known,
+        # attributable account rather than an arbitrary IP, and a real
+        # check-in-desk burst (a queue of families arriving at once) is a
+        # legitimate high-frequency workload — see
+        # families/qr_views.py::QRSafetyInfoRevealUserThrottle for the full
+        # reasoning behind the number.
+        "qr_safety_info_reveal_user": "100/hour",
     },
 }
 
