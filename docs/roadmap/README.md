@@ -13,4 +13,5 @@ Future work and deferred ideas. Each file is a lightweight stub — enough conte
 | `event_registration_and_mailing.md` | Self-serve registration, consent renewal, transactional/marketing email | Medium-High |
 | `payment_processing.md` | Swish/Bankgiro manual payment verification | Medium |
 | `registration_data_model_hardening.md` | PR #18 architecture review punch list (resend cap, pending_review resolution, promo-code use release, payment ledger guard) | Medium-High |
+| `staff_ui_plan.md` | Staff-side plan: fix Django admin first, then an event workspace (roster + money) | High |
 | `archive/` | Completed deferred items, kept for context | — |

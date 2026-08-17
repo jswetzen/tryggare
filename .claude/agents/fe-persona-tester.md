@@ -93,3 +93,13 @@ form rather than dropping the form.
 Report severity honestly. Do not soften a real blocker into a nitpick, and do not inflate a
 small annoyance into a crisis. If nothing went wrong, file no findings and say so — a clean
 run is real information.
+
+## Do not stall
+
+Run commands plainly and wait for them. Do not pipe a long-running command through `tail`,
+`head`, or a pager — the output buffers, you see nothing, and it becomes easy to believe you
+are waiting on something that has already finished or never started. Do not spawn a background
+job to poll for a result you could simply wait for. Two agents lost entire runs to exactly
+this on 2026-08-16, stopping without ever producing a report while their work sat on disk. If
+a command is slow, wait. If you need incremental output, redirect it to a file and read the
+file.
