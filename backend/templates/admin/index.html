@@ -1,0 +1,37 @@
+{% extends "admin/index.html" %}
+{% load i18n %}
+
+{% comment %}
+Job-shaped entry point on the admin index (increment: "Vem är skulden hos?").
+
+The index otherwise lists model names (Anmälningar, Familjer, Betalningar…),
+which a blind-test persona given the job "which families still owe money"
+had to translate into "which model do I click" before they could even start.
+This adds one link phrased as the question itself, straight at the existing
+HasOutstandingBalanceFilter (registrations/admin.py, parameter_name="balance",
+value "owing") — no new definition of "owing" is introduced here.
+
+Gated on the same permission the target changelist itself requires
+(registrations.view_registration, via RegistrationAdmin.has_view_permission)
+so a staff member who cannot open Registrations is never shown a link into
+it. Everything below is additive: the model list from admin/index.html
+(via {{ block.super }}) is untouched.
+{% endcomment %}
+
+{% block content %}
+{% if perms.registrations.view_registration %}
+<div class="module" id="job-shortcuts-module">
+  <h2>{% translate "Common tasks" %}</h2>
+  <table>
+    <tbody>
+      <tr>
+        <th scope="row">
+          <a href="{% url 'admin:registrations_registration_changelist' %}?balance=owing">{% translate "Who owes money?" %}</a>
+        </th>
+      </tr>
+    </tbody>
+  </table>
+</div>
+{% endif %}
+{{ block.super }}
+{% endblock %}

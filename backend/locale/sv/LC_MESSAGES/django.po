@@ -228,6 +228,12 @@ msgstr "Tryggare-admin"
 msgid "Choose what to manage"
 msgstr "Välj vad du vill hantera"
 
+msgid "Common tasks"
+msgstr "Vanliga uppgifter"
+
+msgid "Who owes money?"
+msgstr "Vem är skulden hos?"
+
 msgid "Registration page"
 msgstr "Anmälningssida"
 

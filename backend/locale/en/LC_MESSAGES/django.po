@@ -226,6 +226,12 @@ msgstr "Tryggare admin"
 msgid "Choose what to manage"
 msgstr "Choose what to manage"
 
+msgid "Common tasks"
+msgstr "Common tasks"
+
+msgid "Who owes money?"
+msgstr "Who owes money?"
+
 msgid "Registration page"
 msgstr "Registration page"
 
