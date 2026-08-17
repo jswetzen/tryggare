@@ -59,6 +59,7 @@ from decimal import Decimal
 from random import Random
 
 from django.conf import settings
+from django.contrib.admin.models import LogEntry
 from django.contrib.auth import get_user_model
 from django.core.management.base import BaseCommand, CommandError
 from django.db import connection, transaction
@@ -88,6 +89,7 @@ from registrations.models import (
 )
 from registrations.tokens import REFERENCE_CODE_ALPHABET, hash_token
 from reports.models import EventReport
+from reports.services import generate_event_report
 
 # --------------------------------------------------------------------------
 # Guards
@@ -474,6 +476,7 @@ class Command(BaseCommand):
             self._build_events()
             self._build_families()
             self._build_registrations()
+            self._build_reports()
 
         self._verify(fail_loudly=True)
         self._report()
@@ -551,7 +554,15 @@ class Command(BaseCommand):
 
         Deliberately *not* wiped: AdminUser rows, auth Groups and
         Permissions, and Printer rows (device configuration, not data).
+
+        LogEntry (``django_admin_log``) *is* wiped even though it isn't
+        domain data, because it's the one table that visibly leaks between
+        personas: the admin index's "recent actions" panel would otherwise
+        show a previous persona's edits to a fresh seat as if they happened
+        in the current session.
         """
+        LogEntry.objects.all().delete()
+
         PrintJob.objects.all().delete()
         QRCode.objects.all().delete()
         CheckInRecord.objects.all().delete()
@@ -1074,6 +1085,32 @@ class Command(BaseCommand):
         )
         PaymentEvent.objects.filter(pk=event_row.pk).update(created_at=when)
 
+    # -- reports -------------------------------------------------------------
+
+    def _build_reports(self):
+        """One EventReport snapshot per event, via the real service.
+
+        ``EventReport`` is the aggregate, non-PII snapshot the retention
+        pipeline relies on being taken *before* PII purge — see the model's
+        own docstring: "anything not captured at generation time cannot be
+        recomputed later." A persona fixture that deletes every report and
+        creates none leaves "Rapporter -> Evenemangsrapporter" looking like
+        a dead feature, which is exactly the failure this method exists to
+        prevent. Reused via ``reports.services.generate_event_report``
+        rather than reimplemented, for the same reason payments reuse
+        ``recompute_status()``: the fixture must not be able to disagree
+        with the application about what a report contains.
+
+        ``generated_at`` is ``auto_now_add`` and so, like every other
+        auto-stamped column in this fixture, gets overwritten with a fixed
+        value afterwards rather than left to the wall clock.
+        """
+        for spec, event in self.events.values():
+            report = generate_event_report(event, user=self.admin)
+            EventReport.objects.filter(pk=report.pk).update(
+                generated_at=_aware(spec.end + timedelta(days=1), 8)
+            )
+
     # -- verification ------------------------------------------------------
 
     def _verify(self, *, fail_loudly):
@@ -1141,6 +1178,28 @@ class Command(BaseCommand):
             problems.append(
                 "the Nyström surname does not carry an outstanding balance "
                 "on two different events"
+            )
+
+        # D1: the admin action log must not carry residue from a previous
+        # persona's session into a fresh one.
+        log_count = LogEntry.objects.count()
+        if log_count:
+            problems.append(
+                f"django_admin_log has {log_count} row(s); a fresh persona "
+                "seat would see a previous session's edits as its own"
+            )
+
+        # D2: every event must carry a report snapshot, or "Rapporter ->
+        # Evenemangsrapporter" reads as a dead feature rather than an
+        # unrelated Job 3 (money) surface it was never meant to answer.
+        reported_event_ids = set(EventReport.objects.values_list("event_id", flat=True))
+        events_without_report = [
+            e.name for e in Event.objects.all() if e.id not in reported_event_ids
+        ]
+        if events_without_report:
+            problems.append(
+                "no EventReport snapshot exists for: "
+                + ", ".join(events_without_report)
             )
 
         if problems:
