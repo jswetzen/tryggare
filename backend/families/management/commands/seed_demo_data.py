@@ -27,6 +27,24 @@ from registrations.models import Payment, Registration
 from registrations.tokens import generate_verification_token, hash_token
 
 
+def _max_birthdate(event, years):
+    """Bound for "must be at least `years` old at event start" (the
+    youngest-permitted cutoff). TicketType._clean_age_window() requires this
+    to fall exactly on the start date's own month/day, `years` earlier —
+    born that day turns `years` on day one, exactly old enough."""
+    return event.start_date.replace(year=event.start_date.year - years)
+
+
+def _min_birthdate(event, years):
+    """Bound for "must be under `years` old at event start" (the
+    oldest-permitted cutoff). TicketType._clean_age_window() requires this to
+    fall exactly one day after an anniversary of the start date — one day
+    later than _max_birthdate(event, years) would sit, so someone born on
+    the anniversary itself (already `years` old on day one) is excluded."""
+    day_after_start = event.start_date + timedelta(days=1)
+    return day_after_start.replace(year=day_after_start.year - years)
+
+
 class Command(BaseCommand):
     help = "Seed realistic demo data for development and screenshots"
 
@@ -434,35 +452,38 @@ class Command(BaseCommand):
 
         # --- Ticket types: birthdate-tiered pricing (case 2.2) + a hidden
         # volunteer type unlocked only via a direct link (case 5.4/10.2) ---
-        TicketType.objects.get_or_create(
+        #
+        # full_clean() on every ticket type below is deliberate: this
+        # command never called it before, so the min/max_birthdate
+        # off-by-one-day bug (task #19) was silently producing children on
+        # the wrong pricing tier instead of failing loudly at seed time.
+        # TicketType._clean_age_window() (events/models.py) is the source of
+        # truth for what a valid window looks like.
+        barn, _ = TicketType.objects.get_or_create(
             event=camp,
             name="Barn (0-12 år)",
             defaults={
                 "price": 400,
                 "applies_to": AppliesTo.CHILD,
-                "min_birthdate": camp.start_date.replace(
-                    year=camp.start_date.year - 12
-                ),
+                "min_birthdate": _min_birthdate(camp, 12),
                 "max_birthdate": camp.start_date,
                 "sort_order": 1,
             },
         )
-        TicketType.objects.get_or_create(
+        barn.full_clean()
+        ungdom, _ = TicketType.objects.get_or_create(
             event=camp,
             name="Ungdom (13-17 år)",
             defaults={
                 "price": 700,
                 "applies_to": AppliesTo.CHILD,
-                "min_birthdate": camp.start_date.replace(
-                    year=camp.start_date.year - 17
-                ),
-                "max_birthdate": camp.start_date.replace(
-                    year=camp.start_date.year - 13
-                ),
+                "min_birthdate": _min_birthdate(camp, 17),
+                "max_birthdate": _max_birthdate(camp, 13),
                 "sort_order": 2,
             },
         )
-        TicketType.objects.get_or_create(
+        ungdom.full_clean()
+        vuxen, _ = TicketType.objects.get_or_create(
             event=camp,
             name="Vuxen",
             defaults={
@@ -471,7 +492,8 @@ class Command(BaseCommand):
                 "sort_order": 3,
             },
         )
-        TicketType.objects.get_or_create(
+        vuxen.full_clean()
+        ledare, _ = TicketType.objects.get_or_create(
             event=camp,
             name="Ledare",
             defaults={
@@ -481,6 +503,7 @@ class Command(BaseCommand):
                 "sort_order": 4,
             },
         )
+        ledare.full_clean()
 
         # --- Extras ---
         # Session-scoped, with a structured dietary choice (case 3.1/3.2) —
@@ -602,7 +625,7 @@ class Command(BaseCommand):
             weekend.registration_opens_at = timezone.now() - timedelta(days=1)
             weekend.save(update_fields=["registration_opens_at"])
 
-        TicketType.objects.get_or_create(
+        all_inclusive, _ = TicketType.objects.get_or_create(
             event=weekend,
             name="All inclusive",
             defaults={
@@ -611,19 +634,19 @@ class Command(BaseCommand):
                 "sort_order": 1,
             },
         )
-        TicketType.objects.get_or_create(
+        all_inclusive.full_clean()
+        under_6, _ = TicketType.objects.get_or_create(
             event=weekend,
             name="0-6 år",
             defaults={
                 "price": 0,
                 "applies_to": AppliesTo.CHILD,
-                "min_birthdate": weekend.start_date.replace(
-                    year=weekend.start_date.year - 6
-                ),
+                "min_birthdate": _min_birthdate(weekend, 6),
                 "max_birthdate": weekend.start_date,
                 "sort_order": 2,
             },
         )
+        under_6.full_clean()
         family_ticket, _ = TicketType.objects.get_or_create(
             event=weekend,
             name="Familjebiljett",
@@ -633,6 +656,7 @@ class Command(BaseCommand):
                 "sort_order": 3,
             },
         )
+        family_ticket.full_clean()
         member_type, _ = TicketType.objects.get_or_create(
             event=weekend,
             name="Familjebiljett - familjemedlem",
@@ -653,9 +677,10 @@ class Command(BaseCommand):
             member_type.requires_ticket_type = family_ticket
             member_type.max_per_required = 4
             member_type.save(update_fields=["requires_ticket_type", "max_per_required"])
+        member_type.full_clean()
         # ChurchSuite lists this publicly, trusting guests not to pick it
         # without a real arrangement — hidden here instead (case 5.4/10.2).
-        TicketType.objects.get_or_create(
+        vip, _ = TicketType.objects.get_or_create(
             event=weekend,
             name="VIP",
             defaults={
@@ -665,6 +690,7 @@ class Command(BaseCommand):
                 "sort_order": 5,
             },
         )
+        vip.full_clean()
 
         # One Session per day — proves partial-day attendance already
         # works via the existing session_bundle mechanism (case catalog
@@ -700,6 +726,7 @@ class Command(BaseCommand):
                 "sort_order": 6,
             },
         )
+        saturday_only.full_clean()
         saturday_only.sessions.set([saturday])
 
         saturday_sunday, _ = TicketType.objects.get_or_create(
@@ -712,6 +739,7 @@ class Command(BaseCommand):
                 "sort_order": 7,
             },
         )
+        saturday_sunday.full_clean()
         saturday_sunday.sessions.set([saturday, sunday])
 
         Extra.objects.get_or_create(
