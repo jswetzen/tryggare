@@ -29,6 +29,7 @@ from families.models import Child, Family, Parent
 
 from .models import Payment, PaymentEvent, Registration
 from .services import (
+    AGE_MISMATCH_Q,
     PriceEffect,
     TicketTypeChangeRejected,
     change_attendee_ticket_type,
@@ -1086,3 +1087,49 @@ class AgeFitListFilterTests(TestCase):
         self.assertContains(response, ticket.attendee.first_name)
         for value in ("no", "unknown"):
             self.assertNotContains(self._get(value), ticket.attendee.first_name)
+
+
+class AgeMismatchQAndRowLevelPredicateAgreeTests(TestCase):
+    """The property task #19 cares about most: ``AGE_MISMATCH_Q`` (the DB
+    filter) and ``_age_window_mismatch`` (the row-level function
+    ``_age_warning_for`` calls) are deliberately one predicate stated
+    twice. This test would fail the moment either side drifted — it
+    doesn't go through the admin changelist or the confirmation page at
+    all, it evaluates both directly against the same matrix of birthdates
+    (well inside the window, on each inclusive boundary, and one day past
+    each boundary in both directions) and asserts they always agree,
+    ticket by ticket."""
+
+    def setUp(self):
+        self.event = _make_event()
+        self.child_type = _child_type(self.event)  # born 2013-07-07 or later
+        self.youth_type = _youth_type(self.event)  # born 2008-07-07..2013-07-06
+
+    def test_q_and_function_agree_across_the_boundary_matrix(self):
+        from .services import _age_window_mismatch
+
+        birthdates = [
+            date(1990, 1, 1),  # far too old for either type
+            date(2008, 7, 6),  # one day before youth's min_birthdate
+            date(2008, 7, 7),  # exactly youth's min_birthdate (inside)
+            date(2010, 3, 15),  # comfortably inside youth's window
+            date(2013, 7, 6),  # exactly youth's max_birthdate (inside)
+            date(2013, 7, 7),  # one day after youth's max — exactly child's min
+            date(2015, 11, 2),  # comfortably inside child's window
+            date(2027, 1, 1),  # not yet born by event standards, far too young
+        ]
+        for ticket_type in (self.child_type, self.youth_type):
+            for birthdate in birthdates:
+                ticket = _make_ticket(self.event, ticket_type, birthdate=birthdate)
+                too_old, too_young = _age_window_mismatch(birthdate, ticket_type)
+                function_says_mismatch = too_old or too_young
+                q_says_mismatch = EventTicket.objects.filter(
+                    AGE_MISMATCH_Q, pk=ticket.id
+                ).exists()
+                self.assertEqual(
+                    function_says_mismatch,
+                    q_says_mismatch,
+                    f"{ticket_type.name} / {birthdate}: function said "
+                    f"mismatch={function_says_mismatch}, Q said "
+                    f"mismatch={q_says_mismatch}",
+                )

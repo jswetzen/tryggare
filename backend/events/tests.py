@@ -416,6 +416,64 @@ class TicketTypeExtraModelTest(TestCase):
         self.assertIn(self.session, ticket_type.sessions.all())
         self.assertIn(ticket_type, self.session.bundle_ticket_types.all())
 
+    def test_clean_accepts_age_bounds_on_event_start_anniversaries(self):
+        """Task #19: age is judged once, on the event's start date. A bound
+        that lands exactly on an anniversary of that date states that rule
+        and must be accepted."""
+        start = self.event.start_date
+        ticket_type = TicketType(
+            event=self.event,
+            name="Barn 0-12",
+            price=400,
+            max_birthdate=start.replace(year=start.year - 12),
+        )
+        ticket_type.full_clean()  # must not raise
+
+        youth = TicketType(
+            event=self.event,
+            name="Ungdom 13-17",
+            price=700,
+            min_birthdate=start.replace(year=start.year - 18)
+            + timezone.timedelta(days=1),
+            max_birthdate=start.replace(year=start.year - 13),
+        )
+        youth.full_clean()  # must not raise
+
+    def test_clean_rejects_max_birthdate_off_the_anniversary(self):
+        from django.core.exceptions import ValidationError
+
+        start = self.event.start_date
+        ticket_type = TicketType(
+            event=self.event,
+            name="Barn 0-12",
+            price=400,
+            max_birthdate=start.replace(year=start.year - 12)
+            - timezone.timedelta(days=1),
+        )
+        with self.assertRaises(ValidationError) as ctx:
+            ticket_type.full_clean()
+        self.assertIn("max_birthdate", ctx.exception.message_dict)
+
+    def test_clean_rejects_min_birthdate_off_the_anniversary(self):
+        from django.core.exceptions import ValidationError
+
+        start = self.event.start_date
+        ticket_type = TicketType(
+            event=self.event,
+            name="Ungdom 13-17",
+            price=700,
+            min_birthdate=start.replace(year=start.year - 18),
+        )
+        with self.assertRaises(ValidationError) as ctx:
+            ticket_type.full_clean()
+        self.assertIn("min_birthdate", ctx.exception.message_dict)
+
+    def test_clean_allows_blank_bounds_regardless_of_event_start(self):
+        # Blank means "deliberately unrestricted", not "unconfigured" — no
+        # anniversary requirement applies to a bound that isn't set.
+        ticket_type = TicketType(event=self.event, name="Vuxen", price=1100)
+        ticket_type.full_clean()  # must not raise
+
     def test_admin_form_rejects_session_bundle_with_no_sessions(self):
         """A2: staff-facing backstop — TicketTypeAdminForm.clean() must
         reject this at save time rather than silently producing a

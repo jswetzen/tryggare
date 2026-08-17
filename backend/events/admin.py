@@ -207,8 +207,10 @@ class ChangeTicketTypeForm(forms.Form):
         required=False,
         label=_("The age does not fit, and I want to make this change anyway"),
         help_text=_(
-            "A child who has a birthday during the event is a valid reason "
-            "to sit outside the age range."
+            "Age is judged once, on the event's start date — there is no "
+            "exception for a birthday during the event. Tick this only if "
+            "you have checked and the placement is still correct despite "
+            "the warning."
         ),
     )
 
