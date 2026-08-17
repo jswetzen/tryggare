@@ -34,6 +34,8 @@ from accounts.models import AdminUser
 from events.models import Event
 from families.models import Child, Family, Parent
 
+from tests.support import NonManifestStaticfilesTestCase
+
 from .models import Payment, PaymentEvent, Registration
 from .services import record_payment_event
 from .tokens import generate_verification_token, hash_token
@@ -93,7 +95,7 @@ def _make_registration(event, family, amount, *, received=None):
     return registration, payment
 
 
-class RegistrationSearchBalanceTests(TestCase):
+class RegistrationSearchBalanceTests(NonManifestStaticfilesTestCase, TestCase):
     """The registration changelist's balance column must not move when a
     search term is applied."""
 
@@ -191,7 +193,7 @@ class RegistrationSearchBalanceTests(TestCase):
         self.assertLess(len(ctx.captured_queries), 15)
 
 
-class FamilyBalanceSubqueryTests(TestCase):
+class FamilyBalanceSubqueryTests(NonManifestStaticfilesTestCase, TestCase):
     """R6: the family changelist's own balance column, added with the same
     Subquery mechanism as R1 — and exposed to the exact same fan-out risk,
     one relation further up (Family -> registrations is already one-to-many,
