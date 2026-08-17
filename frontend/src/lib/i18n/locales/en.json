@@ -291,6 +291,7 @@
     "showSafetyInfo": "Show safety info",
     "safetyInfoRevealLogged": "This access has been logged.",
     "revealSafetyInfoError": "Couldn't load safety info. Please try again or ask a staff member for help.",
+    "revealSafetyInfoRateLimited": "Too many reveals in a short time. Wait a minute and try again — if this keeps happening, tell a coordinator.",
     "reprintSending": "Sending to printer...",
     "reprintSuccess": "Label sent to printer",
     "reprintError": "Failed to send label to printer",

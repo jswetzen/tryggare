@@ -104,9 +104,10 @@
 
     try {
       revealedSafety = await qrApi.revealSafetyInfo(code);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Failed to reveal safety info:', err);
-      error = $t('qr.revealSafetyInfoError');
+      error =
+        err?.status === 429 ? $t('qr.revealSafetyInfoRateLimited') : $t('qr.revealSafetyInfoError');
     } finally {
       revealingSafetyInfo = false;
     }
