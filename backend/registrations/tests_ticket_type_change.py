@@ -722,6 +722,70 @@ class ChangeTicketTypeAdminActionTests(TestCase):
             AuditLog.objects.filter(action="event_ticket_type_changed").exists()
         )
 
+    def test_the_acknowledgement_checkbox_lives_inside_the_form(self):
+        """B3 regression: the checkbox was moved into the warning banner
+        above the ``<form>`` tag that is supposed to contain it, so the
+        browser never submitted it on confirm. The Django test client posts
+        a dict directly (see the tests around this one) and would never
+        notice that — it has to be read off the actual markup."""
+        self.ticket.attendee.child.birthdate = date(2020, 1, 1)
+        self.ticket.attendee.child.save()
+        response = self._post(
+            {
+                "action": "change_ticket_type",
+                "_selected_action": [str(self.ticket.id)],
+                "preview": "yes",
+                "ticket_type": str(self.youth_type.id),
+            }
+        )
+        content = response.content.decode()
+        # There is more than one <form> on an admin page (e.g. the header
+        # search box), so anchor the close tag to the one that opens here.
+        form_open = content.index('<form method="post">')
+        form_close = content.index("</form>", form_open)
+        checkbox = content.index('id="id_acknowledge_age_warning"')
+        self.assertTrue(
+            form_open < checkbox < form_close,
+            "the age-acknowledgement checkbox must be inside the <form> "
+            "it belongs to, or the browser never submits it",
+        )
+
+    def test_the_acknowledged_age_warning_path_applies_the_change(self):
+        """End to end: a warning is raised, the box is ticked, and the
+        change actually lands. This is the exact path B3 broke — an
+        unmatched target tier reaches the acknowledgement banner, and only
+        there does the checkbox's position (see the test above) matter.
+        A correct-tier move (see test_step_two_shows_the_price_difference…
+        and the *AdminActionTests* audit-entry test) never exercises this
+        branch at all, which is why nothing else caught it."""
+        self.ticket.attendee.child.birthdate = date(2020, 1, 1)
+        self.ticket.attendee.child.save()
+        preview = self._post(
+            {
+                "action": "change_ticket_type",
+                "_selected_action": [str(self.ticket.id)],
+                "preview": "yes",
+                "ticket_type": str(self.youth_type.id),
+            }
+        )
+        self.assertTrue(preview.context["needs_acknowledgement"])
+
+        self._post(
+            {
+                "action": "change_ticket_type",
+                "_selected_action": [str(self.ticket.id)],
+                "apply": "yes",
+                "ticket_type": str(self.youth_type.id),
+                "acknowledge_age_warning": "on",
+            }
+        )
+        self.ticket.refresh_from_db()
+        self.assertEqual(self.ticket.ticket_type_id, self.youth_type.id)
+
+        entry = AuditLog.objects.get(action="event_ticket_type_changed")
+        self.assertIsNotNone(entry.details["age_warning"])
+        self.assertTrue(entry.details["age_warning_acknowledged"])
+
     def test_tickets_from_two_events_are_refused_outright(self):
         other_event = _make_event("Vinterläger")
         other_ticket = _make_ticket(other_event, _child_type(other_event))
@@ -736,6 +800,12 @@ class ChangeTicketTypeAdminActionTests(TestCase):
         self.assertEqual(self.ticket.ticket_type_id, self.child_type.id)
 
     def test_a_rejected_row_is_reported_rather_than_silently_dropped(self):
+        """B4: the ticket's own current type is now excluded from the
+        step-1 dropdown (plan_ticket_type_change always rejected it as
+        "already on this type", so offering it was a choice guaranteed to
+        fail). Submitting it anyway is caught one layer earlier — by form
+        validation, before plan_ticket_type_change is ever called — but
+        still surfaces as a visible error rather than a silent no-op."""
         response = self._post(
             {
                 "action": "change_ticket_type",
@@ -744,8 +814,10 @@ class ChangeTicketTypeAdminActionTests(TestCase):
                 "ticket_type": str(self.child_type.id),
             }
         )
-        self.assertEqual(len(response.context["rejections"]), 1)
+        self.assertFalse(response.context["form"].is_valid())
         self.assertEqual(response.context["plans"], [])
+        self.ticket.refresh_from_db()
+        self.assertEqual(self.ticket.ticket_type_id, self.child_type.id)
 
 
 @override_settings(

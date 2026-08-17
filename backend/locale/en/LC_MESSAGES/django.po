@@ -10,7 +10,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: 1.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-08-16 17:17+0000\n"
+"POT-Creation-Date: 2026-08-17 10:59+0000\n"
 "PO-Revision-Date: 2025-11-25 12:00+0000\n"
 "Last-Translator: \n"
 "Language-Team: English\n"
@@ -260,23 +260,30 @@ msgstr ""
 "A child who has a birthday during the event is a valid reason to sit outside "
 "the age range."
 
+msgid ""
+"One tick confirms every age warning listed above, for all tickets in this "
+"batch — including any age that could not be verified."
+msgstr ""
+"One tick confirms every age warning listed above, for all tickets in this "
+"batch — including any age that could not be verified."
+
 msgid "Ticket Type"
 msgstr "Ticket Type"
 
-msgid "Change ticket type"
-msgstr "Change ticket type"
-
 msgid ""
-"This field is locked so a tier change is priced correctly and logged. Go to "
-"the ticket list, tick this ticket, and choose \"Change ticket type…\" from "
-"the action menu above the list."
+"Locked. A tier change needs the guided flow so it's priced correctly and "
+"logged."
 msgstr ""
-"This field is locked so a tier change is priced correctly and logged. Go to "
-"the ticket list, tick this ticket, and choose \"Change ticket type…\" from "
-"the action menu above the list."
+"Locked. A tier change needs the guided flow so it's priced correctly and "
+"logged."
 
-msgid "Open the ticket list"
-msgstr "Open the ticket list"
+#, python-format
+msgid ""
+"Open %(attendee)s’s filtered ticket list, tick it, and choose “Change ticket "
+"type…”."
+msgstr ""
+"Open %(attendee)s’s filtered ticket list, tick it, and choose “Change ticket "
+"type…”."
 
 msgid "Family"
 msgstr "Family"
@@ -296,9 +303,19 @@ msgid ""
 msgstr ""
 "Select tickets from a single event — a ticket type belongs to one event only."
 
+msgid ""
+"Tick the age acknowledgement before confirming. Nothing was changed — the "
+"selection below is unchanged, review the warning and try again."
+msgstr ""
+"Tick the age acknowledgement before confirming. Nothing was changed — the "
+"selection below is unchanged, review the warning and try again."
+
 #, python-format
 msgid "%(changed)d ticket(s) changed, %(skipped)d skipped."
 msgstr "%(changed)d ticket(s) changed, %(skipped)d skipped."
+
+msgid "Change ticket type"
+msgstr "Change ticket type"
 
 msgid "A session-bundle ticket type must cover at least one session."
 msgstr "A session-bundle ticket type must cover at least one session."
@@ -1125,6 +1142,10 @@ msgstr "Print Job"
 msgid "Print Jobs"
 msgstr "Print Jobs"
 
+#, python-format
+msgid "%(amount)s credit"
+msgstr "%(amount)s credit"
+
 msgid ""
 "That link used a search or filter this page doesn't support. Showing the "
 "full list instead."
@@ -1145,14 +1166,8 @@ msgstr "Settled"
 msgid "Credit (overpaid)"
 msgstr "Credit (overpaid)"
 
-msgid "%(amount)s credit"
-msgstr "%(amount)s credit"
-
 msgid "Date"
 msgstr "Date"
-
-msgid "Outstanding balance"
-msgstr "Outstanding balance"
 
 msgid "Cancel selected registrations"
 msgstr "Cancel selected registrations"

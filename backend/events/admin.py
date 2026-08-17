@@ -1,3 +1,5 @@
+from urllib.parse import urlencode
+
 from django import forms
 from django.conf import settings
 from django.contrib import admin, messages
@@ -34,6 +36,15 @@ from reports.services import age_on
 # safe. registrations.services imports events.models (not events.admin), so
 # this is not a cycle.
 from checkins.audit import log_audit
+
+# The single sv-SE money-formatting path (see registrations/admin.py's
+# format_balance docstring) — this wizard is the screen the "1050,00" vs
+# "10 500,00" one-glyph difference matters most on, so it borrows the same
+# helper rather than growing a second one. Safe as a module-level import for
+# the same reason the registrations.services import below is: admin modules
+# only load at autodiscover, well after every app's models are ready, and
+# registrations.admin does not import events.admin (no cycle).
+from registrations.admin import format_balance, format_signed_amount
 from registrations.services import (
     AGE_MISMATCH_Q,
     UNCHECKABLE_AGE_FIT_Q,
@@ -201,13 +212,24 @@ class ChangeTicketTypeForm(forms.Form):
         ),
     )
 
-    def __init__(self, *args, event=None, **kwargs):
+    def __init__(self, *args, event=None, exclude_ticket_type_ids=(), **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields["ticket_type"].queryset = TicketType.objects.filter(
-            event=event, is_active=True
-        ).order_by("sort_order", "name")
+        # B4: excludes each selected ticket's own *current* type, not just
+        # retired ones. plan_ticket_type_change always rejects "already on
+        # this type" (see its ticket.ticket_type_id == new_ticket_type.id
+        # check) — offering it here is a choice the wizard is guaranteed to
+        # bounce back on the very next screen.
+        self.fields["ticket_type"].queryset = (
+            TicketType.objects.filter(event=event, is_active=True)
+            .exclude(id__in=exclude_ticket_type_ids)
+            .order_by("sort_order", "name")
+        )
+        # One money-formatting path (see registrations/admin.py's
+        # format_balance) — this used to render the raw Decimal
+        # ("700.00"), unlocalised and unitless, next to a step-2 preview
+        # that already read "700,00 kr".
         self.fields["ticket_type"].label_from_instance = (
-            lambda obj: f"{obj.name} — {obj.price}"
+            lambda obj: f"{obj.name} — {format_balance(obj.price)}"
         )
 
 
@@ -258,7 +280,7 @@ class TicketTypeGuardMixin:
     def get_readonly_fields(self, request, obj=None):
         readonly = list(super().get_readonly_fields(request, obj))
         if obj is not None:
-            readonly += ["ticket_type_locked", "ticket_type_change_hint"]
+            readonly += ["ticket_type_locked"]
         return readonly
 
     def get_exclude(self, request, obj=None):
@@ -282,7 +304,8 @@ class TicketTypeGuardMixin:
 
     @admin.display(description=_("Ticket Type"))
     def ticket_type_locked(self, obj):
-        """Plain text, not Django's ordinary readonly-FK rendering.
+        """Plain text, not Django's ordinary readonly-FK rendering, folded
+        together with the "how to change it" notice into one field/row.
 
         R3 (revision round 1): a readonly FK renders as a link to
         ``/admin/events/tickettype/<id>/change/`` — the page that edits the
@@ -293,27 +316,50 @@ class TicketTypeGuardMixin:
         form (see ``get_exclude``) is what stops Django's auto-link from
         firing at all — it only triggers when the readonly field name
         matches a real ForeignKey field.
+
+        B2: this used to render the current type as one readonly field and
+        a second explanatory pseudo-field below it, which read as a routine
+        field hint rather than a locked control — a blind-test persona
+        backtracked for about a minute here before treating the detour as
+        justified. Folded into one row, led with the state ("Locked.") and
+        styled as Django's own ``.messagelist .info`` notice rather than a
+        plain ``<p class="help">``, so it reads as "this is deliberately
+        gated" on first glance instead of a disabled-field error.
+
+        B1: the link used to land on the bare changelist — 666 tickets deep,
+        with no way to find the one the operator came from. It now carries
+        the attendee's name through as ``?q=`` (the same field this admin's
+        own ``search_fields`` already indexes), so the ticket that prompted
+        the visit is on the page that loads, not buried in it.
         """
         if obj.ticket_type_id is None:
-            return self.get_empty_value_display()
-        return str(obj.ticket_type)
+            current = self.get_empty_value_display()
+        else:
+            current = str(obj.ticket_type)
 
-    @admin.display(description=_("Change ticket type"))
-    def ticket_type_change_hint(self, obj):
         changelist_url = reverse(
             f"admin:{self.model._meta.app_label}_{self.model._meta.model_name}_changelist"
         )
-        return format_html(
-            '<p class="help">{0} <a href="{1}">{2}</a></p>',
+        query_term = (obj.attendee.last_name or obj.attendee.first_name).strip()
+        if query_term:
+            changelist_url = f"{changelist_url}?{urlencode({'q': query_term})}"
+
+        notice = format_html(
+            '<ul class="messagelist" style="margin:6px 0 0;padding:0;">'
+            '<li class="info" style="margin:0;">{0} <a href="{1}">{2}</a></li>'
+            "</ul>",
             _(
-                "This field is locked so a tier change is priced correctly "
-                "and logged. Go to the ticket list, tick this ticket, and "
-                'choose "Change ticket type…" from the action menu above '
-                "the list."
+                "Locked. A tier change needs the guided flow so it's "
+                "priced correctly and logged."
             ),
             changelist_url,
-            _("Open the ticket list"),
+            _(
+                "Open %(attendee)s’s filtered ticket list, tick it, and "
+                "choose “Change ticket type…”."
+            )
+            % {"attendee": str(obj.attendee)},
         )
+        return format_html("{0}{1}", current, notice)
 
 
 class TicketTriageMixin:
@@ -466,11 +512,51 @@ class EventTicketAdmin(TicketTriageMixin, TicketTypeGuardMixin, admin.ModelAdmin
             return None
 
         event = tickets[0].event
+
+        # Cancel used to be a bare ``href="#"`` — inert, and on this screen
+        # actively harmful: both step 1 and step 2 are TemplateResponses
+        # rendered directly from a POST (no redirect-after-post), so the
+        # obvious fallback of "let cancel.js call history.back()" walks the
+        # browser back into an uncached POST navigation. Chrome refuses that
+        # outright (ERR_CACHE_MISS) and shows chrome-error://chromewebdata —
+        # exactly what a persona hit. Same shape of bug as B1's lock-text
+        # link (a signpost with no route back to where the operator came
+        # from), so it gets B1's fix: a real URL to the filtered changelist,
+        # built with ``?q=`` when every selected ticket shares one query
+        # term, so Cancel returns to the row(s) the operator was working
+        # from rather than the unfiltered, thousands-deep list.
+        changelist_url = reverse(
+            f"admin:{self.model._meta.app_label}_{self.model._meta.model_name}_changelist"
+        )
+        query_terms = {
+            (ticket.attendee.last_name or ticket.attendee.first_name).strip()
+            for ticket in tickets
+        }
+        query_terms.discard("")
+        if len(query_terms) == 1:
+            changelist_url = (
+                f"{changelist_url}?{urlencode({'q': next(iter(query_terms))})}"
+            )
+        cancel_url = changelist_url
+
         submitted = "preview" in request.POST or "apply" in request.POST
-        form = ChangeTicketTypeForm(request.POST if submitted else None, event=event)
+        # B4: each selected ticket's own current type is excluded from step
+        # 1's dropdown — plan_ticket_type_change always rejects "already on
+        # this type", so offering it here is a choice guaranteed to fail on
+        # the next screen. A mixed selection excludes the union of their
+        # current types.
+        exclude_ticket_type_ids = {
+            ticket.ticket_type_id for ticket in tickets if ticket.ticket_type_id
+        }
+        form = ChangeTicketTypeForm(
+            request.POST if submitted else None,
+            event=event,
+            exclude_ticket_type_ids=exclude_ticket_type_ids,
+        )
 
         plans = []
         rejections = []
+        acknowledged = False
         if submitted and form.is_valid():
             new_ticket_type = form.cleaned_data["ticket_type"]
             acknowledged = form.cleaned_data["acknowledge_age_warning"]
@@ -480,64 +566,126 @@ class EventTicketAdmin(TicketTriageMixin, TicketTypeGuardMixin, admin.ModelAdmin
                 except TicketTypeChangeRejected as exc:
                     rejections.append((ticket, str(exc)))
 
+            needs_acknowledgement = any(p.requires_acknowledgement for p in plans)
+
             if "apply" in request.POST:
-                changed = skipped = 0
-                for plan in plans:
-                    try:
-                        change_attendee_ticket_type(
-                            plan.ticket,
-                            new_ticket_type=new_ticket_type,
-                            changed_by=request.user,
-                            acknowledge_age_warning=acknowledged,
-                        )
-                    except (TicketTypeChangeRejected, InvalidPaymentTransition) as exc:
-                        # Per-row, like every other staff write path here: a
-                        # concurrent edit or an unacknowledged warning on one
-                        # ticket must not abandon the rest.
-                        self.message_user(request, str(exc), messages.WARNING)
-                        skipped += 1
-                        continue
-                    log_audit(
+                # B3: the server-side rejection inside change_attendee_
+                # ticket_type stays the real guarantee — this check only
+                # decides whether an unticked submit gets a second chance on
+                # the same screen (see below) instead of quietly dropping
+                # the whole selection. Gating here, before the write loop,
+                # means the common case (nobody wrote anything, because
+                # nobody could) never has to be reverse-engineered from
+                # per-row skip messages afterwards.
+                if needs_acknowledgement and not acknowledged:
+                    self.message_user(
                         request,
-                        action="event_ticket_type_changed",
-                        entity_type="EventTicket",
-                        entity_id=str(plan.ticket.id),
-                        details={
-                            "attendee": str(plan.ticket.attendee),
-                            "event": event.name,
-                            "from_ticket_type": (
-                                plan.old_ticket_type.name
-                                if plan.old_ticket_type
-                                else None
-                            ),
-                            "to_ticket_type": plan.new_ticket_type.name,
-                            "old_price": (
-                                None if plan.old_price is None else str(plan.old_price)
-                            ),
-                            "new_price": str(plan.new_price),
-                            "delta": str(plan.delta),
-                            "price_effect": plan.effect.value,
-                            "payment_id": (
-                                None if plan.payment is None else str(plan.payment.id)
-                            ),
-                            "age_warning": (
-                                None
-                                if plan.age_warning is None
-                                else str(plan.age_warning)
-                            ),
-                            "age_warning_acknowledged": bool(
-                                plan.age_warning and acknowledged
-                            ),
-                        },
+                        _(
+                            "Tick the age acknowledgement before confirming. "
+                            "Nothing was changed — the selection below is "
+                            "unchanged, review the warning and try again."
+                        ),
+                        messages.ERROR,
                     )
-                    changed += 1
-                self.message_user(
-                    request,
-                    _("%(changed)d ticket(s) changed, %(skipped)d skipped.")
-                    % {"changed": changed, "skipped": skipped + len(rejections)},
-                    messages.SUCCESS if changed else messages.WARNING,
-                )
-                return None
+                else:
+                    changed = skipped = 0
+                    for plan in plans:
+                        try:
+                            change_attendee_ticket_type(
+                                plan.ticket,
+                                new_ticket_type=new_ticket_type,
+                                changed_by=request.user,
+                                acknowledge_age_warning=acknowledged,
+                            )
+                        except (
+                            TicketTypeChangeRejected,
+                            InvalidPaymentTransition,
+                        ) as exc:
+                            # Per-row, like every other staff write path
+                            # here: a concurrent edit on one ticket must not
+                            # abandon the rest.
+                            self.message_user(request, str(exc), messages.WARNING)
+                            skipped += 1
+                            continue
+                        log_audit(
+                            request,
+                            action="event_ticket_type_changed",
+                            entity_type="EventTicket",
+                            entity_id=str(plan.ticket.id),
+                            details={
+                                "attendee": str(plan.ticket.attendee),
+                                "event": event.name,
+                                "from_ticket_type": (
+                                    plan.old_ticket_type.name
+                                    if plan.old_ticket_type
+                                    else None
+                                ),
+                                "to_ticket_type": plan.new_ticket_type.name,
+                                "old_price": (
+                                    None
+                                    if plan.old_price is None
+                                    else str(plan.old_price)
+                                ),
+                                "new_price": str(plan.new_price),
+                                "delta": str(plan.delta),
+                                "price_effect": plan.effect.value,
+                                "payment_id": (
+                                    None
+                                    if plan.payment is None
+                                    else str(plan.payment.id)
+                                ),
+                                "age_warning": (
+                                    None
+                                    if plan.age_warning is None
+                                    else str(plan.age_warning)
+                                ),
+                                "age_warning_acknowledged": bool(
+                                    plan.age_warning and acknowledged
+                                ),
+                            },
+                        )
+                        changed += 1
+                    self.message_user(
+                        request,
+                        _("%(changed)d ticket(s) changed, %(skipped)d skipped.")
+                        % {"changed": changed, "skipped": skipped + len(rejections)},
+                        messages.SUCCESS if changed else messages.WARNING,
+                    )
+                    return None
+        else:
+            needs_acknowledgement = False
+
+        # B4: one money-formatting path. old_price/new_price/delta are
+        # Decimals straight off the plan; format them here rather than in
+        # the template so step 1's dropdown (format_balance in the form
+        # above) and step 2's preview can never drift into two renderings
+        # of the same number — the "1050,00" vs "10 500,00" failure this
+        # increment exists to prevent.
+        warning_plans = [plan for plan in plans if plan.age_warning]
+        single_warning_plan = warning_plans[0] if len(warning_plans) == 1 else None
+        plan_rows = [
+            {
+                "plan": plan,
+                "old_price": (
+                    None if plan.old_price is None else format_balance(plan.old_price)
+                ),
+                "new_price": format_balance(plan.new_price),
+                "delta": (
+                    None if plan.old_price is None else format_signed_amount(plan.delta)
+                ),
+                # B3: the acknowledgement checkbox lives inside the warning
+                # banner it belongs to, not as a detached paragraph below
+                # the table. The common case is exactly one flagged ticket
+                # (this screen is usually worked one child at a time), so it
+                # renders inline there; a batch with more than one flagged
+                # ticket falls back to a single shared banner after the
+                # table (see show_group_ack_banner) — one tick still covers
+                # every row's warning, deliberately: batch semantics for
+                # per-row acknowledgement are out of scope for this screen.
+                "inline_ack": plan is single_warning_plan,
+            }
+            for plan in plans
+        ]
 
         context = {
             **self.admin_site.each_context(request),
@@ -546,11 +694,15 @@ class EventTicketAdmin(TicketTriageMixin, TicketTypeGuardMixin, admin.ModelAdmin
             "event": event,
             "form": form,
             "plans": plans,
+            "plan_rows": plan_rows,
             "rejections": rejections,
             "is_preview": bool(plans or rejections),
-            "needs_acknowledgement": any(p.requires_acknowledgement for p in plans),
+            "needs_acknowledgement": needs_acknowledgement,
+            "show_group_ack_banner": needs_acknowledgement
+            and single_warning_plan is None,
             "opts": self.model._meta,
             "action_checkbox_name": helpers.ACTION_CHECKBOX_NAME,
+            "cancel_url": cancel_url,
         }
         return TemplateResponse(
             request,

@@ -10,7 +10,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: 1.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-08-16 17:17+0000\n"
+"POT-Creation-Date: 2026-08-17 10:59+0000\n"
 "PO-Revision-Date: 2025-11-25 12:00+0000\n"
 "Last-Translator: \n"
 "Language-Team: Swedish\n"
@@ -262,23 +262,30 @@ msgstr ""
 "Ett barn som fyller år under evenemanget är ett giltigt skäl att ligga "
 "utanför åldersintervallet."
 
+msgid ""
+"One tick confirms every age warning listed above, for all tickets in this "
+"batch — including any age that could not be verified."
+msgstr ""
+"En bock bekräftar alla varningar om ålder ovan, för samtliga biljetter i "
+"denna batch — inklusive en ålder som inte gick att kontrollera."
+
 msgid "Ticket Type"
 msgstr "Biljettyp"
 
-msgid "Change ticket type"
-msgstr "Byt biljettyp"
-
 msgid ""
-"This field is locked so a tier change is priced correctly and logged. Go to "
-"the ticket list, tick this ticket, and choose \"Change ticket type…\" from "
-"the action menu above the list."
+"Locked. A tier change needs the guided flow so it's priced correctly and "
+"logged."
 msgstr ""
-"Det här fältet är låst så att ett byte av biljettyp räknas ut rätt och "
-"loggas. Gå till biljettlistan, bocka i den här biljetten och välj \"Byt "
-"biljettyp…\" i åtgärdsmenyn ovanför listan."
+"Låst. Ett byte av biljettyp behöver det guidade flödet för att räknas ut "
+"rätt och loggas."
 
-msgid "Open the ticket list"
-msgstr "Öppna biljettlistan"
+#, python-format
+msgid ""
+"Open %(attendee)s’s filtered ticket list, tick it, and choose “Change ticket "
+"type…”."
+msgstr ""
+"Öppna %(attendee)s biljettlista, redan filtrerad, bocka i den och välj "
+"”Byt biljettyp…”."
 
 msgid "Family"
 msgstr "Familj"
@@ -299,9 +306,19 @@ msgstr ""
 "Välj biljetter från ett enda evenemang — en biljettyp hör bara till ett "
 "evenemang."
 
+msgid ""
+"Tick the age acknowledgement before confirming. Nothing was changed — the "
+"selection below is unchanged, review the warning and try again."
+msgstr ""
+"Bocka i åldersbekräftelsen innan du bekräftar. Ingenting ändrades — "
+"urvalet nedan är oförändrat, granska varningen och försök igen."
+
 #, python-format
 msgid "%(changed)d ticket(s) changed, %(skipped)d skipped."
 msgstr "%(changed)d biljett(er) ändrade, %(skipped)d överhoppade."
+
+msgid "Change ticket type"
+msgstr "Byt biljettyp"
 
 msgid "A session-bundle ticket type must cover at least one session."
 msgstr "En biljettyp av sorten sessionspaket måste omfatta minst en session."
@@ -1138,12 +1155,16 @@ msgstr "Utskriftsjobb"
 msgid "Print Jobs"
 msgstr "Utskriftsjobb"
 
+#, python-format
+msgid "%(amount)s credit"
+msgstr "%(amount)s till godo"
+
 msgid ""
 "That link used a search or filter this page doesn't support. Showing the "
 "full list instead."
 msgstr ""
-"Den länken använde en sökning eller ett filter som den här sidan inte "
-"längre stödjer. Visar hela listan istället."
+"Den länken använde en sökning eller ett filter som den här sidan inte längre "
+"stödjer. Visar hela listan istället."
 
 #, python-format
 msgid "%(paid)d marked paid, %(skipped)d skipped (not pending payment)."
@@ -1160,14 +1181,8 @@ msgstr "Reglerad"
 msgid "Credit (overpaid)"
 msgstr "Till godo (överbetalt)"
 
-msgid "%(amount)s credit"
-msgstr "%(amount)s till godo"
-
 msgid "Date"
 msgstr "Datum"
-
-msgid "Outstanding balance"
-msgstr "Utestående belopp"
 
 msgid "Cancel selected registrations"
 msgstr "Avbryt valda anmälningar"
