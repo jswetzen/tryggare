@@ -1,10 +1,9 @@
 {% extends "admin/base_site.html" %}
-{% load i18n l10n admin_urls static %}
+{% load i18n l10n admin_urls %}
 
 {% block extrahead %}
     {{ block.super }}
     {{ form.media }}
-    <script src="{% static 'admin/js/cancel.js' %}" async></script>
 {% endblock %}
 
 {% block bodyclass %}{{ block.super }} app-{{ opts.app_label }} model-{{ opts.model_name }} change-ticket-type{% endblock %}
@@ -19,6 +18,8 @@
 {% endblock %}
 
 {% block content %}
+
+<form method="post">{% csrf_token %}
 
 {% if not is_preview %}
 <p>{% blocktranslate with event=event.name %}Choose the ticket type these tickets should have at {{ event }}. Nothing is changed yet — the next screen shows what it does to each family's balance.{% endblocktranslate %}</p>
@@ -50,26 +51,46 @@
 </tr>
 </thead>
 <tbody>
-{% for plan in plans %}
+{% for row in plan_rows %}
 <tr>
-    <td>{{ plan.ticket.attendee }}</td>
-    <td>{% if plan.age_at_event is None %}—{% else %}{{ plan.age_at_event }}{% endif %}</td>
-    <td>{% if plan.old_ticket_type %}{{ plan.old_ticket_type.name }} ({{ plan.old_price|default_if_none:"—" }}){% else %}{% translate "No ticket type" %}{% endif %}</td>
-    <td>{{ plan.new_ticket_type.name }} ({{ plan.new_price }})</td>
-    <td>{% if plan.old_price is None %}—{% else %}{{ plan.delta }}{% endif %}</td>
-    <td>{{ plan.effect_label }}</td>
+    <td>{{ row.plan.ticket.attendee }}</td>
+    <td>{% if row.plan.age_at_event is None %}—{% else %}{{ row.plan.age_at_event }}{% endif %}</td>
+    <td>{% if row.plan.old_ticket_type %}{{ row.plan.old_ticket_type.name }} ({{ row.old_price|default_if_none:"—" }}){% else %}{% translate "No ticket type" %}{% endif %}</td>
+    <td>{{ row.plan.new_ticket_type.name }} ({{ row.new_price }})</td>
+    <td>{% if row.delta is None %}—{% else %}{{ row.delta }}{% endif %}</td>
+    <td>{{ row.plan.effect_label }}</td>
 </tr>
-{% if plan.age_warning %}
+{% if row.plan.age_warning %}
 <tr>
-    <td colspan="6"><ul class="messagelist"><li class="warning">{{ plan.age_warning }}</li></ul></td>
+    <td colspan="6">
+    <ul class="messagelist" style="margin:0;">
+    <li class="warning">
+        {{ row.plan.age_warning }}
+        {% if row.inline_ack %}
+        <div style="margin-top:.6em;">
+            <label>{{ form.acknowledge_age_warning }} {{ form.acknowledge_age_warning.label }}</label>
+            <div class="help" style="margin-left:0;">{{ form.acknowledge_age_warning.help_text }}</div>
+        </div>
+        {% endif %}
+    </li>
+    </ul>
+    </td>
 </tr>
 {% endif %}
 {% endfor %}
 </tbody>
 </table>
+
+{% if show_group_ack_banner %}
+<ul class="messagelist">
+<li class="warning">
+    <label>{{ form.acknowledge_age_warning }} {% translate "One tick confirms every age warning listed above, for all tickets in this batch — including any age that could not be verified." %}</label>
+    <div class="help" style="margin-left:0;">{{ form.acknowledge_age_warning.help_text }}</div>
+</li>
+</ul>
+{% endif %}
 {% endif %}
 
-<form method="post">{% csrf_token %}
 <div>
 {% for obj in queryset %}
 <input type="hidden" name="{{ action_checkbox_name }}" value="{{ obj.pk|unlocalize }}">
@@ -78,18 +99,26 @@
 {% if is_preview %}
     <input type="hidden" name="apply" value="yes">
     {{ form.ticket_type.as_hidden }}
+    <input type="submit" id="id_change_ticket_type_submit" value="{% translate 'Change ticket type' %}"{% if not plans or needs_acknowledgement and not form.acknowledge_age_warning.value %} disabled{% endif %}>
     {% if needs_acknowledgement %}
-    <p>{{ form.acknowledge_age_warning }} {{ form.acknowledge_age_warning.label_tag }}<br>
-    <span class="help">{{ form.acknowledge_age_warning.help_text }}</span></p>
+    <script>
+    (function () {
+        document.querySelectorAll('#id_acknowledge_age_warning').forEach(function (checkbox) {
+            checkbox.addEventListener('change', function () {
+                var submit = document.getElementById('id_change_ticket_type_submit');
+                submit.disabled = !checkbox.checked;
+            });
+        });
+    })();
+    </script>
     {% endif %}
-    <input type="submit" value="{% translate 'Change ticket type' %}"{% if not plans %} disabled{% endif %}>
 {% else %}
     <input type="hidden" name="preview" value="yes">
     {{ form.ticket_type.errors }}
     <p>{{ form.ticket_type.label_tag }} {{ form.ticket_type }}</p>
     <input type="submit" value="{% translate 'Show what this changes' %}">
 {% endif %}
-<a href="#" class="button cancel-link">{% translate "Cancel" %}</a>
+<a href="{{ cancel_url }}" class="button cancel-link">{% translate "Cancel" %}</a>
 </div>
 </form>
 {% endblock %}

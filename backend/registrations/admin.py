@@ -37,6 +37,19 @@ def format_balance(amount: Decimal) -> str:
         return number_format(amount, decimal_pos=2, force_grouping=True) + " kr"
 
 
+def format_signed_amount(amount: Decimal) -> str:
+    """Same sv-SE money rule as format_balance, prefixed with an explicit
+    sign — "+300,00 kr" / "−300,00 kr" — so a price *delta* on the
+    change-ticket-type wizard reads as a direction without the operator
+    doing the arithmetic themselves. The minus is U+2212 (MINUS SIGN), not
+    an ASCII hyphen, to visually match the plus glyph's width."""
+    if amount > ZERO:
+        return f"+{format_balance(amount)}"
+    if amount < ZERO:
+        return f"−{format_balance(-amount)}"
+    return format_balance(amount)
+
+
 def render_balance(amount: Decimal | None):
     """Three states, not two (R3): a negative balance is a credit, not a
     smaller debt, and the "remaining to pay" wording is a contradiction for
