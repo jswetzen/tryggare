@@ -312,3 +312,9 @@ CSRF_COOKIE_SAMESITE = os.getenv("CSRF_COOKIE_SAMESITE", "Lax")
 CSRF_COOKIE_HTTPONLY = False  # Allow JavaScript to read CSRF token
 CSRF_USE_SESSIONS = False  # Use cookie-based CSRF tokens
 CSRF_COOKIE_NAME = "csrftoken"
+
+# The Django test runner. See config/test_runner.py: it reseeds the three role
+# groups after the test database is set up, because a TransactionTestCase flush
+# deletes what accounts/migrations/0003_seed_roles created and --keepdb then
+# carries the groupless database into every later run.
+TEST_RUNNER = "config.test_runner.RoleSeedingTestRunner"
