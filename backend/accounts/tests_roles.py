@@ -358,6 +358,58 @@ class IsStaffSyncTests(TestCase):
         root.refresh_from_db()
         self.assertTrue(root.is_staff)
 
+    def test_forward_clear_revokes_is_staff(self):
+        group = Group.objects.get(name=ADMINISTRATOR)
+        self.user.groups.add(group)
+        self.user.groups.clear()
+        self.user.refresh_from_db()
+        self.assertFalse(self.user.is_staff)
+
+    def test_reverse_clear_revokes_is_staff(self):
+        """``Administratör.user_set.clear()`` must demote everyone it emptied.
+
+        The reverse clear is the one shape that carries no ``pk_set`` on
+        either side of the operation (Django's m2m_changed contract passes
+        None for pre_clear and post_clear alike), so without the pre_clear
+        stash the handler had nobody to act on and left every former
+        Administratör with a stale ``is_staff`` — still able to open
+        ``/admin/`` with the group membership that justified it gone.
+
+        Nothing in the admin UI reaches this: UserAdmin's form goes through
+        ``user.groups.set()``, which resolves to per-user add/remove. A shell
+        session, a data migration or a fixture doing bulk role cleanup does.
+        """
+        group = Group.objects.get(name=ADMINISTRATOR)
+        other = AdminUser.objects.create_user("kollega", "pw-12345678", name="Kollega")
+        group.user_set.add(self.user, other)
+        self.assertTrue(AdminUser.objects.get(pk=self.user.pk).is_staff)
+        self.assertTrue(AdminUser.objects.get(pk=other.pk).is_staff)
+
+        group.user_set.clear()
+
+        self.assertFalse(AdminUser.objects.get(pk=self.user.pk).is_staff)
+        self.assertFalse(AdminUser.objects.get(pk=other.pk).is_staff)
+
+    def test_reverse_clear_of_another_group_leaves_is_staff_alone(self):
+        """Clearing Koordinator must not touch an Administratör's flag.
+
+        Guards the stash against the obvious over-reach: recomputing "everyone
+        with is_staff who is not in Administratör" would have demoted a user
+        whose flag was set directly in a shell, which the module docstring
+        promises to leave alone.
+        """
+        self.user.groups.add(Group.objects.get(name=ADMINISTRATOR))
+        bystander = AdminUser.objects.create_user(
+            "handpahlagd", "pw-12345678", name="Handpålagd"
+        )
+        bystander.is_staff = True
+        bystander.save(update_fields=["is_staff"])
+
+        Group.objects.get(name=COORDINATOR).user_set.clear()
+
+        self.assertTrue(AdminUser.objects.get(pk=self.user.pk).is_staff)
+        self.assertTrue(AdminUser.objects.get(pk=bystander.pk).is_staff)
+
 
 # --------------------------------------------------------------------------
 # The session payload the frontend gates on

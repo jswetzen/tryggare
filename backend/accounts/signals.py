@@ -21,12 +21,22 @@ means anything else: every app-tier grant that used to ride on it now rides on
 a permission instead.
 
 One deliberate gap: ``is_staff`` set directly in a shell or a fixture is left
-alone. This syncs the group relation; it does not police the column.
+alone. This syncs the group relation; it does not police the column. That is
+also why the ``post_clear`` handling below goes to the trouble of remembering
+who was in the group rather than simply demoting everyone still flagged
+``is_staff``: the second would police the column, and would quietly strip a
+flag somebody set on purpose by another route.
 """
 
 from django.db.models.signals import m2m_changed
 
 from .roles import ADMINISTRATOR
+
+# The pks stashed by ``pre_clear`` are hung on the Group instance under this
+# name. Django's own m2m_changed docs suggest exactly this pattern: by the time
+# ``post_clear`` fires the join rows are gone, so the only chance to learn who
+# was affected is before the delete.
+_CLEARED_PKS = "_sync_is_staff_cleared_user_pks"
 
 
 def connect(app_config):
@@ -42,7 +52,7 @@ def connect(app_config):
 def sync_is_staff_with_administrator_group(
     sender, instance, action, reverse, pk_set, **kwargs
 ):
-    if action not in ("post_add", "post_remove", "post_clear"):
+    if action not in ("pre_clear", "post_add", "post_remove", "post_clear"):
         return
 
     from django.contrib.auth.models import Group
@@ -53,9 +63,30 @@ def sync_is_staff_with_administrator_group(
         # ``group.user_set.add(user, ...)`` — ``instance`` is the Group.
         if getattr(instance, "name", None) != ADMINISTRATOR:
             return
+        if action == "pre_clear":
+            # ``group.user_set.clear()``. Per Django's m2m_changed contract
+            # ``pk_set`` is None for both pre_clear and post_clear, so the
+            # membership has to be read now — a moment later the rows are gone
+            # and there is no way to tell whose ``is_staff`` went stale.
+            setattr(
+                instance,
+                _CLEARED_PKS,
+                list(instance.user_set.values_list("pk", flat=True)),
+            )
+            return
+        if action == "post_clear":
+            pk_set = getattr(instance, _CLEARED_PKS, None) or []
+            # Don't let a stale list survive to a second clear on the same
+            # in-memory Group.
+            if hasattr(instance, _CLEARED_PKS):
+                delattr(instance, _CLEARED_PKS)
         users = list(AdminUser.objects.filter(pk__in=pk_set or []))
     else:
         # ``user.groups.add(group, ...)`` — ``instance`` is the AdminUser.
+        # Forward clears need no stash: ``instance`` is the one user affected,
+        # and ``post_clear`` alone is enough to recompute them.
+        if action == "pre_clear":
+            return
         # ``post_clear`` carries no pk_set, so it always has to be considered.
         if pk_set is not None:
             touched = Group.objects.filter(pk__in=pk_set, name=ADMINISTRATOR)

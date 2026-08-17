@@ -422,6 +422,31 @@ class TicketType(models.Model):
         """
         if self.event_id is None:
             return
+
+        def example_years_before(anchor, years):
+            """``anchor`` shifted back roughly ``years``, always a real date.
+
+            Only interesting when ``anchor`` is 29 February: ``date.replace``
+            raises ValueError for a non-leap target year, and this is running
+            inside the branch that is *building a ValidationError message*, so
+            the crash would escape ``full_clean`` (which only catches
+            ValidationError) and turn a helpful 400 into a bare 500.
+
+            Stepping further back to the nearest leap year rather than sliding
+            to 28 February is deliberate: the example has to be a value that
+            would actually pass this same check, and for a 29 February anchor
+            only another 29 February does. The example is then a year or two
+            older than the round number in the sentence, which is fine — it
+            demonstrates the shape, and the exact date the operator needs is
+            already spelled out alongside it.
+            """
+            for shift in range(years, years + 8):
+                try:
+                    return anchor.replace(year=anchor.year - shift)
+                except ValueError:
+                    continue
+            raise AssertionError("no valid year within 8 of the requested shift")
+
         start = self.event.start_date
         day_after_start = start + timedelta(days=1)
         errors = {}
@@ -437,7 +462,7 @@ class TicketType(models.Model):
                 "on a different day than the event actually starts."
             ) % {
                 "start": start.isoformat(),
-                "example": start.replace(year=start.year - 12).isoformat(),
+                "example": example_years_before(start, 12).isoformat(),
             }
         if self.min_birthdate is not None and (
             self.min_birthdate.month,
@@ -450,9 +475,7 @@ class TicketType(models.Model):
                 "has already turned 18 by the time the event starts."
             ) % {
                 "day_after": day_after_start.isoformat(),
-                "example": day_after_start.replace(
-                    year=day_after_start.year - 18
-                ).isoformat(),
+                "example": example_years_before(day_after_start, 18).isoformat(),
             }
         if errors:
             raise ValidationError(errors)
