@@ -95,13 +95,3 @@ it" beats "improve the form".
 
 If a surface is genuinely good, say so briefly and file nothing. A thin honest critique is
 more useful than a padded one, and manufacturing findings actively costs the loop a round.
-
-## Do not stall
-
-Run commands plainly and wait for them. Do not pipe a long-running command through `tail`,
-`head`, or a pager — the output buffers, you see nothing, and it becomes easy to believe you
-are waiting on something that has already finished or never started. Do not spawn a background
-job to poll for a result you could simply wait for. Two agents lost entire runs to exactly
-this on 2026-08-16, stopping without ever producing a report while their work sat on disk. If
-a command is slow, wait. If you need incremental output, redirect it to a file and read the
-file.
