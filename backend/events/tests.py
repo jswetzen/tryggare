@@ -13,6 +13,7 @@ from django.utils import timezone
 from rest_framework.test import APIClient
 
 from events.models import (
+    AppliesTo,
     Event,
     Extra,
     ExtraChoice,
@@ -25,6 +26,7 @@ from events.models import (
 from families.models import Child, Family, Parent
 from accounts.models import AdminUser
 from accounts.roles import COORDINATOR, grant
+from tests.support import NonManifestStaticfilesTestCase
 
 
 class TicketModelTest(TestCase):
@@ -591,6 +593,85 @@ class TicketTypeExtraModelTest(TestCase):
                     attendee=self.child,
                     price_at_registration=50,
                 )
+
+
+class TicketTypeAdminAgeWindowWarningTest(NonManifestStaticfilesTestCase, TestCase):
+    """The increment following 7cda9ae: warn (don't block) when applies_to
+    makes an age window uncheckable. See events/admin.py::
+    TicketTypeAdmin._warn_if_age_window_uncheckable — must agree with
+    registrations/services.py::UNCHECKABLE_AGE_FIT_Q: the window can only
+    ever be evaluated against a Child's birthdate, and a Parent attendee
+    (which applies_to=PARENT steers this ticket type toward) never has
+    one."""
+
+    @classmethod
+    def setUpTestData(cls):
+        cls.admin_user = AdminUser.objects.create_superuser("age-admin", "pw12345")
+        cls.event = Event.objects.create(
+            name="Winter Camp",
+            start_date=date(2027, 1, 10),
+            end_date=date(2027, 1, 12),
+        )
+
+    def setUp(self):
+        self.client.force_login(self.admin_user)
+
+    def _post_add(self, **overrides):
+        start = self.event.start_date
+        data = {
+            "event": str(self.event.id),
+            "name": "Föräldrabiljett",
+            "price": "100",
+            "applies_to": AppliesTo.EITHER,
+            "kind": TicketType.Kind.EVENT,
+            "sort_order": "0",
+            "sessions": [],
+        }
+        data.update(overrides)
+        return self.client.post(reverse("admin:events_tickettype_add"), data=data)
+
+    def test_warns_when_parent_only_type_has_an_age_window(self):
+        start = self.event.start_date
+        response = self._post_add(
+            applies_to=AppliesTo.PARENT,
+            max_birthdate=start.replace(year=start.year - 18).isoformat(),
+        )
+        # "Warn, don't block": the save must have succeeded (redirect to
+        # the changelist), not re-rendered the add form with errors.
+        self.assertEqual(response.status_code, 302)
+        self.assertTrue(
+            TicketType.objects.filter(
+                event=self.event, applies_to=AppliesTo.PARENT
+            ).exists()
+        )
+        follow = self.client.get(response.url)
+        messages = [str(m) for m in follow.context["messages"]]
+        self.assertTrue(
+            any("will never actually be evaluated" in m for m in messages),
+            messages,
+        )
+
+    def test_no_warning_for_a_normal_checkable_configuration(self):
+        start = self.event.start_date
+        response = self._post_add(
+            applies_to=AppliesTo.CHILD,
+            max_birthdate=start.replace(year=start.year - 12).isoformat(),
+        )
+        self.assertEqual(response.status_code, 302)
+        follow = self.client.get(response.url)
+        messages = [str(m) for m in follow.context["messages"]]
+        self.assertFalse(
+            any("will never actually be evaluated" in m for m in messages), messages
+        )
+
+    def test_no_warning_when_parent_only_type_has_no_age_window(self):
+        response = self._post_add(applies_to=AppliesTo.PARENT)
+        self.assertEqual(response.status_code, 302)
+        follow = self.client.get(response.url)
+        messages = [str(m) for m in follow.context["messages"]]
+        self.assertFalse(
+            any("will never actually be evaluated" in m for m in messages), messages
+        )
 
 
 class ExtraDuplicationTest(TestCase):

@@ -13,6 +13,7 @@ from django.utils.translation import gettext_lazy as _
 from config.admin import HiddenFromIndexAdmin
 
 from .models import (
+    AppliesTo,
     Event,
     EventTicket,
     Extra,
@@ -815,6 +816,42 @@ class TicketTypeAdmin(admin.ModelAdmin):
     search_fields = ("name", "event__name")
     autocomplete_fields = ["event", "requires_ticket_type"]
     filter_horizontal = ["sessions"]
+
+    def save_model(self, request, obj, form, change):
+        super().save_model(request, obj, form, change)
+        self._warn_if_age_window_uncheckable(request, obj)
+
+    def _warn_if_age_window_uncheckable(self, request, obj):
+        """Warn, don't block (owner's decision — see the increment that
+        added this). This must agree with
+        ``registrations.services.UNCHECKABLE_AGE_FIT_Q``: an age window can
+        only ever be evaluated against a ``Child`` row's birthdate (see
+        ``_age_warning_for``'s ``ObjectDoesNotExist`` branch — a ``Parent``
+        attendee has no ``.child`` at all, so the comparison never runs for
+        one). ``applies_to == PARENT`` steers the public form to hand this
+        ticket type only to parent attendees, so a configured window on such
+        a type is never actually evaluated through that front door — it
+        looks constraining but constrains nothing. Staff can still
+        hand-assign the type to a child in the admin regardless of
+        ``applies_to`` (see the field's help_text), which *would* make the
+        window checkable again; the warning is about the configuration as
+        given, not about every possible override.
+        """
+        has_window = obj.min_birthdate is not None or obj.max_birthdate is not None
+        if has_window and obj.applies_to == AppliesTo.PARENT:
+            self.message_user(
+                request,
+                _(
+                    '"%(name)s" applies only to parents, but has an age '
+                    "window configured (Minimum/Maximum Birthdate). Age is "
+                    "only ever checked for attendees registered as a "
+                    "child, so this window will never actually be "
+                    "evaluated for a parent-only ticket type — it "
+                    "constrains nothing as configured."
+                )
+                % {"name": obj.name},
+                level=messages.WARNING,
+            )
 
 
 @admin.register(PromoCode)
