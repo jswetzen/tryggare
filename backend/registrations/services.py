@@ -362,7 +362,13 @@ class TicketTypeChangePlan:
 #
 # min_birthdate/max_birthdate are ordinary date columns on TicketType, so
 # this is a plain field-to-field comparison — no annotate(), no date
-# arithmetic, no migration.
+# arithmetic, no migration. The rule those columns encode is settled: age
+# at the event's *start date*, evaluated once, never recomputed as the
+# event runs — there is no "legitimate birthday-crossing placement", a
+# ticket either fits that one rule or it doesn't. TicketType.clean()
+# (events/models.py) enforces that a saved bound actually states that rule
+# — an anniversary of event.start_date — rather than some other date that
+# would make this comparison silently mean something else.
 AGE_MISMATCH_Q = Q(attendee__child__birthdate__lt=F("ticket_type__min_birthdate")) | Q(
     attendee__child__birthdate__gt=F("ticket_type__max_birthdate")
 )
@@ -396,12 +402,13 @@ def _age_warning_for(ticket: EventTicket, ticket_type: TicketType):
     """(warning, age_at_event) for putting ``ticket``'s attendee on
     ``ticket_type``.
 
-    A *warning*, never a rejection: case catalog §2.2 (the birthday-crossing
-    child) is a legitimate reason to sit outside the window, and the whole
-    recommendation there is that a mis-tiering is fixed by "a staff-initiated
-    ticket-type change through the edit flow, visible and audited". Blocking
-    it would leave the operator with no way to do the thing the catalog says
-    they must be able to do.
+    A *warning*, never a rejection. There is no "legitimate reason" a ticket
+    can sit outside its type's window any more — age at event start is the
+    whole rule — but a mis-tiering, once found, is still fixed by "a
+    staff-initiated ticket-type change through the edit flow, visible and
+    audited", not by this function refusing to move the ticket. Blocking
+    the move here would leave the operator with no way to do the one thing
+    a mis-tiering calls for.
 
     The window is compared against the attendee's *birthdate*, not a derived
     age, because that is how TicketType stores it (a cohort/årskurs window).

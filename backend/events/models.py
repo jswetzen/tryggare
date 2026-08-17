@@ -1,4 +1,5 @@
 import uuid
+from datetime import timedelta
 
 from django.core.exceptions import ValidationError
 from django.core.validators import RegexValidator
@@ -257,9 +258,17 @@ class TicketType(models.Model):
         blank=True,
         verbose_name=_("Minimum Birthdate"),
         help_text=_(
-            "The attendee must be born on or after this date (inclusive). "
-            "Leave blank for no lower age limit; leave both bounds blank "
-            "to skip the age check for this ticket type entirely."
+            "The attendee must be born on or after this date (inclusive) — "
+            "the oldest-age cutoff. Age is judged once, on the event's "
+            "start date, and never recomputed: the rule is age at event "
+            "start, full stop, so this must land exactly one day after an "
+            "anniversary of that date (e.g. the day after the event's "
+            "start date, 18 years earlier, to exclude anyone who has "
+            "already turned 18). Leaving this blank does not mean "
+            '"unconfigured" — it deliberately means anyone may hold this '
+            "ticket type, with no lower age limit at all. Leave both "
+            "bounds blank to skip the age check for this ticket type "
+            "entirely, on purpose."
         ),
     )
     max_birthdate = models.DateField(
@@ -267,12 +276,16 @@ class TicketType(models.Model):
         blank=True,
         verbose_name=_("Maximum Birthdate"),
         help_text=_(
-            "The attendee must be born on or before this date (inclusive). "
-            "This is a fixed calendar date you choose — commonly the "
-            "event's start date — not a recalculated age, so it isn't "
-            "re-checked as the event runs: a birthday partway through the "
-            "event doesn't move anyone across the boundary. Leave blank "
-            "for no upper age limit."
+            "The attendee must be born on or before this date (inclusive) "
+            "— the youngest-age cutoff. Age is judged once, on the event's "
+            "start date, and never recomputed as the event runs: a "
+            "birthday partway through the event doesn't move anyone "
+            "across the boundary. Because of that, this must land exactly "
+            "on an anniversary of the event's start date (e.g. that date, "
+            '12 years earlier, for a "12 and under" cutoff). Leaving '
+            'this blank does not mean "unconfigured" — it deliberately '
+            "means anyone may hold this ticket type, with no upper age "
+            "limit at all."
         ),
     )
     available_from = models.DateTimeField(
@@ -369,20 +382,80 @@ class TicketType(models.Model):
 
     def clean(self):
         super().clean()
-        if self.requires_ticket_type_id is None:
+        if self.requires_ticket_type_id is not None:
+            if self.requires_ticket_type_id == self.id:
+                raise ValidationError(
+                    {"requires_ticket_type": _("A ticket type cannot require itself.")}
+                )
+            if self.requires_ticket_type.event_id != self.event_id:
+                raise ValidationError(
+                    {
+                        "requires_ticket_type": _(
+                            "The required ticket type must belong to the same event."
+                        )
+                    }
+                )
+        self._clean_age_window()
+
+    def _clean_age_window(self):
+        """Enforce the single rule the owner settled on: age is judged once,
+        on the event's start date, never recomputed. min_birthdate/
+        max_birthdate are plain birthdate columns with no notion of "today"
+        in their comparison (see registrations/services.py::AGE_MISMATCH_Q),
+        so the only way a bound can silently encode a *different* rule —
+        age at registration, age at some other milestone — is by not lining
+        up with a whole-year anniversary of ``event.start_date``. This
+        check closes that gap: a configured bound must sit on the exact
+        date that relationship requires, not merely "near" the event.
+
+        max_birthdate is the youngest-permitted cutoff, so it must fall on
+        the start date's own month/day N years earlier (born that day =
+        turns N on day one, exactly old enough). min_birthdate is the
+        oldest-permitted cutoff, so it must fall one day *after* that
+        anniversary (born the day before = already turned N+1 before the
+        event started, too old by one day; born on or after this bound and
+        they are still N or younger on day one).
+
+        Skipped for an unsaved-event edge case (``event_id`` unset) and for
+        whichever bound is left blank — blank means "no limit", not "not
+        yet configured to match", see the field help text.
+        """
+        if self.event_id is None:
             return
-        if self.requires_ticket_type_id == self.id:
-            raise ValidationError(
-                {"requires_ticket_type": _("A ticket type cannot require itself.")}
-            )
-        if self.requires_ticket_type.event_id != self.event_id:
-            raise ValidationError(
-                {
-                    "requires_ticket_type": _(
-                        "The required ticket type must belong to the same event."
-                    )
-                }
-            )
+        start = self.event.start_date
+        day_after_start = start + timedelta(days=1)
+        errors = {}
+        if self.max_birthdate is not None and (
+            self.max_birthdate.month,
+            self.max_birthdate.day,
+        ) != (start.month, start.day):
+            errors["max_birthdate"] = _(
+                "Age is judged on the event's start date (%(start)s), so "
+                "this must fall exactly on an anniversary of it — e.g. "
+                '%(example)s for a cutoff of "12 and under". A date that '
+                "doesn't land on the anniversary would silently judge age "
+                "on a different day than the event actually starts."
+            ) % {
+                "start": start.isoformat(),
+                "example": start.replace(year=start.year - 12).isoformat(),
+            }
+        if self.min_birthdate is not None and (
+            self.min_birthdate.month,
+            self.min_birthdate.day,
+        ) != (day_after_start.month, day_after_start.day):
+            errors["min_birthdate"] = _(
+                "Age is judged on the event's start date, so this must "
+                "fall exactly one day after an anniversary of it "
+                "(%(day_after)s) — e.g. %(example)s to exclude anyone who "
+                "has already turned 18 by the time the event starts."
+            ) % {
+                "day_after": day_after_start.isoformat(),
+                "example": day_after_start.replace(
+                    year=day_after_start.year - 18
+                ).isoformat(),
+            }
+        if errors:
+            raise ValidationError(errors)
 
 
 class PromoCode(models.Model):

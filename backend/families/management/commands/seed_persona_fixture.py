@@ -9,11 +9,13 @@ database.
 The three tasks it is built for
 -------------------------------
 1. "A family says their 13-year-old is on the 0-12 ticket. Fix it."
-   Exactly one genuinely mis-tiered child exists in the whole dataset
-   (Nour Hägglund). Around it sit three near-misses that punish a sweep
-   done without reading birthdates — including one child who turns 13
-   *during* the event and is therefore legitimately outside her ticket
-   type's window (Tuva Sjöberg). See ``PLANTED_AGE_CASES``.
+   Exactly two genuinely mis-tiered children exist in the whole dataset
+   (Nour Hägglund, Tuva Sjöberg). Around them sit two correctly-tiered
+   near-misses that punish a sweep done without reading birthdates. Age
+   is judged once, on the event's first day, with no exception for a
+   child whose birthday falls during the event — Tuva turns 13 on day
+   four of the camp, and that does not move her: she is 12 on day one,
+   so Barn (0-12 år) is where she belongs. See ``PLANTED_AGE_CASES``.
 
 2. "Create 'Ledare junior', born 2005-2010, 500 kr."
    The target event carries a coherent ladder of existing ticket types
@@ -420,20 +422,20 @@ EXTRA_UNPAID_COUNTS = {"camp": 7, "weekend": 4, "winter": 3}
 
 PLANTED_AGE_CASES = """
 Hägglund (Sommarläger 2027) — three children, two of them 13:
-  Nour Hägglund    2014-02-11  13 on 2027-06-14  Barn (0-12 år)     ** THE ERROR
+  Nour Hägglund    2014-02-11  13 on 2027-06-14  Barn (0-12 år)     ** ERROR (too old for Barn)
   Signe Hägglund   2013-11-08  13 on 2027-06-14  Ungdom (13-17 år)  correct
   Vilgot Hägglund  2015-03-22  12 on 2027-06-14  Barn (0-12 år)     correct
 Sjöberg (Sommarläger 2027):
-  Tuva Sjöberg     2014-06-17  12 on 2027-06-14  Ungdom (13-17 år)  ** LEGITIMATE
-                   turns 13 on 2027-06-17, day 4 of a 2027-06-14..20 event
+  Tuva Sjöberg     2014-06-17  12 on 2027-06-14  Ungdom (13-17 år)  ** ERROR (too young for Ungdom)
+                   turns 13 on 2027-06-17, day 4 of a 2027-06-14..20 event —
+                   irrelevant under the rule: age is judged on day one only.
   Melker Sjöberg   2018-01-30   9 on 2027-06-14  Barn (0-12 år)     correct
 """
 
 # (event key, "First Last") -> ticket type name, overriding the by-birthdate
 # assignment every other child gets. These two rows are the entire Job 1
-# measurement: one is wrong and must be fixed, the other is right and must
-# be left alone, and nothing in the data says which is which except the
-# birthdates.
+# measurement: both are wrong and must be fixed, and nothing in the data
+# says which is which except the birthdates.
 TICKET_OVERRIDES = {
     ("camp", "Nour Hägglund"): "Barn (0-12 år)",
     ("camp", "Tuva Sjöberg"): "Ungdom (13-17 år)",
@@ -1122,24 +1124,16 @@ class Command(BaseCommand):
         """
         problems = []
 
-        # Job 1: exactly one genuinely mis-tiered child, plus exactly one
-        # legitimate birthday-crossing override.
+        # Job 1: exactly two genuinely mis-tiered children. Age at event
+        # start is the whole rule now — there is no third "legitimate
+        # birthday-crossing" category left to check for, on purpose.
         mismatches = self._mismatch_sweep()
-        errors = [m for m in mismatches if not m["crosses_birthday"]]
-        overrides = [m for m in mismatches if m["crosses_birthday"]]
-        if len(errors) != 1:
+        expected_names = {"Nour Hägglund", "Tuva Sjöberg"}
+        found_names = {m["name"] for m in mismatches}
+        if found_names != expected_names:
             problems.append(
-                f"expected exactly 1 mis-tiered child, found {len(errors)}: "
-                + ", ".join(m["label"] for m in errors)
-            )
-        elif errors[0]["name"] != "Nour Hägglund":
-            problems.append(f"the mis-tiered child is {errors[0]['name']!r}")
-        if len(overrides) != 1 or (
-            overrides and overrides[0]["name"] != "Tuva Sjöberg"
-        ):
-            problems.append(
-                "expected exactly 1 birthday-crossing override (Tuva Sjöberg), found "
-                + (", ".join(m["label"] for m in overrides) or "none")
+                f"expected exactly the mis-tiered children "
+                f"{sorted(expected_names)}, found {sorted(found_names)}"
             )
 
         # Job 2: the ticket type to be created must not already exist.
@@ -1216,10 +1210,10 @@ class Command(BaseCommand):
         """Every EventTicket whose child sits outside their ticket type's
         birthdate window — the sweep a competent coordinator would do.
 
-        ``crosses_birthday`` separates the two populations the persona is
-        being measured on: a child who is outside the window and stays
-        outside it for the whole event is an error; a child who ages into
-        the window during the event is not.
+        Age is judged once, on the event's first day, full stop. There is
+        no "ages into the window during the event" exemption: every row
+        this returns is a mis-tiering that needs fixing, not a mix of
+        errors and legitimate placements.
         """
         from reports.services import age_on
 
@@ -1249,9 +1243,7 @@ class Command(BaseCommand):
                 continue
 
             start = ticket.event.start_date
-            end = ticket.event.end_date
             age_at_start = age_on(child.birthdate, start)
-            age_at_end = age_on(child.birthdate, end)
             rows.append(
                 {
                     "name": f"{child.first_name} {child.last_name}",
@@ -1259,8 +1251,6 @@ class Command(BaseCommand):
                     "event": ticket.event.name,
                     "ticket_type": ticket_type.name,
                     "age_at_start": age_at_start,
-                    "age_at_end": age_at_end,
-                    "crosses_birthday": age_at_end != age_at_start,
                     "label": (
                         f"{child.first_name} {child.last_name} "
                         f"({child.birthdate}, {age_at_start} at start) "
@@ -1300,14 +1290,9 @@ class Command(BaseCommand):
                 )
 
         out.write("")
-        out.write(self.style.MIGRATE_HEADING("Job 1 — the mis-tiered child"))
+        out.write(self.style.MIGRATE_HEADING("Job 1 — mis-tiered children"))
         for row in self._mismatch_sweep():
-            kind = (
-                "LEGITIMATE (turns 13 mid-event)"
-                if row["crosses_birthday"]
-                else "ERROR"
-            )
-            out.write(f"  {kind:<32} {row['label']}")
+            out.write(f"  {'ERROR':<32} {row['label']}")
 
         out.write("")
         out.write(self.style.MIGRATE_HEADING("Job 3 — outstanding balances"))
