@@ -20,29 +20,9 @@ ADMIN_INDEX_TITLE_EN = "Choose what to manage"
 ADMIN_INDEX_TITLE_SV = "Välj vad du vill hantera"
 
 
-@pytest.fixture(autouse=True)
-def _non_manifest_staticfiles(settings):
-    """Every test in this module renders a full admin template (index or
-    login), which pulls in {% static %} tags for admin/css/base.css etc. The
-    project's real STORAGES (config/settings/base.py) uses whitenoise's
-    CompressedManifestStaticFilesStorage, which resolves {% static %} through
-    a staticfiles.json manifest built by `collectstatic` — a step the test
-    environment never runs, so any manifest-backed lookup raises ValueError.
-
-    Swapping in plain StaticFilesStorage here only relaxes *how* static URLs
-    are resolved (no hashing/manifest lookup); it does not touch anything
-    these tests assert on (i18n behaviour, cookie name, switcher markup), so
-    it can't silently mask a broken switcher. Scoped to this module only — no
-    established pattern for this existed elsewhere in tests/unit/ to follow.
-    """
-    settings.STORAGES = {
-        "default": {
-            "BACKEND": "django.core.files.storage.FileSystemStorage",
-        },
-        "staticfiles": {
-            "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage",
-        },
-    }
+# The non-manifest-staticfiles autouse fixture this module used to define
+# locally now lives in tests/unit/conftest.py (shared by every admin-rendering
+# test under tests/unit/, not just this file) — see tests/support.py for why.
 
 
 @pytest.fixture
