@@ -246,14 +246,20 @@ class TicketType(models.Model):
         choices=AppliesTo.choices,
         default=AppliesTo.EITHER,
         verbose_name=_("Applies To"),
+        help_text=_(
+            "Who may pick this ticket type on the public registration "
+            "form — Child, Parent, or Either. Staff can still assign it "
+            "to anyone by hand in the admin, regardless of this setting."
+        ),
     )
     min_birthdate = models.DateField(
         null=True,
         blank=True,
         verbose_name=_("Minimum Birthdate"),
         help_text=_(
-            "The attendee must be born on or after this date. Leave blank "
-            "for no lower age limit."
+            "The attendee must be born on or after this date (inclusive). "
+            "Leave blank for no lower age limit; leave both bounds blank "
+            "to skip the age check for this ticket type entirely."
         ),
     )
     max_birthdate = models.DateField(
@@ -261,7 +267,11 @@ class TicketType(models.Model):
         blank=True,
         verbose_name=_("Maximum Birthdate"),
         help_text=_(
-            "The attendee must be born on or before this date. Leave blank "
+            "The attendee must be born on or before this date (inclusive). "
+            "This is a fixed calendar date you choose — commonly the "
+            "event's start date — not a recalculated age, so it isn't "
+            "re-checked as the event runs: a birthday partway through the "
+            "event doesn't move anyone across the boundary. Leave blank "
             "for no upper age limit."
         ),
     )
