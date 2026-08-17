@@ -10,7 +10,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: 1.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-08-17 13:02+0000\n"
+"POT-Creation-Date: 2026-08-17 13:57+0000\n"
 "PO-Revision-Date: 2025-11-25 12:00+0000\n"
 "Last-Translator: \n"
 "Language-Team: English\n"
@@ -317,6 +317,18 @@ msgstr "A session-bundle ticket type must cover at least one session."
 
 msgid "The required ticket type must belong to the same event."
 msgstr "The required ticket type must belong to the same event."
+
+#, python-format
+msgid ""
+"\"%(name)s\" applies only to parents, but has an age window configured "
+"(Minimum/Maximum Birthdate). Age is only ever checked for attendees "
+"registered as a child, so this window will never actually be evaluated for a "
+"parent-only ticket type — it constrains nothing as configured."
+msgstr ""
+"\"%(name)s\" applies only to parents, but has an age window configured "
+"(Minimum/Maximum Birthdate). Age is only ever checked for attendees "
+"registered as a child, so this window will never actually be evaluated for a "
+"parent-only ticket type — it constrains nothing as configured."
 
 # Admin changelist columns - events/admin.py (ticket triage)
 msgid "Target event"
