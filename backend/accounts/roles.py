@@ -84,10 +84,21 @@ _VOLUNTEER_PERMISSIONS = {
     "events.view_tickettype",
     "events.view_extra",
     "events.view_extrachoice",
-    # The actual job: check in, check out, undo. ``delete_checkinrecord`` is
-    # not here on purpose — "undo" is a POST action that closes a record, not a
-    # deletion, and nothing should let a volunteer make a check-in never have
-    # happened.
+    # The actual job: check in, check out, undo.
+    #
+    # ``delete_checkinrecord`` is not here, but be clear about what that does
+    # and does not buy. It stops a volunteer emptying the changelist, and it
+    # stops DELETE /api/checkins/<id>/. It does *not* stop the undo action:
+    # that is a POST, and DjangoModelPermissions maps POST to ``add_`` by verb,
+    # with no way to know this particular POST deletes a row. So a Volontär can
+    # in fact undo a check-in.
+    #
+    # That is intended (2026-08-18) rather than tolerated. The person who
+    # mis-scans a child is the person standing at the door with a queue behind
+    # them; making them fetch a Koordinator to fix a ten-second-old mistake
+    # costs more than it protects. The real controls on undo are that the
+    # record must be under five minutes old and not yet checked out, and that
+    # every undo is written to the audit log before the row goes.
     "checkins.view_checkinrecord",
     "checkins.add_checkinrecord",
     "checkins.change_checkinrecord",
@@ -168,7 +179,9 @@ _COORDINATOR_PERMISSIONS = _VOLUNTEER_PERMISSIONS | {
     "events.change_ticket",
     "events.delete_ticket",
     # Check-in corrections, and read access to the audit log. Read only: see
-    # the module docstring.
+    # the module docstring. Note this is what gates deleting an *old* record —
+    # the five-minute undo at the door is reachable by a Volontär too, see the
+    # note in the volunteer block above.
     "checkins.delete_checkinrecord",
     "checkins.view_auditlog",
     # Printer housekeeping short of minting credentials.

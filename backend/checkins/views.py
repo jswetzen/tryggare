@@ -27,9 +27,31 @@ class CheckInRecordViewSet(viewsets.ModelViewSet):
     ViewSet for managing check-in/check-out records.
 
     Gated on ``checkins.*_checkinrecord``. A Volontär holds view/add/change —
-    the door job — but not ``delete``: the undo actions are POSTs that close or
-    reverse a record, and nothing should let a shift worker make a check-in
-    never have happened.
+    the door job — but not ``delete``, which is what closes the changelist and
+    ``DELETE /api/checkins/<id>/`` to them.
+
+    It does not close ``undo``, and it is worth being exact about why, because
+    an earlier version of this docstring claimed otherwise and was wrong.
+    ``undo`` really does delete the row (below), but it is a POST, and
+    ``DjangoModelPermissions`` maps verbs to permissions without knowing what
+    any particular action does — POST means ``add_``. A Volontär therefore can
+    undo a check-in.
+
+    That is the intended behaviour (decided 2026-08-18), not an oversight left
+    standing. The person who mis-scans a child is the person at the door with a
+    queue behind them, and sending them to find a Koordinator to erase a
+    ten-second-old mistake costs more than it protects. What actually bounds
+    ``undo`` is that the record must be under five minutes old and not yet
+    checked out, and that the undo is written to the audit log before the row
+    goes — so the act is recoverable as evidence even though the row is not.
+
+    ``undo_checkout`` is a genuine edit: it clears the checkout fields and
+    saves, deleting nothing.
+
+    If this should ever become a Koordinator-only action, the fix is the
+    pattern ``SessionViewSet`` already uses (events/views.py) — a
+    ``get_permissions()`` remapping the action onto
+    ``config.permissions.POST_REQUIRES_DELETE``.
     """
 
     queryset = CheckInRecord.objects.select_related(

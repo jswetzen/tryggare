@@ -971,6 +971,35 @@ class VolunteerCanStillWorkTheDoorTests(RoleFixtureMixin, TestCase):
             self.as_volunteer().get("/api/printing/printers/").status_code, 200
         )
 
+    def test_can_undo_a_mis_scan(self):
+        """Pins a decision, not an accident (2026-08-18).
+
+        A cloud review flagged that ``undo`` deletes the row while the
+        permission map only asks for ``add_checkinrecord``, which a Volontär
+        holds — and the docstring at the time claimed the opposite. The
+        behaviour was kept: the person who mis-scans a child is the person at
+        the door with a queue behind them, and the act is audit-logged before
+        the row goes.
+
+        This test exists so that if someone later gates ``undo`` on
+        ``delete_checkinrecord``, they do it on purpose and see what it costs
+        rather than "fixing" it as a stray permission bug.
+        """
+        response = self.as_volunteer().post(
+            f"/api/checkins/{self.checkin.id}/undo/", {}, format="json"
+        )
+        self.assertNotEqual(response.status_code, 403)
+
+    def test_cannot_delete_a_check_in_record_outright(self):
+        """The other half: ``delete_checkinrecord`` still means something.
+
+        Withholding it does not close the five-minute undo, but it does close
+        the plain DELETE — so an old record cannot be made to have never
+        happened.
+        """
+        response = self.as_volunteer().delete(f"/api/checkins/{self.checkin.id}/")
+        self.assertEqual(response.status_code, 403)
+
     def test_can_take_payment_at_the_door(self):
         """Explicitly out of scope for restriction: door money stays."""
         response = self.as_volunteer().post(
