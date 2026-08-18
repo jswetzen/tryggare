@@ -3,8 +3,9 @@ from django.http import HttpResponse
 from django.utils import timezone
 from rest_framework import viewsets
 from rest_framework.decorators import action
-from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
+
+from config.permissions import DjangoModelPermissionsWithView, model_permissions
 
 from events.models import EventTicket, SessionTicket
 from registrations.models import Registration
@@ -27,10 +28,49 @@ from .serializers import (
 class FamilyViewSet(viewsets.ModelViewSet):
     """
     ViewSet for managing families.
-    Requires authentication for all actions.
+
+    Gated on the matching ``families`` model permission. The two GDPR actions
+    (``export``/``erase``) are gated on their own permissions instead — see
+    ``get_permissions`` below.
     """
 
-    permission_classes = [IsAuthenticated]
+    permission_classes = [DjangoModelPermissionsWithView]
+
+    # DSAR export is a GET and erasure is a POST, so the default verb mapping
+    # would gate them on ``view_family`` and ``add_family`` respectively — the
+    # first is the permission that opens the check-in screen's family lookup,
+    # the second reads as harmless and hard-deletes a family. Both get a
+    # purpose-named permission of their own (families/models.py Meta).
+    _dsar_export_permission = model_permissions(
+        Family,
+        perms_map={"GET": ["%(app_label)s.export_family_dsar"]},
+        name="DsarExportPermissions",
+    )
+    _dsar_erase_permission = model_permissions(
+        Family,
+        perms_map={"POST": ["%(app_label)s.erase_family_dsar"]},
+        name="DsarErasePermissions",
+    )
+
+    # Revealing safety info is a POST that reads. The default map would gate it
+    # on ``add_family`` — the permission that creates a household — which no
+    # Volontär holds and which is not what this action does. It requires no
+    # more than the read that already put the family on their screen; the
+    # per-attendee check lives in the action itself.
+    _reveal_safety_info_permission = model_permissions(
+        Family,
+        perms_map={"POST": ["%(app_label)s.view_%(model_name)s"]},
+        name="SafetyInfoRevealPermissions",
+    )
+
+    def get_permissions(self):
+        if self.action == "export":
+            return [self._dsar_export_permission()]
+        if self.action == "erase":
+            return [self._dsar_erase_permission()]
+        if self.action == "reveal_safety_info":
+            return [self._reveal_safety_info_permission()]
+        return super().get_permissions()
 
     def get_queryset(self):
         """
@@ -181,7 +221,12 @@ class FamilyViewSet(viewsets.ModelViewSet):
         """Get all children for a specific family"""
         family = self.get_object()
         children = family.children.all()
-        serializer = ChildSerializer(children, many=True)
+        # Context matters: without the request, SafetyInfoDisclosureMixin has
+        # no user to ask and masks the health text for everyone, including the
+        # roles that may edit it.
+        serializer = ChildSerializer(
+            children, many=True, context=self.get_serializer_context()
+        )
         return Response(serializer.data)
 
     @action(detail=True, methods=["get"])
@@ -189,8 +234,76 @@ class FamilyViewSet(viewsets.ModelViewSet):
         """Get all parents for a specific family"""
         family = self.get_object()
         parents = family.parents.all()
-        serializer = ParentSerializer(parents, many=True)
+        serializer = ParentSerializer(
+            parents, many=True, context=self.get_serializer_context()
+        )
         return Response(serializer.data)
+
+    @action(detail=True, methods=["post"], url_path="reveal-safety-info")
+    def reveal_safety_info(self, request, pk=None):
+        """Disclose one attendee's allergy/emergency-medical text, and log it.
+
+        The check-in path's counterpart to ``qr_reveal_safety_info``. The door
+        volunteer is the person who most needs to know about a peanut allergy,
+        so this is reveal-with-audit rather than hidden: the roster says *there
+        is safety info here* (``has_safety_info``) and this endpoint hands over
+        the text, writing exactly one ``safety_info_revealed`` row per call.
+        Distinct from the ``record_viewed`` row ``retrieve`` writes, so opening
+        a family stays distinguishable from reading a child's allergy — the
+        same granularity the QR path already has, which is the point: an audit
+        trail with one careful half and one silent half is not an audit trail.
+
+        Body: ``{"attendee_id": "<uuid>"}`` — a Child *or* a Parent of this
+        family. Adults carry these fields too and their allergy is no less
+        special-category, so the endpoint is attendee-shaped, not child-shaped.
+
+        Authorisation: reaching a family at all is ``families.view_family``
+        (below), and the per-attendee ``view_child``/``view_parent`` check
+        happens once the type is known. Deliberately *not* gated on
+        ``change_*``: a holder of that already receives the text unrevealed
+        (see SafetyInfoDisclosureMixin), so gating on it here would leave the
+        endpoint reachable by exactly the people who never need it.
+        """
+        from checkins.audit import log_audit
+
+        family = self.get_object()
+        attendee_id = str(request.data.get("attendee_id") or "").strip()
+        if not attendee_id:
+            return Response({"error": "attendee_id required"}, status=400)
+
+        attendee = Child.objects.filter(pk=attendee_id, family=family).first()
+        entity_type = "Child"
+        required_permission = "families.view_child"
+        if attendee is None:
+            attendee = Parent.objects.filter(pk=attendee_id, family=family).first()
+            entity_type = "Parent"
+            required_permission = "families.view_parent"
+
+        if attendee is None:
+            # Scoped to this family on purpose: the family is the object the
+            # caller was already authorised for, so an unrelated attendee id
+            # must not become readable by pairing it with a family they can see.
+            return Response({"error": "not_found"}, status=404)
+
+        if not request.user.has_perm(required_permission):
+            return Response({"error": "forbidden"}, status=403)
+
+        allergies = attendee.allergies or ""
+        notes = attendee.notes or ""
+
+        log_audit(
+            request,
+            action="safety_info_revealed",
+            entity_type=entity_type,
+            entity_id=str(attendee.id),
+            details={
+                "family_id": str(family.id),
+                "had_allergies": bool(allergies),
+                "had_notes": bool(notes),
+            },
+        )
+
+        return Response({"allergies": allergies, "notes": notes})
 
     @action(detail=True, methods=["get"])
     def export(self, request, pk=None):
@@ -258,12 +371,12 @@ class FamilyViewSet(viewsets.ModelViewSet):
 class ParentViewSet(viewsets.ModelViewSet):
     """
     ViewSet for managing parents.
-    Requires authentication.
+    Gated on the matching ``families.*_parent`` permission.
     """
 
     queryset = Parent.objects.select_related("family").all()
     serializer_class = ParentSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [DjangoModelPermissionsWithView]
     search_fields = ["first_name", "last_name", "email", "phone"]
     filterset_fields = ["family", "relationship_type"]
 
@@ -271,11 +384,11 @@ class ParentViewSet(viewsets.ModelViewSet):
 class ChildViewSet(viewsets.ModelViewSet):
     """
     ViewSet for managing children.
-    Requires authentication for most actions.
+    Gated on the matching ``families.*_child`` permission.
     """
 
     serializer_class = ChildSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [DjangoModelPermissionsWithView]
     search_fields = ["first_name", "last_name"]
     filterset_fields = ["family"]
 

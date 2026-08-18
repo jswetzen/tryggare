@@ -1,7 +1,26 @@
 <script lang="ts">
   import { t } from 'svelte-i18n';
+  import { page } from '$app/stores';
+  import { PERMISSION, hasPermission } from '$lib/auth/permissions';
+  import { Alert } from '$lib/components/ui';
+  import type { SessionUser } from '$lib/auth/permissions';
 
-  let { data }: { data: { user: { username: string; name: string; is_staff: boolean } | null } } = $props();
+  let { data }: { data: { user: SessionUser | null } } = $props();
+
+  // The /reports and /import guards redirect here with ?denied=<route> rather
+  // than rendering an error page. Without this notice that bounce is silent,
+  // and a volunteer following a colleague's link just watches the URL change.
+  const DENIAL_MESSAGES: Record<string, string> = {
+    reports: 'home.deniedReports',
+    import: 'home.deniedImport'
+  };
+  let deniedRoute = $derived($page.url.searchParams.get('denied') ?? '');
+  let denialMessageKey = $derived(DENIAL_MESSAGES[deniedRoute] ?? '');
+
+  let canViewImports = $derived(hasPermission(data.user, PERMISSION.viewImportSources));
+  // The one branch that legitimately stays on is_staff: it links to Django
+  // admin, and is_staff means exactly "can open Django admin".
+  let canOpenDjangoAdmin = $derived(data.user?.is_staff ?? false);
 </script>
 
 <svelte:head>
@@ -15,6 +34,14 @@
     </h1>
     <p class="mt-2 text-neutral-600">{$t('home.subtitle')}</p>
   </div>
+
+  {#if denialMessageKey}
+    <div class="mb-8">
+      <Alert type="info" title={$t('home.deniedTitle')} dismissible>
+        {$t(denialMessageKey)}
+      </Alert>
+    </div>
+  {/if}
 
   <section class="mb-8">
     <h2 class="text-lg font-semibold text-neutral-700 mb-4">{$t('home.quickActions')}</h2>
@@ -57,10 +84,11 @@
     </div>
   </section>
 
-  {#if data.user?.is_staff}
+  {#if canViewImports || canOpenDjangoAdmin}
     <section class="mb-8">
       <h2 class="text-lg font-semibold text-neutral-700 mb-4">{$t('home.adminSection')}</h2>
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        {#if canViewImports}
         <a href="/import" class="block bg-white rounded-card border-2 border-neutral-300 p-5 hover:shadow-elevation-3 hover:border-primary-500 transition-all">
           <div class="flex items-center gap-3 mb-2">
             <div class="w-10 h-10 rounded-card bg-warning-50 flex items-center justify-center">
@@ -72,7 +100,9 @@
           </div>
           <p class="text-sm text-neutral-600">{$t('home.importDesc')}</p>
         </a>
+        {/if}
 
+        {#if canOpenDjangoAdmin}
         <a href="/admin/" class="block bg-white rounded-card border-2 border-neutral-300 p-5 hover:shadow-elevation-3 hover:border-primary-500 transition-all">
           <div class="flex items-center gap-3 mb-2">
             <div class="w-10 h-10 rounded-card bg-neutral-100 flex items-center justify-center">
@@ -85,6 +115,7 @@
           </div>
           <p class="text-sm text-neutral-600">{$t('home.adminDesc')}</p>
         </a>
+        {/if}
       </div>
     </section>
   {/if}

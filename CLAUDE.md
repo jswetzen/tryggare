@@ -22,8 +22,9 @@ data with demo mode enabled (`admin` / `admin123`). Either may be down; use
 - **Access**: Frontend `http://localhost:5173`, Backend `http://localhost:8000` (localhost only — not exposed on the LAN)
 - **Database**: PostgreSQL on port 5432
 - **Settings**: `config.settings.local`
-- **Refresh**: the **frontend only** is genuinely hot-reload (Vite). The **backend is not** — it runs plain daphne (needed for WebSocket/ASGI support; `django.contrib.staticfiles` still wins the `runserver` command override even with `channels` installed, so swapping to `manage.py runserver` would silently drop WebSocket support), and daphne only imports Python once at startup. Backend code changes land in the container immediately via the bind mount but need a container restart to take effect: write to `restart-dev.txt` (`date > restart-dev.txt`), or `podman restart tryggare_web_1`. Either path bounces the whole dev stack (db + valkey + web), not just the web container, so after triggering it, give it ~10s before `podman exec`-ing back into `tryggare_web_1` — the container briefly disappears/recreates mid-restart and an immediate exec will fail with "no such container".
+- **Refresh**: the **frontend only** is genuinely hot-reload (Vite). The **backend is not** — it runs plain daphne (needed for WebSocket/ASGI support; `django.contrib.staticfiles` still wins the `runserver` command override even with `channels` installed, so swapping to `manage.py runserver` would silently drop WebSocket support), and daphne only imports Python once at startup. Backend code changes land in the container immediately via the bind mount but need a container restart to take effect: `podman restart tryggare_web_1`, or write to `restart-dev.txt` (`date > restart-dev.txt`). **The `restart-dev.txt` trigger only works while a watcher is running** (`make watch`, which covers dev and prod together); with no watcher it silently does nothing, and `build.dev.log` still holds old content that reads like a successful build. `podman restart` is unconditional. Either path bounces the whole dev stack (db + valkey + web), not just the web container, so after triggering it, give it ~10s before `podman exec`-ing back into `tryggare_web_1` — the container briefly disappears/recreates mid-restart and an immediate exec will fail with "no such container".
 - **Note**: `backend/config/settings/local.py` overrides `STATIC_URL = "/static/"` to avoid conflicts with `MEDIA_URL` in dev mode
+- **Translations**: only the `.po` sources are committed; the compiled `.mo` catalogs are gitignored build artifacts. The image builds them, but the `./backend:/app` bind mount shadows `/app/locale` with the host directory, so dev recompiles them at container startup (`django-admin compilemessages` in the `web` service `command`). Consequence: after editing a `.po`, bounce dev (see **Refresh** above for why `date > restart-dev.txt` needs a running watcher and `podman restart tryggare_web_1` does not) — the `.mo` is regenerated for you, and no host-side `gettext` install is needed. If admin labels ever come back English while Django's own chrome is Swedish, a missing/stale `.mo` is the cause.
 
 ### Prod-like (`docker-compose.prod.yml`) — LAN-accessible, rebuild on change
 - **Single container**: Django serves both the API and the **built** frontend static files
@@ -200,6 +201,14 @@ The app and the marketing site (`gh-pages`, `tryggare.app`) share one brand laye
   `Logo` components in `src/lib/components/ui/`, not the `nav.title` string, for the brand mark).
 - **Bilingual by default** — every visible string gets EN + SV in the same change (`en.json` +
   `sv.json`); Swedish conveys intent, not literal words.
+- **The same rule holds for the backend/admin surface**, which has its own catalogues
+  (`backend/locale/{en,sv}/LC_MESSAGES/django.po`). Django admin is customer-facing (D4), so wrap
+  every `verbose_name`, `help_text`, choice label and `@admin.display(description=…)` in
+  `gettext_lazy` and add both catalogue entries in the same change. Enforced by
+  `backend/scripts/check_messages.py` (`cd backend && make check-messages`; CI runs it as the
+  `messages` job in `.github/workflows/test.yml`) — it fails on a msgid missing from a catalogue,
+  an empty `sv` msgstr, or a `#, fuzzy` entry. A Swedish msgstr equal to its msgid is fine
+  ("Status", "Swish"); the guard never compares file bytes or `#:` line references.
 - **No emoji.** Allowed glyphs only: ✓ ✗ →. Icons are inline SVG, stroke-only, width 2,
   `currentColor`, rounded caps/joins (Lucide as the substitute set).
 - **Plus Jakarta Sans** only (loaded in `app.html`). Restrained motion: `0.15s ease`, 1–2px

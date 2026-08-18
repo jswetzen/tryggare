@@ -1,13 +1,19 @@
 import csv
 import json
 
+from django.core.exceptions import ValidationError as DjangoValidationError
 from django.http import HttpResponse
-from rest_framework import viewsets
+from django.shortcuts import get_object_or_404
+from rest_framework import status, viewsets
 from rest_framework.decorators import action
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+
+from config.permissions import DjangoModelPermissionsWithView
+from events.models import Event
 
 from .models import EventReport
 from .serializers import EventReportDetailSerializer, EventReportListSerializer
+from .services import generate_event_report
 
 
 def _slugify_filename(name: str) -> str:
@@ -19,13 +25,19 @@ class EventReportViewSet(viewsets.ReadOnlyModelViewSet):
     """
     Read-only access to generated report snapshots.
 
-    Snapshots are produced in the Django backend (admin action or the
-    ``generate_event_report`` management command); this API only exposes them
-    for viewing and export from the frontend.
+    Reading is gated on ``reports.view_eventreport``. This is the endpoint that
+    most justifies the whole increment: a report snapshot is the event's
+    aggregate financial and attendance picture, and under a flat
+    ``IsAuthenticated`` any volunteer could read it.
+
+    ``generate`` (below) is the one write. Snapshots were previously producible
+    only from Django admin or the ``generate_event_report`` management command,
+    so a coordinator with no admin access had to leave the app — or ask someone
+    who could — to refresh the numbers (roadmap J6).
     """
 
     queryset = EventReport.objects.select_related("event", "generated_by").all()
-    permission_classes = [IsAuthenticated]
+    permission_classes = [DjangoModelPermissionsWithView]
     filterset_fields = ["event"]
     ordering = ["-generated_at"]
 
@@ -33,6 +45,48 @@ class EventReportViewSet(viewsets.ReadOnlyModelViewSet):
         if self.action == "list":
             return EventReportListSerializer
         return EventReportDetailSerializer
+
+    @action(detail=False, methods=["post"])
+    def generate(self, request):
+        """Build a fresh snapshot for ``{"event": <uuid>}`` and return it.
+
+        Thin wrapper over :func:`reports.services.generate_event_report` — the
+        same function the admin action and the management command call. It is
+        deliberately not a reimplementation: the snapshot's contents are one of
+        the few things in this system that cannot be recomputed after the fact
+        (see :class:`~reports.models.EventReport`), so there must be exactly one
+        way to build one.
+
+        **Every call appends a new snapshot; nothing is overwritten.** That is
+        the model's whole point — a report is a historical record of what the
+        numbers were at a moment in time, taken before PII is deleted for
+        retention. An ``update_or_create`` here would quietly destroy the
+        earlier picture, which is the one thing the snapshot exists to keep.
+
+        ``POST`` maps to ``reports.add_eventreport`` through the standard
+        permission map, so this needs no bespoke check: Koordinator and
+        Administratör hold it, Volontär does not, and moving it between groups
+        in Django admin is all it takes to change that.
+        """
+        event_id = request.data.get("event")
+        if not event_id:
+            return Response(
+                {"event": ["This field is required."]},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        # A malformed UUID reaches the ORM as a ValidationError, which DRF does
+        # not translate — it would surface as a 500 on what is plainly bad
+        # input. Catch it here so the client gets the 400 it deserves.
+        try:
+            event = get_object_or_404(Event, pk=event_id)
+        except (DjangoValidationError, ValueError, TypeError):
+            return Response(
+                {"event": ["Not a valid event id."]},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        report = generate_event_report(event, user=request.user)
+        serializer = EventReportDetailSerializer(report, context={"request": request})
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
 
     @action(detail=True, methods=["get"])
     def export(self, request, pk=None):

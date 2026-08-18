@@ -4,6 +4,14 @@
    *
    * Expands between session bar and search to add families with children.
    * Allows setting a default ticket type for all children in the family.
+   *
+   * In edit mode with canEditFamily=false — a Volontär looking at an existing
+   * family — the panel is a read-only family detail view instead: no writable
+   * fields, no save, and the allergy/emergency-medical text behind an explicit
+   * reveal (see ConsentCapture). That mirrors the API, which hands a Volontär
+   * `has_safety_info` but not the text, and refuses the PATCH this form would
+   * otherwise submit. Offering an edit form that can only 403 would be the
+   * worse failure: it teaches the door staff that the app is broken.
    */
   import { onMount } from 'svelte';
   import { _ } from 'svelte-i18n';
@@ -20,6 +28,8 @@
     birthdate: string;
     allergies: string;
     notes: string;
+    /** Text exists on the record, whether or not this viewer has seen it. */
+    hasSafetyInfo: boolean;
     healthInfoStatus: HealthInfoStatus;
     consentNoticeShared: boolean;
   }
@@ -43,6 +53,8 @@
     relationship_type: string;
     allergies: string;
     notes: string;
+    /** Text exists on the record, whether or not this viewer has seen it. */
+    hasSafetyInfo: boolean;
     healthInfoStatus: HealthInfoStatus;
     consentNoticeShared: boolean;
   }
@@ -63,7 +75,9 @@
     family,
     onAdd,
     onSave,
-    onClose
+    onClose,
+    canEditFamily = true,
+    onRevealSafetyInfo = undefined
   }: {
     /** Present = edit an existing family; absent = create a new one. */
     family?: Family | null;
@@ -81,9 +95,21 @@
       parents: OutgoingParent[];
     }) => void;
     onClose: () => void;
+    /** False = this viewer may not write families; edit mode becomes read-only. */
+    canEditFamily?: boolean;
+    /**
+     * Perform one audited reveal for `attendeeId` (a child or a parent) and
+     * resolve with the text. Owned by the page because it is an API call that
+     * writes an audit row, not a piece of form state.
+     */
+    onRevealSafetyInfo?: (
+      attendeeId: string
+    ) => Promise<{ allergies: string; notes: string }>;
   } = $props();
 
   const isEditMode = !!family;
+  /** Creating a family is unaffected: this is only ever the existing-record view. */
+  const readOnly = isEditMode && !canEditFamily;
 
   function emptyChild(): Child {
     return {
@@ -92,6 +118,7 @@
       birthdate: '',
       allergies: '',
       notes: '',
+      hasSafetyInfo: false,
       healthInfoStatus: 'none',
       consentNoticeShared: false
     };
@@ -106,6 +133,7 @@
       relationship_type: 'OTHER',
       allergies: '',
       notes: '',
+      hasSafetyInfo: false,
       healthInfoStatus: 'none',
       consentNoticeShared: false
     };
@@ -130,6 +158,7 @@
       birthdate: child.birthdate ?? '',
       allergies: child.allergies ?? '',
       notes: child.notes ?? '',
+      hasSafetyInfo: child.has_safety_info ?? Boolean(child.allergies || child.notes),
       healthInfoStatus: statusFromBackend(child.health_consent_status),
       consentNoticeShared: child.health_consent_status === 'granted'
     };
@@ -145,6 +174,7 @@
       relationship_type: parent.relationship_type,
       allergies: parent.allergies ?? '',
       notes: parent.notes ?? '',
+      hasSafetyInfo: parent.has_safety_info ?? Boolean(parent.allergies || parent.notes),
       healthInfoStatus: statusFromBackend(parent.health_consent_status),
       consentNoticeShared: parent.health_consent_status === 'granted'
     };
@@ -160,6 +190,41 @@
   let parents = $state<Parent[]>(family ? family.parents.map(parentFromExisting) : [emptyParent()]);
   let error = $state('');
   let familyNameInput = $state<HTMLInputElement>();
+
+  // Reveal state, keyed by attendee id. Per-attendee rather than per-panel:
+  // one reveal is one audit row about one person, and revealing a child's
+  // allergy must not silently disclose their sibling's.
+  let revealedIds = $state<Record<string, boolean>>({});
+  let revealingIds = $state<Record<string, boolean>>({});
+  let revealErrors = $state<Record<string, string>>({});
+
+  async function revealSafetyInfo(kind: 'child' | 'parent', index: number) {
+    const row = kind === 'child' ? children[index] : parents[index];
+    const attendeeId = row.id;
+    if (!attendeeId || !onRevealSafetyInfo) return;
+
+    revealingIds = { ...revealingIds, [attendeeId]: true };
+    revealErrors = { ...revealErrors, [attendeeId]: '' };
+    try {
+      const revealed = await onRevealSafetyInfo(attendeeId);
+      if (kind === 'child') {
+        children[index].allergies = revealed.allergies;
+        children[index].notes = revealed.notes;
+      } else {
+        parents[index].allergies = revealed.allergies;
+        parents[index].notes = revealed.notes;
+      }
+      revealedIds = { ...revealedIds, [attendeeId]: true };
+    } catch (err) {
+      console.error('Failed to reveal safety info:', err);
+      revealErrors = {
+        ...revealErrors,
+        [attendeeId]: $_('checkin.safetyInfoRevealError')
+      };
+    } finally {
+      revealingIds = { ...revealingIds, [attendeeId]: false };
+    }
+  }
 
   // Focus family name input on mount
   onMount(() => {
@@ -201,6 +266,10 @@
 
   function handleSubmit(e: Event) {
     e.preventDefault();
+    // The submit button isn't rendered in the read-only view, but a form can
+    // still be submitted by pressing Enter in a field, and the API would answer
+    // that with a 403 nobody asked for.
+    if (readOnly) return;
     error = '';
 
     // Validate family name
@@ -309,7 +378,13 @@
     <!-- Header -->
     <div class="flex items-center justify-between mb-4">
       <h2 class="text-lg font-bold text-neutral-900">
-        {$_(isEditMode ? 'checkin.editFamilyTitle' : 'checkin.addFamilyTitle')}
+        {$_(
+          readOnly
+            ? 'checkin.familyDetailsTitle'
+            : isEditMode
+              ? 'checkin.editFamilyTitle'
+              : 'checkin.addFamilyTitle'
+        )}
       </h2>
       <button
         type="button"
@@ -329,6 +404,10 @@
       </div>
     {/if}
 
+    {#if readOnly}
+      <p class="mb-4 text-sm text-neutral-600">{$_('checkin.familyDetailsReadOnly')}</p>
+    {/if}
+
     <!-- Family Name -->
     <div class="mb-4">
       <label
@@ -343,7 +422,8 @@
         type="text"
         bind:value={familyName}
         placeholder={$_('checkin.familyNamePlaceholder')}
-        class="w-full px-3 py-2 border border-neutral-300 rounded focus:outline-none focus:ring-2 focus:ring-primary-500"
+        disabled={readOnly}
+        class="w-full px-3 py-2 border border-neutral-300 rounded focus:outline-none focus:ring-2 focus:ring-primary-500 disabled:bg-neutral-100 disabled:text-neutral-600"
         data-testid="add-family-name-input"
       />
     </div>
@@ -363,11 +443,12 @@
                 </label>
                 <input
                   id={`parent-first-name-${index}`}
+                  disabled={readOnly}
                   type="text"
                   value={parent.first_name}
                   on:input={(e) => handleParentChange(index, 'first_name', e.currentTarget.value)}
                   placeholder={$_('checkin.parentFirstNamePlaceholder')}
-                  class="w-full px-2 py-1.5 text-sm border border-neutral-300 rounded focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  class="w-full px-2 py-1.5 text-sm border border-neutral-300 rounded focus:outline-none focus:ring-2 focus:ring-primary-500 disabled:bg-neutral-100 disabled:text-neutral-600"
                 />
               </div>
               <div>
@@ -376,11 +457,12 @@
                 </label>
                 <input
                   id={`parent-last-name-${index}`}
+                  disabled={readOnly}
                   type="text"
                   value={parent.last_name}
                   on:input={(e) => handleParentChange(index, 'last_name', e.currentTarget.value)}
                   placeholder={$_('checkin.parentLastNamePlaceholder')}
-                  class="w-full px-2 py-1.5 text-sm border border-neutral-300 rounded focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  class="w-full px-2 py-1.5 text-sm border border-neutral-300 rounded focus:outline-none focus:ring-2 focus:ring-primary-500 disabled:bg-neutral-100 disabled:text-neutral-600"
                 />
               </div>
             </div>
@@ -391,9 +473,10 @@
                 </label>
                 <select
                   id={`parent-relationship-${index}`}
+                  disabled={readOnly}
                   value={parent.relationship_type}
                   on:change={(e) => handleParentChange(index, 'relationship_type', e.currentTarget.value)}
-                  class="w-full px-2 py-1.5 text-sm border border-neutral-300 rounded focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  class="w-full px-2 py-1.5 text-sm border border-neutral-300 rounded focus:outline-none focus:ring-2 focus:ring-primary-500 disabled:bg-neutral-100 disabled:text-neutral-600"
                 >
                   <option value="MOM">{$_('checkin.relationshipMom')}</option>
                   <option value="DAD">{$_('checkin.relationshipDad')}</option>
@@ -407,11 +490,12 @@
                 </label>
                 <input
                   id={`parent-phone-${index}`}
+                  disabled={readOnly}
                   type="tel"
                   value={parent.phone}
                   on:input={(e) => handleParentChange(index, 'phone', e.currentTarget.value)}
                   placeholder={$_('checkin.parentPhonePlaceholder')}
-                  class="w-full px-2 py-1.5 text-sm border border-neutral-300 rounded focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  class="w-full px-2 py-1.5 text-sm border border-neutral-300 rounded focus:outline-none focus:ring-2 focus:ring-primary-500 disabled:bg-neutral-100 disabled:text-neutral-600"
                 />
               </div>
             </div>
@@ -422,11 +506,12 @@
                 </label>
                 <input
                   id={`parent-email-${index}`}
+                  disabled={readOnly}
                   type="email"
                   value={parent.email}
                   on:input={(e) => handleParentChange(index, 'email', e.currentTarget.value)}
                   placeholder={$_('checkin.parentEmailPlaceholder')}
-                  class="w-full px-2 py-1.5 text-sm border border-neutral-300 rounded focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  class="w-full px-2 py-1.5 text-sm border border-neutral-300 rounded focus:outline-none focus:ring-2 focus:ring-primary-500 disabled:bg-neutral-100 disabled:text-neutral-600"
                 />
               </div>
             </div>
@@ -444,28 +529,40 @@
                 declineLabelKey="checkin.adultHealthInfoDecline"
                 noticeKey="checkin.adultHealthConsentNotice"
                 declinedNoteKey="checkin.adultHealthInfoDeclinedNote"
+                canEdit={!readOnly}
+                hasSafetyInfo={parent.hasSafetyInfo}
+                revealed={Boolean(parent.id && revealedIds[parent.id])}
+                revealing={Boolean(parent.id && revealingIds[parent.id])}
+                revealError={(parent.id && revealErrors[parent.id]) || ''}
+                onReveal={() => revealSafetyInfo('parent', index)}
               />
             </div>
-            <button
-              type="button"
-              on:click={() => handleRemoveParent(index)}
-              class="mt-2 text-danger-600 hover:text-danger-700 text-xs font-medium"
-            >
-              {$_('checkin.removeParent')}
-            </button>
+            {#if !readOnly}
+              <button
+                type="button"
+                on:click={() => handleRemoveParent(index)}
+                class="mt-2 text-danger-600 hover:text-danger-700 text-xs font-medium"
+              >
+                {$_('checkin.removeParent')}
+              </button>
+            {/if}
           </div>
         {/each}
       </div>
-      <button
-        type="button"
-        on:click={handleAddParent}
-        class="mt-2 text-primary-600 hover:text-primary-700 text-sm font-semibold"
-      >
-        + {$_('checkin.addParent')}
-      </button>
+      {#if !readOnly}
+        <button
+          type="button"
+          on:click={handleAddParent}
+          class="mt-2 text-primary-600 hover:text-primary-700 text-sm font-semibold"
+        >
+          + {$_('checkin.addParent')}
+        </button>
+      {/if}
     </div>
 
-    <!-- Ticket Type Selector -->
+    <!-- Ticket Type Selector. Only ever applies to rows added in this panel,
+         so it has nothing to say in the read-only view. -->
+    {#if !readOnly}
     <div class="mb-4">
       <label
         for="ticket-type"
@@ -486,6 +583,7 @@
         <p class="text-xs text-neutral-500 mt-1">{$_('checkin.ticketTypeNewMembersHint')}</p>
       {/if}
     </div>
+    {/if}
 
     <!-- Children -->
     <div class="mb-4">
@@ -497,13 +595,15 @@
           <div class="border border-neutral-200 rounded p-3 bg-neutral-50">
             <div class="flex justify-between items-center mb-2">
               <span class="text-sm font-semibold text-neutral-700">{$_('checkin.childNumber', { values: { number: index + 1 } })}</span>
-              <button
-                type="button"
-                on:click={() => handleRemoveChild(index)}
-                class="text-danger-600 hover:text-danger-700 text-xs font-medium"
-              >
-                {$_('checkin.removeChild')}
-              </button>
+              {#if !readOnly}
+                <button
+                  type="button"
+                  on:click={() => handleRemoveChild(index)}
+                  class="text-danger-600 hover:text-danger-700 text-xs font-medium"
+                >
+                  {$_('checkin.removeChild')}
+                </button>
+              {/if}
             </div>
 
             <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
@@ -513,10 +613,11 @@
                 </label>
                 <input
                   id={`child-first-name-${index}`}
+                  disabled={readOnly}
                   type="text"
                   bind:value={child.first_name}
                   placeholder={$_('checkin.childFirstNamePlaceholder')}
-                  class="w-full px-2 py-1.5 text-sm border border-neutral-300 rounded focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  class="w-full px-2 py-1.5 text-sm border border-neutral-300 rounded focus:outline-none focus:ring-2 focus:ring-primary-500 disabled:bg-neutral-100 disabled:text-neutral-600"
                   required
                 />
               </div>
@@ -527,10 +628,11 @@
                 </label>
                 <input
                   id={`child-last-name-${index}`}
+                  disabled={readOnly}
                   type="text"
                   bind:value={child.last_name}
                   placeholder={$_('checkin.childLastNamePlaceholder')}
-                  class="w-full px-2 py-1.5 text-sm border border-neutral-300 rounded focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  class="w-full px-2 py-1.5 text-sm border border-neutral-300 rounded focus:outline-none focus:ring-2 focus:ring-primary-500 disabled:bg-neutral-100 disabled:text-neutral-600"
                   required
                 />
               </div>
@@ -541,9 +643,10 @@
                 </label>
                 <input
                   id={`child-birthdate-${index}`}
+                  disabled={readOnly}
                   type="date"
                   bind:value={child.birthdate}
-                  class="w-full px-2 py-1.5 text-sm border border-neutral-300 rounded focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  class="w-full px-2 py-1.5 text-sm border border-neutral-300 rounded focus:outline-none focus:ring-2 focus:ring-primary-500 disabled:bg-neutral-100 disabled:text-neutral-600"
                   required
                 />
               </div>
@@ -555,19 +658,27 @@
                   bind:notes={child.notes}
                   bind:consentNoticeShared={child.consentNoticeShared}
                   idPrefix={String(index)}
+                  canEdit={!readOnly}
+                  hasSafetyInfo={child.hasSafetyInfo}
+                  revealed={Boolean(child.id && revealedIds[child.id])}
+                  revealing={Boolean(child.id && revealingIds[child.id])}
+                  revealError={(child.id && revealErrors[child.id]) || ''}
+                  onReveal={() => revealSafetyInfo('child', index)}
                 />
               </div>
             </div>
           </div>
         {/each}
       </div>
-      <button
-        type="button"
-        on:click={handleAddChild}
-        class="mt-2 text-primary-600 hover:text-primary-700 text-sm font-semibold"
-      >
-        + {$_('checkin.addAnotherChild')}
-      </button>
+      {#if !readOnly}
+        <button
+          type="button"
+          on:click={handleAddChild}
+          class="mt-2 text-primary-600 hover:text-primary-700 text-sm font-semibold"
+        >
+          + {$_('checkin.addAnotherChild')}
+        </button>
+      {/if}
     </div>
 
     <!-- Actions -->
@@ -578,15 +689,17 @@
         class="px-4 py-2 bg-neutral-200 text-neutral-700 font-semibold rounded-button hover:bg-neutral-300 transition-colors"
         data-testid="add-family-cancel-button"
       >
-        {$_('common.cancel')}
+        {$_(readOnly ? 'common.close' : 'common.cancel')}
       </button>
-      <button
-        type="submit"
-        class="px-4 py-2 bg-primary-600 text-white font-semibold rounded-button hover:bg-primary-700 transition-colors"
-        data-testid="add-family-submit-button"
-      >
-        {$_(isEditMode ? 'checkin.saveFamilyChanges' : 'checkin.addNewFamily')}
-      </button>
+      {#if !readOnly}
+        <button
+          type="submit"
+          class="px-4 py-2 bg-primary-600 text-white font-semibold rounded-button hover:bg-primary-700 transition-colors"
+          data-testid="add-family-submit-button"
+        >
+          {$_(isEditMode ? 'checkin.saveFamilyChanges' : 'checkin.addNewFamily')}
+        </button>
+      {/if}
     </div>
   </form>
 </div>

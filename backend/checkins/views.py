@@ -5,8 +5,9 @@ from django.utils import timezone
 from django.utils.translation import gettext as _
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
-from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
+
+from config.permissions import DjangoModelPermissionsWithView
 
 from families.models import Attendee, Parent
 from events.models import Session
@@ -24,14 +25,40 @@ from .serializers import (
 class CheckInRecordViewSet(viewsets.ModelViewSet):
     """
     ViewSet for managing check-in/check-out records.
-    Requires authentication.
+
+    Gated on ``checkins.*_checkinrecord``. A Volontär holds view/add/change —
+    the door job — but not ``delete``, which is what closes the changelist and
+    ``DELETE /api/checkins/<id>/`` to them.
+
+    It does not close ``undo``, and it is worth being exact about why, because
+    an earlier version of this docstring claimed otherwise and was wrong.
+    ``undo`` really does delete the row (below), but it is a POST, and
+    ``DjangoModelPermissions`` maps verbs to permissions without knowing what
+    any particular action does — POST means ``add_``. A Volontär therefore can
+    undo a check-in.
+
+    That is the intended behaviour (decided 2026-08-18), not an oversight left
+    standing. The person who mis-scans a child is the person at the door with a
+    queue behind them, and sending them to find a Koordinator to erase a
+    ten-second-old mistake costs more than it protects. What actually bounds
+    ``undo`` is that the record must be under five minutes old and not yet
+    checked out, and that the undo is written to the audit log before the row
+    goes — so the act is recoverable as evidence even though the row is not.
+
+    ``undo_checkout`` is a genuine edit: it clears the checkout fields and
+    saves, deleting nothing.
+
+    If this should ever become a Koordinator-only action, the fix is the
+    pattern ``SessionViewSet`` already uses (events/views.py) — a
+    ``get_permissions()`` remapping the action onto
+    ``config.permissions.POST_REQUIRES_DELETE``.
     """
 
     queryset = CheckInRecord.objects.select_related(
         "attendee", "session", "check_in_staff", "check_out_staff", "qr_code"
     ).all()
     serializer_class = CheckInRecordSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [DjangoModelPermissionsWithView]
     filterset_fields = ["attendee", "session", "check_in_staff", "check_out_staff"]
     ordering = ["-check_in_time"]
 
@@ -414,11 +441,15 @@ class AuditLogViewSet(viewsets.ReadOnlyModelViewSet):
     """
     ViewSet for viewing audit logs.
     Read-only - logs cannot be modified.
+
+    Gated on ``checkins.view_auditlog``, which a Volontär does not hold: the
+    log records who revealed which child's medical text, and reading it is a
+    supervisory act rather than a door one.
     """
 
     queryset = AuditLog.objects.select_related("user").all()
     serializer_class = AuditLogSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [DjangoModelPermissionsWithView]
     filterset_fields = ["user", "action", "entity_type"]
     ordering = ["-timestamp"]
 
@@ -427,10 +458,14 @@ class PrintQueueViewSet(viewsets.ReadOnlyModelViewSet):
     """
     ViewSet for managing label print queue.
     Shows all checked-in children who need labels printed.
+
+    Its queryset is CheckInRecord, so it is gated on
+    ``checkins.*_checkinrecord`` — the same permissions as the check-in screen
+    itself, which is correct: printing a label is part of the door job.
     """
 
     serializer_class = PrintQueueSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [DjangoModelPermissionsWithView]
 
     def get_queryset(self):
         """
@@ -513,7 +548,10 @@ class PrintQueueViewSet(viewsets.ReadOnlyModelViewSet):
                 pass
 
         return Response(
-            {"message": _(f"{updated} labels marked as printed"), "count": updated}
+            {
+                "message": _("%(count)d labels marked as printed") % {"count": updated},
+                "count": updated,
+            }
         )
 
     @action(detail=True, methods=["get"])

@@ -1,4 +1,5 @@
 import uuid
+from datetime import timedelta
 
 from django.core.exceptions import ValidationError
 from django.core.validators import RegexValidator
@@ -207,6 +208,25 @@ class TicketType(models.Model):
     self-serve registration (e.g. "Adult", "Youth 13-17", "Child 0-12").
     Distinct from the flat Event.price fallback used when an event has none
     configured — see registrations/pricing.py::calculate_total.
+
+    Field caveats that belong here rather than in operator-facing help_text:
+
+    ``capacity`` is a schema placeholder only — not yet enforced anywhere.
+    A future capacity-accounting pass reads this field; until then it
+    records intent, not a limit.
+
+    ``is_active`` is a soft-retire flag rather than a delete, because
+    ``EventTicket.ticket_type`` and ``SessionTicket.ticket_type`` both use
+    ``on_delete=PROTECT``: once any ticket references a type, the row
+    cannot be removed. Soft-retiring hides the type from the public form
+    while preserving sold history (case catalog §9.4).
+
+    ``sessions`` is read only when ``kind == Kind.SESSION_BUNDLE`` and
+    ignored for ``Kind.EVENT``.
+
+    ``max_per_required`` is read only alongside ``requires_ticket_type``;
+    null means unlimited, but the dependency on at least one ticket of the
+    required type still holds.
     """
 
     class Kind(models.TextChoices):
@@ -227,14 +247,28 @@ class TicketType(models.Model):
         choices=AppliesTo.choices,
         default=AppliesTo.EITHER,
         verbose_name=_("Applies To"),
+        help_text=_(
+            "Who may pick this ticket type on the public registration "
+            "form — Child, Parent, or Either. Staff can still assign it "
+            "to anyone by hand in the admin, regardless of this setting."
+        ),
     )
     min_birthdate = models.DateField(
         null=True,
         blank=True,
         verbose_name=_("Minimum Birthdate"),
         help_text=_(
-            "Age-tier lower bound: attendee must be born on/after this date. "
-            "Blank = no lower bound."
+            "The attendee must be born on or after this date (inclusive) — "
+            "the oldest-age cutoff. Age is judged once, on the event's "
+            "start date, and never recomputed: the rule is age at event "
+            "start, full stop, so this must land exactly one day after an "
+            "anniversary of that date (e.g. the day after the event's "
+            "start date, 18 years earlier, to exclude anyone who has "
+            "already turned 18). Leaving this blank does not mean "
+            '"unconfigured" — it deliberately means anyone may hold this '
+            "ticket type, with no lower age limit at all. Leave both "
+            "bounds blank to skip the age check for this ticket type "
+            "entirely, on purpose."
         ),
     )
     max_birthdate = models.DateField(
@@ -242,8 +276,16 @@ class TicketType(models.Model):
         blank=True,
         verbose_name=_("Maximum Birthdate"),
         help_text=_(
-            "Age-tier upper bound: attendee must be born on/before this date. "
-            "Blank = no upper bound."
+            "The attendee must be born on or before this date (inclusive) "
+            "— the youngest-age cutoff. Age is judged once, on the event's "
+            "start date, and never recomputed as the event runs: a "
+            "birthday partway through the event doesn't move anyone "
+            "across the boundary. Because of that, this must land exactly "
+            "on an anniversary of the event's start date (e.g. that date, "
+            '12 years earlier, for a "12 and under" cutoff). Leaving '
+            'this blank does not mean "unconfigured" — it deliberately '
+            "means anyone may hold this ticket type, with no upper age "
+            "limit at all."
         ),
     )
     available_from = models.DateTimeField(
@@ -278,8 +320,9 @@ class TicketType(models.Model):
         related_name="bundle_ticket_types",
         verbose_name=_("Sessions"),
         help_text=_(
-            "Only used when kind=session_bundle — the sessions this ticket "
-            "type covers (e.g. a single day of a multi-day event)."
+            "The sessions this ticket covers (e.g. a single day of a "
+            "multi-day event). Only used when the kind above is a session "
+            "bundle."
         ),
     )
     capacity = models.PositiveIntegerField(
@@ -287,8 +330,8 @@ class TicketType(models.Model):
         blank=True,
         verbose_name=_("Capacity"),
         help_text=_(
-            "Null = unlimited. Schema placeholder only — not yet enforced "
-            "anywhere; a future capacity-accounting pass reads this field."
+            "Leave blank for no limit. This number is not enforced yet — "
+            "setting 50 will not stop a 51st booking."
         ),
     )
     requires_ticket_type = models.ForeignKey(
@@ -310,10 +353,10 @@ class TicketType(models.Model):
         blank=True,
         verbose_name=_("Max Per Required"),
         help_text=_(
-            "Only used with requires_ticket_type set. Max count of this "
-            "ticket type per one ticket of the required type (e.g. 4 free "
-            "family members per paid family ticket). Null = unlimited, but "
-            "at least one of the required type is still mandatory."
+            "How many tickets of this type each required ticket allows "
+            "(e.g. 4 free family members per paid family ticket). Leave "
+            "blank for no limit — one required ticket is still needed. "
+            "Only used when 'Requires ticket type' is set."
         ),
     )
     sort_order = models.PositiveIntegerField(default=0, verbose_name=_("Sort Order"))
@@ -321,8 +364,9 @@ class TicketType(models.Model):
         default=True,
         verbose_name=_("Active"),
         help_text=_(
-            "Soft-retire instead of deleting once any ticket references "
-            "this type — see on_delete=PROTECT on EventTicket/SessionTicket."
+            "Uncheck to take this ticket type out of use: it disappears "
+            "from the registration form, and tickets already sold keep "
+            "working."
         ),
     )
 
@@ -338,20 +382,103 @@ class TicketType(models.Model):
 
     def clean(self):
         super().clean()
-        if self.requires_ticket_type_id is None:
+        if self.requires_ticket_type_id is not None:
+            if self.requires_ticket_type_id == self.id:
+                raise ValidationError(
+                    {"requires_ticket_type": _("A ticket type cannot require itself.")}
+                )
+            if self.requires_ticket_type.event_id != self.event_id:
+                raise ValidationError(
+                    {
+                        "requires_ticket_type": _(
+                            "The required ticket type must belong to the same event."
+                        )
+                    }
+                )
+        self._clean_age_window()
+
+    def _clean_age_window(self):
+        """Enforce the single rule the owner settled on: age is judged once,
+        on the event's start date, never recomputed. min_birthdate/
+        max_birthdate are plain birthdate columns with no notion of "today"
+        in their comparison (see registrations/services.py::AGE_MISMATCH_Q),
+        so the only way a bound can silently encode a *different* rule —
+        age at registration, age at some other milestone — is by not lining
+        up with a whole-year anniversary of ``event.start_date``. This
+        check closes that gap: a configured bound must sit on the exact
+        date that relationship requires, not merely "near" the event.
+
+        max_birthdate is the youngest-permitted cutoff, so it must fall on
+        the start date's own month/day N years earlier (born that day =
+        turns N on day one, exactly old enough). min_birthdate is the
+        oldest-permitted cutoff, so it must fall one day *after* that
+        anniversary (born the day before = already turned N+1 before the
+        event started, too old by one day; born on or after this bound and
+        they are still N or younger on day one).
+
+        Skipped for an unsaved-event edge case (``event_id`` unset) and for
+        whichever bound is left blank — blank means "no limit", not "not
+        yet configured to match", see the field help text.
+        """
+        if self.event_id is None:
             return
-        if self.requires_ticket_type_id == self.id:
-            raise ValidationError(
-                {"requires_ticket_type": _("A ticket type cannot require itself.")}
-            )
-        if self.requires_ticket_type.event_id != self.event_id:
-            raise ValidationError(
-                {
-                    "requires_ticket_type": _(
-                        "The required ticket type must belong to the same event."
-                    )
-                }
-            )
+
+        def example_years_before(anchor, years):
+            """``anchor`` shifted back roughly ``years``, always a real date.
+
+            Only interesting when ``anchor`` is 29 February: ``date.replace``
+            raises ValueError for a non-leap target year, and this is running
+            inside the branch that is *building a ValidationError message*, so
+            the crash would escape ``full_clean`` (which only catches
+            ValidationError) and turn a helpful 400 into a bare 500.
+
+            Stepping further back to the nearest leap year rather than sliding
+            to 28 February is deliberate: the example has to be a value that
+            would actually pass this same check, and for a 29 February anchor
+            only another 29 February does. The example is then a year or two
+            older than the round number in the sentence, which is fine — it
+            demonstrates the shape, and the exact date the operator needs is
+            already spelled out alongside it.
+            """
+            for shift in range(years, years + 8):
+                try:
+                    return anchor.replace(year=anchor.year - shift)
+                except ValueError:
+                    continue
+            raise AssertionError("no valid year within 8 of the requested shift")
+
+        start = self.event.start_date
+        day_after_start = start + timedelta(days=1)
+        errors = {}
+        if self.max_birthdate is not None and (
+            self.max_birthdate.month,
+            self.max_birthdate.day,
+        ) != (start.month, start.day):
+            errors["max_birthdate"] = _(
+                "Age is judged on the event's start date (%(start)s), so "
+                "this must fall exactly on an anniversary of it — e.g. "
+                '%(example)s for a cutoff of "12 and under". A date that '
+                "doesn't land on the anniversary would silently judge age "
+                "on a different day than the event actually starts."
+            ) % {
+                "start": start.isoformat(),
+                "example": example_years_before(start, 12).isoformat(),
+            }
+        if self.min_birthdate is not None and (
+            self.min_birthdate.month,
+            self.min_birthdate.day,
+        ) != (day_after_start.month, day_after_start.day):
+            errors["min_birthdate"] = _(
+                "Age is judged on the event's start date, so this must "
+                "fall exactly one day after an anniversary of it "
+                "(%(day_after)s) — e.g. %(example)s to exclude anyone who "
+                "has already turned 18 by the time the event starts."
+            ) % {
+                "day_after": day_after_start.isoformat(),
+                "example": example_years_before(day_after_start, 18).isoformat(),
+            }
+        if errors:
+            raise ValidationError(errors)
 
 
 class PromoCode(models.Model):
@@ -405,8 +532,8 @@ class PromoCode(models.Model):
         related_name="discount_promo_codes",
         verbose_name=_("Applies To Ticket Types"),
         help_text=_(
-            "Empty = discount computed over the whole itemized total. "
-            "Non-empty = discount computed only over matching ticket lines."
+            "Leave empty to take the discount off the whole order. Pick "
+            "ticket types to take it off only those lines."
         ),
     )
     unlocks_ticket_types = models.ManyToManyField(
@@ -415,15 +542,15 @@ class PromoCode(models.Model):
         related_name="unlocking_promo_codes",
         verbose_name=_("Unlocks Ticket Types"),
         help_text=_(
-            "Hidden ticket types (TicketType.is_hidden) this code makes "
-            "selectable — e.g. VIP2026 unlocking Weekend 2026's VIP type."
+            "Hidden ticket types that this code makes selectable — e.g. "
+            "VIP2026 unlocking the VIP type for Weekend 2026."
         ),
     )
     max_uses = models.PositiveIntegerField(
         null=True,
         blank=True,
         verbose_name=_("Max Uses"),
-        help_text=_("Null = unlimited."),
+        help_text=_("Leave blank to let the code be used any number of times."),
     )
     uses_count = models.PositiveIntegerField(default=0, verbose_name=_("Uses Count"))
     valid_from = models.DateTimeField(
@@ -650,6 +777,13 @@ class Ticket(models.Model):
 
     class Meta:
         db_table = "tickets"
+        # Explicit and title-cased: Django would otherwise derive
+        # "ticket"/"tickets" from the class name, rendering lowercase next to
+        # every sibling model's title-cased name. The model is deprecated and
+        # hidden from the admin index, but autocomplete results and validation
+        # errors still show this name.
+        verbose_name = _("Ticket")
+        verbose_name_plural = _("Tickets")
         indexes = [
             models.Index(fields=["attendee"], name="tickets_attend_0ad1b0_idx"),
             models.Index(fields=["session"]),
@@ -663,6 +797,17 @@ class EventTicket(models.Model):
     """
     Represents a ticket/pass for an entire event.
     Gives the attendee access to all sessions within the event.
+
+    ``ticket_type`` is set only for itemized self-serve tickets (Phase 3+),
+    and uses ``on_delete=PROTECT`` so a sold-against TicketType cannot be
+    deleted out from under it (soft-retire via ``TicketType.is_active``
+    instead). Null means a flat-price, staff-created, or imported ticket —
+    unaffected by itemized pricing.
+
+    ``price_at_registration`` is snapshotted once at submission and never
+    recomputed, even if the ticket type's price changes afterwards. That is
+    what makes mid-sale price edits safe by construction (case catalog
+    §9.4) rather than something staff have to be careful about.
     """
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
@@ -693,8 +838,9 @@ class EventTicket(models.Model):
         related_name="event_tickets",
         verbose_name=_("Registration"),
         help_text=_(
-            "Set only for tickets created via public self-serve registration; "
-            "staff-created tickets leave this null and are unaffected."
+            "The registration this ticket came from, when a family signed "
+            "up themselves online. Blank for tickets created by staff or "
+            "brought in by an import."
         ),
     )
     ticket_type = models.ForeignKey(
@@ -705,8 +851,8 @@ class EventTicket(models.Model):
         related_name="event_tickets",
         verbose_name=_("Ticket Type"),
         help_text=_(
-            "Set only for itemized self-serve tickets (Phase 3+); null means "
-            "a flat-price/staff/import ticket, unaffected."
+            "The ticket type the family chose when registering. Blank for "
+            "tickets created by staff or brought in by an import."
         ),
     )
     price_at_registration = models.DecimalField(
@@ -716,8 +862,8 @@ class EventTicket(models.Model):
         blank=True,
         verbose_name=_("Price At Registration"),
         help_text=_(
-            "Snapshotted once at submission — never recomputed even if the "
-            "ticket type's price changes afterwards."
+            "The price this ticket was sold at. Editing a price is safe — "
+            "tickets already sold keep the price they were sold at."
         ),
     )
 
@@ -739,6 +885,12 @@ class SessionTicket(models.Model):
     """
     Represents a ticket for a specific session.
     Gives the attendee access only to the specified session.
+
+    ``ticket_type`` and ``price_at_registration`` behave exactly as on
+    EventTicket: the FK is set only for itemized self-serve tickets
+    (Phase 3+) and is PROTECTed against deletion of the type, and the price
+    is snapshotted once at submission and never recomputed, which is what
+    makes mid-sale price edits safe (case catalog §9.4).
     """
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
@@ -769,8 +921,9 @@ class SessionTicket(models.Model):
         related_name="session_tickets",
         verbose_name=_("Registration"),
         help_text=_(
-            "Set only for tickets created via public self-serve registration; "
-            "staff-created tickets leave this null and are unaffected."
+            "The registration this ticket came from, when a family signed "
+            "up themselves online. Blank for tickets created by staff or "
+            "brought in by an import."
         ),
     )
     ticket_type = models.ForeignKey(
@@ -781,8 +934,8 @@ class SessionTicket(models.Model):
         related_name="session_tickets",
         verbose_name=_("Ticket Type"),
         help_text=_(
-            "Set only for itemized self-serve tickets (Phase 3+); null means "
-            "a flat-price/staff/import ticket, unaffected."
+            "The ticket type the family chose when registering. Blank for "
+            "tickets created by staff or brought in by an import."
         ),
     )
     price_at_registration = models.DecimalField(
@@ -792,8 +945,8 @@ class SessionTicket(models.Model):
         blank=True,
         verbose_name=_("Price At Registration"),
         help_text=_(
-            "Snapshotted once at submission — never recomputed even if the "
-            "ticket type's price changes afterwards."
+            "The price this ticket was sold at. Editing a price is safe — "
+            "tickets already sold keep the price they were sold at."
         ),
     )
 

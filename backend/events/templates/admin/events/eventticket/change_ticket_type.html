@@ -1,0 +1,124 @@
+{% extends "admin/base_site.html" %}
+{% load i18n l10n admin_urls %}
+
+{% block extrahead %}
+    {{ block.super }}
+    {{ form.media }}
+{% endblock %}
+
+{% block bodyclass %}{{ block.super }} app-{{ opts.app_label }} model-{{ opts.model_name }} change-ticket-type{% endblock %}
+
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+<a href="{% url 'admin:index' %}">{% translate 'Home' %}</a>
+&rsaquo; <a href="{% url 'admin:app_list' app_label=opts.app_label %}">{{ opts.app_config.verbose_name }}</a>
+&rsaquo; <a href="{% url opts|admin_urlname:'changelist' %}">{{ opts.verbose_name_plural|capfirst }}</a>
+&rsaquo; {% translate 'Change ticket type' %}
+</div>
+{% endblock %}
+
+{% block content %}
+
+<form method="post">{% csrf_token %}
+
+{% if not is_preview %}
+<p>{% blocktranslate with event=event.name %}Choose the ticket type these tickets should have at {{ event }}. Nothing is changed yet — the next screen shows what it does to each family's balance.{% endblocktranslate %}</p>
+<ul>
+{% for obj in queryset %}
+    <li>{{ obj.attendee }} — {% if obj.ticket_type %}{{ obj.ticket_type.name }}{% else %}{% translate "No ticket type" %}{% endif %}</li>
+{% endfor %}
+</ul>
+{% else %}
+<p>{% translate "Check this before you confirm. The price a ticket was sold at is never rewritten — the difference is settled on the family's payment instead." %}</p>
+
+{% if rejections %}
+<ul class="errorlist">
+{% for ticket, reason in rejections %}
+    <li>{{ ticket.attendee }}: {{ reason }}</li>
+{% endfor %}
+</ul>
+{% endif %}
+
+<table>
+<thead>
+<tr>
+    <th>{% translate "Attendee" %}</th>
+    <th>{% translate "Age at start of event" %}</th>
+    <th>{% translate "From" %}</th>
+    <th>{% translate "To" %}</th>
+    <th>{% translate "Price difference" %}</th>
+    <th>{% translate "Effect on the payment" %}</th>
+</tr>
+</thead>
+<tbody>
+{% for row in plan_rows %}
+<tr>
+    <td>{{ row.plan.ticket.attendee }}</td>
+    <td>{% if row.plan.age_at_event is None %}—{% else %}{{ row.plan.age_at_event }}{% endif %}</td>
+    <td>{% if row.plan.old_ticket_type %}{{ row.plan.old_ticket_type.name }} ({{ row.old_price|default_if_none:"—" }}){% else %}{% translate "No ticket type" %}{% endif %}</td>
+    <td>{{ row.plan.new_ticket_type.name }} ({{ row.new_price }})</td>
+    <td>{% if row.delta is None %}—{% else %}{{ row.delta }}{% endif %}</td>
+    <td>{{ row.plan.effect_label }}</td>
+</tr>
+{% if row.plan.age_warning %}
+<tr>
+    <td colspan="6">
+    <ul class="messagelist" style="margin:0;">
+    <li class="warning">
+        {{ row.plan.age_warning }}
+        {% if row.inline_ack %}
+        <div style="margin-top:.6em;">
+            <label>{{ form.acknowledge_age_warning }} {{ form.acknowledge_age_warning.label }}</label>
+            <div class="help" style="margin-left:0;">{{ form.acknowledge_age_warning.help_text }}</div>
+        </div>
+        {% endif %}
+    </li>
+    </ul>
+    </td>
+</tr>
+{% endif %}
+{% endfor %}
+</tbody>
+</table>
+
+{% if show_group_ack_banner %}
+<ul class="messagelist">
+<li class="warning">
+    <label>{{ form.acknowledge_age_warning }} {% translate "One tick confirms every age warning listed above, for all tickets in this batch — including any age that could not be verified." %}</label>
+    <div class="help" style="margin-left:0;">{{ form.acknowledge_age_warning.help_text }}</div>
+</li>
+</ul>
+{% endif %}
+{% endif %}
+
+<div>
+{% for obj in queryset %}
+<input type="hidden" name="{{ action_checkbox_name }}" value="{{ obj.pk|unlocalize }}">
+{% endfor %}
+<input type="hidden" name="action" value="change_ticket_type">
+{% if is_preview %}
+    <input type="hidden" name="apply" value="yes">
+    {{ form.ticket_type.as_hidden }}
+    <input type="submit" id="id_change_ticket_type_submit" value="{% translate 'Change ticket type' %}"{% if not plans or needs_acknowledgement and not form.acknowledge_age_warning.value %} disabled{% endif %}>
+    {% if needs_acknowledgement %}
+    <script>
+    (function () {
+        document.querySelectorAll('#id_acknowledge_age_warning').forEach(function (checkbox) {
+            checkbox.addEventListener('change', function () {
+                var submit = document.getElementById('id_change_ticket_type_submit');
+                submit.disabled = !checkbox.checked;
+            });
+        });
+    })();
+    </script>
+    {% endif %}
+{% else %}
+    <input type="hidden" name="preview" value="yes">
+    {{ form.ticket_type.errors }}
+    <p>{{ form.ticket_type.label_tag }} {{ form.ticket_type }}</p>
+    <input type="submit" value="{% translate 'Show what this changes' %}">
+{% endif %}
+<a href="{{ cancel_url }}" class="button cancel-link">{% translate "Cancel" %}</a>
+</div>
+</form>
+{% endblock %}

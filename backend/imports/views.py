@@ -2,9 +2,10 @@ import logging
 
 from django.shortcuts import get_object_or_404
 from rest_framework.decorators import api_view, permission_classes
-from rest_framework.permissions import IsAdminUser
 from rest_framework.response import Response
 from rest_framework import status
+
+from config.permissions import model_permissions
 
 from .importer import (
     ProviderFetchError,
@@ -23,8 +24,30 @@ from .serializers import (
 logger = logging.getLogger(__name__)
 
 
+# The import endpoints were the last ones still gated on ``IsAdminUser``, i.e.
+# on ``is_staff``. That made a Koordinator — who is granted every ``imports.*``
+# permission in ``accounts/roles.py`` — unable to run an import, purely because
+# they have no Django-admin account, and it kept ``is_staff`` doing app-tier
+# work after the rest of the API had moved off it. These bind each view to the
+# model it actually touches, so the grant the role already carries is the grant
+# that opens the endpoint.
+#
+# ``ImportSource`` covers configuring a source; ``ImportRun`` covers performing
+# one. The two "discover prefixes" views only inspect data to help fill in a
+# source's field mapping — they create nothing — so they ask for
+# ``view_importsource`` rather than the ``add_*`` their POST verb would
+# otherwise imply.
+SourcePermissions = model_permissions(ImportSource, name="ImportSourcePermissions")
+SourceInspectPermissions = model_permissions(
+    ImportSource,
+    perms_map={"POST": ["%(app_label)s.view_%(model_name)s"]},
+    name="ImportSourceInspectPermissions",
+)
+RunPermissions = model_permissions(ImportRun, name="ImportRunPermissions")
+
+
 @api_view(["POST"])
-@permission_classes([IsAdminUser])
+@permission_classes([SourceInspectPermissions])
 def discover_prefixes_view(request):
     """
     POST /api/imports/discover-prefixes/
@@ -72,7 +95,7 @@ def discover_prefixes_view(request):
 
 
 @api_view(["GET", "POST"])
-@permission_classes([IsAdminUser])
+@permission_classes([SourcePermissions])
 def list_create_source_view(request):
     """GET /api/imports/sources/ or POST /api/imports/sources/"""
     if request.method == "GET":
@@ -90,7 +113,7 @@ def list_create_source_view(request):
 
 
 @api_view(["GET", "PUT", "DELETE"])
-@permission_classes([IsAdminUser])
+@permission_classes([SourcePermissions])
 def source_detail_view(request, source_id):
     """GET/PUT/DELETE /api/imports/sources/<source_id>/"""
     source = get_object_or_404(
@@ -115,7 +138,7 @@ def source_detail_view(request, source_id):
 
 
 @api_view(["POST"])
-@permission_classes([IsAdminUser])
+@permission_classes([RunPermissions])
 def run_import_source_view(request, source_id):
     """
     POST /api/imports/sources/<source_id>/run/
@@ -246,7 +269,7 @@ def run_import_source_view(request, source_id):
 
 
 @api_view(["POST"])
-@permission_classes([IsAdminUser])
+@permission_classes([RunPermissions])
 def run_import_planningcenter_view(request, source_id):
     """
     POST /api/imports/sources/<source_id>/run-planningcenter/
@@ -315,7 +338,7 @@ def run_import_planningcenter_view(request, source_id):
 
 
 @api_view(["GET"])
-@permission_classes([IsAdminUser])
+@permission_classes([RunPermissions])
 def import_history_source_view(request, source_id):
     """
     GET /api/imports/sources/<source_id>/history/
@@ -328,7 +351,7 @@ def import_history_source_view(request, source_id):
 
 
 @api_view(["POST"])
-@permission_classes([IsAdminUser])
+@permission_classes([SourceInspectPermissions])
 def discover_prefixes_from_source_view(request, source_id):
     """
     POST /api/imports/sources/<source_id>/discover-prefixes/

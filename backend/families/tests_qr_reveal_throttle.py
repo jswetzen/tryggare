@@ -71,3 +71,74 @@ class QrSafetyInfoRevealThrottleTests(TestCase):
 
         second = self.client.post(self.url)
         self.assertEqual(second.status_code, 429)
+
+
+class QrSafetyInfoRevealUserThrottleTests(TestCase):
+    """AnonRateThrottle (QrSafetyInfoRevealThrottleTests above) is a no-op
+    for authenticated requests — DRF only ever counts anonymous callers
+    against it. Every real reveal is made by a logged-in volunteer or
+    coordinator, so the per-user throttle (QRSafetyInfoRevealUserThrottle,
+    scope "qr_safety_info_reveal_user") is what actually protects this
+    endpoint in practice. Assert both directions: a normal burst well
+    under the limit is NOT refused, and exceeding the limit IS refused —
+    a test that only exercises one side proves nothing about the other.
+    """
+
+    def setUp(self):
+        cache.clear()
+        self.code = _make_checked_in_child()
+        self.url = f"/api/qr/{self.code}/reveal-safety-info/"
+        self.volunteer = AdminUser.objects.create_user(
+            username="throttle_volunteer", password="pw"
+        )
+        self.client = APIClient()
+        self.client.force_authenticate(user=self.volunteer)
+
+    @patch.dict(
+        "rest_framework.throttling.SimpleRateThrottle.THROTTLE_RATES",
+        {
+            "qr_safety_info_reveal_user": "3/minute",
+            "qr_safety_info_reveal": "1000/minute",
+        },
+    )
+    def test_authenticated_burst_within_limit_is_not_refused(self):
+        # A busy check-in desk: three reveals in quick succession, all
+        # within the configured burst allowance.
+        for _ in range(3):
+            response = self.client.post(self.url)
+            self.assertEqual(response.status_code, 200, response.data)
+
+    @patch.dict(
+        "rest_framework.throttling.SimpleRateThrottle.THROTTLE_RATES",
+        {
+            "qr_safety_info_reveal_user": "3/minute",
+            "qr_safety_info_reveal": "1000/minute",
+        },
+    )
+    def test_authenticated_caller_is_refused_once_limit_is_exceeded(self):
+        for _ in range(3):
+            response = self.client.post(self.url)
+            self.assertEqual(response.status_code, 200, response.data)
+
+        fourth = self.client.post(self.url)
+        self.assertEqual(fourth.status_code, 429)
+
+    @patch.dict(
+        "rest_framework.throttling.SimpleRateThrottle.THROTTLE_RATES",
+        {"qr_safety_info_reveal_user": "1/day", "qr_safety_info_reveal": "1000/minute"},
+    )
+    def test_authenticated_throttle_is_keyed_per_user_not_shared(self):
+        first = self.client.post(self.url)
+        self.assertEqual(first.status_code, 200, first.data)
+
+        other_volunteer = AdminUser.objects.create_user(
+            username="throttle_volunteer_2", password="pw"
+        )
+        other_client = APIClient()
+        other_client.force_authenticate(user=other_volunteer)
+        other_first = other_client.post(self.url)
+        self.assertEqual(
+            other_first.status_code,
+            200,
+            "a second user's own reveal should not be blocked by the first user's usage",
+        )

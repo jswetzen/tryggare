@@ -12,11 +12,12 @@ from django.utils.translation import get_language
 from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes, throttle_classes
 from rest_framework.exceptions import ValidationError
-from rest_framework.permissions import AllowAny, IsAuthenticated
+from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.throttling import AnonRateThrottle
 
 from checkins.audit import log_audit
+from config.permissions import POST_REQUIRES_CHANGE, model_permissions
 from events.models import (
     AppliesTo,
     Event,
@@ -54,6 +55,18 @@ from .swish import payment_instructions
 from .tokens import generate_verification_token, hash_token
 
 logger = logging.getLogger(__name__)
+
+# The two check-in-screen money actions (case catalog §9.3). These are the
+# money actions a Volontär keeps: handling the family standing in front of
+# them, as opposed to browsing everyone's finances.
+#
+# They are function-based views, so the model has to be named rather than read
+# off a queryset, and both are POSTs that modify an *existing* registration —
+# mapped to ``change_registration`` rather than DRF's default ``add_``, so the
+# grant does not quietly also mean "can conjure registrations out of nothing".
+_DOOR_MONEY_PERMISSION = model_permissions(
+    Registration, perms_map=POST_REQUIRES_CHANGE, name="DoorMoneyPermissions"
+)
 
 RESEND_COOLDOWN = timedelta(minutes=10)
 
@@ -794,7 +807,7 @@ def submit_registration(request):
                 },
                 status=status.HTTP_200_OK,
             )
-        send_verification_email(registration, token)
+        email_sent = send_verification_email(registration, token)
         log_audit(
             request,
             action="registration_resent",
@@ -805,6 +818,11 @@ def submit_registration(request):
         return Response(
             {
                 "reference_code": registration.reference_code,
+                # False means the registration is stored but the mail didn't
+                # go out (see emails.py::_send_or_degrade) — the client says
+                # so plainly and offers the resend action rather than
+                # claiming an email is on its way.
+                "email_sent": email_sent,
                 "message": _("Thanks — check your email to confirm."),
             },
             status=status.HTTP_201_CREATED,
@@ -821,7 +839,7 @@ def submit_registration(request):
             promo_code_str=data.get("promo_code"),
         )
 
-    send_verification_email(registration, token)
+    email_sent = send_verification_email(registration, token)
 
     log_audit(
         request,
@@ -837,6 +855,7 @@ def submit_registration(request):
     return Response(
         {
             "reference_code": registration.reference_code,
+            "email_sent": email_sent,
             "message": _("Thanks — check your email to confirm."),
         },
         status=status.HTTP_201_CREATED,
@@ -920,15 +939,20 @@ def verify_registration(request, token):
         },
     )
 
+    email_sent = True
     if registration.status == Registration.Status.CONFIRMED:
-        send_confirmation_email(registration)
+        email_sent = send_confirmation_email(registration)
     elif registration.status == Registration.Status.PENDING_PAYMENT:
-        send_payment_instructions_email(registration)
+        email_sent = send_payment_instructions_email(registration)
 
     response_data = {
         "status": registration.status,
         "reference_code": registration.reference_code,
         "event_name": registration.event.name,
+        # The verification itself has already committed regardless — this
+        # only says whether the follow-up mail (confirmation, or payment
+        # instructions) actually left. See emails.py::_send_or_degrade.
+        "email_sent": email_sent,
     }
     if payment is not None:
         response_data.update(payment_instructions(payment))
@@ -983,7 +1007,7 @@ def registration_payment_status(request):
 
 
 @api_view(["POST"])
-@permission_classes([IsAuthenticated])
+@permission_classes([_DOOR_MONEY_PERMISSION])
 def mark_registration_paid(request, registration_id):
     """Check-in screen's "ta betalt nu" action (case catalog §9.3): a family
     with a pending_payment registration is at the front of the check-in
@@ -1037,7 +1061,7 @@ def mark_registration_paid(request, registration_id):
 
 
 @api_view(["POST"])
-@permission_classes([IsAuthenticated])
+@permission_classes([_DOOR_MONEY_PERMISSION])
 def confirm_registration_despite_balance_view(request, registration_id):
     """Check-in screen's "släpp in, lös betalning senare" override (case
     catalog §9.3): a deliberate staff judgment call to let a family in

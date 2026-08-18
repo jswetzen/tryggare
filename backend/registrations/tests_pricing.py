@@ -302,7 +302,7 @@ class SubmitWithTicketTypesTests(TestCase):
         payload = self._payload()
         payload["children"][0]["ticket_type"] = None
 
-        with patch("registrations.views.send_verification_email"):
+        with patch("registrations.views.send_verification_email", return_value=True):
             response = self.client.post(self.url, payload, format="json")
 
         self.assertEqual(response.status_code, 400, response.data)
@@ -311,13 +311,13 @@ class SubmitWithTicketTypesTests(TestCase):
         payload = self._payload()
         payload["children"][0]["birthdate"] = "1990-01-01"  # too old for child_type
 
-        with patch("registrations.views.send_verification_email"):
+        with patch("registrations.views.send_verification_email", return_value=True):
             response = self.client.post(self.url, payload, format="json")
 
         self.assertEqual(response.status_code, 400, response.data)
 
     def test_valid_submission_snapshots_ticket_type_prices(self):
-        with patch("registrations.views.send_verification_email"):
+        with patch("registrations.views.send_verification_email", return_value=True):
             response = self.client.post(self.url, self._payload(), format="json")
 
         self.assertEqual(response.status_code, 201, response.data)
@@ -362,7 +362,7 @@ class SubmitWithTicketTypesTests(TestCase):
         payload["children"][0]["ticket_type"] = str(sunday_only.id)
         payload["children"][0]["extras"] = [{"extra": str(dinner.id)}]
 
-        with patch("registrations.views.send_verification_email"):
+        with patch("registrations.views.send_verification_email", return_value=True):
             response = self.client.post(self.url, payload, format="json")
 
         self.assertEqual(response.status_code, 400, response.data)
@@ -410,7 +410,7 @@ class RequiredExtraTests(TestCase):
         return payload
 
     def test_omitting_a_required_extra_entirely_is_rejected(self):
-        with patch("registrations.views.send_verification_email"):
+        with patch("registrations.views.send_verification_email", return_value=True):
             response = self.client.post(self.url, self._payload(), format="json")
 
         self.assertEqual(response.status_code, 400, response.data)
@@ -421,7 +421,7 @@ class RequiredExtraTests(TestCase):
             {"extra": str(self.accommodation.id), "choice": str(self.tent.id)}
         ]
 
-        with patch("registrations.views.send_verification_email"):
+        with patch("registrations.views.send_verification_email", return_value=True):
             response = self.client.post(self.url, payload, format="json")
 
         self.assertEqual(response.status_code, 201, response.data)
@@ -436,7 +436,7 @@ class RequiredExtraTests(TestCase):
         payload = self._payload()
         payload["parents"][0]["extras"] = [{"extra": str(self.accommodation.id)}]
 
-        with patch("registrations.views.send_verification_email"):
+        with patch("registrations.views.send_verification_email", return_value=True):
             response = self.client.post(self.url, payload, format="json")
 
         self.assertEqual(response.status_code, 400, response.data)
@@ -456,13 +456,13 @@ class RequiredExtraTests(TestCase):
             {"extra": str(self.accommodation.id), "choice": str(self.tent.id)}
         ]
 
-        with patch("registrations.views.send_verification_email"):
+        with patch("registrations.views.send_verification_email", return_value=True):
             response = self.client.post(self.url, payload, format="json")
 
         self.assertEqual(response.status_code, 400, response.data)
 
         payload["extras"] = [{"extra": str(cabin.id)}]
-        with patch("registrations.views.send_verification_email"):
+        with patch("registrations.views.send_verification_email", return_value=True):
             response = self.client.post(self.url, payload, format="json")
 
         self.assertEqual(response.status_code, 201, response.data)
@@ -495,7 +495,7 @@ class VerifyRegistrationPaidnessTests(TestCase):
         registration.verification_token_hash = hash_token(token)
         registration.save(update_fields=["verification_token_hash"])
 
-        with patch("registrations.views.send_confirmation_email"):
+        with patch("registrations.views.send_confirmation_email", return_value=True):
             response = self._verify(self.client, token)
 
         self.assertEqual(response.status_code, 200, response.data)
@@ -522,7 +522,9 @@ class VerifyRegistrationPaidnessTests(TestCase):
         registration.verification_token_hash = hash_token(token)
         registration.save(update_fields=["verification_token_hash"])
 
-        with patch("registrations.views.send_payment_instructions_email"):
+        with patch(
+            "registrations.views.send_payment_instructions_email", return_value=True
+        ):
             response = self._verify(self.client, token)
 
         self.assertEqual(response.status_code, 200, response.data)

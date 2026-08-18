@@ -8,8 +8,13 @@ from django.shortcuts import get_object_or_404, render
 from django.utils import timezone
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
-from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
+
+from config.permissions import (
+    POST_REQUIRES_CHANGE,
+    DjangoModelPermissionsWithView,
+    model_permissions,
+)
 
 from checkins.models import CheckInRecord
 from .models import Printer, PrintJob
@@ -92,7 +97,13 @@ class PrinterViewSet(viewsets.ModelViewSet):
 
     queryset = Printer.objects.all()
     serializer_class = PrinterSerializer
-    permission_classes = [IsAuthenticated]
+    # ``provision``, ``rotate-token`` and ``revoke-token`` are POSTs, so they
+    # land on ``printing.add_printer`` — and that is exactly where they belong.
+    # No seeded role holds ``add_printer`` or ``delete_printer``: minting the
+    # credential a printer client authenticates with is a security operation
+    # that stays with ``is_superuser``. Deliberately NOT remapped to
+    # ``change_printer``, which a Koordinator does hold for renaming a printer.
+    permission_classes = [DjangoModelPermissionsWithView]
     http_method_names = ["get", "post", "patch", "delete", "head", "options"]
 
     def create(self, request, *args, **kwargs):
@@ -126,10 +137,26 @@ class PrinterViewSet(viewsets.ModelViewSet):
 class PrintJobViewSet(viewsets.GenericViewSet):
     """
     ViewSet for creating and managing print jobs.
+
+    A plain ``GenericViewSet`` with no ``queryset``, so the model has to be
+    named explicitly for ``DjangoModelPermissions`` to have anything to look up.
     """
 
     serializer_class = PrintJobSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [model_permissions(PrintJob)]
+
+    # ``assign`` re-points an existing job at another printer — the thing a
+    # volunteer does when the label did not come out because a printer is
+    # offline. It is a POST, so without this it would need ``add_printjob``;
+    # ``change_printjob`` is what it means, and Volontär holds it.
+    _assign_permission = model_permissions(
+        PrintJob, perms_map=POST_REQUIRES_CHANGE, name="PrintJobAssignPermissions"
+    )
+
+    def get_permissions(self):
+        if self.action == "assign":
+            return [self._assign_permission()]
+        return super().get_permissions()
 
     def create(self, request):
         """

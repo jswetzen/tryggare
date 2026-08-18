@@ -17,7 +17,9 @@ from accounts.models import AdminUser
 from checkins.models import CheckInRecord
 from events.models import Event, EventTicket, Session, SessionTicket
 from families.models import Child, Family
+from reports.models import EventReport
 from reports.services import build_event_report_data, generate_event_report
+from accounts.roles import COORDINATOR, VOLUNTEER, grant
 
 
 def _aware(y, mo, d, h, mi):
@@ -258,6 +260,7 @@ class ReportApiTest(TestCase):
         self.assertEqual(resp.status_code, 403)
 
     def test_list_and_detail(self):
+        grant(self.user, COORDINATOR)
         self.client.force_authenticate(self.user)
         resp = self.client.get("/api/event-reports/")
         self.assertEqual(resp.status_code, 200)
@@ -272,6 +275,7 @@ class ReportApiTest(TestCase):
         self.assertEqual(detail.data["data"]["event"]["name"], "API Event")
 
     def test_export_csv(self):
+        grant(self.user, COORDINATOR)
         self.client.force_authenticate(self.user)
         # Explicit ?fmt=csv: guards against the DRF "format" reserved-param 404.
         resp = self.client.get(
@@ -283,12 +287,14 @@ class ReportApiTest(TestCase):
         self.assertIn(b"Event report", resp.content)
 
     def test_export_csv_is_default(self):
+        grant(self.user, COORDINATOR)
         self.client.force_authenticate(self.user)
         resp = self.client.get(f"/api/event-reports/{self.report.id}/export/")
         self.assertEqual(resp.status_code, 200)
         self.assertEqual(resp["Content-Type"], "text/csv")
 
     def test_export_json(self):
+        grant(self.user, COORDINATOR)
         self.client.force_authenticate(self.user)
         resp = self.client.get(
             f"/api/event-reports/{self.report.id}/export/", {"fmt": "json"}
@@ -298,6 +304,109 @@ class ReportApiTest(TestCase):
         self.assertIn(".json", resp["Content-Disposition"])
 
     def test_is_read_only(self):
+        grant(self.user, COORDINATOR)
         self.client.force_authenticate(self.user)
         resp = self.client.post("/api/event-reports/", {})
         self.assertEqual(resp.status_code, 405)
+
+
+class ReportGenerateApiTest(TestCase):
+    """The POST that roadmap J6 asked for: take a snapshot without leaving the app.
+
+    Generation used to exist only as a Django admin action and a management
+    command, so a Koordinator — who deliberately has no admin access — could not
+    refresh the numbers at all.
+    """
+
+    def setUp(self):
+        self.event = Event.objects.create(
+            name="Generate Event",
+            start_date=date(2026, 7, 1),
+            end_date=date(2026, 7, 2),
+        )
+        self.client = APIClient()
+
+    def _user(self, username, role=None):
+        user = AdminUser.objects.create_user(username, name=username.title())
+        if role:
+            grant(user, role)
+        return user
+
+    def test_coordinator_can_generate(self):
+        user = self._user("coordinator", COORDINATOR)
+        self.client.force_authenticate(user)
+        resp = self.client.post(
+            "/api/event-reports/generate/", {"event": str(self.event.id)}
+        )
+        self.assertEqual(resp.status_code, 201)
+        self.assertEqual(EventReport.objects.count(), 1)
+        report = EventReport.objects.get()
+        self.assertEqual(report.event, self.event)
+        # Attribution matters: a snapshot is a record, and "who took it" is
+        # part of the record.
+        self.assertEqual(report.generated_by, user)
+        # The response carries the full snapshot, so the page can show the new
+        # report without a second round trip.
+        self.assertEqual(resp.data["data"]["event"]["name"], "Generate Event")
+
+    def test_volunteer_is_refused(self):
+        """A volunteer holds ``view_eventreport`` but not ``add_``.
+
+        This is the assertion that would catch someone "simplifying" the
+        endpoint onto IsAuthenticated later.
+        """
+        self.client.force_authenticate(self._user("volunteer", VOLUNTEER))
+        resp = self.client.post(
+            "/api/event-reports/generate/", {"event": str(self.event.id)}
+        )
+        self.assertEqual(resp.status_code, 403)
+        self.assertEqual(EventReport.objects.count(), 0)
+
+    def test_requires_authentication(self):
+        resp = self.client.post(
+            "/api/event-reports/generate/", {"event": str(self.event.id)}
+        )
+        self.assertEqual(resp.status_code, 403)
+        self.assertEqual(EventReport.objects.count(), 0)
+
+    def test_repeat_generation_appends_a_second_snapshot(self):
+        """Snapshots accumulate; they are never overwritten.
+
+        A report records what the numbers were at a moment in time, taken
+        before PII is deleted. Collapsing repeats into an ``update_or_create``
+        would destroy the earlier picture — the one thing the model exists to
+        preserve — so this asserts the append explicitly rather than leaving it
+        to be "tidied up" later.
+        """
+        self.client.force_authenticate(self._user("coordinator", COORDINATOR))
+        first = self.client.post(
+            "/api/event-reports/generate/", {"event": str(self.event.id)}
+        )
+        second = self.client.post(
+            "/api/event-reports/generate/", {"event": str(self.event.id)}
+        )
+        self.assertEqual(first.status_code, 201)
+        self.assertEqual(second.status_code, 201)
+        self.assertEqual(EventReport.objects.count(), 2)
+        self.assertNotEqual(first.data["id"], second.data["id"])
+
+    def test_missing_event_is_a_400(self):
+        self.client.force_authenticate(self._user("coordinator", COORDINATOR))
+        resp = self.client.post("/api/event-reports/generate/", {})
+        self.assertEqual(resp.status_code, 400)
+        self.assertEqual(EventReport.objects.count(), 0)
+
+    def test_malformed_event_id_is_a_400_not_a_500(self):
+        self.client.force_authenticate(self._user("coordinator", COORDINATOR))
+        resp = self.client.post("/api/event-reports/generate/", {"event": "not-a-uuid"})
+        self.assertEqual(resp.status_code, 400)
+        self.assertEqual(EventReport.objects.count(), 0)
+
+    def test_unknown_event_is_a_404(self):
+        self.client.force_authenticate(self._user("coordinator", COORDINATOR))
+        resp = self.client.post(
+            "/api/event-reports/generate/",
+            {"event": "00000000-0000-0000-0000-000000000000"},
+        )
+        self.assertEqual(resp.status_code, 404)
+        self.assertEqual(EventReport.objects.count(), 0)

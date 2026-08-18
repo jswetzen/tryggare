@@ -7,9 +7,20 @@
   import Logo from './ui/Logo.svelte';
   import Wordmark from './ui/Wordmark.svelte';
 
+  /**
+   * `isAdmin` used to gate reports, import *and* the Django-admin link off a
+   * single `is_staff` flag, so promoting a coordinator to see reports handed
+   * them the Django admin too. The three are now three separate questions, and
+   * the first two are answered by permissions the backend checks as well (see
+   * $lib/auth/permissions). The admin link is the one thing that legitimately
+   * stays on `is_staff` — it is a link to Django admin, and `is_staff` is
+   * exactly "can open Django admin".
+   */
   interface Props {
     userName?: string;
-    isAdmin?: boolean;
+    canViewReports?: boolean;
+    canViewImports?: boolean;
+    canOpenDjangoAdmin?: boolean;
     currentEvent?: string;
     currentSession?: string;
     sessionTime?: string;
@@ -18,7 +29,9 @@
 
   let {
     userName = 'User',
-    isAdmin = false,
+    canViewReports = false,
+    canViewImports = false,
+    canOpenDjangoAdmin = false,
     currentEvent,
     currentSession,
     sessionTime,
@@ -95,7 +108,7 @@
         >
           {$t('nav.callList')}
         </a>
-        {#if isAdmin}
+        {#if canViewReports}
           <a
             href="/reports"
             class="px-4 py-2 rounded-button font-semibold transition-colors {currentPath.startsWith('/reports')
@@ -104,6 +117,8 @@
           >
             {$t('nav.reports')}
           </a>
+        {/if}
+        {#if canViewImports}
           <a
             href="/import"
             class="px-3 py-2 rounded-button font-semibold transition-colors {currentPath.startsWith('/import')
@@ -112,6 +127,8 @@
           >
             {$t('import.nav')}
           </a>
+        {/if}
+        {#if canOpenDjangoAdmin}
           <a
             href="/admin/"
             class="px-3 py-2 rounded-button font-semibold transition-colors text-neutral-700 hover:bg-neutral-100"
@@ -210,7 +227,7 @@
         >
           {$t('nav.callList')}
         </a>
-        {#if isAdmin}
+        {#if canViewReports}
           <a
             href="/reports"
             onclick={closeMobileMenu}
@@ -220,6 +237,8 @@
           >
             {$t('nav.reports')}
           </a>
+        {/if}
+        {#if canViewImports}
           <a
             href="/import"
             onclick={closeMobileMenu}
@@ -229,6 +248,8 @@
           >
             {$t('import.nav')}
           </a>
+        {/if}
+        {#if canOpenDjangoAdmin}
           <a
             href="/admin/"
             onclick={closeMobileMenu}

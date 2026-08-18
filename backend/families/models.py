@@ -97,6 +97,30 @@ class Family(models.Model):
         indexes = [
             models.Index(fields=["last_name"]),
         ]
+        # The two GDPR duties need permissions of their own, because neither is
+        # expressible with the four Django generates.
+        #
+        # ``export`` is a GET, so under model permissions it would be gated on
+        # ``view_family`` — the same permission that opens the check-in screen's
+        # family lookup. A DSAR export is not that: it is every parent's contact
+        # details, every child's allergy and medical-note text, and the whole
+        # audit trail, in one downloadable file. A volunteer working the door
+        # needs the former and must not have the latter.
+        #
+        # ``erase`` is a POST, so it would be gated on ``add_family`` — a
+        # permission that reads as harmless and in fact hard-deletes a family
+        # and cascades to its children. Mapping an irreversible erasure onto
+        # "can create" is the kind of mistake that is only wrong once.
+        #
+        # Names are plain English rather than gettext strings on purpose:
+        # ``Permission.name`` is written to the database at migration time, so a
+        # lazy string would freeze whichever language happened to be active
+        # then. Django stores its own "Can add family" untranslated for the same
+        # reason.
+        permissions = [
+            ("export_family_dsar", "Can export a family's data (GDPR access)"),
+            ("erase_family_dsar", "Can erase a family's data (GDPR erasure)"),
+        ]
 
     def __str__(self) -> str:
         if self.last_name:

@@ -202,7 +202,7 @@ class PromoCodeSubmissionTests(TestCase):
         )
         payload = self._payload(self.adult_type, promo_code="SPARA10")
 
-        with patch("registrations.views.send_verification_email"):
+        with patch("registrations.views.send_verification_email", return_value=True):
             response = self.client.post(self.url, payload, format="json")
 
         self.assertEqual(response.status_code, 201, response.data)
@@ -217,7 +217,7 @@ class PromoCodeSubmissionTests(TestCase):
         _make_promo_code(self.event, code="SPARA10", discount_value=Decimal("50.00"))
         payload = self._payload(self.adult_type, promo_code="spara10")
 
-        with patch("registrations.views.send_verification_email"):
+        with patch("registrations.views.send_verification_email", return_value=True):
             response = self.client.post(self.url, payload, format="json")
 
         self.assertEqual(response.status_code, 201, response.data)
@@ -225,7 +225,7 @@ class PromoCodeSubmissionTests(TestCase):
     def test_hidden_ticket_type_rejected_without_code(self):
         payload = self._payload(self.vip_type)
 
-        with patch("registrations.views.send_verification_email"):
+        with patch("registrations.views.send_verification_email", return_value=True):
             response = self.client.post(self.url, payload, format="json")
 
         self.assertEqual(response.status_code, 400, response.data)
@@ -234,7 +234,7 @@ class PromoCodeSubmissionTests(TestCase):
         _make_promo_code(self.event, code="SPARA10", discount_value=Decimal("50.00"))
         payload = self._payload(self.vip_type, promo_code="SPARA10")
 
-        with patch("registrations.views.send_verification_email"):
+        with patch("registrations.views.send_verification_email", return_value=True):
             response = self.client.post(self.url, payload, format="json")
 
         self.assertEqual(response.status_code, 400, response.data)
@@ -244,7 +244,7 @@ class PromoCodeSubmissionTests(TestCase):
         promo.unlocks_ticket_types.add(self.vip_type)
         payload = self._payload(self.vip_type, promo_code="VIP2026")
 
-        with patch("registrations.views.send_verification_email"):
+        with patch("registrations.views.send_verification_email", return_value=True):
             response = self.client.post(self.url, payload, format="json")
 
         self.assertEqual(response.status_code, 201, response.data)
@@ -254,7 +254,7 @@ class PromoCodeSubmissionTests(TestCase):
     def test_nonexistent_code_rejected_with_generic_message(self):
         payload = self._payload(self.adult_type, promo_code="NOPE")
 
-        with patch("registrations.views.send_verification_email"):
+        with patch("registrations.views.send_verification_email", return_value=True):
             response = self.client.post(self.url, payload, format="json")
 
         self.assertEqual(response.status_code, 400, response.data)
@@ -266,7 +266,7 @@ class PromoCodeSubmissionTests(TestCase):
         )
         payload = self._payload(self.adult_type, promo_code="OFF")
 
-        with patch("registrations.views.send_verification_email"):
+        with patch("registrations.views.send_verification_email", return_value=True):
             response = self.client.post(self.url, payload, format="json")
 
         self.assertEqual(response.status_code, 400, response.data)
@@ -280,7 +280,7 @@ class PromoCodeSubmissionTests(TestCase):
         )
         payload = self._payload(self.adult_type, promo_code="OLD")
 
-        with patch("registrations.views.send_verification_email"):
+        with patch("registrations.views.send_verification_email", return_value=True):
             response = self.client.post(self.url, payload, format="json")
 
         self.assertEqual(response.status_code, 400, response.data)
@@ -294,7 +294,7 @@ class PromoCodeSubmissionTests(TestCase):
         )
         payload = self._payload(self.adult_type, promo_code="FUTURE")
 
-        with patch("registrations.views.send_verification_email"):
+        with patch("registrations.views.send_verification_email", return_value=True):
             response = self.client.post(self.url, payload, format="json")
 
         self.assertEqual(response.status_code, 400, response.data)
@@ -305,14 +305,14 @@ class PromoCodeSubmissionTests(TestCase):
         )
         payload = self._payload(self.adult_type, promo_code="ONCE")
 
-        with patch("registrations.views.send_verification_email"):
+        with patch("registrations.views.send_verification_email", return_value=True):
             first = self.client.post(self.url, payload, format="json")
         self.assertEqual(first.status_code, 201, first.data)
         promo.refresh_from_db()
         self.assertEqual(promo.uses_count, 1)
 
         payload["contact_email"] = "other@example.com"
-        with patch("registrations.views.send_verification_email"):
+        with patch("registrations.views.send_verification_email", return_value=True):
             second = self.client.post(self.url, payload, format="json")
 
         self.assertEqual(second.status_code, 400, second.data)
@@ -324,7 +324,7 @@ class PromoCodeSubmissionTests(TestCase):
         _make_promo_code(other_event, code="ELSEWHERE", discount_value=Decimal("10"))
         payload = self._payload(self.adult_type, promo_code="ELSEWHERE")
 
-        with patch("registrations.views.send_verification_email"):
+        with patch("registrations.views.send_verification_email", return_value=True):
             response = self.client.post(self.url, payload, format="json")
 
         self.assertEqual(response.status_code, 400, response.data)

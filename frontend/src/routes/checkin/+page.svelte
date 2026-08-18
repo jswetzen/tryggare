@@ -31,6 +31,15 @@
   import type { ApiError } from '$lib/api/client';
   import { websocketStore } from '$lib/stores/websocket';
   import type { WebSocketMessage, Printer } from '$lib/api/types';
+  import { canEditFamilyHealthInfo, type SessionUser } from '$lib/auth/permissions';
+
+  // Comes from the root layout's auth check. Used for one thing on this page:
+  // whether the inline family panel is an edit form or a read-behind-reveal
+  // detail view. Nothing here gates a *payment* action — door money stays with
+  // every role, because handling the family in front of you is not the same as
+  // browsing everyone's finances.
+  let { data }: { data: { user: SessionUser | null } } = $props();
+  let canEditFamilies = $derived(canEditFamilyHealthInfo(data.user));
 
   // ============================================================================
   // HELPER FUNCTIONS - Transform API responses to frontend types
@@ -1186,6 +1195,9 @@
     {#if showAddPanel}
       <AddFamilyPanel
         family={editingFamily}
+        canEditFamily={canEditFamilies}
+        onRevealSafetyInfo={(attendeeId) =>
+          checkinApi.revealSafetyInfo(editingFamily?.id ?? '', attendeeId)}
         onAdd={handleAddFamily}
         onSave={handleEditFamily}
         onClose={() => {
@@ -1259,6 +1271,7 @@
         onAssignParentTicket={assignParentTicket}
         onMarkPaid={markRegistrationPaid}
         onConfirmDespiteBalance={confirmDespiteBalance}
+        canEditFamily={canEditFamilies}
         onEditFamily={(familyId) => {
           editingFamily = families.find((f) => f.id === familyId) ?? null;
           showAddPanel = true;

@@ -22,7 +22,9 @@ else:
     ALLOWED_HOSTS.append("testserver")
 
 INSTALLED_APPS = [
-    "django.contrib.admin",
+    # Replaces "django.contrib.admin": installs TryggareAdminSite (branding
+    # + app ordering) as the site behind django.contrib.admin.site.
+    "config.admin.TryggareAdminConfig",
     "django.contrib.auth",
     "django.contrib.contenttypes",
     "django.contrib.sessions",
@@ -158,6 +160,13 @@ REST_FRAMEWORK = {
         "rest_framework.authentication.SessionAuthentication",
         "rest_framework.authentication.BasicAuthentication",
     ],
+    # Deliberately left as the *floor*, not the policy. Since increment 1.5a
+    # every real endpoint names a DjangoModelPermissions-based class of its own
+    # (config/permissions.py), so this default only ever applies to a view that
+    # forgot to — and "authenticated" is the safest thing for a forgotten view
+    # to be. Raising it to a model-permission class here would fail obscurely on
+    # any view without a queryset; lowering it to AllowAny would make the next
+    # forgotten view public.
     "DEFAULT_PERMISSION_CLASSES": [
         "rest_framework.permissions.IsAuthenticated",
     ],
@@ -192,6 +201,17 @@ REST_FRAMEWORK = {
         # venue-wifi pickup point could plausibly bump into this — revisit
         # if that turns out to be a problem in practice.
         "qr_safety_info_reveal": "20/hour",
+        # Per-user counterpart: AnonRateThrottle (the scope above) is a
+        # no-op for authenticated requests, and every real reveal is made
+        # by a logged-in volunteer/coordinator, so without this the reveal
+        # endpoint was unthrottled in practice for the accounts that
+        # actually use it. Looser than the anon rate because it's a known,
+        # attributable account rather than an arbitrary IP, and a real
+        # check-in-desk burst (a queue of families arriving at once) is a
+        # legitimate high-frequency workload — see
+        # families/qr_views.py::QRSafetyInfoRevealUserThrottle for the full
+        # reasoning behind the number.
+        "qr_safety_info_reveal_user": "100/hour",
     },
 }
 
@@ -292,3 +312,9 @@ CSRF_COOKIE_SAMESITE = os.getenv("CSRF_COOKIE_SAMESITE", "Lax")
 CSRF_COOKIE_HTTPONLY = False  # Allow JavaScript to read CSRF token
 CSRF_USE_SESSIONS = False  # Use cookie-based CSRF tokens
 CSRF_COOKIE_NAME = "csrftoken"
+
+# The Django test runner. See config/test_runner.py: it reseeds the three role
+# groups after the test database is set up, because a TransactionTestCase flush
+# deletes what accounts/migrations/0003_seed_roles created and --keepdb then
+# carries the groupless database into every later run.
+TEST_RUNNER = "config.test_runner.RoleSeedingTestRunner"

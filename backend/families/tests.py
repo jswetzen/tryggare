@@ -7,6 +7,7 @@ from rest_framework.test import APIClient
 
 from events.models import Event, EventTicket, Session, SessionTicket
 from families.models import Child, Family, Parent
+from accounts.roles import COORDINATOR, grant
 
 User = get_user_model()
 
@@ -150,6 +151,7 @@ class ChildSerializerTests(TestCase):
         """Set up test data and authenticated client"""
         self.user = User.objects.create_user(username="testuser", password="testpass")
         self.client = APIClient()
+        grant(self.user, COORDINATOR)
         self.client.force_authenticate(user=self.user)
 
         self.family = Family.objects.create(last_name="Johnson")
@@ -241,6 +243,7 @@ class FamilySerializerTests(TestCase):
         """Set up test data and authenticated client"""
         self.user = User.objects.create_user(username="testuser", password="testpass")
         self.client = APIClient()
+        grant(self.user, COORDINATOR)
         self.client.force_authenticate(user=self.user)
 
         self.family = Family.objects.create(last_name="Martinez")
@@ -298,6 +301,7 @@ class FamilyCreateValidationTests(TestCase):
     def setUp(self):
         self.user = User.objects.create_user(username="familycreate", password="x")
         self.client = APIClient()
+        grant(self.user, COORDINATOR)
         self.client.force_authenticate(user=self.user)
 
     def test_parent_only_family_succeeds(self):
@@ -359,6 +363,7 @@ class TicketIntegrationTests(TestCase):
         """Set up test data with tickets"""
         self.user = User.objects.create_user(username="testuser", password="testpass")
         self.client = APIClient()
+        grant(self.user, COORDINATOR)
         self.client.force_authenticate(user=self.user)
 
         self.family = Family.objects.create(last_name="Wilson")
@@ -427,7 +432,15 @@ class TicketIntegrationTests(TestCase):
 
         # The query should be efficient due to prefetch_related
         # Expecting: 1 child query + 1 event ticket prefetch + 1 session ticket prefetch + 1 check-in record prefetch
-        with self.assertNumQueries(4):
+        #
+        # Plus 2 for authorisation (increment 1.5a): DjangoModelPermissions
+        # calls has_perm, which loads the user's own permissions and their
+        # groups' permissions. Both are memoised on the user object for the
+        # rest of the request, so this is a flat +2 per request rather than per
+        # row — which is the property this N+1 guard exists to protect. Written
+        # as "4 + 2" instead of "6" so a future change that makes authorisation
+        # scale with the payload is visible here rather than absorbed.
+        with self.assertNumQueries(4 + 2):
             response = self.client.get("/api/children/")
             self.assertEqual(response.status_code, 200)
             # Ensure all children are returned with ticket info and check-in status
@@ -574,6 +587,7 @@ class HealthConsentCreateAPITests(TestCase):
     def setUp(self):
         self.user = User.objects.create_user(username="deskstaff", password="pw")
         self.client = APIClient()
+        grant(self.user, COORDINATOR)
         self.client.force_authenticate(user=self.user)
 
     def _payload(self, child_extra):

@@ -1,4 +1,12 @@
-from django.contrib import admin
+from decimal import Decimal
+
+from django.contrib import admin, messages
+from django.contrib.admin.exceptions import DisallowedModelAdminLookup
+from django.db.models import Q
+from django.shortcuts import redirect
+from django.utils import translation
+from django.utils.formats import date_format, number_format
+from django.utils.html import format_html
 from django.utils.translation import gettext_lazy as _
 
 from checkins.audit import log_audit
@@ -12,6 +20,91 @@ from .services import (
     release_promo_code_use,
     resolve_pending_review,
 )
+
+ZERO = Decimal("0")
+
+
+def format_balance(amount: Decimal) -> str:
+    """sv-SE money: decimal comma, non-breaking-space thousands separator,
+    unit last — "1 900,00 kr", not "1900,00 kr" (the two are one glyph
+    apart and that glyph is the only thing separating 1050,00 from
+    10 500,00). Forced to the ``sv`` locale regardless of the admin's own
+    active display language (the language switcher lets staff read the
+    chrome in English while amounts stay in kronor) via Django's own
+    number_format rather than a hand-rolled ``replace(".", ",")``, so
+    grouping is never silently dropped."""
+    with translation.override("sv"):
+        return number_format(amount, decimal_pos=2, force_grouping=True) + " kr"
+
+
+def format_signed_amount(amount: Decimal) -> str:
+    """Same sv-SE money rule as format_balance, prefixed with an explicit
+    sign — "+300,00 kr" / "−300,00 kr" — so a price *delta* on the
+    change-ticket-type wizard reads as a direction without the operator
+    doing the arithmetic themselves. The minus is U+2212 (MINUS SIGN), not
+    an ASCII hyphen, to visually match the plus glyph's width."""
+    if amount > ZERO:
+        return f"+{format_balance(amount)}"
+    if amount < ZERO:
+        return f"−{format_balance(-amount)}"
+    return format_balance(amount)
+
+
+def render_balance(amount: Decimal | None):
+    """Three states, not two (R3): a negative balance is a credit, not a
+    smaller debt, and the "remaining to pay" wording is a contradiction for
+    it — the "Skuld kvar / Reglerad" filter used to file it under Reglerad
+    too, silently burying a real overpayment. Positive renders as the
+    amount; zero renders muted, quieter than a debt so the eye can skip it
+    while scanning; negative renders worded as a credit and visually
+    flagged, using Django admin's own CSS custom properties (this is admin
+    chrome, not the Tailwind app) rather than a hard-coded colour.
+
+    Also where the R2 column-width fix lives at the cell level: right-
+    aligned, tabular-nums, with a min-width sized to the longest plausible
+    figure, so a number's end is never off the edge of its cell."""
+    if amount is None:
+        return "—"
+    style = (
+        "display:inline-block;min-width:6.5em;text-align:right;"
+        "font-variant-numeric:tabular-nums;"
+    )
+    if amount > ZERO:
+        return format_html('<span style="{}">{}</span>', style, format_balance(amount))
+    if amount == ZERO:
+        return format_html(
+            '<span style="{}color:var(--body-quiet-color);">{}</span>',
+            style,
+            format_balance(amount),
+        )
+    return format_html(
+        '<span style="{}color:var(--error-fg);font-weight:600;">{}</span>',
+        style,
+        _("%(amount)s credit") % {"amount": format_balance(-amount)},
+    )
+
+
+class RecoverableChangelistMixin:
+    """A hand-edited changelist URL (a bookmarked/typed filter on a field
+    that isn't in ``list_filter``/``search_fields``) raises
+    ``DisallowedModelAdminLookup``, which Django's generic exception handler
+    turns into a bare, unstyled 400 with no way back into the admin —
+    whoever hits it has lost their place entirely. Catch it here and bounce
+    back to the plain changelist with an explanation instead."""
+
+    def changelist_view(self, request, extra_context=None):
+        try:
+            return super().changelist_view(request, extra_context=extra_context)
+        except DisallowedModelAdminLookup:
+            self.message_user(
+                request,
+                _(
+                    "That link used a search or filter this page doesn't "
+                    "support. Showing the full list instead."
+                ),
+                level=messages.WARNING,
+            )
+            return redirect(request.path)
 
 
 def _mark_paid_action(method, description):
@@ -49,18 +142,88 @@ def _mark_paid_action(method, description):
     return action
 
 
+class HasOutstandingBalanceFilter(admin.SimpleListFilter):
+    """Answers "who still owes money [for this event]" as a filter rather
+    than a manual scan — combine with the existing ``event`` filter to
+    reproduce the blind-test's job 3 in one screen."""
+
+    title = _("Balance")
+    parameter_name = "balance"
+
+    def lookups(self, request, model_admin):
+        return (
+            ("owing", _("Owes money")),
+            ("settled", _("Settled")),
+            ("credit", _("Credit (overpaid)")),
+        )
+
+    def queryset(self, request, queryset):
+        if self.value() == "owing":
+            return queryset.filter(**{f"{Payment.BALANCE_ANNOTATION}__gt": 0})
+        if self.value() == "settled":
+            return queryset.filter(
+                Q(payment__isnull=True) | Q(**{f"{Payment.BALANCE_ANNOTATION}": 0})
+            )
+        if self.value() == "credit":
+            return queryset.filter(**{f"{Payment.BALANCE_ANNOTATION}__lt": 0})
+        return queryset
+
+
 @admin.register(Registration)
-class RegistrationAdmin(admin.ModelAdmin):
+class RegistrationAdmin(RecoverableChangelistMixin, admin.ModelAdmin):
+    # Money is never the rightmost column (R2, and a recurrence of the same
+    # shape that hit "Biljettyp" in increment 1): right after the identity
+    # column, where it's inside the ~630px a nav-pinned, filter-open 1280px
+    # viewport actually renders before the table scrolls off-screen.
     list_display = (
         "reference_code",
+        "balance_display",
+        "family_last_name",
         "event",
-        "contact_email",
         "status",
+        "activity_date",
+    )
+    list_filter = ("status", "event", HasOutstandingBalanceFilter)
+    # A volunteer is holding a surname, not a reference code — the surname
+    # lives on the family and on each attendee (a caller as often gives a
+    # child's name as the payer's), not on Registration itself, so the
+    # search has to reach through both relations. See the increment's
+    # evidence: "Nyström" returned 0 results before this.
+    #
+    # Safe to reach a multi-valued relation here precisely because the
+    # balance below is now a correlated Subquery (Payment.balance_subquery),
+    # not a join-based Sum — nothing this search adds can multiply it. See
+    # R1: it used to be balance_expression() joined straight onto this
+    # queryset, and combined with this exact attendee join it silently
+    # multiplied every ledger row by the family's attendee count.
+    search_fields = (
+        "reference_code",
+        "contact_email",
+        "family__last_name",
+        "family__attendees__first_name",
+        "family__attendees__last_name",
+    )
+    # Money at the top, beside Referenskod and Status (R4) — it used to sit
+    # last, below a SHA-256 hash and an expiry timestamp, because readonly
+    # fields default to appending in readonly_fields order after every
+    # editable field. Explicit ``fields`` is what it takes to reorder that.
+    fields = (
+        "reference_code",
+        "status",
+        "balance_on_detail",
+        "event",
+        "family",
+        "contact_email",
+        "promo_code",
+        "discount_amount",
+        "created_new_family",
         "submitted_at",
         "verified_at",
+        "verification_sent_at",
+        "expires_at",
+        "verification_token_hash",
+        "id",
     )
-    list_filter = ("status", "event")
-    search_fields = ("reference_code", "contact_email")
     readonly_fields = (
         "id",
         "family",
@@ -77,6 +240,7 @@ class RegistrationAdmin(admin.ModelAdmin):
         # and it skipped Payment creation, the confirmation/payment-
         # instructions email, and log_audit.
         "status",
+        "balance_on_detail",
     )
     actions = [
         "cancel_registrations",
@@ -89,7 +253,54 @@ class RegistrationAdmin(admin.ModelAdmin):
     ]
 
     def get_queryset(self, request):
-        return super().get_queryset(request).select_related("event", "family")
+        return (
+            super()
+            .get_queryset(request)
+            .select_related("event", "family", "payment")
+            # A correlated Subquery, not a join-based Sum (R1) — see
+            # Payment.balance_subquery for why: this queryset's own
+            # search_fields join family__attendees__*, a multi-valued
+            # relation, and a join-based Sum sitting next to that join
+            # multiplies every PaymentEvent row by the attendee fan-out.
+            # The subquery runs as its own isolated SELECT, so the attendee
+            # join can't touch it, with or without a search term applied.
+            .annotate(**{Payment.BALANCE_ANNOTATION: Payment.balance_subquery()})
+        )
+
+    @admin.display(description=_("Family"), ordering="family__last_name")
+    def family_last_name(self, obj):
+        # Raw last_name, not str(Family) — Family.__str__ falls back to
+        # querying the family's parents when last_name is blank, which
+        # would reintroduce a per-row query on this changelist.
+        return obj.family.last_name or "—"
+
+    @admin.display(description=_("Date"), ordering="submitted_at")
+    def activity_date(self, obj):
+        # R2: "Inskickad"/"Bekräftad" were two full-datetime-to-the-minute
+        # columns (170px each) — collapsed into one date-only column.
+        # Prefers verified_at (the more recent, more decision-relevant of
+        # the two once it exists) and falls back to submitted_at; both
+        # remain on the detail page at full precision, this is a scan
+        # column, not the record of truth.
+        date = obj.verified_at or obj.submitted_at
+        return date_format(date, "SHORT_DATE_FORMAT") if date else "—"
+
+    @admin.display(description=_("Balance"), ordering=Payment.BALANCE_ANNOTATION)
+    def balance_display(self, obj):
+        annotated = getattr(obj, Payment.BALANCE_ANNOTATION, None)
+        if annotated is not None:
+            return render_balance(annotated)
+        payment = getattr(obj, "payment", None)
+        return render_balance(payment.balance) if payment else "—"
+
+    # R4: "Outstanding balance" here and "Balance" on the changelist/inline
+    # were two Swedish names ("Utestående belopp" / "Kvar att betala") for
+    # one quantity. Collapsed to one msgid — "Balance", i.e. "Kvar att
+    # betala" — which wins because it says what to do about it.
+    @admin.display(description=_("Balance"))
+    def balance_on_detail(self, obj):
+        payment = getattr(obj, "payment", None)
+        return render_balance(payment.balance) if payment else "—"
 
     @admin.action(description=_("Cancel selected registrations"))
     def cancel_registrations(self, request, queryset):
@@ -108,7 +319,10 @@ class RegistrationAdmin(admin.ModelAdmin):
                 payment.save(update_fields=["status"])
             release_promo_code_use(registration)
             updated += 1
-        self.message_user(request, _(f"{updated} registration(s) cancelled."))
+        self.message_user(
+            request,
+            _("%(count)d registration(s) cancelled.") % {"count": updated},
+        )
 
     mark_paid_swish = _mark_paid_action(
         Payment.Method.SWISH, _("Mark selected as paid (Swish)")
@@ -228,6 +442,8 @@ class PaymentAdmin(admin.ModelAdmin):
     list_display = (
         "reference_code",
         "registration",
+        "event",
+        "family",
         "amount",
         "balance_display",
         "currency",
@@ -236,22 +452,71 @@ class PaymentAdmin(admin.ModelAdmin):
         "paid_at",
         "marked_by",
     )
-    list_filter = ("status", "method")
-    search_fields = ("registration__reference_code", "registration__contact_email")
+    # registration__event is the piece whose absence caused a real incident:
+    # asked to fix "someone says they paid but shows as unpaid", a coordinator
+    # could not narrow this changelist to one event, found the only
+    # outstanding balance in the whole system — belonging to a *different*
+    # event — and marked that one paid. RelatedOnlyFieldListFilter rather
+    # than the plain related filter, so the sidebar lists only events that
+    # actually have payments instead of every event ever created.
+    list_filter = (
+        "status",
+        "method",
+        ("registration__event", admin.RelatedOnlyFieldListFilter),
+    )
+    search_fields = (
+        "registration__reference_code",
+        "registration__contact_email",
+        # Guardians phone in by surname far more often than by reference
+        # code; without this, finding "the Lindqvists" required already
+        # knowing their code.
+        "registration__family__last_name",
+    )
     readonly_fields = ("id", "registration", "created_at")
     inlines = [PaymentEventInline]
     actions = ["mark_paid_swish", "mark_paid_bankgiro", "mark_paid_other"]
 
     def get_queryset(self, request):
-        return super().get_queryset(request).select_related("registration", "marked_by")
+        return (
+            super()
+            .get_queryset(request)
+            .select_related(
+                "registration",
+                "registration__event",
+                "registration__family",
+                "marked_by",
+            )
+            # The balance used to cost one aggregate query *per rendered row*
+            # (Payment.balance -> ledger_totals). Computing it in SQL both
+            # flattens that N+1 and makes the column sortable, which is the
+            # actual job: "who owes money on this event, biggest first."
+            .annotate(**{Payment.BALANCE_ANNOTATION: Payment.balance_expression()})
+        )
 
     @admin.display(description=_("Reference Code"))
     def reference_code(self, obj):
         return obj.reference_code
 
-    @admin.display(description=_("Balance"))
+    @admin.display(description=_("Event"), ordering="registration__event__name")
+    def event(self, obj):
+        return obj.registration.event.name
+
+    @admin.display(description=_("Family"), ordering="registration__family__last_name")
+    def family(self, obj):
+        # The raw last_name, not str(Family): Family.__str__ falls back to
+        # querying the family's parents when last_name is blank, which would
+        # reintroduce a per-row query on this changelist.
+        return obj.registration.family.last_name or None
+
+    @admin.display(description=_("Balance"), ordering=Payment.BALANCE_ANNOTATION)
     def balance_display(self, obj):
-        return obj.balance
+        # Prefers the annotation from get_queryset; falls back to the
+        # property for any caller holding an un-annotated Payment (the
+        # shell, tests, a future admin view that builds its own queryset).
+        # Not `or obj.balance` — a zero balance is falsy and would silently
+        # fall through to the per-row query this annotation exists to kill.
+        annotated = getattr(obj, Payment.BALANCE_ANNOTATION, None)
+        return obj.balance if annotated is None else annotated
 
     def _mark_paid(self, request, queryset, method):
         paid = skipped = 0
@@ -354,7 +619,16 @@ class PaymentEventAdmin(admin.ModelAdmin):
 @admin.register(RegistrationExtra)
 class RegistrationExtraAdmin(admin.ModelAdmin):
     """Finance/logistics browsing (kitchen counts, T-shirt orders) —
-    materialization happens through the public submission flow, not here."""
+    materialization happens through the public submission flow, not here.
+
+    Deliberately NOT hidden from the index, unlike the other add-on models.
+    The 0.4 triage plan listed it for hiding on the grounds that it is
+    "registered only so another admin's autocomplete works" — that describes
+    ExtraChoice, not this. The event/extra list_filter and the select_related
+    queryset below exist because someone built this as a browsing surface,
+    and until the dedicated extras/logistics screen ships, this is the only
+    way to answer "how many size-M shirts do we need". Hiding it would make
+    that answerable only by typing a URL no volunteer will type."""
 
     list_display = (
         "registration",

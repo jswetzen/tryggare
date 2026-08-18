@@ -17,6 +17,7 @@ from registrations.models import Registration
 from registrations.tokens import generate_verification_token, hash_token
 
 from .eligibility import registration_checkin_gate_error
+from accounts.roles import COORDINATOR, grant
 
 
 def _make_event_and_session():
@@ -99,6 +100,7 @@ class RegistrationCheckinGateApiTests(TestCase):
         self.staff = AdminUser.objects.create_user(
             username="staff", password="testpass123", name="Staff"
         )
+        grant(self.staff, COORDINATOR)
         self.client.force_authenticate(user=self.staff)
         self.event, self.session = _make_event_and_session()
         self.family = Family.objects.create(last_name="Test")
@@ -164,6 +166,7 @@ class RegistrationCheckinGateGenericEndpointTests(TestCase):
         self.staff = AdminUser.objects.create_user(
             username="staff2", password="testpass123", name="Staff"
         )
+        grant(self.staff, COORDINATOR)
         self.client.force_authenticate(user=self.staff)
         self.event, self.session = _make_event_and_session()
         self.family = Family.objects.create(last_name="Test")

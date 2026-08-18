@@ -1,0 +1,28 @@
+{% extends "admin/base.html" %}
+{% load i18n %}
+
+{% comment %}
+Smallest override that reaches the `userlinks`/`branding` blocks: those are
+defined on admin/base.html itself, not admin/base_site.html, but Django
+lets a descendant template redeclare any ancestor block regardless of
+which template in the chain defined it. Copying the ~10-line base_site.html
+(title/branding, unchanged below) is far cheaper than copying base.html's
+full ~100+ lines just to add one include.
+{% endcomment %}
+
+{% block title %}{% if subtitle %}{{ subtitle }} | {% endif %}{{ title }} | {{ site_title|default:_('Django site admin') }}{% endblock %}
+
+{% block branding %}
+<div id="site-name"><a href="{% url 'admin:index' %}">{{ site_header|default:_('Django administration') }}</a></div>
+{% if user.is_anonymous %}
+  {% include "admin/color_theme_toggle.html" %}
+  {% include "admin/language_switcher.html" %}
+{% endif %}
+{% endblock %}
+
+{% block nav-global %}{% endblock %}
+
+{% block userlinks %}
+  {{ block.super }}
+  {% include "admin/language_switcher.html" %}
+{% endblock %}

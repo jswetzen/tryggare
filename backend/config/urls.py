@@ -63,6 +63,11 @@ router.register(r"print-queue", PrintQueueViewSet, basename="print-queue")
 router.register(r"event-reports", EventReportViewSet, basename="event-report")
 
 urlpatterns = [
+    # Django's built-in language-switch endpoint (POST language=<code>, sets
+    # the session + LANGUAGE_COOKIE_NAME cookie, then redirects to `next`).
+    # Mounted under admin/ so it's covered by the SPA catch-all's existing
+    # `(?!admin/)` exclusion below without touching that regex.
+    path("admin/i18n/", include("django.conf.urls.i18n")),
     path("admin/", admin.site.urls),
     path("api/", include(router.urls)),
     # Session-based authentication endpoints

@@ -23,7 +23,8 @@
     RegistrationEventInfo,
     RegistrationExtraInfo,
     RegistrationExtraSelectionPayload,
-    RegistrationSubmitPayload
+    RegistrationSubmitPayload,
+    RegistrationTicketType
   } from '$lib/api/types';
   import ConsentCapture, { type HealthInfoStatus } from '$lib/components/checkin/ConsentCapture.svelte';
   import EyebrowLabel from '$lib/components/ui/EyebrowLabel.svelte';
@@ -57,6 +58,15 @@
     first_name: string;
     last_name: string;
     birthdate: string;
+    // True when the browser's own validity check on the date input
+    // (rangeUnderflow/rangeOverflow against the min/max this page already
+    // sets) says the current value isn't submittable — e.g. a digit-by-digit
+    // typo like "0001-02-02", or a future date. Read straight off
+    // input.validity on change, never re-derived with a custom parser. While
+    // true, the birthdate is treated as "not really entered yet": no age
+    // prose, no ticket-eligibility warning, so a bad date never masquerades
+    // as a ticket problem.
+    birthdateRangeInvalid: boolean;
     allergies: string;
     notes: string;
     healthInfoStatus: HealthInfoStatus;
@@ -167,6 +177,7 @@
       first_name: '',
       last_name: '',
       birthdate: '',
+      birthdateRangeInvalid: false,
       allergies: '',
       notes: '',
       healthInfoStatus: 'none',
@@ -218,6 +229,10 @@
   let lastSubmitPayload = $state<RegistrationSubmitPayload | null>(null);
   let resending = $state(false);
   let resendStatus = $state<'sent' | 'error' | null>(null);
+  // False when the server stored the registration but couldn't send the
+  // confirmation email — the guardian is told plainly rather than being sent
+  // to watch an inbox nothing is coming to.
+  let emailSent = $state(true);
 
   // Scroll/focus the failure banner into view on every new error — on this
   // 2000+px page a failed submit otherwise looks like nothing happened from
@@ -314,6 +329,21 @@
     selections[extra.id] = { ...extraState(selections, extra), quantity: Math.max(1, quantity) };
   }
 
+  // Reads the browser's own computed validity straight off the date input
+  // rather than re-parsing the string — the input already carries min/max
+  // (see minBirthdateIso/todayIso above), so rangeUnderflow/rangeOverflow
+  // is exactly "digit-by-digit typo" / "future date" with no extra logic
+  // needed. Deliberately not `.valid` as a whole: an empty, merely
+  // not-yet-filled field is also invalid (valueMissing) but must not be
+  // treated as a bad date — there's no date to be wrong yet.
+  function handleChildBirthdateChange(child: ChildRow, event: Event) {
+    const input = event.currentTarget as HTMLInputElement;
+    child.birthdateRangeInvalid = input.validity.rangeUnderflow || input.validity.rangeOverflow;
+    if (!child.birthdateRangeInvalid) {
+      suggestChildTicketType(child);
+    }
+  }
+
   function suggestChildTicketType(child: ChildRow) {
     if (!eventInfo || child.ticketTypeId || !child.birthdate) return;
     const candidates = applicableTicketTypes(true).filter(
@@ -329,6 +359,79 @@
     const bounded = candidates.find((tt) => tt.min_birthdate || tt.max_birthdate);
     const match = bounded ?? candidates[0];
     if (match) child.ticketTypeId = match.id;
+  }
+
+  // Whether a child's entered birthdate falls inside a ticket type's
+  // min/max birthdate window. No birthdate yet => everything is eligible
+  // (constraint: nothing is disabled until we actually know the birthdate).
+  function childTicketEligible(ticketType: RegistrationTicketType, birthdate: string): boolean {
+    if (!birthdate) return true;
+    const minOk = !ticketType.min_birthdate || birthdate >= ticketType.min_birthdate;
+    const maxOk = !ticketType.max_birthdate || birthdate <= ticketType.max_birthdate;
+    return minOk && maxOk;
+  }
+
+  // Renders a ticket type's age window as prose, e.g. "0–12 yrs". Mirrors
+  // birthdateProse's age-at-event-start-date convention. min_birthdate is
+  // the *oldest* allowed birthdate (bounds the type's max age) and
+  // max_birthdate is the *youngest* allowed birthdate (bounds the type's
+  // min age) — the naming is about the birthdate value, not the age.
+  function ticketAgeRangeLabel(ticketType: RegistrationTicketType, asOfIso: string): string {
+    const maxAge = ticketType.min_birthdate ? ageAt(ticketType.min_birthdate, asOfIso) : null;
+    const minAge = ticketType.max_birthdate ? ageAt(ticketType.max_birthdate, asOfIso) : null;
+    if (minAge != null && maxAge != null) {
+      return $t('register.ticketAgeRangeBoth', { values: { min: minAge, max: maxAge } });
+    }
+    if (minAge != null) return $t('register.ticketAgeRangeMin', { values: { min: minAge } });
+    if (maxAge != null) return $t('register.ticketAgeRangeMax', { values: { max: maxAge } });
+    return '';
+  }
+
+  // A staff-authored ticket name that already states its own age window
+  // (e.g. "Barn (0-12 år)") makes a second, independently-formatted range
+  // repeated in the warning below pure noise — and on a narrow screen it's
+  // the nested-parens part that gets clipped. Two numbers joined by a
+  // hyphen/en dash is a good-enough proxy for "the name already says this".
+  function nameStatesAgeRange(name: string): boolean {
+    return /\d+\s*[-–]\s*\d+/.test(name);
+  }
+
+  // If a birthdate edit makes an *already-selected* ticket ineligible, we
+  // deliberately keep the selection rather than silently clearing it — the
+  // guardian picked it for a reason (maybe the birthdate typo is what's
+  // wrong, not the ticket), and clearing it would erase that signal and
+  // could even let a required-extra/composition state quietly go stale.
+  // Instead we surface a clear, visible warning next to the field so they
+  // can decide whether to fix the birthdate or the ticket. The server is
+  // still the real gate at submission either way.
+  function childSelectedTicketWarning(child: ChildRow): string | null {
+    // An invalid birthdate (see birthdateRangeInvalid) was never a real
+    // date to check tickets against — don't let it masquerade as a ticket
+    // problem.
+    if (!child.ticketTypeId || !child.birthdate || !eventInfo || child.birthdateRangeInvalid) {
+      return null;
+    }
+    const ticketType = eventInfo.ticket_types.find((tt) => tt.id === child.ticketTypeId);
+    if (!ticketType || childTicketEligible(ticketType, child.birthdate)) return null;
+    if (nameStatesAgeRange(ticketType.name)) {
+      return $t('register.ticketTypeIneligibleWarningNoRange', { values: { name: ticketType.name } });
+    }
+    const asOfIso = eventInfo.start_date ?? todayIso;
+    const range = ticketAgeRangeLabel(ticketType, asOfIso);
+    return $t('register.ticketTypeIneligibleWarning', { values: { name: ticketType.name, range } });
+  }
+
+  // A child's ticket select can be flagged for two independent reasons —
+  // age-window (childSelectedTicketWarning) and composition
+  // (ticketCompositionWarning) — each with its own paragraph/id below the
+  // field. This combines them for the select's own aria-invalid/
+  // aria-describedby so the control itself is marked whichever reason (or
+  // both) applies, matching the parent select's single-reason version.
+  function childTicketDescribedBy(index: number, child: ChildRow): string | undefined {
+    const ids: string[] = [];
+    if (childSelectedTicketWarning(child)) ids.push(`child-ticket-ineligible-${index}`);
+    if (ticketCompositionWarning(child.ticketTypeId)) ids.push(`child-ticket-composition-${index}`);
+    return ids.length > 0 ? ids.join(' ') : undefined;
   }
 
   function buildExtraSelections(
@@ -400,6 +503,78 @@
     return null;
   }
 
+  // Whether *picking* this ticket type is currently allowed — mirrors
+  // registrations/ticket_rules.py::validate_ticket_composition so the
+  // option list never offers a combination the server will reject.
+  // isSelected is whether this option is the row's *own current* pick:
+  // same convention as childTicketEligible/disabled above — a selection
+  // that was valid when made and has since gone bad (the required ticket
+  // was changed away, or someone else's pick pushed the count over cap)
+  // is NOT specially exempted here (still comes back disabled, same as
+  // the age-window case), it's ticketCompositionWarning below that keeps
+  // it selected and flags it rather than this function silently un-
+  // selecting it. isSelected only matters for the cap arithmetic: this
+  // row's own pick is already inside `count`, so the boundary (exactly at
+  // cap) reads as fine for the row that's already there, but as "full,
+  // don't add another" for everyone else.
+  function ticketCompositionEligible(ticketType: RegistrationTicketType, isSelected: boolean): boolean {
+    if (!ticketType.requires_ticket_type_id) return true;
+    const requiredCount = ticketTypeCounts[ticketType.requires_ticket_type_id] ?? 0;
+    if (requiredCount === 0) return false;
+    if (ticketType.max_per_required == null) return true;
+    const count = ticketTypeCounts[ticketType.id] ?? 0;
+    const cap = requiredCount * ticketType.max_per_required;
+    return isSelected ? count <= cap : count < cap;
+  }
+
+  // Short "(requires X)" / "(max N per X)" marker for an ineligible option
+  // in the open list — mirrors ticketAgeRangeLabel's role for the age
+  // case: the full sentence lives in ticketCompositionWarning below the
+  // select, this stays short so the option row doesn't wrap.
+  function ticketCompositionOptionMarker(ticketType: RegistrationTicketType): string {
+    if (!eventInfo || !ticketType.requires_ticket_type_id) return '';
+    const requiredType = eventInfo.ticket_types.find(
+      (tt) => tt.id === ticketType.requires_ticket_type_id
+    );
+    const requiredName = requiredType?.name ?? '';
+    const requiredCount = ticketTypeCounts[ticketType.requires_ticket_type_id] ?? 0;
+    if (requiredCount === 0) {
+      return $t('register.ticketCompositionOptionRequires', { values: { required: requiredName } });
+    }
+    if (ticketType.max_per_required != null) {
+      return $t('register.ticketCompositionOptionCapReached', {
+        values: { max: ticketType.max_per_required, required: requiredName }
+      });
+    }
+    return '';
+  }
+
+  // Full <option> label shared by both the parent and child selects.
+  // birthdate is '' for a parent row, and childTicketEligible treats an
+  // empty birthdate as always-eligible, so the age check is a no-op there
+  // — this stays one function rather than forking parent/child copies.
+  // isSelected drops both markers (same reasoning as childTicketOptionLabel
+  // before this increment): the reason is already shown as the field-level
+  // warning right below the select.
+  function ticketOptionLabel(
+    ticketType: RegistrationTicketType,
+    birthdate: string,
+    isSelected: boolean
+  ): string {
+    const base = `${ticketType.name} — ${formatCurrency(ticketType.price)} kr`;
+    if (isSelected) return base;
+    if (!childTicketEligible(ticketType, birthdate)) {
+      const asOfIso = eventInfo?.start_date ?? todayIso;
+      const range = ticketAgeRangeLabel(ticketType, asOfIso);
+      return range ? `${base} (${range})` : base;
+    }
+    if (!ticketCompositionEligible(ticketType, isSelected)) {
+      const marker = ticketCompositionOptionMarker(ticketType);
+      return marker ? `${base} (${marker})` : base;
+    }
+    return base;
+  }
+
   let runningTotal = $derived.by(() => {
     if (!eventInfo) return 0;
     let total = 0;
@@ -422,6 +597,24 @@
     }
     return total;
   });
+
+  // The running total's arithmetic already prices whatever is currently
+  // selected, including a ticket a birthdate edit just flagged as
+  // ineligible (see childSelectedTicketWarning's keep-the-selection
+  // decision) — the total must not silently exclude it, but it also must
+  // not present that figure as settled. This only flags it; the price
+  // itself is untouched. Also covers a composition violation (missing/
+  // removed required ticket, or over cap) on either a parent or a child —
+  // e.g. removing the person holding the only Familjebiljett leaves the
+  // dependent "familjemedlem" selections in place but no longer valid, and
+  // that must show here too, not just as a per-row caption.
+  let hasIneligibleTicketSelection = $derived(
+    children.some(
+      (child) =>
+        childSelectedTicketWarning(child) !== null ||
+        ticketCompositionWarning(child.ticketTypeId) !== null
+    ) || parents.some((parent) => ticketCompositionWarning(parent.ticketTypeId) !== null)
+  );
 
   async function checkPromoCode() {
     const code = promoCode.trim();
@@ -610,6 +803,10 @@
       // separate resend endpoint to build or throttle here.
       lastSubmitPayload = payload;
       resendStatus = null;
+      // The registration is saved either way; this only says whether the
+      // email actually left. Only an explicit false counts as a failure —
+      // the backend omits the field on its "already sent recently" path.
+      emailSent = response.email_sent !== false;
       submitted = true;
     } catch (err) {
       console.error('Registration submission failed:', err);
@@ -641,12 +838,16 @@
     resending = true;
     resendStatus = null;
     try {
-      await registrationApi.submit(lastSubmitPayload);
+      const response = await registrationApi.submit(lastSubmitPayload);
       // Whether the backend actually re-sent or short-circuited on its own
       // cooldown, a confirmation email was sent to this address recently
       // either way — same advice to the guardian in both cases, so there's
       // no need to parse the (unlocalized) response message to tell them apart.
-      resendStatus = 'sent';
+      // An explicit email_sent:false is the exception: the send was tried and
+      // failed, so saying "sent" would be a lie.
+      const delivered = response.email_sent !== false;
+      resendStatus = delivered ? 'sent' : 'error';
+      emailSent = delivered;
     } catch (err) {
       console.error('Resend failed:', err);
       resendStatus = 'error';
@@ -709,7 +910,9 @@
   {:else if submitted}
     <div class="bg-white border border-neutral-300 rounded-card p-6 shadow-sm text-center">
       <h1 class="text-2xl font-bold text-neutral-900 mb-2">{$t('register.successTitle')}</h1>
-      <p class="text-neutral-700 mb-3">{$t('register.successIntro')}</p>
+      <p class="text-neutral-700 mb-3">
+        {emailSent ? $t('register.successIntro') : $t('register.successIntroNotSent')}
+      </p>
 
       <div
         class="inline-flex items-center gap-2 px-4 py-2 mb-3 bg-primary-50 border border-primary-200 rounded-card"
@@ -719,7 +922,17 @@
         <span class="font-semibold text-neutral-900 break-all">{contactEmail.trim()}</span>
       </div>
 
-      <p class="text-sm text-neutral-600 mb-4">{$t('register.successHint')}</p>
+      {#if emailSent}
+        <p class="text-sm text-neutral-600 mb-4">{$t('register.successHint')}</p>
+      {:else}
+        <p
+          class="text-sm text-warning-800 bg-warning-50 border border-warning-200 rounded-card px-4 py-3 mb-4 text-left"
+          role="status"
+          data-testid="register-email-not-sent"
+        >
+          {$t('register.emailNotSent')}
+        </p>
+      {/if}
 
       {#if referenceCode}
         <p class="text-sm text-neutral-500 mb-4">
@@ -941,16 +1154,36 @@
                   <select
                     id={`parent-ticket-type-${index}`}
                     bind:value={parent.ticketTypeId}
-                    class="w-full px-2 py-1.5 text-sm border border-neutral-300 rounded focus:outline-none focus:ring-2 focus:ring-primary-500"
+                    aria-invalid={ticketCompositionWarning(parent.ticketTypeId) !== null ? 'true' : 'false'}
+                    aria-describedby={ticketCompositionWarning(parent.ticketTypeId) !== null
+                      ? `parent-ticket-composition-${index}`
+                      : undefined}
+                    class={`w-full px-2 py-1.5 text-sm border rounded focus:outline-none focus:ring-2 ${
+                      ticketCompositionWarning(parent.ticketTypeId) !== null
+                        ? 'border-danger-600 focus:ring-danger-500 focus:border-danger-600'
+                        : 'border-neutral-300 focus:ring-primary-500'
+                    }`}
                     data-testid={`parent-ticket-type-${index}`}
                   >
                     <option value="">{$t('register.ticketTypePlaceholder')}</option>
                     {#each applicableTicketTypes(false) as ticketType (ticketType.id)}
-                      <option value={ticketType.id}>{ticketType.name} — {formatCurrency(ticketType.price)} kr</option>
+                      <option
+                        value={ticketType.id}
+                        disabled={!ticketCompositionEligible(ticketType, ticketType.id === parent.ticketTypeId)}
+                      >
+                        {ticketOptionLabel(ticketType, '', ticketType.id === parent.ticketTypeId)}
+                      </option>
                     {/each}
                   </select>
                   {#if ticketCompositionWarning(parent.ticketTypeId)}
-                    <p class="mt-1 text-xs text-danger-700">{ticketCompositionWarning(parent.ticketTypeId)}</p>
+                    <p
+                      id={`parent-ticket-composition-${index}`}
+                      class="mt-1 text-xs text-danger-700"
+                      role="alert"
+                      data-testid={`parent-ticket-composition-${index}`}
+                    >
+                      {ticketCompositionWarning(parent.ticketTypeId)}
+                    </p>
                   {/if}
                 </div>
               {/if}
@@ -1118,15 +1351,32 @@
                     id={`child-birthdate-${index}`}
                     type="date"
                     bind:value={child.birthdate}
-                    on:change={() => suggestChildTicketType(child)}
+                    on:change={(e) => handleChildBirthdateChange(child, e)}
                     lang={$locale === 'sv' ? 'sv-SE' : 'en-US'}
                     max={todayIso}
                     min={minBirthdateIso}
-                    class="w-full px-2 py-1.5 text-sm border border-neutral-300 rounded focus:outline-none focus:ring-2 focus:ring-primary-500"
+                    aria-invalid={child.birthdateRangeInvalid ? 'true' : 'false'}
+                    aria-describedby={child.birthdateRangeInvalid
+                      ? `child-birthdate-invalid-${index}`
+                      : undefined}
+                    class={`w-full px-2 py-1.5 text-sm border rounded focus:outline-none focus:ring-2 ${
+                      child.birthdateRangeInvalid
+                        ? 'border-danger-600 focus:ring-danger-500 focus:border-danger-600'
+                        : 'border-neutral-300 focus:ring-primary-500'
+                    }`}
                     required
                   />
                   <p class="mt-1 text-xs text-neutral-500">{$t('register.birthdateFormatHint')}</p>
-                  {#if birthdateProse(child.birthdate)}
+                  {#if child.birthdateRangeInvalid}
+                    <p
+                      id={`child-birthdate-invalid-${index}`}
+                      class="mt-1 text-xs font-medium text-danger-700"
+                      role="alert"
+                      data-testid={`child-birthdate-invalid-${index}`}
+                    >
+                      {$t('register.birthdateInvalid')}
+                    </p>
+                  {:else if birthdateProse(child.birthdate)}
                     <p
                       class="mt-1 text-xs font-medium text-neutral-700"
                       data-testid={`child-birthdate-prose-${index}`}
@@ -1144,16 +1394,49 @@
                     <select
                       id={`child-ticket-type-${index}`}
                       bind:value={child.ticketTypeId}
-                      class="w-full px-2 py-1.5 text-sm border border-neutral-300 rounded focus:outline-none focus:ring-2 focus:ring-primary-500"
+                      aria-invalid={childSelectedTicketWarning(child) !== null ||
+                      ticketCompositionWarning(child.ticketTypeId) !== null
+                        ? 'true'
+                        : 'false'}
+                      aria-describedby={childTicketDescribedBy(index, child)}
+                      class={`w-full px-2 py-1.5 text-sm border rounded focus:outline-none focus:ring-2 ${
+                        childSelectedTicketWarning(child) !== null ||
+                        ticketCompositionWarning(child.ticketTypeId) !== null
+                          ? 'border-danger-600 focus:ring-danger-500 focus:border-danger-600'
+                          : 'border-neutral-300 focus:ring-primary-500'
+                      }`}
                       data-testid={`child-ticket-type-${index}`}
                     >
                       <option value="">{$t('register.ticketTypePlaceholder')}</option>
                       {#each applicableTicketTypes(true) as ticketType (ticketType.id)}
-                        <option value={ticketType.id}>{ticketType.name} — {formatCurrency(ticketType.price)} kr</option>
+                        <option
+                          value={ticketType.id}
+                          disabled={!childTicketEligible(ticketType, child.birthdate) ||
+                            !ticketCompositionEligible(ticketType, ticketType.id === child.ticketTypeId)}
+                        >
+                          {ticketOptionLabel(ticketType, child.birthdate, ticketType.id === child.ticketTypeId)}
+                        </option>
                       {/each}
                     </select>
+                    {#if childSelectedTicketWarning(child)}
+                      <p
+                        id={`child-ticket-ineligible-${index}`}
+                        class="mt-1 text-xs text-danger-700"
+                        role="alert"
+                        data-testid={`child-ticket-ineligible-${index}`}
+                      >
+                        {childSelectedTicketWarning(child)}
+                      </p>
+                    {/if}
                     {#if ticketCompositionWarning(child.ticketTypeId)}
-                      <p class="mt-1 text-xs text-danger-700">{ticketCompositionWarning(child.ticketTypeId)}</p>
+                      <p
+                        id={`child-ticket-composition-${index}`}
+                        class="mt-1 text-xs text-danger-700"
+                        role="alert"
+                        data-testid={`child-ticket-composition-${index}`}
+                      >
+                        {ticketCompositionWarning(child.ticketTypeId)}
+                      </p>
                     {/if}
                     {#if childAgeError(index)}
                       <p class="mt-1 text-xs text-danger-700" data-testid={`child-age-error-${index}`}>
@@ -1387,6 +1670,11 @@
           {/if}
           <div class="font-semibold">
             {$t('register.totalLabel')}: {formatCurrency(discountedTotal)} kr
+            {#if hasIneligibleTicketSelection}
+              <span class="font-medium text-danger-700" data-testid="register-total-provisional">
+                {$t('register.totalProvisional')}
+              </span>
+            {/if}
           </div>
         </div>
       {/if}

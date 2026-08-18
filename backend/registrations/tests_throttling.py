@@ -45,7 +45,7 @@ class RegistrationSubmitThrottleTests(TestCase):
             "children": [],
         }
 
-    @patch("registrations.views.send_verification_email")
+    @patch("registrations.views.send_verification_email", return_value=True)
     # SimpleRateThrottle.THROTTLE_RATES is bound once at import time as a
     # class attribute — override_settings(REST_FRAMEWORK=...) changes
     # django.conf.settings but doesn't retroactively rebind it, so the usual
@@ -67,7 +67,7 @@ class RegistrationSubmitThrottleTests(TestCase):
         )
         self.assertEqual(second.status_code, 429)
 
-    @patch("registrations.views.send_verification_email")
+    @patch("registrations.views.send_verification_email", return_value=True)
     def test_bulk_submissions_from_one_ip_are_not_blocked_by_default_rate(
         self, mock_send
     ):

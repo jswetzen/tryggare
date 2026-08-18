@@ -10,7 +10,8 @@ vi.mock('svelte-i18n', () => {
   const translations: Record<string, string> = {
     'qr.pageTitle': 'Child Information',
     'qr.loading': 'Loading...',
-    'qr.showSafetyInfo': 'Show safety info (this access will be logged)',
+    'qr.showSafetyInfo': 'Show safety info',
+    'qr.safetyInfoRevealLogged': 'This access has been logged.',
     'qr.safetyInfoTitle': 'Safety Information',
     'qr.revealSafetyInfoError': "Couldn't load safety info. Please try again or ask a staff member for help.",
     'qr.allergyAlert': 'Allergy Alert',
@@ -83,7 +84,7 @@ describe('QR page — safety info reveal', () => {
     render(QRPage, { props: { data: { user: null } } });
 
     await waitFor(() => {
-      expect(screen.getByText('Show safety info (this access will be logged)')).toBeInTheDocument();
+      expect(screen.getByText('Show safety info')).toBeInTheDocument();
     });
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
   });
@@ -95,7 +96,11 @@ describe('QR page — safety info reveal', () => {
 
     render(QRPage, { props: { data: { user: null } } });
 
-    const button = await screen.findByText('Show safety info (this access will be logged)');
+    // The "logged" notice must not appear before the reveal (it would inform
+    // the choice rather than confirm it — the rejected alternative).
+    expect(screen.queryByText('This access has been logged.')).not.toBeInTheDocument();
+
+    const button = await screen.findByText('Show safety info');
     await user.click(button);
 
     await waitFor(() => {
@@ -103,9 +108,11 @@ describe('QR page — safety info reveal', () => {
     });
     expect(screen.getByText('Epilepsy')).toBeInTheDocument();
     expect(
-      screen.queryByText('Show safety info (this access will be logged)')
+      screen.queryByText('Show safety info')
     ).not.toBeInTheDocument();
     expect(revealSafetyInfo).toHaveBeenCalledWith('TESTCODE');
+    // C1: the notice now appears after the reveal, matching the check-in screen.
+    expect(screen.getByText('This access has been logged.')).toBeInTheDocument();
   });
 
   it('shows an error and re-enables the button when reveal fails', async () => {
@@ -115,7 +122,7 @@ describe('QR page — safety info reveal', () => {
 
     render(QRPage, { props: { data: { user: null } } });
 
-    const button = await screen.findByText('Show safety info (this access will be logged)');
+    const button = await screen.findByText('Show safety info');
     await user.click(button);
 
     await waitFor(() => {
@@ -124,7 +131,7 @@ describe('QR page — safety info reveal', () => {
       ).toBeInTheDocument();
     });
 
-    const retryButton = screen.getByText('Show safety info (this access will be logged)');
+    const retryButton = screen.getByText('Show safety info');
     expect(retryButton.closest('button')).not.toBeDisabled();
   });
 
@@ -137,7 +144,7 @@ describe('QR page — safety info reveal', () => {
       expect(screen.getByText('Alice')).toBeInTheDocument();
     });
     expect(
-      screen.queryByText('Show safety info (this access will be logged)')
+      screen.queryByText('Show safety info')
     ).not.toBeInTheDocument();
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
   });
@@ -148,7 +155,19 @@ describe('QR page — safety info reveal', () => {
     );
 
     render(QRPage, {
-      props: { data: { user: { id: '1', username: 'staff', name: 'Staff' } } }
+      props: {
+        data: {
+          user: {
+            id: '1',
+            username: 'staff',
+            name: 'Staff',
+            is_staff: false,
+            is_superuser: false,
+            roles: ['Volontär'],
+            permissions: ['families.view_family']
+          }
+        }
+      }
     });
 
     await waitFor(() => {
@@ -156,8 +175,49 @@ describe('QR page — safety info reveal', () => {
     });
     expect(screen.getByText('Epilepsy')).toBeInTheDocument();
     expect(
-      screen.queryByText('Show safety info (this access will be logged)')
+      screen.queryByText('Show safety info')
     ).not.toBeInTheDocument();
     expect(revealSafetyInfo).not.toHaveBeenCalled();
+    // No audited reveal happened here (privileged GET, not qr_reveal_safety_info),
+    // so the "logged" notice must not appear.
+    expect(screen.queryByText('This access has been logged.')).not.toBeInTheDocument();
+  });
+
+  it('masks text and shows the reveal button for a logged-in viewer without edit access', async () => {
+    // The backend masks allergies/notes to null unless the viewer holds
+    // change_child/change_parent; a merely-authenticated viewer (e.g. a
+    // Volontär with only view access) gets the same null the anonymous
+    // path gets, so the frontend must gate on the payload, not on
+    // `data.user` — that used to unmask on login alone with no reveal step.
+    const user = userEvent.setup();
+    getInfo.mockResolvedValue(baseQrInfo());
+    revealSafetyInfo.mockResolvedValue({ allergies: 'Peanuts', notes: 'Epilepsy' });
+
+    render(QRPage, {
+      props: {
+        data: {
+          user: {
+            id: '1',
+            username: 'staff',
+            name: 'Staff',
+            is_staff: false,
+            is_superuser: false,
+            roles: ['Volontär'],
+            permissions: ['families.view_family']
+          }
+        }
+      }
+    });
+
+    const button = await screen.findByText('Show safety info');
+    expect(screen.queryByText('Peanuts')).not.toBeInTheDocument();
+
+    await user.click(button);
+
+    await waitFor(() => {
+      expect(screen.getByText('Peanuts')).toBeInTheDocument();
+    });
+    expect(screen.getByText('Epilepsy')).toBeInTheDocument();
+    expect(revealSafetyInfo).toHaveBeenCalledWith('TESTCODE');
   });
 });

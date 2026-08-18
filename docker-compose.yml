@@ -20,8 +20,34 @@ name: ${COMPOSE_PROJECT_NAME:-tryggare}
 services:
   web:
     build: ./backend
+    # compilemessages runs here, not only in the Dockerfile. The image *does*
+    # build locale/*/LC_MESSAGES/django.mo (backend/Dockerfile), but the
+    # `./backend:/app` bind mount below shadows /app/locale with the host
+    # directory, which holds only the .po sources — so the container sees a
+    # catalog with no compiled .mo and every gettext-marked string in our own
+    # Python (model verbose names, field labels) falls back to English, while
+    # Django's own bundled chrome — shipped pre-compiled inside the venv, which
+    # is a separate volume and so isn't shadowed — still renders Swedish. That
+    # mismatch is the mixed-language admin. Compiling at startup writes the .mo
+    # back out through the bind mount, so it lands in the shadowing host
+    # directory and is picked up on this same boot. Dev-only: the prod image is
+    # not bind-mounted and needs nothing here. Keeping this in the startup
+    # command rather than a manual make target means it re-runs on every
+    # `compose up` and every restart-dev.txt bounce, so an edited .po can't
+    # silently rot into a stale .mo. Needs gettext/msgfmt, which
+    # backend/Dockerfile already installs.
+    #
+    # manage.py, NOT django-admin — the opposite of the Dockerfile's choice, on
+    # purpose. The Dockerfile uses django-admin because DJANGO_SETTINGS_MODULE
+    # is unset at build time, so nothing tries to import settings. Here the
+    # env_file below *does* set DJANGO_SETTINGS_MODULE=config.settings.local, so
+    # django-admin would try to import `config` — and fail with
+    # "No module named 'config'", because django-admin is a console script in
+    # .venv/bin and puts that directory on sys.path rather than /app. manage.py
+    # is inside /app, so it puts /app on sys.path and the import resolves.
     command: >-
       sh -c "uv sync --frozen --no-dev &&
+      uv run python manage.py compilemessages &&
       uv run python manage.py collectstatic --noinput &&
       uv run python manage.py migrate --noinput &&
       exec uv run python -m daphne -b 0.0.0.0 -p 8000 config.asgi:application"

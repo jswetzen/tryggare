@@ -4,9 +4,13 @@
   import { page } from '$app/stores';
   import { qrApi, checkInApi, printingApi, printQueueApi } from '$lib/api/services';
   import type { QRInfoResponse, Printer } from '$lib/api/types';
+  import type { SessionUser } from '$lib/auth/permissions';
 
   interface PageData {
-    user: { id: string; username: string; name: string; is_staff?: boolean } | null;
+    // Only ever read as a truthiness test ("is someone signed in?"), which is
+    // what decides staff-vs-public detail on this public page — no field of it
+    // gates anything here, `is_staff` included.
+    user: SessionUser | null;
   }
   let { data }: { data: PageData } = $props();
 
@@ -27,14 +31,19 @@
   let revealingSafetyInfo = $state(false);
   let revealedSafety = $state<{ allergies: string; notes: string } | null>(null);
 
-  // Staff see allergy/emergency-medical text directly (qr_info already
-  // includes it for an authenticated caller); an anonymous viewer only
-  // gets it after the explicit, logged reveal action below.
-  const effectiveAllergies = $derived(
-    data.user ? qrInfo?.child.allergies : revealedSafety?.allergies
+  // The backend masks allergies/notes to null unless the viewer already
+  // holds change_child/change_parent (an edit form that hides its own value
+  // isn't one — see qr_views.py::_viewer_may_read_health_text). That is a
+  // permission check, not a login check: a logged-in volunteer with only
+  // view access is masked exactly like an anonymous scanner and goes
+  // through the same reveal-and-audit action below. Not gated on
+  // `data.user` — doing so used to unmask on login alone, with no reveal
+  // step and no per-view audit row of its own.
+  const effectiveAllergies = $derived(qrInfo?.child.allergies ?? revealedSafety?.allergies);
+  const effectiveNotes = $derived(qrInfo?.child.notes ?? revealedSafety?.notes);
+  const safetyInfoRevealed = $derived(
+    (qrInfo !== null && qrInfo.child.allergies !== null) || revealedSafety !== null
   );
-  const effectiveNotes = $derived(data.user ? qrInfo?.child.notes : revealedSafety?.notes);
-  const safetyInfoRevealed = $derived(Boolean(data.user) || revealedSafety !== null);
 
   // Age computed from birthdate (whole years)
   const age = $derived.by(() => {
@@ -95,9 +104,10 @@
 
     try {
       revealedSafety = await qrApi.revealSafetyInfo(code);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Failed to reveal safety info:', err);
-      error = $t('qr.revealSafetyInfoError');
+      error =
+        err?.status === 429 ? $t('qr.revealSafetyInfoRateLimited') : $t('qr.revealSafetyInfoError');
     } finally {
       revealingSafetyInfo = false;
     }
@@ -256,6 +266,20 @@
               <div class="text-lg text-warning-600 font-semibold">{effectiveNotes}</div>
             </div>
           {/if}
+          {#if revealedSafety !== null}
+            <!-- Owner decision: state the "logged" notice after the reveal, not
+                 on the button that triggers it, to match the check-in screen
+                 (ConsentCapture.svelte's safetyInfoRevealLogged). Consistency
+                 between the two screens was judged worth more than informing
+                 the choice in advance; the tradeoff is real — this now confirms
+                 something that already happened rather than warning about it
+                 beforehand — and was accepted deliberately.
+                 Only shown for an actual audited reveal (revealedSafety, from
+                 qr_reveal_safety_info) — not for a privileged staff viewer who
+                 got the text straight from qr_info's GET, which writes no
+                 audit row (see qr_views.py::_viewer_may_read_health_text). -->
+            <p class="text-xs text-neutral-600 mt-2">{$t('qr.safetyInfoRevealLogged')}</p>
+          {/if}
         {:else}
           <div class="bg-danger-50 border-2 border-danger-400 rounded-card p-4">
             <div class="text-sm font-bold uppercase tracking-wide text-danger-700 mb-2">
@@ -333,8 +357,14 @@
           {#if !qrInfo.child.is_parent}
             <!-- Parents check in one-way (no label, no checkout — by design),
                  so neither action applies to them. -->
+            <!-- Checking out is a routine, expected action, not a hazard —
+                 `danger` red is reserved for actual danger signals (the
+                 allergy box above uses it correctly). `primary` matches the
+                 other ordinary actions in this grid (Edit). rounded-button,
+                 not rounded-card: this is an interactive control, and the
+                 card rung is for containers. -->
             <button
-              class="bg-danger-600 hover:bg-danger-700 text-white font-semibold px-5 py-3 rounded-card"
+              class="bg-primary-600 hover:bg-primary-700 text-white font-semibold px-5 py-3 rounded-button"
               onclick={() => showCheckoutModal = true}
               disabled={actionInProgress}
             >
@@ -365,10 +395,14 @@
       <!-- Emergency Contact Info -->
       <div class="card">
         <h2 class="text-xl font-semibold mb-4">{$t('qr.emergencyContact')}</h2>
-        <div class="text-sm text-neutral-600 mb-2">
-          {$t('qr.emergencyContactHelp')}
-        </div>
         {#if qrInfo.parents && qrInfo.parents.length > 0}
+          <!-- This block only renders for a logged-in staff viewer (data.user),
+               who *is* the staff member. The help copy used to say "for
+               emergency contact info, please see a staff member" unconditionally,
+               directly above the actual parent/guardian contact list — telling
+               the very staff member reading it to go ask themselves. Now the
+               help text only appears as the fallback for the case it actually
+               describes: no contact info on file to show. -->
           <div class="mb-2">
             <div class="text-sm font-semibold text-neutral-700">{$t('qr.parentsGuardians')}</div>
             {#each qrInfo.parents as parent}
@@ -384,6 +418,10 @@
                 {/if}
               </div>
             {/each}
+          </div>
+        {:else}
+          <div class="text-sm text-neutral-600 mb-2">
+            {$t('qr.emergencyContactHelp')}
           </div>
         {/if}
         <div class="text-sm text-neutral-600">{$t('qr.familyId')} {qrInfo.family_id}</div>
@@ -426,7 +464,7 @@
           {$t('common.cancel')}
         </button>
         <button
-          class="flex-1 bg-danger-600 hover:bg-danger-700 text-white font-semibold px-5 py-2 rounded-card"
+          class="flex-1 bg-primary-600 hover:bg-primary-700 text-white font-semibold px-5 py-2 rounded-button"
           onclick={handleCheckOut}
           disabled={actionInProgress}
         >

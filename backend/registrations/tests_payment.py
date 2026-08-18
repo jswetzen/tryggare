@@ -524,7 +524,9 @@ class VerifyRegistrationPaymentBranchTests(TestCase):
             ],
             "children": [{"first_name": "Kim", "birthdate": "2018-01-01"}],
         }
-        with patch("registrations.views.send_verification_email") as mock_send:
+        with patch(
+            "registrations.views.send_verification_email", return_value=True
+        ) as mock_send:
             response = self.client.post("/api/registrations/", payload, format="json")
         self.assertEqual(response.status_code, 201, response.data)
         _, token = mock_send.call_args[0]
@@ -533,7 +535,7 @@ class VerifyRegistrationPaymentBranchTests(TestCase):
         )
         return registration, token
 
-    @patch("registrations.views.send_confirmation_email")
+    @patch("registrations.views.send_confirmation_email", return_value=True)
     def test_free_event_confirms_with_no_payment_row(self, mock_confirm):
         event = _make_event(price=None)
         registration, token = self._submit_and_get_token(event)
@@ -546,7 +548,7 @@ class VerifyRegistrationPaymentBranchTests(TestCase):
         self.assertFalse(Payment.objects.filter(registration=registration).exists())
         mock_confirm.assert_called_once()
 
-    @patch("registrations.views.send_payment_instructions_email")
+    @patch("registrations.views.send_payment_instructions_email", return_value=True)
     def test_paid_event_routes_to_pending_payment_with_payment_row(self, mock_send):
         event = _make_event(price=Decimal("120.00"))
         registration, token = self._submit_and_get_token(event)
@@ -563,8 +565,8 @@ class VerifyRegistrationPaymentBranchTests(TestCase):
         self.assertEqual(response.data["reference_code"], registration.reference_code)
         mock_send.assert_called_once()
 
-    @patch("registrations.views.send_payment_instructions_email")
-    @patch("registrations.views.send_confirmation_email")
+    @patch("registrations.views.send_payment_instructions_email", return_value=True)
+    @patch("registrations.views.send_confirmation_email", return_value=True)
     def test_email_match_takes_precedence_over_paid_event(
         self, mock_confirm, mock_payment_email
     ):
@@ -593,8 +595,8 @@ class VerifyRegistrationPaymentBranchTests(TestCase):
         mock_confirm.assert_not_called()
         mock_payment_email.assert_not_called()
 
-    @patch("registrations.views.send_payment_instructions_email")
-    @patch("registrations.views.send_confirmation_email")
+    @patch("registrations.views.send_payment_instructions_email", return_value=True)
+    @patch("registrations.views.send_confirmation_email", return_value=True)
     def test_email_match_is_case_insensitive(self, mock_confirm, mock_payment_email):
         """A differently-cased contact_email (mobile autocapitalize, or a
         deliberate spoofing attempt) must still be caught by the dedup gate
@@ -621,7 +623,7 @@ class VerifyRegistrationPaymentBranchTests(TestCase):
         mock_confirm.assert_not_called()
         mock_payment_email.assert_not_called()
 
-    @patch("registrations.views.send_payment_instructions_email")
+    @patch("registrations.views.send_payment_instructions_email", return_value=True)
     def test_pending_payment_expiry_uses_payment_ttl(self, mock_send):
         event = _make_event(price=Decimal("120.00"))
         registration, token = self._submit_and_get_token(event)
