@@ -1,11 +1,24 @@
 import logging
+from datetime import timedelta
 
 from django.utils import timezone
 
-from .models import Payment, Registration
+from .models import Payment, Registration, RegistrationIdempotencyKey
 from .services import release_promo_code_use
 
 logger = logging.getLogger(__name__)
+
+# How long a RegistrationIdempotencyKey row is kept before the sweep below
+# hard-deletes it. Deliberately much longer than STALE_RESERVATION_AGE
+# (views.py, 60s — "has the owning request died") or RESEND_COOLDOWN
+# (models.py-adjacent, 10min — "is a resend allowed yet"): this is a
+# completely different question, "could a retry of the original POST still
+# plausibly arrive". A guardian's tab, or a network-level retry sitting
+# behind it, isn't realistically going to resend a week-old request, and
+# every row this app cares about elsewhere on a similar timescale
+# (REGISTRATION_TTL_HOURS, PAYMENT_TTL_DAYS in models.py) is already gone
+# well before 7 days.
+IDEMPOTENCY_KEY_TTL_DAYS = 7
 
 
 def sweep_expired_registrations():
@@ -81,7 +94,41 @@ def sweep_unpaid_registrations():
         )
 
 
+def sweep_idempotency_keys():
+    """Hard-delete RegistrationIdempotencyKey rows older than
+    IDEMPOTENCY_KEY_TTL_DAYS.
+
+    Added 2026-09-24 (P3, gate review) alongside the reclaim logic in
+    views.py::_reserve_idempotency_key — that handles a reservation whose
+    owning request died within seconds; this handles the row existing at
+    all once it's simply too old to matter. These rows exist purely to make
+    a retried submit POST safe to replay (see RegistrationIdempotencyKey's
+    docstring in models.py); once a retry of the original request is no
+    longer plausible, the row has no purpose left.
+
+    Includes orphaned rows (``registration`` already NULL) on purpose —
+    that FK is SET_NULL rather than CASCADE specifically so a row can
+    outlive the Registration it cached a response for (see the field's own
+    comment), and an orphaned row is exactly as done being useful as one
+    still pointing at a live Registration once it's past the TTL. No
+    separate query needed: the filter is on ``created_at`` alone, which
+    every row has regardless of whether ``registration`` is still set.
+    """
+    cutoff = timezone.now() - timedelta(days=IDEMPOTENCY_KEY_TTL_DAYS)
+    deleted, _unused = RegistrationIdempotencyKey.objects.filter(
+        created_at__lt=cutoff
+    ).delete()
+    if deleted:
+        logger.info(
+            "Registration expiry sweep: hard-deleted %d stale idempotency key row(s)",
+            deleted,
+        )
+
+
 def run_registration_sweeps():
-    """Combined entry point for the scheduled job — runs both sweep passes."""
+    """Combined entry point for the scheduled job — runs all three sweep
+    passes: unverified-registration hard-delete, unpaid-registration
+    cancel, and stale-idempotency-key hard-delete."""
     sweep_expired_registrations()
     sweep_unpaid_registrations()
+    sweep_idempotency_keys()

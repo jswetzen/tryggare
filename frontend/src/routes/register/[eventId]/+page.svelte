@@ -30,6 +30,7 @@
   import EyebrowLabel from '$lib/components/ui/EyebrowLabel.svelte';
   import Button from '$lib/components/ui/Button.svelte';
   import Icon from '$lib/components/ui/Icon.svelte';
+  import Alert from '$lib/components/ui/Alert.svelte';
   import { isValidPhone } from '$lib/utils/phone';
 
   type HealthConsentStatus = 'not_applicable' | 'granted' | 'declined';
@@ -234,6 +235,45 @@
   // to watch an inbox nothing is coming to.
   let emailSent = $state(true);
 
+  // Idempotency key for the primary submit — generated once here, at
+  // module-eval time (page mount), not inside handleSubmit, specifically so
+  // a network failure or a double submit that slips past `submitting`'s
+  // guard sends the *same* key on every retry of this one attempt. Added
+  // 2026-09-24: an audit of this flow found nothing stopping a retried POST
+  // from materializing a second Family/Parent/Child/EventTicket set or
+  // sending a second verification email — see backend
+  // registrations/models.py::RegistrationIdempotencyKey for the full
+  // mechanism this key drives. Reset only in handleEditEmail below, the one
+  // point in this flow where the guardian is deliberately starting a fresh
+  // submission (e.g. correcting the contact email) rather than retrying the
+  // one that just happened — reusing the old key there would make the
+  // corrected payload look like a same-key conflict to the backend instead
+  // of a new attempt.
+  let idempotencyKey = $state(crypto.randomUUID());
+
+  // Set only on a submit that the backend rejected with `code:
+  // "idempotency_conflict"` — same idempotency_key, different payload (see
+  // registrations/views.py::_idempotency_replay_or_conflict_response).
+  // Added 2026-09-24 (P1, gate review): the realistic way a guardian hits
+  // this is the "lost response" case — an earlier submit actually
+  // succeeded server-side, but the guardian never saw the confirmation
+  // screen (closed the tab, a flaky connection dropped the response after
+  // the request landed), so nothing here ever reset idempotencyKey via
+  // handleEditEmail. They then change a field (or just retype the form)
+  // and submit again under the SAME stale key — which now looks, to the
+  // backend, exactly like a genuinely different payload reusing an old
+  // key. A plain "something went wrong, try again" would be actively
+  // misleading here (retrying blind risks a real second registration —
+  // see handleResubmitAfterConflict's own comment), so this drives a
+  // dedicated guidance banner instead of the generic `error` string.
+  //
+  // Deliberately NOT `lastSubmitPayload` (only ever written on a
+  // confirmed 201, see its own comment above) — this is the opposite
+  // case, a payload that was just REJECTED, captured fresh from the
+  // submit attempt that hit the conflict.
+  let idempotencyConflictPayload = $state<RegistrationSubmitPayload | null>(null);
+  let idempotencyConflictBannerEl = $state<HTMLElement | null>(null);
+
   // Scroll/focus the failure banner into view on every new error — on this
   // 2000+px page a failed submit otherwise looks like nothing happened from
   // the submit button at the bottom (see build's blocker #2).
@@ -241,6 +281,17 @@
     if (error && errorBannerEl) {
       errorBannerEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
       errorBannerEl.focus();
+    }
+  });
+
+  // Same reasoning as the effect above, for the idempotency-conflict
+  // guidance banner — it replaces the plain `error` banner for this
+  // specific outcome (see idempotencyConflictPayload's comment), so it
+  // needs the same "make sure it's actually seen" treatment.
+  $effect(() => {
+    if (idempotencyConflictPayload && idempotencyConflictBannerEl) {
+      idempotencyConflictBannerEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      idempotencyConflictBannerEl.focus();
     }
   });
 
@@ -699,6 +750,11 @@
 
     error = '';
     errorDetails = null;
+    // A fresh manual submit from the form itself is never the "lost
+    // response, resubmit under a fresh key" recovery flow — clear any
+    // stale guidance banner from an earlier attempt so it doesn't linger
+    // next to an unrelated new error (or nothing at all, on success).
+    idempotencyConflictPayload = null;
 
     if (isPreview) return;
 
@@ -789,9 +845,20 @@
       })),
       extras: buildExtraSelections(registrationExtraSelections, registrationExtras()),
       promo_code: promoCode.trim(),
-      website
+      website,
+      idempotency_key: idempotencyKey
     };
 
+    await submitPayload(payload);
+  }
+
+  // Shared by handleSubmit above and handleResubmitAfterConflict below —
+  // both end up POSTing a fully-built RegistrationSubmitPayload and need
+  // identical success/failure handling. Split out 2026-09-24 (P1, gate
+  // review) when the idempotency-conflict recovery button needed the exact
+  // same submit-and-handle-response logic as the main form, just with a
+  // different payload/key.
+  async function submitPayload(payload: RegistrationSubmitPayload) {
     submitting = true;
     try {
       const response = await registrationApi.submit(payload);
@@ -800,18 +867,38 @@
       // exact same submission — the backend's own dedup logic (same event +
       // contact_email while still pending_verification) treats a repeat as
       // a resend rather than a duplicate, cooldown and all, so there's no
-      // separate resend endpoint to build or throttle here.
+      // separate resend endpoint to build or throttle here. handleResend
+      // below deliberately strips idempotency_key before replaying this —
+      // that field means "retry, don't redo the work" and a resend is the
+      // opposite: the guardian is explicitly asking for a new email.
+      // Replaying it under the same key would just hand back this same
+      // cached response and never touch send_verification_email at all.
       lastSubmitPayload = payload;
       resendStatus = null;
       // The registration is saved either way; this only says whether the
       // email actually left. Only an explicit false counts as a failure —
       // the backend omits the field on its "already sent recently" path.
       emailSent = response.email_sent !== false;
+      idempotencyConflictPayload = null;
       submitted = true;
     } catch (err) {
       console.error('Registration submission failed:', err);
       const apiError = err as ApiError;
       errorDetails = apiError.details ?? null;
+      // Check the idempotency-conflict `code` BEFORE calling
+      // extractErrorMessage below. That helper's fallback walks
+      // Object.values(details) looking for the first string it finds —
+      // with no code check first, it would happily surface the bare
+      // `"idempotency_conflict"` string itself (just another value in the
+      // body) as if it were a human-readable message, instead of routing
+      // to the dedicated guidance banner this state actually needs. See
+      // registrations/views.py::_idempotency_replay_or_conflict_response
+      // for where the backend sets this.
+      const code = (apiError.details as { code?: string } | null)?.code;
+      if (code === 'idempotency_conflict') {
+        idempotencyConflictPayload = payload;
+        return;
+      }
       // Prefer the server's specific reason (e.g. "This attendee doesn't
       // meet this ticket type's age requirements.") — extracted straight
       // from apiError.details rather than apiError.message, since the
@@ -823,6 +910,28 @@
     } finally {
       submitting = false;
     }
+  }
+
+  // Recovery action for the idempotency-conflict guidance banner — see
+  // idempotencyConflictPayload's own comment for the "lost response" case
+  // this exists for. A fresh key, not a retry of the rejected one: the
+  // guardian is explicitly told their previous attempt may have already
+  // gone through and is choosing to try again anyway, which is exactly
+  // "starts a new registration" per idempotencyKey's own reset rule (see
+  // handleEditEmail).
+  //
+  // Inherited, not fixed here: if the original registration this conflict
+  // points at was already verified, or has since expired, this resubmit
+  // creates a genuine second registration rather than being caught by any
+  // dedup — there is no way to know, client-side, whether the original
+  // attempt is still "live". handleResend above has the identical edge for
+  // the identical reason (see its own docstring) — this isn't a new gap,
+  // just the same one reached from a different button.
+  async function handleResubmitAfterConflict() {
+    if (!idempotencyConflictPayload || submitting) return;
+    idempotencyKey = crypto.randomUUID();
+    const payload = { ...idempotencyConflictPayload, idempotency_key: idempotencyKey };
+    await submitPayload(payload);
   }
 
   // Resends to the SAME address the original submission used — never a
@@ -838,7 +947,15 @@
     resending = true;
     resendStatus = null;
     try {
-      const response = await registrationApi.submit(lastSubmitPayload);
+      // Strip idempotency_key rather than reuse it — see the comment on
+      // lastSubmitPayload's assignment in handleSubmit above. Omitting it
+      // entirely (not just regenerating one) is the deliberate choice: it
+      // falls straight back to the pre-existing (event, contact_email)
+      // dedup+resend path this function's own docstring already describes,
+      // unchanged, rather than adding a second, less-tested way to reach
+      // the same resend behavior.
+      const { idempotency_key: _idempotencyKey, ...resendPayload } = lastSubmitPayload;
+      const response = await registrationApi.submit(resendPayload);
       // Whether the backend actually re-sent or short-circuited on its own
       // cooldown, a confirmation email was sent to this address recently
       // either way — same advice to the guardian in both cases, so there's
@@ -862,6 +979,14 @@
   function handleEditEmail() {
     submitted = false;
     resendStatus = null;
+    // A fresh idempotency key: the guardian is about to change at least
+    // the contact email and submit again, which is a genuinely different
+    // payload from the one idempotencyKey was already used for — reusing
+    // it would make the backend see "same key, different payload" and
+    // reject the correction as a conflict instead of accepting it (see
+    // idempotencyKey's own comment above for why this is the one reset
+    // point in this flow).
+    idempotencyKey = crypto.randomUUID();
   }
 </script>
 
@@ -1013,6 +1138,37 @@
           bind:this={errorBannerEl}
         >
           {error}
+        </div>
+      {/if}
+
+      {#if idempotencyConflictPayload}
+        <!--
+          Guidance, not a red error — the registration may already exist,
+          so `info` (not `danger`) is the deliberate semantic choice here
+          (see the design-system rule: danger is for something that failed,
+          this is "we're not sure, check before retrying"). The outer div
+          (not Alert.svelte itself, which has no ref/tabindex passthrough)
+          is what the scroll/focus effect above targets.
+        -->
+        <div class="mb-4" tabindex="-1" bind:this={idempotencyConflictBannerEl}>
+          <Alert type="info" title={$t('register.idempotencyConflictTitle')}>
+            <p>
+              {$t('register.idempotencyConflictMessage', {
+                values: { email: contactEmail.trim() }
+              })}
+            </p>
+            <div class="mt-3">
+              <Button
+                variant="secondary"
+                size="sm"
+                loading={submitting}
+                disabled={submitting}
+                onclick={handleResubmitAfterConflict}
+              >
+                {$t('register.idempotencyConflictButton')}
+              </Button>
+            </div>
+          </Alert>
         </div>
       {/if}
 

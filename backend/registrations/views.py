@@ -1,8 +1,10 @@
+import hashlib
+import json
 import logging
 from datetime import timedelta
 from decimal import Decimal
 
-from django.db import transaction
+from django.db import IntegrityError, transaction
 from django.db.models import F, Prefetch, Q
 from django.http import Http404
 from django.shortcuts import get_object_or_404
@@ -41,6 +43,7 @@ from .models import (
     Payment,
     Registration,
     RegistrationExtra,
+    RegistrationIdempotencyKey,
     default_payment_expires_at,
 )
 from .pricing import calculate_discount, calculate_total
@@ -741,35 +744,72 @@ def validate_promo_code(request):
     )
 
 
-@api_view(["POST"])
-@permission_classes([AllowAny])
-@throttle_classes([RegistrationSubmitThrottle])
-def submit_registration(request):
-    """
-    Public, unauthenticated self-serve registration submission.
+# How long an idempotency-key reservation can sit unfinished before it's
+# treated as abandoned rather than "still in progress" — see
+# _reserve_idempotency_key's docstring (P2, added 2026-09-24 after gate
+# review) for why this exists at all: without it, a worker that dies
+# mid-request (killed process, rescheduled pod) between reserving a key and
+# filling in its response would leave every future retry under that key
+# stuck on a 409 forever, since nothing else ever completes the reservation.
+# 60s is generous for this endpoint's own work (a single DB transaction plus
+# one best-effort email send, see _execute_submit_registration) while still
+# being short enough that a guardian who retries a couple of times inside a
+# minute never races a reclaim against their own still-healthy request.
+STALE_RESERVATION_AGE = timedelta(seconds=60)
 
-    Materializes Family/Parent/Child/EventTicket rows immediately
-    (status=pending_verification) rather than deferring to a JSON blob — see
-    the Track 1 plan for why (keeps special-category child data inside every
-    existing compliance mechanism). A second submission for a still-pending
-    (event, contact_email) pair resends the verification email instead of
-    creating a duplicate row.
-    """
-    serializer = RegistrationSubmitSerializer(data=request.data)
-    serializer.is_valid(raise_exception=True)
-    data = serializer.validated_data
 
+def _idempotency_fingerprint(raw_payload) -> str:
+    """SHA-256 of the raw submitted JSON body, minus the idempotency key
+    itself (that's the lookup key, not part of what has to match) and with
+    dict keys sorted so the hash is stable regardless of field-insertion
+    order — the frontend always sends the same shape, but nothing enforces
+    that, and a non-canonical hash would make a byte-identical retry fail
+    to match itself purely over key ordering.
+
+    Hashes ``request.data`` (already-parsed JSON, plain dicts/lists/
+    scalars) rather than the serializer's ``validated_data`` on purpose:
+    validated_data has PrimaryKeyRelatedField values resolved to model
+    instances (Event, TicketType, Extra, ExtraChoice...), which aren't
+    JSON-serializable without extra plumbing, and comparing the raw wire
+    payload is exactly "was this the same request" anyway — the whole point
+    here, unlike validation, isn't to interpret the payload, just to tell
+    two submissions apart byte-for-byte.
+    """
+    if isinstance(raw_payload, dict):
+        canonical = {k: v for k, v in raw_payload.items() if k != "idempotency_key"}
+    else:
+        canonical = raw_payload
+    encoded = json.dumps(canonical, sort_keys=True, default=str)
+    return hashlib.sha256(encoded.encode("utf-8")).hexdigest()
+
+
+def _execute_submit_registration(request, data):
+    """The actual submission logic: validated payload in, ``(response
+    body, HTTP status, Registration-or-None)`` out.
+
+    Split out of ``submit_registration`` on 2026-09-24 so the idempotency-
+    key wrapper below (see ``RegistrationIdempotencyKey``) can cache
+    exactly what this function returns without duplicating the honeypot/
+    window/dedup/create logic, and so the wrapper can tell "raised before
+    reaching a persisted outcome" (nothing to cache, safe to retry under
+    the same key once the caller fixes whatever was wrong) apart from
+    "returned a real result" (cache it) purely from whether this function
+    returns normally or raises. Every branch is unchanged from before the
+    split — this is a pure extraction, not a behavior change for a request
+    with no idempotency key.
+    """
     # Honeypot: real guardians never fill this hidden field. Respond as if
     # successful — bots shouldn't learn their submission was rejected —
     # without persisting anything.
     if data.get("website"):
         logger.warning("Registration honeypot triggered for event %s", data["event"].id)
-        return Response(
+        return (
             {
                 "reference_code": None,
                 "message": _("Thanks — check your email to confirm."),
             },
-            status=status.HTTP_201_CREATED,
+            status.HTTP_201_CREATED,
+            None,
         )
 
     event = data["event"]
@@ -797,7 +837,7 @@ def submit_registration(request):
     if existing is not None and not existing.is_expired:
         registration, token, throttled = _resend_verification(existing)
         if throttled:
-            return Response(
+            return (
                 {
                     "reference_code": registration.reference_code,
                     "message": _(
@@ -805,7 +845,8 @@ def submit_registration(request):
                         "please check your inbox."
                     ),
                 },
-                status=status.HTTP_200_OK,
+                status.HTTP_200_OK,
+                registration,
             )
         email_sent = send_verification_email(registration, token)
         log_audit(
@@ -815,7 +856,7 @@ def submit_registration(request):
             entity_id=str(registration.id),
             details={"reference_code": registration.reference_code},
         )
-        return Response(
+        return (
             {
                 "reference_code": registration.reference_code,
                 # False means the registration is stored but the mail didn't
@@ -825,7 +866,8 @@ def submit_registration(request):
                 "email_sent": email_sent,
                 "message": _("Thanks — check your email to confirm."),
             },
-            status=status.HTTP_201_CREATED,
+            status.HTTP_201_CREATED,
+            registration,
         )
 
     with transaction.atomic():
@@ -852,14 +894,244 @@ def submit_registration(request):
         },
     )
 
-    return Response(
+    return (
         {
             "reference_code": registration.reference_code,
             "email_sent": email_sent,
             "message": _("Thanks — check your email to confirm."),
         },
-        status=status.HTTP_201_CREATED,
+        status.HTTP_201_CREATED,
+        registration,
     )
+
+
+def _idempotency_replay_or_conflict_response(existing_key, fingerprint):
+    """Given a RegistrationIdempotencyKey this request did NOT win the
+    reservation for, decide what to hand back: the winner's cached response
+    (a true replay), a hard conflict (the same key reused for a genuinely
+    different payload), or "still working on it" (the winner reserved the
+    key but hasn't finished yet). Shared by _reserve_idempotency_key's
+    first-collision path and its post-reclaim-attempt path below, so a
+    losing request is resolved identically either way.
+
+    Both conflict shapes carry a machine-readable ``code`` (P1, added
+    2026-09-24 after gate review) alongside the existing translated
+    message/details — the frontend needs to tell "same key, different
+    payload" apart from "still processing" *before* it falls back to
+    extractErrorMessage's generic first-string-in-the-body heuristic, which
+    would otherwise have no way to distinguish them (see
+    handleSubmit's catch block).
+    """
+    if existing_key.request_fingerprint != fingerprint:
+        # Same key, different payload: either a client bug (the key didn't
+        # get reset when it should have — see the frontend's "starts a new
+        # registration resets the key" rule) or an attempt to read back a
+        # response that was never this caller's. Either way, silently
+        # returning the other payload's result would be actively wrong, so
+        # this is a hard conflict, not a replay.
+        return Response(
+            {
+                "idempotency_key": [
+                    _(
+                        "This idempotency key was already used for a "
+                        "different submission."
+                    )
+                ],
+                "code": "idempotency_conflict",
+            },
+            status=status.HTTP_409_CONFLICT,
+        )
+    if existing_key.response_body is None:
+        # The reservation exists but the request that made it hasn't
+        # finished yet — the losing side of the exact race the reservation
+        # exists to prevent. There is no result to replay yet; asking the
+        # caller to retry is honest, returning a guessed result would not
+        # be.
+        return _idempotency_in_progress_response()
+    return Response(existing_key.response_body, status=existing_key.response_status)
+
+
+def _idempotency_in_progress_response():
+    """The "try again shortly" 409 — factored out because
+    _reserve_idempotency_key also reaches for it when a concurrent
+    reclaimer's DELETE-then-INSERT leaves a real, narrow gap where the row
+    genuinely doesn't exist for a moment (see that function's ``except
+    RegistrationIdempotencyKey.DoesNotExist`` handling): that gap is a
+    finer-grained instance of "someone else is mid-flight on this key",
+    exactly what this response already says, so there is no separate
+    message to maintain for it.
+    """
+    return Response(
+        {
+            "error": _(
+                "This submission is already being processed — "
+                "please try again in a moment."
+            ),
+            "code": "idempotency_in_progress",
+        },
+        status=status.HTTP_409_CONFLICT,
+    )
+
+
+def _reserve_idempotency_key(*, key, event, fingerprint):
+    """Reserves ``key`` for this request, or resolves a request that lost
+    the reservation race. Returns either a RegistrationIdempotencyKey (this
+    request won and must run the real work, then fill it in) or a Response
+    (this request lost — the Response is the final answer).
+
+    Reserving the row *before* doing any real work — not a plain
+    check-then-insert — is what closes the concurrent-request race: two
+    requests arriving within microseconds of each other both see "no row
+    yet" under a SELECT, but only one INSERT can win the unique constraint
+    on ``key``; the other raises IntegrityError.
+
+    The reclaim step (P2, added 2026-09-24 after gate review) handles the
+    case where the *winner* of that race never gets to finish: a worker
+    killed mid-request, a rescheduled pod, any hard process death between
+    reserving the key and filling in response_body. Without it, every
+    future retry under that key would see "already being processed"
+    forever, since nothing else was ever going to complete the reservation.
+    A reservation unfinished for longer than STALE_RESERVATION_AGE is
+    reclaimed: deleted via a *conditional* delete (matched on pk +
+    still-unfinished + still-stale, so two requests reclaiming at the same
+    instant can't both succeed) and re-reserved for this request. Deletion
+    uses the model's existing ``created_at`` — no new field, no migration.
+
+    Per the reviewed plan, the reclaim is attempted at most once: if the
+    conditional delete matches nothing (someone else already reclaimed, or
+    the original request finished, between our read and our delete) or the
+    retried INSERT itself loses a fresh race, this falls through to
+    resolving normally against whatever is there now — replay, conflict, or
+    "still in progress" — rather than looping. That keeps this function's
+    worst case bounded (at most two INSERT attempts) instead of risking a
+    request retrying indefinitely against a key under contention.
+
+    Both re-reads below tolerate the row having vanished entirely
+    (RegistrationIdempotencyKey.DoesNotExist) rather than letting that
+    propagate as a 500. This is a real, narrow possibility, not defensive
+    overkill: a reclaim is a DELETE followed by a *separate*, later INSERT
+    statement — nothing makes that pair atomic against a concurrent
+    reader — so a second request racing the same reclaim can legitimately
+    read in the gap between "the stale row is gone" and "the reclaiming
+    request's new row exists yet". A multi-threaded, two-real-connections
+    test (IdempotencyKeyStaleReclaimRaceTests in tests_idempotency.py) is
+    what caught this — a single-connection mocked IntegrityError can't
+    reproduce it, since mocking can only fake a collision at a call
+    boundary, not an genuinely empty moment between two separate
+    statements on another connection.
+    """
+    try:
+        with transaction.atomic():
+            return RegistrationIdempotencyKey.objects.create(
+                key=key, event=event, request_fingerprint=fingerprint
+            )
+    except IntegrityError:
+        pass
+
+    try:
+        existing_key = RegistrationIdempotencyKey.objects.get(key=key)
+    except RegistrationIdempotencyKey.DoesNotExist:
+        return _idempotency_in_progress_response()
+
+    cutoff = timezone.now() - STALE_RESERVATION_AGE
+    if existing_key.response_body is None and existing_key.created_at < cutoff:
+        deleted_count, _unused = RegistrationIdempotencyKey.objects.filter(
+            pk=existing_key.pk,
+            response_body__isnull=True,
+            created_at__lt=cutoff,
+        ).delete()
+        if deleted_count:
+            try:
+                with transaction.atomic():
+                    return RegistrationIdempotencyKey.objects.create(
+                        key=key, event=event, request_fingerprint=fingerprint
+                    )
+            except IntegrityError:
+                # Another request reserved (or reclaimed) the same key in
+                # the instant between our delete and our retry — re-read
+                # and resolve against that below, rather than reclaiming
+                # again (see the "at most once" note above).
+                pass
+        # Either the conditional delete matched nothing (someone else
+        # already reclaimed, or the original request finished, first) or
+        # our own post-reclaim retry just lost a fresh race — re-read
+        # current state either way.
+        try:
+            existing_key = RegistrationIdempotencyKey.objects.get(key=key)
+        except RegistrationIdempotencyKey.DoesNotExist:
+            return _idempotency_in_progress_response()
+
+    return _idempotency_replay_or_conflict_response(existing_key, fingerprint)
+
+
+@api_view(["POST"])
+@permission_classes([AllowAny])
+@throttle_classes([RegistrationSubmitThrottle])
+def submit_registration(request):
+    """
+    Public, unauthenticated self-serve registration submission.
+
+    Materializes Family/Parent/Child/EventTicket rows immediately
+    (status=pending_verification) rather than deferring to a JSON blob — see
+    the Track 1 plan for why (keeps special-category child data inside every
+    existing compliance mechanism). A second submission for a still-pending
+    (event, contact_email) pair resends the verification email instead of
+    creating a duplicate row — see _execute_submit_registration.
+
+    Idempotency (added 2026-09-24, see RegistrationIdempotencyKey for the
+    full reasoning): an optional client-supplied ``idempotency_key`` makes a
+    retried POST — network failure, a double submit that slips past the
+    frontend's own in-flight guard, a stale tab resubmitting — replay the
+    exact original response instead of running _execute_submit_registration
+    a second time, so nothing gets created (or resent, or emailed) twice.
+    Blank/omitted key: every branch below is skipped and this behaves
+    exactly as it did before this key existed.
+    """
+    serializer = RegistrationSubmitSerializer(data=request.data)
+    serializer.is_valid(raise_exception=True)
+    data = serializer.validated_data
+
+    idempotency_key = (data.get("idempotency_key") or "").strip()
+    if not idempotency_key:
+        body, response_status, _registration = _execute_submit_registration(
+            request, data
+        )
+        return Response(body, status=response_status)
+
+    fingerprint = _idempotency_fingerprint(request.data)
+
+    reservation = _reserve_idempotency_key(
+        key=idempotency_key, event=data.get("event"), fingerprint=fingerprint
+    )
+    if isinstance(reservation, Response):
+        # This request lost the reservation (a true replay, a hard
+        # conflict, or "still in progress") — _reserve_idempotency_key
+        # already built the final answer; nothing below has anything left
+        # to do.
+        return reservation
+    key_record = reservation
+
+    try:
+        body, response_status, registration = _execute_submit_registration(
+            request, data
+        )
+    except Exception:
+        # Nothing persisted under this key (the registration-creation
+        # transaction, if entered at all, already rolled back on its own).
+        # Delete the reservation so a retry with a corrected payload under
+        # the *same* key — e.g. the guardian fixes a ticket-eligibility
+        # error the client-side checks didn't catch and resubmits — is a
+        # fresh attempt, not a permanent 409 against a reservation that
+        # will never complete. See RegistrationIdempotencyKey's docstring.
+        key_record.delete()
+        raise
+
+    key_record.response_status = response_status
+    key_record.response_body = body
+    key_record.registration = registration
+    key_record.save(update_fields=["response_status", "response_body", "registration"])
+
+    return Response(body, status=response_status)
 
 
 @api_view(["GET"])

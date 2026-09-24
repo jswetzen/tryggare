@@ -314,6 +314,17 @@ export interface RegistrationSubmitPayload {
   promo_code?: string;
   // Honeypot: must stay empty. Hidden from real users via CSS.
   website?: string;
+  // Client-generated (crypto.randomUUID(), once per form "attempt" — see
+  // register/[eventId]/+page.svelte) so a retried POST (network failure, a
+  // double submit that slips past the frontend's own in-flight guard, a
+  // stale tab resubmitting) replays the backend's original response
+  // instead of creating a second registration or re-sending the
+  // verification email. Added 2026-09-24 after an audit found no
+  // protection against a retried submit anywhere in the stack — see
+  // backend registrations/models.py::RegistrationIdempotencyKey. Optional:
+  // omitting it (as handleResend deliberately does) falls back to the
+  // pre-existing (event, contact_email) dedup behavior, unchanged.
+  idempotency_key?: string;
 }
 
 export interface RegistrationSubmitResponse {

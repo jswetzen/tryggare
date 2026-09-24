@@ -10,7 +10,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: 1.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-08-17 13:57+0000\n"
+"POT-Creation-Date: 2026-09-24 20:08+0000\n"
 "PO-Revision-Date: 2025-11-25 12:00+0000\n"
 "Last-Translator: \n"
 "Language-Team: Swedish\n"
@@ -228,12 +228,6 @@ msgstr "Tryggare-admin"
 msgid "Choose what to manage"
 msgstr "Välj vad du vill hantera"
 
-msgid "Common tasks"
-msgstr "Vanliga uppgifter"
-
-msgid "Who owes money?"
-msgstr "Vem är skulden hos?"
-
 msgid "Registration page"
 msgstr "Anmälningssida"
 
@@ -335,8 +329,8 @@ msgid ""
 "parent-only ticket type — it constrains nothing as configured."
 msgstr ""
 "\"%(name)s\" gäller bara föräldrar, men har ett åldersintervall inställt "
-"(minsta/största födelsedatum). Åldern kontrolleras bara för deltagare som "
-"är registrerade som barn, så det här intervallet kommer aldrig faktiskt att "
+"(minsta/största födelsedatum). Åldern kontrolleras bara för deltagare som är "
+"registrerade som barn, så det här intervallet kommer aldrig faktiskt att "
 "kontrolleras för en biljettyp som bara gäller föräldrar — som konfigurerat "
 "begränsar det ingenting."
 
@@ -1723,6 +1717,13 @@ msgid ""
 "A confirmation email was already sent recently — please check your inbox."
 msgstr "Ett bekräftelsemejl skickades nyligen – titta i din inkorg."
 
+msgid "This idempotency key was already used for a different submission."
+msgstr "Den här anmälan har redan skickats in med andra uppgifter."
+
+msgid ""
+"This submission is already being processed — please try again in a moment."
+msgstr "Anmälan behandlas redan — försök igen om en liten stund."
+
 msgid "This verification link has expired."
 msgstr "Den här bekräftelselänken har gått ut."
 
@@ -1772,6 +1773,12 @@ msgstr "Django webbplatsadministration"
 
 msgid "Django administration"
 msgstr "Django-administration"
+
+msgid "Common tasks"
+msgstr "Vanliga uppgifter"
+
+msgid "Who owes money?"
+msgstr "Vem är skulden hos?"
 
 # Admin chrome language switcher - templates/admin/language_switcher.html
 msgid "Change admin language"

@@ -95,6 +95,16 @@ class RegistrationSubmitSerializer(serializers.Serializer):
     website = serializers.CharField(
         required=False, allow_blank=True, default="", trim_whitespace=False
     )
+    # Optional, client-generated (crypto.randomUUID() at form mount — see
+    # register/[eventId]/+page.svelte) — added 2026-09-24 so a retried POST
+    # (network failure, a double submit that slips past the frontend's own
+    # in-flight guard) replays the original response instead of creating a
+    # second registration. Omitted entirely, behavior is unchanged — see
+    # views.py::submit_registration's idempotency handling, which is a
+    # no-op when this is blank.
+    idempotency_key = serializers.CharField(
+        max_length=255, required=False, allow_blank=True, default=""
+    )
 
     def validate(self, data):
         if not data.get("parents") and not data.get("children"):

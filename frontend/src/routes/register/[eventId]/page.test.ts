@@ -4,6 +4,15 @@ import userEvent from '@testing-library/user-event';
 import { readable } from 'svelte/store';
 import RegisterPage from './+page.svelte';
 
+// jsdom (this project's vitest environment — see vitest.config.ts) doesn't
+// implement scrollIntoView. The error-banner $effect in +page.svelte calls
+// it whenever `error` becomes non-empty (so a failed submit is visible on
+// this 2000+px page — see that effect's own comment), which the
+// idempotency-key "retry after a failed submit" test below is the first in
+// this file to actually trigger. Stubbed once, at module scope, rather than
+// per-test, since nothing here asserts on scroll behavior itself.
+Element.prototype.scrollIntoView = vi.fn();
+
 // Mock svelte-i18n: unmapped keys fall back to a rendering of the key +
 // values so assertions can still target substrings without maintaining a
 // full translation table here.
@@ -40,7 +49,11 @@ vi.mock('svelte-i18n', () => {
     'register.heading': 'Register for {event}',
     'register.privacyNotice': '',
     'register.privacyLink': 'Privacy notice',
-    'register.submitButton': 'Submit registration'
+    'register.submitButton': 'Submit registration',
+    'register.idempotencyConflictTitle': 'Already submitted?',
+    'register.idempotencyConflictMessage':
+      'Your registration may have already gone through. Check {email} for a confirmation before submitting again.',
+    'register.idempotencyConflictButton': 'Send the confirmation again'
   };
   const translator = (key: string, opts?: { values?: Record<string, unknown> }) => {
     let text = translations[key] ?? key;
@@ -74,11 +87,15 @@ vi.mock('$app/stores', () => ({
 }));
 
 const getEvent = vi.fn();
+// Exposed like getEvent above (not an inline vi.fn() in the factory) so the
+// idempotency-key tests below can inspect what handleSubmit actually sent —
+// see the "Register page — idempotency key" describe block.
+const submit = vi.fn();
 
 vi.mock('$lib/api/registrationService', () => ({
   registrationApi: {
     getEvent: (...args: unknown[]) => getEvent(...args),
-    submit: vi.fn(),
+    submit: (...args: unknown[]) => submit(...args),
     validatePromoCode: vi.fn()
   }
 }));
@@ -417,5 +434,159 @@ describe('Register page — ticket composition (family ticket) rules', () => {
     expect(warning.textContent).toContain('requires at least one Familjebiljett');
     expect(childSelect.getAttribute('aria-invalid')).toBe('true');
     await screen.findByTestId('register-total-provisional');
+  });
+});
+
+// Idempotency key — added 2026-09-24 alongside the backend's
+// RegistrationIdempotencyKey (see registrations/models.py) after an audit
+// found no protection anywhere against a retried submit POST. These tests
+// cover only the frontend's half of the contract: the key stays put across
+// a retry of the same attempt, and only resets where the guardian is
+// genuinely starting a new one (editing the email after a success).
+// Ticket-type-free event info, so a submit only needs contact email +
+// one filled-in child (the default row) to pass client-side validation —
+// nothing here is about ticket selection.
+function ticketlessEventInfo(overrides: Partial<Record<string, unknown>> = {}) {
+  return baseEventInfo({ ticket_types: [], ...overrides });
+}
+
+async function fillMinimalRequiredFields(user: ReturnType<typeof userEvent.setup>) {
+  await user.type(screen.getByTestId('register-contact-email'), 'guardian@example.com');
+  await user.type(document.getElementById('child-first-name-0') as HTMLInputElement, 'Alex');
+  await user.type(document.getElementById('child-last-name-0') as HTMLInputElement, 'Karlsson');
+  await user.type(document.getElementById('child-birthdate-0') as HTMLInputElement, '2015-05-01');
+  await user.tab();
+}
+
+describe('Register page — idempotency key', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('sends the same idempotency_key on a retried submit after a failed attempt', async () => {
+    const user = userEvent.setup();
+    getEvent.mockResolvedValue(ticketlessEventInfo());
+    // First attempt drops (e.g. a network failure) with no response at
+    // all; the guardian clicks submit again with the form untouched —
+    // exactly the retry this key exists to make safe.
+    submit.mockRejectedValueOnce(new Error('network error'));
+    submit.mockResolvedValueOnce({ reference_code: 'REF1', message: 'ok', email_sent: true });
+    render(RegisterPage);
+
+    await screen.findByTestId('register-form');
+    await fillMinimalRequiredFields(user);
+
+    const submitButton = screen.getByTestId('register-submit-button');
+    await user.click(submitButton);
+    await waitFor(() => expect(submit).toHaveBeenCalledTimes(1));
+
+    await user.click(submitButton);
+    await waitFor(() => expect(submit).toHaveBeenCalledTimes(2));
+
+    const firstKey = (submit.mock.calls[0][0] as { idempotency_key?: string }).idempotency_key;
+    const secondKey = (submit.mock.calls[1][0] as { idempotency_key?: string }).idempotency_key;
+    expect(firstKey).toBeTruthy();
+    expect(secondKey).toBe(firstKey);
+  });
+
+  it('issues a fresh idempotency_key after editing the email post-success and resubmitting', async () => {
+    const user = userEvent.setup();
+    getEvent.mockResolvedValue(ticketlessEventInfo());
+    submit.mockResolvedValue({ reference_code: 'REF1', message: 'ok', email_sent: true });
+    render(RegisterPage);
+
+    await screen.findByTestId('register-form');
+    await fillMinimalRequiredFields(user);
+    await user.click(screen.getByTestId('register-submit-button'));
+    await waitFor(() => expect(submit).toHaveBeenCalledTimes(1));
+    const firstKey = (submit.mock.calls[0][0] as { idempotency_key?: string }).idempotency_key;
+
+    // "Wrong email? Edit it" — the one point in this flow that is a
+    // genuinely new attempt, not a retry of the one that just succeeded.
+    await user.click(screen.getByTestId('register-edit-email'));
+    await screen.findByTestId('register-form');
+    await user.click(screen.getByTestId('register-submit-button'));
+    await waitFor(() => expect(submit).toHaveBeenCalledTimes(2));
+
+    const secondKey = (submit.mock.calls[1][0] as { idempotency_key?: string }).idempotency_key;
+    expect(secondKey).toBeTruthy();
+    expect(secondKey).not.toBe(firstKey);
+  });
+
+  it('omits idempotency_key from the resend request, unlike the primary submit', async () => {
+    const user = userEvent.setup();
+    getEvent.mockResolvedValue(ticketlessEventInfo());
+    submit.mockResolvedValue({ reference_code: 'REF1', message: 'ok', email_sent: true });
+    render(RegisterPage);
+
+    await screen.findByTestId('register-form');
+    await fillMinimalRequiredFields(user);
+    await user.click(screen.getByTestId('register-submit-button'));
+    await waitFor(() => expect(submit).toHaveBeenCalledTimes(1));
+    expect(
+      (submit.mock.calls[0][0] as { idempotency_key?: string }).idempotency_key
+    ).toBeTruthy();
+
+    // No data-testid on the resend Button; the i18n mock falls back to
+    // rendering an unmapped key verbatim, so the key itself is the text.
+    await user.click(screen.getByText('register.resendButton'));
+    await waitFor(() => expect(submit).toHaveBeenCalledTimes(2));
+
+    const resendPayload = submit.mock.calls[1][0] as { idempotency_key?: string };
+    expect(resendPayload.idempotency_key).toBeUndefined();
+  });
+
+  // P1 (gate review, 2026-09-24): the "lost response" recovery UX — the
+  // backend saw this key before with a different payload (code:
+  // "idempotency_conflict"), most plausibly because an earlier submit
+  // actually succeeded but the guardian never saw the response. See
+  // idempotencyConflictPayload's own comment in +page.svelte.
+  it('shows the idempotency-conflict guidance and resubmits with a fresh key on that button', async () => {
+    const user = userEvent.setup();
+    getEvent.mockResolvedValue(ticketlessEventInfo());
+    submit.mockRejectedValueOnce({
+      status: 409,
+      message: 'This idempotency key was already used for a different submission.',
+      details: {
+        idempotency_key: ['This idempotency key was already used for a different submission.'],
+        code: 'idempotency_conflict'
+      }
+    });
+    submit.mockResolvedValueOnce({ reference_code: 'REF2', message: 'ok', email_sent: true });
+    render(RegisterPage);
+
+    await screen.findByTestId('register-form');
+    await fillMinimalRequiredFields(user);
+    await user.click(screen.getByTestId('register-submit-button'));
+    await waitFor(() => expect(submit).toHaveBeenCalledTimes(1));
+
+    // The dedicated guidance banner, not the generic error banner — and it
+    // echoes the entered contact email.
+    await screen.findByText(
+      'Your registration may have already gone through. Check guardian@example.com for a confirmation before submitting again.'
+    );
+
+    const firstKey = (submit.mock.calls[0][0] as { idempotency_key?: string }).idempotency_key;
+    const firstEmail = (submit.mock.calls[0][0] as { contact_email?: string }).contact_email;
+
+    await user.click(screen.getByText('Send the confirmation again'));
+    await waitFor(() => expect(submit).toHaveBeenCalledTimes(2));
+
+    const secondCall = submit.mock.calls[1][0] as {
+      idempotency_key?: string;
+      contact_email?: string;
+    };
+    // A fresh key — this is a deliberate new attempt, not a replay of the
+    // rejected one (see handleResubmitAfterConflict's comment) — but the
+    // SAME payload otherwise: the captured, just-rejected attempt, not
+    // lastSubmitPayload (which was never set — the first call never
+    // succeeded).
+    expect(secondCall.idempotency_key).toBeTruthy();
+    expect(secondCall.idempotency_key).not.toBe(firstKey);
+    expect(secondCall.contact_email).toBe(firstEmail);
+
+    // A successful resubmit reaches the normal confirmation screen, same
+    // as any other successful submit.
+    await screen.findByTestId('register-success-email');
   });
 });

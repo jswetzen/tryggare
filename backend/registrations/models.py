@@ -183,6 +183,105 @@ class Registration(models.Model):
         return timezone.now() >= self.expires_at
 
 
+class RegistrationIdempotencyKey(models.Model):
+    """Caches the response submit_registration returned for a client-
+    supplied idempotency key, so a retried POST replays the original result
+    instead of creating a second registration or re-sending the
+    verification email.
+
+    Added 2026-09-24: an audit of the public /register/[eventId] flow found
+    no protection at all against a retried submit POST. The (event,
+    contact_email) dedup path already on Registration/RESEND_COOLDOWN above
+    covers a *different* case — a guardian who deliberately comes back
+    later wanting a fresh verification email — and is the wrong tool for an
+    accidental retry: it still issues a brand-new token and sends a new
+    email every time the 10-minute cooldown has elapsed, so a guardian
+    whose confirmation page never rendered (the write committed, only the
+    HTTP response was lost — a timeout, a dropped tab, a flaky venue wifi
+    hotspot) who retries gets a second email pointing at a second token,
+    silently invalidating the first, or — if the retry happens to land
+    within the cooldown window — no created-vs-duplicate signal either way
+    for the caller to act on. Purely internal/no admin surface (no
+    RegistrationIdempotencyKeyAdmin, mirroring notifications.EmailSendLog),
+    so field labels are plain strings, not gettext_lazy: nothing here is
+    ever rendered to a Django-admin user.
+
+    ``key`` is opaque and client-generated (crypto.randomUUID() once per
+    form mount in the register page, kept stable across retries of that
+    same attempt) — trusted only as a cache-lookup key, never parsed.
+    ``request_fingerprint`` is a SHA-256 of the canonicalized submission
+    payload (the raw POST body minus the key itself), so a second request
+    that reuses a key with a genuinely different payload — a client bug, or
+    an attempt to read back someone else's cached response — is rejected
+    with a 409 rather than silently served the wrong result.
+
+    ``response_body``/``response_status`` start out ``None``: the row is
+    *reserved* (inserted) before the expensive create/resend work runs, and
+    only filled in once that work actually finishes. A request that fails
+    validation before reaching a persisted outcome (missing field,
+    ineligible ticket) never gets this far — see submit_registration, which
+    only reserves a key once the honeypot/window checks pass — so retrying
+    with a corrected payload under the same key is not treated as a
+    conflict; there was nothing durable to conflict with yet.
+
+    Reserving the row *before* doing the work, under a DB-level unique
+    constraint on ``key``, is what actually closes the concurrent-request
+    race — a check-then-insert alone does not: two requests racing past a
+    plain "does a row exist yet?" SELECT at the same instant would both
+    proceed to create a Registration. Here the second INSERT itself raises
+    IntegrityError (caught in submit_registration), so only one request
+    ever gets past the reservation step; the other either replays the
+    winner's finished response or, in the vanishingly small window where
+    the winner has reserved but not yet finished, reports a 409 asking the
+    caller to retry rather than guessing at a result that doesn't exist
+    yet.
+    """
+
+    key = models.CharField(max_length=255, unique=True)
+    event = models.ForeignKey(
+        "events.Event",
+        null=True,
+        blank=True,
+        on_delete=models.CASCADE,
+        related_name="registration_idempotency_keys",
+    )
+    request_fingerprint = models.CharField(max_length=64)
+    response_status = models.PositiveSmallIntegerField(null=True, blank=True)
+    response_body = models.JSONField(null=True, blank=True)
+    # SET_NULL, deliberately not CASCADE (P3, reaffirmed 2026-09-24 after
+    # gate review raised exactly this question): the family a Registration
+    # points at can be hard-deleted independently of this row — by the
+    # expiry sweep (tasks.py::sweep_expired_registrations) or a GDPR erase
+    # — and if the FK were CASCADE, deleting the family would take this
+    # cache row down with it. A replay of the original POST (still
+    # plausible — the guardian's tab doesn't know the row was swept) would
+    # then run _execute_submit_registration fresh and recreate the erased
+    # family's data, which is exactly the duplicate-materialization bug
+    # this whole mechanism exists to prevent, just via a different path.
+    # SET_NULL keeps the row alive as a pure hash-and-response cache with
+    # no ownership of anything that can be erased: response_body is just
+    # {reference_code, email_sent, message} (see _execute_submit_
+    # registration's return values), no PII beyond what the guardian
+    # already has on their own confirmation screen, so an orphaned row is
+    # safe to keep serving replays from — and the TTL sweep below
+    # (sweep_idempotency_keys) cleans it up regardless once a replay is no
+    # longer plausible.
+    registration = models.ForeignKey(
+        Registration,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="idempotency_keys",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "registration_idempotency_keys"
+
+    def __str__(self) -> str:
+        return f"RegistrationIdempotencyKey({self.key})"
+
+
 class Payment(models.Model):
     """
     The single payment record for a paid-event Registration.
