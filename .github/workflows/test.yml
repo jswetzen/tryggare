@@ -46,8 +46,37 @@ jobs:
         with:
           enable-cache: true
 
+      # The unit suite needs the *compiled* Swedish catalogue, not just the .po.
+      # Observed 2026-09-24 on PR #25 (runs 32048256738, 32050498072,
+      # 32124890105): 57/58 passed, and the odd one out was
+      # test_admin_i18n.py::test_switching_to_swedish_overrides_english_accept_language.
+      # The page came back with <html lang="sv"> and Django's own chrome in
+      # Swedish ("Välkommen", "Visa sida"), but our own index title still read
+      # "Choose what to manage". That is the same half-Swedish admin that
+      # 6651d13 fixed for dev, for the same reason: locale/*/LC_MESSAGES/*.mo is
+      # gitignored on purpose (a build artifact, see CLAUDE.md "Translations"),
+      # Django's bundled catalogues arrive pre-compiled inside the venv, and
+      # nothing in this job ever compiled ours — so gettext silently fell back
+      # to English. The Dockerfiles and the dev compose command each compile
+      # the catalogue themselves; this job has to as well, rather than
+      # committing .mo files and letting them drift from the .po.
+      #
+      # compilemessages shells out to msgfmt, which is not on the runner image
+      # (the `messages` job below installs gettext for the same reason).
+      - name: Install gettext
+        run: sudo apt-get update && sudo apt-get install -y gettext
+
       - name: Install dependencies
         run: uv sync --group dev
+
+      # manage.py rather than django-admin: DJANGO_SETTINGS_MODULE is set in
+      # this job's env, and django-admin (a console script in .venv/bin) would
+      # fail to import `config` — the same trap docker-compose.yml documents.
+      # --ignore=.venv because uv puts the venv inside backend/, and without it
+      # compilemessages walks every bundled Django/third-party catalogue too,
+      # burying the two lines that matter under hundreds of "already compiled".
+      - name: Compile translation catalogues
+        run: uv run python manage.py compilemessages --ignore=.venv
 
       - name: Run unit tests
         run: uv run pytest tests/unit/ -v
