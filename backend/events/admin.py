@@ -53,6 +53,7 @@ from registrations.services import (
     TicketTypeChangeRejected,
     change_attendee_ticket_type,
     plan_ticket_type_change,
+    ticket_type_sold_count,
 )
 
 from .services import duplicate_extra_to_event
@@ -204,14 +205,22 @@ class ChangeTicketTypeForm(forms.Form):
         queryset=TicketType.objects.none(),
         label=_("New ticket type"),
     )
-    acknowledge_age_warning = forms.BooleanField(
+    # Renamed from acknowledge_age_warning (R4/D1, gate review 2026-09-25):
+    # one checkbox now covers every warning TicketTypeChangePlan.warnings
+    # can carry, not just an age mismatch — capacity joined it the same
+    # way age was always handled, a warning to override, never a block
+    # (see TicketTypeChangePlan.warnings and _capacity_warning_for in
+    # registrations/services.py).
+    acknowledge_warnings = forms.BooleanField(
         required=False,
-        label=_("The age does not fit, and I want to make this change anyway"),
+        label=_(
+            "I've reviewed the warning(s) above and want to make this change anyway"
+        ),
         help_text=_(
-            "Age is judged once, on the event's start date — there is no "
-            "exception for a birthday during the event. Tick this only if "
-            "you have checked and the placement is still correct despite "
-            "the warning."
+            "Covers every warning shown above — an age that doesn't fit the "
+            "window, the new type being at or over capacity, or both. Tick "
+            "this only if you have checked and the placement is still "
+            "correct despite it."
         ),
     )
 
@@ -278,6 +287,18 @@ class TicketTypeGuardMixin:
     permissions. A genuine cancellation still has a route: the Django shell,
     deliberately visible and deliberate rather than one click on a
     changelist.
+
+    R4/D1 (product decision + gate review, 2026-09-25): the add form here
+    is also the one other place (besides the guest self-serve submission
+    in registrations/views.py, and the ticket-type-change wizard below)
+    that can put a ticket type over its configured capacity — staff are
+    deliberately exempt from the guest-facing hard refusal, the same
+    "warn, don't block" stance already established for the age-window
+    check on TicketTypeAdmin (``_warn_if_age_window_uncheckable``). See
+    ``save_model``/``_warn_if_over_capacity`` below. Change-form saves
+    never trigger it: ``ticket_type`` is excluded from that form entirely
+    (see ``get_exclude``), so a change-form save can never be the write
+    that pushes a type over capacity in the first place.
     """
 
     def get_readonly_fields(self, request, obj=None):
@@ -285,6 +306,40 @@ class TicketTypeGuardMixin:
         if obj is not None:
             readonly += ["ticket_type_locked"]
         return readonly
+
+    def save_model(self, request, obj, form, change):
+        super().save_model(request, obj, form, change)
+        if not change:
+            self._warn_if_over_capacity(request, obj)
+
+    def _warn_if_over_capacity(self, request, obj):
+        """Passive, add-form-only warning (R4/D1, 2026-09-25) — never
+        blocks the save. ``obj.ticket_type`` is already the *saved* value
+        by the time ``save_model`` calls this, so ``ticket_type_sold_count``
+        below counts this very row.
+
+        Deliberately a plain ``>`` against ``ticket_type_sold_count``, not
+        ``reserve_ticket_type_capacity``'s lock-then-compare: staff are
+        never refused here, so there is nothing to gate — only something to
+        report after the fact — and a lock protecting a write that cannot
+        be rejected would just be pointless contention on a row several
+        operators might be adding tickets against at once.
+        """
+        ticket_type = obj.ticket_type
+        if ticket_type is None or ticket_type.capacity is None:
+            return
+        sold = ticket_type_sold_count(ticket_type)
+        if sold > ticket_type.capacity:
+            self.message_user(
+                request,
+                _('"%(name)s" is now over capacity (%(sold)s/%(capacity)s).')
+                % {
+                    "name": ticket_type.name,
+                    "sold": sold,
+                    "capacity": ticket_type.capacity,
+                },
+                level=messages.WARNING,
+            )
 
     def get_exclude(self, request, obj=None):
         exclude = list(super().get_exclude(request, obj) or [])
@@ -562,7 +617,7 @@ class EventTicketAdmin(TicketTriageMixin, TicketTypeGuardMixin, admin.ModelAdmin
         acknowledged = False
         if submitted and form.is_valid():
             new_ticket_type = form.cleaned_data["ticket_type"]
-            acknowledged = form.cleaned_data["acknowledge_age_warning"]
+            acknowledged = form.cleaned_data["acknowledge_warnings"]
             for ticket in tickets:
                 try:
                     plans.append(plan_ticket_type_change(ticket, new_ticket_type))
@@ -584,9 +639,9 @@ class EventTicketAdmin(TicketTriageMixin, TicketTypeGuardMixin, admin.ModelAdmin
                     self.message_user(
                         request,
                         _(
-                            "Tick the age acknowledgement before confirming. "
+                            "Tick the acknowledgement before confirming. "
                             "Nothing was changed — the selection below is "
-                            "unchanged, review the warning and try again."
+                            "unchanged, review the warning(s) and try again."
                         ),
                         messages.ERROR,
                     )
@@ -598,7 +653,7 @@ class EventTicketAdmin(TicketTriageMixin, TicketTypeGuardMixin, admin.ModelAdmin
                                 plan.ticket,
                                 new_ticket_type=new_ticket_type,
                                 changed_by=request.user,
-                                acknowledge_age_warning=acknowledged,
+                                acknowledge_warnings=acknowledged,
                             )
                         except (
                             TicketTypeChangeRejected,
@@ -642,8 +697,23 @@ class EventTicketAdmin(TicketTriageMixin, TicketTypeGuardMixin, admin.ModelAdmin
                                     if plan.age_warning is None
                                     else str(plan.age_warning)
                                 ),
-                                "age_warning_acknowledged": bool(
-                                    plan.age_warning and acknowledged
+                                # Added alongside age_warning, same shape
+                                # (R4/D1, gate review 2026-09-25) — nothing
+                                # outside this module and its own test reads
+                                # either key, so no dual-write/migration of
+                                # old audit rows is needed.
+                                "capacity_warning": (
+                                    None
+                                    if plan.capacity_warning is None
+                                    else str(plan.capacity_warning)
+                                ),
+                                # Renamed from age_warning_acknowledged: one
+                                # checkbox now covers every warning on the
+                                # plan, not just age (TicketTypeChangePlan.
+                                # warnings), so "acknowledged" is a property
+                                # of the whole plan, not of age specifically.
+                                "warnings_acknowledged": bool(
+                                    plan.warnings and acknowledged
                                 ),
                             },
                         )
@@ -664,7 +734,7 @@ class EventTicketAdmin(TicketTriageMixin, TicketTypeGuardMixin, admin.ModelAdmin
         # above) and step 2's preview can never drift into two renderings
         # of the same number — the "1050,00" vs "10 500,00" failure this
         # increment exists to prevent.
-        warning_plans = [plan for plan in plans if plan.age_warning]
+        warning_plans = [plan for plan in plans if plan.warnings]
         single_warning_plan = warning_plans[0] if len(warning_plans) == 1 else None
         plan_rows = [
             {

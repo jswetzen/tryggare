@@ -229,6 +229,11 @@ export interface RegistrationTicketType {
   kind: 'event' | 'session_bundle';
   requires_ticket_type_id: string | null;
   max_per_required: number | null;
+  // Capacity enforcement, 2026-09-24 (registration dev-cycle round 4,
+  // increment 2): false once TicketType.capacity is reached. Only a bool
+  // — the backend deliberately never exposes the sold count or remaining
+  // seats on this public endpoint (see _ticket_type_payload's docstring).
+  available: boolean;
 }
 
 export interface RegistrationExtraChoice {

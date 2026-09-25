@@ -211,9 +211,19 @@ class TicketType(models.Model):
 
     Field caveats that belong here rather than in operator-facing help_text:
 
-    ``capacity`` is a schema placeholder only — not yet enforced anywhere.
-    A future capacity-accounting pass reads this field; until then it
-    records intent, not a limit.
+    ``capacity`` is enforced for guest self-registration (registration
+    dev-cycle round 4, increment 2, 2026-09-24; race/deadlock-safe as of
+    the gate-review revision, 2026-09-25) — see
+    registrations.services.ticket_type_sold_count for exactly what counts
+    as "sold": every Registration status except cancelled, including a
+    not-yet-verified ``pending_verification`` row for the full 48h
+    verification TTL (a product decision confirmed on review, 2026-09-25 —
+    an abandoned attempt holds its seat exactly like a real one until the
+    expiry sweep removes it, since the two are indistinguishable before
+    that). Staff are exempt: the EventTicket/SessionTicket admin add-form
+    and the ticket-type-change wizard both let a type go over capacity,
+    surfacing a passive warning rather than blocking the write — the same
+    stance already taken on the age-window checks below.
 
     ``is_active`` is a soft-retire flag rather than a delete, because
     ``EventTicket.ticket_type`` and ``SessionTicket.ticket_type`` both use
@@ -330,8 +340,11 @@ class TicketType(models.Model):
         blank=True,
         verbose_name=_("Capacity"),
         help_text=_(
-            "Leave blank for no limit. This number is not enforced yet — "
-            "setting 50 will not stop a 51st booking."
+            "Leave blank for no limit. Enforced for guest self-registration: "
+            "every registration counts against it except a cancelled one, "
+            "including one still awaiting email verification (for up to 48 "
+            "hours). Staff can still exceed it from this admin or the "
+            "ticket-type-change wizard, with a warning to acknowledge first."
         ),
     )
     requires_ticket_type = models.ForeignKey(

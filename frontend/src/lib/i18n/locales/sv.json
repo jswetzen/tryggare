@@ -367,6 +367,8 @@
     "ticketCapExceeded": "Max {max} {name}-biljett(er) per {required}-biljett.",
     "ticketCompositionOptionRequires": "kräver {required}",
     "ticketCompositionOptionCapReached": "max {max} per {required}",
+    "ticketSoldOutMarker": "fullbokad",
+    "ticketSoldOutWarning": "{name} blev fullbokad medan du fyllde i formuläret. Välj en annan biljettyp.",
     "ticketAgeRangeBoth": "{min}–{max} år",
     "ticketAgeRangeMin": "{min}+ år",
     "ticketAgeRangeMax": "upp till {max} år",

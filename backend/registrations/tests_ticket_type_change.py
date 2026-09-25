@@ -192,7 +192,7 @@ class TicketTypeValidationTests(TestCase):
             self.ticket,
             new_ticket_type=self.youth_type,
             changed_by=self.user,
-            acknowledge_age_warning=True,
+            acknowledge_warnings=True,
         )
         self.ticket.refresh_from_db()
         self.assertEqual(self.ticket.ticket_type_id, self.youth_type.id)
@@ -239,7 +239,7 @@ class AgeWarningTests(TestCase):
             ticket,
             new_ticket_type=self.youth_type,
             changed_by=self.user,
-            acknowledge_age_warning=True,
+            acknowledge_warnings=True,
         )
         ticket.refresh_from_db()
         self.assertEqual(ticket.ticket_type_id, self.youth_type.id)
@@ -282,6 +282,170 @@ class AgeWarningTests(TestCase):
         self.assertIsNone(plan.age_warning)
 
 
+class CapacityWarningTests(TestCase):
+    """D1/R4 (product decision + gate review, 2026-09-25): staff may push a
+    ticket type over its configured capacity from this wizard, warned but
+    never blocked — the identical stance AgeWarningTests above already
+    covers for the age window. These pin the four combinations
+    TicketTypeChangePlan.warnings can be in: age-only (AgeWarningTests,
+    unchanged), capacity-only, both at once (and that one acknowledgement
+    covers both), and neither (no gate at all).
+    """
+
+    def setUp(self):
+        self.user = AdminUser.objects.create_superuser("triage", "pw12345")
+        self.event = _make_event()
+        self.child_type = _child_type(self.event)
+        # No age window at all, so moving onto this type never raises
+        # age_warning regardless of the attendee's birthdate — isolates
+        # the capacity warning from the age one in the capacity-only
+        # tests below.
+        self.roomy_type = TicketType.objects.create(
+            event=self.event, name="Vuxen", price=Decimal("1100.00"), capacity=None
+        )
+
+    def _fill_seats(self, ticket_type, count):
+        """Sell `count` seats of `ticket_type` to *other* attendees, so the
+        ticket under test can be moved onto it without being one of the
+        seats counted."""
+        for i in range(count):
+            registration = _make_registration(self.event)
+            EventTicket.objects.create(
+                attendee=Child.objects.create(
+                    family=registration.family, first_name=f"Filler{i}"
+                ),
+                event=self.event,
+                registration=registration,
+                ticket_type=ticket_type,
+                price_at_registration=ticket_type.price,
+            )
+
+    def test_no_capacity_configured_never_warns(self):
+        # capacity=None (self.roomy_type's default) means unlimited —
+        # TicketType.capacity's own help_text: "leave blank for no limit".
+        ticket = _make_ticket(self.event, self.child_type)
+        plan = plan_ticket_type_change(ticket, self.roomy_type)
+        self.assertIsNone(plan.capacity_warning)
+        self.assertFalse(plan.requires_acknowledgement)
+
+    def test_under_capacity_does_not_warn(self):
+        full_type = TicketType.objects.create(
+            event=self.event, name="VIP", price=Decimal("0"), capacity=2
+        )
+        self._fill_seats(full_type, 1)  # 1 sold, capacity 2 — room for one more
+        ticket = _make_ticket(self.event, self.child_type)
+        plan = plan_ticket_type_change(ticket, full_type)
+        self.assertIsNone(plan.capacity_warning)
+
+    def test_capacity_only_warning_names_the_type_and_the_after_count(self):
+        full_type = TicketType.objects.create(
+            event=self.event, name="VIP", price=Decimal("0"), capacity=1
+        )
+        self._fill_seats(full_type, 1)  # already at capacity
+        ticket = _make_ticket(self.event, self.child_type)
+
+        plan = plan_ticket_type_change(ticket, full_type)
+
+        self.assertIsNone(plan.age_warning)
+        self.assertIsNotNone(plan.capacity_warning)
+        self.assertIn("VIP", plan.capacity_warning)
+        self.assertIn("2/1", plan.capacity_warning)  # sold=1, +1 for this move
+        self.assertTrue(plan.requires_acknowledgement)
+        self.assertEqual(plan.warnings, [plan.capacity_warning])
+
+    def test_capacity_only_unacknowledged_blocks_the_change(self):
+        full_type = TicketType.objects.create(
+            event=self.event, name="VIP", price=Decimal("0"), capacity=1
+        )
+        self._fill_seats(full_type, 1)
+        ticket = _make_ticket(self.event, self.child_type)
+
+        with self.assertRaises(TicketTypeChangeRejected):
+            change_attendee_ticket_type(
+                ticket, new_ticket_type=full_type, changed_by=self.user
+            )
+        ticket.refresh_from_db()
+        self.assertEqual(ticket.ticket_type_id, self.child_type.id)
+
+    def test_capacity_only_warning_is_overridable(self):
+        full_type = TicketType.objects.create(
+            event=self.event, name="VIP", price=Decimal("0"), capacity=1
+        )
+        self._fill_seats(full_type, 1)
+        ticket = _make_ticket(self.event, self.child_type)
+
+        change_attendee_ticket_type(
+            ticket,
+            new_ticket_type=full_type,
+            changed_by=self.user,
+            acknowledge_warnings=True,
+        )
+        ticket.refresh_from_db()
+        self.assertEqual(ticket.ticket_type_id, full_type.id)
+
+    def test_both_age_and_capacity_warn_together_and_one_ack_covers_both(self):
+        # youth_type has an age window AND, here, a reached capacity — the
+        # attendee's birthdate (from _make_ticket's default) doesn't fit
+        # child_type's move onto youth_type at all.
+        full_youth_type = _youth_type(self.event, capacity=1)
+        self._fill_seats(full_youth_type, 1)
+        # Outside the youth window entirely (born 2020 -> 6 years old).
+        ticket = _make_ticket(self.event, self.child_type, birthdate=date(2020, 1, 1))
+
+        plan = plan_ticket_type_change(ticket, full_youth_type)
+
+        self.assertIsNotNone(plan.age_warning)
+        self.assertIsNotNone(plan.capacity_warning)
+        self.assertEqual(plan.warnings, [plan.age_warning, plan.capacity_warning])
+        self.assertTrue(plan.requires_acknowledgement)
+
+        # One flag covers both — change_attendee_ticket_type only takes a
+        # single acknowledge_warnings, not one per warning.
+        change_attendee_ticket_type(
+            ticket,
+            new_ticket_type=full_youth_type,
+            changed_by=self.user,
+            acknowledge_warnings=True,
+        )
+        ticket.refresh_from_db()
+        self.assertEqual(ticket.ticket_type_id, full_youth_type.id)
+
+    def test_both_unacknowledged_rejection_names_both_warnings(self):
+        full_youth_type = _youth_type(self.event, capacity=1)
+        self._fill_seats(full_youth_type, 1)
+        ticket = _make_ticket(self.event, self.child_type, birthdate=date(2020, 1, 1))
+
+        with self.assertRaises(TicketTypeChangeRejected) as ctx:
+            change_attendee_ticket_type(
+                ticket, new_ticket_type=full_youth_type, changed_by=self.user
+            )
+        # Never None (see change_attendee_ticket_type's own comment) — and
+        # names both problems, not just the age one, so an operator
+        # tempted to blame the age window alone sees the full picture.
+        message = str(ctx.exception)
+        self.assertIn("outside the age range", message)
+        self.assertIn("over capacity", message)
+
+    def test_neither_warning_is_no_gate_at_all(self):
+        """Both age and capacity fit — no warning, no acknowledgement
+        needed, the change just goes through."""
+        roomy_youth_type = _youth_type(self.event, capacity=10)
+        # Born 2012-03-01 -> 14 on day one, inside 13-17, and only one of
+        # ten seats taken.
+        self._fill_seats(roomy_youth_type, 1)
+        ticket = _make_ticket(self.event, self.child_type, birthdate=date(2012, 3, 1))
+
+        plan = plan_ticket_type_change(ticket, roomy_youth_type)
+        self.assertEqual(plan.warnings, [])
+        self.assertFalse(plan.requires_acknowledgement)
+
+        change_attendee_ticket_type(
+            ticket, new_ticket_type=roomy_youth_type, changed_by=self.user
+        )
+        ticket.refresh_from_db()
+        self.assertEqual(ticket.ticket_type_id, roomy_youth_type.id)
+
+
 class PriceDeltaTests(TestCase):
     """The delta arithmetic, in both directions.
 
@@ -315,7 +479,7 @@ class PriceDeltaTests(TestCase):
             self.ticket,
             new_ticket_type=self.youth_type,
             changed_by=self.user,
-            acknowledge_age_warning=True,
+            acknowledge_warnings=True,
         )
         self._reread()
         self.assertEqual(plan.delta, Decimal("300.00"))
@@ -332,7 +496,7 @@ class PriceDeltaTests(TestCase):
             self.ticket,
             new_ticket_type=self.youth_type,
             changed_by=self.user,
-            acknowledge_age_warning=True,
+            acknowledge_warnings=True,
         )
         # An ADJUSTMENT can only *reduce* a balance and a REFUNDED would lie
         # about money having moved (and flip recompute_status to REFUNDED),
@@ -361,7 +525,7 @@ class PriceDeltaTests(TestCase):
             self.ticket,
             new_ticket_type=self.youth_type,
             changed_by=self.user,
-            acknowledge_age_warning=True,
+            acknowledge_warnings=True,
         )
         self._reread()
         self.assertEqual(plan.delta, Decimal("-400.00"))
@@ -402,7 +566,7 @@ class PriceDeltaTests(TestCase):
             self.ticket,
             new_ticket_type=self.youth_type,
             changed_by=self.user,
-            acknowledge_age_warning=True,
+            acknowledge_warnings=True,
         )
         self._reread()
         self.assertEqual(plan.effect, PriceEffect.AMOUNT_REDUCED)
@@ -436,7 +600,7 @@ class PriceDeltaTests(TestCase):
             orphan,
             new_ticket_type=self.youth_type,
             changed_by=self.user,
-            acknowledge_age_warning=True,
+            acknowledge_warnings=True,
         )
         orphan.refresh_from_db()
         self.assertIsNone(plan.payment)
@@ -454,7 +618,7 @@ class PriceDeltaTests(TestCase):
             ticket,
             new_ticket_type=self.youth_type,
             changed_by=self.user,
-            acknowledge_age_warning=True,
+            acknowledge_warnings=True,
         )
         self.assertIsNone(plan.payment)
         self.assertEqual(plan.effect, PriceEffect.NONE)
@@ -469,7 +633,7 @@ class PriceDeltaTests(TestCase):
             self.ticket,
             new_ticket_type=self.youth_type,
             changed_by=self.user,
-            acknowledge_age_warning=True,
+            acknowledge_warnings=True,
         )
         self._reread()
         self.assertEqual(plan.effect, PriceEffect.NONE)
@@ -483,7 +647,7 @@ class PriceDeltaTests(TestCase):
             self.ticket,
             new_ticket_type=self.youth_type,
             changed_by=self.user,
-            acknowledge_age_warning=True,
+            acknowledge_warnings=True,
         )
         self._reread()
         self.assertEqual(plan.effect, PriceEffect.NONE)
@@ -515,7 +679,7 @@ class PriceDeltaTests(TestCase):
             self.ticket,
             new_ticket_type=self.youth_type,
             changed_by=self.user,
-            acknowledge_age_warning=True,
+            acknowledge_warnings=True,
         )
         self._reread()
         self.registration.refresh_from_db()
@@ -564,7 +728,7 @@ class BalanceAnnotationStaysConsistentTests(TestCase):
             ticket,
             new_ticket_type=new_type,
             changed_by=self.user,
-            acknowledge_age_warning=True,
+            acknowledge_warnings=True,
         )
         payment.refresh_from_db()
         return payment
@@ -684,7 +848,7 @@ class ChangeTicketTypeAdminActionTests(TestCase):
                 "_selected_action": [str(self.ticket.id)],
                 "apply": "yes",
                 "ticket_type": str(self.youth_type.id),
-                "acknowledge_age_warning": "on",
+                "acknowledge_warnings": "on",
             }
         )
         self.ticket.refresh_from_db()
@@ -744,7 +908,7 @@ class ChangeTicketTypeAdminActionTests(TestCase):
         # search box), so anchor the close tag to the one that opens here.
         form_open = content.index('<form method="post">')
         form_close = content.index("</form>", form_open)
-        checkbox = content.index('id="id_acknowledge_age_warning"')
+        checkbox = content.index('id="id_acknowledge_warnings"')
         self.assertTrue(
             form_open < checkbox < form_close,
             "the age-acknowledgement checkbox must be inside the <form> "
@@ -777,7 +941,7 @@ class ChangeTicketTypeAdminActionTests(TestCase):
                 "_selected_action": [str(self.ticket.id)],
                 "apply": "yes",
                 "ticket_type": str(self.youth_type.id),
-                "acknowledge_age_warning": "on",
+                "acknowledge_warnings": "on",
             }
         )
         self.ticket.refresh_from_db()
@@ -785,7 +949,7 @@ class ChangeTicketTypeAdminActionTests(TestCase):
 
         entry = AuditLog.objects.get(action="event_ticket_type_changed")
         self.assertIsNotNone(entry.details["age_warning"])
-        self.assertTrue(entry.details["age_warning_acknowledged"])
+        self.assertTrue(entry.details["warnings_acknowledged"])
 
     def test_tickets_from_two_events_are_refused_outright(self):
         other_event = _make_event("Vinterläger")
@@ -898,6 +1062,96 @@ class TicketTypeIsLockedOnTheChangeFormTests(TestCase):
             response,
             reverse("admin:events_tickettype_change", args=[self.child_type.id]),
         )
+
+
+class EventTicketAddCapacityWarningTests(TestCase):
+    """R4/D1 (product decision + gate review, 2026-09-25): staff may push a
+    ticket type over its configured capacity from the EventTicket add
+    form — the save succeeds regardless, with a passive
+    ``messages.warning`` naming the type and "N/capacity", the same
+    warn-don't-block pattern TicketTypeAdmin._warn_if_age_window_
+    uncheckable already uses (see events/tests.py::
+    TicketTypeAdminAgeWindowWarningTest for that precedent). Change-form
+    saves never trigger it — ``ticket_type`` is excluded from that form
+    entirely (TicketTypeGuardMixin.get_exclude), so a change-form save can
+    never be the write that pushes a type over capacity."""
+
+    def setUp(self):
+        self.user = AdminUser.objects.create_superuser("triage", "pw12345")
+        self.client.force_login(self.user)
+        self.event = _make_event()
+        self.full_type = TicketType.objects.create(
+            event=self.event, name="VIP", price=Decimal("0"), capacity=1
+        )
+        self.add_url = reverse("admin:events_eventticket_add")
+
+    def _new_attendee(self, first_name="NewKid"):
+        family = Family.objects.create(last_name="Persson")
+        return Child.objects.create(family=family, first_name=first_name)
+
+    def _post_add(self, attendee, ticket_type):
+        return self.client.post(
+            self.add_url,
+            {
+                "attendee": str(attendee.id),
+                "event": str(self.event.id),
+                "ticket_type": str(ticket_type.id),
+                "price_at_registration": "0.00",
+                "external_ticket_code": "",
+                "_save": "Save",
+            },
+        )
+
+    def test_add_over_capacity_succeeds_with_a_passive_warning(self):
+        # Fill the one seat first.
+        _make_ticket(self.event, self.full_type, price=Decimal("0"))
+
+        response = self._post_add(self._new_attendee(), self.full_type)
+
+        # "Warn, don't block": the save succeeds (redirect to the
+        # changelist), not a re-rendered form with a validation error.
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(
+            EventTicket.objects.filter(ticket_type=self.full_type).count(), 2
+        )
+        follow = self.client.get(response.url)
+        messages = [str(m) for m in follow.context["messages"]]
+        self.assertTrue(
+            any("over capacity" in m and "2/1" in m and "VIP" in m for m in messages),
+            messages,
+        )
+
+    def test_add_within_capacity_has_no_warning(self):
+        response = self._post_add(self._new_attendee(), self.full_type)
+
+        self.assertEqual(response.status_code, 302)
+        follow = self.client.get(response.url)
+        messages = [str(m) for m in follow.context["messages"]]
+        self.assertFalse(any("over capacity" in m for m in messages), messages)
+
+    def test_change_form_save_never_triggers_the_warning(self):
+        # Already over capacity from two earlier adds.
+        _make_ticket(self.event, self.full_type, price=Decimal("0"))
+        over_ticket = _make_ticket(
+            self.event, self.full_type, price=Decimal("0"), first_name="Already"
+        )
+        change_url = reverse("admin:events_eventticket_change", args=[over_ticket.id])
+
+        response = self.client.post(
+            change_url,
+            {
+                "attendee": str(over_ticket.attendee_id),
+                "event": str(self.event.id),
+                "external_ticket_code": "changed-code",
+                "price_at_registration": "0.00",
+                "_save": "Save",
+            },
+        )
+
+        self.assertEqual(response.status_code, 302)
+        follow = self.client.get(response.url)
+        messages = [str(m) for m in follow.context["messages"]]
+        self.assertFalse(any("over capacity" in m for m in messages), messages)
 
 
 @override_settings(

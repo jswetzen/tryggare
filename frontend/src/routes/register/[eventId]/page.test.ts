@@ -34,6 +34,9 @@ vi.mock('svelte-i18n', () => {
     'register.ticketCapExceeded': 'Only {max} {name} ticket(s) allowed per {required} ticket.',
     'register.ticketCompositionOptionRequires': 'requires {required}',
     'register.ticketCompositionOptionCapReached': 'max {max} per {required}',
+    'register.ticketSoldOutMarker': 'sold out',
+    'register.ticketSoldOutWarning':
+      '{name} sold out while you were filling in this form. Please choose a different ticket type.',
     'checkin.childFirstName': 'First name',
     'checkin.childLastName': 'Last name',
     'checkin.childBirthdate': 'Birthdate',
@@ -121,7 +124,8 @@ function baseEventInfo(overrides: Partial<Record<string, unknown>> = {}) {
         max_birthdate: '2026-06-01',
         kind: 'event',
         requires_ticket_type_id: null,
-        max_per_required: null
+        max_per_required: null,
+        available: true
       },
       {
         id: 'tt-youth',
@@ -132,7 +136,8 @@ function baseEventInfo(overrides: Partial<Record<string, unknown>> = {}) {
         max_birthdate: '2013-06-01',
         kind: 'event',
         requires_ticket_type_id: null,
-        max_per_required: null
+        max_per_required: null,
+        available: true
       }
     ],
     has_hidden_ticket_types: false,
@@ -307,7 +312,8 @@ function familyEventInfo(overrides: Partial<Record<string, unknown>> = {}) {
         max_birthdate: null,
         kind: 'event',
         requires_ticket_type_id: null,
-        max_per_required: null
+        max_per_required: null,
+        available: true
       },
       {
         id: 'tt-member',
@@ -318,7 +324,8 @@ function familyEventInfo(overrides: Partial<Record<string, unknown>> = {}) {
         max_birthdate: null,
         kind: 'event',
         requires_ticket_type_id: 'tt-family',
-        max_per_required: 1
+        max_per_required: 1,
+        available: true
       },
       {
         id: 'tt-solo',
@@ -329,7 +336,8 @@ function familyEventInfo(overrides: Partial<Record<string, unknown>> = {}) {
         max_birthdate: null,
         kind: 'event',
         requires_ticket_type_id: null,
-        max_per_required: null
+        max_per_required: null,
+        available: true
       }
     ],
     ...overrides
@@ -588,5 +596,111 @@ describe('Register page — idempotency key', () => {
     // A successful resubmit reaches the normal confirmation screen, same
     // as any other successful submit.
     await screen.findByTestId('register-success-email');
+  });
+});
+
+// Capacity enforcement (registration dev-cycle round 4, increment 2, added
+// 2026-09-24): the guest form must grey out a full ticket type rather than
+// let a guardian find out at submit — mirrors the age-window disabled
+// pattern above (commit ff4cc33), just keyed off `available` instead of a
+// birthdate comparison.
+function capacityEventInfo(overrides: Partial<Record<string, unknown>> = {}) {
+  return baseEventInfo({
+    ticket_types: [
+      {
+        id: 'tt-open',
+        name: 'Adult',
+        price: '100.00',
+        // 'either', not 'parent': the default form always seeds one child
+        // row too (fillMinimalRequiredFields fills it), and the page
+        // requires *every* row to hold a ticket type once any exist on the
+        // event at all (see the requiresTicketType check in handleSubmit)
+        // — so the child row needs an option list to pick from as well.
+        applies_to: 'either',
+        min_birthdate: null,
+        max_birthdate: null,
+        kind: 'event',
+        requires_ticket_type_id: null,
+        max_per_required: null,
+        available: true
+      },
+      {
+        id: 'tt-full',
+        name: 'VIP',
+        price: '0.00',
+        applies_to: 'either',
+        min_birthdate: null,
+        max_birthdate: null,
+        kind: 'event',
+        requires_ticket_type_id: null,
+        max_per_required: null,
+        available: false
+      }
+    ],
+    ...overrides
+  });
+}
+
+describe('Register page — ticket type capacity (sold out)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('disables a sold-out ticket option, keeps it in the list, and marks it', async () => {
+    getEvent.mockResolvedValue(capacityEventInfo());
+    render(RegisterPage);
+
+    const select = (await screen.findByTestId('parent-ticket-type-0')) as HTMLSelectElement;
+    const options = Array.from(select.options).filter((o) => o.value !== '');
+    // Still both options present — disabled, not removed (same "don't
+    // reorder/shrink mid-edit" reasoning as the age-window case).
+    expect(options).toHaveLength(2);
+
+    const openOption = options.find((o) => o.value === 'tt-open')!;
+    const fullOption = options.find((o) => o.value === 'tt-full')!;
+    expect(openOption.disabled).toBe(false);
+    expect(fullOption.disabled).toBe(true);
+    expect(fullOption.textContent).toContain('sold out');
+  });
+
+  it('leaves an available ticket selectable and submittable', async () => {
+    const user = userEvent.setup();
+    getEvent.mockResolvedValue(capacityEventInfo());
+    render(RegisterPage);
+
+    const select = (await screen.findByTestId('parent-ticket-type-0')) as HTMLSelectElement;
+    await user.selectOptions(select, 'tt-open');
+
+    expect(select.value).toBe('tt-open');
+    expect(screen.queryByTestId('parent-ticket-sold-out-0')).toBeNull();
+  });
+
+  it('shows the server-refused message if a race is lost at submit', async () => {
+    const user = userEvent.setup();
+    getEvent.mockResolvedValue(capacityEventInfo());
+    submit.mockRejectedValueOnce({
+      status: 400,
+      message: '"VIP" is sold out.',
+      details: {
+        ticket_type: ['"VIP" is sold out.'],
+        code: 'ticket_sold_out'
+      }
+    });
+    render(RegisterPage);
+
+    await screen.findByTestId('register-form');
+    const select = (await screen.findByTestId('parent-ticket-type-0')) as HTMLSelectElement;
+    // Selecting the (still momentarily) open option and submitting — the
+    // server is the one that loses the race here, not the client-side
+    // disabled state, which is exactly the scenario this covers.
+    await user.selectOptions(select, 'tt-open');
+    await fillMinimalRequiredFields(user);
+    await user.click(screen.getByTestId('register-submit-button'));
+
+    await waitFor(() => expect(submit).toHaveBeenCalledTimes(1));
+    // extractErrorMessage's generic fallback surfaces the server's own
+    // named-ticket message straight from the response body — no special
+    // client-side handling of `code: "ticket_sold_out"` needed.
+    await screen.findByText('"VIP" is sold out.');
   });
 });

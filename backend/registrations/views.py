@@ -4,7 +4,7 @@ import logging
 from datetime import timedelta
 from decimal import Decimal
 
-from django.db import IntegrityError, transaction
+from django.db import IntegrityError, OperationalError, transaction
 from django.db.models import F, Prefetch, Q
 from django.http import Http404
 from django.shortcuts import get_object_or_404
@@ -51,8 +51,11 @@ from .serializers import RegistrationSubmitSerializer
 from .ticket_rules import validate_ticket_composition
 from .services import (
     InvalidPaymentTransition,
+    TicketTypeSoldOut,
     confirm_registration_despite_balance,
     mark_payment_paid,
+    reserve_ticket_type_capacity,
+    sold_counts_for_event,
 )
 from .swish import payment_instructions
 from .tokens import generate_verification_token, hash_token
@@ -117,10 +120,32 @@ def _split_selections(items):
     return model_data, selections
 
 
-def _ticket_type_payload(ticket_type):
+def _ticket_type_payload(ticket_type, *, sold_count):
     """Shared public JSON shape for a TicketType — used both by
     registration_event_info's normal listing and validate_promo_code's
-    unlocked-types payload, so the two never drift apart."""
+    unlocked-types payload, so the two never drift apart.
+
+    ``sold_count`` is passed in rather than computed here (R3, gate review
+    2026-09-25): both call sites list several ticket types at once, and
+    this used to call the single-type count function once per type — an
+    N+1 on a public, unauthenticated endpoint. Callers compute the whole
+    event's counts in one shot with
+    registrations.services.sold_counts_for_event and pass each type's
+    share in.
+
+    ``available`` (added 2026-09-24, capacity enforcement increment): a
+    plain bool, not a remaining count — see
+    registrations.services.ticket_type_sold_count's docstring for what
+    "sold" means here. Deliberately not exposing the raw sold count or a
+    remaining-seats number: nothing else on this public, unauthenticated
+    endpoint reveals how many of anything have sold (prices and age
+    windows are configuration, not activity), and "3 left!" is exactly the
+    kind of number a competitor or a nosy guardian could poll for over
+    time to infer registration velocity. A bool is the minimum a
+    guardian's form needs to grey out a full option — matches
+    registration_event_info's own "minimal ... without exposing" framing
+    for the rest of this payload.
+    """
     return {
         "id": str(ticket_type.id),
         "name": ticket_type.name,
@@ -139,6 +164,7 @@ def _ticket_type_payload(ticket_type):
             else None
         ),
         "max_per_required": ticket_type.max_per_required,
+        "available": ticket_type.capacity is None or sold_count < ticket_type.capacity,
     }
 
 
@@ -482,11 +508,17 @@ def _create_registration(
     # a field error point at the exact row the guardian needs to fix
     # (see the age-band ValidationError just below).
     child_index = 0
-    parent_index = 0
 
-    for is_child, attendee, selection in attendees:
-        ticket_type = selection["ticket_type"]
-        if itemized:
+    # Pass 1: validate every attendee's ticket-type selection (existence,
+    # eligibility, age band) — read-only, no writes, no locks. Split out
+    # from materialization (pass 2 below) so capacity can be checked for
+    # the *whole registration* in one batch between the two passes — see
+    # that batch's own comment (R1, gate review 2026-09-25) for why a
+    # single deterministic-order lock replaced locking one TicketType row
+    # per attendee as this loop reached it.
+    if itemized:
+        for is_child, _attendee, selection in attendees:
+            ticket_type = selection["ticket_type"]
             if ticket_type is None:
                 raise ValidationError(
                     _("Please select a ticket type for every attendee.")
@@ -494,14 +526,52 @@ def _create_registration(
             _validate_ticket_type_for_attendee(
                 ticket_type,
                 event=event,
-                attendee=attendee,
+                attendee=_attendee,
                 is_child=is_child,
                 promo_code=promo_code,
             )
             if is_child:
-                age_error = _child_ticket_age_error(ticket_type, attendee.birthdate)
+                age_error = _child_ticket_age_error(ticket_type, _attendee.birthdate)
                 if age_error:
                     raise ValidationError({"children": {str(child_index): [age_error]}})
+                child_index += 1
+
+        # Batch capacity lock+check (R1, gate review 2026-09-25 — replaces
+        # the per-attendee select_for_update this increment shipped with
+        # originally, which the verifier reproduced deadlocking in 5/6
+        # opposite-order pairs: two registrations each picking the same two
+        # capacity-limited types in opposite order would lock them in
+        # opposite order too, the textbook Postgres deadlock shape).
+        # `needed` is per-attendee, not per-materialized-row — a
+        # session_bundle attendee still needs exactly one seat no matter
+        # how many sessions their type bundles (see
+        # reserve_ticket_type_capacity's own docstring).
+        needed_by_ticket_type: dict = {}
+        for _is_child, _attendee, selection in attendees:
+            ticket_type = selection["ticket_type"]
+            needed_by_ticket_type[ticket_type] = (
+                needed_by_ticket_type.get(ticket_type, 0) + 1
+            )
+        try:
+            reserve_ticket_type_capacity(needed_by_ticket_type)
+        except TicketTypeSoldOut as exc:
+            raise ValidationError(
+                {
+                    "ticket_type": [
+                        _bilingual(
+                            f'"{exc.ticket_type.name}" is sold out.',
+                            f'"{exc.ticket_type.name}" är fullbokad.',
+                        )
+                    ],
+                    "code": "ticket_sold_out",
+                }
+            ) from exc
+
+    # Pass 2: materialize tickets/extras now that every selection in this
+    # registration is known to be valid and to fit within capacity.
+    for is_child, attendee, selection in attendees:
+        ticket_type = selection["ticket_type"]
+        if itemized:
             _materialize_ticket(
                 attendee=attendee,
                 event=event,
@@ -537,11 +607,6 @@ def _create_registration(
                 selection=extra_selection,
                 is_child=is_child,
             )
-
-        if is_child:
-            child_index += 1
-        else:
-            parent_index += 1
 
     validate_ticket_composition(registration)
 
@@ -612,9 +677,15 @@ def registration_event_info(request, event_id):
     """
     event = get_object_or_404(Event, pk=event_id)
 
+    # One bulk query pair for the whole event (R3, gate review
+    # 2026-09-25), not one _ticket_type_payload-internal query per ticket
+    # type rendered below — see sold_counts_for_event's own docstring.
+    sold_counts = sold_counts_for_event(event)
     active_ticket_types = event.ticket_types.filter(is_active=True)
     ticket_types = [
-        _ticket_type_payload(ticket_type)
+        _ticket_type_payload(
+            ticket_type, sold_count=sold_counts.get(str(ticket_type.id), 0)
+        )
         for ticket_type in active_ticket_types.filter(is_hidden=False).order_by(
             "sort_order", "name"
         )
@@ -723,6 +794,10 @@ def validate_promo_code(request):
     if promo_code.max_uses is not None and promo_code.uses_count >= promo_code.max_uses:
         return Response({"valid": False})
 
+    # Same bulk-query rationale as registration_event_info above — a
+    # promo code can unlock several hidden ticket types at once (R3, gate
+    # review 2026-09-25).
+    sold_counts = sold_counts_for_event(event)
     return Response(
         {
             "valid": True,
@@ -735,7 +810,9 @@ def validate_promo_code(request):
                 )
             ],
             "unlocks_ticket_types": [
-                _ticket_type_payload(ticket_type)
+                _ticket_type_payload(
+                    ticket_type, sold_count=sold_counts.get(str(ticket_type.id), 0)
+                )
                 for ticket_type in promo_code.unlocks_ticket_types.filter(
                     is_active=True
                 )
@@ -1064,6 +1141,88 @@ def _reserve_idempotency_key(*, key, event, fingerprint):
     return _idempotency_replay_or_conflict_response(existing_key, fingerprint)
 
 
+# Postgres error codes (SQLSTATE) for the two conflicts
+# reserve_ticket_type_capacity's single deterministic-order lock is meant to
+# make unreachable for *its own* lock ordering, but that lock is not the
+# only thing this transaction can collide with — some other, unrelated
+# ordering elsewhere (or Postgres's SERIALIZABLE machinery, if that
+# isolation level is ever turned on) can still legitimately abort one side.
+# 40P01 = deadlock_detected, 40001 = serialization_failure. See
+# _submit_registration_or_busy's own docstring for why both are handled
+# identically here (both mean "retry the whole request, nothing was your
+# fault").
+_DEADLOCK_PGCODES = frozenset({"40P01", "40001"})
+
+
+def _is_deadlock_or_serialization_failure(exc: OperationalError) -> bool:
+    """Django wraps the DB-API driver's own exception (psycopg's
+    OperationalError subclasses, e.g. ``errors.DeadlockDetected``) as
+    ``django.db.OperationalError`` with the original attached as
+    ``__cause__`` — that original carries the real Postgres SQLSTATE in
+    ``.pgcode``. Checking the code, not the exception class or message
+    text, is deliberate: psycopg raises several different
+    OperationalError subclasses for unrelated conditions (a dropped
+    connection, a statement timeout, ...) that must NOT be swallowed into
+    a misleading "try again" response — only these two specific,
+    inherently-transient conflicts should ever be.
+    """
+    return getattr(exc.__cause__, "pgcode", None) in _DEADLOCK_PGCODES
+
+
+def _registration_busy_response():
+    """The 503 a deadlock/serialization failure resolves to — R1, gate
+    review 2026-09-25, added after a live verifier reproduced a bare 500 in
+    5/6 opposite-order pairs before reserve_ticket_type_capacity's
+    single-lock fix. Even with that fix, Postgres can still detect and
+    abort a genuine conflict between this transaction and some other one;
+    the guardian did nothing wrong, so this is a clean, retryable 503 with
+    a machine-readable code, not a 500 that looks like a bug.
+    """
+    return Response(
+        {
+            "error": _bilingual(
+                "Many people are registering right now — please try again.",
+                "Många anmäler sig just nu — försök igen om en liten stund.",
+            ),
+            "code": "registration_busy_retry",
+        },
+        status=status.HTTP_503_SERVICE_UNAVAILABLE,
+    )
+
+
+def _submit_registration_or_busy(request, data):
+    """Runs _execute_submit_registration, translating a Postgres deadlock
+    or serialization failure into ``_registration_busy_response()`` instead
+    of letting it propagate as an unhandled 500.
+
+    Returns either the normal ``(body, status, registration)`` tuple, or a
+    Response standing in for "the database was too busy, try again" —
+    mirrors ``_reserve_idempotency_key``'s own Response-or-real-value
+    convention above, for the same reason: the caller tells the two apart
+    with a single ``isinstance(result, Response)`` check instead of a
+    second exception type.
+
+    Shared by both of submit_registration's branches (with and without an
+    idempotency key) so the deadlock/serialization-failure handling exists
+    in exactly one place — R1, gate review 2026-09-25. Every other
+    exception (ValidationError from a rejected submission,
+    ticket_sold_out, any other OperationalError that isn't one of these
+    two specific codes, ...) is deliberately left to propagate unchanged;
+    this function only ever intercepts the one thing it names.
+    """
+    try:
+        return _execute_submit_registration(request, data)
+    except OperationalError as exc:
+        if not _is_deadlock_or_serialization_failure(exc):
+            raise
+        logger.warning(
+            "Registration submission hit a deadlock/serialization failure "
+            "(pgcode=%s) — returning 503 for the client to retry",
+            getattr(exc.__cause__, "pgcode", None),
+        )
+        return _registration_busy_response()
+
+
 @api_view(["POST"])
 @permission_classes([AllowAny])
 @throttle_classes([RegistrationSubmitThrottle])
@@ -1086,6 +1245,12 @@ def submit_registration(request):
     a second time, so nothing gets created (or resent, or emailed) twice.
     Blank/omitted key: every branch below is skipped and this behaves
     exactly as it did before this key existed.
+
+    Both branches below route the actual work through
+    _submit_registration_or_busy rather than calling
+    _execute_submit_registration directly, so a Postgres deadlock or
+    serialization failure (R1, gate review 2026-09-25) is caught
+    identically either way — see that helper's own docstring.
     """
     serializer = RegistrationSubmitSerializer(data=request.data)
     serializer.is_valid(raise_exception=True)
@@ -1093,9 +1258,10 @@ def submit_registration(request):
 
     idempotency_key = (data.get("idempotency_key") or "").strip()
     if not idempotency_key:
-        body, response_status, _registration = _execute_submit_registration(
-            request, data
-        )
+        result = _submit_registration_or_busy(request, data)
+        if isinstance(result, Response):
+            return result
+        body, response_status, _registration = result
         return Response(body, status=response_status)
 
     fingerprint = _idempotency_fingerprint(request.data)
@@ -1112,9 +1278,7 @@ def submit_registration(request):
     key_record = reservation
 
     try:
-        body, response_status, registration = _execute_submit_registration(
-            request, data
-        )
+        result = _submit_registration_or_busy(request, data)
     except Exception:
         # Nothing persisted under this key (the registration-creation
         # transaction, if entered at all, already rolled back on its own).
@@ -1126,6 +1290,16 @@ def submit_registration(request):
         key_record.delete()
         raise
 
+    if isinstance(result, Response):
+        # The database was too busy (deadlock/serialization failure) —
+        # same reservation-cleanup reasoning as the except-block above:
+        # nothing persisted under this key, so a retry (the 503 is
+        # explicitly asking the caller to do exactly that) must not find a
+        # permanent reservation blocking it.
+        key_record.delete()
+        return result
+
+    body, response_status, registration = result
     key_record.response_status = response_status
     key_record.response_body = body
     key_record.registration = registration

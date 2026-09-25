@@ -400,7 +400,12 @@
     const candidates = applicableTicketTypes(true).filter(
       (tt) =>
         (!tt.min_birthdate || child.birthdate >= tt.min_birthdate) &&
-        (!tt.max_birthdate || child.birthdate <= tt.max_birthdate)
+        (!tt.max_birthdate || child.birthdate <= tt.max_birthdate) &&
+        // Capacity enforcement, 2026-09-24: never auto-suggest a sold-out
+        // ticket — this only fires for a not-yet-selected field (see the
+        // guard above), so ticketAvailable's isSelected=false is always
+        // right here.
+        tt.available
     );
     // Prefer a type with an actual age window over one with none — an
     // unbounded "either" type (e.g. "All inclusive", no age limit) always
@@ -472,16 +477,18 @@
     return $t('register.ticketTypeIneligibleWarning', { values: { name: ticketType.name, range } });
   }
 
-  // A child's ticket select can be flagged for two independent reasons —
-  // age-window (childSelectedTicketWarning) and composition
-  // (ticketCompositionWarning) — each with its own paragraph/id below the
-  // field. This combines them for the select's own aria-invalid/
-  // aria-describedby so the control itself is marked whichever reason (or
-  // both) applies, matching the parent select's single-reason version.
+  // A child's ticket select can be flagged for three independent reasons —
+  // age-window (childSelectedTicketWarning), composition
+  // (ticketCompositionWarning), and now sold-out (ticketSoldOutWarning) —
+  // each with its own paragraph/id below the field. This combines them for
+  // the select's own aria-invalid/aria-describedby so the control itself is
+  // marked whichever reason (or several) applies, matching the parent
+  // select's version.
   function childTicketDescribedBy(index: number, child: ChildRow): string | undefined {
     const ids: string[] = [];
     if (childSelectedTicketWarning(child)) ids.push(`child-ticket-ineligible-${index}`);
     if (ticketCompositionWarning(child.ticketTypeId)) ids.push(`child-ticket-composition-${index}`);
+    if (ticketSoldOutWarning(child.ticketTypeId)) ids.push(`child-ticket-sold-out-${index}`);
     return ids.length > 0 ? ids.join(' ') : undefined;
   }
 
@@ -578,6 +585,30 @@
     return isSelected ? count <= cap : count < cap;
   }
 
+  // Capacity enforcement, 2026-09-24 (registration dev-cycle round 4,
+  // increment 2). Mirrors ticketCompositionEligible's isSelected
+  // allowance: a ticket that was available when picked and has since sold
+  // out (someone else took the last seat while this guardian was still
+  // filling in the form) stays selected rather than being silently
+  // cleared — same "don't erase the signal" stance as
+  // childSelectedTicketWarning above — but is never offered fresh to
+  // anyone else.
+  function ticketAvailable(ticketType: RegistrationTicketType, isSelected: boolean): boolean {
+    return ticketType.available || isSelected;
+  }
+
+  // Field-level warning for an already-selected ticket that has since sold
+  // out. Shares ticketCompositionWarning's shape (keyed by ticketTypeId, so
+  // one function serves both the parent and child selects) rather than
+  // childSelectedTicketWarning's — this has no birthdate/eligibility
+  // precondition to check first.
+  function ticketSoldOutWarning(ticketTypeId: string): string | null {
+    if (!eventInfo || !ticketTypeId) return null;
+    const ticketType = eventInfo.ticket_types.find((tt) => tt.id === ticketTypeId);
+    if (!ticketType || ticketType.available) return null;
+    return $t('register.ticketSoldOutWarning', { values: { name: ticketType.name } });
+  }
+
   // Short "(requires X)" / "(max N per X)" marker for an ineligible option
   // in the open list — mirrors ticketAgeRangeLabel's role for the age
   // case: the full sentence lives in ticketCompositionWarning below the
@@ -614,6 +645,9 @@
   ): string {
     const base = `${ticketType.name} — ${formatCurrency(ticketType.price)} kr`;
     if (isSelected) return base;
+    if (!ticketAvailable(ticketType, isSelected)) {
+      return `${base} (${$t('register.ticketSoldOutMarker')})`;
+    }
     if (!childTicketEligible(ticketType, birthdate)) {
       const asOfIso = eventInfo?.start_date ?? todayIso;
       const range = ticketAgeRangeLabel(ticketType, asOfIso);
@@ -1310,12 +1344,23 @@
                   <select
                     id={`parent-ticket-type-${index}`}
                     bind:value={parent.ticketTypeId}
-                    aria-invalid={ticketCompositionWarning(parent.ticketTypeId) !== null ? 'true' : 'false'}
-                    aria-describedby={ticketCompositionWarning(parent.ticketTypeId) !== null
-                      ? `parent-ticket-composition-${index}`
-                      : undefined}
-                    class={`w-full px-2 py-1.5 text-sm border rounded focus:outline-none focus:ring-2 ${
+                    aria-invalid={ticketCompositionWarning(parent.ticketTypeId) !== null ||
+                    ticketSoldOutWarning(parent.ticketTypeId) !== null
+                      ? 'true'
+                      : 'false'}
+                    aria-describedby={[
                       ticketCompositionWarning(parent.ticketTypeId) !== null
+                        ? `parent-ticket-composition-${index}`
+                        : null,
+                      ticketSoldOutWarning(parent.ticketTypeId) !== null
+                        ? `parent-ticket-sold-out-${index}`
+                        : null
+                    ]
+                      .filter(Boolean)
+                      .join(' ') || undefined}
+                    class={`w-full px-2 py-1.5 text-sm border rounded focus:outline-none focus:ring-2 ${
+                      ticketCompositionWarning(parent.ticketTypeId) !== null ||
+                      ticketSoldOutWarning(parent.ticketTypeId) !== null
                         ? 'border-danger-600 focus:ring-danger-500 focus:border-danger-600'
                         : 'border-neutral-300 focus:ring-primary-500'
                     }`}
@@ -1325,7 +1370,8 @@
                     {#each applicableTicketTypes(false) as ticketType (ticketType.id)}
                       <option
                         value={ticketType.id}
-                        disabled={!ticketCompositionEligible(ticketType, ticketType.id === parent.ticketTypeId)}
+                        disabled={!ticketCompositionEligible(ticketType, ticketType.id === parent.ticketTypeId) ||
+                          !ticketAvailable(ticketType, ticketType.id === parent.ticketTypeId)}
                       >
                         {ticketOptionLabel(ticketType, '', ticketType.id === parent.ticketTypeId)}
                       </option>
@@ -1339,6 +1385,16 @@
                       data-testid={`parent-ticket-composition-${index}`}
                     >
                       {ticketCompositionWarning(parent.ticketTypeId)}
+                    </p>
+                  {/if}
+                  {#if ticketSoldOutWarning(parent.ticketTypeId)}
+                    <p
+                      id={`parent-ticket-sold-out-${index}`}
+                      class="mt-1 text-xs text-danger-700"
+                      role="alert"
+                      data-testid={`parent-ticket-sold-out-${index}`}
+                    >
+                      {ticketSoldOutWarning(parent.ticketTypeId)}
                     </p>
                   {/if}
                 </div>
@@ -1551,13 +1607,15 @@
                       id={`child-ticket-type-${index}`}
                       bind:value={child.ticketTypeId}
                       aria-invalid={childSelectedTicketWarning(child) !== null ||
-                      ticketCompositionWarning(child.ticketTypeId) !== null
+                      ticketCompositionWarning(child.ticketTypeId) !== null ||
+                      ticketSoldOutWarning(child.ticketTypeId) !== null
                         ? 'true'
                         : 'false'}
                       aria-describedby={childTicketDescribedBy(index, child)}
                       class={`w-full px-2 py-1.5 text-sm border rounded focus:outline-none focus:ring-2 ${
                         childSelectedTicketWarning(child) !== null ||
-                        ticketCompositionWarning(child.ticketTypeId) !== null
+                        ticketCompositionWarning(child.ticketTypeId) !== null ||
+                        ticketSoldOutWarning(child.ticketTypeId) !== null
                           ? 'border-danger-600 focus:ring-danger-500 focus:border-danger-600'
                           : 'border-neutral-300 focus:ring-primary-500'
                       }`}
@@ -1568,7 +1626,8 @@
                         <option
                           value={ticketType.id}
                           disabled={!childTicketEligible(ticketType, child.birthdate) ||
-                            !ticketCompositionEligible(ticketType, ticketType.id === child.ticketTypeId)}
+                            !ticketCompositionEligible(ticketType, ticketType.id === child.ticketTypeId) ||
+                            !ticketAvailable(ticketType, ticketType.id === child.ticketTypeId)}
                         >
                           {ticketOptionLabel(ticketType, child.birthdate, ticketType.id === child.ticketTypeId)}
                         </option>
@@ -1592,6 +1651,16 @@
                         data-testid={`child-ticket-composition-${index}`}
                       >
                         {ticketCompositionWarning(child.ticketTypeId)}
+                      </p>
+                    {/if}
+                    {#if ticketSoldOutWarning(child.ticketTypeId)}
+                      <p
+                        id={`child-ticket-sold-out-${index}`}
+                        class="mt-1 text-xs text-danger-700"
+                        role="alert"
+                        data-testid={`child-ticket-sold-out-${index}`}
+                      >
+                        {ticketSoldOutWarning(child.ticketTypeId)}
                       </p>
                     {/if}
                     {#if childAgeError(index)}

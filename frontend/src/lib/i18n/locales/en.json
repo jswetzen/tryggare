@@ -367,6 +367,8 @@
     "ticketCapExceeded": "Only {max} {name} ticket(s) allowed per {required} ticket.",
     "ticketCompositionOptionRequires": "requires {required}",
     "ticketCompositionOptionCapReached": "max {max} per {required}",
+    "ticketSoldOutMarker": "sold out",
+    "ticketSoldOutWarning": "{name} sold out while you were filling in this form. Please choose a different ticket type.",
     "ticketAgeRangeBoth": "{min}–{max} yrs",
     "ticketAgeRangeMin": "{min}+ yrs",
     "ticketAgeRangeMax": "up to {max} yrs",
