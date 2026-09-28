@@ -76,9 +76,22 @@ If Chrome is not running, start it into the desktop session (it lives outside lo
 the global CLAUDE.md):
 
 ```bash
-XDG_RUNTIME_DIR=/run/labwc-desktop WAYLAND_DISPLAY=wayland-0 \
-  nohup google-chrome-stable --ozone-platform=wayland > agent-tools/chrome.log 2>&1 &
+XDG_RUNTIME_DIR=/run/labwc-desktop WAYLAND_DISPLAY=wayland-0 DISPLAY=:0 \
+  nohup google-chrome-stable --ozone-platform=x11 --lang=sv-SE --accept-lang=sv-SE,sv,en \
+  --window-size=500,900 > agent-tools/chrome.log 2>&1 &
 ```
+
+Every flag there was learned on 2026-09-28. `--lang=sv-SE`: without it Chrome ran as `en_US`, so
+the native date picker showed mm/dd/yyyy under the page's "ÅÅÅÅ-MM-DD" hint, and a persona filed
+it as a contradiction no Swedish parent would ever see. `--window-size`: the extension's
+`resize_window` reports success but does not reliably resize anything under labwc, so the
+designer's "390 and 1280" pass came back as a single 500×667 viewport. So **pick the viewport
+at launch**: `500,900` for phone-persona rounds (Chrome will not go narrower than ~500px, which
+is as close to a phone as this browser gets), `1280,900` for the designer's desktop pass. Relaunch
+between them with `pkill -x chrome` (not `pkill -f google-chrome`, which matches and kills
+your own shell). If `~/.config/google-chrome/Default/Preferences` has
+`browser.window_placement.maximized: true`, Chrome ignores `--window-size`; set it to false
+while Chrome is stopped. Tell each critic which viewport it has instead of asking it to resize.
 
 **Confirm the browser is actually connected before spawning the first critic, not after one
 fails.** `pgrep chrome` proves nothing. Call `mcp__claude-in-chrome__list_connected_browsers`
