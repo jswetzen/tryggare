@@ -173,7 +173,12 @@
       last_name: '',
       phone: '',
       email: '',
-      relationship_type: 'OTHER',
+      // No default — 2026-09-24 owner decision: the parent must actively
+      // choose, rather than silently inheriting "Annat"/"Other". See
+      // relationshipMissing/handleSubmit's own check below for the
+      // enforcement, and register.relationshipPlaceholder for the select's
+      // unchosen state.
+      relationship_type: '',
       allergies: '',
       notes: '',
       healthInfoStatus: 'none',
@@ -313,6 +318,15 @@
   // would just be noise.
   let promoSubmitBlocked = $state(false);
 
+  // Set only when handleSubmit's own missing-Relation check (below) blocks
+  // the submit — mirrors promoSubmitBlocked's role: a client-side guard
+  // that needs to flag a specific control, not just the top-of-form banner.
+  // Cleared at the top of every submit attempt alongside `error`. See
+  // relationshipMissing, which reads this together with each row's own
+  // state so the caption disappears the moment a row is fixed, without any
+  // explicit per-row reset.
+  let relationshipMissingAttempted = $state(false);
+
   // Scroll/focus the failure banner into view on every new error — on this
   // 2000+px page a failed submit otherwise looks like nothing happened from
   // the submit button at the bottom (see build's blocker #2).
@@ -385,9 +399,20 @@
     // has no checkbox to toggle — it's mandatory, so it defaults selected
     // regardless of default_selected. What still needs an explicit answer
     // is the choice itself (see requiredChoiceMissing below).
+    //
+    // Non-required extras never start selected on this public guest form,
+    // even when the event marks them default_selected — 2026-09-24 owner
+    // decision (kitchen counts / data quality): an opt-out extra (e.g.
+    // "Måltider hela helgen") was arriving pre-ticked for every attendee,
+    // and two gate personas this round flagged it as "easy to overpay
+    // without noticing." Staff/admin flows, event cloning, and demo seeding
+    // still read default_selected as written (see events/services.py::clone,
+    // seed_demo_data.py, registrations/views.py's event-info serialization)
+    // — this function is the only place default_selected was ever turned
+    // into a pre-checked box, so it's the one spot that changes.
     return (
       selections[extra.id] ?? {
-        selected: extra.required || extra.default_selected,
+        selected: extra.required,
         choiceId: '',
         quantity: 1
       }
@@ -410,6 +435,21 @@
     // Required extras have no checkbox — picking a choice is itself what
     // marks the extra as selected.
     selections[extra.id] = { ...extraState(selections, extra), choiceId, selected: true };
+  }
+
+  // A parent row only needs its Relation flagged once it would actually be
+  // submitted — mirrors validParents' own first_name filter in handleSubmit,
+  // so an empty, never-touched extra row doesn't light up red purely
+  // because Relation renders before first_name is typed. Gated on
+  // relationshipMissingAttempted so nothing is flagged before a submit is
+  // ever tried; live-reactive after that, so picking a relationship clears
+  // the row's own flag immediately with no explicit reset needed.
+  function relationshipMissing(parent: ParentRow): boolean {
+    return (
+      relationshipMissingAttempted &&
+      parent.first_name.trim().length > 0 &&
+      !parent.relationship_type
+    );
   }
 
   function requiredChoiceMissing(
@@ -603,11 +643,13 @@
   ): RegistrationExtraSelectionPayload[] {
     const result: RegistrationExtraSelectionPayload[] = [];
     for (const extra of extras) {
-      // Use extraState's default_selected fallback, not a raw lookup — an
-      // opt-out-by-default extra (case 2.1) the guardian never explicitly
-      // toggled must still submit as selected, matching what the checkbox
-      // displays. Reading selections[extra.id] directly here would drop it
-      // from the payload while the UI still showed it checked.
+      // Use extraState's fallback, not a raw lookup — a required extra
+      // (no checkbox; see extraState) the guardian never explicitly
+      // toggled must still submit as selected, matching what the UI shows.
+      // Reading selections[extra.id] directly here would drop it from the
+      // payload while the UI still showed it checked. Non-required extras
+      // default to NOT selected (see extraState), so this fallback is a
+      // no-op for those unless the guardian actually ticked the box.
       const state = extraState(selections, extra);
       if (!state.selected) continue;
       result.push({
@@ -1007,6 +1049,7 @@
     // next to an unrelated new error (or nothing at all, on success).
     idempotencyConflictPayload = null;
     promoSubmitBlocked = false;
+    relationshipMissingAttempted = false;
 
     if (isPreview) return;
 
@@ -1063,6 +1106,17 @@
         error = $t('register.adultHealthConsentRequired');
         return;
       }
+    }
+
+    // 2026-09-24 owner decision: Relation has no default (see emptyParent
+    // above) — the parent must actively choose it. Same shape as the
+    // ticket-type-required check just below: a banner via `error`, plus
+    // (here) relationshipMissingAttempted turning on each affected row's
+    // own inline caption/aria-invalid via relationshipMissing.
+    if (validParents.some((p) => !p.relationship_type)) {
+      error = $t('register.relationshipRequired');
+      relationshipMissingAttempted = true;
+      return;
     }
 
     const requiresTicketType = !!eventInfo && eventInfo.ticket_types.length > 0;
@@ -1534,18 +1588,38 @@
               <div class="grid grid-cols-2 gap-2 mb-2">
                 <div>
                   <label for={`parent-relationship-${index}`} class="block text-xs text-neutral-600 mb-1">
-                    {$t('checkin.relationshipType')}
+                    {$t('checkin.relationshipType')} *
                   </label>
                   <select
                     id={`parent-relationship-${index}`}
                     bind:value={parent.relationship_type}
-                    class="w-full px-2 py-1.5 text-sm border border-neutral-300 rounded focus:outline-none focus:ring-2 focus:ring-primary-500"
+                    aria-invalid={relationshipMissing(parent) ? 'true' : 'false'}
+                    aria-describedby={relationshipMissing(parent)
+                      ? `parent-relationship-missing-${index}`
+                      : undefined}
+                    class={`w-full px-2 py-1.5 text-sm border rounded focus:outline-none focus:ring-2 ${
+                      relationshipMissing(parent)
+                        ? 'border-danger-600 focus:ring-danger-500 focus:border-danger-600'
+                        : 'border-neutral-300 focus:ring-primary-500'
+                    }`}
+                    data-testid={`parent-relationship-${index}`}
                   >
+                    <option value="">{$t('register.relationshipPlaceholder')}</option>
                     <option value="MOM">{$t('checkin.relationshipMom')}</option>
                     <option value="DAD">{$t('checkin.relationshipDad')}</option>
                     <option value="GUARDIAN">{$t('checkin.relationshipGuardian')}</option>
                     <option value="OTHER">{$t('checkin.relationshipOther')}</option>
                   </select>
+                  {#if relationshipMissing(parent)}
+                    <p
+                      id={`parent-relationship-missing-${index}`}
+                      class="mt-1 text-xs text-danger-700"
+                      role="alert"
+                      data-testid={`parent-relationship-missing-${index}`}
+                    >
+                      {$t('register.relationshipRequiredCaption')}
+                    </p>
+                  {/if}
                 </div>
                 <div>
                   <label for={`parent-phone-${index}`} class="block text-xs text-neutral-600 mb-1">

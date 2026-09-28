@@ -1269,3 +1269,153 @@ describe('Register page — promo code (ticket-select stays in sync with state)'
     expect(parentSelect.value).toBe('');
   });
 });
+
+// 2026-09-24 owner decision (kitchen counts / data quality): default_selected
+// must never pre-tick an extra on this public guest form, even though the
+// backend field itself is unchanged and other consumers (admin, event
+// cloning, demo seeding) still honor it — see +page.svelte's extraState.
+function extrasEventInfo(overrides: Partial<Record<string, unknown>> = {}) {
+  return baseEventInfo({
+    extras: [
+      {
+        id: 'extra-meals',
+        name: 'Måltider hela helgen',
+        price: '300.00',
+        session_id: null,
+        per_attendee: true,
+        applies_to: 'either',
+        requires_choice: false,
+        required: false,
+        default_selected: true,
+        choices: []
+      }
+    ],
+    ...overrides
+  });
+}
+
+describe('Register page — extras default state', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('starts an opt-out extra unticked even when the event marks it default_selected, and prices it as 0', async () => {
+    getEvent.mockResolvedValue(extrasEventInfo());
+    render(RegisterPage);
+
+    // per_attendee + applies_to 'either' renders this extra on both the
+    // parent row and the child row — assert every instance, not just one.
+    const checkboxes = await screen.findAllByRole('checkbox', { name: /Måltider hela helgen/ });
+    expect(checkboxes.length).toBeGreaterThan(0);
+    for (const checkbox of checkboxes) {
+      expect(checkbox).not.toBeChecked();
+    }
+
+    const total = await screen.findByTestId('register-running-total');
+    expect(total.textContent).toContain('0.00');
+    expect(total.textContent).not.toContain('300.00');
+  });
+
+  it('prices the extra once the guardian explicitly ticks it', async () => {
+    const user = userEvent.setup();
+    getEvent.mockResolvedValue(extrasEventInfo());
+    render(RegisterPage);
+
+    const [checkbox] = await screen.findAllByRole('checkbox', { name: /Måltider hela helgen/ });
+    await user.click(checkbox);
+    expect(checkbox).toBeChecked();
+
+    const total = await screen.findByTestId('register-running-total');
+    expect(total.textContent).toContain('300.00');
+  });
+
+  it('still defaults a required extra to selected, since it has no checkbox to opt out with', async () => {
+    getEvent.mockResolvedValue(
+      extrasEventInfo({
+        extras: [
+          {
+            id: 'extra-cabin',
+            name: 'Boende',
+            price: '500.00',
+            session_id: null,
+            per_attendee: false,
+            applies_to: 'either',
+            requires_choice: false,
+            required: true,
+            default_selected: false,
+            choices: []
+          }
+        ]
+      })
+    );
+    render(RegisterPage);
+
+    const total = await screen.findByTestId('register-running-total');
+    expect(total.textContent).toContain('500.00');
+  });
+});
+
+describe('Register page — Relation is required (no default)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('blocks submit with a clear message when a named parent has not chosen a relationship', async () => {
+    const user = userEvent.setup();
+    getEvent.mockResolvedValue(ticketlessEventInfo());
+    render(RegisterPage);
+
+    await screen.findByTestId('register-form');
+    await fillMinimalRequiredFields(user);
+    // Naming a parent row makes it a "valid" parent that must be submitted
+    // — and therefore must have a Relation chosen.
+    await user.type(document.getElementById('parent-first-name-0') as HTMLInputElement, 'Kim');
+
+    const relationSelect = screen.getByTestId('parent-relationship-0') as HTMLSelectElement;
+    expect(relationSelect.value).toBe('');
+
+    await user.click(screen.getByTestId('register-submit-button'));
+
+    expect(submit).not.toHaveBeenCalled();
+    await screen.findByText('register.relationshipRequired');
+    const caption = await screen.findByTestId('parent-relationship-missing-0');
+    expect(caption.textContent).toBe('register.relationshipRequiredCaption');
+    expect(relationSelect.getAttribute('aria-invalid')).toBe('true');
+    expect(relationSelect.getAttribute('aria-describedby')).toBe('parent-relationship-missing-0');
+  });
+
+  it('submits once a relationship is chosen', async () => {
+    const user = userEvent.setup();
+    getEvent.mockResolvedValue(ticketlessEventInfo());
+    submit.mockResolvedValue({ reference_code: 'REF1', message: 'ok', email_sent: true });
+    render(RegisterPage);
+
+    await screen.findByTestId('register-form');
+    await fillMinimalRequiredFields(user);
+    await user.type(document.getElementById('parent-first-name-0') as HTMLInputElement, 'Kim');
+
+    const relationSelect = screen.getByTestId('parent-relationship-0') as HTMLSelectElement;
+    await user.selectOptions(relationSelect, 'MOM');
+
+    await user.click(screen.getByTestId('register-submit-button'));
+
+    await waitFor(() => expect(submit).toHaveBeenCalledTimes(1));
+    const payload = submit.mock.calls[0][0] as { parents: Array<{ relationship_type: string }> };
+    expect(payload.parents[0].relationship_type).toBe('MOM');
+  });
+
+  it('does not block submit when no parent row is named', async () => {
+    const user = userEvent.setup();
+    getEvent.mockResolvedValue(ticketlessEventInfo());
+    submit.mockResolvedValue({ reference_code: 'REF1', message: 'ok', email_sent: true });
+    render(RegisterPage);
+
+    await screen.findByTestId('register-form');
+    await fillMinimalRequiredFields(user);
+    // Default parent row is left entirely empty (not "valid"), so Relation
+    // must not be required for it.
+    await user.click(screen.getByTestId('register-submit-button'));
+
+    await waitFor(() => expect(submit).toHaveBeenCalledTimes(1));
+  });
+});
