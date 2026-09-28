@@ -459,13 +459,21 @@ class Command(BaseCommand):
         # the wrong pricing tier instead of failing loudly at seed time.
         # TicketType._clean_age_window() (events/models.py) is the source of
         # truth for what a valid window looks like.
+        #
+        # The upper age in a tier name is inclusive ("0-12 år" admits a
+        # 12-year-old), and _min_birthdate(event, years) means "under
+        # `years`", so a tier ending at N passes N + 1. Until 2026-09-28 these
+        # passed N itself, which left every child exactly 12 (and exactly 17,
+        # and exactly 6 on the weekend event) with no ticket they could pick:
+        # the round-4 parent persona had to drop her 12-year-old from the
+        # registration because both Barn and Ungdom rejected him.
         barn, _ = TicketType.objects.get_or_create(
             event=camp,
             name="Barn (0-12 år)",
             defaults={
                 "price": 400,
                 "applies_to": AppliesTo.CHILD,
-                "min_birthdate": _min_birthdate(camp, 12),
+                "min_birthdate": _min_birthdate(camp, 13),
                 "max_birthdate": camp.start_date,
                 "sort_order": 1,
             },
@@ -477,7 +485,7 @@ class Command(BaseCommand):
             defaults={
                 "price": 700,
                 "applies_to": AppliesTo.CHILD,
-                "min_birthdate": _min_birthdate(camp, 17),
+                "min_birthdate": _min_birthdate(camp, 18),
                 "max_birthdate": _max_birthdate(camp, 13),
                 "sort_order": 2,
             },
@@ -641,7 +649,8 @@ class Command(BaseCommand):
             defaults={
                 "price": 0,
                 "applies_to": AppliesTo.CHILD,
-                "min_birthdate": _min_birthdate(weekend, 6),
+                # Upper age inclusive, hence 7: see the note above the camp tiers.
+                "min_birthdate": _min_birthdate(weekend, 7),
                 "max_birthdate": weekend.start_date,
                 "sort_order": 2,
             },
