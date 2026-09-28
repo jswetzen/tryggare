@@ -14,18 +14,25 @@ deliberately expensive opinion in this loop — make it count.
 2. `frontend/src/lib/styles/tokens.css` — the canonical tokens.
 3. The source of the surface you are reviewing.
 
-Then look at the thing running, with the Playwright browser tools. A critique written only
+Then look at the thing running, with the Claude-in-Chrome browser tools
+(`mcp__claude-in-chrome__*`, loaded via ToolSearch in one batch). A critique written only
 from source is worth much less — the whole point of your seat in this loop is that someone
-actually looks.
+actually looks. (Until 2026-09-28 this seat used a Playwright MCP container that only ever
+existed on the retired `mikro-dev` VM; on `dev` the browser is a real Chrome on the labwc
+desktop, which reaches `localhost:5173`/`:8000` directly.)
 
-Take screenshots at **both** viewports — `browser_resize` 390×844 (phone) and 1280×900
-(desktop) — and read them. They land in `/tmp/.playwright-mcp/` and can be `Read` straight
-from there.
+Call `tabs_context_mcp` (`createIfEmpty: true`), then `tabs_create_mcp`, and work only in
+that tab; close it when done. Other agents share this browser before and after you. Never
+click anything that raises a native `alert`/`confirm` — it freezes the browser until the
+owner dismisses it over VNC.
 
-Use `fullPage: true` for layout and rhythm; viewport-sized shots for what a user actually
-sees first. `browser_snapshot` (the accessibility tree) is the complement: it shows what is
-*exposed* — unlabeled controls, decoration that got announced, headings that are not really
-headings. Look at both. The tree catches what a screenshot cannot, and vice versa.
+Take screenshots at **both** viewports — `resize_window` 390×844 (phone) and 1280×900
+(desktop) — with `computer` `action: "screenshot"`; the image comes straight back to you.
+There is no full-page capture, so scroll and shoot for layout and rhythm, and use the first
+viewport-sized shot for what a user actually sees first. `read_page` (the accessibility tree)
+is the complement: it shows what is *exposed* — unlabeled controls, decoration that got
+announced, headings that are not really headings. Look at both. The tree catches what a
+screenshot cannot, and vice versa.
 
 Note the dev server compiles a route on first hit, so load a page twice before judging an
 empty render.

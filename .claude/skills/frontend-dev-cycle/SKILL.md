@@ -65,37 +65,38 @@ check" — it is verifying the deployment, and it is the one place the no-readin
 apply.** Do it after every restart, and never take a restart claim on trust, from a subagent
 or from yourself.
 
-Then confirm the browser is alive:
+Then confirm the browser is alive. On `dev` the critics drive **Claude in Chrome**: a real
+`google-chrome-stable` on the labwc desktop, with the Claude extension talking to this session
+through its native messaging host. (Until 2026-09-28 they drove a Playwright MCP container on
+`:8931`, but that container only ever existed on the retired `mikro-dev` VM. When round 4
+reached its first browser critique on `dev`, the agents' tool allowlists named tools that
+could not exist here, so they were rewired to Chrome.)
+
+If Chrome is not running, start it into the desktop session (it lives outside logind, see
+the global CLAUDE.md):
 
 ```bash
-podman ps --filter name=playwright --format '{{.Names}} {{.Status}}'   # or: ~/playwright-start.sh
+XDG_RUNTIME_DIR=/run/labwc-desktop WAYLAND_DISPLAY=wayland-0 \
+  nohup google-chrome-stable --ozone-platform=wayland > agent-tools/chrome.log 2>&1 &
 ```
 
-The Playwright MCP server runs in a container on `:8931` and Claude Code connects to it over
-HTTP. **If it was not running when this session started, the `mcp__playwright__*` tools will
-not be registered** — starting the container mid-session may register them, but if it does
-not, ask the user to reconnect the MCP server rather than working around it.
+**Confirm the browser is actually connected before spawning the first critic, not after one
+fails.** `pgrep chrome` proves nothing. Call `mcp__claude-in-chrome__list_connected_browsers`
+and see a browser listed, then open one page yourself. A persona that gets three paragraphs
+into its situation before discovering it has no browser is a wasted spawn, and a persona that
+quietly substitutes `WebFetch` and reports on a page it could not really drive is worse: the
+report reads normal and the finding is fiction.
 
-**Confirm the browser tools actually exist before spawning the first critic, not after one
-fails.** `podman ps` showing the container up proves nothing about whether the tools are
-registered in *this* session — a session that started before the container did will show a
-healthy container and have no `mcp__playwright__*` tools at all. Check for the tools
-themselves. A persona that gets three paragraphs into its situation before discovering it has
-no browser is a wasted spawn, and a persona that quietly substitutes `WebFetch` and reports
-on a page it could not really drive is worse — the report reads normal and the finding is
-fiction.
-
-**If the tools are missing, ask the user to reconnect the MCP server. Do not build a way
-around it.** Reconnecting takes them seconds (`/mcp`), and Playwright is what the personas and
-the designer are written for: the accessibility tree, console capture and network log are the
-evidence half their findings rest on. Substituting a hand-rolled browser driver costs a
-session's worth of work, produces weaker reports, and hands the next agent a second harness to
-maintain. Ask, and wait.
+**If no browser is connected, ask the user. Do not build a way around it.** The fix is on
+their side (extension signed in, `/chrome` reconnect), and it takes seconds. The accessibility
+tree (`read_page`), console capture and network log are the evidence half the critics'
+findings rest on. Substituting a hand-rolled browser driver costs a session's worth of work,
+produces weaker reports, and hands the next agent a second harness to maintain. Ask, and wait.
 
 `scripts/ux_probe.py` (selenium + local Chrome, see its docstring) exists, but it is **not the
-fallback for an unregistered MCP server** — asking the user to reconnect is. It is materially
-weaker: no accessibility tree, no console capture, and it matches elements by visible text, so
-it fails on controls Playwright drives fine (a bare `<input type=submit>`, a select2 dropdown)
+fallback for a disconnected browser**. Asking the user is. It is materially weaker: no
+accessibility tree, no console capture, and it matches elements by visible text, so it fails
+on controls the MCP browser drives fine (a bare `<input type=submit>`, a select2 dropdown),
 and those failures land in reports looking like UI defects when they are harness artifacts.
 
 Its one real use: it takes a `UX_PROBE_PORT`/`UX_PROBE_PROFILE` per instance, so it is the
@@ -169,9 +170,10 @@ critiqued, and what the verified invariant was.
 
 ### 2. Critique — one at a time
 
-**There is exactly one browser.** The Playwright MCP server is a single container driving a
-single Chrome, shared by every agent that holds those tools. Spawning the critics in parallel
-means four agents navigating the same tab out from under each other, and the reports come back
+**There is exactly one browser.** Claude in Chrome is a single Chrome window, shared by every
+agent that holds those tools, and `resize_window` resizes it for all of them. Each critic works
+in a tab of its own, but spawning them in parallel still means four agents fighting over one
+window size and one focus, and the reports come back
 confidently describing pages they were never on.
 
 So spawn them **sequentially**, each finishing before the next starts. This is the one place
@@ -275,8 +277,8 @@ Playwright's `browser_snapshot` — which is not the accessibility tree and igno
 
 - Before acting on a **quoted string**, grep the locale files for it.
 - Before acting on an **a11y finding**, confirm with CDP `Accessibility.getFullAXTree`, not a
-  Playwright snapshot.
-- Before acting on a **locale-rendering finding**, remember the container browser is en-US;
+  Playwright or `read_page` snapshot.
+- Before acting on a **locale-rendering finding**, check what language Chrome on `dev` is set to;
   ask whether a real user's browser would do the same thing.
 
 Verifying costs seconds. A false positive costs a build round and can talk you into replacing
