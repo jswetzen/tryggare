@@ -103,7 +103,22 @@ Its one real use: it takes a `UX_PROBE_PORT`/`UX_PROBE_PROFILE` per instance, so
 only option if you ever need genuinely concurrent browsers — which the sequential critique
 order below is specifically designed to avoid needing.
 
-Establish the target URLs for this increment (event ids change between re-seeds):
+**Dev wipes itself every hour.** With `DEMO_MODE=true` (the dev default), `demo/apps.py`
+starts an APScheduler job that runs `seed_demo_data --reset` once an hour, counted from when
+the web process started. It deletes every event, promo code, registration and family you or
+a critic created, and reseeds with **new event ids**, so any URL you handed a persona goes
+dead mid-run. On 2026-09-28 it fired in the middle of round 4's break-it run. The persona
+watched the sign-up link turn into "Den här anmälningslänken är inte giltig", saw both real
+promo codes flip to "not valid", and filed two confident blockers ("the link breaks after
+submit", "validating a code burns its uses") that were entirely this reset.
+
+So bounce `tryggare_web_1` right before a critique round (it restarts the hourly clock), note
+the time, seed the round's fixture afterwards, and finish the round inside the hour. If a
+report describes data vanishing, ids changing or codes dying, grep `web.log` for
+`Demo reset: starting` before believing a word of it.
+
+Establish the target URLs for this increment (event ids change between re-seeds, and so
+at least once an hour):
 
 ```bash
 cd backend && uv run python -c "
