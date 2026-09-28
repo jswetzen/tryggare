@@ -52,6 +52,14 @@
     healthInfoStatus: HealthInfoStatus;
     consentNoticeShared: boolean;
     ticketTypeId: string;
+    // True from the moment a promo-code removal (see handleRemovePromoCode)
+    // clears this row's ticketTypeId because it was holding a now-retracted
+    // unlocked type — drives the "Koden togs bort" caption on this row's
+    // select. Cleared the instant the row picks a ticket again (see
+    // handleParentTicketTypeChange/handleChildTicketTypeChange), not on any
+    // other interaction — the point is "this selection changed out from
+    // under you," which stops being true only once a new pick is made.
+    promoReset: boolean;
     extraSelections: Record<string, ExtraSelectionState>;
   }
 
@@ -73,6 +81,8 @@
     healthInfoStatus: HealthInfoStatus;
     consentNoticeShared: boolean;
     ticketTypeId: string;
+    // See ParentRow.promoReset above — same purpose, same clearing rule.
+    promoReset: boolean;
     extraSelections: Record<string, ExtraSelectionState>;
   }
 
@@ -169,6 +179,7 @@
       healthInfoStatus: 'none',
       consentNoticeShared: false,
       ticketTypeId: '',
+      promoReset: false,
       extraSelections: {}
     };
   }
@@ -184,6 +195,7 @@
       healthInfoStatus: 'none',
       consentNoticeShared: false,
       ticketTypeId: '',
+      promoReset: false,
       extraSelections: {}
     };
   }
@@ -213,6 +225,26 @@
   let promoCodeValidation = $state<PromoCodeValidation | null>(null);
   let promoCodeChecking = $state(false);
   let promoCodeError = $state('');
+  // The exact trimmed text `promoCodeValidation` was validated against —
+  // compared at submit time (see the guard in handleSubmit) so a guardian
+  // can't submit whatever is currently typed in the box on the strength of
+  // an *earlier* code's validation. In practice this rarely diverges from
+  // "promoCodeValidation is non-null", since the on:input handler below
+  // already nulls promoCodeValidation on every keystroke — this exists for
+  // clarity at the comparison site, not because the two can drift apart.
+  let promoCodeAppliedValue = $state('');
+  // is_hidden ticket types merged into eventInfo.ticket_types by the last
+  // successful checkPromoCode (see its own comment) — tracked so
+  // retractPromoUnlockedTicketTypes below knows exactly which entries to
+  // remove again, and which attendee selections referencing them are now
+  // dangling, when the code that unlocked them is edited away or cleared.
+  let promoCodeUnlockedIds = $state<string[]>([]);
+  let promoCodeFieldEl = $state<HTMLElement | null>(null);
+  // Set by handleRemovePromoCode ("Ta bort") when a code is explicitly
+  // un-applied — an aria-live line under the field naming what just changed
+  // (registration dev-cycle round 4, increment 3 revision, R2). Distinct
+  // from promoCodeError: this is neutral status, not a rejection.
+  let promoRemovalMessage = $state('');
 
   let error = $state('');
   // The raw DRF error body from a failed submit, e.g.
@@ -274,6 +306,13 @@
   let idempotencyConflictPayload = $state<RegistrationSubmitPayload | null>(null);
   let idempotencyConflictBannerEl = $state<HTMLElement | null>(null);
 
+  // Set only when handleSubmit itself blocks on a promo code that's typed
+  // but not currently validated (see the guard there) — distinct from
+  // promoCodeError being set by a rejected "Apply" click, where the
+  // guardian is already looking right at the field and a scroll/focus jump
+  // would just be noise.
+  let promoSubmitBlocked = $state(false);
+
   // Scroll/focus the failure banner into view on every new error — on this
   // 2000+px page a failed submit otherwise looks like nothing happened from
   // the submit button at the bottom (see build's blocker #2).
@@ -292,6 +331,16 @@
     if (idempotencyConflictPayload && idempotencyConflictBannerEl) {
       idempotencyConflictBannerEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
       idempotencyConflictBannerEl.focus();
+    }
+  });
+
+  // Same reasoning again, for handleSubmit's own promo-code block (see
+  // promoSubmitBlocked's comment) — the field sits well below the fold on
+  // this page, same as the failure banner above.
+  $effect(() => {
+    if (promoSubmitBlocked && promoCodeFieldEl) {
+      promoCodeFieldEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      promoCodeFieldEl.focus();
     }
   });
 
@@ -414,7 +463,62 @@
     // an unbounded type when nothing more specific matches.
     const bounded = candidates.find((tt) => tt.min_birthdate || tt.max_birthdate);
     const match = bounded ?? candidates[0];
-    if (match) child.ticketTypeId = match.id;
+    if (match) {
+      child.ticketTypeId = match.id;
+      child.promoReset = false;
+      settlePromoRemovalMessageIfDone();
+    }
+  }
+
+  // Follow-up (confirmation-persona gate, same revision as R1/R2 above): the
+  // aria-live removal line under the promo field ("Koden togs bort. VIP-helg
+  // ... välj ny biljettyp för Förälder 1.") was announcing a problem that
+  // could already be fixed — it stayed up even once every named attendee
+  // had repicked a ticket, while the per-row caption correctly disappeared.
+  // Dropped entirely (not downgraded to a bare "code removed") once no row
+  // is still in the reset state: at that point every row the message named
+  // has its own resolved selection right there in the form, so the
+  // page-level line has nothing left to add — repeating "code removed"
+  // would be a stale echo, not new information.
+  function settlePromoRemovalMessageIfDone() {
+    if (!promoRemovalMessage) return;
+    const stillReset = parents.some((p) => p.promoReset) || children.some((c) => c.promoReset);
+    if (!stillReset) promoRemovalMessage = '';
+  }
+
+  // Write-back handlers for the parent/child ticket-type <select>s below —
+  // added for R1 (registration dev-cycle round 4, increment 3 revision).
+  // These selects used to be bind:value, which desyncs from state when the
+  // option list changes (a promo code unlocking/retracting a hidden ticket
+  // type, via checkPromoCode/retractPromoUnlockedTicketTypes reassigning
+  // eventInfo.ticket_types) while the select is focused: svelte 5.43.14's
+  // bind_select_value only writes select.__value from its own state→DOM
+  // effect, which early-returns when the change came from the select's own
+  // focused batch, so __value sticks at the value the select had at mount
+  // ("") — and init_select's MutationObserver on the changed <option>
+  // childList then reasserts that stale __value onto the DOM, silently
+  // reverting the guardian's own pick to the placeholder while the
+  // underlying state (parent.ticketTypeId) is still correct. One-way
+  // value={…} + an explicit onchange write-back sidesteps that internal
+  // effect entirely — the DOM is only ever driven by fresh renders and this
+  // handler, never by bind:value's own desyncing effect. See page.test.ts's
+  // "R1 select desync" tests, which reproduce the stale-DOM symptom against
+  // the old bind:value markup (confirmed failing pre-fix) and pass against
+  // this.
+  function handleParentTicketTypeChange(index: number, value: string) {
+    parents[index].ticketTypeId = value;
+    if (value) {
+      parents[index].promoReset = false;
+      settlePromoRemovalMessageIfDone();
+    }
+  }
+
+  function handleChildTicketTypeChange(index: number, value: string) {
+    children[index].ticketTypeId = value;
+    if (value) {
+      children[index].promoReset = false;
+      settlePromoRemovalMessageIfDone();
+    }
   }
 
   // Whether a child's entered birthdate falls inside a ticket type's
@@ -489,6 +593,7 @@
     if (childSelectedTicketWarning(child)) ids.push(`child-ticket-ineligible-${index}`);
     if (ticketCompositionWarning(child.ticketTypeId)) ids.push(`child-ticket-composition-${index}`);
     if (ticketSoldOutWarning(child.ticketTypeId)) ids.push(`child-ticket-sold-out-${index}`);
+    if (child.promoReset) ids.push(`child-ticket-promo-reset-${index}`);
     return ids.length > 0 ? ids.join(' ') : undefined;
   }
 
@@ -701,10 +806,46 @@
     ) || parents.some((parent) => ticketCompositionWarning(parent.ticketTypeId) !== null)
   );
 
+  // Undoes checkPromoCode's is_hidden merge (see its own comment) once the
+  // code that earned it is no longer in effect — called both when a fresh
+  // checkPromoCode run is about to replace it and, from the promo input's
+  // on:input handler, the moment the guardian edits the code away without
+  // re-validating. Without this, a hidden VIP type a code unlocked stays a
+  // pickable option (and, worse, stays *selected* on whichever attendee row
+  // already picked it) after the code that unlocked it is gone — the
+  // server then rejects that selection at submit with the same generic
+  // "Invalid ticket type for this event." a nonexistent type gets (see
+  // _validate_ticket_type_for_attendee's is_hidden gate), which is a
+  // confusing dead end rather than a clear "your code was removed" signal.
+  // Clearing the selection here, rather than merely warning like
+  // childSelectedTicketWarning does for an age/composition change, is the
+  // deliberate difference: those tickets are still real, visible options
+  // the guardian can knowingly keep; a retracted hidden type is not an
+  // option at all anymore, so nothing legitimate is being erased.
+  function retractPromoUnlockedTicketTypes() {
+    if (promoCodeUnlockedIds.length === 0 || !eventInfo) return;
+    const removed = new Set(promoCodeUnlockedIds);
+    eventInfo = {
+      ...eventInfo,
+      ticket_types: eventInfo.ticket_types.filter((tt) => !removed.has(tt.id))
+    };
+    for (const parent of parents) {
+      if (removed.has(parent.ticketTypeId)) parent.ticketTypeId = '';
+    }
+    for (const child of children) {
+      if (removed.has(child.ticketTypeId)) child.ticketTypeId = '';
+    }
+    promoCodeUnlockedIds = [];
+  }
+
   async function checkPromoCode() {
     const code = promoCode.trim();
     promoCodeError = '';
     promoCodeValidation = null;
+    promoCodeAppliedValue = '';
+    promoSubmitBlocked = false;
+    promoRemovalMessage = '';
+    retractPromoUnlockedTicketTypes();
     if (!code || !eventInfo) return;
 
     promoCodeChecking = true;
@@ -715,6 +856,7 @@
         return;
       }
       promoCodeValidation = result;
+      promoCodeAppliedValue = code;
       // Reveal any is_hidden ticket types this code unlocks (e.g. VIP) by
       // merging them into the local list — applicableTicketTypes/
       // suggestChildTicketType then pick them up with no further changes.
@@ -723,12 +865,87 @@
       const newlyUnlocked = unlocked.filter((tt) => !existingIds.has(tt.id));
       if (newlyUnlocked.length > 0) {
         eventInfo = { ...eventInfo, ticket_types: [...eventInfo.ticket_types, ...newlyUnlocked] };
+        promoCodeUnlockedIds = newlyUnlocked.map((tt) => tt.id);
       }
     } catch (err) {
       console.error('Promo code validation failed:', err);
       promoCodeError = $t('register.promoCodeInvalid');
     } finally {
       promoCodeChecking = false;
+    }
+  }
+
+  // R3 (registration dev-cycle round 4, increment 3 revision): the applied
+  // confirmation states the concrete effect rather than a bare "Code
+  // applied." — built from the exact same validation result the discount
+  // preview (discountAmount below) and the running total already use, so
+  // this line can never say something the total contradicts. Returns ''
+  // when there's nothing applied (guarded at the call site, not here, since
+  // the empty case never renders).
+  function promoAppliedMessage(): string {
+    if (!promoCodeValidation?.valid) return '';
+    const parts: string[] = [];
+    const value = parseFloat(promoCodeValidation.discount_value ?? '0');
+    if (value > 0) {
+      parts.push(
+        promoCodeValidation.discount_type === 'percent'
+          ? $t('register.promoEffectPercent', { values: { percent: value } })
+          : $t('register.promoEffectFixed', { values: { amount: formatCurrency(value) } })
+      );
+    }
+    const unlocked = promoCodeValidation.unlocks_ticket_types ?? [];
+    if (unlocked.length > 0) {
+      parts.push(
+        $t('register.promoEffectUnlocks', {
+          values: { names: unlocked.map((tt) => tt.name).join(', ') }
+        })
+      );
+    }
+    const prefix = $t('register.promoCodeAppliedPrefix');
+    return parts.length > 0 ? `${prefix} – ${parts.join(' ')}` : `${prefix}.`;
+  }
+
+  // R2 (registration dev-cycle round 4, increment 3 revision): "Ta bort" on
+  // the applied-code chip — an explicit un-apply, replacing the old silent
+  // one where editing the text past a validated code quietly dropped it.
+  // Because it's explicit, it earns an explicit confirmation: which ticket
+  // type just disappeared and from which attendee(s), captured BEFORE
+  // retractPromoUnlockedTicketTypes clears those selections (afterwards
+  // there's nothing left to point at). See promoRemovalMessage and
+  // ParentRow/ChildRow.promoReset for where this lands in the UI.
+  function handleRemovePromoCode() {
+    const removedIds = new Set(promoCodeUnlockedIds);
+    const removedNames = eventInfo
+      ? eventInfo.ticket_types.filter((tt) => removedIds.has(tt.id)).map((tt) => tt.name)
+      : [];
+    const affectedParents = parents
+      .map((p, i) => (removedIds.has(p.ticketTypeId) ? i : -1))
+      .filter((i) => i >= 0);
+    const affectedChildren = children
+      .map((c, i) => (removedIds.has(c.ticketTypeId) ? i : -1))
+      .filter((i) => i >= 0);
+
+    retractPromoUnlockedTicketTypes();
+
+    for (const i of affectedParents) parents[i].promoReset = true;
+    for (const i of affectedChildren) children[i].promoReset = true;
+
+    promoCode = '';
+    promoCodeError = '';
+    promoCodeValidation = null;
+    promoCodeAppliedValue = '';
+    promoSubmitBlocked = false;
+
+    if (removedNames.length > 0 && (affectedParents.length > 0 || affectedChildren.length > 0)) {
+      const attendeeLabels = [
+        ...affectedParents.map((i) => $t('register.parentLabel', { values: { number: i + 1 } })),
+        ...affectedChildren.map((i) => $t('checkin.childNumber', { values: { number: i + 1 } }))
+      ];
+      promoRemovalMessage = $t('register.promoRemovedWithReset', {
+        values: { ticket: removedNames.join(', '), attendees: attendeeLabels.join(', ') }
+      });
+    } else {
+      promoRemovalMessage = $t('register.promoRemoved');
     }
   }
 
@@ -789,8 +1006,30 @@
     // stale guidance banner from an earlier attempt so it doesn't linger
     // next to an unrelated new error (or nothing at all, on success).
     idempotencyConflictPayload = null;
+    promoSubmitBlocked = false;
 
     if (isPreview) return;
+
+    // A promo code that's typed but not currently validated must never
+    // ride along silently in the submit payload — that's exactly the "a
+    // rejected code still submits" gap this guard closes (registration
+    // dev-cycle round 4, increment 3). "Not currently validated" covers
+    // all three ways this happens: never clicked Apply, clicked Apply and
+    // it came back invalid (promoCodeError is already showing), or applied
+    // successfully and then edited the text afterwards — the promo
+    // input's own on:input handler nulls promoCodeValidation on every
+    // keystroke (see its comment), so by the time this runs
+    // "promoCodeValidation is non-null" and "the box still holds the code
+    // it was validated against" are the same fact. The backend would
+    // reject an invalid code here too (see _resolve_promo_code), but
+    // failing fast client-side, at the field, is both faster and puts the
+    // message where the guardian is looking instead of in the generic
+    // top-of-form banner.
+    if (promoCode.trim() && !promoCodeValidation?.valid) {
+      promoCodeError = $t('register.promoCodeNotApplied');
+      promoSubmitBlocked = true;
+      return;
+    }
 
     if (!contactEmail.trim()) {
       error = $t('register.contactEmailRequired');
@@ -1343,7 +1582,9 @@
                   </label>
                   <select
                     id={`parent-ticket-type-${index}`}
-                    bind:value={parent.ticketTypeId}
+                    value={parent.ticketTypeId}
+                    on:change={(e) =>
+                      handleParentTicketTypeChange(index, (e.currentTarget as HTMLSelectElement).value)}
                     aria-invalid={ticketCompositionWarning(parent.ticketTypeId) !== null ||
                     ticketSoldOutWarning(parent.ticketTypeId) !== null
                       ? 'true'
@@ -1354,7 +1595,8 @@
                         : null,
                       ticketSoldOutWarning(parent.ticketTypeId) !== null
                         ? `parent-ticket-sold-out-${index}`
-                        : null
+                        : null,
+                      parent.promoReset ? `parent-ticket-promo-reset-${index}` : null
                     ]
                       .filter(Boolean)
                       .join(' ') || undefined}
@@ -1366,10 +1608,13 @@
                     }`}
                     data-testid={`parent-ticket-type-${index}`}
                   >
-                    <option value="">{$t('register.ticketTypePlaceholder')}</option>
+                    <option value="" selected={parent.ticketTypeId === ''}>
+                      {$t('register.ticketTypePlaceholder')}
+                    </option>
                     {#each applicableTicketTypes(false) as ticketType (ticketType.id)}
                       <option
                         value={ticketType.id}
+                        selected={ticketType.id === parent.ticketTypeId}
                         disabled={!ticketCompositionEligible(ticketType, ticketType.id === parent.ticketTypeId) ||
                           !ticketAvailable(ticketType, ticketType.id === parent.ticketTypeId)}
                       >
@@ -1395,6 +1640,15 @@
                       data-testid={`parent-ticket-sold-out-${index}`}
                     >
                       {ticketSoldOutWarning(parent.ticketTypeId)}
+                    </p>
+                  {/if}
+                  {#if parent.promoReset}
+                    <p
+                      id={`parent-ticket-promo-reset-${index}`}
+                      class="mt-1 text-xs text-neutral-600"
+                      data-testid={`parent-ticket-promo-reset-${index}`}
+                    >
+                      {$t('register.promoResetCaption')}
                     </p>
                   {/if}
                 </div>
@@ -1605,7 +1859,9 @@
                     </label>
                     <select
                       id={`child-ticket-type-${index}`}
-                      bind:value={child.ticketTypeId}
+                      value={child.ticketTypeId}
+                      on:change={(e) =>
+                        handleChildTicketTypeChange(index, (e.currentTarget as HTMLSelectElement).value)}
                       aria-invalid={childSelectedTicketWarning(child) !== null ||
                       ticketCompositionWarning(child.ticketTypeId) !== null ||
                       ticketSoldOutWarning(child.ticketTypeId) !== null
@@ -1621,10 +1877,13 @@
                       }`}
                       data-testid={`child-ticket-type-${index}`}
                     >
-                      <option value="">{$t('register.ticketTypePlaceholder')}</option>
+                      <option value="" selected={child.ticketTypeId === ''}>
+                        {$t('register.ticketTypePlaceholder')}
+                      </option>
                       {#each applicableTicketTypes(true) as ticketType (ticketType.id)}
                         <option
                           value={ticketType.id}
+                          selected={ticketType.id === child.ticketTypeId}
                           disabled={!childTicketEligible(ticketType, child.birthdate) ||
                             !ticketCompositionEligible(ticketType, ticketType.id === child.ticketTypeId) ||
                             !ticketAvailable(ticketType, ticketType.id === child.ticketTypeId)}
@@ -1666,6 +1925,15 @@
                     {#if childAgeError(index)}
                       <p class="mt-1 text-xs text-danger-700" data-testid={`child-age-error-${index}`}>
                         {childAgeError(index)}
+                      </p>
+                    {/if}
+                    {#if child.promoReset}
+                      <p
+                        id={`child-ticket-promo-reset-${index}`}
+                        class="mt-1 text-xs text-neutral-600"
+                        data-testid={`child-ticket-promo-reset-${index}`}
+                      >
+                        {$t('register.promoResetCaption')}
                       </p>
                     {/if}
                   </div>
@@ -1846,39 +2114,113 @@
       {/if}
 
       {#if eventInfo.ticket_types.length > 0 || eventInfo.is_paid || eventInfo.has_hidden_ticket_types}
-        <div class="mb-4">
-          <div class="flex items-center gap-2">
-            <input
-              type="text"
-              bind:value={promoCode}
-              on:input={() => {
-                // Editing the code invalidates whatever "Använd" last
-                // checked — without this, clearing the field leaves the
-                // stale invalid-code message on screen with no way to
-                // dismiss it (Använd stays disabled on an empty field).
-                promoCodeError = '';
-                promoCodeValidation = null;
-              }}
-              placeholder={$t('register.promoCodePlaceholder')}
-              class="flex-1 px-3 py-2 text-sm border border-neutral-300 rounded focus:outline-none focus:ring-2 focus:ring-primary-500"
-              data-testid="register-promo-code-input"
-            />
-            <button
-              type="button"
-              on:click={checkPromoCode}
-              disabled={promoCodeChecking || !promoCode.trim()}
-              class="px-3 py-2 text-sm font-semibold border border-neutral-300 rounded hover:bg-neutral-50 disabled:opacity-50"
-              data-testid="register-promo-code-apply"
-            >
-              {promoCodeChecking ? $t('register.promoCodeChecking') : $t('register.promoCodeApply')}
-            </button>
-          </div>
+        <div class="mb-4" tabindex="-1" bind:this={promoCodeFieldEl}>
+          <label for="promo-code-input" class="block text-sm font-semibold text-neutral-700 mb-1">
+            {$t('register.promoCodeLabel')}
+          </label>
           {#if promoCodeValidation?.valid}
-            <p class="mt-1 text-xs text-success-700" data-testid="register-promo-code-applied">
-              {$t('register.promoCodeApplied')}
+            <!--
+              R2 (registration dev-cycle round 4, increment 3 revision): an
+              applied code is state, not just a moment — replace the text
+              input with a chip so the applied code stays visibly readable
+              (and "Ta bort" is the only way to change it) instead of
+              silently un-applying the instant the guardian's cursor lands
+              back in the box.
+            -->
+            <div class="flex items-center gap-2 flex-wrap">
+              <span
+                class="inline-flex items-center gap-1.5 rounded-pill bg-success-50 border border-success-200 px-3 py-1.5 text-sm font-semibold text-success-700"
+                data-testid="register-promo-code-chip"
+              >
+                <Icon name="check-circle" size="sm" class="text-success-600 shrink-0" />
+                {promoCodeAppliedValue}
+              </span>
+              <button
+                type="button"
+                on:click={handleRemovePromoCode}
+                class="inline-flex items-center gap-1 rounded-pill border border-success-300 px-3 py-1.5 text-sm font-semibold text-success-700 hover:bg-success-50"
+                data-testid="register-promo-code-remove"
+              >
+                <Icon name="x" size="sm" class="shrink-0" />
+                {$t('register.promoCodeRemoveButton')}
+              </button>
+            </div>
+            <p
+              class="mt-1 text-xs text-success-700"
+              role="status"
+              aria-live="polite"
+              data-testid="register-promo-code-applied"
+            >
+              {promoAppliedMessage()}
             </p>
-          {:else if promoCodeError}
-            <p class="mt-1 text-xs text-danger-700">{promoCodeError}</p>
+          {:else}
+            <div class="flex items-center gap-2">
+              <input
+                id="promo-code-input"
+                type="text"
+                bind:value={promoCode}
+                on:input={() => {
+                  // Editing the code invalidates whatever "Använd" last
+                  // checked — without this, clearing the field leaves the
+                  // stale invalid-code message on screen with no way to
+                  // dismiss it (Använd stays disabled on an empty field), and
+                  // handleSubmit's own guard needs promoCodeValidation to go
+                  // stale the instant the text no longer matches what it
+                  // validated. retractPromoUnlockedTicketTypes is still
+                  // called defensively here (kept from before R2), but in
+                  // practice is a no-op by the time this fires: once a code
+                  // is applied the input is replaced by the chip above, so
+                  // the only way back to this branch is "Ta bort", which
+                  // already retracted everything itself (see
+                  // handleRemovePromoCode).
+                  promoCodeError = '';
+                  promoCodeValidation = null;
+                  promoCodeAppliedValue = '';
+                  promoSubmitBlocked = false;
+                  promoRemovalMessage = '';
+                  retractPromoUnlockedTicketTypes();
+                }}
+                placeholder={$t('register.promoCodePlaceholder')}
+                aria-invalid={promoCodeError ? 'true' : 'false'}
+                aria-describedby={promoCodeError ? 'promo-code-error' : undefined}
+                class={`flex-1 px-3 py-2 text-sm border rounded-button focus:outline-none focus:ring-2 ${
+                  promoCodeError
+                    ? 'border-danger-600 focus:ring-danger-500 focus:border-danger-600'
+                    : 'border-neutral-300 focus:ring-primary-500'
+                }`}
+                data-testid="register-promo-code-input"
+              />
+              <button
+                type="button"
+                on:click={checkPromoCode}
+                disabled={promoCodeChecking || !promoCode.trim()}
+                class="px-3 py-2 text-sm font-semibold border border-neutral-300 rounded-button hover:bg-neutral-50 disabled:opacity-50"
+                data-testid="register-promo-code-apply"
+              >
+                {promoCodeChecking ? $t('register.promoCodeChecking') : $t('register.promoCodeApply')}
+              </button>
+            </div>
+            {#if promoCodeError}
+              <p
+                id="promo-code-error"
+                class="mt-1 text-xs text-danger-700"
+                role="alert"
+                aria-live="polite"
+                data-testid="register-promo-code-error"
+              >
+                {promoCodeError}
+              </p>
+            {/if}
+          {/if}
+          {#if promoRemovalMessage}
+            <p
+              class="mt-1 text-xs text-neutral-600"
+              role="status"
+              aria-live="polite"
+              data-testid="register-promo-removed-message"
+            >
+              {promoRemovalMessage}
+            </p>
           {/if}
         </div>
       {/if}

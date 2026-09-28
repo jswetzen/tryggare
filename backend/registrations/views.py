@@ -192,8 +192,16 @@ def _resolve_promo_code(*, event, code_str):
     if not code_str:
         return None
 
+    # "code" is a literal key in the body (not just the ValidationError
+    # constructor's own `code=` kwarg, which DRF's default JSONRenderer
+    # never serializes) — same pattern as the ticket_sold_out error below,
+    # so the frontend can branch on a stable machine-readable value instead
+    # of string-matching the translated message.
     invalid = ValidationError(
-        {"promo_code": [_("This promo code is not valid.")]},
+        {
+            "promo_code": [_("This promo code is not valid.")],
+            "code": "invalid_promo_code",
+        },
         code="invalid_promo_code",
     )
     try:
