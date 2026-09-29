@@ -16,6 +16,7 @@
   import { onMount } from 'svelte';
   import { t, locale } from 'svelte-i18n';
   import { page } from '$app/stores';
+  import { pushState } from '$app/navigation';
   import { registrationApi } from '$lib/api/registrationService';
   import { extractErrorMessage, extractFieldError, type ApiError } from '$lib/api/client';
   import type {
@@ -298,7 +299,23 @@
   // two render together in the same banner, see the template below.
   let submitProblems = $state<SubmitProblem[]>([]);
   let submitting = $state(false);
-  let submitted = $state(false);
+  // Increment 8 (registration dev-cycle round 4, 2026-09-29): derived from
+  // $page.state rather than a plain local flag, so the browser's own Back
+  // button drives it too. submitPayload's success path below calls
+  // pushState('', { registrationSubmitted: true }) instead of just flipping
+  // a boolean — before this, a successful submit never touched the history
+  // stack at all, so Back skipped straight past the whole registration page
+  // to whatever was behind it (often about:blank, when the guardian opened
+  // the registration link in a fresh tab — the bug this fixes).
+  // $page.state.registrationSubmitted is undefined both on the form's own
+  // base history entry (state {}, what Back lands on) and on the fresh load
+  // a reload of the confirmation URL produces — SvelteKit deliberately
+  // resets shallow-routing state to {} on a full navigation/reload, it is
+  // never restored from history.state — so both "Back to the form" and
+  // "reload the confirmation screen" resolve this to false for free.
+  // Neither can replay the POST: nothing here submits on mount or on a
+  // state change, only on the form's own onsubmit handler.
+  let submitted = $derived($page.state.registrationSubmitted === true);
   let referenceCode = $state<string | null>(null);
   // Replayed by the confirmation screen's "resend" action — see
   // handleSubmit's payload comment for why this is a plain resubmit rather
@@ -1592,7 +1609,11 @@
         idempotencyConflictPayload = null;
         submitProblems = [];
         error = '';
-        submitted = false;
+        // No corresponding assignment needed (submitted is now derived from
+        // $page.state, see its own comment) — this branch is only ever
+        // reached from a submit attempt made while the form was showing,
+        // i.e. while $page.state.registrationSubmitted was already false,
+        // so there is nothing pushed here to unwind.
         return;
       }
       referenceCode = response.reference_code;
@@ -1614,7 +1635,11 @@
       emailSent = response.email_sent !== false;
       idempotencyConflictPayload = null;
       submitProblems = [];
-      submitted = true;
+      // Gives the browser's Back button a real history entry to land on
+      // instead of falling straight through this whole page (see
+      // `submitted`'s own comment above). '' keeps the current URL — this
+      // is a same-page view change, not a new route.
+      pushState('', { registrationSubmitted: true });
     } catch (err) {
       console.error('Registration submission failed:', err);
       const apiError = err as ApiError;
@@ -1767,7 +1792,17 @@
   // entered, so a mistyped contact email can be corrected and resubmitted
   // without re-keying the whole registration.
   function handleEditEmail() {
-    submitted = false;
+    // Pop the confirmation screen's own history entry (see pushState in
+    // submitPayload) rather than just flipping local state — otherwise a
+    // native Back press right afterwards would still find that entry
+    // sitting "above" the form and re-show the confirmation screen instead
+    // of leaving the page. Guarded on $page.state: this function is also
+    // reached from the pendingDuplicate screen's own back button below,
+    // which was never pushed (submitPayload returns before pushState on
+    // that branch — see its comment), so there is nothing to pop there.
+    if ($page.state.registrationSubmitted) {
+      history.back();
+    }
     // Also reached from the pendingDuplicate screen's own back button (same
     // "drop back into the still-populated form" action) — clear it here too
     // so a subsequent submit is judged fresh rather than re-rendering the

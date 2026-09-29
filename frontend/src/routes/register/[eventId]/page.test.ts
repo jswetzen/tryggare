@@ -1,7 +1,10 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/svelte';
 import userEvent from '@testing-library/user-event';
-import { readable } from 'svelte/store';
+// The mocked pushState below (see the $app/navigation vi.mock further down)
+// — imported here so the "Back button from confirmation" tests can assert
+// on its call args, same pattern as `submit`/`getEvent`.
+import { pushState } from '$app/navigation';
 import RegisterPage from './+page.svelte';
 
 // jsdom (this project's vitest environment — see vitest.config.ts) doesn't
@@ -132,9 +135,87 @@ vi.mock('svelte-i18n', () => {
   };
 });
 
+// Increment 8 (registration dev-cycle round 4, 2026-09-29): a real,
+// subscribable stand-in for $page — plain `readable(...)` (what this mock
+// used to be) can't model $page.state changing, which is exactly what
+// drives `submitted` now (see +page.svelte's own comment on that variable).
+// vi.hoisted so both the $app/stores mock below and the $app/navigation
+// mock's `pushState` (further down) can share one instance — a real
+// pushState/$page pairing is provided by SvelteKit's router, which isn't
+// present in this jsdom render.
+const pageStateHelper = vi.hoisted(() => {
+  const initial = {
+    params: { eventId: 'event-1' },
+    url: new URL('http://localhost/register/event-1'),
+    state: {} as Record<string, unknown>
+  };
+  let current = initial;
+  const subscribers = new Set<(v: typeof current) => void>();
+  return {
+    subscribe(fn: (v: typeof current) => void) {
+      subscribers.add(fn);
+      fn(current);
+      return () => subscribers.delete(fn);
+    },
+    // Mirrors the real pushState(url, state)'s shallow-merge into
+    // $page.state closely enough for these tests.
+    pushState(_url: string, state: Record<string, unknown>) {
+      current = { ...current, state: { ...current.state, ...state } };
+      subscribers.forEach((fn) => fn(current));
+    },
+    // Test-only: simulates what SvelteKit's router does to $page.state on
+    // popstate (a native browser Back/Forward) — jsdom has no real
+    // navigable session history for `history.back()` (stubbed below) to
+    // drive this from, see the history.back stub a few lines down.
+    setState(state: Record<string, unknown>) {
+      current = { ...current, state };
+      subscribers.forEach((fn) => fn(current));
+    }
+  };
+});
+
 vi.mock('$app/stores', () => ({
-  page: readable({ params: { eventId: 'event-1' }, url: new URL('http://localhost/register/event-1') })
+  page: { subscribe: pageStateHelper.subscribe }
 }));
+
+vi.mock('$app/navigation', () => ({
+  goto: vi.fn(),
+  invalidate: vi.fn(),
+  invalidateAll: vi.fn(),
+  preloadData: vi.fn(),
+  preloadCode: vi.fn(),
+  beforeNavigate: vi.fn(),
+  afterNavigate: vi.fn(),
+  disableScrollHandling: vi.fn(),
+  // Spy-able (tests assert on call args) AND wired to pageStateHelper (see
+  // its own comment) so the component's derived `submitted` actually flips,
+  // same as the real integration with SvelteKit's router.
+  pushState: vi.fn((url: string, state: Record<string, unknown>) =>
+    pageStateHelper.pushState(url, state)
+  ),
+  replaceState: vi.fn()
+}));
+
+// +page.svelte's handleEditEmail calls the real, global history.back() to
+// pop the confirmation screen's pushState entry (see its own comment) — in
+// the real app that fires a popstate SvelteKit's router listens for and
+// resolves back to $page.state {}. Nothing here plays that role for a
+// jsdom render with the router entirely mocked out, so this stub does it
+// directly: simulate the same resolution pageStateHelper.setState would get
+// from a real popstate.
+vi.spyOn(window.history, 'back').mockImplementation(() => {
+  pageStateHelper.setState({});
+});
+
+// pageStateHelper is a module-level singleton (see its own comment) shared
+// by every test in this file — reset it before each one so a prior test's
+// pushState doesn't leak `submitted: true` into the next test's fresh
+// render. Each describe block below still runs its own vi.clearAllMocks()
+// beforeEach for the API mocks; this is the one shared piece of state that
+// isn't a mock and so isn't covered by that.
+beforeEach(() => {
+  pageStateHelper.setState({});
+});
 
 const getEvent = vi.fn();
 // Exposed like getEvent above (not an inline vi.fn() in the factory) so the
@@ -1161,6 +1242,110 @@ function capacityEventInfo(overrides: Partial<Record<string, unknown>> = {}) {
     ...overrides
   });
 }
+
+// Back button from the confirmation screen (registration dev-cycle round 4,
+// increment 8, 2026-09-29). Before this, a successful submit only ever
+// flipped a local `submitted` boolean — it never touched the history stack,
+// so the browser's own Back button skipped straight past this whole page to
+// whatever was behind it (about:blank, when the registration link was
+// opened in a fresh tab — confirmed live in Chrome before this fix; see the
+// report). Fixed by pushing a history entry on success (see submitPayload's
+// pushState call) and deriving `submitted` from $page.state, so Back always
+// resolves to the form's own base entry instead. jsdom can't drive a real
+// browser back-button press, so these tests exercise the two halves that
+// make up the fix: pushState is called with the state a Back press needs to
+// land on, and the component actually reacts when that state resolves back
+// to {} (which is what a real popstate does — see pageStateHelper's own
+// comment above for the stand-in this file uses).
+describe('Register page — Back button from confirmation (increment 8)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    pageStateHelper.setState({});
+  });
+
+  it('pushes a history entry for the confirmation screen on a successful submit', async () => {
+    const user = userEvent.setup();
+    getEvent.mockResolvedValue(ticketlessEventInfo());
+    submit.mockResolvedValue({ reference_code: 'REF1', message: 'ok', email_sent: true });
+    render(RegisterPage);
+
+    await screen.findByTestId('register-form');
+    await fillMinimalRequiredFields(user);
+    await user.click(screen.getByTestId('register-submit-button'));
+
+    await screen.findByTestId('register-success-email');
+    // '' keeps the current URL — this is a same-page view change, not a
+    // route change (see submitPayload's own comment).
+    expect(pushState).toHaveBeenCalledWith('', { registrationSubmitted: true });
+  });
+
+  it('returns to the still-filled form — not a blank or stale confirmation — when the pushed state resolves back to {}', async () => {
+    const user = userEvent.setup();
+    getEvent.mockResolvedValue(ticketlessEventInfo());
+    submit.mockResolvedValue({ reference_code: 'REF1', message: 'ok', email_sent: true });
+    render(RegisterPage);
+
+    await screen.findByTestId('register-form');
+    await fillMinimalRequiredFields(user);
+    await user.click(screen.getByTestId('register-submit-button'));
+    await screen.findByTestId('register-success-email');
+
+    // Simulates what a real Back press resolves $page.state to (see
+    // pageStateHelper's own comment) — this is the one thing a real
+    // browser's popstate would do that nothing in this jsdom render
+    // otherwise triggers.
+    pageStateHelper.setState({});
+
+    await screen.findByTestId('register-form');
+    expect(screen.queryByTestId('register-success-email')).not.toBeInTheDocument();
+    // Filled, not cleared — the same "drop back into the still-populated
+    // form" behavior as the confirmation screen's own "Rätta den" link
+    // (handleEditEmail), so Back and that link never disagree about what
+    // the guardian sees.
+    expect((document.getElementById('child-first-name-0') as HTMLInputElement).value).toBe('Alex');
+    expect((screen.getByTestId('register-contact-email') as HTMLInputElement).value).toBe(
+      'guardian@example.com'
+    );
+  });
+
+  it('never re-submits merely from the state change a Back press causes', async () => {
+    const user = userEvent.setup();
+    getEvent.mockResolvedValue(ticketlessEventInfo());
+    submit.mockResolvedValue({ reference_code: 'REF1', message: 'ok', email_sent: true });
+    render(RegisterPage);
+
+    await screen.findByTestId('register-form');
+    await fillMinimalRequiredFields(user);
+    await user.click(screen.getByTestId('register-submit-button'));
+    await screen.findByTestId('register-success-email');
+    expect(submit).toHaveBeenCalledTimes(1);
+
+    pageStateHelper.setState({});
+    await screen.findByTestId('register-form');
+    // Forward again, as a Forward press after that Back would do.
+    pageStateHelper.setState({ registrationSubmitted: true });
+    await screen.findByTestId('register-success-email');
+
+    expect(submit).toHaveBeenCalledTimes(1);
+  });
+
+  it('"Rätta den" pops the pushed entry via history.back(), same as a native Back press would resolve', async () => {
+    const user = userEvent.setup();
+    getEvent.mockResolvedValue(ticketlessEventInfo());
+    submit.mockResolvedValue({ reference_code: 'REF1', message: 'ok', email_sent: true });
+    render(RegisterPage);
+
+    await screen.findByTestId('register-form');
+    await fillMinimalRequiredFields(user);
+    await user.click(screen.getByTestId('register-submit-button'));
+    await screen.findByTestId('register-success-email');
+
+    await user.click(screen.getByTestId('register-edit-email'));
+
+    expect(window.history.back).toHaveBeenCalled();
+    await screen.findByTestId('register-form');
+  });
+});
 
 describe('Register page — ticket type capacity (sold out)', () => {
   beforeEach(() => {
