@@ -18,7 +18,13 @@
   import { page } from '$app/stores';
   import { pushState } from '$app/navigation';
   import { registrationApi } from '$lib/api/registrationService';
-  import { extractErrorMessage, extractFieldError, type ApiError } from '$lib/api/client';
+  import {
+    extractErrorMessage,
+    extractFieldError,
+    extractGroupError,
+    extractRowFieldError,
+    type ApiError
+  } from '$lib/api/client';
   import type {
     PromoCodeValidation,
     RegistrationEventInfo,
@@ -33,6 +39,12 @@
   import Icon from '$lib/components/ui/Icon.svelte';
   import Alert from '$lib/components/ui/Alert.svelte';
   import { isValidPhone } from '$lib/utils/phone';
+  import {
+    GUARDIAN_ONLY_VALUE,
+    guardianLineNeeded,
+    sortProblemsByDomOrder,
+    submittedParentEntries
+  } from '$lib/utils/guardian';
 
   type HealthConsentStatus = 'not_applicable' | 'granted' | 'declined';
 
@@ -53,6 +65,14 @@
     healthInfoStatus: HealthInfoStatus;
     consentNoticeShared: boolean;
     ticketTypeId: string;
+    // "No ticket, guardian only" (owner decision eb5d26f4, 2026-09-29): this
+    // adult is named as a guardian for the children but holds no ticket. A
+    // separate flag rather than a sentinel in ticketTypeId so nothing that
+    // reads ticketTypeId (composition counts, promo retraction, the payload)
+    // ever sees a fake id. Only ever set from the ticket <select>'s own
+    // option (see handleParentTicketTypeChange); false on flat-price events,
+    // which have no such select.
+    guardianOnly: boolean;
     // True from the moment a promo-code removal (see handleRemovePromoCode)
     // clears this row's ticketTypeId because it was holding a now-retracted
     // unlocked type — drives the "Koden togs bort" caption on this row's
@@ -212,6 +232,7 @@
       healthInfoStatus: 'none',
       consentNoticeShared: false,
       ticketTypeId: '',
+      guardianOnly: false,
       promoReset: false,
       extraSelections: {}
     };
@@ -424,8 +445,11 @@
   // without ever setting a server-derived `error` string.
   $effect(() => {
     if ((error || submitProblems.length > 0) && errorBannerEl) {
-      errorBannerEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      errorBannerEl.focus();
+      // block:'start' — with 'center' a tall summary (one line per problem)
+      // had its top edge, the heading, off the top of the screen. Focus
+      // with preventScroll so it doesn't fight the smooth scroll above.
+      errorBannerEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      errorBannerEl.focus({ preventScroll: true });
     }
   });
 
@@ -517,7 +541,10 @@
       rows.push({
         label: parentAttendeeLabel(p, i),
         ticketName: ticketType?.name ?? null,
-        extraLabels: personExtraLabels(p.extraSelections, false)
+        // A guardian-only row carries no extras (see handleSubmit's payload),
+        // so it must not list any either, even ones it clicked before
+        // switching to "no ticket".
+        extraLabels: parentTicketless(p) ? [] : personExtraLabels(p.extraSelections, false)
       });
     });
     children.forEach((c, i) => {
@@ -607,7 +634,7 @@
     const el = document.querySelector<HTMLElement>(problem.focusSelector);
     if (!el) return;
     el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    el.focus();
+    el.focus({ preventScroll: true });
   }
 
   // R3 (registration dev-cycle round 4, increment 5 revision): generic
@@ -618,6 +645,28 @@
   // by SubmitProblem.id — the same id the banner line for this field uses.
   function hasProblem(id: string): boolean {
     return submitProblems.some((p) => p.id === id);
+  }
+
+  // The text of one banner line, for showing the same problem under its own
+  // field (a red border with no words was seen on the phone box).
+  function problemMessage(id: string): string | null {
+    return submitProblems.find((p) => p.id === id)?.message ?? null;
+  }
+
+  // The inline caption text (and the matching aria-invalid/danger border) for
+  // a parent row's first-name box: "add a guardian" on Förälder 1 when no
+  // adult is named at all, "enter a first name" on any row that has other
+  // data typed in but no name. Read back from submitProblems (the banner's
+  // own lines) so the caption and the banner line are the same problem shown
+  // twice, and both disappear together when the field is edited.
+  function parentFirstNameProblem(index: number): string | null {
+    if (index === 0 && hasProblem('guardian-required')) return $t('register.guardianRequired');
+    if (hasProblem(`parent-first-name-${index}`)) {
+      return $t('register.parentNameRequired', {
+        values: { name: $t('register.parentLabel', { values: { number: index + 1 } }) }
+      });
+    }
+    return null;
   }
 
   // Removes a submitProblems entry the instant the field it's about
@@ -663,6 +712,16 @@
       loadingEvent = false;
     }
   });
+
+  // True for a parent row that holds no ticket: either the guardian chose
+  // "no ticket, guardian only", or the event's ticket types are all
+  // child-only so the row has no ticket select at all (the backend treats
+  // the adult as ticketless either way, and refuses per-attendee extras for
+  // them — so none may be sent, priced or required).
+  function parentTicketless(p: ParentRow): boolean {
+    if (p.guardianOnly) return true;
+    return !!eventInfo && eventInfo.ticket_types.length > 0 && applicableTicketTypes(false).length === 0;
+  }
 
   function applicableTicketTypes(isChild: boolean) {
     if (!eventInfo) return [];
@@ -729,7 +788,7 @@
   }
 
   // A parent row only needs its Relation flagged once it would actually be
-  // submitted — mirrors validParents' own first_name filter in handleSubmit,
+  // submitted — mirrors parentRowTouched, the filter handleSubmit submits by,
   // so an empty, never-touched extra row doesn't light up red purely
   // because Relation renders before first_name is typed. Gated on
   // relationshipMissingAttempted so nothing is flagged before a submit is
@@ -837,6 +896,26 @@
   // the old bind:value markup (confirmed failing pre-fix) and pass against
   // this.
   function handleParentTicketTypeChange(index: number, value: string) {
+    if (value === GUARDIAN_ONLY_VALUE) {
+      // "No ticket, guardian only": drop everything ticket-shaped on this
+      // row — the id, any promo-reset caption, and any extras already
+      // clicked (the backend 400s on extras for a ticketless adult, and the
+      // UI for them is hidden from here on, see the row's template).
+      const row = parents[index];
+      row.guardianOnly = true;
+      row.ticketTypeId = '';
+      row.promoReset = false;
+      row.extraSelections = {};
+      settlePromoRemovalMessageIfDone();
+      clearSubmitProblem(`parent-ticket-type-${index}`);
+      for (const problem of [...submitProblems]) {
+        if (problem.id.startsWith('parent-extra-') && problem.id.endsWith(`-${index}`)) {
+          clearSubmitProblem(problem.id);
+        }
+      }
+      return;
+    }
+    parents[index].guardianOnly = false;
     parents[index].ticketTypeId = value;
     if (value) {
       parents[index].promoReset = false;
@@ -1083,7 +1162,7 @@
     birthdate: string,
     isSelected: boolean
   ): string {
-    const base = `${ticketType.name} — ${formatCurrency(ticketType.price)} kr`;
+    const base = `${ticketType.name} – ${formatCurrency(ticketType.price)} kr`;
     if (isSelected) return base;
     if (!ticketAvailable(ticketType, isSelected)) {
       return `${base} (${$t('register.ticketSoldOutMarker')})`;
@@ -1104,6 +1183,9 @@
     if (!eventInfo) return 0;
     let total = 0;
     for (const parent of parents) {
+      // Guardian-only: no ticket and no extras, so nothing to price (required
+      // extras would otherwise still count via extraState's selected default).
+      if (parentTicketless(parent)) continue;
       const ticketType = eventInfo.ticket_types.find((tt) => tt.id === parent.ticketTypeId);
       if (ticketType) total += parseFloat(ticketType.price);
       for (const extra of applicablePersonExtras(false)) {
@@ -1413,19 +1495,30 @@
       }
     });
 
-    // A parent row with a blank first name is dropped here rather than
-    // required — this form does NOT enforce "at least one named
-    // parent/guardian per registration" (a children-only registration
-    // passes both here and server-side). That's deliberate for now: the
-    // owner deferred the actual guardian requirement to a separate design
-    // session rather than have this increment invent one (knowitall task
-    // c129cd8d). Until that lands, Förälder 1's first name has no required
-    // star (see the label below) and this filter's behavior is unchanged —
-    // don't add a guardian requirement here.
-    const validParents = parents.filter((p) => p.first_name.trim().length > 0);
-    const validParentEntries = parents
-      .map((p, index) => ({ p, index }))
-      .filter(({ p }) => p.first_name.trim().length > 0);
+    // Guardian rule (owner decision eb5d26f4, 2026-09-29; the earlier
+    // "children-only passes" deferral, knowitall task c129cd8d, is closed):
+    // a guardian is required exactly when the registration has a child —
+    // any named adult row counts as a guardian of all of them, ticketed or
+    // not. A row is dropped only when the WHOLE row is untouched (see
+    // parentRowTouched); a row with any data in it is in play, so a blank
+    // Förälder 1 next to typed-in data is asked for its name here rather
+    // than silently discarded along with that data. The server enforces the
+    // same rules (RegistrationSubmitSerializer.validate); this is the fast,
+    // at-the-field version of them.
+    const parentEntries = submittedParentEntries(parents);
+    const unnamedParentEntries = parentEntries.filter(({ p }) => p.first_name.trim().length === 0);
+    const validParentEntries = parentEntries.filter(({ p }) => p.first_name.trim().length > 0);
+    const validParents = validParentEntries.map(({ p }) => p);
+
+    for (const { p, index } of unnamedParentEntries) {
+      problems.push({
+        id: `parent-first-name-${index}`,
+        message: $t('register.parentNameRequired', {
+          values: { name: parentAttendeeLabel(p, index) }
+        }),
+        focusSelector: `#parent-first-name-${index}`
+      });
+    }
 
     if (children.length === 0 && validParents.length === 0) {
       problems.push({
@@ -1433,10 +1526,38 @@
         message: $t('checkin.atLeastOneMemberRequired'),
         focusSelector: null
       });
+    } else if (
+      // The generic "add a guardian" line is only for a form where no adult
+      // row has been touched at all. As soon as any adult row holds data,
+      // that row's own named lines (first name, relation, phone) say what
+      // is missing — stacking "add a guardian" on top of "enter a first
+      // name for Förälder 2" read as two contradictory problems.
+      guardianLineNeeded(parents, children.length)
+    ) {
+      problems.push({
+        id: 'guardian-required',
+        message: $t('register.fieldErrorNamed', {
+          values: {
+            name: $t('register.parentLabel', { values: { number: 1 } }),
+            message: $t('register.guardianRequired')
+          }
+        }),
+        focusSelector: '#parent-first-name-0'
+      });
     }
 
     for (const { p, index } of validParentEntries) {
-      if (p.phone && !isValidPhone(p.phone)) {
+      // Phone is required for every guardian (owner decision eb5d26f4,
+      // child safety), whether or not this person holds a ticket.
+      if (!p.phone.trim()) {
+        problems.push({
+          id: `parent-phone-${index}`,
+          message: $t('register.parentPhoneRequired', {
+            values: { name: parentAttendeeLabel(p, index) }
+          }),
+          focusSelector: `#parent-phone-${index}`
+        });
+      } else if (!isValidPhone(p.phone)) {
         problems.push({
           id: `parent-phone-${index}`,
           message: $t('checkin.invalidPhone'),
@@ -1473,7 +1594,10 @@
     const requiresTicketType = !!eventInfo && eventInfo.ticket_types.length > 0;
     if (requiresTicketType) {
       for (const { p, index } of validParentEntries) {
-        if (!p.ticketTypeId) {
+        // A guardian-only row deliberately has no ticket type — and neither
+        // can a parent on an event whose ticket types are all child-only,
+        // where there is no select to choose one from.
+        if (!p.ticketTypeId && !parentTicketless(p)) {
           problems.push({
             id: `parent-ticket-type-${index}`,
             message: $t('register.ticketTypeRequired', {
@@ -1497,6 +1621,8 @@
     }
 
     for (const { p, index } of validParentEntries) {
+      // No extras for a guardian-only row (none are offered, none are sent).
+      if (parentTicketless(p)) continue;
       for (const extra of applicablePersonExtras(false)) {
         if (extra.required && extra.requires_choice && extraState(p.extraSelections, extra).choiceId === '') {
           problems.push({
@@ -1541,7 +1667,10 @@
     }
 
     if (problems.length > 0) {
-      submitProblems = problems;
+      // Listed in the order the fields appear on the page (email, adults,
+      // children, whole-registration items), not in the order the checks
+      // above happen to run.
+      submitProblems = sortProblemsByDomOrder(problems);
       error = $t('register.errorBannerHeading');
       return;
     }
@@ -1565,8 +1694,14 @@
         allergies: p.healthInfoStatus === 'consented' ? p.allergies : '',
         notes: p.healthInfoStatus === 'consented' ? p.notes : '',
         health_consent_status: statusMap[p.healthInfoStatus],
-        ticket_type: p.ticketTypeId || null,
-        extras: buildExtraSelections(p.extraSelections, applicablePersonExtras(false))
+        // Guardian-only: ticket_type null and NO extras — the frontend
+        // defaults required per-attendee extras to selected, and the backend
+        // answers extras on a ticketless adult with a 400 ("Extras can only
+        // be added for an adult with a ticket"), so they must not ride along.
+        ticket_type: p.guardianOnly ? null : p.ticketTypeId || null,
+        extras: parentTicketless(p)
+          ? []
+          : buildExtraSelections(p.extraSelections, applicablePersonExtras(false))
       })),
       children: children.map((child) => ({
         first_name: child.first_name.trim(),
@@ -1665,6 +1800,25 @@
       // comment.
       const contactEmailInvalid = contactEmailServerError(apiError.details);
 
+      // Guardian/phone rejections (owner decision eb5d26f4) are rewritten
+      // into localized, named summary lines below rather than surfaced as
+      // the server's own text: this client sends no Accept-Language, so the
+      // backend's message would come back in its default language whatever
+      // the guardian is reading. Their top line is therefore the generic
+      // heading too, like contact_email's, not the server's raw string.
+      const submittedParents = submittedParentEntries(parents);
+      const guardianServerError = extractGroupError(apiError.details, 'parents') !== null;
+      const phoneServerErrors = submittedParents.some(
+        (_entry, payloadIndex) =>
+          extractRowFieldError(apiError.details, 'parents', payloadIndex, 'phone') !== null
+      );
+      // Shape (d) too: its server text goes on the row's own summary line
+      // below, so the top line is the generic heading rather than a second
+      // copy of the same sentence.
+      const parentRowServerErrors = submittedParents.some(
+        (_entry, payloadIndex) => extractFieldError(apiError.details, 'parents', payloadIndex) !== null
+      );
+
       // Prefer the server's specific reason (e.g. "This attendee doesn't
       // meet this ticket type's age requirements.") — extracted straight
       // from apiError.details rather than apiError.message, since the
@@ -1672,9 +1826,10 @@
       // (client.ts::extractErrorMessage's own fallback) and that's exactly
       // the non-specific case this must not surface as if it were real
       // information.
-      error = contactEmailInvalid
-        ? $t('register.errorBannerHeading')
-        : extractErrorMessage(apiError.details, '') || $t('register.submitError');
+      error =
+        contactEmailInvalid || guardianServerError || phoneServerErrors || parentRowServerErrors
+          ? $t('register.errorBannerHeading')
+          : extractErrorMessage(apiError.details, '') || $t('register.submitError');
 
       // Fold a 400 that maps to a specific attendee into the same named,
       // clickable summary the client-side checks above use (increment 5,
@@ -1682,13 +1837,10 @@
       // as an inline caption under that child's ticket select; this is the
       // same information, also in the banner. Parent indices in the DRF
       // error body are positions in the submitted payload.parents array
-      // (only named parents are sent, see validParentEntries in
-      // handleSubmit), not positions in the full `parents` state array, so
-      // this re-derives that same filtered order rather than indexing
-      // `parents` directly.
-      const parentEntries = parents
-        .map((p, index) => ({ p, index }))
-        .filter(({ p }) => p.first_name.trim().length > 0);
+      // (only touched parent rows are sent, see
+      // submittedParentEntries in handleSubmit), not positions in the full
+      // `parents` state array, so this re-derives that same filtered order
+      // rather than indexing `parents` directly.
       const serverProblems: SubmitProblem[] = [];
       if (contactEmailInvalid) {
         serverProblems.push({
@@ -1697,7 +1849,35 @@
           focusSelector: '#contact-email'
         });
       }
-      parentEntries.forEach(({ p, index }, payloadIndex) => {
+      // Three server shapes land here, all HTTP 400 (see
+      // RegistrationSubmitSerializer / registrations/views.py):
+      //   (a) {"parents": ["msg"]}             children but no guardian -> Förälder 1
+      //   (b) {"parents": [{}, {"phone": []}]}  DRF per-row shape        -> that row's phone
+      //   (d) {"parents": {"0": ["msg"]}}      extras on a ticketless adult -> that row
+      // Client-side validation normally prevents all three; this is the
+      // backstop, and it lands each one on the right row and in the summary.
+      if (extractGroupError(apiError.details, 'parents') !== null) {
+        serverProblems.push({
+          id: 'guardian-required',
+          message: $t('register.fieldErrorNamed', {
+            values: {
+              name: $t('register.parentLabel', { values: { number: 1 } }),
+              message: $t('register.guardianRequired')
+            }
+          }),
+          focusSelector: '#parent-first-name-0'
+        });
+      }
+      submittedParents.forEach(({ p, index }, payloadIndex) => {
+        if (extractRowFieldError(apiError.details, 'parents', payloadIndex, 'phone') !== null) {
+          serverProblems.push({
+            id: `parent-phone-${index}`,
+            message: $t('register.parentPhoneRequired', {
+              values: { name: parentAttendeeLabel(p, index) }
+            }),
+            focusSelector: `#parent-phone-${index}`
+          });
+        }
         const fieldMessage = extractFieldError(apiError.details, 'parents', payloadIndex);
         if (fieldMessage) {
           serverProblems.push({
@@ -1721,7 +1901,7 @@
           });
         }
       });
-      submitProblems = serverProblems;
+      submitProblems = sortProblemsByDomOrder(serverProblems);
     } finally {
       submitting = false;
     }
@@ -2286,28 +2466,89 @@
         </h2>
         <div class="space-y-3">
           {#each parents as parent, index (index)}
-            <div class="border border-neutral-200 rounded-card p-3 bg-neutral-50">
+            <div
+              class="border border-neutral-200 rounded-card p-3 bg-neutral-50"
+              role="group"
+              aria-labelledby={`parent-heading-${index}`}
+            >
+              <!--
+                Title row: "Förälder N", styled like the child card's
+                "Barn N" and a real heading (h3, under the h2 section
+                titles) so a screen-reader user can jump card to card. The
+                card is a role="group" named by it. "Remove" sits here,
+                top-right, well away from the consent radios below where a
+                mis-tap once deleted a filled-in adult. No confirm(): undo
+                was declined for this round.
+              -->
+              <div class="flex justify-between items-center mb-2">
+                <h3
+                  id={`parent-heading-${index}`}
+                  class="text-sm font-semibold text-neutral-700"
+                  data-testid={`parent-heading-${index}`}
+                >
+                  {$t('register.parentLabel', { values: { number: index + 1 } })}
+                </h3>
+                {#if parents.length > 1}
+                  <button
+                    type="button"
+                    on:click={() => handleRemoveParent(index)}
+                    aria-describedby={`parent-heading-${index}`}
+                    class="inline-flex items-center gap-1 rounded-button px-1 text-danger-600 hover:text-danger-700 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-danger-500"
+                  >
+                    <span aria-hidden="true" class="inline-flex"><Icon name="x" size="xs" /></span>
+                    {$t('checkin.removeParent')}
+                  </button>
+                {/if}
+              </div>
               <div class="grid grid-cols-2 gap-2 mb-2">
                 <div>
                   <label for={`parent-first-name-${index}`} class="block text-xs text-neutral-600 mb-1">
                     <!--
-                      No required star here, deliberately (R1, registration
-                      dev-cycle round 4, increment 5 revision) — see
-                      validParents' own comment in handleSubmit above. This
-                      row is silently dropped, not required, if left blank;
-                      a star here would promise an enforcement this form
-                      doesn't have.
+                      Förälder 1 carries the star while the registration has a
+                      child: a guardian is required then (owner decision
+                      eb5d26f4, see handleSubmit). It is the *first* row that
+                      is asked for because any adult row counts, and this is
+                      the one every guardian sees first. Further rows are
+                      optional as a whole (a wholly untouched row is
+                      dropped), so no star — but a row with anything typed
+                      in it is asked for its name, see parentRowTouched.
                     -->
                     {$t('checkin.parentFirstName')}
+                    {#if index === 0 && children.length > 0}
+                      <span class="text-danger-600" aria-hidden="true">*</span>
+                    {/if}
                   </label>
                   <input
                     id={`parent-first-name-${index}`}
                     type="text"
                     bind:value={parent.first_name}
+                    on:input={() => {
+                      clearSubmitProblem(`parent-first-name-${index}`);
+                      if (index === 0) clearSubmitProblem('guardian-required');
+                    }}
                     placeholder={$t('checkin.parentFirstNamePlaceholder')}
                     maxlength="255"
-                    class="w-full px-2 py-1.5 text-sm border border-neutral-300 rounded-button focus:outline-none focus:ring-2 focus:ring-primary-500"
+                    required={index === 0 && children.length > 0}
+                    aria-required={index === 0 && children.length > 0 ? 'true' : undefined}
+                    aria-invalid={parentFirstNameProblem(index) ? 'true' : 'false'}
+                    aria-describedby={parentFirstNameProblem(index)
+                      ? `parent-first-name-problem-${index}`
+                      : undefined}
+                    class={`w-full px-2 py-1.5 text-sm border rounded-button focus:outline-none focus:ring-2 ${
+                      parentFirstNameProblem(index)
+                        ? 'border-danger-600 focus:ring-danger-500 focus:border-danger-600'
+                        : 'border-neutral-300 focus:ring-primary-500'
+                    }`}
                   />
+                  {#if parentFirstNameProblem(index)}
+                    <p
+                      id={`parent-first-name-problem-${index}`}
+                      class="mt-1 text-xs text-danger-700"
+                      data-testid={`parent-first-name-problem-${index}`}
+                    >
+                      {parentFirstNameProblem(index)}
+                    </p>
+                  {/if}
                 </div>
                 <div>
                   <label for={`parent-last-name-${index}`} class="block text-xs text-neutral-600 mb-1">
@@ -2363,22 +2604,36 @@
                 </div>
                 <div>
                   <label for={`parent-phone-${index}`} class="block text-xs text-neutral-600 mb-1">
-                    {$t('checkin.parentPhone')}
+                    {$t('checkin.parentPhone')} <span class="text-danger-600" aria-hidden="true">*</span>
                   </label>
                   <input
                     id={`parent-phone-${index}`}
                     type="tel"
                     bind:value={parent.phone}
                     on:input={() => clearSubmitProblem(`parent-phone-${index}`)}
-                    placeholder={$t('checkin.parentPhonePlaceholder')}
+                    placeholder={$t('register.parentPhonePlaceholder')}
                     maxlength="50"
+                    required
+                    aria-required="true"
                     aria-invalid={hasProblem(`parent-phone-${index}`) ? 'true' : 'false'}
                     class={`w-full px-2 py-1.5 text-sm border rounded-button focus:outline-none focus:ring-2 ${
                       hasProblem(`parent-phone-${index}`)
                         ? 'border-danger-600 focus:ring-danger-500 focus:border-danger-600'
                         : 'border-neutral-300 focus:ring-primary-500'
                     }`}
+                    aria-describedby={hasProblem(`parent-phone-${index}`)
+                      ? `parent-phone-problem-${index}`
+                      : undefined}
                   />
+                  {#if problemMessage(`parent-phone-${index}`)}
+                    <p
+                      id={`parent-phone-problem-${index}`}
+                      class="mt-1 text-xs text-danger-700"
+                      data-testid={`parent-phone-problem-${index}`}
+                    >
+                      {problemMessage(`parent-phone-${index}`)}
+                    </p>
+                  {/if}
                 </div>
               </div>
               <div class="grid grid-cols-2 gap-2">
@@ -2404,7 +2659,7 @@
                   </label>
                   <select
                     id={`parent-ticket-type-${index}`}
-                    value={parent.ticketTypeId}
+                    value={parent.guardianOnly ? GUARDIAN_ONLY_VALUE : parent.ticketTypeId}
                     on:change={(e) =>
                       handleParentTicketTypeChange(index, (e.currentTarget as HTMLSelectElement).value)}
                     required
@@ -2434,7 +2689,7 @@
                     }`}
                     data-testid={`parent-ticket-type-${index}`}
                   >
-                    <option value="" selected={parent.ticketTypeId === ''}>
+                    <option value="" selected={parent.ticketTypeId === '' && !parent.guardianOnly}>
                       {$t('register.ticketTypePlaceholder')}
                     </option>
                     {#each applicableTicketTypes(false) as ticketType (ticketType.id)}
@@ -2447,7 +2702,30 @@
                         {ticketOptionLabel(ticketType, '', ticketType.id === parent.ticketTypeId)}
                       </option>
                     {/each}
+                    <!--
+                      "Guardian only, no ticket" lives in this select rather
+                      than in a checkbox beside it: the select is already the
+                      one required decision about "what is this person here
+                      as", so the answer stays a single choice (a ticket, or
+                      no ticket) instead of two controls that can contradict
+                      each other, and the row's existing required star and
+                      "choose a ticket type" error keep meaning the same
+                      thing. Only offered where the select exists, i.e. on
+                      events with ticket types; flat-price events have no
+                      such choice and are unchanged.
+                    -->
+                    <option value={GUARDIAN_ONLY_VALUE} selected={parent.guardianOnly}>
+                      {$t('register.ticketGuardianOnly')}
+                    </option>
                   </select>
+                  {#if parent.guardianOnly}
+                    <p
+                      class="mt-1 text-xs text-neutral-600"
+                      data-testid={`parent-guardian-only-hint-${index}`}
+                    >
+                      {$t('register.guardianOnlyHint')}
+                    </p>
+                  {/if}
                   {#if ticketCompositionWarning(parent.ticketTypeId)}
                     <p
                       id={`parent-ticket-composition-${index}`}
@@ -2480,6 +2758,9 @@
                 </div>
               {/if}
 
+              <!-- A guardian-only row is offered no extras: none are sent (the backend
+                   rejects extras on an adult without a ticket). -->
+              {#if !parentTicketless(parent)}
               {#each applicablePersonExtras(false).filter((extra) => extra.required) as extra (extra.id)}
                 {@const state = extraState(parent.extraSelections, extra)}
                 {#if extra.requires_choice}
@@ -2564,6 +2845,7 @@
                   {/each}
                 </div>
               {/if}
+              {/if}
 
               <div class="mt-2">
                 <ConsentCapture
@@ -2583,15 +2865,6 @@
                 />
               </div>
 
-              {#if parents.length > 1}
-                <button
-                  type="button"
-                  on:click={() => handleRemoveParent(index)}
-                  class="mt-2 text-danger-600 hover:text-danger-700 text-xs font-medium"
-                >
-                  {$t('checkin.removeParent')}
-                </button>
-              {/if}
             </div>
           {/each}
         </div>
@@ -2610,17 +2883,27 @@
         </h2>
         <div class="space-y-3">
           {#each children as child, index (index)}
-            <div class="border border-neutral-200 rounded-card p-3 bg-neutral-50">
+            <div
+              class="border border-neutral-200 rounded-card p-3 bg-neutral-50"
+              role="group"
+              aria-labelledby={`child-heading-${index}`}
+            >
               <div class="flex justify-between items-center mb-2">
-                <span class="text-sm font-semibold text-neutral-700">
+                <h3
+                  id={`child-heading-${index}`}
+                  class="text-sm font-semibold text-neutral-700"
+                  data-testid={`child-heading-${index}`}
+                >
                   {$t('checkin.childNumber', { values: { number: index + 1 } })}
-                </span>
+                </h3>
                 {#if children.length > 1}
                   <button
                     type="button"
                     on:click={() => handleRemoveChild(index)}
-                    class="text-danger-600 hover:text-danger-700 text-xs font-medium"
+                    aria-describedby={`child-heading-${index}`}
+                    class="inline-flex items-center gap-1 rounded-button px-1 text-danger-600 hover:text-danger-700 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-danger-500"
                   >
+                    <span aria-hidden="true" class="inline-flex"><Icon name="x" size="xs" /></span>
                     {$t('checkin.removeChild')}
                   </button>
                 {/if}

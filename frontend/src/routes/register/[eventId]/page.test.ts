@@ -90,6 +90,11 @@ vi.mock('svelte-i18n', () => {
     'register.requiredFieldLegend': 'marks a required field.',
     'register.childInfoIncomplete': 'Fill in first name, last name and birthdate for {name}.',
     'register.fieldErrorNamed': '{name}: {message}',
+    // Guardian rule (owner decision eb5d26f4) — mapped so tests assert the
+    // sentence a guardian actually reads, not the key.
+    'register.guardianRequired': 'Add an adult guardian for the children.',
+    'register.parentPhoneRequired': 'Enter a phone number for {name}.',
+    'register.ticketGuardianOnly': 'No ticket – guardian only',
     // Success screen (increment 7 revision, R1/R2/R5) — mapped for real so
     // tests can assert the actual copy a guardian sees, same pattern as the
     // error-summary entries above. wrongEmailPrompt/fixEmailButton are
@@ -595,8 +600,25 @@ function ticketlessEventInfo(overrides: Partial<Record<string, unknown>> = {}) {
   return baseEventInfo({ ticket_types: [], ...overrides });
 }
 
-async function fillMinimalRequiredFields(user: ReturnType<typeof userEvent.setup>) {
+// Names a parent row with everything a guardian needs besides a ticket
+// choice: first name, relation, phone.
+async function fillGuardian(user: ReturnType<typeof userEvent.setup>, index = 0) {
+  await user.type(document.getElementById(`parent-first-name-${index}`) as HTMLInputElement, 'Sam');
+  await user.selectOptions(screen.getByTestId(`parent-relationship-${index}`), 'GUARDIAN');
+  await user.type(document.getElementById(`parent-phone-${index}`) as HTMLInputElement, '070-123 45 67');
+}
+
+// Guardian rule (owner decision eb5d26f4, 2026-09-29): a registration with a
+// child needs a named adult with a relation and a phone number, so a
+// "minimal valid submit" now includes one. `guardian: false` fills only the
+// contact email and the child, for the tests that build the parent row
+// themselves (or assert what happens without one).
+async function fillMinimalRequiredFields(
+  user: ReturnType<typeof userEvent.setup>,
+  { guardian = true }: { guardian?: boolean } = {}
+) {
   await user.type(screen.getByTestId('register-contact-email'), 'guardian@example.com');
+  if (guardian) await fillGuardian(user);
   await user.type(document.getElementById('child-first-name-0') as HTMLInputElement, 'Alex');
   await user.type(document.getElementById('child-last-name-0') as HTMLInputElement, 'Karlsson');
   await user.type(document.getElementById('child-birthdate-0') as HTMLInputElement, '2015-05-01');
@@ -1030,14 +1052,15 @@ describe('Register page — success screen (increment 7)', () => {
     submit.mockResolvedValue({ reference_code: 'REF1', message: 'ok', email_sent: true });
     render(RegisterPage);
 
-    // Two children, no named parent — this sidesteps a pre-existing,
-    // unrelated gap where a named parent is required to hold a ticket type
-    // even on an event whose only configured types are child-only (nothing
-    // this increment touches; see requiresTicketType/validParentEntries in
-    // handleSubmit). Two attendees is enough to prove the summary lists
-    // each one with their own auto-suggested ticket and sums the total
-    // correctly (100 + 150), which a single-attendee case can't show.
+    // Two children plus a named guardian: the adult is required now (owner
+    // decision eb5d26f4). This event has no adult ticket type, so the parent
+    // row renders no ticket select at all and the adult is simply ticketless.
+    // Two children is enough to prove the summary lists each one with their
+    // own auto-suggested ticket and sums the total correctly (100 + 150),
+    // which a single-attendee case can't show — and the adult must add
+    // nothing to it.
     await screen.findByTestId('register-form');
+    await fillGuardian(user);
     await user.type(screen.getByTestId('register-contact-email'), 'guardian@example.com');
     await user.type(document.getElementById('child-first-name-0') as HTMLInputElement, 'Alex');
     await user.type(document.getElementById('child-last-name-0') as HTMLInputElement, 'Karlsson');
@@ -1059,6 +1082,8 @@ describe('Register page — success screen (increment 7)', () => {
     // Auto-suggested from each birthdate (see suggestChildTicketType).
     expect(summary.textContent).toContain('Barn (0-12 år)');
     expect(summary.textContent).toContain('Ungdom (13-17 år)');
+    // The guardian-only adult is listed too, with no ticket.
+    expect(summary.textContent).toContain('register.summaryNoTicket');
     expect(screen.getByTestId('register-summary-total').textContent).toContain('250.00');
   });
 
@@ -1128,6 +1153,7 @@ describe('Register page — success screen (increment 7)', () => {
     render(RegisterPage);
 
     await screen.findByTestId('register-form');
+    await fillGuardian(user);
     await user.type(screen.getByTestId('register-contact-email'), 'guardian@example.com');
     await user.type(document.getElementById('child-first-name-0') as HTMLInputElement, 'Alex');
     await user.type(document.getElementById('child-last-name-0') as HTMLInputElement, 'Karlsson');
@@ -1357,8 +1383,11 @@ describe('Register page — ticket type capacity (sold out)', () => {
     render(RegisterPage);
 
     const select = (await screen.findByTestId('parent-ticket-type-0')) as HTMLSelectElement;
-    const options = Array.from(select.options).filter((o) => o.value !== '');
-    // Still both options present — disabled, not removed (same "don't
+    // The trailing "no ticket, guardian only" option is not a ticket type.
+    const options = Array.from(select.options).filter(
+      (o) => o.value !== '' && o.value !== 'guardian-only'
+    );
+    // Still both ticket options present — disabled, not removed (same "don't
     // reorder/shrink mid-edit" reasoning as the age-window case).
     expect(options).toHaveLength(2);
 
@@ -2056,7 +2085,7 @@ describe('Register page — Relation is required (no default)', () => {
     render(RegisterPage);
 
     await screen.findByTestId('register-form');
-    await fillMinimalRequiredFields(user);
+    await fillMinimalRequiredFields(user, { guardian: false });
     // Naming a parent row makes it a "valid" parent that must be submitted
     // — and therefore must have a Relation chosen.
     await user.type(document.getElementById('parent-first-name-0') as HTMLInputElement, 'Kim');
@@ -2090,8 +2119,9 @@ describe('Register page — Relation is required (no default)', () => {
     render(RegisterPage);
 
     await screen.findByTestId('register-form');
-    await fillMinimalRequiredFields(user);
+    await fillMinimalRequiredFields(user, { guardian: false });
     await user.type(document.getElementById('parent-first-name-0') as HTMLInputElement, 'Kim');
+    await user.type(document.getElementById('parent-phone-0') as HTMLInputElement, '070-123 45 67');
 
     const relationSelect = screen.getByTestId('parent-relationship-0') as HTMLSelectElement;
     await user.selectOptions(relationSelect, 'MOM');
@@ -2103,7 +2133,7 @@ describe('Register page — Relation is required (no default)', () => {
     expect(payload.parents[0].relationship_type).toBe('MOM');
   });
 
-  it('does not block submit when no parent row is named', async () => {
+  it('does not ask a wholly untouched spare row for a Relation', async () => {
     const user = userEvent.setup();
     getEvent.mockResolvedValue(ticketlessEventInfo());
     submit.mockResolvedValue({ reference_code: 'REF1', message: 'ok', email_sent: true });
@@ -2111,11 +2141,14 @@ describe('Register page — Relation is required (no default)', () => {
 
     await screen.findByTestId('register-form');
     await fillMinimalRequiredFields(user);
-    // Default parent row is left entirely empty (not "valid"), so Relation
-    // must not be required for it.
+    await user.click(screen.getByText(/Add parent/));
+    // The second row is left entirely empty, so it is dropped and nothing
+    // about it (Relation, phone) is required.
     await user.click(screen.getByTestId('register-submit-button'));
 
     await waitFor(() => expect(submit).toHaveBeenCalledTimes(1));
+    const payload = submit.mock.calls[0][0] as { parents: unknown[] };
+    expect(payload.parents).toHaveLength(1);
   });
 });
 
@@ -2244,7 +2277,7 @@ describe('Register page — error summary revision (R1-R5)', () => {
     vi.clearAllMocks();
   });
 
-  it('R1: Förälder 1 first name carries no required star or attribute, and a blank row is still silently dropped', async () => {
+  it('R1: Förälder 1 first name is required whenever a child is present, and a blank Förälder 1 is not dropped', async () => {
     const user = userEvent.setup();
     getEvent.mockResolvedValue(ticketlessEventInfo());
     submit.mockResolvedValue({ reference_code: 'REF1', message: 'ok', email_sent: true });
@@ -2252,22 +2285,45 @@ describe('Register page — error summary revision (R1-R5)', () => {
 
     await screen.findByTestId('register-form');
 
-    const firstNameInput = document.getElementById('parent-first-name-0') as HTMLInputElement;
-    expect(firstNameInput).not.toBeRequired();
-    expect(firstNameInput.getAttribute('aria-required')).toBeNull();
-    // The owner deferred the actual guardian requirement (knowitall
-    // c129cd8d) — this label must not promise an enforcement the form
-    // doesn't have.
+    // Owner decision eb5d26f4: children need a guardian, so the label
+    // promises a requirement the form now enforces.
     const label = document.querySelector('label[for="parent-first-name-0"]');
-    expect(label?.textContent?.trim()).toBe('checkin.parentFirstName');
+    expect(label?.textContent).toContain('*');
 
-    await fillMinimalRequiredFields(user);
-    // Förälder 1 stays entirely blank.
+    // Förälder 1 stays blank but a second row carries data: the blank row is
+    // NOT silently dropped (that is how a registration ended up with a
+    // parent at index 1 and nobody at index 0).
+    await fillMinimalRequiredFields(user, { guardian: false });
+    await user.click(screen.getByText(/Add parent/));
+    await fillGuardian(user, 1);
     await user.click(screen.getByTestId('register-submit-button'));
 
+    // Row 1 names a guardian, so the rule is met and the blank row 0 is
+    // dropped only because it is wholly untouched.
     await waitFor(() => expect(submit).toHaveBeenCalledTimes(1));
-    const payload = submit.mock.calls[0][0] as { parents: unknown[] };
-    expect(payload.parents).toHaveLength(0);
+    const payload = submit.mock.calls[0][0] as { parents: { first_name: string }[] };
+    expect(payload.parents).toHaveLength(1);
+    expect(payload.parents[0].first_name).toBe('Sam');
+  });
+
+  it('R1: a child with no named parent blocks submit with a line naming Förälder 1', async () => {
+    const user = userEvent.setup();
+    getEvent.mockResolvedValue(ticketlessEventInfo());
+    render(RegisterPage);
+
+    await screen.findByTestId('register-form');
+    await fillMinimalRequiredFields(user, { guardian: false });
+    await user.click(screen.getByTestId('register-submit-button'));
+
+    expect(submit).not.toHaveBeenCalled();
+    const summary = (await screen.findByText('Please fix the following before you can submit:')).parentElement as HTMLElement;
+    expect(summary.textContent).toContain('Parent 1: Add an adult guardian for the children.');
+    expect(screen.getByTestId('parent-first-name-problem-0')).toBeInTheDocument();
+    expect(document.getElementById('parent-first-name-0')?.getAttribute('aria-invalid')).toBe('true');
+
+    // Typing a name clears the problem.
+    await user.type(document.getElementById('parent-first-name-0') as HTMLInputElement, 'Sam');
+    expect(screen.queryByTestId('parent-first-name-problem-0')).not.toBeInTheDocument();
   });
 
   it('R2: a malformed email produces a named, focusable banner line', async () => {
@@ -2324,6 +2380,7 @@ describe('Register page — error summary revision (R1-R5)', () => {
     render(RegisterPage);
 
     await screen.findByTestId('register-form');
+    await fillGuardian(user);
     await user.type(document.getElementById('child-first-name-0') as HTMLInputElement, 'Alex');
     await user.type(document.getElementById('child-last-name-0') as HTMLInputElement, 'Karlsson');
     await user.type(document.getElementById('child-birthdate-0') as HTMLInputElement, '2015-05-01');
@@ -2373,5 +2430,370 @@ describe('Register page — error summary revision (R1-R5)', () => {
     expect(document.getElementById('parent-email-0')).toHaveAttribute('maxlength', '254');
     expect(document.getElementById('child-first-name-0')).toHaveAttribute('maxlength', '255');
     expect(document.getElementById('child-last-name-0')).toHaveAttribute('maxlength', '255');
+  });
+});
+
+// Owner decision eb5d26f4 (2026-09-29): a guardian is required when the
+// registration includes a child; an adult with no ticket still counts.
+describe('Register page — guardian-only adult', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  function requiredExtrasFamilyEvent() {
+    return familyEventInfo({
+      extras: [
+        {
+          id: 'extra-cabin',
+          name: 'Boende',
+          price: '500.00',
+          session_id: null,
+          per_attendee: true,
+          applies_to: 'either',
+          requires_choice: false,
+          required: true,
+          default_selected: false,
+          choices: []
+        },
+        {
+          id: 'extra-meals',
+          name: 'Måltider hela helgen',
+          price: '300.00',
+          session_id: null,
+          per_attendee: true,
+          applies_to: 'either',
+          requires_choice: false,
+          required: false,
+          default_selected: false,
+          choices: []
+        }
+      ]
+    });
+  }
+
+  async function fillChild(user: ReturnType<typeof userEvent.setup>) {
+    await user.type(screen.getByTestId('register-contact-email'), 'guardian@example.com');
+    await user.type(document.getElementById('child-first-name-0') as HTMLInputElement, 'Alex');
+    await user.type(document.getElementById('child-last-name-0') as HTMLInputElement, 'Karlsson');
+    await user.type(document.getElementById('child-birthdate-0') as HTMLInputElement, '2015-05-01');
+    await user.tab();
+    await user.selectOptions(await screen.findByTestId('child-ticket-type-0'), 'tt-solo');
+  }
+
+  it('offers "no ticket, guardian only" as an option of the parent ticket select', async () => {
+    getEvent.mockResolvedValue(requiredExtrasFamilyEvent());
+    render(RegisterPage);
+    const select = (await screen.findByTestId('parent-ticket-type-0')) as HTMLSelectElement;
+    expect(Array.from(select.options).map((o) => o.value)).toContain('guardian-only');
+  });
+
+  it('sends ticket_type null and no extras for a guardian-only row, even with a required extra, and prices it at 0', async () => {
+    const user = userEvent.setup();
+    getEvent.mockResolvedValue(requiredExtrasFamilyEvent());
+    submit.mockResolvedValue({ reference_code: 'REF1', message: 'ok', email_sent: true });
+    render(RegisterPage);
+
+    await screen.findByTestId('register-form');
+    await fillGuardian(user);
+    await user.selectOptions(screen.getByTestId('parent-ticket-type-0'), 'guardian-only');
+    await fillChild(user);
+
+    // Child: Solo 300 + required Boende 500. The adult adds nothing.
+    const total = await screen.findByTestId('register-running-total');
+    expect(total.textContent).toContain('800.00');
+
+    await user.click(screen.getByTestId('register-submit-button'));
+    await waitFor(() => expect(submit).toHaveBeenCalledTimes(1));
+    const payload = submit.mock.calls[0][0] as {
+      parents: { ticket_type: string | null; extras: unknown[] }[];
+      children: { ticket_type: string | null; extras: unknown[] }[];
+    };
+    expect(payload.parents).toHaveLength(1);
+    expect(payload.parents[0].ticket_type).toBeNull();
+    expect(payload.parents[0].extras).toEqual([]);
+    // Children must still send a ticket type (and their own extras).
+    expect(payload.children[0].ticket_type).toBe('tt-solo');
+    expect(payload.children[0].extras.length).toBeGreaterThan(0);
+  });
+
+  it('hides the extras choices on a guardian-only row and brings them back when a ticket is chosen', async () => {
+    const user = userEvent.setup();
+    getEvent.mockResolvedValue(requiredExtrasFamilyEvent());
+    render(RegisterPage);
+
+    await screen.findByTestId('register-form');
+    const before = screen.getAllByRole('checkbox', { name: /Måltider hela helgen/ }).length;
+    await user.selectOptions(screen.getByTestId('parent-ticket-type-0'), 'guardian-only');
+    expect(screen.getAllByRole('checkbox', { name: /Måltider hela helgen/ }).length).toBe(before - 1);
+
+    await user.selectOptions(screen.getByTestId('parent-ticket-type-0'), 'tt-solo');
+    expect(screen.getAllByRole('checkbox', { name: /Måltider hela helgen/ }).length).toBe(before);
+  });
+
+  it('still needs a phone number on a guardian-only row', async () => {
+    const user = userEvent.setup();
+    getEvent.mockResolvedValue(requiredExtrasFamilyEvent());
+    render(RegisterPage);
+
+    await screen.findByTestId('register-form');
+    await user.type(document.getElementById('parent-first-name-0') as HTMLInputElement, 'Sam');
+    await user.selectOptions(screen.getByTestId('parent-relationship-0'), 'GUARDIAN');
+    await user.selectOptions(screen.getByTestId('parent-ticket-type-0'), 'guardian-only');
+    await fillChild(user);
+    await user.click(screen.getByTestId('register-submit-button'));
+
+    expect(submit).not.toHaveBeenCalled();
+    // Once in the summary, once under the field itself (a red border with
+    // no words was seen on the phone box).
+    expect(await screen.findByTestId('register-error-item-parent-phone-0')).toHaveTextContent(
+      /Enter a phone number for/
+    );
+    expect(screen.getByTestId('parent-phone-problem-0')).toHaveTextContent(/Enter a phone number for/);
+  });
+
+  it('a guardian-only row alone satisfies the guardian rule (no ticket required for the adult)', async () => {
+    const user = userEvent.setup();
+    getEvent.mockResolvedValue(requiredExtrasFamilyEvent());
+    submit.mockResolvedValue({ reference_code: 'REF1', message: 'ok', email_sent: true });
+    render(RegisterPage);
+
+    await screen.findByTestId('register-form');
+    await fillGuardian(user);
+    await user.selectOptions(screen.getByTestId('parent-ticket-type-0'), 'guardian-only');
+    await fillChild(user);
+    await user.click(screen.getByTestId('register-submit-button'));
+    await waitFor(() => expect(submit).toHaveBeenCalledTimes(1));
+  });
+
+  it('a ticketed adult is still required to choose a ticket type', async () => {
+    const user = userEvent.setup();
+    getEvent.mockResolvedValue(requiredExtrasFamilyEvent());
+    render(RegisterPage);
+
+    await screen.findByTestId('register-form');
+    await fillGuardian(user);
+    await fillChild(user);
+    await user.click(screen.getByTestId('register-submit-button'));
+    expect(submit).not.toHaveBeenCalled();
+    expect(await screen.findByText(/Choose a ticket type for/)).toBeInTheDocument();
+  });
+
+  it('lets a guardian register on an event whose ticket types are all child-only, sending no ticket and no extras for them', async () => {
+    const user = userEvent.setup();
+    getEvent.mockResolvedValue(
+      baseEventInfo({
+        extras: [
+          {
+            id: 'extra-cabin',
+            name: 'Boende',
+            price: '500.00',
+            session_id: null,
+            per_attendee: true,
+            applies_to: 'either',
+            requires_choice: false,
+            required: true,
+            default_selected: false,
+            choices: []
+          }
+        ]
+      })
+    );
+    submit.mockResolvedValue({ reference_code: 'REF1', message: 'ok', email_sent: true });
+    render(RegisterPage);
+
+    await screen.findByTestId('register-form');
+    // No adult ticket type exists, so there is no select — and no option
+    // to pick — but naming the guardian must not dead-end on "Choose a
+    // ticket type" (found in review of the guardian rule).
+    expect(screen.queryByTestId('parent-ticket-type-0')).not.toBeInTheDocument();
+    await fillGuardian(user);
+    await user.type(screen.getByTestId('register-contact-email'), 'guardian@example.com');
+    await user.type(document.getElementById('child-first-name-0') as HTMLInputElement, 'Alex');
+    await user.type(document.getElementById('child-last-name-0') as HTMLInputElement, 'Karlsson');
+    await user.type(document.getElementById('child-birthdate-0') as HTMLInputElement, '2015-05-01');
+    await user.tab();
+    await user.click(screen.getByTestId('register-submit-button'));
+
+    await waitFor(() => expect(submit).toHaveBeenCalledTimes(1));
+    const payload = submit.mock.calls[0][0] as {
+      parents: { ticket_type: string | null; extras: unknown[] }[];
+    };
+    expect(payload.parents[0].ticket_type).toBeNull();
+    expect(payload.parents[0].extras).toEqual([]);
+  });
+
+  it('gives a flat-price event (no ticket types) no guardian-only option', async () => {
+    getEvent.mockResolvedValue(ticketlessEventInfo());
+    render(RegisterPage);
+    await screen.findByTestId('register-form');
+    expect(screen.queryByTestId('parent-ticket-type-0')).not.toBeInTheDocument();
+  });
+});
+
+describe('Register page — server errors about parents (guardian rule)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  async function submitAndReject(details: unknown) {
+    const user = userEvent.setup();
+    getEvent.mockResolvedValue(ticketlessEventInfo());
+    submit.mockRejectedValueOnce({ status: 400, message: 'Bad Request', details });
+    render(RegisterPage);
+    await screen.findByTestId('register-form');
+    await fillMinimalRequiredFields(user);
+    await user.click(screen.getByTestId('register-submit-button'));
+    await waitFor(() => expect(submit).toHaveBeenCalledTimes(1));
+    await screen.findByText('Please fix the following before you can submit:');
+    return user;
+  }
+
+  it('shape (a) {"parents": ["msg"]} lands on Förälder 1 in the summary, in the local language', async () => {
+    const user = await submitAndReject({ parents: ['Children need an adult guardian.'] });
+    const line = await screen.findByText('Parent 1: Add an adult guardian for the children.');
+    expect(screen.queryByText('Children need an adult guardian.')).not.toBeInTheDocument();
+    await user.click(line);
+    expect(document.activeElement).toBe(document.getElementById('parent-first-name-0'));
+  });
+
+  it('shape (b) {"parents": [{"phone": [...]}]} lands on that row\'s phone', async () => {
+    const user = await submitAndReject({ parents: [{ phone: ['This field may not be blank.'] }] });
+    const line = await screen.findByTestId('register-error-item-parent-phone-0');
+    expect(screen.queryByText('This field may not be blank.')).not.toBeInTheDocument();
+    expect(screen.getByTestId('parent-phone-problem-0')).toHaveTextContent(/Enter a phone number for/);
+    await user.click(line);
+    expect(document.activeElement).toBe(document.getElementById('parent-phone-0'));
+  });
+
+  it('shape (d) {"parents": {"0": ["msg"]}} names the row with the server text', async () => {
+    await submitAndReject({
+      parents: { '0': ['Extras can only be added for an adult with a ticket.'] }
+    });
+    expect(
+      await screen.findByText(/Extras can only be added for an adult with a ticket\./)
+    ).toBeInTheDocument();
+  });
+});
+
+// Revision round (2026-09-29): card titles, headings, DOM-ordered summary,
+// and the guardian line only when no adult row has been touched.
+describe('Register page — person cards and summary order', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  function bannerLines(): string[] {
+    const banner = screen.getByTestId('register-error-banner');
+    return Array.from(banner.querySelectorAll('[data-testid^="register-error-item-"]')).map(
+      (el) => el.textContent?.trim() ?? ''
+    );
+  }
+
+  it('titles every adult and child card with a heading that names its group', async () => {
+    const user = userEvent.setup();
+    getEvent.mockResolvedValue(ticketlessEventInfo());
+    render(RegisterPage);
+    await screen.findByTestId('register-form');
+    await user.click(screen.getByText(/Add parent/));
+
+    const adult = screen.getByTestId('parent-heading-1');
+    expect(adult.tagName).toBe('H3');
+    expect(adult).toHaveTextContent('Parent 2');
+    expect(screen.getByRole('group', { name: 'Parent 2' })).toBeInTheDocument();
+    expect(screen.getByRole('group', { name: 'Parent 1' })).toBeInTheDocument();
+
+    const child = screen.getByTestId('child-heading-0');
+    expect(child.tagName).toBe('H3');
+    expect(screen.getByRole('group', { name: 'Child 1' })).toBeInTheDocument();
+  });
+
+  it('puts "Remove" in the title row, with the heading, not at the bottom of the card', async () => {
+    const user = userEvent.setup();
+    getEvent.mockResolvedValue(ticketlessEventInfo());
+    render(RegisterPage);
+    await screen.findByTestId('register-form');
+    await user.click(screen.getByText(/Add parent/));
+
+    const heading = screen.getByTestId('parent-heading-1');
+    const removeButton = screen.getAllByText('Remove parent')[1] as HTMLElement;
+    expect(removeButton.parentElement).toBe(heading.parentElement);
+    expect(removeButton.querySelector('svg')).not.toBeNull();
+    // It is described by its own card's title, so identical buttons differ.
+    expect(removeButton.getAttribute('aria-describedby')).toBe('parent-heading-1');
+  });
+
+  it('(a) shows the guardian line only when no adult row has been touched', async () => {
+    const user = userEvent.setup();
+    getEvent.mockResolvedValue(ticketlessEventInfo());
+    render(RegisterPage);
+    await screen.findByTestId('register-form');
+    await fillMinimalRequiredFields(user, { guardian: false });
+    await user.click(screen.getByTestId('register-submit-button'));
+
+    expect(submit).not.toHaveBeenCalled();
+    expect(await screen.findByTestId('register-error-item-guardian-required')).toHaveTextContent(
+      'Parent 1: Add an adult guardian for the children.'
+    );
+  });
+
+  it('(b) does not show it when a second adult is touched but has no first name', async () => {
+    const user = userEvent.setup();
+    getEvent.mockResolvedValue(ticketlessEventInfo());
+    render(RegisterPage);
+    await screen.findByTestId('register-form');
+    await fillMinimalRequiredFields(user, { guardian: false });
+    await user.click(screen.getByText(/Add parent/));
+    await user.type(document.getElementById('parent-phone-1') as HTMLInputElement, '070-123 45 67');
+    await user.click(screen.getByTestId('register-submit-button'));
+
+    expect(submit).not.toHaveBeenCalled();
+    await screen.findByTestId('register-error-banner');
+    expect(screen.queryByTestId('register-error-item-guardian-required')).not.toBeInTheDocument();
+    expect(screen.getByTestId('register-error-item-parent-first-name-1')).toHaveTextContent(
+      'register.parentNameRequired'
+    );
+  });
+
+  it('(c) lists lines in page order, with the guardian line first among the adults', async () => {
+    const user = userEvent.setup();
+    getEvent.mockResolvedValue(
+      baseEventInfo({
+        extras: [
+          {
+            id: 'extra-cabin',
+            name: 'Boende',
+            price: '500.00',
+            session_id: null,
+            per_attendee: false,
+            applies_to: 'either',
+            requires_choice: true,
+            required: true,
+            default_selected: false,
+            choices: [{ id: 'c1', label: 'Stuga', price_delta: '0.00' }]
+          }
+        ]
+      })
+    );
+    render(RegisterPage);
+    await screen.findByTestId('register-form');
+    // Email left blank; no adult named; the child is incomplete; the
+    // whole-registration extra needs a choice. The child ticket select is
+    // reached first in the code's own check order (children before adults),
+    // so this proves the summary is re-sorted, not merely built in order.
+    await user.type(document.getElementById('child-first-name-0') as HTMLInputElement, 'Alex');
+    await user.click(screen.getByTestId('register-submit-button'));
+
+    expect(submit).not.toHaveBeenCalled();
+    await screen.findByTestId('register-error-banner');
+    const ids = Array.from(
+      screen
+        .getByTestId('register-error-banner')
+        .querySelectorAll('[data-testid^="register-error-item-"]')
+    ).map((el) => (el.getAttribute('data-testid') ?? '').replace('register-error-item-', ''));
+    expect(ids[0]).toBe('contact-email');
+    expect(ids[1]).toBe('guardian-required');
+    expect(ids.indexOf('child-info-0')).toBeGreaterThan(1);
+    expect(ids[ids.length - 1]).toMatch(/^registration-extra-/);
+    expect(bannerLines()[1]).toBe('Parent 1: Add an adult guardian for the children.');
   });
 });

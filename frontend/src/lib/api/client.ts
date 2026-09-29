@@ -81,6 +81,46 @@ export function extractFieldError(
   return null;
 }
 
+/**
+ * Pulls a group-level error out of a DRF error body shaped like
+ * `{"parents": ["message"]}` — a flat list of strings under the group key,
+ * which is how the backend reports a rule about the group as a whole (e.g.
+ * "children need a guardian") rather than about one row. null when the group
+ * has no such error. A per-row shape (a list of objects, or an object keyed
+ * by index) deliberately does not match — see extractFieldError and
+ * extractRowFieldError for those.
+ */
+export function extractGroupError(details: unknown, group: 'parents' | 'children'): string | null {
+  if (!details || typeof details !== 'object') return null;
+  const groupErrors = (details as Record<string, unknown>)[group];
+  if (!Array.isArray(groupErrors)) return null;
+  const first = groupErrors.find((entry) => typeof entry === 'string');
+  return typeof first === 'string' ? first : null;
+}
+
+/**
+ * Pulls one named field's error for one row out of DRF's list-serializer
+ * shape, `{"parents": [{}, {"phone": ["message"]}]}` — a list with one entry
+ * per submitted row, `{}` for rows that were fine. `index` is the row's
+ * position in the submitted array. null when that row/field has no error.
+ */
+export function extractRowFieldError(
+  details: unknown,
+  group: 'parents' | 'children',
+  index: number,
+  field: string
+): string | null {
+  if (!details || typeof details !== 'object') return null;
+  const groupErrors = (details as Record<string, unknown>)[group];
+  if (!Array.isArray(groupErrors)) return null;
+  const row = groupErrors[index];
+  if (!row || typeof row !== 'object' || Array.isArray(row)) return null;
+  const fieldErrors = (row as Record<string, unknown>)[field];
+  if (Array.isArray(fieldErrors) && typeof fieldErrors[0] === 'string') return fieldErrors[0];
+  if (typeof fieldErrors === 'string') return fieldErrors;
+  return null;
+}
+
 export class ApiClient {
   private baseUrl: string;
   private csrfToken: string | null = null;
