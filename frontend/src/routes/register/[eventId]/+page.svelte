@@ -311,6 +311,23 @@
   // to watch an inbox nothing is coming to.
   let emailSent = $state(true);
 
+  // Set only when a submit's response body carries `code:
+  // "registration_already_pending"` — the backend's (event, contact_email)
+  // dedup was hit and this submission's form data was silently discarded in
+  // favor of the still-pending registration (2026-09-28 incident: a parent
+  // used "Edit and resend" to add a forgotten child, saw the ordinary
+  // success screen, and the child was never saved — see
+  // registrations/views.py::_execute_submit_registration's comment on this
+  // branch). null means "no pending-duplicate state"; renders a dedicated
+  // screen instead of the normal success screen so this is visible rather
+  // than silent. `emailResent` is true only when the backend actually sent
+  // a fresh token just now (response.email_sent === true) — the cooldown
+  // branch omits email_sent entirely, which must NOT read as "a new email
+  // went out."
+  let pendingDuplicate = $state<{ referenceCode: string | null; emailResent: boolean } | null>(
+    null
+  );
+
   // Idempotency key for the primary submit — generated once here, at
   // module-eval time (page mount), not inside handleSubmit, specifically so
   // a network failure or a double submit that slips past `submitting`'s
@@ -1403,6 +1420,21 @@
     submitting = true;
     try {
       const response = await registrationApi.submit(payload);
+      if (response.code === 'registration_already_pending') {
+        // The backend's dedup path was hit — this payload's data (including
+        // anything just edited/added) was NOT saved. Route to the dedicated
+        // "already pending" screen instead of the normal success screen; see
+        // pendingDuplicate's own comment for the incident this fixes.
+        pendingDuplicate = {
+          referenceCode: response.reference_code,
+          emailResent: response.email_sent === true
+        };
+        idempotencyConflictPayload = null;
+        submitProblems = [];
+        error = '';
+        submitted = false;
+        return;
+      }
       referenceCode = response.reference_code;
       // Kept so the confirmation screen's "resend" action can replay the
       // exact same submission — the backend's own dedup logic (same event +
@@ -1576,6 +1608,11 @@
   // without re-keying the whole registration.
   function handleEditEmail() {
     submitted = false;
+    // Also reached from the pendingDuplicate screen's own back button (same
+    // "drop back into the still-populated form" action) — clear it here too
+    // so a subsequent submit is judged fresh rather than re-rendering the
+    // stale pending-duplicate state before the new response comes back.
+    pendingDuplicate = null;
     resendStatus = null;
     // A fresh idempotency key: the guardian is about to change at least
     // the contact email and submit again, which is a genuinely different
@@ -1629,6 +1666,50 @@
     <div class="bg-white border border-neutral-300 rounded-card p-6 shadow-sm text-center" data-testid="register-not-configured">
       <h1 class="text-xl font-bold text-neutral-900 mb-2">{$t('register.notConfiguredTitle')}</h1>
       <p class="text-neutral-700">{$t('register.notConfiguredMessage')}</p>
+    </div>
+  {:else if pendingDuplicate}
+    <!--
+      Dedicated screen (not the ordinary success screen) for the backend's
+      "registration_already_pending" code — see pendingDuplicate's own
+      comment above. Deliberately does NOT reuse the successTitle/success
+      markup: that screen's whole point is "you're done, check your email",
+      and this is the opposite message — nothing from this submission was
+      saved, the ORIGINAL pending registration is untouched, and the way
+      forward is either the email already on its way to the guardian or the
+      event organizer, not this page.
+    -->
+    <div
+      class="bg-white border border-neutral-300 rounded-card p-6 shadow-sm text-center"
+      data-testid="register-pending-duplicate"
+    >
+      <h1 class="text-2xl font-bold text-neutral-900 mb-3">
+        {$t('register.pendingDuplicateTitle')}
+      </h1>
+      <Alert type="warning">
+        <p class="text-left">
+          {$t('register.pendingDuplicateMessage', {
+            values: { email: contactEmail.trim() }
+          })}
+        </p>
+        <p class="text-left mt-2">
+          {pendingDuplicate.emailResent
+            ? $t('register.pendingDuplicateEmailResent')
+            : $t('register.pendingDuplicateUseExisting')}
+        </p>
+        <p class="text-left mt-2">{$t('register.pendingDuplicateContactOrganizer')}</p>
+      </Alert>
+
+      {#if pendingDuplicate.referenceCode}
+        <p class="text-sm text-neutral-500 mt-4" data-testid="register-pending-duplicate-reference">
+          {$t('register.referenceCode', { values: { code: pendingDuplicate.referenceCode } })}
+        </p>
+      {/if}
+
+      <div class="mt-4">
+        <Button variant="secondary" size="sm" onclick={handleEditEmail}>
+          {$t('register.editEmailButton')}
+        </Button>
+      </div>
     </div>
   {:else if submitted}
     <div class="bg-white border border-neutral-300 rounded-card p-6 shadow-sm text-center">

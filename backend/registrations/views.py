@@ -920,14 +920,38 @@ def _execute_submit_registration(request, data):
     )
 
     if existing is not None and not existing.is_expired:
+        # This branch is deliberately reached by two different callers with
+        # different intent, and the response has to serve both:
+        #   - the confirmation screen's explicit "resend" action (handleResend
+        #     in +page.svelte), which sends this exact payload back on
+        #     purpose and treats any 2xx as "an email is on its way" — that
+        #     flow already shipped and must not break.
+        #   - a guardian who used "Edit and resend" (or just double-submitted)
+        #     with genuinely *changed* form data — before this "code" field
+        #     existed, that resubmit silently hit this same branch, the new
+        #     data was discarded, and the guardian saw the ordinary success
+        #     screen with no indication anything was dropped (2026-09-28
+        #     incident, knowitall 6d4f0964).
+        # The status codes stay exactly what they were (200 throttled / 201
+        # resent) rather than moving to a 4xx like idempotency_conflict's —
+        # a 4xx would land in submitPayload's catch block and also break
+        # handleResend, which has no code-check and just wants the request to
+        # succeed. Instead "code": "registration_already_pending" rides
+        # alongside the existing 2xx body so submitPayload's *success* path
+        # can recognize the dedup happened and show a dedicated "not saved"
+        # state, while handleResend keeps ignoring it and working exactly as
+        # before.
         registration, token, throttled = _resend_verification(existing)
         if throttled:
             return (
                 {
                     "reference_code": registration.reference_code,
+                    "code": "registration_already_pending",
                     "message": _(
-                        "A confirmation email was already sent recently — "
-                        "please check your inbox."
+                        "A registration for this email is already waiting "
+                        "for confirmation. We can't resend so soon — please "
+                        "use the confirmation email already sent. Any "
+                        "changes you just made were not saved."
                     ),
                 },
                 status.HTTP_200_OK,
@@ -944,12 +968,17 @@ def _execute_submit_registration(request, data):
         return (
             {
                 "reference_code": registration.reference_code,
+                "code": "registration_already_pending",
                 # False means the registration is stored but the mail didn't
                 # go out (see emails.py::_send_or_degrade) — the client says
                 # so plainly and offers the resend action rather than
                 # claiming an email is on its way.
                 "email_sent": email_sent,
-                "message": _("Thanks — check your email to confirm."),
+                "message": _(
+                    "A registration for this email is already waiting for "
+                    "confirmation. We've sent a fresh confirmation email — "
+                    "any changes you just made were not saved."
+                ),
             },
             status.HTTP_201_CREATED,
             registration,

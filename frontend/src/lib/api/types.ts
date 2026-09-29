@@ -340,6 +340,15 @@ export interface RegistrationSubmitResponse {
   // response, where nothing was attempted — treat only an explicit false as
   // a failure.
   email_sent?: boolean;
+  // Present and equal to "registration_already_pending" when this submit
+  // hit the backend's (event, contact_email) dedup for a still-pending
+  // registration — see registrations/views.py::_execute_submit_registration.
+  // The request still comes back 2xx (the explicit "resend" action on the
+  // confirmation screen relies on that — see handleResend in
+  // +page.svelte), so this is the only way to tell a genuine new
+  // registration apart from a resubmit whose form data was silently
+  // discarded in favor of the still-pending one.
+  code?: 'registration_already_pending';
 }
 
 export interface PromoCodeValidation {

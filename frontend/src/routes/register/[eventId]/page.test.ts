@@ -631,6 +631,99 @@ describe('Register page — idempotency key', () => {
   });
 });
 
+// registration_already_pending (registration dev-cycle round 4, increment 6,
+// 2026-09-29): the backend's (event, contact_email) dedup for a still-pending
+// registration used to come back as a plain 2xx with no way to tell it apart
+// from a genuine new registration — a guardian who used "Edit and resend" to
+// add a forgotten child saw the ordinary success screen while the child was
+// silently dropped (2026-09-28 incident). The backend now rides a `code` on
+// that same 2xx body; these tests cover the frontend routing on it.
+describe('Register page — registration already pending (dedup made visible)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('shows the dedicated pending-duplicate screen, not the ordinary success screen, when the backend resent a fresh email', async () => {
+    const user = userEvent.setup();
+    getEvent.mockResolvedValue(ticketlessEventInfo());
+    submit.mockResolvedValue({
+      reference_code: 'REF9',
+      message: 'A registration for this email is already waiting for confirmation.',
+      email_sent: true,
+      code: 'registration_already_pending'
+    });
+    render(RegisterPage);
+
+    await screen.findByTestId('register-form');
+    await fillMinimalRequiredFields(user);
+    await user.click(screen.getByTestId('register-submit-button'));
+
+    await screen.findByTestId('register-pending-duplicate');
+    expect(screen.queryByTestId('register-success-email')).not.toBeInTheDocument();
+    // A fresh email really did go out — the "we sent a new one" copy, not
+    // the "use the one already sent" copy.
+    expect(screen.getByText('register.pendingDuplicateEmailResent')).toBeInTheDocument();
+    expect(screen.queryByText('register.pendingDuplicateUseExisting')).not.toBeInTheDocument();
+    expect(screen.getByTestId('register-pending-duplicate-reference')).toBeInTheDocument();
+  });
+
+  it('shows "use the email already sent" (not "we sent a new one") when the backend was throttled by the resend cooldown', async () => {
+    const user = userEvent.setup();
+    getEvent.mockResolvedValue(ticketlessEventInfo());
+    // Throttled branch: no email_sent field at all (see
+    // registrations/views.py — the cooldown branch never attempts a send).
+    submit.mockResolvedValue({
+      reference_code: 'REF9',
+      message: 'A registration for this email is already waiting for confirmation.',
+      code: 'registration_already_pending'
+    });
+    render(RegisterPage);
+
+    await screen.findByTestId('register-form');
+    await fillMinimalRequiredFields(user);
+    await user.click(screen.getByTestId('register-submit-button'));
+
+    await screen.findByTestId('register-pending-duplicate');
+    expect(screen.getByText('register.pendingDuplicateUseExisting')).toBeInTheDocument();
+    expect(screen.queryByText('register.pendingDuplicateEmailResent')).not.toBeInTheDocument();
+  });
+
+  it('the pending-duplicate screen\'s back button reuses the same "back into the form" action as the success screen\'s relabelled link', async () => {
+    const user = userEvent.setup();
+    getEvent.mockResolvedValue(ticketlessEventInfo());
+    submit.mockResolvedValueOnce({
+      reference_code: 'REF9',
+      message: 'A registration for this email is already waiting for confirmation.',
+      code: 'registration_already_pending'
+    });
+    render(RegisterPage);
+
+    await screen.findByTestId('register-form');
+    await fillMinimalRequiredFields(user);
+    await user.click(screen.getByTestId('register-submit-button'));
+    await screen.findByTestId('register-pending-duplicate');
+
+    // Same handler, same label key as the success screen's relabelled
+    // "editEmailButton" (Button has no data-testid passthrough — see
+    // Button.svelte — so this targets it by its rendered text, same as the
+    // idempotency-conflict button above) — no longer promises editing the
+    // sent registration, just drops back into the still-populated form.
+    await user.click(screen.getByText('register.editEmailButton'));
+    await screen.findByTestId('register-form');
+    expect(screen.queryByTestId('register-pending-duplicate')).not.toBeInTheDocument();
+
+    // A fresh idempotency key, exactly like the success screen's own "edit
+    // and resubmit" path — this is a genuinely new attempt.
+    submit.mockResolvedValueOnce({ reference_code: 'REF10', message: 'ok', email_sent: true });
+    await user.click(screen.getByTestId('register-submit-button'));
+    await waitFor(() => expect(submit).toHaveBeenCalledTimes(2));
+    const firstKey = (submit.mock.calls[0][0] as { idempotency_key?: string }).idempotency_key;
+    const secondKey = (submit.mock.calls[1][0] as { idempotency_key?: string }).idempotency_key;
+    expect(secondKey).toBeTruthy();
+    expect(secondKey).not.toBe(firstKey);
+  });
+});
+
 // Capacity enforcement (registration dev-cycle round 4, increment 2, added
 // 2026-09-24): the guest form must grey out a full ticket type rather than
 // let a guardian find out at submit — mirrors the age-window disabled
