@@ -2021,9 +2021,9 @@
           class="mb-4 text-left rounded-card border border-neutral-200 divide-y divide-neutral-200"
           data-testid="register-summary"
         >
-          <p class="px-4 py-2 text-xs font-semibold uppercase tracking-wide text-neutral-500">
+          <h2 class="px-4 py-2 text-xs font-semibold uppercase tracking-wide text-neutral-500">
             {$t('register.summaryHeading')}
-          </p>
+          </h2>
           {#each summaryRows as row}
             <div class="px-4 py-2">
               <div class="flex items-center justify-between gap-3 text-sm">
@@ -2094,7 +2094,7 @@
     {/if}
     {#if isPreview}
       <div
-        class="mb-4 p-3 bg-warning-50 border border-warning-200 rounded text-warning-800 text-sm font-semibold text-center"
+        class="mb-4 p-3 bg-warning-50 border border-warning-200 rounded-card text-warning-800 text-sm font-semibold text-center"
         data-testid="register-preview-banner"
       >
         {$t('register.previewBanner')}
@@ -2170,7 +2170,7 @@
                     {#if problem.focusSelector}
                       <button
                         type="button"
-                        class="text-left underline decoration-danger-400 hover:decoration-danger-700 focus:outline-none focus:ring-2 focus:ring-danger-500 rounded"
+                        class="text-left underline decoration-danger-400 hover:decoration-danger-700 focus:outline-none focus:ring-2 focus:ring-danger-500 rounded-button"
                         on:click={() => focusOnProblem(problem)}
                         data-testid={`register-error-item-${problem.id}`}
                       >
@@ -2256,7 +2256,7 @@
           aria-required="true"
           maxlength="254"
           aria-invalid={hasProblem('contact-email') ? 'true' : 'false'}
-          class={`w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 ${
+          class={`w-full px-3 py-2 border rounded-button focus:outline-none focus:ring-2 ${
             hasProblem('contact-email')
               ? 'border-danger-600 focus:ring-danger-500 focus:border-danger-600'
               : 'border-neutral-300 focus:ring-primary-500'
@@ -2276,17 +2276,17 @@
           bind:value={familyName}
           placeholder={$t('checkin.familyNamePlaceholder')}
           maxlength="255"
-          class="w-full px-3 py-2 border border-neutral-300 rounded focus:outline-none focus:ring-2 focus:ring-primary-500"
+          class="w-full px-3 py-2 border border-neutral-300 rounded-button focus:outline-none focus:ring-2 focus:ring-primary-500"
         />
       </div>
 
       <div class="mb-4">
-        <div class="block text-sm font-semibold text-neutral-700 mb-2">
+        <h2 class="text-sm font-semibold text-neutral-700 mb-2">
           {$t('checkin.parentInfo')}:
-        </div>
+        </h2>
         <div class="space-y-3">
           {#each parents as parent, index (index)}
-            <div class="border border-neutral-200 rounded p-3 bg-neutral-50">
+            <div class="border border-neutral-200 rounded-card p-3 bg-neutral-50">
               <div class="grid grid-cols-2 gap-2 mb-2">
                 <div>
                   <label for={`parent-first-name-${index}`} class="block text-xs text-neutral-600 mb-1">
@@ -2306,7 +2306,7 @@
                     bind:value={parent.first_name}
                     placeholder={$t('checkin.parentFirstNamePlaceholder')}
                     maxlength="255"
-                    class="w-full px-2 py-1.5 text-sm border border-neutral-300 rounded focus:outline-none focus:ring-2 focus:ring-primary-500"
+                    class="w-full px-2 py-1.5 text-sm border border-neutral-300 rounded-button focus:outline-none focus:ring-2 focus:ring-primary-500"
                   />
                 </div>
                 <div>
@@ -2319,7 +2319,7 @@
                     bind:value={parent.last_name}
                     placeholder={$t('checkin.parentLastNamePlaceholder')}
                     maxlength="255"
-                    class="w-full px-2 py-1.5 text-sm border border-neutral-300 rounded focus:outline-none focus:ring-2 focus:ring-primary-500"
+                    class="w-full px-2 py-1.5 text-sm border border-neutral-300 rounded-button focus:outline-none focus:ring-2 focus:ring-primary-500"
                   />
                 </div>
               </div>
@@ -2337,7 +2337,7 @@
                     aria-describedby={relationshipMissing(parent)
                       ? `parent-relationship-missing-${index}`
                       : undefined}
-                    class={`w-full px-2 py-1.5 text-sm border rounded focus:outline-none focus:ring-2 ${
+                    class={`w-full px-2 py-1.5 text-sm border rounded-button focus:outline-none focus:ring-2 ${
                       relationshipMissing(parent)
                         ? 'border-danger-600 focus:ring-danger-500 focus:border-danger-600'
                         : 'border-neutral-300 focus:ring-primary-500'
@@ -2373,7 +2373,7 @@
                     placeholder={$t('checkin.parentPhonePlaceholder')}
                     maxlength="50"
                     aria-invalid={hasProblem(`parent-phone-${index}`) ? 'true' : 'false'}
-                    class={`w-full px-2 py-1.5 text-sm border rounded focus:outline-none focus:ring-2 ${
+                    class={`w-full px-2 py-1.5 text-sm border rounded-button focus:outline-none focus:ring-2 ${
                       hasProblem(`parent-phone-${index}`)
                         ? 'border-danger-600 focus:ring-danger-500 focus:border-danger-600'
                         : 'border-neutral-300 focus:ring-primary-500'
@@ -2392,7 +2392,7 @@
                     bind:value={parent.email}
                     placeholder={$t('checkin.parentEmailPlaceholder')}
                     maxlength="254"
-                    class="w-full px-2 py-1.5 text-sm border border-neutral-300 rounded focus:outline-none focus:ring-2 focus:ring-primary-500"
+                    class="w-full px-2 py-1.5 text-sm border border-neutral-300 rounded-button focus:outline-none focus:ring-2 focus:ring-primary-500"
                   />
                 </div>
               </div>
@@ -2425,7 +2425,7 @@
                     ]
                       .filter(Boolean)
                       .join(' ') || undefined}
-                    class={`w-full px-2 py-1.5 text-sm border rounded focus:outline-none focus:ring-2 ${
+                    class={`w-full px-2 py-1.5 text-sm border rounded-button focus:outline-none focus:ring-2 ${
                       ticketCompositionWarning(parent.ticketTypeId) !== null ||
                       ticketSoldOutWarning(parent.ticketTypeId) !== null ||
                       hasProblem(`parent-ticket-type-${index}`)
@@ -2552,7 +2552,7 @@
                               extra,
                               (e.currentTarget as HTMLSelectElement).value
                             )}
-                          class="px-2 py-1 text-sm border border-neutral-300 rounded"
+                          class="px-2 py-1 text-sm border border-neutral-300 rounded-button"
                         >
                           <option value="">{$t('register.extraChoicePlaceholder')}</option>
                           {#each extra.choices as choice (choice.id)}
@@ -2605,12 +2605,12 @@
       </div>
 
       <div class="mb-4">
-        <div class="block text-sm font-semibold text-neutral-700 mb-2">
+        <h2 class="text-sm font-semibold text-neutral-700 mb-2">
           {$t('checkin.children')}:
-        </div>
+        </h2>
         <div class="space-y-3">
           {#each children as child, index (index)}
-            <div class="border border-neutral-200 rounded p-3 bg-neutral-50">
+            <div class="border border-neutral-200 rounded-card p-3 bg-neutral-50">
               <div class="flex justify-between items-center mb-2">
                 <span class="text-sm font-semibold text-neutral-700">
                   {$t('checkin.childNumber', { values: { number: index + 1 } })}
@@ -2639,7 +2639,7 @@
                     placeholder={$t('checkin.childFirstNamePlaceholder')}
                     maxlength="255"
                     aria-invalid={hasProblem(`child-info-${index}`) ? 'true' : 'false'}
-                    class={`w-full px-2 py-1.5 text-sm border rounded focus:outline-none focus:ring-2 ${
+                    class={`w-full px-2 py-1.5 text-sm border rounded-button focus:outline-none focus:ring-2 ${
                       hasProblem(`child-info-${index}`)
                         ? 'border-danger-600 focus:ring-danger-500 focus:border-danger-600'
                         : 'border-neutral-300 focus:ring-primary-500'
@@ -2660,7 +2660,7 @@
                     placeholder={$t('checkin.childLastNamePlaceholder')}
                     maxlength="255"
                     aria-invalid={hasProblem(`child-info-${index}`) ? 'true' : 'false'}
-                    class={`w-full px-2 py-1.5 text-sm border rounded focus:outline-none focus:ring-2 ${
+                    class={`w-full px-2 py-1.5 text-sm border rounded-button focus:outline-none focus:ring-2 ${
                       hasProblem(`child-info-${index}`)
                         ? 'border-danger-600 focus:ring-danger-500 focus:border-danger-600'
                         : 'border-neutral-300 focus:ring-primary-500'
@@ -2690,7 +2690,7 @@
                     aria-describedby={child.birthdateRangeInvalid
                       ? `child-birthdate-invalid-${index}`
                       : undefined}
-                    class={`w-full px-2 py-1.5 text-sm border rounded focus:outline-none focus:ring-2 ${
+                    class={`w-full px-2 py-1.5 text-sm border rounded-button focus:outline-none focus:ring-2 ${
                       child.birthdateRangeInvalid || hasProblem(`child-info-${index}`)
                         ? 'border-danger-600 focus:ring-danger-500 focus:border-danger-600'
                         : 'border-neutral-300 focus:ring-primary-500'
@@ -2736,7 +2736,7 @@
                         ? 'true'
                         : 'false'}
                       aria-describedby={childTicketDescribedBy(index, child)}
-                      class={`w-full px-2 py-1.5 text-sm border rounded focus:outline-none focus:ring-2 ${
+                      class={`w-full px-2 py-1.5 text-sm border rounded-button focus:outline-none focus:ring-2 ${
                         childSelectedTicketWarning(child) !== null ||
                         ticketCompositionWarning(child.ticketTypeId) !== null ||
                         ticketSoldOutWarning(child.ticketTypeId) !== null ||
@@ -2880,7 +2880,7 @@
                                 extra,
                                 (e.currentTarget as HTMLSelectElement).value
                               )}
-                            class="px-2 py-1 text-sm border border-neutral-300 rounded"
+                            class="px-2 py-1 text-sm border border-neutral-300 rounded-button"
                           >
                             <option value="">{$t('register.extraChoicePlaceholder')}</option>
                             {#each extra.choices as choice (choice.id)}
@@ -2962,13 +2962,13 @@
 
       {#if registrationExtras().filter((extra) => !extra.required).length > 0}
         <div class="mb-4">
-          <div class="block text-sm font-semibold text-neutral-700 mb-2">
+          <h2 class="text-sm font-semibold text-neutral-700 mb-2">
             {$t('register.registrationExtrasHeading')}:
-          </div>
+          </h2>
           <div class="space-y-2">
             {#each registrationExtras().filter((extra) => !extra.required) as extra (extra.id)}
               {@const state = extraState(registrationExtraSelections, extra)}
-              <div class="flex items-center gap-2 flex-wrap border border-neutral-200 rounded p-2 bg-neutral-50">
+              <div class="flex items-center gap-2 flex-wrap border border-neutral-200 rounded-card p-2 bg-neutral-50">
                 <label class="flex items-center gap-1.5 text-sm text-neutral-700">
                   <input
                     type="checkbox"
@@ -2991,7 +2991,7 @@
                         extra,
                         (e.currentTarget as HTMLSelectElement).value
                       )}
-                    class="px-2 py-1 text-sm border border-neutral-300 rounded"
+                    class="px-2 py-1 text-sm border border-neutral-300 rounded-button"
                   >
                     <option value="">{$t('register.extraChoicePlaceholder')}</option>
                     {#each extra.choices as choice (choice.id)}
@@ -3012,7 +3012,7 @@
                           extra,
                           parseInt((e.currentTarget as HTMLInputElement).value, 10) || 1
                         )}
-                      class="w-16 px-2 py-1 text-sm border border-neutral-300 rounded"
+                      class="w-16 px-2 py-1 text-sm border border-neutral-300 rounded-button"
                     />
                   </label>
                 {/if}
