@@ -86,6 +86,33 @@
     extraSelections: Record<string, ExtraSelectionState>;
   }
 
+  // One line in the top-of-form error summary (increment 5, 2026-09-28) —
+  // built fresh on every blocked submit attempt (client-side validation) or
+  // failed POST (server-side field errors, see submitPayload's catch
+  // block). `focusSelector` is a CSS selector for the control this problem
+  // is about, resolved with document.querySelector at click time rather
+  // than held as a live element ref — the fields this points at are inside
+  // #each blocks keyed by array index, so a stable ref per field would mean
+  // a ref array kept in sync with parents/children, which is more
+  // machinery than a selector lookup buys here. null means the problem
+  // isn't about one specific control (e.g. "add at least one parent or
+  // child") and renders as plain text rather than a button.
+  interface SubmitProblem {
+    id: string;
+    message: string;
+    focusSelector: string | null;
+  }
+
+  // Client-side format check only (R2, registration dev-cycle round 4,
+  // increment 5 revision) — novalidate (see the form's own comment below)
+  // removed the browser's built-in type="email" format check along with
+  // its premature validation-bubble popup, so this is now the only thing
+  // that catches "missing @" / "missing domain" before the round trip.
+  // Deliberately simple, not a full RFC 5322 validator: the backend's own
+  // EmailField is still the real gate (see contactEmailServerError below
+  // for its 400 folded into this same banner item).
+  const EMAIL_FORMAT_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
   const eventId = $derived($page.params.eventId ?? '');
   // Staff preview: ?preview=1 bypasses the "not open yet" landing screen so
   // staff can walk through the real form before announcing it, but never
@@ -244,7 +271,6 @@
   // remove again, and which attendee selections referencing them are now
   // dangling, when the code that unlocked them is edited away or cleared.
   let promoCodeUnlockedIds = $state<string[]>([]);
-  let promoCodeFieldEl = $state<HTMLElement | null>(null);
   // Set by handleRemovePromoCode ("Ta bort") when a code is explicitly
   // un-applied — an aria-live line under the field naming what just changed
   // (registration dev-cycle round 4, increment 3 revision, R2). Distinct
@@ -258,6 +284,19 @@
   // per-attendee errors below; `error` above carries the banner text.
   let errorDetails = $state<unknown>(null);
   let errorBannerEl = $state<HTMLElement | null>(null);
+  // The named, itemized breakdown that drives the error banner's list
+  // (increment 5, 2026-09-28) — one entry per missing/invalid thing, each
+  // naming the attendee it's about where there is one. Populated two ways:
+  // handleSubmit's own client-side checks below (accumulated rather than
+  // stopping at the first problem, so a parent who's missing both the
+  // contact email and a child's Boende choice sees both at once), and
+  // submitPayload's catch block for a 400 whose body maps to a specific
+  // parent/child index (see extractFieldError). `error` above still carries
+  // a single top line — the generic heading when these are client-side
+  // problems, or the server's own message text when it isn't attributable
+  // to a specific attendee (e.g. a flat "ticket_type" sold-out error) — the
+  // two render together in the same banner, see the template below.
+  let submitProblems = $state<SubmitProblem[]>([]);
   let submitting = $state(false);
   let submitted = $state(false);
   let referenceCode = $state<string | null>(null);
@@ -311,16 +350,10 @@
   let idempotencyConflictPayload = $state<RegistrationSubmitPayload | null>(null);
   let idempotencyConflictBannerEl = $state<HTMLElement | null>(null);
 
-  // Set only when handleSubmit itself blocks on a promo code that's typed
-  // but not currently validated (see the guard there) — distinct from
-  // promoCodeError being set by a rejected "Apply" click, where the
-  // guardian is already looking right at the field and a scroll/focus jump
-  // would just be noise.
-  let promoSubmitBlocked = $state(false);
-
   // Set only when handleSubmit's own missing-Relation check (below) blocks
-  // the submit — mirrors promoSubmitBlocked's role: a client-side guard
-  // that needs to flag a specific control, not just the top-of-form banner.
+  // the submit — a client-side guard that needs to flag each affected
+  // control, not just the top-of-form banner (see submitProblems for the
+  // banner's own, named version of the same check).
   // Cleared at the top of every submit attempt alongside `error`. See
   // relationshipMissing, which reads this together with each row's own
   // state so the caption disappears the moment a row is fixed, without any
@@ -329,9 +362,12 @@
 
   // Scroll/focus the failure banner into view on every new error — on this
   // 2000+px page a failed submit otherwise looks like nothing happened from
-  // the submit button at the bottom (see build's blocker #2).
+  // the submit button at the bottom (see build's blocker #2). Gated on
+  // submitProblems too, not just `error`, since a purely client-side block
+  // (e.g. only a missing Boende choice) can populate the itemized list
+  // without ever setting a server-derived `error` string.
   $effect(() => {
-    if (error && errorBannerEl) {
+    if ((error || submitProblems.length > 0) && errorBannerEl) {
       errorBannerEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
       errorBannerEl.focus();
     }
@@ -348,18 +384,79 @@
     }
   });
 
-  // Same reasoning again, for handleSubmit's own promo-code block (see
-  // promoSubmitBlocked's comment) — the field sits well below the fold on
-  // this page, same as the failure banner above.
-  $effect(() => {
-    if (promoSubmitBlocked && promoCodeFieldEl) {
-      promoCodeFieldEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      promoCodeFieldEl.focus();
-    }
-  });
-
   function childAgeError(index: number): string | null {
     return extractFieldError(errorDetails, 'children', index);
+  }
+
+  // Attendee labels for the error summary (increment 5, 2026-09-28) — the
+  // name as typed, falling back to the same ordinal labels already used
+  // elsewhere on this page (register.parentLabel / checkin.childNumber, see
+  // e.g. handleRemovePromoCode's own attendee list) once a first name is
+  // empty, so a problem raised against a not-yet-named row still reads as
+  // "who" rather than a bare index.
+  function parentAttendeeLabel(parent: ParentRow, index: number): string {
+    return parent.first_name.trim() || $t('register.parentLabel', { values: { number: index + 1 } });
+  }
+
+  function childAttendeeLabel(child: ChildRow, index: number): string {
+    return child.first_name.trim() || $t('checkin.childNumber', { values: { number: index + 1 } });
+  }
+
+  // Scrolls/focuses the control a summary-banner line is about — the same
+  // "make sure it's actually seen" treatment the banner itself gets (see
+  // the $effect above), just aimed at one field instead of the banner.
+  // Resolved by selector rather than a held element ref: these targets live
+  // inside #each blocks keyed by array index, and a selector lookup avoids
+  // keeping a parallel ref array in sync with parents/children.
+  function focusOnProblem(problem: SubmitProblem) {
+    if (!problem.focusSelector) return;
+    const el = document.querySelector<HTMLElement>(problem.focusSelector);
+    if (!el) return;
+    el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    el.focus();
+  }
+
+  // R3 (registration dev-cycle round 4, increment 5 revision): generic
+  // per-field invalid check for controls whose only "is this wrong" signal
+  // lives in submitProblems, with no dedicated boolean of their own (unlike
+  // e.g. relationshipMissing or the ticket-composition/sold-out warnings
+  // above, which are already reactive against live field state). Matches
+  // by SubmitProblem.id — the same id the banner line for this field uses.
+  function hasProblem(id: string): boolean {
+    return submitProblems.some((p) => p.id === id);
+  }
+
+  // Removes a submitProblems entry the instant the field it's about
+  // changes, so the banner line and the field's own aria-invalid/danger
+  // border disappear together rather than waiting for the next submit
+  // attempt to re-validate. Fires on any edit, not just once the new value
+  // is actually valid — a half-typed correction is still "the guardian is
+  // looking at this now," and the real check runs again on the next submit
+  // regardless. Once the last entry is gone, `error` (the banner's heading
+  // line) is cleared too — handleSubmit and submitPayload's catch block
+  // both only ever set `error` to the generic errorBannerHeading text
+  // alongside a non-empty submitProblems, or (server path) to a specific
+  // whole-form message with no matching field to clear it from — so
+  // dropping `error` here only happens when it was that generic heading
+  // with nothing left under it, never a real standalone message.
+  function clearSubmitProblem(id: string) {
+    if (submitProblems.length === 0) return;
+    const next = submitProblems.filter((p) => p.id !== id);
+    if (next.length === submitProblems.length) return;
+    submitProblems = next;
+    if (next.length === 0) error = '';
+  }
+
+  // Server-side counterpart to EMAIL_FORMAT_RE above (R2) — a 400 on
+  // contact_email (e.g. the backend's own EmailField validation catches
+  // something the client regex missed) must land in the exact same banner
+  // item as the client-side checks, not the generic top-line message
+  // extractErrorMessage would otherwise produce (see submitPayload's catch
+  // block).
+  function contactEmailServerError(details: unknown): boolean {
+    if (!details || typeof details !== 'object') return false;
+    const entry = (details as Record<string, unknown>).contact_email;
+    return Array.isArray(entry) && entry.length > 0;
   }
 
   onMount(async () => {
@@ -550,6 +647,7 @@
     if (value) {
       parents[index].promoReset = false;
       settlePromoRemovalMessageIfDone();
+      clearSubmitProblem(`parent-ticket-type-${index}`);
     }
   }
 
@@ -558,6 +656,7 @@
     if (value) {
       children[index].promoReset = false;
       settlePromoRemovalMessageIfDone();
+      clearSubmitProblem(`child-ticket-type-${index}`);
     }
   }
 
@@ -885,7 +984,6 @@
     promoCodeError = '';
     promoCodeValidation = null;
     promoCodeAppliedValue = '';
-    promoSubmitBlocked = false;
     promoRemovalMessage = '';
     retractPromoUnlockedTicketTypes();
     if (!code || !eventInfo) return;
@@ -976,7 +1074,6 @@
     promoCodeError = '';
     promoCodeValidation = null;
     promoCodeAppliedValue = '';
-    promoSubmitBlocked = false;
 
     if (removedNames.length > 0 && (affectedParents.length > 0 || affectedChildren.length > 0)) {
       const attendeeLabels = [
@@ -1043,15 +1140,29 @@
 
     error = '';
     errorDetails = null;
+    submitProblems = [];
     // A fresh manual submit from the form itself is never the "lost
     // response, resubmit under a fresh key" recovery flow — clear any
     // stale guidance banner from an earlier attempt so it doesn't linger
     // next to an unrelated new error (or nothing at all, on success).
     idempotencyConflictPayload = null;
-    promoSubmitBlocked = false;
     relationshipMissingAttempted = false;
 
     if (isPreview) return;
+
+    // Increment 5 (2026-09-28), driven by a gate finding: a parent who
+    // submitted without picking Boende (a required per-attendee choice)
+    // got a generic "a required choice is missing for everyone"-style
+    // message with no hint of which field or which person, and had to
+    // hunt through the whole form. Every check below now pushes onto
+    // `problems` instead of returning on the first failure, so the banner
+    // can name every missing/invalid thing at once — one line per problem,
+    // each naming the attendee it's about where there is one (see
+    // parentAttendeeLabel/childAttendeeLabel). Checks that also drive an
+    // inline per-field caption (relationshipMissingAttempted, promoCodeError)
+    // still set that side state here, unchanged — the banner line and the
+    // inline caption are the same problem shown twice, not two problems.
+    const problems: SubmitProblem[] = [];
 
     // A promo code that's typed but not currently validated must never
     // ride along silently in the submit payload — that's exactly the "a
@@ -1070,71 +1181,174 @@
     // top-of-form banner.
     if (promoCode.trim() && !promoCodeValidation?.valid) {
       promoCodeError = $t('register.promoCodeNotApplied');
-      promoSubmitBlocked = true;
-      return;
+      problems.push({
+        id: 'promo-code',
+        message: $t('register.promoCodeNotApplied'),
+        focusSelector: '#promo-code-input'
+      });
     }
 
-    if (!contactEmail.trim()) {
-      error = $t('register.contactEmailRequired');
-      return;
+    // Empty and malformed both read the same message and land on the same
+    // banner item (R2) — "a valid email address is required" is true
+    // either way, and novalidate (see the form's own comment) means this
+    // is now the only format check running before the round trip.
+    if (!contactEmail.trim() || !EMAIL_FORMAT_RE.test(contactEmail.trim())) {
+      problems.push({
+        id: 'contact-email',
+        message: $t('register.contactEmailRequired'),
+        focusSelector: '#contact-email'
+      });
     }
 
-    for (const child of children) {
+    children.forEach((child, index) => {
       if (!child.first_name.trim() || !child.last_name.trim() || !child.birthdate.trim()) {
-        error = $t('checkin.allChildrenRequired');
-        return;
+        problems.push({
+          id: `child-info-${index}`,
+          message: $t('register.childInfoIncomplete', {
+            values: { name: childAttendeeLabel(child, index) }
+          }),
+          focusSelector: `#child-first-name-${index}`
+        });
       }
       if (child.healthInfoStatus === 'consented' && !child.consentNoticeShared) {
-        error = $t('checkin.healthConsentRequired');
-        return;
+        problems.push({
+          id: `child-consent-${index}`,
+          message: $t('checkin.healthConsentRequired'),
+          focusSelector: `[data-testid="child-consent-attest-${index}"]`
+        });
       }
-    }
+    });
 
+    // A parent row with a blank first name is dropped here rather than
+    // required — this form does NOT enforce "at least one named
+    // parent/guardian per registration" (a children-only registration
+    // passes both here and server-side). That's deliberate for now: the
+    // owner deferred the actual guardian requirement to a separate design
+    // session rather than have this increment invent one (knowitall task
+    // c129cd8d). Until that lands, Förälder 1's first name has no required
+    // star (see the label below) and this filter's behavior is unchanged —
+    // don't add a guardian requirement here.
     const validParents = parents.filter((p) => p.first_name.trim().length > 0);
+    const validParentEntries = parents
+      .map((p, index) => ({ p, index }))
+      .filter(({ p }) => p.first_name.trim().length > 0);
 
     if (children.length === 0 && validParents.length === 0) {
-      error = $t('checkin.atLeastOneMemberRequired');
-      return;
+      problems.push({
+        id: 'at-least-one-member',
+        message: $t('checkin.atLeastOneMemberRequired'),
+        focusSelector: null
+      });
     }
 
-    for (const p of validParents) {
+    for (const { p, index } of validParentEntries) {
       if (p.phone && !isValidPhone(p.phone)) {
-        error = $t('checkin.invalidPhone');
-        return;
+        problems.push({
+          id: `parent-phone-${index}`,
+          message: $t('checkin.invalidPhone'),
+          focusSelector: `#parent-phone-${index}`
+        });
       }
       if (p.healthInfoStatus === 'consented' && !p.consentNoticeShared) {
-        error = $t('register.adultHealthConsentRequired');
-        return;
+        problems.push({
+          id: `parent-consent-${index}`,
+          message: $t('register.adultHealthConsentRequired'),
+          focusSelector: `[data-testid="parent-consent-attest-parent-${index}"]`
+        });
       }
     }
 
     // 2026-09-24 owner decision: Relation has no default (see emptyParent
-    // above) — the parent must actively choose it. Same shape as the
-    // ticket-type-required check just below: a banner via `error`, plus
-    // (here) relationshipMissingAttempted turning on each affected row's
-    // own inline caption/aria-invalid via relationshipMissing.
-    if (validParents.some((p) => !p.relationship_type)) {
-      error = $t('register.relationshipRequired');
+    // above) — the parent must actively choose it. relationshipMissingAttempted
+    // still drives each affected row's own inline caption/aria-invalid via
+    // relationshipMissing; the banner line below is the same problem, named.
+    const parentsMissingRelationship = validParentEntries.filter(({ p }) => !p.relationship_type);
+    if (parentsMissingRelationship.length > 0) {
       relationshipMissingAttempted = true;
-      return;
+      for (const { p, index } of parentsMissingRelationship) {
+        problems.push({
+          id: `parent-relationship-${index}`,
+          message: $t('register.relationshipRequired', {
+            values: { name: parentAttendeeLabel(p, index) }
+          }),
+          focusSelector: `[data-testid="parent-relationship-${index}"]`
+        });
+      }
     }
 
     const requiresTicketType = !!eventInfo && eventInfo.ticket_types.length > 0;
     if (requiresTicketType) {
-      const missing =
-        validParents.some((p) => !p.ticketTypeId) || children.some((c) => !c.ticketTypeId);
-      if (missing) {
-        error = $t('register.ticketTypeRequired');
-        return;
+      for (const { p, index } of validParentEntries) {
+        if (!p.ticketTypeId) {
+          problems.push({
+            id: `parent-ticket-type-${index}`,
+            message: $t('register.ticketTypeRequired', {
+              values: { name: parentAttendeeLabel(p, index) }
+            }),
+            focusSelector: `[data-testid="parent-ticket-type-${index}"]`
+          });
+        }
+      }
+      children.forEach((child, index) => {
+        if (!child.ticketTypeId) {
+          problems.push({
+            id: `child-ticket-type-${index}`,
+            message: $t('register.ticketTypeRequired', {
+              values: { name: childAttendeeLabel(child, index) }
+            }),
+            focusSelector: `[data-testid="child-ticket-type-${index}"]`
+          });
+        }
+      });
+    }
+
+    for (const { p, index } of validParentEntries) {
+      for (const extra of applicablePersonExtras(false)) {
+        if (extra.required && extra.requires_choice && extraState(p.extraSelections, extra).choiceId === '') {
+          problems.push({
+            id: `parent-extra-${extra.id}-${index}`,
+            message: $t('register.requiredExtraMissing', {
+              values: { extra: extra.name, name: parentAttendeeLabel(p, index) }
+            }),
+            focusSelector: `[data-testid="parent-extra-required-${extra.id}-${index}"] input[type="radio"]`
+          });
+        }
+      }
+    }
+    children.forEach((child, index) => {
+      for (const extra of applicablePersonExtras(true)) {
+        if (
+          extra.required &&
+          extra.requires_choice &&
+          extraState(child.extraSelections, extra).choiceId === ''
+        ) {
+          problems.push({
+            id: `child-extra-${extra.id}-${index}`,
+            message: $t('register.requiredExtraMissing', {
+              values: { extra: extra.name, name: childAttendeeLabel(child, index) }
+            }),
+            focusSelector: `[data-testid="child-extra-required-${extra.id}-${index}"] input[type="radio"]`
+          });
+        }
+      }
+    });
+    for (const extra of registrationExtras()) {
+      if (
+        extra.required &&
+        extra.requires_choice &&
+        extraState(registrationExtraSelections, extra).choiceId === ''
+      ) {
+        problems.push({
+          id: `registration-extra-${extra.id}`,
+          message: $t('register.requiredExtraMissingRegistration', { values: { extra: extra.name } }),
+          focusSelector: `[data-testid="registration-extra-required-${extra.id}"] input[type="radio"]`
+        });
       }
     }
 
-    const missingRequiredChoice =
-      validParents.some((p) => requiredChoiceMissing(p.extraSelections, applicablePersonExtras(false))) ||
-      children.some((c) => requiredChoiceMissing(c.extraSelections, applicablePersonExtras(true))) ||
-      requiredChoiceMissing(registrationExtraSelections, registrationExtras());
-    if (missingRequiredChoice) {
-      error = $t('register.requiredExtraMissing');
+    if (problems.length > 0) {
+      submitProblems = problems;
+      error = $t('register.errorBannerHeading');
       return;
     }
 
@@ -1207,6 +1421,7 @@
       // the backend omits the field on its "already sent recently" path.
       emailSent = response.email_sent !== false;
       idempotencyConflictPayload = null;
+      submitProblems = [];
       submitted = true;
     } catch (err) {
       console.error('Registration submission failed:', err);
@@ -1226,6 +1441,13 @@
         idempotencyConflictPayload = payload;
         return;
       }
+      // A contact_email 400 (R2) gets the exact same banner item and
+      // wording as the client-side format/required check in handleSubmit,
+      // not extractErrorMessage's generic top line — the banner keeps its
+      // usual heading either way, see contactEmailServerError's own
+      // comment.
+      const contactEmailInvalid = contactEmailServerError(apiError.details);
+
       // Prefer the server's specific reason (e.g. "This attendee doesn't
       // meet this ticket type's age requirements.") — extracted straight
       // from apiError.details rather than apiError.message, since the
@@ -1233,7 +1455,56 @@
       // (client.ts::extractErrorMessage's own fallback) and that's exactly
       // the non-specific case this must not surface as if it were real
       // information.
-      error = extractErrorMessage(apiError.details, '') || $t('register.submitError');
+      error = contactEmailInvalid
+        ? $t('register.errorBannerHeading')
+        : extractErrorMessage(apiError.details, '') || $t('register.submitError');
+
+      // Fold a 400 that maps to a specific attendee into the same named,
+      // clickable summary the client-side checks above use (increment 5,
+      // 2026-09-28) — childAgeError already surfaces the identical message
+      // as an inline caption under that child's ticket select; this is the
+      // same information, also in the banner. Parent indices in the DRF
+      // error body are positions in the submitted payload.parents array
+      // (only named parents are sent, see validParentEntries in
+      // handleSubmit), not positions in the full `parents` state array, so
+      // this re-derives that same filtered order rather than indexing
+      // `parents` directly.
+      const parentEntries = parents
+        .map((p, index) => ({ p, index }))
+        .filter(({ p }) => p.first_name.trim().length > 0);
+      const serverProblems: SubmitProblem[] = [];
+      if (contactEmailInvalid) {
+        serverProblems.push({
+          id: 'contact-email',
+          message: $t('register.contactEmailRequired'),
+          focusSelector: '#contact-email'
+        });
+      }
+      parentEntries.forEach(({ p, index }, payloadIndex) => {
+        const fieldMessage = extractFieldError(apiError.details, 'parents', payloadIndex);
+        if (fieldMessage) {
+          serverProblems.push({
+            id: `server-parent-${index}`,
+            message: $t('register.fieldErrorNamed', {
+              values: { name: parentAttendeeLabel(p, index), message: fieldMessage }
+            }),
+            focusSelector: `[data-testid="parent-ticket-type-${index}"]`
+          });
+        }
+      });
+      children.forEach((child, index) => {
+        const fieldMessage = extractFieldError(apiError.details, 'children', index);
+        if (fieldMessage) {
+          serverProblems.push({
+            id: `server-child-${index}`,
+            message: $t('register.fieldErrorNamed', {
+              values: { name: childAttendeeLabel(child, index), message: fieldMessage }
+            }),
+            focusSelector: `[data-testid="child-ticket-type-${index}"]`
+          });
+        }
+      });
+      submitProblems = serverProblems;
     } finally {
       submitting = false;
     }
@@ -1441,9 +1712,26 @@
     {/if}
     <form
       on:submit={handleSubmit}
+      novalidate
       class="bg-white border border-neutral-300 rounded-card p-6 shadow-sm"
       data-testid="register-form"
     >
+      <!--
+        novalidate, deliberately (increment 5, 2026-09-28): a critic caught
+        the browser's own validation bubble firing on an empty required
+        input before handleSubmit ever ran, pre-empting the page's own
+        named error summary below with a generic native tooltip on
+        whichever field happened to be first in DOM order. Most of this
+        form's "required" is conditional in ways the native constraint
+        model can't express anyway — a ticket-type select is only required
+        when the event has ticket types, Relation only for a parent row
+        that's actually named, a required-choice extra only when the event
+        marks it required — so handleSubmit's own checks are the single
+        source of truth either way. `required`/`aria-required` stay on the
+        fields below for semantics (a screen reader still announces
+        "required"), they just no longer block the browser's default submit
+        behavior.
+      -->
       <EyebrowLabel color={eventInfo.accent_color ?? undefined}>
         {formatDateRange(eventInfo.start_date, eventInfo.end_date)}
       </EyebrowLabel>
@@ -1457,14 +1745,55 @@
         </p>
       {/if}
 
-      {#if error}
+      <p class="text-xs text-neutral-500 mb-4" data-testid="register-required-legend">
+        <span class="text-danger-600" aria-hidden="true">*</span> {$t('register.requiredFieldLegend')}
+      </p>
+
+      {#if error || submitProblems.length > 0}
+        <!--
+          R4 (registration dev-cycle round 4, increment 5 revision): reuses
+          the shared Alert primitive (type="error" — this codebase's danger
+          variant) for the same bg-danger-50/border-danger-200 tokens this
+          banner already used by hand, and drops the aria-live this block
+          used to carry alongside role="alert" (Alert itself sets role=
+          "alert" — the pairing double-announces to a screen reader, one
+          for the live-region mutation and one for the role, so aria-live
+          is redundant here and everywhere else on this page that already
+          pairs role="alert" alone). Alert has no ref/tabindex passthrough,
+          so the outer div (same pattern as idempotencyConflictBannerEl
+          below) is still what the scroll/focus $effect targets.
+        -->
         <div
-          class="mb-4 p-2 bg-danger-50 border border-danger-200 rounded text-danger-700 text-sm focus:outline-none focus:ring-2 focus:ring-danger-500"
-          role="alert"
+          class="mb-4 rounded-card focus:outline-none focus:ring-2 focus:ring-danger-500"
           tabindex="-1"
           bind:this={errorBannerEl}
+          data-testid="register-error-banner"
         >
-          {error}
+          <Alert type="error">
+            {#if error}
+              <p class={submitProblems.length > 0 ? 'font-semibold mb-2' : ''}>{error}</p>
+            {/if}
+            {#if submitProblems.length > 0}
+              <ul class="space-y-1 pl-0 list-none">
+                {#each submitProblems as problem (problem.id)}
+                  <li>
+                    {#if problem.focusSelector}
+                      <button
+                        type="button"
+                        class="text-left underline decoration-danger-400 hover:decoration-danger-700 focus:outline-none focus:ring-2 focus:ring-danger-500 rounded"
+                        on:click={() => focusOnProblem(problem)}
+                        data-testid={`register-error-item-${problem.id}`}
+                      >
+                        {problem.message}
+                      </button>
+                    {:else}
+                      <span data-testid={`register-error-item-${problem.id}`}>{problem.message}</span>
+                    {/if}
+                  </li>
+                {/each}
+              </ul>
+            {/if}
+          </Alert>
         </div>
       {/if}
 
@@ -1525,15 +1854,23 @@
 
       <div class="mb-4">
         <label for="contact-email" class="block text-sm font-semibold text-neutral-700 mb-1">
-          {$t('register.contactEmail')} *
+          {$t('register.contactEmail')} <span class="text-danger-600" aria-hidden="true">*</span>
         </label>
         <input
           id="contact-email"
           type="email"
           bind:value={contactEmail}
+          on:input={() => clearSubmitProblem('contact-email')}
           placeholder={$t('register.contactEmailPlaceholder')}
           required
-          class="w-full px-3 py-2 border border-neutral-300 rounded focus:outline-none focus:ring-2 focus:ring-primary-500"
+          aria-required="true"
+          maxlength="254"
+          aria-invalid={hasProblem('contact-email') ? 'true' : 'false'}
+          class={`w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 ${
+            hasProblem('contact-email')
+              ? 'border-danger-600 focus:ring-danger-500 focus:border-danger-600'
+              : 'border-neutral-300 focus:ring-primary-500'
+          }`}
           data-testid="register-contact-email"
         />
         <p class="text-xs text-neutral-500 mt-1">{$t('register.contactEmailHelp')}</p>
@@ -1548,6 +1885,7 @@
           type="text"
           bind:value={familyName}
           placeholder={$t('checkin.familyNamePlaceholder')}
+          maxlength="255"
           class="w-full px-3 py-2 border border-neutral-300 rounded focus:outline-none focus:ring-2 focus:ring-primary-500"
         />
       </div>
@@ -1562,13 +1900,22 @@
               <div class="grid grid-cols-2 gap-2 mb-2">
                 <div>
                   <label for={`parent-first-name-${index}`} class="block text-xs text-neutral-600 mb-1">
-                    {$t('checkin.parentFirstName')} *
+                    <!--
+                      No required star here, deliberately (R1, registration
+                      dev-cycle round 4, increment 5 revision) — see
+                      validParents' own comment in handleSubmit above. This
+                      row is silently dropped, not required, if left blank;
+                      a star here would promise an enforcement this form
+                      doesn't have.
+                    -->
+                    {$t('checkin.parentFirstName')}
                   </label>
                   <input
                     id={`parent-first-name-${index}`}
                     type="text"
                     bind:value={parent.first_name}
                     placeholder={$t('checkin.parentFirstNamePlaceholder')}
+                    maxlength="255"
                     class="w-full px-2 py-1.5 text-sm border border-neutral-300 rounded focus:outline-none focus:ring-2 focus:ring-primary-500"
                   />
                 </div>
@@ -1581,6 +1928,7 @@
                     type="text"
                     bind:value={parent.last_name}
                     placeholder={$t('checkin.parentLastNamePlaceholder')}
+                    maxlength="255"
                     class="w-full px-2 py-1.5 text-sm border border-neutral-300 rounded focus:outline-none focus:ring-2 focus:ring-primary-500"
                   />
                 </div>
@@ -1588,11 +1936,13 @@
               <div class="grid grid-cols-2 gap-2 mb-2">
                 <div>
                   <label for={`parent-relationship-${index}`} class="block text-xs text-neutral-600 mb-1">
-                    {$t('checkin.relationshipType')} *
+                    {$t('checkin.relationshipType')} <span class="text-danger-600" aria-hidden="true">*</span>
                   </label>
                   <select
                     id={`parent-relationship-${index}`}
                     bind:value={parent.relationship_type}
+                    required
+                    aria-required="true"
                     aria-invalid={relationshipMissing(parent) ? 'true' : 'false'}
                     aria-describedby={relationshipMissing(parent)
                       ? `parent-relationship-missing-${index}`
@@ -1629,8 +1979,15 @@
                     id={`parent-phone-${index}`}
                     type="tel"
                     bind:value={parent.phone}
+                    on:input={() => clearSubmitProblem(`parent-phone-${index}`)}
                     placeholder={$t('checkin.parentPhonePlaceholder')}
-                    class="w-full px-2 py-1.5 text-sm border border-neutral-300 rounded focus:outline-none focus:ring-2 focus:ring-primary-500"
+                    maxlength="50"
+                    aria-invalid={hasProblem(`parent-phone-${index}`) ? 'true' : 'false'}
+                    class={`w-full px-2 py-1.5 text-sm border rounded focus:outline-none focus:ring-2 ${
+                      hasProblem(`parent-phone-${index}`)
+                        ? 'border-danger-600 focus:ring-danger-500 focus:border-danger-600'
+                        : 'border-neutral-300 focus:ring-primary-500'
+                    }`}
                   />
                 </div>
               </div>
@@ -1644,6 +2001,7 @@
                     type="email"
                     bind:value={parent.email}
                     placeholder={$t('checkin.parentEmailPlaceholder')}
+                    maxlength="254"
                     class="w-full px-2 py-1.5 text-sm border border-neutral-300 rounded focus:outline-none focus:ring-2 focus:ring-primary-500"
                   />
                 </div>
@@ -1652,15 +2010,18 @@
               {#if applicableTicketTypes(false).length > 0}
                 <div class="mt-2">
                   <label for={`parent-ticket-type-${index}`} class="block text-xs text-neutral-600 mb-1">
-                    {$t('register.ticketTypeLabel')} *
+                    {$t('register.ticketTypeLabel')} <span class="text-danger-600" aria-hidden="true">*</span>
                   </label>
                   <select
                     id={`parent-ticket-type-${index}`}
                     value={parent.ticketTypeId}
                     on:change={(e) =>
                       handleParentTicketTypeChange(index, (e.currentTarget as HTMLSelectElement).value)}
+                    required
+                    aria-required="true"
                     aria-invalid={ticketCompositionWarning(parent.ticketTypeId) !== null ||
-                    ticketSoldOutWarning(parent.ticketTypeId) !== null
+                    ticketSoldOutWarning(parent.ticketTypeId) !== null ||
+                    hasProblem(`parent-ticket-type-${index}`)
                       ? 'true'
                       : 'false'}
                     aria-describedby={[
@@ -1676,7 +2037,8 @@
                       .join(' ') || undefined}
                     class={`w-full px-2 py-1.5 text-sm border rounded focus:outline-none focus:ring-2 ${
                       ticketCompositionWarning(parent.ticketTypeId) !== null ||
-                      ticketSoldOutWarning(parent.ticketTypeId) !== null
+                      ticketSoldOutWarning(parent.ticketTypeId) !== null ||
+                      hasProblem(`parent-ticket-type-${index}`)
                         ? 'border-danger-600 focus:ring-danger-500 focus:border-danger-600'
                         : 'border-neutral-300 focus:ring-primary-500'
                     }`}
@@ -1730,11 +2092,20 @@
 
               {#each applicablePersonExtras(false).filter((extra) => extra.required) as extra (extra.id)}
                 {@const state = extraState(parent.extraSelections, extra)}
-                <div class="mt-2">
-                  <div class="block text-xs text-neutral-600 mb-1">
-                    {extra.name} {extra.price !== '0.00' ? `(${formatCurrency(extra.price)} kr)` : ''} *
-                  </div>
-                  {#if extra.requires_choice}
+                {#if extra.requires_choice}
+                  <fieldset
+                    class={`mt-2 min-w-0 ${
+                      hasProblem(`parent-extra-${extra.id}-${index}`)
+                        ? 'border border-danger-600 rounded-card p-2'
+                        : 'border-0 p-0 m-0'
+                    }`}
+                    data-testid={`parent-extra-required-${extra.id}-${index}`}
+                  >
+                    <legend class="block text-xs text-neutral-600 mb-1 p-0">
+                      {extra.name}
+                      {extra.price !== '0.00' ? `(${formatCurrency(extra.price)} kr)` : ''}
+                      <span class="text-danger-600" aria-hidden="true">*</span>
+                    </legend>
                     <div class="flex items-center gap-3 flex-wrap">
                       {#each extra.choices as choice (choice.id)}
                         <label class="flex items-center gap-1 text-sm text-neutral-700">
@@ -1742,14 +2113,25 @@
                             type="radio"
                             name={`extra-${extra.id}-parent-${index}`}
                             checked={state.choiceId === choice.id}
-                            on:change={() => setExtraChoice(parent.extraSelections, extra, choice.id)}
+                            required
+                            on:change={() => {
+                              setExtraChoice(parent.extraSelections, extra, choice.id);
+                              clearSubmitProblem(`parent-extra-${extra.id}-${index}`);
+                            }}
                           />
                           {choice.label}{choice.price_delta !== '0.00' ? ` (+${formatCurrency(choice.price_delta)} kr)` : ''}
                         </label>
                       {/each}
                     </div>
-                  {/if}
-                </div>
+                  </fieldset>
+                {:else}
+                  <div class="mt-2">
+                    <div class="block text-xs text-neutral-600 mb-1">
+                      {extra.name} {extra.price !== '0.00' ? `(${formatCurrency(extra.price)} kr)` : ''}
+                      <span class="text-danger-600" aria-hidden="true">*</span>
+                    </div>
+                  </div>
+                {/if}
               {/each}
 
               {#if applicablePersonExtras(false).filter((extra) => !extra.required).length > 0}
@@ -1857,50 +2239,69 @@
               <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
                 <div>
                   <label for={`child-first-name-${index}`} class="block text-xs text-neutral-600 mb-1">
-                    {$t('checkin.childFirstName')} <span class="text-danger-600">*</span>
+                    {$t('checkin.childFirstName')} <span class="text-danger-600" aria-hidden="true">*</span>
                   </label>
                   <input
                     id={`child-first-name-${index}`}
                     type="text"
                     bind:value={child.first_name}
+                    on:input={() => clearSubmitProblem(`child-info-${index}`)}
                     placeholder={$t('checkin.childFirstNamePlaceholder')}
-                    class="w-full px-2 py-1.5 text-sm border border-neutral-300 rounded focus:outline-none focus:ring-2 focus:ring-primary-500"
+                    maxlength="255"
+                    aria-invalid={hasProblem(`child-info-${index}`) ? 'true' : 'false'}
+                    class={`w-full px-2 py-1.5 text-sm border rounded focus:outline-none focus:ring-2 ${
+                      hasProblem(`child-info-${index}`)
+                        ? 'border-danger-600 focus:ring-danger-500 focus:border-danger-600'
+                        : 'border-neutral-300 focus:ring-primary-500'
+                    }`}
                     required
                   />
                 </div>
 
                 <div>
                   <label for={`child-last-name-${index}`} class="block text-xs text-neutral-600 mb-1">
-                    {$t('checkin.childLastName')} <span class="text-danger-600">*</span>
+                    {$t('checkin.childLastName')} <span class="text-danger-600" aria-hidden="true">*</span>
                   </label>
                   <input
                     id={`child-last-name-${index}`}
                     type="text"
                     bind:value={child.last_name}
+                    on:input={() => clearSubmitProblem(`child-info-${index}`)}
                     placeholder={$t('checkin.childLastNamePlaceholder')}
-                    class="w-full px-2 py-1.5 text-sm border border-neutral-300 rounded focus:outline-none focus:ring-2 focus:ring-primary-500"
+                    maxlength="255"
+                    aria-invalid={hasProblem(`child-info-${index}`) ? 'true' : 'false'}
+                    class={`w-full px-2 py-1.5 text-sm border rounded focus:outline-none focus:ring-2 ${
+                      hasProblem(`child-info-${index}`)
+                        ? 'border-danger-600 focus:ring-danger-500 focus:border-danger-600'
+                        : 'border-neutral-300 focus:ring-primary-500'
+                    }`}
                     required
                   />
                 </div>
 
                 <div>
                   <label for={`child-birthdate-${index}`} class="block text-xs text-neutral-600 mb-1">
-                    {$t('checkin.childBirthdate')} <span class="text-danger-600">*</span>
+                    {$t('checkin.childBirthdate')} <span class="text-danger-600" aria-hidden="true">*</span>
                   </label>
                   <input
                     id={`child-birthdate-${index}`}
                     type="date"
                     bind:value={child.birthdate}
-                    on:change={(e) => handleChildBirthdateChange(child, e)}
+                    on:change={(e) => {
+                      handleChildBirthdateChange(child, e);
+                      clearSubmitProblem(`child-info-${index}`);
+                    }}
                     lang={$locale === 'sv' ? 'sv-SE' : 'en-US'}
                     max={todayIso}
                     min={minBirthdateIso}
-                    aria-invalid={child.birthdateRangeInvalid ? 'true' : 'false'}
+                    aria-invalid={child.birthdateRangeInvalid || hasProblem(`child-info-${index}`)
+                      ? 'true'
+                      : 'false'}
                     aria-describedby={child.birthdateRangeInvalid
                       ? `child-birthdate-invalid-${index}`
                       : undefined}
                     class={`w-full px-2 py-1.5 text-sm border rounded focus:outline-none focus:ring-2 ${
-                      child.birthdateRangeInvalid
+                      child.birthdateRangeInvalid || hasProblem(`child-info-${index}`)
                         ? 'border-danger-600 focus:ring-danger-500 focus:border-danger-600'
                         : 'border-neutral-300 focus:ring-primary-500'
                     }`}
@@ -1929,23 +2330,27 @@
                 {#if applicableTicketTypes(true).length > 0}
                   <div>
                     <label for={`child-ticket-type-${index}`} class="block text-xs text-neutral-600 mb-1">
-                      {$t('register.ticketTypeLabel')} <span class="text-danger-600">*</span>
+                      {$t('register.ticketTypeLabel')} <span class="text-danger-600" aria-hidden="true">*</span>
                     </label>
                     <select
                       id={`child-ticket-type-${index}`}
                       value={child.ticketTypeId}
                       on:change={(e) =>
                         handleChildTicketTypeChange(index, (e.currentTarget as HTMLSelectElement).value)}
+                      required
+                      aria-required="true"
                       aria-invalid={childSelectedTicketWarning(child) !== null ||
                       ticketCompositionWarning(child.ticketTypeId) !== null ||
-                      ticketSoldOutWarning(child.ticketTypeId) !== null
+                      ticketSoldOutWarning(child.ticketTypeId) !== null ||
+                      hasProblem(`child-ticket-type-${index}`)
                         ? 'true'
                         : 'false'}
                       aria-describedby={childTicketDescribedBy(index, child)}
                       class={`w-full px-2 py-1.5 text-sm border rounded focus:outline-none focus:ring-2 ${
                         childSelectedTicketWarning(child) !== null ||
                         ticketCompositionWarning(child.ticketTypeId) !== null ||
-                        ticketSoldOutWarning(child.ticketTypeId) !== null
+                        ticketSoldOutWarning(child.ticketTypeId) !== null ||
+                        hasProblem(`child-ticket-type-${index}`)
                           ? 'border-danger-600 focus:ring-danger-500 focus:border-danger-600'
                           : 'border-neutral-300 focus:ring-primary-500'
                       }`}
@@ -2015,11 +2420,20 @@
 
                 {#each applicablePersonExtras(true).filter((extra) => extra.required) as extra (extra.id)}
                   {@const state = extraState(child.extraSelections, extra)}
-                  <div class="md:col-span-2">
-                    <div class="block text-xs text-neutral-600 mb-1">
-                      {extra.name} {extra.price !== '0.00' ? `(${formatCurrency(extra.price)} kr)` : ''} *
-                    </div>
-                    {#if extra.requires_choice}
+                  {#if extra.requires_choice}
+                    <fieldset
+                      class={`md:col-span-2 min-w-0 ${
+                        hasProblem(`child-extra-${extra.id}-${index}`)
+                          ? 'border border-danger-600 rounded-card p-2'
+                          : 'border-0 p-0 m-0'
+                      }`}
+                      data-testid={`child-extra-required-${extra.id}-${index}`}
+                    >
+                      <legend class="block text-xs text-neutral-600 mb-1 p-0">
+                        {extra.name}
+                        {extra.price !== '0.00' ? `(${formatCurrency(extra.price)} kr)` : ''}
+                        <span class="text-danger-600" aria-hidden="true">*</span>
+                      </legend>
                       <div class="flex items-center gap-3 flex-wrap">
                         {#each extra.choices as choice (choice.id)}
                           <label class="flex items-center gap-1 text-sm text-neutral-700">
@@ -2027,14 +2441,25 @@
                               type="radio"
                               name={`extra-${extra.id}-child-${index}`}
                               checked={state.choiceId === choice.id}
-                              on:change={() => setExtraChoice(child.extraSelections, extra, choice.id)}
+                              required
+                              on:change={() => {
+                                setExtraChoice(child.extraSelections, extra, choice.id);
+                                clearSubmitProblem(`child-extra-${extra.id}-${index}`);
+                              }}
                             />
                             {choice.label}{choice.price_delta !== '0.00' ? ` (+${formatCurrency(choice.price_delta)} kr)` : ''}
                           </label>
                         {/each}
                       </div>
-                    {/if}
-                  </div>
+                    </fieldset>
+                  {:else}
+                    <div class="md:col-span-2">
+                      <div class="block text-xs text-neutral-600 mb-1">
+                        {extra.name} {extra.price !== '0.00' ? `(${formatCurrency(extra.price)} kr)` : ''}
+                        <span class="text-danger-600" aria-hidden="true">*</span>
+                      </div>
+                    </div>
+                  {/if}
                 {/each}
 
                 {#if applicablePersonExtras(true).filter((extra) => !extra.required).length > 0}
@@ -2103,11 +2528,20 @@
 
       {#each registrationExtras().filter((extra) => extra.required) as extra (extra.id)}
         {@const state = extraState(registrationExtraSelections, extra)}
-        <div class="mb-4">
-          <div class="block text-xs text-neutral-600 mb-1">
-            {extra.name} {extra.price !== '0.00' ? `(${formatCurrency(extra.price)} kr)` : ''} *
-          </div>
-          {#if extra.requires_choice}
+        {#if extra.requires_choice}
+          <fieldset
+            class={`mb-4 min-w-0 ${
+              hasProblem(`registration-extra-${extra.id}`)
+                ? 'border border-danger-600 rounded-card p-2'
+                : 'border-0 p-0 m-0'
+            }`}
+            data-testid={`registration-extra-required-${extra.id}`}
+          >
+            <legend class="block text-xs text-neutral-600 mb-1 p-0">
+              {extra.name}
+              {extra.price !== '0.00' ? `(${formatCurrency(extra.price)} kr)` : ''}
+              <span class="text-danger-600" aria-hidden="true">*</span>
+            </legend>
             <div class="flex items-center gap-3 flex-wrap">
               {#each extra.choices as choice (choice.id)}
                 <label class="flex items-center gap-1 text-sm text-neutral-700">
@@ -2115,14 +2549,25 @@
                     type="radio"
                     name={`extra-${extra.id}-registration`}
                     checked={state.choiceId === choice.id}
-                    on:change={() => setExtraChoice(registrationExtraSelections, extra, choice.id)}
+                    required
+                    on:change={() => {
+                      setExtraChoice(registrationExtraSelections, extra, choice.id);
+                      clearSubmitProblem(`registration-extra-${extra.id}`);
+                    }}
                   />
                   {choice.label}{choice.price_delta !== '0.00' ? ` (+${formatCurrency(choice.price_delta)} kr)` : ''}
                 </label>
               {/each}
             </div>
-          {/if}
-        </div>
+          </fieldset>
+        {:else}
+          <div class="mb-4">
+            <div class="block text-xs text-neutral-600 mb-1">
+              {extra.name} {extra.price !== '0.00' ? `(${formatCurrency(extra.price)} kr)` : ''}
+              <span class="text-danger-600" aria-hidden="true">*</span>
+            </div>
+          </div>
+        {/if}
       {/each}
 
       {#if registrationExtras().filter((extra) => !extra.required).length > 0}
@@ -2188,7 +2633,7 @@
       {/if}
 
       {#if eventInfo.ticket_types.length > 0 || eventInfo.is_paid || eventInfo.has_hidden_ticket_types}
-        <div class="mb-4" tabindex="-1" bind:this={promoCodeFieldEl}>
+        <div class="mb-4">
           <label for="promo-code-input" class="block text-sm font-semibold text-neutral-700 mb-1">
             {$t('register.promoCodeLabel')}
           </label>
@@ -2250,7 +2695,6 @@
                   promoCodeError = '';
                   promoCodeValidation = null;
                   promoCodeAppliedValue = '';
-                  promoSubmitBlocked = false;
                   promoRemovalMessage = '';
                   retractPromoUnlockedTicketTypes();
                 }}

@@ -70,7 +70,23 @@ vi.mock('svelte-i18n', () => {
     'register.promoRemovedWithReset':
       'The code was removed. {ticket} is no longer selectable – choose a new ticket type for {attendees}.',
     'register.promoResetCaption': 'The code that unlocked this was removed — choose a new ticket type.',
-    'register.parentLabel': 'Parent {number}'
+    'register.parentLabel': 'Parent {number}',
+    // Error-summary banner (increment 5, 2026-09-28) — mapped for real here
+    // (rather than left to the fallback-to-raw-key behavior below) so tests
+    // can assert on the actual named, interpolated sentence a guardian
+    // would see, not just the translation key.
+    'register.contactEmailRequired': 'A valid email address is required.',
+    'register.ticketTypeRequired': 'Choose a ticket type for {name}.',
+    'register.relationshipRequired': 'Choose a relationship for {name}.',
+    'register.requiredExtraMissing': 'Choose {extra} for {name}.',
+    'register.requiredExtraMissingRegistration': 'Make a choice for {extra}.',
+    'register.errorBannerHeading': 'Please fix the following before you can submit:',
+    // R4 (registration dev-cycle round 4, increment 5 revision): the visual
+    // "*" span in the legend markup already states the marker once — this
+    // sentence must not repeat it as a literal character.
+    'register.requiredFieldLegend': 'marks a required field.',
+    'register.childInfoIncomplete': 'Fill in first name, last name and birthdate for {name}.',
+    'register.fieldErrorNamed': '{name}: {message}'
   };
   const translator = (key: string, opts?: { values?: Record<string, unknown> }) => {
     let text = translations[key] ?? key;
@@ -1377,11 +1393,20 @@ describe('Register page — Relation is required (no default)', () => {
     await user.click(screen.getByTestId('register-submit-button'));
 
     expect(submit).not.toHaveBeenCalled();
-    await screen.findByText('register.relationshipRequired');
+    // Increment 5 (2026-09-28): the banner names who it's about, using the
+    // typed first name — not a generic "choose a relationship for
+    // everyone" line (see the error-summary describe block below for the
+    // fallback-to-ordinal-label case, which only applies to attendees with
+    // no name typed at all).
+    const bannerItem = await screen.findByText('Choose a relationship for Kim.');
     const caption = await screen.findByTestId('parent-relationship-missing-0');
     expect(caption.textContent).toBe('register.relationshipRequiredCaption');
     expect(relationSelect.getAttribute('aria-invalid')).toBe('true');
     expect(relationSelect.getAttribute('aria-describedby')).toBe('parent-relationship-missing-0');
+
+    // Clicking the banner line focuses the field it's about.
+    await user.click(bannerItem);
+    expect(document.activeElement).toBe(relationSelect);
   });
 
   it('submits once a relationship is chosen', async () => {
@@ -1417,5 +1442,262 @@ describe('Register page — Relation is required (no default)', () => {
     await user.click(screen.getByTestId('register-submit-button'));
 
     await waitFor(() => expect(submit).toHaveBeenCalledTimes(1));
+  });
+});
+
+// Increment 5 (2026-09-28) — driven by a gate finding: a parent who
+// submitted without picking Boende (a required per-attendee choice) got a
+// generic "a required choice is missing for everyone"-style message with no
+// hint of which field or which person, and had to hunt through the whole
+// form. These cover the top-of-form error summary that replaced it: one
+// named line per problem, each a clickable link into the field it's about.
+function boendeEventInfo(overrides: Partial<Record<string, unknown>> = {}) {
+  return ticketlessEventInfo({
+    extras: [
+      {
+        id: 'extra-boende',
+        name: 'Boende',
+        price: '0.00',
+        session_id: null,
+        per_attendee: true,
+        applies_to: 'either',
+        requires_choice: true,
+        required: true,
+        default_selected: false,
+        choices: [
+          { id: 'choice-tent', label: 'Tält', price_delta: '0.00' },
+          { id: 'choice-cabin', label: 'Stuga', price_delta: '0.00' }
+        ]
+      }
+    ],
+    ...overrides
+  });
+}
+
+describe('Register page — error summary banner', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('names the attendee for a missing required-choice extra, and a click focuses the choice', async () => {
+    const user = userEvent.setup();
+    getEvent.mockResolvedValue(boendeEventInfo());
+    render(RegisterPage);
+
+    await screen.findByTestId('register-form');
+    // fillMinimalRequiredFields names the default child "Alex" but never
+    // touches Boende, which this event marks required.
+    await fillMinimalRequiredFields(user);
+
+    await user.click(screen.getByTestId('register-submit-button'));
+
+    expect(submit).not.toHaveBeenCalled();
+    const bannerItem = await screen.findByText('Choose Boende for Alex.');
+
+    const fieldset = screen.getByTestId('child-extra-required-extra-boende-0');
+    const firstChoice = fieldset.querySelector('input[type="radio"]') as HTMLInputElement;
+    await user.click(bannerItem);
+    expect(document.activeElement).toBe(firstChoice);
+  });
+
+  it('falls back to the ordinal label for an attendee with no name typed', async () => {
+    const user = userEvent.setup();
+    getEvent.mockResolvedValue(baseEventInfo());
+    render(RegisterPage);
+
+    await screen.findByTestId('register-form');
+    await fillMinimalRequiredFields(user);
+    await user.selectOptions(screen.getByTestId('child-ticket-type-0'), 'tt-child');
+
+    // A second child, left entirely blank — no birthdate means
+    // suggestChildTicketType never auto-picks a type for it (see
+    // handleChildBirthdateChange), so the missing-ticket-type problem is
+    // still live for this row and must name it with the ordinal fallback,
+    // same as the (also true, but separate) "fill in this child's info"
+    // problem for the same untouched row.
+    await user.click(screen.getByText(/Add another child/));
+
+    await user.click(screen.getByTestId('register-submit-button'));
+
+    expect(submit).not.toHaveBeenCalled();
+    await screen.findByText('Choose a ticket type for Child 2.');
+  });
+
+  it('lists more than one problem at once, instead of stopping at the first', async () => {
+    const user = userEvent.setup();
+    getEvent.mockResolvedValue(boendeEventInfo());
+    render(RegisterPage);
+
+    await screen.findByTestId('register-form');
+    // Neither the contact email nor the child's Boende choice is filled in.
+    await user.type(document.getElementById('child-first-name-0') as HTMLInputElement, 'Leo');
+    await user.type(document.getElementById('child-last-name-0') as HTMLInputElement, 'Karlsson');
+    await user.type(document.getElementById('child-birthdate-0') as HTMLInputElement, '2015-05-01');
+    await user.tab();
+
+    await user.click(screen.getByTestId('register-submit-button'));
+
+    expect(submit).not.toHaveBeenCalled();
+    await screen.findByText('A valid email address is required.');
+    await screen.findByText('Choose Boende for Leo.');
+  });
+
+  it('marks the required controls this increment covers with `required`, and the form with novalidate', async () => {
+    getEvent.mockResolvedValue(boendeEventInfo());
+    render(RegisterPage);
+
+    await screen.findByTestId('register-form');
+
+    const form = screen.getByTestId('register-form') as HTMLFormElement;
+    expect(form.noValidate).toBe(true);
+
+    expect(screen.getByTestId('register-contact-email')).toBeRequired();
+    expect(document.getElementById('child-first-name-0')).toBeRequired();
+    expect(document.getElementById('child-last-name-0')).toBeRequired();
+    expect(document.getElementById('child-birthdate-0')).toBeRequired();
+
+    const boendeFieldset = screen.getByTestId('child-extra-required-extra-boende-0');
+    for (const radio of boendeFieldset.querySelectorAll('input[type="radio"]')) {
+      expect(radio).toBeRequired();
+    }
+  });
+});
+
+// Registration dev-cycle round 4, increment 5 revision (2026-09-29) — R1
+// through R5 on top of the error summary above.
+describe('Register page — error summary revision (R1-R5)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('R1: Förälder 1 first name carries no required star or attribute, and a blank row is still silently dropped', async () => {
+    const user = userEvent.setup();
+    getEvent.mockResolvedValue(ticketlessEventInfo());
+    submit.mockResolvedValue({ reference_code: 'REF1', message: 'ok', email_sent: true });
+    render(RegisterPage);
+
+    await screen.findByTestId('register-form');
+
+    const firstNameInput = document.getElementById('parent-first-name-0') as HTMLInputElement;
+    expect(firstNameInput).not.toBeRequired();
+    expect(firstNameInput.getAttribute('aria-required')).toBeNull();
+    // The owner deferred the actual guardian requirement (knowitall
+    // c129cd8d) — this label must not promise an enforcement the form
+    // doesn't have.
+    const label = document.querySelector('label[for="parent-first-name-0"]');
+    expect(label?.textContent?.trim()).toBe('checkin.parentFirstName');
+
+    await fillMinimalRequiredFields(user);
+    // Förälder 1 stays entirely blank.
+    await user.click(screen.getByTestId('register-submit-button'));
+
+    await waitFor(() => expect(submit).toHaveBeenCalledTimes(1));
+    const payload = submit.mock.calls[0][0] as { parents: unknown[] };
+    expect(payload.parents).toHaveLength(0);
+  });
+
+  it('R2: a malformed email produces a named, focusable banner line', async () => {
+    const user = userEvent.setup();
+    getEvent.mockResolvedValue(ticketlessEventInfo());
+    render(RegisterPage);
+
+    await screen.findByTestId('register-form');
+    await user.type(screen.getByTestId('register-contact-email'), 'not-an-email');
+    await user.type(document.getElementById('child-first-name-0') as HTMLInputElement, 'Alex');
+    await user.type(document.getElementById('child-last-name-0') as HTMLInputElement, 'Karlsson');
+    await user.type(document.getElementById('child-birthdate-0') as HTMLInputElement, '2015-05-01');
+    await user.tab();
+
+    await user.click(screen.getByTestId('register-submit-button'));
+
+    expect(submit).not.toHaveBeenCalled();
+    const bannerItem = await screen.findByText('A valid email address is required.');
+    const emailInput = screen.getByTestId('register-contact-email');
+    await user.click(bannerItem);
+    expect(document.activeElement).toBe(emailInput);
+  });
+
+  it('R2: a server 400 on contact_email lands in the same banner item as the client-side check', async () => {
+    const user = userEvent.setup();
+    getEvent.mockResolvedValue(ticketlessEventInfo());
+    submit.mockRejectedValueOnce({
+      status: 400,
+      message: 'Enter a valid email address.',
+      details: { contact_email: ['Enter a valid email address.'] }
+    });
+    render(RegisterPage);
+
+    await screen.findByTestId('register-form');
+    await fillMinimalRequiredFields(user);
+
+    await user.click(screen.getByTestId('register-submit-button'));
+
+    await waitFor(() => expect(submit).toHaveBeenCalledTimes(1));
+    await screen.findByText('Please fix the following before you can submit:');
+    const bannerItem = await screen.findByText('A valid email address is required.');
+    // Not the raw server string — the banner keeps its usual wording/item,
+    // not extractErrorMessage's generic top line.
+    expect(screen.queryByText('Enter a valid email address.')).not.toBeInTheDocument();
+
+    const emailInput = screen.getByTestId('register-contact-email');
+    await user.click(bannerItem);
+    expect(document.activeElement).toBe(emailInput);
+  });
+
+  it('R3: aria-invalid and the danger border appear on a flagged field and clear as soon as it changes, removing the banner line', async () => {
+    const user = userEvent.setup();
+    getEvent.mockResolvedValue(ticketlessEventInfo());
+    render(RegisterPage);
+
+    await screen.findByTestId('register-form');
+    await user.type(document.getElementById('child-first-name-0') as HTMLInputElement, 'Alex');
+    await user.type(document.getElementById('child-last-name-0') as HTMLInputElement, 'Karlsson');
+    await user.type(document.getElementById('child-birthdate-0') as HTMLInputElement, '2015-05-01');
+    await user.tab();
+    // Contact email left blank.
+
+    await user.click(screen.getByTestId('register-submit-button'));
+
+    expect(submit).not.toHaveBeenCalled();
+    const emailInput = screen.getByTestId('register-contact-email') as HTMLInputElement;
+    await screen.findByText('A valid email address is required.');
+    expect(emailInput.getAttribute('aria-invalid')).toBe('true');
+    expect(emailInput.className).toMatch(/border-danger-600/);
+
+    await user.type(emailInput, 'guardian@example.com');
+
+    expect(emailInput.getAttribute('aria-invalid')).toBe('false');
+    expect(emailInput.className).not.toMatch(/border-danger-600/);
+    expect(screen.queryByText('A valid email address is required.')).not.toBeInTheDocument();
+    // The whole banner (heading and all) disappears once the last problem clears.
+    expect(screen.queryByText('Please fix the following before you can submit:')).not.toBeInTheDocument();
+  });
+
+  it('R4: the error banner has role=alert and no aria-live (avoids double announcement)', async () => {
+    const user = userEvent.setup();
+    getEvent.mockResolvedValue(ticketlessEventInfo());
+    render(RegisterPage);
+
+    await screen.findByTestId('register-form');
+    await user.click(screen.getByTestId('register-submit-button'));
+
+    const banner = await screen.findByRole('alert');
+    expect(banner.getAttribute('aria-live')).toBeNull();
+  });
+
+  it('R5: name/phone/email inputs carry maxlength matching the backend model limits', async () => {
+    getEvent.mockResolvedValue(ticketlessEventInfo());
+    render(RegisterPage);
+
+    await screen.findByTestId('register-form');
+
+    expect(screen.getByTestId('register-contact-email')).toHaveAttribute('maxlength', '254');
+    expect(document.getElementById('family-name')).toHaveAttribute('maxlength', '255');
+    expect(document.getElementById('parent-first-name-0')).toHaveAttribute('maxlength', '255');
+    expect(document.getElementById('parent-last-name-0')).toHaveAttribute('maxlength', '255');
+    expect(document.getElementById('parent-phone-0')).toHaveAttribute('maxlength', '50');
+    expect(document.getElementById('parent-email-0')).toHaveAttribute('maxlength', '254');
+    expect(document.getElementById('child-first-name-0')).toHaveAttribute('maxlength', '255');
+    expect(document.getElementById('child-last-name-0')).toHaveAttribute('maxlength', '255');
   });
 });
