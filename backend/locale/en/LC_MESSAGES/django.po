@@ -1800,3 +1800,17 @@ msgstr "Who owes money?"
 # Admin chrome language switcher - templates/admin/language_switcher.html
 msgid "Change admin language"
 msgstr "Change admin language"
+
+# Public registration: guardian rules (owner decision eb5d26f4) -
+# registrations/serializers.py, registrations/views.py
+msgid "A phone number is required for every adult."
+msgstr "A phone number is required for every adult."
+
+msgid "A registration needs at least one parent or child"
+msgstr "A registration needs at least one parent or child"
+
+msgid "A registration with children needs at least one adult who is their guardian."
+msgstr "A registration with children needs at least one adult who is their guardian."
+
+msgid "Extras can only be added for an adult with a ticket."
+msgstr "Extras can only be added for an adult with a ticket."

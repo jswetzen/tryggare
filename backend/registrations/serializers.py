@@ -1,3 +1,4 @@
+from django.utils.translation import gettext_lazy as _
 from rest_framework import serializers
 
 from events.models import Event, Extra, ExtraChoice, TicketType
@@ -32,6 +33,27 @@ class RegistrationParentSerializer(ParentCreateSerializer):
     families/serializers.py directly, so the shared staff AddFamilyPanel
     flow (which has no ticket-type concept) stays untouched."""
 
+    # Phone is mandatory for every adult on a public registration, ticketed
+    # or not (owner decision eb5d26f4, child safety: any adult on the
+    # registration is a guardian of all its children, so staff must be able
+    # to reach every one of them). Declared here rather than on
+    # ParentCreateSerializer so the staff AddFamilyPanel flow, where a phone
+    # is optional, is untouched. Enforced at field level (not in the
+    # top-level validate()) so a missing phone comes back in DRF's native
+    # per-row shape -- {"parents": [{}, {"phone": [msg]}]} -- and is
+    # reported together with any other field errors in one round trip.
+    phone = serializers.CharField(
+        max_length=50,
+        error_messages={
+            "required": _("A phone number is required for every adult."),
+            "blank": _("A phone number is required for every adult."),
+            "null": _("A phone number is required for every adult."),
+        },
+    )
+    # ``ticket_type`` omitted/null means a "guardian only" adult: no ticket,
+    # no seat, no price (see views.py::_create_registration). Only
+    # meaningful once the event has active TicketTypes; on a flat-price
+    # event every attendee still gets the flat EventTicket.
     ticket_type = serializers.PrimaryKeyRelatedField(
         queryset=TicketType.objects.filter(is_active=True),
         required=False,
@@ -109,6 +131,23 @@ class RegistrationSubmitSerializer(serializers.Serializer):
     def validate(self, data):
         if not data.get("parents") and not data.get("children"):
             raise serializers.ValidationError(
-                "A registration needs at least one parent or child"
+                _("A registration needs at least one parent or child")
+            )
+        # Owner decision eb5d26f4: a guardian is required only when there are
+        # children. Every adult on the registration is a guardian of all its
+        # children (no per-child link), and needn't hold a ticket. Keyed under
+        # "parents" (a plain list of messages, not per-row) so the client can
+        # hang it on the first-parent row; per-row phone errors arrive in the
+        # field-level shape instead, see RegistrationParentSerializer.phone.
+        if data.get("children") and not data.get("parents"):
+            raise serializers.ValidationError(
+                {
+                    "parents": [
+                        _(
+                            "A registration with children needs at least one "
+                            "adult who is their guardian."
+                        )
+                    ]
+                }
             )
         return data

@@ -49,6 +49,7 @@ class RegistrationIdempotencyTests(TestCase):
             "parents": [
                 {
                     "first_name": "Anna",
+                    "phone": "070-123 45 67",
                     "relationship_type": "Mother",
                     "email": "guardian@example.com",
                 }
@@ -339,6 +340,7 @@ class IdempotencyKeyStaleReclaimRaceTests(TransactionTestCase):
             "parents": [
                 {
                     "first_name": "Anna",
+                    "phone": "070-123 45 67",
                     "relationship_type": "Mother",
                     "email": "guardian@example.com",
                 }

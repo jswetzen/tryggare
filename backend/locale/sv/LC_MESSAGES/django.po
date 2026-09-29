@@ -1821,3 +1821,17 @@ msgstr "Vem är skulden hos?"
 # Admin chrome language switcher - templates/admin/language_switcher.html
 msgid "Change admin language"
 msgstr "Byt adminspråk"
+
+# Public registration: guardian rules (owner decision eb5d26f4) -
+# registrations/serializers.py, registrations/views.py
+msgid "A phone number is required for every adult."
+msgstr "Ange ett telefonnummer så att vi kan nå dig under evenemanget."
+
+msgid "A registration needs at least one parent or child"
+msgstr "En anmälan behöver minst en vuxen eller ett barn."
+
+msgid "A registration with children needs at least one adult who is their guardian."
+msgstr "En anmälan med barn behöver minst en vuxen som är barnens vårdnadshavare."
+
+msgid "Extras can only be added for an adult with a ticket."
+msgstr "Tillval kan bara läggas till för en vuxen som har en biljett."

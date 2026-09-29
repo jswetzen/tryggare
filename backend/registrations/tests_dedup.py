@@ -39,6 +39,7 @@ class RegistrationDedupTests(TestCase):
             "parents": [
                 {
                     "first_name": "Anna",
+                    "phone": "070-123 45 67",
                     "relationship_type": "Mother",
                     "email": "guardian@example.com",
                 }
@@ -152,6 +153,7 @@ class RegistrationDedupTests(TestCase):
                 parents=[
                     {
                         "first_name": "Bo",
+                        "phone": "070-123 45 67",
                         "relationship_type": "Father",
                         "email": "other@example.com",
                     }
@@ -216,6 +218,7 @@ class RegistrationDedupTests(TestCase):
                 parents=[
                     {
                         "first_name": "Bo",
+                        "phone": "070-123 45 67",
                         "relationship_type": "Father",
                         "email": "other@example.com",
                     }

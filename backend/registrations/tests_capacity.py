@@ -301,6 +301,7 @@ class RegistrationSubmitCapacityTests(TestCase):
             "parents": [
                 {
                     "first_name": "Anna",
+                    "phone": "070-123 45 67",
                     "relationship_type": "Mother",
                     "ticket_type": str(ticket_type.id),
                 }
@@ -551,6 +552,7 @@ class TicketTypeCapacityRaceTests(TransactionTestCase):
             "parents": [
                 {
                     "first_name": "Anna",
+                    "phone": "070-123 45 67",
                     "relationship_type": "Mother",
                     "ticket_type": str(self.ticket_type.id),
                 }
@@ -648,11 +650,13 @@ class OppositeOrderNoDeadlockTests(TransactionTestCase):
             "parents": [
                 {
                     "first_name": "Anna",
+                    "phone": "070-123 45 67",
                     "relationship_type": "Mother",
                     "ticket_type": str(first_type.id),
                 },
                 {
                     "first_name": "Bo",
+                    "phone": "070-123 45 67",
                     "relationship_type": "Father",
                     "ticket_type": str(second_type.id),
                 },
@@ -760,7 +764,13 @@ class RegistrationBusyRetryTests(TestCase):
         payload = {
             "event": str(self.event.id),
             "contact_email": "guardian@example.com",
-            "parents": [{"first_name": "Anna", "relationship_type": "Mother"}],
+            "parents": [
+                {
+                    "first_name": "Anna",
+                    "phone": "070-123 45 67",
+                    "relationship_type": "Mother",
+                }
+            ],
             "children": [],
         }
         payload.update(overrides)
