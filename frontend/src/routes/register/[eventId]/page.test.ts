@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/svelte';
 import userEvent from '@testing-library/user-event';
 import { readable } from 'svelte/store';
@@ -86,7 +86,24 @@ vi.mock('svelte-i18n', () => {
     // sentence must not repeat it as a literal character.
     'register.requiredFieldLegend': 'marks a required field.',
     'register.childInfoIncomplete': 'Fill in first name, last name and birthdate for {name}.',
-    'register.fieldErrorNamed': '{name}: {message}'
+    'register.fieldErrorNamed': '{name}: {message}',
+    // Success screen (increment 7 revision, R1/R2/R5) — mapped for real so
+    // tests can assert the actual copy a guardian sees, same pattern as the
+    // error-summary entries above. wrongEmailPrompt/fixEmailButton are
+    // deliberately left unmapped (see the success-screen describe block's
+    // own comment) — those tests only care about the button's identity and
+    // position, not its exact wording.
+    'register.successTitle': 'Confirm your email to finish',
+    'register.successIntro':
+      "We've received your registration to {event}. We've sent a confirmation link to:",
+    'register.successIntroNotSent':
+      "We've received your registration to {event}, but we couldn't send the confirmation link to:",
+    'register.successCalloutText':
+      "Your registration isn't complete until you click the link — within 48 hours.",
+    'register.successSpamHint': "Don't see it? Check your spam folder.",
+    'register.referenceCodeCopiedAnnouncement': 'Reference code copied',
+    'register.summaryWholeRegistrationLine': 'Whole registration: {extras}',
+    'register.summaryDiscountLine': 'Discount ({code}) −{amount} kr'
   };
   const translator = (key: string, opts?: { values?: Record<string, unknown> }) => {
     let text = translations[key] ?? key;
@@ -180,6 +197,13 @@ function baseEventInfo(overrides: Partial<Record<string, unknown>> = {}) {
     ...overrides
   };
 }
+
+// Icon path data (see Icon.svelte) for the success screen's copy-button
+// icon swap (R5, increment 7 revision) — asserting on the rendered path's
+// `d` attribute proves the actual icon changed, not just the label text.
+const COPY_ICON_PATH =
+  'M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z';
+const CHECK_CIRCLE_ICON_PATH = 'M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z';
 
 describe('Register page — ticket type eligibility by birthdate', () => {
   beforeEach(() => {
@@ -721,6 +745,378 @@ describe('Register page — registration already pending (dedup made visible)', 
     const secondKey = (submit.mock.calls[1][0] as { idempotency_key?: string }).idempotency_key;
     expect(secondKey).toBeTruthy();
     expect(secondKey).not.toBe(firstKey);
+  });
+});
+
+// Success screen (registration dev-cycle round 4, increment 7, revised
+// 2026-09-29 against a gated critique — see +page.svelte's own comment on
+// the `submitted` block for the full reasoning). R1: this is a pending
+// step, not a finish line — no green, a `mail` icon, a primary-toned 48h
+// callout right after the email chip. R2: the summary now shows what a
+// guardian actually picked (extras/accommodation), not just a ticket price,
+// so it visibly reconciles with the total. R3: "wrong email" moves up under
+// the chip; resend becomes the quiet last action. R4: an h1, still focused
+// on arrival, naming the event. R5: the copy button announces itself to
+// assistive tech and degrades to a text selection on clipboard failure.
+describe('Register page — success screen (increment 7)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('shows the success heading as a focused h1 naming the event, with a primary (not green) mail icon', async () => {
+    const user = userEvent.setup();
+    getEvent.mockResolvedValue(ticketlessEventInfo());
+    submit.mockResolvedValue({ reference_code: 'REF1', message: 'ok', email_sent: true });
+    render(RegisterPage);
+
+    await screen.findByTestId('register-form');
+    await fillMinimalRequiredFields(user);
+    await user.click(screen.getByTestId('register-submit-button'));
+
+    const heading = await screen.findByTestId('register-success-heading');
+    expect(heading.tagName).toBe('H1');
+    expect(heading.textContent).toContain('Confirm your email to finish');
+    await waitFor(() => expect(document.activeElement).toBe(heading));
+
+    const icon = screen.getByTestId('register-success-icon');
+    expect(icon.querySelector('svg')).toBeTruthy();
+    expect(icon.className).toContain('bg-primary-50');
+    expect(icon.className).not.toMatch(/success/);
+
+    // Named in the intro sentence, not just implied (ticketlessEventInfo ->
+    // baseEventInfo's name).
+    expect(screen.getByTestId('register-success').textContent).toContain('Sommarläger 2026');
+  });
+
+  it('has no green/success styling anywhere on the screen — a pending step, not a finish line', async () => {
+    const user = userEvent.setup();
+    getEvent.mockResolvedValue(ticketlessEventInfo());
+    submit.mockResolvedValue({ reference_code: 'REF1', message: 'ok', email_sent: true });
+    render(RegisterPage);
+
+    await screen.findByTestId('register-form');
+    await fillMinimalRequiredFields(user);
+    await user.click(screen.getByTestId('register-submit-button'));
+
+    const container = await screen.findByTestId('register-success');
+    // Matches a success-colored utility class (bg-success-600, text-success-700,
+    // etc.), not the literal substring "success" — several data-testid
+    // values on this screen legitimately contain that word.
+    expect(container.innerHTML).not.toMatch(/(?:bg|text|border|ring)-success-\d/);
+  });
+
+  it('shows a primary-toned, font-semibold 48-hour callout right after the email chip', async () => {
+    const user = userEvent.setup();
+    getEvent.mockResolvedValue(ticketlessEventInfo());
+    submit.mockResolvedValue({ reference_code: 'REF1', message: 'ok', email_sent: true });
+    render(RegisterPage);
+
+    await screen.findByTestId('register-form');
+    await fillMinimalRequiredFields(user);
+    await user.click(screen.getByTestId('register-submit-button'));
+
+    await screen.findByTestId('register-success');
+    const emailChip = screen.getByTestId('register-success-email');
+    const callout = screen.getByTestId('register-success-callout');
+    expect(callout.className).toContain('bg-primary-50');
+    expect(callout.className).toContain('font-semibold');
+    expect(callout.textContent).toContain("isn't complete");
+    expect(callout.textContent).toContain('48 hours');
+    expect(
+      emailChip.compareDocumentPosition(callout) & Node.DOCUMENT_POSITION_FOLLOWING
+    ).toBeTruthy();
+  });
+
+  it('moves the "wrong email" link up under the chip, ahead of the reference code block', async () => {
+    const user = userEvent.setup();
+    getEvent.mockResolvedValue(ticketlessEventInfo());
+    submit.mockResolvedValueOnce({ reference_code: 'REF1', message: 'ok', email_sent: true });
+    render(RegisterPage);
+
+    await screen.findByTestId('register-form');
+    await fillMinimalRequiredFields(user);
+    await user.click(screen.getByTestId('register-submit-button'));
+    await screen.findByTestId('register-success');
+
+    // Unmapped in this file's i18n mock (see its top-of-file comment), so
+    // the raw key renders — the point here is that the button no longer
+    // uses the generic "editEmailButton" copy on this screen (increment 6's
+    // pending-duplicate screen keeps that one; see its own describe block).
+    expect(screen.getByText('register.wrongEmailPrompt')).toBeInTheDocument();
+    expect(screen.getByText('register.fixEmailButton')).toBeInTheDocument();
+
+    const editLink = screen.getByTestId('register-edit-email');
+    const referenceBlock = screen.getByTestId('register-reference-block');
+    expect(
+      editLink.compareDocumentPosition(referenceBlock) & Node.DOCUMENT_POSITION_FOLLOWING
+    ).toBeTruthy();
+    // >=44px tall on phone (min-h-11 = 2.75rem = 44px; only enforced below sm).
+    expect(editLink.className).toContain('min-h-11');
+
+    await user.click(editLink);
+    await screen.findByTestId('register-form');
+    expect(screen.queryByTestId('register-success')).not.toBeInTheDocument();
+  });
+
+  it('shows the email address it was sent to and the reference code', async () => {
+    const user = userEvent.setup();
+    getEvent.mockResolvedValue(ticketlessEventInfo());
+    submit.mockResolvedValue({ reference_code: 'REF1', message: 'ok', email_sent: true });
+    render(RegisterPage);
+
+    await screen.findByTestId('register-form');
+    await fillMinimalRequiredFields(user);
+    await user.click(screen.getByTestId('register-submit-button'));
+
+    await screen.findByTestId('register-success');
+    expect(screen.getByTestId('register-success-email').textContent).toContain('guardian@example.com');
+    expect(screen.getByTestId('register-reference-code').textContent?.trim()).toBe('REF1');
+    // Labelled, not just a bare code — the "what's this for" line.
+    expect(screen.getByText('register.referenceCodeLabel')).toBeInTheDocument();
+    expect(screen.getByText('register.referenceCodeHint')).toBeInTheDocument();
+    expect(screen.getByTestId('register-copy-reference')).toBeInTheDocument();
+  });
+
+  // R5 (increment 7 revision): the copy button's states — icon swap, sr-only
+  // live-region announcement, and a clipboard-failure fallback that selects
+  // the code's own text so the guardian's next Ctrl/Cmd+C still works.
+  describe('copy reference code (R5)', () => {
+    const originalClipboard = navigator.clipboard;
+
+    afterEach(() => {
+      Object.defineProperty(navigator, 'clipboard', {
+        value: originalClipboard,
+        configurable: true
+      });
+    });
+
+    async function renderSubmitted(user: ReturnType<typeof userEvent.setup>) {
+      getEvent.mockResolvedValue(ticketlessEventInfo());
+      submit.mockResolvedValue({ reference_code: 'REF1', message: 'ok', email_sent: true });
+      render(RegisterPage);
+      await screen.findByTestId('register-form');
+      await fillMinimalRequiredFields(user);
+      await user.click(screen.getByTestId('register-submit-button'));
+      await screen.findByTestId('register-success');
+    }
+
+    it('swaps the icon to a check, updates the label, and announces itself via the sr-only live region', async () => {
+      const user = userEvent.setup();
+      const writeText = vi.fn().mockResolvedValue(undefined);
+      Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true });
+      await renderSubmitted(user);
+
+      const copyButton = screen.getByTestId('register-copy-reference');
+      expect(copyButton.querySelector('svg path')?.getAttribute('d')).toBe(COPY_ICON_PATH);
+      expect(copyButton.textContent).toContain('Copy');
+      expect(copyButton.textContent).not.toContain('Copied');
+      // min-w so the row doesn't shift between "Copy" and "Copied".
+      expect(copyButton.className).toMatch(/min-w-\[/);
+
+      await user.click(copyButton);
+
+      expect(writeText).toHaveBeenCalledWith('REF1');
+      await waitFor(() =>
+        expect(copyButton.querySelector('svg path')?.getAttribute('d')).toBe(CHECK_CIRCLE_ICON_PATH)
+      );
+      expect(copyButton.textContent).toContain('Copied');
+      expect(screen.getByText('Reference code copied')).toBeInTheDocument();
+    });
+
+    it('selects the reference code text when the clipboard write rejects', async () => {
+      const user = userEvent.setup();
+      const writeText = vi.fn().mockRejectedValue(new Error('denied'));
+      Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true });
+      await renderSubmitted(user);
+
+      await user.click(screen.getByTestId('register-copy-reference'));
+      await waitFor(() => expect(window.getSelection()?.toString().trim()).toBe('REF1'));
+    });
+
+    it('selects the reference code text outright when the Clipboard API is unavailable', async () => {
+      const user = userEvent.setup();
+      Object.defineProperty(navigator, 'clipboard', { value: undefined, configurable: true });
+      await renderSubmitted(user);
+
+      await user.click(screen.getByTestId('register-copy-reference'));
+      await waitFor(() => expect(window.getSelection()?.toString().trim()).toBe('REF1'));
+    });
+  });
+
+  it('shows an attendee/ticket summary with a total, so a forgotten child would stand out', async () => {
+    const user = userEvent.setup();
+    getEvent.mockResolvedValue(baseEventInfo());
+    submit.mockResolvedValue({ reference_code: 'REF1', message: 'ok', email_sent: true });
+    render(RegisterPage);
+
+    // Two children, no named parent — this sidesteps a pre-existing,
+    // unrelated gap where a named parent is required to hold a ticket type
+    // even on an event whose only configured types are child-only (nothing
+    // this increment touches; see requiresTicketType/validParentEntries in
+    // handleSubmit). Two attendees is enough to prove the summary lists
+    // each one with their own auto-suggested ticket and sums the total
+    // correctly (100 + 150), which a single-attendee case can't show.
+    await screen.findByTestId('register-form');
+    await user.type(screen.getByTestId('register-contact-email'), 'guardian@example.com');
+    await user.type(document.getElementById('child-first-name-0') as HTMLInputElement, 'Alex');
+    await user.type(document.getElementById('child-last-name-0') as HTMLInputElement, 'Karlsson');
+    await user.type(document.getElementById('child-birthdate-0') as HTMLInputElement, '2015-05-01');
+    await user.tab();
+
+    await user.click(screen.getByText(/Add another child/));
+    await user.type(document.getElementById('child-first-name-1') as HTMLInputElement, 'Sam');
+    await user.type(document.getElementById('child-last-name-1') as HTMLInputElement, 'Karlsson');
+    await user.type(document.getElementById('child-birthdate-1') as HTMLInputElement, '2011-01-01');
+    await user.tab();
+
+    await user.click(screen.getByTestId('register-submit-button'));
+    await screen.findByTestId('register-success');
+
+    const summary = screen.getByTestId('register-summary');
+    expect(summary.textContent).toContain('Alex');
+    expect(summary.textContent).toContain('Sam');
+    // Auto-suggested from each birthdate (see suggestChildTicketType).
+    expect(summary.textContent).toContain('Barn (0-12 år)');
+    expect(summary.textContent).toContain('Ungdom (13-17 år)');
+    expect(screen.getByTestId('register-summary-total').textContent).toContain('250.00');
+  });
+
+  // R2 (increment 7 revision): the summary used to list a ticket price per
+  // attendee while "Totalt" also folded in extras/accommodation — a
+  // design-critique gate caught the arithmetic visibly not adding up (2 200
+  // kr in rows vs 2 800 kr total). This proves the displayed pieces
+  // (ticket + per-attendee extra + whole-registration extra − discount)
+  // actually reconcile with the displayed total.
+  function extrasReconciliationEventInfo(overrides: Partial<Record<string, unknown>> = {}) {
+    return baseEventInfo({
+      ticket_types: [
+        {
+          id: 'tt-standard',
+          name: 'Standard',
+          price: '200.00',
+          applies_to: 'child',
+          min_birthdate: null,
+          max_birthdate: null,
+          kind: 'event',
+          requires_ticket_type_id: null,
+          max_per_required: null,
+          available: true
+        }
+      ],
+      extras: [
+        {
+          id: 'extra-meals',
+          name: 'Meals',
+          price: '50.00',
+          session_id: null,
+          per_attendee: true,
+          applies_to: 'child',
+          requires_choice: false,
+          required: false,
+          default_selected: false,
+          choices: []
+        },
+        {
+          id: 'extra-cabin',
+          name: 'Cabin',
+          price: '300.00',
+          session_id: null,
+          per_attendee: false,
+          applies_to: 'either',
+          requires_choice: false,
+          required: false,
+          default_selected: false,
+          choices: []
+        }
+      ],
+      ...overrides
+    });
+  }
+
+  it('reconciles the summary with the total once extras and a discount are involved (R2)', async () => {
+    const user = userEvent.setup();
+    getEvent.mockResolvedValue(extrasReconciliationEventInfo());
+    validatePromoCode.mockResolvedValue({
+      valid: true,
+      discount_type: 'fixed',
+      discount_value: '30',
+      applies_to_ticket_type_ids: [],
+      unlocks_ticket_types: []
+    });
+    submit.mockResolvedValue({ reference_code: 'REF1', message: 'ok', email_sent: true });
+    render(RegisterPage);
+
+    await screen.findByTestId('register-form');
+    await user.type(screen.getByTestId('register-contact-email'), 'guardian@example.com');
+    await user.type(document.getElementById('child-first-name-0') as HTMLInputElement, 'Alex');
+    await user.type(document.getElementById('child-last-name-0') as HTMLInputElement, 'Karlsson');
+    await user.type(document.getElementById('child-birthdate-0') as HTMLInputElement, '2015-05-01');
+    await user.tab();
+
+    const childTicketSelect = (await screen.findByTestId('child-ticket-type-0')) as HTMLSelectElement;
+    await user.selectOptions(childTicketSelect, 'tt-standard');
+
+    await user.click(screen.getByLabelText(/Meals/));
+    await user.click(screen.getByLabelText(/Cabin/));
+
+    await user.type(screen.getByTestId('register-promo-code-input'), 'SAVE30');
+    await user.click(screen.getByTestId('register-promo-code-apply'));
+    await screen.findByTestId('register-promo-code-chip');
+
+    await user.click(screen.getByTestId('register-submit-button'));
+    await screen.findByTestId('register-success');
+
+    const summary = screen.getByTestId('register-summary');
+    expect(summary.textContent).toContain('Standard');
+    expect(summary.textContent).toContain('Meals');
+
+    expect(screen.getByTestId('register-summary-registration-extras').textContent).toContain('Cabin');
+
+    const discountRow = screen.getByTestId('register-summary-discount');
+    expect(discountRow.textContent).toContain('SAVE30');
+    expect(discountRow.textContent).toContain('30.00');
+
+    // Tickets (200) + per-attendee extra (50) + registration extra (300) −
+    // discount (30) = 520.00 — the arithmetic the total actually reflects.
+    expect(screen.getByTestId('register-summary-total').textContent).toContain('520.00');
+  });
+
+  it('resend still sends a fresh request, as a bordered ghost-styled quiet last action', async () => {
+    const user = userEvent.setup();
+    getEvent.mockResolvedValue(ticketlessEventInfo());
+    submit.mockResolvedValue({ reference_code: 'REF1', message: 'ok', email_sent: true });
+    render(RegisterPage);
+
+    await screen.findByTestId('register-form');
+    await fillMinimalRequiredFields(user);
+    await user.click(screen.getByTestId('register-submit-button'));
+    await screen.findByTestId('register-success');
+
+    const resendButton = screen.getByText('register.resendButton') as HTMLButtonElement;
+    expect(resendButton.className).toContain('border');
+
+    await user.click(resendButton);
+    await screen.findByTestId('register-resend-sent');
+    expect(submit).toHaveBeenCalledTimes(2);
+  });
+
+  it("increment 6's pending-duplicate screen still renders instead of the success screen for its code", async () => {
+    const user = userEvent.setup();
+    getEvent.mockResolvedValue(ticketlessEventInfo());
+    submit.mockResolvedValue({
+      reference_code: 'REF9',
+      message: 'A registration for this email is already waiting for confirmation.',
+      email_sent: true,
+      code: 'registration_already_pending'
+    });
+    render(RegisterPage);
+
+    await screen.findByTestId('register-form');
+    await fillMinimalRequiredFields(user);
+    await user.click(screen.getByTestId('register-submit-button'));
+
+    await screen.findByTestId('register-pending-duplicate');
+    expect(screen.queryByTestId('register-success')).not.toBeInTheDocument();
   });
 });
 

@@ -311,6 +311,28 @@
   // to watch an inbox nothing is coming to.
   let emailSent = $state(true);
 
+  // Increment 7 (registration dev-cycle round 4, 2026-09-29): the success
+  // heading itself, so arrival on this screen can move focus there (see the
+  // $effect below) — a screen reader then announces "Nästan klart!" the
+  // moment the submit resolves, rather than leaving focus stranded on the
+  // now-gone submit button. tabindex="-1" on the element makes it
+  // programmatically focusable without adding it to the tab order.
+  let successHeadingEl = $state<HTMLElement | null>(null);
+  // Transient "Copied" confirmation on the reference-code copy button —
+  // reset on a timer rather than left to a second click, so a guardian who
+  // copies once and walks away doesn't leave a stale "Copied" behind if they
+  // come back to this tab later. Also drives a screen-reader announcement
+  // (R5, increment 7 revision) via the sr-only aria-live region next to the
+  // button — the button's own label swap (Copy -> Copied) isn't itself
+  // enough for a screen-reader user who isn't AT the button when it changes.
+  let referenceCodeCopied = $state(false);
+  // Bound to the reference-code <span> (R5, increment 7 revision) so a
+  // clipboard failure (feature-undetected or the writeText call itself
+  // rejecting) can still get the guardian to a working manual copy: select
+  // the code's own text so their next Ctrl/Cmd+C just works, rather than
+  // leaving them to click-drag across a font-mono string themselves.
+  let referenceCodeEl = $state<HTMLElement | null>(null);
+
   // Set only when a submit's response body carries `code:
   // "registration_already_pending"` — the backend's (event, contact_email)
   // dedup was hit and this submission's form data was silently discarded in
@@ -400,6 +422,144 @@
       idempotencyConflictBannerEl.focus();
     }
   });
+
+  // Increment 7: moves focus to the success heading the moment this screen
+  // appears, so a screen-reader user gets "Nästan klart!" announced instead
+  // of silence (focus would otherwise still be sitting on the just-removed
+  // submit button). This is the only focus handling for the `submitted`
+  // state — there was none before this increment, unlike the error/
+  // idempotency-conflict banners above, which have carried theirs since
+  // earlier rounds. No scrollIntoView here: this screen is the entire view
+  // the moment it renders (see the #if chain below), unlike the error
+  // banner, which can be scrolled past on the long form.
+  $effect(() => {
+    if (submitted && successHeadingEl) {
+      successHeadingEl.focus();
+    }
+  });
+
+  // Attendee/ticket summary for the success screen (increment 7) — one row
+  // per attendee actually submitted, so a guardian can spot a forgotten
+  // child before leaving the page. Mirrors handleSubmit's own filtering
+  // exactly: children always submit (client-side validation above already
+  // requires first/last name + birthdate for every row), parents only when
+  // named (see validParents there) — reading live `parents`/`children`
+  // state here rather than re-parsing lastSubmitPayload, since nothing
+  // mutates that state between a successful submit and this screen
+  // rendering (handleEditEmail is the only thing that would, and it drops
+  // `submitted` back to false first). Ticket name is resolved against
+  // eventInfo.ticket_types rather than stored on the row itself, same
+  // lookup the form's own ticket <select>s already do.
+  // extraLabels below (R2, increment 7 revision, 2026-09-29): the summary
+  // used to list a ticket price per attendee while "Totalt" also folded in
+  // whatever extras/accommodation they picked — a design-critique gate
+  // caught the arithmetic visibly not adding up (2 200 kr in rows vs 2 800
+  // kr total) with nothing on screen to attribute the gap to. Name only, no
+  // per-line price — this is "what did we sign up for", not a receipt;
+  // discountedTotal (below) is still the one number that has to reconcile,
+  // and it already prices these via runningTotal, this just makes that
+  // arithmetic legible.
+  function extraSummaryLabel(
+    extra: RegistrationExtraInfo,
+    state: ExtraSelectionState
+  ): string | null {
+    if (!state.selected) return null;
+    const choice = extra.choices.find((c) => c.id === state.choiceId);
+    return choice ? `${extra.name} – ${choice.label}` : extra.name;
+  }
+
+  function personExtraLabels(
+    selections: Record<string, ExtraSelectionState>,
+    isChild: boolean
+  ): string[] {
+    const labels: string[] = [];
+    for (const extra of applicablePersonExtras(isChild)) {
+      const label = extraSummaryLabel(extra, extraState(selections, extra));
+      if (label) labels.push(label);
+    }
+    return labels;
+  }
+
+  // Whole-registration extras (e.g. a shared cabin) aren't any one
+  // attendee's — one line for the lot, named "Hela anmälan" rather than
+  // repeated on every row.
+  let registrationExtraLabels = $derived.by(() => {
+    const labels: string[] = [];
+    for (const extra of registrationExtras()) {
+      const label = extraSummaryLabel(extra, extraState(registrationExtraSelections, extra));
+      if (label) labels.push(label);
+    }
+    return labels;
+  });
+
+  let summaryRows = $derived.by(() => {
+    const rows: { label: string; ticketName: string | null; extraLabels: string[] }[] = [];
+    parents.forEach((p, i) => {
+      if (!p.first_name.trim()) return;
+      const ticketType = eventInfo?.ticket_types.find((tt) => tt.id === p.ticketTypeId) ?? null;
+      rows.push({
+        label: parentAttendeeLabel(p, i),
+        ticketName: ticketType?.name ?? null,
+        extraLabels: personExtraLabels(p.extraSelections, false)
+      });
+    });
+    children.forEach((c, i) => {
+      const ticketType = eventInfo?.ticket_types.find((tt) => tt.id === c.ticketTypeId) ?? null;
+      rows.push({
+        label: childAttendeeLabel(c, i),
+        ticketName: ticketType?.name ?? null,
+        extraLabels: personExtraLabels(c.extraSelections, true)
+      });
+    });
+    return rows;
+  });
+
+  // Whether the event has any ticket-type pricing configured at all — same
+  // gate the in-form running-total section already uses (see its own
+  // condition below), so the success screen never claims a "Total" for an
+  // event that never showed one during the form itself.
+  let hasTicketPricing = $derived(
+    !!eventInfo &&
+      (eventInfo.ticket_types.length > 0 || eventInfo.is_paid || eventInfo.has_hidden_ticket_types)
+  );
+
+  // Clipboard write is feature-detected rather than assumed — jsdom (this
+  // project's test environment) has no navigator.clipboard, and even in a
+  // real browser it's unavailable on a non-HTTPS origin. Silently doing
+  // nothing on the rare browser without it is the right degrade: the code
+  // is still shown as plain, selectable text right next to the button.
+  // R5 (increment 7 revision): a clipboard write that isn't even attempted
+  // (no navigator.clipboard, e.g. non-HTTPS origin) or that rejects falls
+  // back to selecting the code's own text, so the guardian's next Ctrl/Cmd+C
+  // still works instead of leaving them to manually click-drag across a
+  // font-mono string.
+  function selectReferenceCodeText() {
+    if (!referenceCodeEl) return;
+    const selection = window.getSelection?.();
+    if (!selection) return;
+    const range = document.createRange();
+    range.selectNodeContents(referenceCodeEl);
+    selection.removeAllRanges();
+    selection.addRange(range);
+  }
+
+  async function handleCopyReferenceCode() {
+    if (!referenceCode) return;
+    if (!navigator?.clipboard?.writeText) {
+      selectReferenceCodeText();
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(referenceCode);
+      referenceCodeCopied = true;
+      setTimeout(() => {
+        referenceCodeCopied = false;
+      }, 2000);
+    } catch (err) {
+      console.error('Copying the reference code failed:', err);
+      selectReferenceCodeText();
+    }
+  }
 
   function childAgeError(index: number): string | null {
     return extractFieldError(errorDetails, 'children', index);
@@ -1712,10 +1872,45 @@
       </div>
     </div>
   {:else if submitted}
-    <div class="bg-white border border-neutral-300 rounded-card p-6 shadow-sm text-center">
-      <h1 class="text-2xl font-bold text-neutral-900 mb-2">{$t('register.successTitle')}</h1>
+    <!--
+      Increment 7 (registration dev-cycle round 4, 2026-09-29 — revised same
+      day against a gated critique). The pending step leads: this is not
+      "done", it's "one more click, within 48 hours" — a skimming parent
+      who reads a green check + "Nästan klart!" closes the tab and the
+      registration expires (see backend registrations/emails.py's
+      send_verification_email and models.py::REGISTRATION_TTL_HOURS, the
+      actual source of that number). So: no green anywhere on this screen
+      (green stays reserved for the verify page's actually-confirmed
+      state) — the top icon/circle is `mail` in primary tones, not a check,
+      and the 48h requirement is a primary-50 callout right after the email
+      chip, not a quiet neutral caption easy to skim past. "Wrong email?"
+      moves up under the chip too, since fixing a typo is the other thing a
+      guardian needs to notice *before* leaving. Resend is the deliberately
+      quiet, last action.
+    -->
+    <div
+      class="max-w-xl mx-auto bg-white border border-neutral-300 rounded-card p-6 shadow-sm text-center"
+      data-testid="register-success"
+    >
+      <div
+        class="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-primary-50 text-primary-600"
+        aria-hidden="true"
+        data-testid="register-success-icon"
+      >
+        <Icon name="mail" size="xl" />
+      </div>
+      <h1
+        bind:this={successHeadingEl}
+        tabindex="-1"
+        class="text-2xl font-bold text-neutral-900 mb-2"
+        data-testid="register-success-heading"
+      >
+        {$t('register.successTitle')}
+      </h1>
       <p class="text-neutral-700 mb-3">
-        {emailSent ? $t('register.successIntro') : $t('register.successIntroNotSent')}
+        {emailSent
+          ? $t('register.successIntro', { values: { event: eventInfo?.name ?? '' } })
+          : $t('register.successIntroNotSent', { values: { event: eventInfo?.name ?? '' } })}
       </p>
 
       <div
@@ -1727,7 +1922,13 @@
       </div>
 
       {#if emailSent}
-        <p class="text-sm text-neutral-600 mb-4">{$t('register.successHint')}</p>
+        <div
+          class="mb-2 rounded-card bg-primary-50 px-4 py-3 text-sm font-semibold text-primary-800 text-left"
+          data-testid="register-success-callout"
+        >
+          {$t('register.successCalloutText')}
+        </div>
+        <p class="text-xs text-neutral-500 mb-4">{$t('register.successSpamHint')}</p>
       {:else}
         <p
           class="text-sm text-warning-800 bg-warning-50 border border-warning-200 rounded-card px-4 py-3 mb-4 text-left"
@@ -1738,37 +1939,110 @@
         </p>
       {/if}
 
+      <p class="text-sm text-neutral-600 mb-4">
+        {$t('register.wrongEmailPrompt')}
+        <button
+          type="button"
+          class="inline-flex items-center min-h-11 sm:min-h-0 text-primary-600 hover:text-primary-700 hover:underline font-medium"
+          on:click={handleEditEmail}
+          data-testid="register-edit-email"
+        >
+          {$t('register.fixEmailButton')}
+        </button>
+      </p>
+
       {#if referenceCode}
-        <p class="text-sm text-neutral-500 mb-4">
-          {$t('register.referenceCode', { values: { code: referenceCode } })}
-        </p>
+        <div class="mb-4 rounded-card border border-neutral-300 bg-neutral-50 px-4 py-3" data-testid="register-reference-block">
+          <p class="text-xs font-semibold uppercase tracking-wide text-neutral-500">
+            {$t('register.referenceCodeLabel')}
+          </p>
+          <div class="mt-1 flex items-center justify-center gap-2">
+            <span
+              bind:this={referenceCodeEl}
+              class="text-lg font-mono font-semibold text-neutral-900"
+              data-testid="register-reference-code"
+            >
+              {referenceCode}
+            </span>
+            <button
+              type="button"
+              class="inline-flex items-center justify-center gap-1 min-w-[92px] min-h-11 sm:min-h-0 rounded-button px-2 py-1 text-xs font-semibold text-primary-600 hover:bg-primary-50 focus:outline-none focus:ring-2 focus:ring-primary-500"
+              on:click={handleCopyReferenceCode}
+              data-testid="register-copy-reference"
+            >
+              <Icon name={referenceCodeCopied ? 'check-circle' : 'copy'} size="xs" />
+              {referenceCodeCopied ? $t('register.referenceCodeCopied') : $t('register.referenceCodeCopy')}
+            </button>
+            <span class="sr-only" role="status" aria-live="polite">
+              {referenceCodeCopied ? $t('register.referenceCodeCopiedAnnouncement') : ''}
+            </span>
+          </div>
+          <p class="mt-1 text-xs text-neutral-500">{$t('register.referenceCodeHint')}</p>
+        </div>
       {/if}
 
-      <div class="flex flex-col sm:flex-row items-center justify-center gap-2 sm:gap-3">
+      {#if summaryRows.length > 0}
+        <div
+          class="mb-4 text-left rounded-card border border-neutral-200 divide-y divide-neutral-200"
+          data-testid="register-summary"
+        >
+          <p class="px-4 py-2 text-xs font-semibold uppercase tracking-wide text-neutral-500">
+            {$t('register.summaryHeading')}
+          </p>
+          {#each summaryRows as row}
+            <div class="px-4 py-2">
+              <div class="flex items-center justify-between gap-3 text-sm">
+                <span class="text-neutral-800">{row.label}</span>
+                <span class="text-neutral-600">{row.ticketName ?? $t('register.summaryNoTicket')}</span>
+              </div>
+              {#if row.extraLabels.length > 0}
+                <p class="mt-0.5 text-xs text-neutral-500">{row.extraLabels.join(', ')}</p>
+              {/if}
+            </div>
+          {/each}
+          {#if registrationExtraLabels.length > 0}
+            <div class="px-4 py-2 text-xs text-neutral-500" data-testid="register-summary-registration-extras">
+              {$t('register.summaryWholeRegistrationLine', {
+                values: { extras: registrationExtraLabels.join(', ') }
+              })}
+            </div>
+          {/if}
+          {#if discountAmount > 0}
+            <div
+              class="flex items-center justify-between gap-3 px-4 py-2 text-sm text-neutral-700"
+              data-testid="register-summary-discount"
+            >
+              <span>
+                {$t('register.summaryDiscountLine', {
+                  values: { code: promoCodeAppliedValue, amount: formatCurrency(discountAmount) }
+                })}
+              </span>
+            </div>
+          {/if}
+          {#if hasTicketPricing}
+            <div class="flex items-center justify-between gap-3 px-4 py-2 text-sm font-semibold text-neutral-900">
+              <span>{$t('register.summaryTotal')}</span>
+              <span data-testid="register-summary-total">{formatCurrency(discountedTotal)} kr</span>
+            </div>
+          {/if}
+        </div>
+      {/if}
+
+      <div class="flex justify-center">
         <Button
-          variant="secondary"
+          variant="ghost"
           size="sm"
+          class="border border-neutral-300"
           loading={resending}
           disabled={resending}
           onclick={handleResend}
         >
           {resending ? $t('register.resending') : $t('register.resendButton')}
         </Button>
-        <span class="text-sm text-neutral-500">
-          {$t('register.wrongEmailPrompt')}
-          <button
-            type="button"
-            class="text-primary-600 hover:text-primary-700 hover:underline font-medium"
-            on:click={handleEditEmail}
-            data-testid="register-edit-email"
-          >
-            {$t('register.editEmailButton')}
-          </button>
-        </span>
       </div>
 
       {#if resendStatus === 'sent'}
-        <p class="mt-3 text-xs text-success-700" data-testid="register-resend-sent">
+        <p class="mt-3 text-xs text-primary-700" data-testid="register-resend-sent">
           {$t('register.resendSent')}
         </p>
       {:else if resendStatus === 'error'}
