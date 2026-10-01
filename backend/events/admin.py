@@ -19,6 +19,7 @@ from .models import (
     Extra,
     ExtraChoice,
     PromoCode,
+    RegistrationWindowStatus,
     Session,
     SessionTicket,
     Ticket,
@@ -68,7 +69,7 @@ class EventAdmin(admin.ModelAdmin):
         "end_date",
         "ticket_rule_default",
         "price",
-        "registration_window_status",
+        "registration_window_status_label",
         "registration_link",
     )
     list_filter = ("ticket_rule_default",)
@@ -78,14 +79,45 @@ class EventAdmin(admin.ModelAdmin):
     # increment.
     exclude = ("parent_checkin_policy_default",)
     actions = ("generate_report",)
+    # Explicit fieldsets so the check-in rule gets a block of its own, away
+    # from the registration/branding fields. Every editable field must be
+    # listed here: unlike ``exclude``, ``fieldsets`` is an allow-list, so a
+    # field added to Event later is invisible in admin until it is added.
+    fieldsets = (
+        (
+            None,
+            {
+                "fields": (
+                    "name",
+                    "start_date",
+                    "end_date",
+                    "price",
+                    "registration_opens_at",
+                    "registration_closes_at",
+                    "header_image_url",
+                    "accent_color",
+                )
+            },
+        ),
+        (_("Check-in rules"), {"fields": ("ticket_rule_default",)}),
+    )
 
     # No event-management UI exists in the frontend yet (just checkin/checkout/
     # printing/reports), so Django admin is the only place staff can grab a
     # given event's public registration URL.
+    # The model property returns the raw code ("open", "not_configured"),
+    # which the changelist printed verbatim under an English header. Render the
+    # translated choice label instead. Not sortable: the status is computed
+    # from "now" and two datetimes, so there is no column to order by and a
+    # misleading ordering would be worse than none.
+    @admin.display(description=_("Registration window status"))
+    def registration_window_status_label(self, obj):
+        return RegistrationWindowStatus(obj.registration_window_status).label
+
     @admin.display(description=_("Registration page"))
     def registration_link(self, obj):
         url = f"{settings.FRONTEND_BASE_URL}/register/{obj.id}/"
-        return format_html('<a href="{0}" target="_blank">Open</a>', url)
+        return format_html('<a href="{0}" target="_blank">{1}</a>', url, _("Open page"))
 
     def view_on_site(self, obj):
         return f"{settings.FRONTEND_BASE_URL}/register/{obj.id}/"
@@ -108,14 +140,19 @@ class EventAdmin(admin.ModelAdmin):
 @admin.register(Session)
 class SessionAdmin(admin.ModelAdmin):
     list_display = (
+        # The change-link column stays first. The rule columns used to come
+        # right after it and, in Swedish at 1280px, pushed Active / Start time
+        # / Event off-screen (designer critique, 2026-10-01). Now: identity
+        # (name, event), state (active), the resolved rule and the adults
+        # flag, then the times, with the raw (mostly blank) override last.
         "name",
         "event",
-        "start_time",
-        "end_time",
         "is_active",
-        "ticket_rule",
         "effective_ticket_rule",
         "adults_not_checked_in",
+        "start_time",
+        "end_time",
+        "ticket_rule",
     )
     list_filter = ("is_active", "event", "ticket_rule", "adults_not_checked_in")
     search_fields = ("name", "event__name")
@@ -123,6 +160,77 @@ class SessionAdmin(admin.ModelAdmin):
     # control. The proper admin redesign (and the column drop) is a later
     # increment.
     exclude = ("requires_ticket", "parent_checkin_policy")
+    # The two controls that decide who gets checked in here sit in one block:
+    # staff evaluating the old layout could not tell them apart, because the
+    # ticket rule and the "adults" checkbox were scattered through one flat
+    # list. ``fieldsets`` is an allow-list, so the deprecated columns stay off
+    # the form without needing ``exclude`` (kept anyway as a second guard).
+    fieldsets = (
+        (
+            None,
+            {"fields": ("event", "name", "start_time", "end_time", "is_active")},
+        ),
+        (
+            _("Check-in rules"),
+            {"fields": ("ticket_rule", "adults_not_checked_in")},
+        ),
+    )
+
+    def get_changeform_initial_data(self, request):
+        # New sessions start with "adults are not checked in" ticked: most
+        # sessions are children's, and an adult check-in is the exception
+        # staff should have to opt into. Done here rather than as the model
+        # default so existing rows, seed scripts and API/ORM callers keep the
+        # old behaviour (False) -- a changed model default would also change
+        # what every ``Session.objects.create(...)`` without the field means.
+        initial = super().get_changeform_initial_data(request)
+        initial.setdefault("adults_not_checked_in", True)
+        return initial
+
+    def formfield_for_choice_field(self, db_field, request, **kwargs):
+        if db_field.name == "ticket_rule":
+            # The stored value for "inherit" is "", which Django would label
+            # "---------". Say what it does instead. This is the generic label
+            # (used on the add form, where no event is known yet);
+            # get_form() sharpens it for an existing session.
+            kwargs["choices"] = [
+                ("", _("Same as the event's default")),
+                *TicketRule.choices,
+            ]
+        return super().formfield_for_choice_field(db_field, request, **kwargs)
+
+    def get_form(self, request, obj=None, change=False, **kwargs):
+        form = super().get_form(request, obj, change=change, **kwargs)
+        # ``modelform_factory`` builds fresh field instances on every call, so
+        # editing base_fields here cannot leak between requests or languages.
+        fields = form.base_fields
+        if obj is None:
+            # The "pre-ticked" sentence is only true on the add form (see
+            # get_changeform_initial_data); on a change page it would
+            # contradict the box the user is looking at. So it lives here
+            # rather than in the model's help_text.
+            if "adults_not_checked_in" in fields:
+                field = fields["adults_not_checked_in"]
+                field.help_text = "{} {}".format(
+                    field.help_text,
+                    _(
+                        "The box is already ticked when you add a new "
+                        "session: untick it for sessions where adults are "
+                        "checked in."
+                    ),
+                )
+        elif "ticket_rule" in fields and obj.event_id:
+            # Say what "blank" resolves to for THIS session's event, so the
+            # coordinator does not have to open the event to find out.
+            fields["ticket_rule"].choices = [
+                (
+                    "",
+                    _("Same as the event's default (%(rule)s)")
+                    % {"rule": obj.event.get_ticket_rule_default_display()},
+                ),
+                *TicketRule.choices,
+            ]
+        return form
 
     @admin.display(description=_("Effective ticket rule"))
     def effective_ticket_rule(self, obj):

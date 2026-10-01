@@ -78,8 +78,20 @@ class Event(models.Model):
         default=TicketRule.OPEN,
         verbose_name=_("Default Ticket Rule"),
         help_text=_(
-            "Who needs a ticket to be checked in. Applied to sessions of this "
-            "event that don't set their own rule."
+            # One line per option (<br>: the admin renders help_text as
+            # HTML) with a concrete case, because the option names alone did
+            # not tell a coordinator what an adult at the door would meet.
+            # The option names must match TicketRule's labels verbatim.
+            "The ticket rule that this event's sessions follow, unless a "
+            "session sets its own.<br>"
+            "Open - no ticket required: anyone may be checked in, e.g. a "
+            "drop-in play hour.<br>"
+            "Children need a ticket: a child without a ticket cannot be "
+            "checked in, adults need none, e.g. a children's workshop.<br>"
+            "Everyone attending needs a ticket: children and adults alike, "
+            "e.g. a ticketed evening show.<br>"
+            "Guardians who only bring the children and do not attend "
+            "themselves never need a ticket."
         ),
     )
     # DEPRECATED 2026-10-01: nothing reads this. Superseded by
@@ -202,22 +214,54 @@ class Session(models.Model):
     name = models.CharField(max_length=255, verbose_name=_("Session Name"))
     start_time = models.DateTimeField(verbose_name=_("Start Time"))
     end_time = models.DateTimeField(verbose_name=_("End Time"))
-    is_active = models.BooleanField(default=False, verbose_name=_("Is Active"))
+    # What this really controls (read from the code, 2026-10-01): the desk's
+    # session picker (GET /sessions/active/, used by check-in and check-out);
+    # for *supervised* check-ins, whether labels still print and whether a
+    # child is still held in this session. Online registration never reads it.
+    is_active = models.BooleanField(
+        default=False,
+        verbose_name=_("Is Active"),
+        help_text=_(
+            "Shows this session in the session picker at the check-in and "
+            "check-out desks, and supervised check-ins only print labels "
+            "while it is on. Tick it before the session starts; untick it "
+            "when it is over."
+        ),
+    )
     ticket_rule = models.CharField(
         max_length=10,
         choices=TicketRule.choices,
         blank=True,
         default="",
         verbose_name=_("Ticket Rule"),
-        help_text=_("Leave blank to inherit the event's default ticket rule."),
+        help_text=_(
+            # Option names mirror TicketRule's labels verbatim; the blank
+            # choice is relabelled in SessionAdmin.formfield_for_choice_field.
+            "Who needs a ticket to be checked in to this session. Leave it on "
+            '"Same as the event\'s default" to follow the "Default Ticket '
+            'Rule" field on the event.<br>'
+            "Open - no ticket required: anyone may be checked in, e.g. a "
+            "drop-in play hour.<br>"
+            "Children need a ticket: a child without a ticket cannot be "
+            "checked in, adults need none, e.g. a children's workshop.<br>"
+            "Everyone attending needs a ticket: children and adults alike, "
+            "e.g. a ticketed evening show.<br>"
+            "Guardians who only bring the children and do not attend "
+            "themselves never need a ticket."
+        ),
     )
     adults_not_checked_in = models.BooleanField(
         default=False,
         verbose_name=_("Adults are not checked in here"),
         help_text=_(
-            "Tick for sessions where only children are checked in (drop-off "
-            "sessions). Applies to every adult, guardians included."
+            "Tick if only children are checked in to this session, not "
+            "adults, as at a drop-off session. Leave it unticked if adults "
+            "are checked in here too. When adults are not checked in, the "
+            "ticket rule only matters for children."
         ),
+        # The "already ticked when you add a new session" sentence is NOT
+        # here: it is false on a change page, so SessionAdmin.get_form adds
+        # it on the add form only.
     )
     # DEPRECATED 2026-10-01: neither of the next two fields is read by
     # anything. Superseded by ticket_rule / adults_not_checked_in; kept only so
@@ -328,8 +372,8 @@ class TicketType(models.Model):
         verbose_name=_("Applies To"),
         help_text=_(
             "Who may pick this ticket type on the public registration "
-            "form — Child, Parent, or Either. Staff can still assign it "
-            "to anyone by hand in the admin, regardless of this setting."
+            "form: Parent, Child or Either. Staff can still assign it to "
+            "anyone by hand in the admin, regardless of this setting."
         ),
     )
     min_birthdate = models.DateField(
@@ -337,17 +381,9 @@ class TicketType(models.Model):
         blank=True,
         verbose_name=_("Minimum Birthdate"),
         help_text=_(
-            "The attendee must be born on or after this date (inclusive) — "
-            "the oldest-age cutoff. Age is judged once, on the event's "
-            "start date, and never recomputed: the rule is age at event "
-            "start, full stop, so this must land exactly one day after an "
-            "anniversary of that date (e.g. the day after the event's "
-            "start date, 18 years earlier, to exclude anyone who has "
-            "already turned 18). Leaving this blank does not mean "
-            '"unconfigured" — it deliberately means anyone may hold this '
-            "ticket type, with no lower age limit at all. Leave both "
-            "bounds blank to skip the age check for this ticket type "
-            "entirely, on purpose."
+            "The earliest birth date allowed (the attendee must be born on "
+            "or after it), counted on the event's start date; leave blank "
+            "for no limit."
         ),
     )
     max_birthdate = models.DateField(
@@ -355,16 +391,9 @@ class TicketType(models.Model):
         blank=True,
         verbose_name=_("Maximum Birthdate"),
         help_text=_(
-            "The attendee must be born on or before this date (inclusive) "
-            "— the youngest-age cutoff. Age is judged once, on the event's "
-            "start date, and never recomputed as the event runs: a "
-            "birthday partway through the event doesn't move anyone "
-            "across the boundary. Because of that, this must land exactly "
-            "on an anniversary of the event's start date (e.g. that date, "
-            '12 years earlier, for a "12 and under" cutoff). Leaving '
-            'this blank does not mean "unconfigured" — it deliberately '
-            "means anyone may hold this ticket type, with no upper age "
-            "limit at all."
+            "The latest birth date allowed (the attendee must be born on or "
+            "before it), counted on the event's start date; leave blank for "
+            "no limit."
         ),
     )
     available_from = models.DateTimeField(
@@ -422,23 +451,24 @@ class TicketType(models.Model):
         blank=True,
         on_delete=models.PROTECT,
         related_name="dependent_ticket_types",
-        verbose_name=_("Requires Ticket Type"),
+        verbose_name=_("Can only be bought together with"),
         help_text=_(
-            "If set, this ticket type may only be selected on a "
-            "registration that also has at least one ticket of the "
-            "required type (e.g. a free 'family member' type requiring a "
-            "paid 'family ticket' type)."
+            "If set, this ticket type can only be bought together with the "
+            "ticket type chosen here: the registration must also include at "
+            "least one ticket of that type (e.g. a free 'family member' type "
+            "that can only be bought together with a paid 'family ticket' "
+            "type)."
         ),
     )
     max_per_required = models.PositiveIntegerField(
         null=True,
         blank=True,
-        verbose_name=_("Max Per Required"),
+        verbose_name=_("Max per ticket of that type"),
         help_text=_(
-            "How many tickets of this type each required ticket allows "
-            "(e.g. 4 free family members per paid family ticket). Leave "
-            "blank for no limit — one required ticket is still needed. "
-            "Only used when 'Requires ticket type' is set."
+            "How many tickets of this type are allowed per ticket of the "
+            "type chosen in 'Can only be bought together with' (e.g. 4 free "
+            "family members per paid family ticket). Leave blank for no "
+            "limit; one ticket of that type is still needed."
         ),
     )
     sort_order = models.PositiveIntegerField(default=0, verbose_name=_("Sort Order"))
