@@ -164,6 +164,7 @@
   // Helper to get current time formatted
   function getCurrentTime(): string {
     return new Date().toLocaleTimeString('en-US', {
+      timeZone: 'Europe/Stockholm',
       hour: '2-digit',
       minute: '2-digit',
       hour12: false,
@@ -173,6 +174,7 @@
   // Helper to format ISO timestamp to local time string
   function formatTime(isoTimestamp: string): string {
     return new Date(isoTimestamp).toLocaleTimeString('en-US', {
+      timeZone: 'Europe/Stockholm',
       hour: '2-digit',
       minute: '2-digit',
       hour12: false,
@@ -1146,10 +1148,12 @@
         sessionName={activeSession?.name || 'No Active Session'}
         sessionTime={activeSession
           ? `${new Date(activeSession.start_time).toLocaleTimeString('en-US', {
+              timeZone: 'Europe/Stockholm',
               hour: '2-digit',
               minute: '2-digit',
               hour12: false,
             })} - ${activeSession.end_time ? new Date(activeSession.end_time).toLocaleTimeString('en-US', {
+              timeZone: 'Europe/Stockholm',
               hour: '2-digit',
               minute: '2-digit',
               hour12: false,

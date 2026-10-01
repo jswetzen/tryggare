@@ -331,6 +331,7 @@
   // Helper function to format time
   function formatTime(isoString: string) {
     return new Date(isoString).toLocaleTimeString('en-US', {
+      timeZone: 'Europe/Stockholm',
       hour: '2-digit',
       minute: '2-digit',
       hour12: false,
@@ -449,10 +450,12 @@
         sessionName={activeSession.name || 'No Active Session'}
         sessionTime={activeSession
           ? `${new Date(activeSession.start_time).toLocaleTimeString('en-US', {
+              timeZone: 'Europe/Stockholm',
               hour: '2-digit',
               minute: '2-digit',
               hour12: false,
             })} - ${activeSession.end_time ? new Date(activeSession.end_time).toLocaleTimeString('en-US', {
+              timeZone: 'Europe/Stockholm',
               hour: '2-digit',
               minute: '2-digit',
               hour12: false,

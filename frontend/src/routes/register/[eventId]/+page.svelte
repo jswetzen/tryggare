@@ -148,6 +148,9 @@
     // English) copy.
     const localeTag = $locale === 'sv' ? 'sv-SE' : 'en-GB';
     return new Date(iso).toLocaleString(localeTag, {
+      // The event's own zone, not the browser's: a guardian abroad still needs
+      // to know when registration closes in Sweden.
+      timeZone: 'Europe/Stockholm',
       dateStyle: 'long',
       timeStyle: 'short'
     });

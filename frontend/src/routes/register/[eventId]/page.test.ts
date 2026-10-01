@@ -122,7 +122,9 @@ vi.mock('svelte-i18n', () => {
     'register.summaryGuardianOnly': 'Guardian – not attending',
     'register.summaryFlatPrice': 'Price for the whole registration',
     'register.summaryTotal': 'Total',
-    'register.summaryDiscountLine': 'Discount ({code}) −{amount} kr'
+    'register.summaryDiscountLine': 'Discount ({code}) −{amount} kr',
+    // Closed screen — mapped so the test can read the formatted instant.
+    'register.closedMessage': 'Registration for {event} closed on {date}.'
   };
   const translator = (key: string, opts?: { values?: Record<string, unknown> }) => {
     let text = translations[key] ?? key;
@@ -3255,4 +3257,46 @@ describe('Register page — guardian-only hint wording per site', () => {
       'register.guardianOnlyHint'
     );
   });
+});
+
+describe('Register page — event instants are shown in Swedish time', () => {
+  // Europe/Stockholm leaves summer time on 2026-10-25 (UTC+2 -> UTC+1), so
+  // the same wall-clock close, 23:59, is a different UTC instant on either
+  // side of that date. Each row is [instant, expected rendering in Sweden].
+  const instants: Array<[string, RegExp]> = [
+    ['2026-10-24T21:59:00Z', /24 October 2026.*23:59/], // still CEST
+    ['2026-10-25T22:59:00Z', /25 October 2026.*23:59/], // CET
+    ['2026-10-31T21:59:00Z', /31 October 2026.*22:59/]
+  ];
+  // The formatter must not depend on the zone of the browser/process: a
+  // Swede abroad, or a guardian in another country, sees the event's time.
+  const processZones = ['UTC', 'Pacific/Auckland', 'America/Los_Angeles', 'Europe/Stockholm'];
+  let originalTZ: string | undefined;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    originalTZ = process.env.TZ;
+  });
+
+  afterEach(() => {
+    if (originalTZ === undefined) delete process.env.TZ;
+    else process.env.TZ = originalTZ;
+  });
+
+  for (const zone of processZones) {
+    for (const [iso, expected] of instants) {
+      it(`shows ${iso} as Stockholm time when the process zone is ${zone}`, async () => {
+        process.env.TZ = zone;
+        getEvent.mockResolvedValue(
+          baseEventInfo({
+            registration_window_status: 'closed',
+            registration_closes_at: iso
+          })
+        );
+        render(RegisterPage);
+        const closed = await screen.findByTestId('register-closed');
+        expect(closed.textContent).toMatch(expected);
+      });
+    }
+  }
 });

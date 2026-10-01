@@ -169,7 +169,12 @@ FORBIDDEN_TICKET_TYPE_NAME = "Ledare junior"
 
 
 def _aware(day: date, hour: int, minute: int = 0):
-    return timezone.make_aware(datetime.combine(day, time(hour, minute)))
+    # Stockholm wall-clock (settings.TIME_ZONE), spelled out rather than left to
+    # make_aware's implicit "current timezone", so a seeded 09:00 is 09:00 on the
+    # check-in screen whatever zone is active when the command runs.
+    return timezone.make_aware(
+        datetime.combine(day, time(hour, minute)), timezone.get_default_timezone()
+    )
 
 
 class EventSpec:
