@@ -983,6 +983,19 @@ class EventTicket(models.Model):
         db_table = "event_tickets"
         verbose_name = _("Event Ticket")
         verbose_name_plural = _("Event Tickets")
+        # The door-only way to create one of these rows: the check-in desk's
+        # one-tap grant (POST /api/event-tickets/grant/). A separate permission
+        # rather than ``add_eventticket`` because that codename would also open
+        # the Django-admin "add" form and POST /api/event-tickets/, which is
+        # ticket *administration* and stays with Koordinator. Plain English name
+        # for the same reason as the family DSAR permissions (``Permission.name``
+        # is frozen into the database at migration time).
+        permissions = [
+            (
+                "grant_eventticket_at_door",
+                "Can grant an event ticket at the check-in desk",
+            ),
+        ]
         indexes = [
             models.Index(fields=["attendee"], name="event_ticke_attend_22981b_idx"),
             models.Index(fields=["event"]),
@@ -1066,6 +1079,15 @@ class SessionTicket(models.Model):
         db_table = "session_tickets"
         verbose_name = _("Session Ticket")
         verbose_name_plural = _("Session Tickets")
+        # Door-only grant, as for EventTicket: POST /api/session-tickets/grant/.
+        # Deliberately not ``add_sessionticket`` (Django admin + the general
+        # POST endpoint).
+        permissions = [
+            (
+                "grant_sessionticket_at_door",
+                "Can grant a session ticket at the check-in desk",
+            ),
+        ]
         indexes = [
             models.Index(fields=["attendee"], name="session_tic_attend_c5a7b7_idx"),
             models.Index(fields=["session"]),

@@ -1,4 +1,4 @@
-from rest_framework import viewsets
+from rest_framework import status, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
 
@@ -126,6 +126,33 @@ class EventTicketViewSet(viewsets.ModelViewSet):
     filterset_fields = ["attendee", "event"]
     ordering = ["event__start_date"]
 
+    # The check-in desk's one-tap grant. Its own route and its own permission
+    # (``events.grant_eventticket_at_door``)
+    # rather than the viewset's ``add_`` mapping, so that a Volontär
+    # can admit a ticketless child or adult at the door without holding
+    # ``add_eventticket`` (which opens the Django-admin add form and the
+    # general ``POST`` on this viewset, and is ticket administration).
+    # It creates exactly what the general ``POST`` would -- same serializer,
+    # same validation -- and nothing else is reachable through it: no update,
+    # no delete, no ticket-type or price fields (the serializer exposes none).
+    @action(
+        detail=False,
+        methods=["post"],
+        url_path="grant",
+        permission_classes=[
+            model_permissions(
+                EventTicket,
+                perms_map={"POST": ["events.grant_eventticket_at_door"]},
+                name="EventTicketGrantAtDoorPermission",
+            )
+        ],
+    )
+    def grant(self, request):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+
 
 class SessionTicketViewSet(viewsets.ModelViewSet):
     """
@@ -142,3 +169,30 @@ class SessionTicketViewSet(viewsets.ModelViewSet):
     permission_classes = [DjangoModelPermissionsWithView]
     filterset_fields = ["attendee", "session"]
     ordering = ["session__start_time"]
+
+    # The check-in desk's one-tap grant. Its own route and its own permission
+    # (``events.grant_sessionticket_at_door``)
+    # rather than the viewset's ``add_`` mapping, so that a Volontär
+    # can admit a ticketless child or adult at the door without holding
+    # ``add_sessionticket`` (which opens the Django-admin add form and the
+    # general ``POST`` on this viewset, and is ticket administration).
+    # It creates exactly what the general ``POST`` would -- same serializer,
+    # same validation -- and nothing else is reachable through it: no update,
+    # no delete, no ticket-type or price fields (the serializer exposes none).
+    @action(
+        detail=False,
+        methods=["post"],
+        url_path="grant",
+        permission_classes=[
+            model_permissions(
+                SessionTicket,
+                perms_map={"POST": ["events.grant_sessionticket_at_door"]},
+                name="SessionTicketGrantAtDoorPermission",
+            )
+        ],
+    )
+    def grant(self, request):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(serializer.data, status=status.HTTP_201_CREATED)

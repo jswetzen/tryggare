@@ -352,14 +352,16 @@ export const reportApi = {
  */
 export const ticketApi = {
   /**
-   * Assign an event ticket to a child
+   * Assign an event ticket to a child. Goes through the door-only ``grant/``
+   * action (``events.grant_eventticket_at_door``), not the general create, so a
+   * Volontär can do it without holding ``add_eventticket``.
    */
   assignEventTicket: (data: { child: string; event: string }) =>
-    apiClient.post('/event-tickets/', data),
+    apiClient.post('/event-tickets/grant/', data),
 
   /**
-   * Assign a session ticket to a child
+   * Assign a session ticket to a child; door-only ``grant/`` action, as above.
    */
   assignSessionTicket: (data: { child: string; session: string }) =>
-    apiClient.post('/session-tickets/', data),
+    apiClient.post('/session-tickets/grant/', data),
 };

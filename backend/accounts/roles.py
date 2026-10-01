@@ -22,9 +22,11 @@ What each role is for
 ---------------------
 Volontär
     Works the door. Reads the operational data needed to check a family in,
-    creates and closes check-ins, prints labels, and takes payment from the
-    family standing in front of them. Cannot browse anyone else's finances,
-    cannot read the audit log, cannot change events or families.
+    creates and closes check-ins, prints labels, grants a ticket to someone
+    standing at the door without one (through the check-in grant action only),
+    and takes payment from the family standing in front of them.
+    Cannot browse anyone else's finances, cannot read the audit log, cannot
+    change events or families.
 
 Koordinator
     Runs the event. Everything in the app, including reports and the audit log
@@ -84,6 +86,18 @@ _VOLUNTEER_PERMISSIONS = {
     "events.view_tickettype",
     "events.view_extra",
     "events.view_extrachoice",
+    # Admit a ticketless child (or adult) at the door: owner decision 2026-10-01.
+    # These two are the *door-only* grants, not ``add_eventticket`` /
+    # ``add_sessionticket``. The ``add_`` codenames are what Django admin and the
+    # general ``POST /api/event-tickets/`` / ``/api/session-tickets/`` check, so
+    # holding them would let a volunteer mint tickets anywhere admin or the API
+    # lets them; these are checked only by the dedicated ``.../grant/`` actions
+    # the check-in desk calls (events/views.py), and by nothing in admin.
+    # Koordinator inherits them, and still also holds the full ``add_`` set.
+    # A volunteer still cannot change or delete a ticket. Existing databases
+    # get the rows from accounts/0005_grant_door_ticket_permissions.
+    "events.grant_eventticket_at_door",
+    "events.grant_sessionticket_at_door",
     # The actual job: check in, check out, undo.
     #
     # ``delete_checkinrecord`` is not here, but be clear about what that does
