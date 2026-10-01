@@ -41,11 +41,19 @@
     // Subscribe to WebSocket messages
     unsubscribe = websocketStore.onMessage(handleWebSocketMessage);
 
-    // Load active session, families, and check-ins
-    loadActiveSession();
+    // Load active session, families, and check-ins. The session must be
+    // known BEFORE the check-in list is filtered by it: started concurrently,
+    // loadActiveCheckIns() ran with activeSession still null, skipped the
+    // filter, and the page listed every open check-in (other sessions and
+    // events too) under a header naming the first session.
     loadFamilies();
-    loadActiveCheckIns();
+    void loadSessionThenCheckIns();
   });
+
+  async function loadSessionThenCheckIns() {
+    await loadActiveSession();
+    await loadActiveCheckIns();
+  }
 
   onDestroy(() => {
     if (unsubscribe) {
