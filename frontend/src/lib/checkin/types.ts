@@ -10,6 +10,15 @@ export type TicketType = 'event' | 'session' | 'none';
  *  registration. Display only; the allow/block decision is `ticket !== 'none'`. */
 export type TicketExemption = 'not_required' | 'guardian_only';
 
+/** Where the server refuses a person with "Registration is not yet confirmed": on every session
+ *  of an event in `event_ids`, or on the sessions in `session_ids`. Always sent by the API on
+ *  every Parent and Child; optional where it is read only so fixtures and older payloads need
+ *  not carry it. */
+export interface UnconfirmedRegistration {
+  event_ids: string[];
+  session_ids: string[];
+}
+
 export interface Child {
   id: string;
   first_name: string;
@@ -18,6 +27,9 @@ export interface Child {
   ticket: TicketType;
   ticket_type: TicketType; // Backend field name
   ticketExemption?: TicketExemption;
+  /** The server would refuse this child on the session on screen because the registration is
+   *  not confirmed. Takes priority over `ticket`: no check-in button, no ticket-grant offer. */
+  registrationUnconfirmed?: boolean;
   ticket_details?: {
     event_tickets: Array<{
       id: string;
@@ -63,6 +75,8 @@ export interface Parent {
   ticketExemption?: TicketExemption;
   /** The session never checks adults in (adults_not_checked_in). */
   notCheckedInHere?: boolean;
+  /** See Child.registrationUnconfirmed. Never set when the session does not check adults in. */
+  registrationUnconfirmed?: boolean;
   /** Adults: names of the OTHER sessions they are currently checked in to (check-in is per session). */
   checkedInElsewhere?: string[];
   ticket_details?: {
@@ -169,6 +183,7 @@ export interface FamilyApiResponse {
     ticket_type: string | null;
     /** Events where this adult is a guardian-only adult on a CONFIRMED registration. */
     guardian_only_event_ids?: string[];
+    unconfirmed_registration?: UnconfirmedRegistration;
     ticket_details?: {
       event_tickets: Array<{
         id: string;
@@ -216,6 +231,7 @@ export interface FamilyApiResponse {
     has_safety_info?: boolean;
     health_consent_status?: 'not_applicable' | 'granted' | 'declined' | 'withdrawn' | 'needs_reconfirmation';
     qr_token?: string;
+    unconfirmed_registration?: UnconfirmedRegistration;
     is_checked_in?: boolean;
     active_checkin_id?: string | null;
   }>;

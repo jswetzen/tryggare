@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { shouldShowFamily, sortFamiliesByStatus } from './familyVisibility';
+import { getVisibleFamilies, shouldShowFamily, sortFamiliesByStatus } from './familyVisibility';
 import type { Family, UndoAction } from '../types';
 
 describe('shouldShowFamily', () => {
@@ -330,5 +330,67 @@ describe('sortFamiliesByStatus', () => {
 
     // Both have same name and status, should maintain original order
     expect(sorted).toEqual([garcia1, garcia2]);
+  });
+});
+
+describe('a family with someone blocked as an unconfirmed registration', () => {
+  // Testberg: the child is in, the father is refused at the door. Before this rule the family
+  // dropped off the default list the moment the child was checked in, and a search for the
+  // surname (which filters that same list) found nothing, so the stuck father became invisible.
+  const kid = (over = {}) => ({
+    id: 'k', name: 'Kid Testberg', first_name: 'Kid', last_name: 'Testberg',
+    ticket: 'event' as const, ticket_type: 'event' as const, checkedIn: true, family: 'tb', ...over,
+  });
+  const father = (over = {}) => ({
+    id: 'f', name: 'Far Testberg', first_name: 'Far', last_name: 'Testberg',
+    relationship_type: 'father', ticket: 'event' as const, ticket_type: 'event' as const,
+    checkedIn: false, ...over,
+  });
+  const fam = (children: any[], parents: any[]): Family => ({
+    id: 'tb', name: 'Testberg', last_name: 'Testberg', display_name: 'Testberg', children, parents,
+  });
+  // The page's search: the name filter runs on getVisibleFamilies' result.
+  const search = (families: Family[], q: string) =>
+    getVisibleFamilies(families, []).filter((f) => f.name.toLowerCase().includes(q.toLowerCase()));
+
+  it('is hidden when everyone in it is checked in', () => {
+    const f = fam([kid()], [father({ checkedIn: true })]);
+    expect(shouldShowFamily(f, [])).toBe(false);
+    expect(search([f], 'Testberg')).toEqual([]);
+  });
+
+  it('stays visible while one adult is blocked, though every child is in', () => {
+    const f = fam([kid()], [father({ registrationUnconfirmed: true })]);
+    expect(shouldShowFamily(f, [])).toBe(true);
+    expect(getVisibleFamilies([f], [])).toEqual([f]);
+  });
+
+  it('is found by searching the surname', () => {
+    const f = fam([kid()], [father({ registrationUnconfirmed: true })]);
+    expect(search([f], 'testberg')).toEqual([f]);
+  });
+
+  it('stays visible while a child is blocked', () => {
+    const f = fam([kid({ checkedIn: false, registrationUnconfirmed: true })], []);
+    expect(shouldShowFamily(f, [])).toBe(true);
+  });
+
+  it('is hidden again once the blocked person is checked in', () => {
+    const f = fam([kid()], [father({ registrationUnconfirmed: true, checkedIn: true })]);
+    expect(shouldShowFamily(f, [])).toBe(false);
+  });
+
+  it('ignores a blocked adult when the session does not check adults in', () => {
+    const f = fam([kid()], [father({ registrationUnconfirmed: true })]);
+    expect(shouldShowFamily(f, [], false)).toBe(false);
+  });
+
+  it('sorts with the unfinished families, not among the finished ones', () => {
+    const done = fam([kid()], []);
+    const stuck = { ...fam([kid()], [father({ registrationUnconfirmed: true })]), id: 'z', name: 'Zed' };
+    const open = { ...fam([kid({ checkedIn: false })], []), id: 'y', name: 'Yngve' };
+    expect(sortFamiliesByStatus([done, stuck, open], []).map((x) => x.name)).toEqual([
+      'Yngve', 'Zed', 'Testberg',
+    ]);
   });
 });

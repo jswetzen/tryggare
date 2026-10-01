@@ -220,7 +220,15 @@
     "confirmDespiteBalanceError": "Kunde inte bekräfta anmälan",
     "pendingPaymentShort": "Obetald",
     "pendingPaymentAwaiting": "Väntar på betalning",
-    "pendingPaymentBlockedTitle": "Anmälan är obetald — lös det via anmälan ovan innan incheckning"
+    "pendingPaymentBlockedTitle": "Anmälan är obetald — lös det via anmälan ovan innan incheckning",
+    "registrationNotConfirmed": "Anmälan väntar på bekräftelse",
+    "registrationNotConfirmedHint": "Be en koordinator bekräfta anmälan.",
+    "awaitingConfirmation": "Väntar på bekräftelse",
+    "awaitingConfirmationCount": "{count} väntar på bekräftelse",
+    "awaitingConfirmationAdultOne": "1 vuxen väntar på bekräftelse",
+    "awaitingConfirmationAdultMany": "{count} vuxna väntar på bekräftelse",
+    "awaitingConfirmationChildOne": "1 barn väntar på bekräftelse",
+    "awaitingConfirmationChildMany": "{count} barn väntar på bekräftelse"
   },
   "checkout": {
     "pageTitle": "Utcheckningsstation",

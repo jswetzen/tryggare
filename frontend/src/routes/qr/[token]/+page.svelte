@@ -261,7 +261,7 @@
             </div>
           {/if}
           {#if effectiveNotes}
-            <div class="bg-warning-50 border border-warning-300 rounded-card p-4">
+            <div class="bg-warning-50 border border-warning-200 rounded-card p-4">
               <div class="text-sm text-neutral-600">{$t('qr.medicalConditions')}</div>
               <div class="text-lg text-warning-600 font-semibold">{effectiveNotes}</div>
             </div>

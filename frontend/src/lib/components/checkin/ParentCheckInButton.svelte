@@ -6,6 +6,7 @@
    * - Check In (green) - for parents with valid tickets who aren't checked in
    * - Undo (Xs) (orange) - for recently checked-in parents during grace period
    * - Checked In (gray, disabled) - for checked-in parents after grace period
+   * - Nothing at all - the server refuses an unconfirmed registration and the row's text says why; wins over No Ticket
    * - No Ticket (red) - for parents without tickets, expands to show ticket assignment
    */
   import { _ } from 'svelte-i18n';
@@ -56,11 +57,16 @@
   <button
     disabled
     title={$_('checkin.pendingPaymentBlockedTitle')}
-    class="px-3 py-1.5 bg-warning-100 text-warning-800 text-sm font-semibold rounded-button border border-warning-300 cursor-not-allowed min-w-[100px]"
+    class="px-3 py-1.5 bg-warning-100 text-warning-800 text-sm font-semibold rounded-button border border-warning-200 cursor-not-allowed min-w-[100px]"
     data-testid={`parent-pending-payment-${parent.id}`}
   >
     {$_('checkin.pendingPaymentShort')}
   </button>
+{:else if parent.registrationUnconfirmed}
+  <!-- The server refuses an unconfirmed registration whatever ticket they hold, so no Check In
+       and no ticket-grant offer, and deliberately nothing in its place either: a pill here read
+       as a button to volunteers (tapped twice in two rounds) and repeated the first reason line
+       the row already prints under the name. The two plain-text lines carry the state. -->
 {:else if parent.ticket === 'none'}
   <!-- No ticket - show button only (expansion handled by parent) -->
   <button

@@ -22,6 +22,12 @@
   import type { Child, Parent, Family, TicketType } from '$lib/checkin/types';
   import ChildCheckInButton from './ChildCheckInButton.svelte';
   import ParentCheckInButton from './ParentCheckInButton.svelte';
+  import AwaitingConfirmation from './AwaitingConfirmation.svelte';
+  import {
+    confirmationBadgeMessage,
+    familyConfirmationState,
+    hasBlockedPerson
+  } from '$lib/checkin/utils/familyConfirmation';
   import { Alert, Button, Icon } from '$lib/components/ui';
   import { undoActionsWithTick } from '$lib/checkin/stores/undoTimer';
 
@@ -275,13 +281,17 @@
   }
 
   function getCanCheckInCount(family: Family): number {
-    return family.children.filter(c => !c.checkedIn && c.ticket !== 'none').length;
+    return family.children.filter(c => !c.checkedIn && c.ticket !== 'none' && !c.registrationUnconfirmed).length;
   }
 
   // Child-only households compare against children; child-less households
   // (adults only) fall back to parents so the status badge isn't vacuously
   // "all checked in" for a family with nobody checked in at all.
+  // Never true while anyone in the family is blocked on this session as unconfirmed: a blocked
+  // person is not checked in, and "all checked in" on a row that still has someone the door
+  // refuses would tell the desk there is nothing left to do.
   function isAllCheckedIn(family: Family): boolean {
+    if (hasBlockedPerson(family)) return false;
     if (family.children.length > 0) {
       return getCheckedInCount(family) === getTotalChildren(family);
     }
@@ -290,6 +300,24 @@
       getCheckedInParentsCount(family) === getTotalParents(family)
     );
   }
+
+  // The collapsed row's note for people the server will refuse as unconfirmed on this session.
+  // `all` (everyone blocked) puts it in the row's right-hand status slot, like "Awaiting payment";
+  // otherwise it is the small inline badge by the count line, saying who (adults / children) when
+  // that is one kind of person, and a bare count when mixed.
+  function confirmationBadge(family: Family): { label: string; all: boolean } | null {
+    const state = familyConfirmationState(family, parentCheckinEnabled);
+    const message = confirmationBadgeMessage(state);
+    if (!message) return null;
+    return {
+      label: $_(message.key, { values: { count: message.count } }),
+      all: state.all
+    };
+  }
+
+  // (The all-blocked badge takes the row's status slot unless the undo countdown or the unpaid
+  // badge already holds it; then it falls back to the inline spot rather than two badges fighting
+  // over one slot. That decision is the `confirmationInStatus` const in each layout.)
 
   // Check-in is per session: an adult who is in another session is still admissible here, so the
   // button stays a Check In button. This neutral note says where they are, so the desk is not
@@ -304,10 +332,37 @@
   // so the subtitle is dropped on exactly the rows that show the chip. A family blocked on payment
   // shows "Unpaid" instead of the chip, so there the subtitle still carries the ticket state.
   function ticketSubtitle(attendee: Child | Parent, family: Family): string {
+    if (attendee.registrationUnconfirmed && !attendee.checkedIn) return '';
     if (attendee.ticket === 'none' && !attendee.checkedIn && !family.pending_payment) return '';
     return getTicketDisplay(attendee);
   }
 </script>
+
+<!--
+  Why a person the server will refuse as unconfirmed shows no Check In button: a neutral reason
+  under their name (what, then who can fix it; the "who" line only when some of the family are not
+  blocked, otherwise the family header says it once). Staff to-do, not an accusation.
+-->
+{#snippet unconfirmedNote(attendee: Child | Parent, showHint: boolean)}
+  {#if attendee.registrationUnconfirmed && !attendee.checkedIn}
+    <span class="block" data-testid={`unconfirmed-note-${attendee.id}`}>
+      <span class="block font-medium text-neutral-700">{$_('checkin.registrationNotConfirmed')}</span>
+      {#if showHint}
+        <span class="block text-neutral-600">{$_('checkin.registrationNotConfirmedHint')}</span>
+      {/if}
+    </span>
+  {/if}
+{/snippet}
+
+<!--
+  When EVERY person in the family is blocked the "ask a coordinator" line is the same for all of
+  them, so it is said once under the family header instead of under each person.
+-->
+{#snippet familyConfirmationHint(familyId: string)}
+  <p class="text-xs text-neutral-600" data-testid={`family-confirmation-hint-${familyId}`}>
+    {$_('checkin.registrationNotConfirmedHint')}
+  </p>
+{/snippet}
 
 <!--
   The one-tap "grant a ticket" panel opened from the red No Ticket chip. It states WHY the person
@@ -362,7 +417,9 @@
     {@const checkedInParentsCount = getCheckedInParentsCount(family)}
     {@const canCheckInCount = getCanCheckInCount(family)}
     {@const allCheckedIn = isAllCheckedIn(family)}
-    {@const familyUndoSeconds = getFamilyUndoSeconds(family)}
+    {@const confirmation = confirmationBadge(family)}
+        {@const familyUndoSeconds = getFamilyUndoSeconds(family)}
+    {@const confirmationInStatus = !!confirmation?.all && familyUndoSeconds === null && !family.pending_payment}
 
     <div
       id={`family-${family.id}`}
@@ -432,13 +489,18 @@
                   </span>
                 {/if}
               </div>
-              <p class="text-xs sm:text-sm text-neutral-600 mt-0.5">
-                {#if totalChildren > 0}
-                  {totalChildren} {totalChildren === 1 ? $_('checkin.child') : $_('checkin.children')} •
-                  {$_('checkin.checkedInCount', { values: { count: checkedInCount } })}
-                {:else}
-                  {totalParents} {totalParents === 1 ? $_('checkin.adult') : $_('checkin.adults')} •
-                  {$_('checkin.checkedInCount', { values: { count: checkedInParentsCount } })}
+              <p class="text-xs sm:text-sm text-neutral-600 mt-0.5 flex items-center gap-x-2 gap-y-1 flex-wrap">
+                <span>
+                  {#if totalChildren > 0}
+                    {totalChildren} {totalChildren === 1 ? $_('checkin.child') : $_('checkin.children')} •
+                    {$_('checkin.checkedInCount', { values: { count: checkedInCount } })}
+                  {:else}
+                    {totalParents} {totalParents === 1 ? $_('checkin.adult') : $_('checkin.adults')} •
+                    {$_('checkin.checkedInCount', { values: { count: checkedInParentsCount } })}
+                  {/if}
+                </span>
+                {#if confirmation && !confirmationInStatus}
+                  <AwaitingConfirmation label={confirmation.label} testId={`family-awaiting-confirmation-${family.id}`} />
                 {/if}
               </p>
             </div>
@@ -460,11 +522,19 @@
             {:else if family.pending_payment}
               <!-- 9.3 "unpaid at the door" — resolve via the banner below -->
               <span
-                class="px-3 py-1.5 sm:px-4 sm:py-2 bg-warning-100 text-warning-800 font-semibold rounded-button text-xs sm:text-sm whitespace-nowrap inline-block border border-warning-300"
+                class="px-3 py-1.5 sm:px-4 sm:py-2 bg-warning-100 text-warning-800 font-semibold rounded-button text-xs sm:text-sm whitespace-nowrap inline-block border border-warning-200"
                 data-testid={`family-pending-payment-badge-${family.id}`}
               >
                 {$_('checkin.pendingPaymentAwaiting')}
               </span>
+            {:else if confirmationInStatus && confirmation}
+              <!-- Everyone is blocked: the status slot, like "Awaiting payment" -->
+              <AwaitingConfirmation
+                variant="status"
+                class="px-3 py-1.5 sm:px-4 sm:py-2 text-xs sm:text-sm font-semibold"
+                label={confirmation.label}
+                testId={`family-awaiting-confirmation-${family.id}`}
+              />
             {:else if !allCheckedIn && canCheckInCount > 0}
               <!-- Check In Family button -->
               <button
@@ -485,6 +555,12 @@
           </div>
         </div>
       </div>
+
+      {#if expanded && confirmation?.all}
+        <div class="px-2.5 sm:px-3 pb-2 sm:pb-3 bg-neutral-50">
+          {@render familyConfirmationHint(family.id)}
+        </div>
+      {/if}
 
       {#if expanded && family.pending_payment}
         <!-- 9.3 "unpaid at the door" -->
@@ -557,6 +633,7 @@
                   <div class="font-medium text-neutral-700 text-sm sm:text-base">{child.name}</div>
                   <div class="text-xs text-neutral-500 mt-0.5">
                     {ticketSubtitle(child, family)}
+                    {@render unconfirmedNote(child, !confirmation?.all)}
                     {#if child.checkedIn && child.checkInTime}
                       • {$_('checkin.checkedInAt', { values: { time: child.checkInTime } })}
                     {/if}
@@ -565,7 +642,7 @@
 
                 <!-- Actions -->
                 <div class="flex items-center gap-2 flex-wrap">
-                  {#if !child.checkedIn && child.ticket !== 'none'}
+                  {#if !child.checkedIn && child.ticket !== 'none' && !child.registrationUnconfirmed}
                     <label class="flex items-center gap-1.5 text-xs cursor-pointer whitespace-nowrap">
                       <input
                         type="checkbox"
@@ -591,7 +668,7 @@
               </div>
 
               <!-- Ticket assignment expansion (for "No Ticket" children) -->
-              {#if isChildExpanded && child.ticket === 'none'}
+              {#if isChildExpanded && child.ticket === 'none' && !child.registrationUnconfirmed}
                 {@render grantTicketPanel('child', child.name, child.id, 'w-full', (ticket) => onAssignTicket(family.id, child.id, ticket))}
               {/if}
             </div>
@@ -623,6 +700,7 @@
                       </div>
                       <div class="text-xs text-neutral-500 mt-0.5">
                         {parentCheckinEnabled ? ticketSubtitle(parent, family) : $_('checkin.adultsNotCheckedInHere')}
+                        {@render unconfirmedNote(parent, !confirmation?.all)}
                         {#if parent.checkedIn && parent.checkInTime}
                           • {$_('checkin.checkedInAt', { values: { time: parent.checkInTime } })}
                         {/if}
@@ -649,7 +727,7 @@
                   </div>
 
                   <!-- Ticket assignment expansion (for "No Ticket" parents) -->
-                  {#if isParentExpanded && parent.ticket === 'none'}
+                  {#if isParentExpanded && parent.ticket === 'none' && !parent.registrationUnconfirmed}
                     {@render grantTicketPanel('adult', parent.name, parent.id, 'w-full', (ticket) => onAssignParentTicket(family.id, parent.id, ticket))}
                   {/if}
                 </div>
@@ -689,7 +767,9 @@
         {@const checkedInParentsCount = getCheckedInParentsCount(family)}
         {@const canCheckInCount = getCanCheckInCount(family)}
         {@const allCheckedIn = isAllCheckedIn(family)}
-        {@const familyUndoSeconds = getFamilyUndoSeconds(family)}
+        {@const confirmation = confirmationBadge(family)}
+            {@const familyUndoSeconds = getFamilyUndoSeconds(family)}
+    {@const confirmationInStatus = !!confirmation?.all && familyUndoSeconds === null && !family.pending_payment}
 
         <!-- Family header row -->
         <tr
@@ -754,6 +834,13 @@
               {totalParents} {totalParents === 1 ? $_('checkin.adult') : $_('checkin.adults')} •
               {$_('checkin.checkedInCount', { values: { count: checkedInParentsCount } })}
             {/if}
+            {#if confirmation && !confirmationInStatus}
+              <AwaitingConfirmation
+                class="ml-2 align-middle"
+                label={confirmation.label}
+                testId={`family-awaiting-confirmation-${family.id}`}
+              />
+            {/if}
           </td>
           <td class="px-4 py-3 text-right">
             <!-- svelte-ignore a11y-click-events-have-key-events -->
@@ -770,11 +857,18 @@
               {:else if family.pending_payment}
                 <!-- 9.3 "unpaid at the door" — resolve via the banner below -->
                 <span
-                  class="px-4 py-1.5 bg-warning-100 text-warning-800 text-sm font-medium rounded-button inline-block border border-warning-300"
+                  class="px-4 py-1.5 bg-warning-100 text-warning-800 text-sm font-medium rounded-button inline-block border border-warning-200"
                   data-testid={`family-pending-payment-badge-${family.id}`}
                 >
                   {$_('checkin.pendingPaymentAwaiting')}
                 </span>
+              {:else if confirmationInStatus && confirmation}
+                <AwaitingConfirmation
+                  variant="status"
+                  class="px-4 py-1.5 text-sm font-medium"
+                  label={confirmation.label}
+                  testId={`family-awaiting-confirmation-${family.id}`}
+                />
               {:else if !allCheckedIn && canCheckInCount > 0}
                 <button
                   type="button"
@@ -792,6 +886,14 @@
             </div>
           </td>
         </tr>
+
+        {#if expanded && confirmation?.all}
+          <tr class="border-b border-neutral-200">
+            <td class="px-4 pb-3 pl-12" colspan="3">
+              {@render familyConfirmationHint(family.id)}
+            </td>
+          </tr>
+        {/if}
 
         {#if expanded && family.pending_payment}
           <!-- 9.3 "unpaid at the door" -->
@@ -862,13 +964,14 @@
                     <div class="font-medium text-neutral-700">{child.name}</div>
                     <div class="text-xs text-neutral-500 mt-0.5">
                       {ticketSubtitle(child, family)}
+                      {@render unconfirmedNote(child, !confirmation?.all)}
                       {#if child.checkedIn && child.checkInTime}
                         • {$_('checkin.checkedInAt', { values: { time: child.checkInTime } })}
                       {/if}
                     </div>
                   </div>
 
-                  {#if !child.checkedIn && child.ticket !== 'none'}
+                  {#if !child.checkedIn && child.ticket !== 'none' && !child.registrationUnconfirmed}
                     <label class="flex items-center gap-1.5 text-xs cursor-pointer">
                       <input
                         type="checkbox"
@@ -883,7 +986,7 @@
                 </div>
 
                 <!-- Ticket assignment expansion (inline for desktop) -->
-                {#if isChildExpanded && child.ticket === 'none'}
+                {#if isChildExpanded && child.ticket === 'none' && !child.registrationUnconfirmed}
                   {@render grantTicketPanel('child', child.name, child.id, 'mt-2', (ticket) => onAssignTicket(family.id, child.id, ticket))}
                 {/if}
               </td>
@@ -929,6 +1032,7 @@
                       </div>
                       <div class="text-xs text-neutral-500 mt-0.5">
                         {parentCheckinEnabled ? ticketSubtitle(parent, family) : $_('checkin.adultsNotCheckedInHere')}
+                        {@render unconfirmedNote(parent, !confirmation?.all)}
                         {#if parent.checkedIn && parent.checkInTime}
                           • {$_('checkin.checkedInAt', { values: { time: parent.checkInTime } })}
                         {/if}
@@ -940,7 +1044,7 @@
                   </div>
 
                   <!-- Ticket assignment expansion (inline for desktop) -->
-                  {#if isParentExpanded && parent.ticket === 'none'}
+                  {#if isParentExpanded && parent.ticket === 'none' && !parent.registrationUnconfirmed}
                     {@render grantTicketPanel('adult', parent.name, parent.id, 'mt-2', (ticket) => onAssignParentTicket(family.id, parent.id, ticket))}
                   {/if}
                 </td>

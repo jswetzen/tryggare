@@ -5,7 +5,8 @@ import type {
   FamilyApiResponse,
   TicketType,
   TicketRule,
-  TicketExemption
+  TicketExemption,
+  UnconfirmedRegistration
 } from '$lib/checkin/types';
 
 type TicketableApiItem = {
@@ -16,6 +17,8 @@ type TicketableApiItem = {
   } | null;
   /** Parents only: events where this adult is a guardian-only adult on a CONFIRMED registration. */
   guardian_only_event_ids?: string[] | null;
+  /** Where the server refuses this person for an unconfirmed registration (eligibility.py). */
+  unconfirmed_registration?: UnconfirmedRegistration | null;
 };
 
 export type TicketAccess = {
@@ -40,6 +43,24 @@ export function adultsNotCheckedIn(session: Session | null): boolean {
   if (!session) return false;
   return (
     session.adults_not_checked_in ?? session.effective_parent_checkin_policy === 'disabled'
+  );
+}
+
+// The server refuses an unconfirmed registration on every session of an event in event_ids and
+// on the sessions in session_ids (checkins/eligibility.py). It is a hard refusal that no ticket
+// grant can lift, so the desk reads it BEFORE ticket state: a blocked person gets a calm
+// "not confirmed" reason instead of a Check In button or a one-tap ticket-grant offer.
+// Tolerates a missing field (fixtures, an older server): that means "not blocked".
+export function isRegistrationUnconfirmed(
+  item: TicketableApiItem,
+  session: Session | null
+): boolean {
+  if (!session) return false;
+  const marker = item.unconfirmed_registration;
+  if (!marker) return false;
+  return (
+    (marker.event_ids ?? []).includes(session.event) ||
+    (marker.session_ids ?? []).includes(session.id)
   );
 }
 
@@ -114,6 +135,7 @@ export function transformFamily(apiFamily: FamilyApiResponse, session: Session |
         ticket: ticketType,
         ticket_type: ticketType,
         ticketExemption: access.exemption,
+        registrationUnconfirmed: isRegistrationUnconfirmed(child, session),
         ticket_details: child.ticket_details,
         checkedIn: child.is_checked_in || false,
         family: child.family,
@@ -140,6 +162,10 @@ export function transformFamily(apiFamily: FamilyApiResponse, session: Session |
         ticket_type: ticketType,
         ticketExemption: access.exemption,
         notCheckedInHere: access.notCheckedInHere,
+        // A session that never checks adults in shows its own calm note and no button at all,
+        // and the server answers that first, so no unconfirmed marker is layered on top of it.
+        registrationUnconfirmed:
+          !access.notCheckedInHere && isRegistrationUnconfirmed(parent, session),
         ticket_details: parent.ticket_details ?? undefined,
         checkedIn: parent.is_checked_in || false,
         checkInRecordId: parent.active_checkin_id ?? undefined,

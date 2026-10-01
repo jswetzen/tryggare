@@ -356,7 +356,7 @@
     // Otherwise, apply the standard visibility filtering
     let filtered = showCheckedInFamilies
       ? [...families].sort((a, b) => a.name.localeCompare(b.name))
-      : getVisibleFamilies(families, undoActions);
+      : getVisibleFamilies(families, undoActions, parentCheckinEnabled);
 
     // Always include a highlighted family (e.g. QR-scanned) even if it would normally be hidden
     if (highlightedFamilyId && !filtered.some((f) => f.id === highlightedFamilyId)) {
@@ -484,7 +484,7 @@
     if (!family) return;
 
     const childIdsToCheckIn = family.children
-      .filter((c) => !c.checkedIn && c.ticket !== 'none')
+      .filter((c) => !c.checkedIn && c.ticket !== 'none' && !c.registrationUnconfirmed)
       .map((c) => c.id);
 
     if (childIdsToCheckIn.length === 0) return;

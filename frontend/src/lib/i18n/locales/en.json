@@ -220,7 +220,15 @@
     "confirmDespiteBalanceError": "Could not confirm registration",
     "pendingPaymentShort": "Unpaid",
     "pendingPaymentAwaiting": "Awaiting payment",
-    "pendingPaymentBlockedTitle": "Registration is unpaid — resolve via the banner above before checking in"
+    "pendingPaymentBlockedTitle": "Registration is unpaid — resolve via the banner above before checking in",
+    "registrationNotConfirmed": "Registration awaiting confirmation",
+    "registrationNotConfirmedHint": "Ask a coordinator to confirm it.",
+    "awaitingConfirmation": "Awaiting confirmation",
+    "awaitingConfirmationCount": "{count} awaiting confirmation",
+    "awaitingConfirmationAdultOne": "1 adult awaiting confirmation",
+    "awaitingConfirmationAdultMany": "{count} adults awaiting confirmation",
+    "awaitingConfirmationChildOne": "1 child awaiting confirmation",
+    "awaitingConfirmationChildMany": "{count} children awaiting confirmation"
   },
   "checkout": {
     "pageTitle": "Check-Out Station",
