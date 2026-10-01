@@ -94,6 +94,7 @@
     "checkInFamily": "Check in {family} ({count})",
     "checkInCount": "Check In ({count})",
     "alreadyCheckedIn": "Already Checked In",
+    "checkedInElsewhere": "Checked in to {session}",
     "checkedInAt": "Checked in at {time}",
     "undo": "Undo",
     "undoSeconds": "Undo ({seconds}s)",

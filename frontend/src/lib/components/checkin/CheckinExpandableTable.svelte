@@ -291,6 +291,14 @@
     );
   }
 
+  // Check-in is per session: an adult who is in another session is still admissible here, so the
+  // button stays a Check In button. This neutral note says where they are, so the desk is not
+  // surprised and does not mistake it for "already in".
+  function elsewhereLabel(parent: Parent): string {
+    const names = parent.checkedInElsewhere ?? [];
+    return names.length ? $_('checkin.checkedInElsewhere', { values: { session: names.join(', ') } }) : '';
+  }
+
   // The red "No Ticket" chip is what a row shows when the session asks for a ticket the person
   // does not hold. Repeating "No Ticket" as the subtitle under the name says the same thing twice,
   // so the subtitle is dropped on exactly the rows that show the chip. A family blocked on payment
@@ -618,6 +626,9 @@
                         {#if parent.checkedIn && parent.checkInTime}
                           • {$_('checkin.checkedInAt', { values: { time: parent.checkInTime } })}
                         {/if}
+                        {#if !parent.checkedIn && elsewhereLabel(parent)}
+                          <span data-testid={`parent-elsewhere-${parent.id}`}>• {elsewhereLabel(parent)}</span>
+                        {/if}
                       </div>
                     </div>
 
@@ -920,6 +931,9 @@
                         {parentCheckinEnabled ? ticketSubtitle(parent, family) : $_('checkin.adultsNotCheckedInHere')}
                         {#if parent.checkedIn && parent.checkInTime}
                           • {$_('checkin.checkedInAt', { values: { time: parent.checkInTime } })}
+                        {/if}
+                        {#if !parent.checkedIn && elsewhereLabel(parent)}
+                          <span data-testid={`parent-elsewhere-${parent.id}`}>• {elsewhereLabel(parent)}</span>
                         {/if}
                       </div>
                     </div>

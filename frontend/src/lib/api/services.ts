@@ -168,13 +168,18 @@ export const checkinApi = {
   /**
    * Get all families with nested children and parents
    */
-  getFamilies: () => apiClient.get<FamilyApiResponse[]>('/families/'),
+  getFamilies: (sessionId?: string) =>
+    apiClient.get<FamilyApiResponse[]>(
+      sessionId ? `/families/?session=${encodeURIComponent(sessionId)}` : '/families/'
+    ),
 
   /**
    * Look up a family by ticket QR code (external_ticket_code)
    */
-  lookupByTicket: (code: string) =>
-    apiClient.get<FamilyApiResponse>(`/families/by-ticket/?code=${encodeURIComponent(code)}`),
+  lookupByTicket: (code: string, sessionId?: string) =>
+    apiClient.get<FamilyApiResponse>(
+      `/families/by-ticket/?code=${encodeURIComponent(code)}${sessionId ? `&session=${encodeURIComponent(sessionId)}` : ''}`
+    ),
 
   /**
    * Create a new family with parents and children

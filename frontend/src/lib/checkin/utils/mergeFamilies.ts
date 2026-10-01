@@ -143,6 +143,7 @@ export function transformFamily(apiFamily: FamilyApiResponse, session: Session |
         ticket_details: parent.ticket_details ?? undefined,
         checkedIn: parent.is_checked_in || false,
         checkInRecordId: parent.active_checkin_id ?? undefined,
+        checkedInElsewhere: parent.checked_in_elsewhere ?? [],
         family: parent.family,
         is_parent: true,
         allergies: parent.allergies,

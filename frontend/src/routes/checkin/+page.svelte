@@ -93,7 +93,12 @@
     try {
       loading = true;
       error = null;
-      const response = await checkinApi.getFamilies();
+      // An adult's check-in is per session, so the server answers for the session this
+      // desk is looking at (and names the others). Ask for it, and drop the answer if the
+      // desk has moved to another session while it was in flight.
+      const sessionId = activeSession?.id;
+      const response = await checkinApi.getFamilies(sessionId);
+      if (sessionId !== activeSession?.id) return;
       families = mergeFamilies(families, response, activeSession);
     } catch (err) {
       const apiError = err as ApiError;
@@ -143,7 +148,10 @@
   // Load data on mount
   onMount(() => {
     // Load initial data - each loader manages its own loading/error state
-    Promise.all([loadFamilies(), loadActiveSession(), loadPrinters()]);
+    // The session first: the family list is requested FOR a session (an adult's check-in is
+    // per session), so it cannot be asked for before the desk knows which one it is on.
+    // loadActiveSession swallows its own errors, so the list still loads with no session.
+    Promise.all([loadActiveSession().then(loadFamilies), loadPrinters()]);
 
     // Connect to WebSocket for real-time updates
     websocketStore.connect();
@@ -678,7 +686,7 @@
   async function handleQrScan(code: string) {
     showQrScanner = false;
     try {
-      const apiFamily = await checkinApi.lookupByTicket(code);
+      const apiFamily = await checkinApi.lookupByTicket(code, activeSession?.id);
       const found = families.find((f) => f.id === apiFamily.id);
       if (found) {
         highlightedFamilyId = found.id;

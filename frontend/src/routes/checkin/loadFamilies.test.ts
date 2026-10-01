@@ -585,4 +585,18 @@ describe('guardian-only adults in the transformed family', () => {
     expect(parent.ticket).toBe('none');
     expect(parent.notCheckedInHere).toBe(true);
   });
+
+  it('carries the other sessions an adult is checked in to onto the adult', () => {
+    const api = family([]);
+    api.parents[0].is_checked_in = false;
+    api.parents[0].checked_in_elsewhere = ['B children'];
+    const parent = mergeFamilies([], [api], allSession)[0].parents[0];
+    expect(parent.checkedIn).toBe(false);
+    expect(parent.checkedInElsewhere).toEqual(['B children']);
+  });
+
+  it('treats a server that does not send the field as "nowhere else"', () => {
+    const parent = mergeFamilies([], [family([])], allSession)[0].parents[0];
+    expect(parent.checkedInElsewhere).toEqual([]);
+  });
 });

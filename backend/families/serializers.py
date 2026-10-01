@@ -67,6 +67,7 @@ class ParentSerializer(SafetyInfoDisclosureMixin, serializers.ModelSerializer):
     guardian_only_event_ids = serializers.SerializerMethodField()
     is_checked_in = serializers.SerializerMethodField()
     active_checkin_id = serializers.SerializerMethodField()
+    checked_in_elsewhere = serializers.SerializerMethodField()
     has_safety_info = serializers.SerializerMethodField()
 
     class Meta:
@@ -93,6 +94,7 @@ class ParentSerializer(SafetyInfoDisclosureMixin, serializers.ModelSerializer):
             "guardian_only_event_ids",
             "is_checked_in",
             "active_checkin_id",
+            "checked_in_elsewhere",
         ]
         read_only_fields = [
             "id",
@@ -108,6 +110,7 @@ class ParentSerializer(SafetyInfoDisclosureMixin, serializers.ModelSerializer):
             "guardian_only_event_ids",
             "is_checked_in",
             "active_checkin_id",
+            "checked_in_elsewhere",
         ]
 
     def get_ticket_type(self, obj: Parent) -> str | None:
@@ -137,24 +140,64 @@ class ParentSerializer(SafetyInfoDisclosureMixin, serializers.ModelSerializer):
             )
         return sorted({str(r.event_id) for r in registrations})
 
-    def get_is_checked_in(self, obj: Parent) -> bool:
+    # --- check-in state of an adult -------------------------------------
+    #
+    # An adult's check-in is PER SESSION (owner decision 2026-10-01): the
+    # server's check-in only refuses a duplicate in the SAME session, so an
+    # adult who is in session B is still admissible to C. A desk that is
+    # looking at session C therefore passes ``?session=<id>`` and gets the
+    # state of THAT session only, plus ``checked_in_elsewhere`` naming the
+    # other sessions the adult is currently in. Without the parameter the old
+    # answer stands (open record in ANY session) so no other caller changes.
+
+    def _open_records(self, obj: Parent) -> list:
+        """The adult's open (not checked out) records, session preloaded.
+
+        Uses the viewset's ``active_checkins`` prefetch (which select_related's
+        the session) when present; one query otherwise.
+        """
         if hasattr(obj, "active_checkins"):
-            return len(obj.active_checkins) > 0
+            return list(obj.active_checkins)
         from checkins.models import CheckInRecord
 
-        return CheckInRecord.objects.filter(
-            attendee=obj, check_out_time__isnull=True
-        ).exists()
+        return list(
+            CheckInRecord.objects.filter(
+                attendee=obj, check_out_time__isnull=True
+            ).select_related("session")
+        )
+
+    def _records_here(self, obj: Parent) -> list:
+        """Open records in the session the desk is looking at, or all of them
+        when no session was asked for."""
+        records = self._open_records(obj)
+        session_id = self.context.get("session_id")
+        if session_id is None:
+            return records
+        return [r for r in records if r.session_id == session_id]
+
+    def get_is_checked_in(self, obj: Parent) -> bool:
+        return len(self._records_here(obj)) > 0
 
     def get_active_checkin_id(self, obj: Parent) -> str | None:
-        if hasattr(obj, "active_checkins"):
-            return str(obj.active_checkins[0].id) if obj.active_checkins else None
-        from checkins.models import CheckInRecord
+        records = self._records_here(obj)
+        return str(records[0].id) if records else None
 
-        record = CheckInRecord.objects.filter(
-            attendee=obj, check_out_time__isnull=True
-        ).first()
-        return str(record.id) if record else None
+    def get_checked_in_elsewhere(self, obj: Parent) -> list[str]:
+        """Names of the OTHER sessions this adult is currently checked in to.
+
+        Empty without a ``session`` parameter: with no session in view there is
+        no "elsewhere".
+        """
+        session_id = self.context.get("session_id")
+        if session_id is None:
+            return []
+        records = [r for r in self._open_records(obj) if r.session_id != session_id]
+        records.sort(key=lambda r: r.check_in_time)
+        names: list[str] = []
+        for record in records:
+            if record.session.name not in names:
+                names.append(record.session.name)
+        return names
 
 
 class ChildSerializer(SafetyInfoDisclosureMixin, serializers.ModelSerializer):
@@ -255,8 +298,10 @@ class ChildSerializer(SafetyInfoDisclosureMixin, serializers.ModelSerializer):
             str: The check-in record ID, or None if not checked in
         """
         # Use prefetched active_checkins if available (Family viewset uses this)
-        if hasattr(obj, "active_checkins") and len(obj.active_checkins) > 0:
-            return str(obj.active_checkins[0].id)
+        if hasattr(obj, "active_checkins"):
+            # An empty prefetched list means "not checked in", not "unknown":
+            # falling through here re-queried once per checked-out child.
+            return str(obj.active_checkins[0].id) if obj.active_checkins else None
 
         # Use prefetched checkin_records if available (Child viewset uses this)
         # This uses the standard relationship name and filters in Python

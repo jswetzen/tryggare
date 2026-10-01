@@ -94,6 +94,7 @@
     "checkInFamily": "Checka in {family} ({count})",
     "checkInCount": "Checka in ({count})",
     "alreadyCheckedIn": "Redan incheckad",
+    "checkedInElsewhere": "Incheckad på {session}",
     "checkedInAt": "Incheckad kl {time}",
     "undo": "Ångra",
     "undoSeconds": "Ångra ({seconds}s)",

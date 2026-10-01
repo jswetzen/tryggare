@@ -1,8 +1,11 @@
+import uuid
+
 from django.db.models import Prefetch
 from django.http import HttpResponse
 from django.utils import timezone
 from rest_framework import viewsets
 from rest_framework.decorators import action
+from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
 
 from config.permissions import DjangoModelPermissionsWithView, model_permissions
@@ -72,14 +75,46 @@ class FamilyViewSet(viewsets.ModelViewSet):
             return [self._reveal_safety_info_permission()]
         return super().get_permissions()
 
+    def get_serializer_context(self):
+        """Carry the optional ``?session=<uuid>`` into the serializers.
+
+        It scopes an ADULT's check-in state to the session the desk is looking
+        at (ParentSerializer). Absent, every payload is exactly what it was.
+        A malformed id is a 400 rather than a silent fall back to the any-session
+        answer, which would reintroduce the very bug the parameter exists for.
+        """
+        context = super().get_serializer_context()
+        raw = self.request.query_params.get("session") if self.request else None
+        if raw:
+            try:
+                context["session_id"] = uuid.UUID(raw)
+            except ValueError:
+                raise ValidationError({"session": "Not a valid session id."})
+        return context
+
     def get_queryset(self):
+        """The prefetched queryset, except for writes.
+
+        update() hands the instance to services that call ``family.children.get(...)``
+        and ``.filter(...)``; with the attendee prefetch in place those resolve to
+        the read-only list proxy (families/models.py), which has neither. Writes
+        therefore load the plain row, and re-read through the prefetched queryset
+        for the response (``update`` below).
+        """
+        if self.action in ("update", "partial_update"):
+            return Family.objects.all()
+        return self._prefetched_queryset()
+
+    def _prefetched_queryset(self):
         """
         Optimize queries with prefetch_related to avoid N+1 problems.
         Includes ticket information and check-in status for children and parents.
 
         Since Child and Parent are MTI subclasses of Attendee, their family FK
         lives on the Attendee table. We prefetch through "attendees" and store
-        each subclass in a to_attr that Family._AttendeeSubclassAccessor exposes.
+        each subclass in a to_attr that Family._AttendeeSubclassAccessor exposes
+        (``_prefetched_parents`` / ``_prefetched_children``; the bare names would
+        be treated by Django as already fetched and skipped, see the accessor).
         """
         from checkins.models import CheckInRecord
 
@@ -127,7 +162,12 @@ class FamilyViewSet(viewsets.ModelViewSet):
             ),
             Prefetch(
                 "checkin_records",
-                queryset=CheckInRecord.objects.filter(check_out_time__isnull=True),
+                # select_related("session"): the desk names the OTHER session an
+                # adult is checked in to (ParentSerializer.get_checked_in_elsewhere)
+                # without a query per adult.
+                queryset=CheckInRecord.objects.filter(
+                    check_out_time__isnull=True
+                ).select_related("session"),
                 to_attr="active_checkins",
             ),
         )
@@ -141,8 +181,8 @@ class FamilyViewSet(viewsets.ModelViewSet):
         ).select_related("payment")
 
         return Family.objects.prefetch_related(
-            Prefetch("attendees", queryset=children_qs, to_attr="children"),
-            Prefetch("attendees", queryset=parents_qs, to_attr="parents"),
+            Prefetch("attendees", queryset=children_qs, to_attr="_prefetched_children"),
+            Prefetch("attendees", queryset=parents_qs, to_attr="_prefetched_parents"),
             Prefetch(
                 "registrations",
                 queryset=pending_payment_qs,
@@ -171,7 +211,7 @@ class FamilyViewSet(viewsets.ModelViewSet):
         serializer.is_valid(raise_exception=True)
         family = serializer.save()
         output = FamilyDetailSerializer(
-            self.get_queryset().get(pk=family.pk),
+            self._prefetched_queryset().get(pk=family.pk),
             context=self.get_serializer_context(),
         )
         return Response(output.data)
@@ -220,7 +260,7 @@ class FamilyViewSet(viewsets.ModelViewSet):
             return Response({"error": "not_found"}, status=404)
 
         # Use the full queryset to get the family with all prefetches
-        family_qs = self.get_queryset().filter(pk=family.pk).first()
+        family_qs = self._prefetched_queryset().filter(pk=family.pk).first()
         if not family_qs:
             return Response({"error": "not_found"}, status=404)
 

@@ -516,7 +516,7 @@ class PrintQueueViewSet(viewsets.ReadOnlyModelViewSet):
                 Prefetch(
                     "attendee__family__attendees",
                     queryset=Parent.objects.all(),
-                    to_attr="parents",
+                    to_attr="_prefetched_parents",
                 ),
                 "print_jobs__printer",
             )
@@ -692,7 +692,7 @@ class PrintQueueViewSet(viewsets.ReadOnlyModelViewSet):
                 Prefetch(
                     "attendee__family__attendees",
                     queryset=Parent.objects.all(),
-                    to_attr="parents",
+                    to_attr="_prefetched_parents",
                 )
             )
             .order_by("-check_in_time")[:50]

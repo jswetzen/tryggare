@@ -63,6 +63,8 @@ export interface Parent {
   ticketExemption?: TicketExemption;
   /** The session never checks adults in (adults_not_checked_in). */
   notCheckedInHere?: boolean;
+  /** Adults: names of the OTHER sessions they are currently checked in to (check-in is per session). */
+  checkedInElsewhere?: string[];
   ticket_details?: {
     event_tickets: Array<{
       id: string;
@@ -187,6 +189,8 @@ export interface FamilyApiResponse {
     last_participation_date?: string;
     is_checked_in?: boolean;
     active_checkin_id?: string | null;
+    /** Names of the OTHER sessions this adult is checked in to; only sent with ?session=. */
+    checked_in_elsewhere?: string[];
   }>;
   children: Array<{
     id: string;

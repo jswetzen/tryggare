@@ -32,6 +32,7 @@ vi.mock('svelte-i18n', () => ({
           'checkin.ticketGuardianOnly': 'Guardian, no ticket needed',
           'checkin.adultsNotCheckedInHere': 'Adults are not checked in at this session',
           'checkin.checkedInAt': 'Checked in at {time}',
+          'checkin.checkedInElsewhere': 'Checked in to {session}',
           'checkin.expandFamily': 'Expand {familyName} family',
           'checkin.collapseFamily': 'Collapse {familyName} family',
           'checkin.undoFamilyAria': 'Undo family check-in, {seconds} seconds remaining',
@@ -727,6 +728,64 @@ describe('CheckinExpandableTable', () => {
           expect(within(row).getByText(/Adults are not checked in at this session/)).toBeInTheDocument();
           expect(within(row).queryByText('No Ticket')).not.toBeInTheDocument();
         }
+      }
+    });
+  });
+
+  describe('Adult checked in to a different session', () => {
+    const adult = (over: Partial<Parent>): Parent => ({
+      id: 'parent-x',
+      first_name: 'Anna',
+      last_name: 'Smith',
+      name: 'Anna Smith',
+      relationship_type: 'mother',
+      ticket: 'event',
+      ticket_type: 'event',
+      checkedIn: false,
+      ...over
+    });
+
+    async function rowsFor(parent: Parent) {
+      const user = userEvent.setup();
+      render(CheckinExpandableTable, {
+        props: { ...defaultProps, families: [{ ...mockFamilies[0], parents: [parent] }] }
+      });
+      await user.click(screen.getAllByTestId('family-toggle-button-family-1')[0]);
+      return screen.getAllByTestId('parent-row-parent-x');
+    }
+
+    it('says where, keeps the Check In button live, and does not read "Already Checked In"', async () => {
+      const rows = await rowsFor(adult({ checkedInElsewhere: ['B children'] }));
+
+      for (const row of rows) {
+        expect(within(row).getByText(/Checked in to B children/)).toBeInTheDocument();
+        expect(within(row).getByTestId('parent-check-in-button-parent-x')).toBeEnabled();
+        expect(within(row).queryByText('Already Checked In')).not.toBeInTheDocument();
+      }
+    });
+
+    it('lists every other session', async () => {
+      const rows = await rowsFor(adult({ checkedInElsewhere: ['B children', 'C'] }));
+
+      expect(within(rows[0]).getByText(/Checked in to B children, C/)).toBeInTheDocument();
+    });
+
+    it('shows no note for an adult who is not checked in anywhere else', async () => {
+      const rows = await rowsFor(adult({ checkedInElsewhere: [] }));
+
+      for (const row of rows) {
+        expect(within(row).queryByText(/Checked in to/)).not.toBeInTheDocument();
+      }
+    });
+
+    it('shows no note once the adult is checked in HERE', async () => {
+      const rows = await rowsFor(
+        adult({ checkedIn: true, checkInTime: '10:00', checkedInElsewhere: ['B children'] })
+      );
+
+      for (const row of rows) {
+        expect(within(row).queryByText(/Checked in to B children/)).not.toBeInTheDocument();
+        expect(within(row).getByText('Already Checked In')).toBeInTheDocument();
       }
     });
   });

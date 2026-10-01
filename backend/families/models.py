@@ -8,9 +8,18 @@ class _AttendeeSubclassAccessor:
     """Non-data descriptor giving Family.parents / Family.children as a QuerySet.
 
     If a Prefetch with `to_attr` has already populated the instance dict
-    (e.g. Prefetch("attendees", queryset=Parent.objects.all(), to_attr="parents")),
-    that list is returned wrapped in a thin proxy that also supports .first()/.exists().
-    Otherwise falls back to a live filtered QuerySet.
+    (e.g. Prefetch("attendees", queryset=Parent.objects.all(),
+    to_attr="_prefetched_parents")), that list is returned wrapped in a thin proxy
+    that also supports .first()/.exists(). Otherwise falls back to a live filtered
+    QuerySet.
+
+    The to_attr MUST be ``_prefetched_<name>``, never the bare ``parents`` /
+    ``children``. Django decides whether a Prefetch has already been satisfied
+    with ``hasattr(instance, to_attr)``; this descriptor makes that true for the
+    bare name on every Family, so a ``to_attr="parents"`` Prefetch was silently
+    skipped (found 2026-10-01: ``/api/families/`` ran 24 queries per family
+    because the attendee, ticket and check-in prefetches never executed and every
+    serializer fell back to live queries).
     """
 
     class _ListProxy:
@@ -51,7 +60,7 @@ class _AttendeeSubclassAccessor:
         if obj is None:
             return self
         # Populated by Prefetch(to_attr=...) — takes priority.
-        cached = obj.__dict__.get(self._attr)
+        cached = obj.__dict__.get(f"_prefetched_{self._attr}")
         if cached is not None:
             return self._ListProxy(cached)
         # Fall back to live queryset.
