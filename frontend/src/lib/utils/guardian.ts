@@ -105,7 +105,13 @@ export function guardianLineNeeded(parents: ParentDraft[], childCount: number): 
 export function problemDomRank(id: string): [number, number, number] {
   const row = Number(/-(\d+)$/.exec(id)?.[1] ?? 0);
   if (id === 'contact-email') return [0, 0, 0];
-  if (id === 'guardian-required' || id === 'at-least-one-member') return [1, -1, 0];
+  if (
+    id === 'guardian-required' ||
+    id === 'at-least-one-member' ||
+    id === 'at-least-one-attending'
+  ) {
+    return [1, -1, 0];
+  }
   const parentFields = [
     'parent-first-name-',
     'parent-relationship-',
@@ -113,6 +119,7 @@ export function problemDomRank(id: string): [number, number, number] {
     'parent-ticket-type-',
     'parent-extra-',
     'parent-consent-',
+    'parent-guardian-only-',
     'server-parent-'
   ];
   const parentField = parentFields.findIndex((prefix) => id.startsWith(prefix));

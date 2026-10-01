@@ -90,6 +90,18 @@ export function extractFieldError(
  * by index) deliberately does not match — see extractFieldError and
  * extractRowFieldError for those.
  */
+/**
+ * Pulls a whole-registration error out of a DRF body that is a bare list of
+ * strings — `["At least one person on the registration needs to be
+ * attending."]`, what a view-level `ValidationError("msg")` renders as.
+ * Unlike the per-group shapes below it names no row or field. null when the
+ * body is not that shape.
+ */
+export function extractTopLevelError(details: unknown): string | null {
+  if (!Array.isArray(details)) return null;
+  return typeof details[0] === 'string' ? details[0] : null;
+}
+
 export function extractGroupError(details: unknown, group: 'parents' | 'children'): string | null {
   if (!details || typeof details !== 'object') return null;
   const groupErrors = (details as Record<string, unknown>)[group];

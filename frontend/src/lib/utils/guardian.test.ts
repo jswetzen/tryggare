@@ -156,6 +156,25 @@ describe('sortProblemsByDomOrder', () => {
     ]);
   });
 
+  it('puts the guardian-only line after the consent line and the nobody-attending line with the guardian line', () => {
+    const list = [
+      { id: 'parent-guardian-only-0' },
+      { id: 'parent-consent-0' },
+      { id: 'server-parent-0' },
+      { id: 'parent-first-name-0' },
+      { id: 'at-least-one-attending' },
+      { id: 'contact-email' }
+    ];
+    expect(ids(sortProblemsByDomOrder(list))).toEqual([
+      'contact-email',
+      'at-least-one-attending',
+      'parent-first-name-0',
+      'parent-consent-0',
+      'parent-guardian-only-0',
+      'server-parent-0'
+    ]);
+  });
+
   it('is stable for ids of the same rank', () => {
     const list = [{ id: 'mystery-b' }, { id: 'mystery-a' }];
     expect(ids(sortProblemsByDomOrder(list))).toEqual(['mystery-b', 'mystery-a']);

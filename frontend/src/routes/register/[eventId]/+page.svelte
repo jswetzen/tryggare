@@ -22,6 +22,7 @@
     extractErrorMessage,
     extractFieldError,
     extractGroupError,
+    extractTopLevelError,
     extractRowFieldError,
     type ApiError
   } from '$lib/api/client';
@@ -533,18 +534,57 @@
     return labels;
   });
 
+  // A flat-price event, as the backend sees it: no ticket types at all, hidden
+  // ones included (pricing.calculate_total itemizes as soon as any active type
+  // exists, even one this form cannot show). Only then does event.price apply,
+  // once per registration.
+  let isFlatEvent = $derived(
+    !!eventInfo && eventInfo.ticket_types.length === 0 && !eventInfo.has_hidden_ticket_types
+  );
+
+  // The one price of a paid flat event, or 0. Decided by the price itself, not
+  // is_paid: the backend charges event.price whenever it is positive, and a
+  // free flat event must show no total at all.
+  let flatPrice = $derived.by(() => {
+    if (!isFlatEvent || !eventInfo?.price) return 0;
+    const value = parseFloat(eventInfo.price);
+    return Number.isFinite(value) && value > 0 ? value : 0;
+  });
+
+  // Which right-hand label a summary row gets. 'guardian' beats everything
+  // (a guardian-only adult holds no ticket on either event type, and "No
+  // ticket" read as "not registered"). 'attending' is the flat-price case: a
+  // flat event has no ticket types to name, so an attendee there is simply
+  // "Attending" and the one price is stated once under the rows. 'noTicket'
+  // survives only for an attendee on an itemized event who has picked none.
+  type SummaryRowStatus = 'ticket' | 'attending' | 'guardian' | 'noTicket';
+  function summaryRowStatus(hasTicket: boolean, guardianOnly: boolean): SummaryRowStatus {
+    if (guardianOnly) return 'guardian';
+    if (hasTicket) return 'ticket';
+    return isFlatEvent ? 'attending' : 'noTicket';
+  }
+
   let summaryRows = $derived.by(() => {
-    const rows: { label: string; ticketName: string | null; extraLabels: string[] }[] = [];
+    const rows: {
+      label: string;
+      ticketName: string | null;
+      status: SummaryRowStatus;
+      extraLabels: string[];
+    }[] = [];
     parents.forEach((p, i) => {
       if (!p.first_name.trim()) return;
       const ticketType = eventInfo?.ticket_types.find((tt) => tt.id === p.ticketTypeId) ?? null;
       rows.push({
         label: parentAttendeeLabel(p, i),
         ticketName: ticketType?.name ?? null,
+        // parentGuardianOnly is the very predicate the payload builder uses
+        // for guardian_only, so the row can never claim something the
+        // submission did not send.
+        status: summaryRowStatus(ticketType !== null, parentGuardianOnly(p)),
         // A guardian-only row carries no extras (see handleSubmit's payload),
         // so it must not list any either, even ones it clicked before
         // switching to "no ticket".
-        extraLabels: parentTicketless(p) ? [] : personExtraLabels(p.extraSelections, false)
+        extraLabels: parentGuardianOnly(p) ? [] : personExtraLabels(p.extraSelections, false)
       });
     });
     children.forEach((c, i) => {
@@ -552,6 +592,7 @@
       rows.push({
         label: childAttendeeLabel(c, i),
         ticketName: ticketType?.name ?? null,
+        status: summaryRowStatus(ticketType !== null, false),
         extraLabels: personExtraLabels(c.extraSelections, true)
       });
     });
@@ -713,12 +754,14 @@
     }
   });
 
-  // True for a parent row that holds no ticket: either the guardian chose
-  // "no ticket, guardian only", or the event's ticket types are all
-  // child-only so the row has no ticket select at all (the backend treats
-  // the adult as ticketless either way, and refuses per-attendee extras for
-  // them — so none may be sent, priced or required).
-  function parentTicketless(p: ParentRow): boolean {
+  // True for a parent row that is a responsible adult but NOT attending
+  // (owner decision d9245e21): the guardian chose "no ticket, guardian only"
+  // (select option on an itemized event, checkbox on a flat-price one), or
+  // the event's ticket types are all child-only so the row has no ticket
+  // select at all. Such an adult takes no seat, pays nothing and is asked no
+  // per-attendee questions: the backend refuses extras and health data for
+  // them, so none may be sent, priced, required or even asked for.
+  function parentGuardianOnly(p: ParentRow): boolean {
     if (p.guardianOnly) return true;
     return !!eventInfo && eventInfo.ticket_types.length > 0 && applicableTicketTypes(false).length === 0;
   }
@@ -895,27 +938,51 @@
   // "R1 select desync" tests, which reproduce the stale-DOM symptom against
   // the old bind:value markup (confirmed failing pre-fix) and pass against
   // this.
+  // Marks a row guardian-only and drops everything that only an attending
+  // adult has: the ticket id, any promo-reset caption, extras already
+  // clicked, and any health details already typed or consented. The backend
+  // 400s on extras and health data for a guardian-only adult and the UI for
+  // both is hidden from here on (see the row's template), so nothing hidden
+  // may linger on the row — least of all special-category health data the
+  // guardian can no longer see.
+  function enterGuardianOnly(index: number) {
+    const row = parents[index];
+    row.guardianOnly = true;
+    row.ticketTypeId = '';
+    row.promoReset = false;
+    row.extraSelections = {};
+    row.healthInfoStatus = 'none';
+    row.allergies = '';
+    row.notes = '';
+    row.consentNoticeShared = false;
+    settlePromoRemovalMessageIfDone();
+    clearSubmitProblem(`parent-ticket-type-${index}`);
+    clearSubmitProblem(`parent-guardian-only-${index}`);
+    clearSubmitProblem(`parent-consent-${index}`);
+    for (const problem of [...submitProblems]) {
+      if (problem.id.startsWith('parent-extra-') && problem.id.endsWith(`-${index}`)) {
+        clearSubmitProblem(problem.id);
+      }
+    }
+  }
+
+  // The flat-price event's checkbox (there is no ticket select there).
+  function handleGuardianOnlyToggle(index: number, checked: boolean) {
+    if (checked) {
+      enterGuardianOnly(index);
+    } else {
+      parents[index].guardianOnly = false;
+      clearSubmitProblem(`parent-guardian-only-${index}`);
+    }
+  }
+
   function handleParentTicketTypeChange(index: number, value: string) {
     if (value === GUARDIAN_ONLY_VALUE) {
-      // "No ticket, guardian only": drop everything ticket-shaped on this
-      // row — the id, any promo-reset caption, and any extras already
-      // clicked (the backend 400s on extras for a ticketless adult, and the
-      // UI for them is hidden from here on, see the row's template).
-      const row = parents[index];
-      row.guardianOnly = true;
-      row.ticketTypeId = '';
-      row.promoReset = false;
-      row.extraSelections = {};
-      settlePromoRemovalMessageIfDone();
-      clearSubmitProblem(`parent-ticket-type-${index}`);
-      for (const problem of [...submitProblems]) {
-        if (problem.id.startsWith('parent-extra-') && problem.id.endsWith(`-${index}`)) {
-          clearSubmitProblem(problem.id);
-        }
-      }
+      enterGuardianOnly(index);
       return;
     }
     parents[index].guardianOnly = false;
+    clearSubmitProblem(`parent-guardian-only-${index}`);
     parents[index].ticketTypeId = value;
     if (value) {
       parents[index].promoReset = false;
@@ -1185,7 +1252,7 @@
     for (const parent of parents) {
       // Guardian-only: no ticket and no extras, so nothing to price (required
       // extras would otherwise still count via extraState's selected default).
-      if (parentTicketless(parent)) continue;
+      if (parentGuardianOnly(parent)) continue;
       const ticketType = eventInfo.ticket_types.find((tt) => tt.id === parent.ticketTypeId);
       if (ticketType) total += parseFloat(ticketType.price);
       for (const extra of applicablePersonExtras(false)) {
@@ -1371,7 +1438,10 @@
     if (!promoCodeValidation?.valid || !eventInfo) return 0;
     const scopedIds = promoCodeValidation.applies_to_ticket_type_ids ?? [];
 
-    let base = runningTotal;
+    // Flat paid event: the backend's base is event.price (once per
+    // registration), not the itemized sum. A scoped code (below) is tied to
+    // ticket types, which a flat event has none of, so it yields 0 there.
+    let base = isFlatEvent ? flatPrice : runningTotal;
     if (scopedIds.length > 0) {
       const scopedSet = new Set(scopedIds);
       base = 0;
@@ -1388,6 +1458,14 @@
   });
 
   let discountedTotal = $derived(Math.max(runningTotal - discountAmount, 0));
+
+  // What the confirmation's "Totalt" row states. On a flat event the sum of
+  // ticket types and extras is meaningless (zero ticket types; the backend
+  // ignores extras in flat mode), so it is event.price less any discount.
+  let summaryTotal = $derived(
+    isFlatEvent ? Math.max(flatPrice - discountAmount, 0) : discountedTotal
+  );
+  let showSummaryTotal = $derived(isFlatEvent ? flatPrice > 0 : hasTicketPricing);
 
   function handleAddParent() {
     parents = [...parents, emptyParent()];
@@ -1564,7 +1642,7 @@
           focusSelector: `#parent-phone-${index}`
         });
       }
-      if (p.healthInfoStatus === 'consented' && !p.consentNoticeShared) {
+      if (!parentGuardianOnly(p) && p.healthInfoStatus === 'consented' && !p.consentNoticeShared) {
         problems.push({
           id: `parent-consent-${index}`,
           message: $t('register.adultHealthConsentRequired'),
@@ -1597,7 +1675,7 @@
         // A guardian-only row deliberately has no ticket type — and neither
         // can a parent on an event whose ticket types are all child-only,
         // where there is no select to choose one from.
-        if (!p.ticketTypeId && !parentTicketless(p)) {
+        if (!p.ticketTypeId && !parentGuardianOnly(p)) {
           problems.push({
             id: `parent-ticket-type-${index}`,
             message: $t('register.ticketTypeRequired', {
@@ -1622,7 +1700,7 @@
 
     for (const { p, index } of validParentEntries) {
       // No extras for a guardian-only row (none are offered, none are sent).
-      if (parentTicketless(p)) continue;
+      if (parentGuardianOnly(p)) continue;
       for (const extra of applicablePersonExtras(false)) {
         if (extra.required && extra.requires_choice && extraState(p.extraSelections, extra).choiceId === '') {
           problems.push({
@@ -1691,15 +1769,22 @@
         phone: p.phone.trim(),
         email: p.email.trim(),
         relationship_type: p.relationship_type,
-        allergies: p.healthInfoStatus === 'consented' ? p.allergies : '',
-        notes: p.healthInfoStatus === 'consented' ? p.notes : '',
-        health_consent_status: statusMap[p.healthInfoStatus],
+        // A guardian-only adult carries no health data at all (the backend
+        // rejects anything but not_applicable for them).
+        allergies: !parentGuardianOnly(p) && p.healthInfoStatus === 'consented' ? p.allergies : '',
+        notes: !parentGuardianOnly(p) && p.healthInfoStatus === 'consented' ? p.notes : '',
+        health_consent_status: parentGuardianOnly(p) ? 'not_applicable' : statusMap[p.healthInfoStatus],
         // Guardian-only: ticket_type null and NO extras — the frontend
         // defaults required per-attendee extras to selected, and the backend
         // answers extras on a ticketless adult with a 400 ("Extras can only
         // be added for an adult with a ticket"), so they must not ride along.
-        ticket_type: p.guardianOnly ? null : p.ticketTypeId || null,
-        extras: parentTicketless(p)
+        ticket_type: parentGuardianOnly(p) ? null : p.ticketTypeId || null,
+        // One rule for all three event shapes (itemized, flat-price,
+        // child-only ticket types): every guardian-only row says so
+        // explicitly. Never sent with a ticket_type (a 400 on itemized
+        // events); omitted rather than false for an attending adult.
+        ...(parentGuardianOnly(p) ? { guardian_only: true } : {}),
+        extras: parentGuardianOnly(p)
           ? []
           : buildExtraSelections(p.extraSelections, applicablePersonExtras(false))
       })),
@@ -1819,6 +1904,24 @@
         (_entry, payloadIndex) => extractFieldError(apiError.details, 'parents', payloadIndex) !== null
       );
 
+      // A guardian-only adult that carried health data (shape (b) with
+      // health_consent_status): rewritten into a named line below.
+      const healthServerErrors = submittedParents.some(
+        (_entry, payloadIndex) =>
+          extractRowFieldError(apiError.details, 'parents', payloadIndex, 'health_consent_status') !== null
+      );
+      // The backend's plain top-level "needs someone attending" string: also
+      // rewritten, into a localized line below.
+      // Only claimed when every submitted adult was guardian-only, so an
+      // unrelated top-level error keeps its own text via
+      // extractErrorMessage. (No client-side twin of this check: a child
+      // always attends and the form keeps at least one child row, so only
+      // a client that bypassed the form could reach it.)
+      const nobodyAttendingServerError =
+        extractTopLevelError(apiError.details) !== null &&
+        submittedParents.length > 0 &&
+        submittedParents.every(({ p }) => parentGuardianOnly(p));
+
       // Prefer the server's specific reason (e.g. "This attendee doesn't
       // meet this ticket type's age requirements.") — extracted straight
       // from apiError.details rather than apiError.message, since the
@@ -1827,7 +1930,12 @@
       // the non-specific case this must not surface as if it were real
       // information.
       error =
-        contactEmailInvalid || guardianServerError || phoneServerErrors || parentRowServerErrors
+        contactEmailInvalid ||
+        guardianServerError ||
+        phoneServerErrors ||
+        parentRowServerErrors ||
+        healthServerErrors ||
+        nobodyAttendingServerError
           ? $t('register.errorBannerHeading')
           : extractErrorMessage(apiError.details, '') || $t('register.submitError');
 
@@ -1868,6 +1976,13 @@
           focusSelector: '#parent-first-name-0'
         });
       }
+      if (nobodyAttendingServerError) {
+        serverProblems.push({
+          id: 'at-least-one-attending',
+          message: $t('register.noOneAttending'),
+          focusSelector: null
+        });
+      }
       submittedParents.forEach(({ p, index }, payloadIndex) => {
         if (extractRowFieldError(apiError.details, 'parents', payloadIndex, 'phone') !== null) {
           serverProblems.push({
@@ -1876,6 +1991,19 @@
               values: { name: parentAttendeeLabel(p, index) }
             }),
             focusSelector: `#parent-phone-${index}`
+          });
+        }
+        // Shape (b) again: {"parents": [{"health_consent_status": [...]}]} — a
+        // guardian-only adult that carried health data. Normally prevented
+        // (the question is hidden and the payload blanks it); the line
+        // points at the control that made this row guardian-only.
+        if (extractRowFieldError(apiError.details, 'parents', payloadIndex, 'health_consent_status') !== null) {
+          serverProblems.push({
+            id: `parent-guardian-only-${index}`,
+            message: $t('register.guardianOnlyNoHealth', {
+              values: { name: parentAttendeeLabel(p, index) }
+            }),
+            focusSelector: `[data-testid="parent-ticket-type-${index}"], [data-testid="parent-guardian-only-${index}"]`
           });
         }
         const fieldMessage = extractFieldError(apiError.details, 'parents', payloadIndex);
@@ -2208,7 +2336,17 @@
             <div class="px-4 py-2">
               <div class="flex items-center justify-between gap-3 text-sm">
                 <span class="text-neutral-800">{row.label}</span>
-                <span class="text-neutral-600">{row.ticketName ?? $t('register.summaryNoTicket')}</span>
+                {#if row.status === 'guardian'}
+                  <span class="text-neutral-500" data-testid="register-summary-guardian-only">
+                    {$t('register.summaryGuardianOnly')}
+                  </span>
+                {:else if row.status === 'ticket'}
+                  <span class="text-neutral-600">{row.ticketName}</span>
+                {:else if row.status === 'attending'}
+                  <span class="text-neutral-600">{$t('register.summaryAttending')}</span>
+                {:else}
+                  <span class="text-neutral-600">{$t('register.summaryNoTicket')}</span>
+                {/if}
               </div>
               {#if row.extraLabels.length > 0}
                 <p class="mt-0.5 text-xs text-neutral-500">{row.extraLabels.join(', ')}</p>
@@ -2220,6 +2358,15 @@
               {$t('register.summaryWholeRegistrationLine', {
                 values: { extras: registrationExtraLabels.join(', ') }
               })}
+            </div>
+          {/if}
+          {#if flatPrice > 0 && eventInfo}
+            <div
+              class="flex items-center justify-between gap-3 px-4 py-2 text-sm text-neutral-700"
+              data-testid="register-summary-flat-price"
+            >
+              <span>{$t('register.summaryFlatPrice')}</span>
+              <span>{formatCurrency(flatPrice)} {eventInfo.currency}</span>
             </div>
           {/if}
           {#if discountAmount > 0}
@@ -2234,10 +2381,10 @@
               </span>
             </div>
           {/if}
-          {#if hasTicketPricing}
+          {#if showSummaryTotal}
             <div class="flex items-center justify-between gap-3 px-4 py-2 text-sm font-semibold text-neutral-900">
               <span>{$t('register.summaryTotal')}</span>
-              <span data-testid="register-summary-total">{formatCurrency(discountedTotal)} kr</span>
+              <span data-testid="register-summary-total">{formatCurrency(summaryTotal)} kr</span>
             </div>
           {/if}
         </div>
@@ -2758,9 +2905,52 @@
                 </div>
               {/if}
 
+              <!--
+                Flat-price event: there is no ticket select, so "I am only
+                the guardian" is a checkbox on the card instead (the select
+                option does the same job on an itemized event). A checkbox
+                rather than a select because it is one yes/no about this
+                person, not a choice between tickets. Ticketed events whose
+                ticket types are all child-only get neither control: the
+                adult is guardian-only by construction, so they only get the
+                hint, which explains why no health/extras questions follow.
+              -->
+              {#if eventInfo && eventInfo.ticket_types.length === 0}
+                <div class="mt-2">
+                  <label class="flex items-start gap-2 text-sm text-neutral-700">
+                    <input
+                      type="checkbox"
+                      class="mt-0.5"
+                      checked={parent.guardianOnly}
+                      on:change={(e) =>
+                        handleGuardianOnlyToggle(index, (e.currentTarget as HTMLInputElement).checked)}
+                      aria-describedby={parent.guardianOnly ? `parent-guardian-only-hint-${index}` : undefined}
+                      data-testid={`parent-guardian-only-${index}`}
+                    />
+                    {$t('register.guardianOnlyCheckbox')}
+                  </label>
+                  {#if parent.guardianOnly}
+                    <p
+                      id={`parent-guardian-only-hint-${index}`}
+                      class="mt-1 text-xs text-neutral-600"
+                      data-testid={`parent-guardian-only-hint-${index}`}
+                    >
+                      {$t('register.guardianOnlyHintFlat')}
+                    </p>
+                  {/if}
+                </div>
+              {:else if applicableTicketTypes(false).length === 0}
+                <p
+                  class="mt-2 text-xs text-neutral-600"
+                  data-testid={`parent-guardian-only-hint-${index}`}
+                >
+                  {$t('register.guardianOnlyHint')}
+                </p>
+              {/if}
+
               <!-- A guardian-only row is offered no extras: none are sent (the backend
                    rejects extras on an adult without a ticket). -->
-              {#if !parentTicketless(parent)}
+              {#if !parentGuardianOnly(parent)}
               {#each applicablePersonExtras(false).filter((extra) => extra.required) as extra (extra.id)}
                 {@const state = extraState(parent.extraSelections, extra)}
                 {#if extra.requires_choice}
@@ -2847,6 +3037,7 @@
               {/if}
               {/if}
 
+              {#if !parentGuardianOnly(parent)}
               <div class="mt-2">
                 <ConsentCapture
                   bind:status={parent.healthInfoStatus}
@@ -2864,6 +3055,7 @@
                   noticeLinkHref="/privacy"
                 />
               </div>
+              {/if}
 
             </div>
           {/each}

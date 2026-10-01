@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { extractFieldError, extractGroupError, extractRowFieldError } from './client';
+import {
+  extractFieldError,
+  extractGroupError,
+  extractRowFieldError,
+  extractTopLevelError
+} from './client';
 
 // The three shapes the registration endpoint uses for parent errors (all
 // HTTP 400, none carrying a `code`).
@@ -53,5 +58,26 @@ describe('extractFieldError (shape d) still works alongside the new shapes', () 
   it('does not misread shape a or b as a row error', () => {
     expect(extractFieldError(shapeA, 'parents', 0)).toBeNull();
     expect(extractFieldError(shapeB, 'parents', 1)).toBeNull();
+  });
+});
+
+describe('extractTopLevelError (bare list body)', () => {
+  it('reads the whole-registration message the backend sends as a bare list', () => {
+    expect(
+      extractTopLevelError(['At least one person on the registration needs to be attending.'])
+    ).toBe('At least one person on the registration needs to be attending.');
+  });
+
+  it('is null for the keyed shapes, which name a row or field', () => {
+    expect(extractTopLevelError(shapeA)).toBeNull();
+    expect(extractTopLevelError(shapeB)).toBeNull();
+    expect(extractTopLevelError({ detail: 'x' })).toBeNull();
+    expect(extractTopLevelError(null)).toBeNull();
+    expect(extractTopLevelError([])).toBeNull();
+  });
+
+  it('reads a per-row health_consent_status error with extractRowFieldError', () => {
+    const body = { parents: [{ health_consent_status: ['Not allowed.'] }] };
+    expect(extractRowFieldError(body, 'parents', 0, 'health_consent_status')).toBe('Not allowed.');
   });
 });

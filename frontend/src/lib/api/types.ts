@@ -291,6 +291,11 @@ export interface RegistrationParentPayload {
   notes?: string;
   health_consent_status?: 'not_applicable' | 'granted' | 'declined';
   ticket_type?: string | null;
+  // A responsible adult who is NOT attending (owner decision d9245e21):
+  // no ticket, no seat, no charge, no health data, no extras. Sent as true
+  // (alongside ticket_type null) for every such row on every event shape;
+  // omitted for an attending adult.
+  guardian_only?: boolean;
   extras?: RegistrationExtraSelectionPayload[];
 }
 

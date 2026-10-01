@@ -95,6 +95,10 @@ vi.mock('svelte-i18n', () => {
     'register.guardianRequired': 'Add an adult guardian for the children.',
     'register.parentPhoneRequired': 'Enter a phone number for {name}.',
     'register.ticketGuardianOnly': 'No ticket – guardian only',
+    // Guardian-only = not attending (owner decision d9245e21).
+    'register.guardianOnlyCheckbox': 'Guardian only – I am not attending myself',
+    'register.guardianOnlyNoHealth': '{name}: a guardian who is not attending cannot have health details.',
+    'register.noOneAttending': 'At least one person on the registration needs to be attending.',
     // Success screen (increment 7 revision, R1/R2/R5) — mapped for real so
     // tests can assert the actual copy a guardian sees, same pattern as the
     // error-summary entries above. wrongEmailPrompt/fixEmailButton are
@@ -111,6 +115,13 @@ vi.mock('svelte-i18n', () => {
     'register.successSpamHint': "Don't see it? Check your spam folder.",
     'register.referenceCodeCopiedAnnouncement': 'Reference code copied',
     'register.summaryWholeRegistrationLine': 'Whole registration: {extras}',
+    // Summary row states and the flat price line (guardian-only increment 2) —
+    // mapped for real so tests assert the sentence a guardian reads.
+    'register.summaryNoTicket': 'No ticket',
+    'register.summaryAttending': 'Attending',
+    'register.summaryGuardianOnly': 'Guardian – not attending',
+    'register.summaryFlatPrice': 'Price for the whole registration',
+    'register.summaryTotal': 'Total',
     'register.summaryDiscountLine': 'Discount ({code}) −{amount} kr'
   };
   const translator = (key: string, opts?: { values?: Record<string, unknown> }) => {
@@ -1082,8 +1093,13 @@ describe('Register page — success screen (increment 7)', () => {
     // Auto-suggested from each birthdate (see suggestChildTicketType).
     expect(summary.textContent).toContain('Barn (0-12 år)');
     expect(summary.textContent).toContain('Ungdom (13-17 år)');
-    // The guardian-only adult is listed too, with no ticket.
-    expect(summary.textContent).toContain('register.summaryNoTicket');
+    // The guardian-only adult is listed too, as not attending (this event
+    // has only child ticket types, so the adult is guardian-only by
+    // construction) rather than the "No ticket" that read as unregistered.
+    expect(screen.getByTestId('register-summary-guardian-only').textContent).toContain(
+      'Guardian – not attending'
+    );
+    expect(summary.textContent).not.toContain('No ticket');
     expect(screen.getByTestId('register-summary-total').textContent).toContain('250.00');
   });
 
@@ -2435,6 +2451,10 @@ describe('Register page — error summary revision (R1-R5)', () => {
 
 // Owner decision eb5d26f4 (2026-09-29): a guardian is required when the
 // registration includes a child; an adult with no ticket still counts.
+// The adult health question has no mapping in the i18n mock above, so it
+// renders as its raw key — which is exactly what these tests look for.
+const ADULT_HEALTH_QUESTION = 'register.adultHealthInfoQuestion';
+
 describe('Register page — guardian-only adult', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -2505,12 +2525,21 @@ describe('Register page — guardian-only adult', () => {
     await user.click(screen.getByTestId('register-submit-button'));
     await waitFor(() => expect(submit).toHaveBeenCalledTimes(1));
     const payload = submit.mock.calls[0][0] as {
-      parents: { ticket_type: string | null; extras: unknown[] }[];
-      children: { ticket_type: string | null; extras: unknown[] }[];
+      parents: {
+        ticket_type: string | null;
+        extras: unknown[];
+        guardian_only?: boolean;
+        health_consent_status?: string;
+      }[];
+      children: { ticket_type: string | null; extras: unknown[]; guardian_only?: boolean }[];
     };
     expect(payload.parents).toHaveLength(1);
     expect(payload.parents[0].ticket_type).toBeNull();
+    expect(payload.parents[0].guardian_only).toBe(true);
+    expect(payload.parents[0].health_consent_status).toBe('not_applicable');
     expect(payload.parents[0].extras).toEqual([]);
+    // Only guardian-only adults say so; a child never does.
+    expect(payload.children[0].guardian_only).toBeUndefined();
     // Children must still send a ticket type (and their own extras).
     expect(payload.children[0].ticket_type).toBe('tt-solo');
     expect(payload.children[0].extras.length).toBeGreaterThan(0);
@@ -2616,17 +2645,154 @@ describe('Register page — guardian-only adult', () => {
 
     await waitFor(() => expect(submit).toHaveBeenCalledTimes(1));
     const payload = submit.mock.calls[0][0] as {
-      parents: { ticket_type: string | null; extras: unknown[] }[];
+      parents: {
+        ticket_type: string | null;
+        extras: unknown[];
+        guardian_only?: boolean;
+        health_consent_status?: string;
+      }[];
     };
     expect(payload.parents[0].ticket_type).toBeNull();
+    // Child-only ticket types: the adult is guardian-only by construction,
+    // and says so like every other guardian-only row.
+    expect(payload.parents[0].guardian_only).toBe(true);
+    expect(payload.parents[0].health_consent_status).toBe('not_applicable');
     expect(payload.parents[0].extras).toEqual([]);
   });
 
-  it('gives a flat-price event (no ticket types) no guardian-only option', async () => {
-    getEvent.mockResolvedValue(ticketlessEventInfo());
+  it('asks no health question of the adult on a child-only-ticket-types event, and explains why', async () => {
+    getEvent.mockResolvedValue(baseEventInfo());
     render(RegisterPage);
     await screen.findByTestId('register-form');
-    expect(screen.queryByTestId('parent-ticket-type-0')).not.toBeInTheDocument();
+    expect(screen.queryByText(ADULT_HEALTH_QUESTION)).not.toBeInTheDocument();
+    expect(screen.getByTestId('parent-guardian-only-hint-0')).toBeInTheDocument();
+    // No checkbox either: there is nothing to choose.
+    expect(screen.queryByTestId('parent-guardian-only-0')).not.toBeInTheDocument();
+  });
+
+  describe('flat-price event (no ticket types)', () => {
+
+    it('offers a "guardian only" checkbox on the adult card instead of a ticket select', async () => {
+      getEvent.mockResolvedValue(ticketlessEventInfo());
+      render(RegisterPage);
+      await screen.findByTestId('register-form');
+      expect(screen.queryByTestId('parent-ticket-type-0')).not.toBeInTheDocument();
+      const box = screen.getByRole('checkbox', {
+        name: 'Guardian only – I am not attending myself'
+      }) as HTMLInputElement;
+      expect(box.checked).toBe(false);
+    });
+
+    it('shows the health question for an attending adult and hides it once guardian-only is ticked', async () => {
+      const user = userEvent.setup();
+      getEvent.mockResolvedValue(ticketlessEventInfo());
+      render(RegisterPage);
+      await screen.findByTestId('register-form');
+      expect(screen.getByText(ADULT_HEALTH_QUESTION)).toBeInTheDocument();
+      expect(screen.queryByTestId('parent-guardian-only-hint-0')).not.toBeInTheDocument();
+
+      await user.click(screen.getByTestId('parent-guardian-only-0'));
+      expect(screen.queryByText(ADULT_HEALTH_QUESTION)).not.toBeInTheDocument();
+      expect(screen.getByTestId('parent-guardian-only-hint-0')).toBeInTheDocument();
+
+      await user.click(screen.getByTestId('parent-guardian-only-0'));
+      expect(screen.getByText(ADULT_HEALTH_QUESTION)).toBeInTheDocument();
+    });
+
+    it('sends guardian_only true, ticket_type null, no extras and no health data', async () => {
+      const user = userEvent.setup();
+      getEvent.mockResolvedValue(ticketlessEventInfo());
+      submit.mockResolvedValue({ reference_code: 'REF1', message: 'ok', email_sent: true });
+      render(RegisterPage);
+      await screen.findByTestId('register-form');
+      await fillMinimalRequiredFields(user);
+      await user.click(screen.getByTestId('parent-guardian-only-0'));
+      await user.click(screen.getByTestId('register-submit-button'));
+      await waitFor(() => expect(submit).toHaveBeenCalledTimes(1));
+      const payload = submit.mock.calls[0][0] as {
+        parents: Record<string, unknown>[];
+      };
+      expect(payload.parents[0]).toMatchObject({
+        guardian_only: true,
+        ticket_type: null,
+        extras: [],
+        health_consent_status: 'not_applicable',
+        allergies: '',
+        notes: ''
+      });
+    });
+
+    it('sends no guardian_only flag for an attending adult', async () => {
+      const user = userEvent.setup();
+      getEvent.mockResolvedValue(ticketlessEventInfo());
+      submit.mockResolvedValue({ reference_code: 'REF1', message: 'ok', email_sent: true });
+      render(RegisterPage);
+      await screen.findByTestId('register-form');
+      await fillMinimalRequiredFields(user);
+      await user.click(screen.getByTestId('register-submit-button'));
+      await waitFor(() => expect(submit).toHaveBeenCalledTimes(1));
+      const payload = submit.mock.calls[0][0] as { parents: Record<string, unknown>[] };
+      expect(payload.parents[0].guardian_only).toBeUndefined();
+    });
+
+    it('still needs name, relation and phone on a guardian-only row', async () => {
+      const user = userEvent.setup();
+      getEvent.mockResolvedValue(ticketlessEventInfo());
+      render(RegisterPage);
+      await screen.findByTestId('register-form');
+      await user.type(screen.getByTestId('register-contact-email'), 'guardian@example.com');
+      await user.type(document.getElementById('child-first-name-0') as HTMLInputElement, 'Alex');
+      await user.type(document.getElementById('child-last-name-0') as HTMLInputElement, 'Karlsson');
+      await user.type(document.getElementById('child-birthdate-0') as HTMLInputElement, '2015-05-01');
+      await user.tab();
+      await user.type(document.getElementById('parent-first-name-0') as HTMLInputElement, 'Sam');
+      await user.click(screen.getByTestId('parent-guardian-only-0'));
+      await user.click(screen.getByTestId('register-submit-button'));
+      expect(submit).not.toHaveBeenCalled();
+      expect(await screen.findByTestId('register-error-item-parent-phone-0')).toBeInTheDocument();
+    });
+
+    it('drops health details already typed when the adult becomes guardian-only', async () => {
+      const user = userEvent.setup();
+      getEvent.mockResolvedValue(ticketlessEventInfo());
+      submit.mockResolvedValue({ reference_code: 'REF1', message: 'ok', email_sent: true });
+      render(RegisterPage);
+      await screen.findByTestId('register-form');
+      await fillMinimalRequiredFields(user);
+      // The question's own radio group: none / consented / declined.
+      await user.click(document.getElementsByName('health-info-status-parent-0')[1]);
+      await user.click(screen.getByTestId('parent-consent-attest-parent-0'));
+      await user.type(
+        document.getElementById('parent-allergies-parent-0') as HTMLInputElement,
+        'peanuts'
+      );
+      await user.click(screen.getByTestId('parent-guardian-only-0'));
+      await user.click(screen.getByTestId('register-submit-button'));
+      await waitFor(() => expect(submit).toHaveBeenCalledTimes(1));
+      const payload = submit.mock.calls[0][0] as { parents: Record<string, unknown>[] };
+      expect(payload.parents[0].allergies).toBe('');
+      expect(payload.parents[0].health_consent_status).toBe('not_applicable');
+    });
+  });
+});
+
+describe('Register page — guardian-only on an itemized event', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('hides the health question when the select says "guardian only", and brings it back for a ticket', async () => {
+    const user = userEvent.setup();
+    getEvent.mockResolvedValue(familyEventInfo());
+    render(RegisterPage);
+    await screen.findByTestId('register-form');
+    expect(screen.getByText(ADULT_HEALTH_QUESTION)).toBeInTheDocument();
+    // The select option is the control here; there is no checkbox.
+    expect(screen.queryByTestId('parent-guardian-only-0')).not.toBeInTheDocument();
+    await user.selectOptions(screen.getByTestId('parent-ticket-type-0'), 'guardian-only');
+    expect(screen.queryByText(ADULT_HEALTH_QUESTION)).not.toBeInTheDocument();
+    await user.selectOptions(screen.getByTestId('parent-ticket-type-0'), 'tt-solo');
+    expect(screen.getByText(ADULT_HEALTH_QUESTION)).toBeInTheDocument();
   });
 });
 
@@ -2663,6 +2829,37 @@ describe('Register page — server errors about parents (guardian rule)', () => 
     expect(screen.getByTestId('parent-phone-problem-0')).toHaveTextContent(/Enter a phone number for/);
     await user.click(line);
     expect(document.activeElement).toBe(document.getElementById('parent-phone-0'));
+  });
+
+  it('shape (b) {"parents": [{"health_consent_status": [...]}]} names the guardian-only row, in the local language', async () => {
+    await submitAndReject({
+      parents: [{ health_consent_status: ['Health data is not allowed for a guardian only.'] }]
+    });
+    expect(await screen.findByTestId('register-error-item-parent-guardian-only-0')).toHaveTextContent(
+      /a guardian who is not attending cannot have health details/
+    );
+    expect(screen.queryByText(/Health data is not allowed/)).not.toBeInTheDocument();
+  });
+
+  it('a bare ["needs someone attending"] body becomes the local line when only guardian-only adults were sent', async () => {
+    const user = userEvent.setup();
+    getEvent.mockResolvedValue(ticketlessEventInfo());
+    submit.mockRejectedValueOnce({
+      status: 400,
+      message: 'Bad Request',
+      details: ['At least one person on the registration needs to be attending.']
+    });
+    render(RegisterPage);
+    await screen.findByTestId('register-form');
+    await fillMinimalRequiredFields(user);
+    await user.click(screen.getByTestId('parent-guardian-only-0'));
+    await user.click(screen.getByTestId('register-submit-button'));
+    await waitFor(() => expect(submit).toHaveBeenCalledTimes(1));
+    // The server's verdict arrives in the local language, as a summary line.
+    expect(await screen.findByTestId('register-error-item-at-least-one-attending')).toHaveTextContent(
+      'At least one person on the registration needs to be attending.'
+    );
+    expect(screen.getByText('Please fix the following before you can submit:')).toBeInTheDocument();
   });
 
   it('shape (d) {"parents": {"0": ["msg"]}} names the row with the server text', async () => {
@@ -2795,5 +2992,267 @@ describe('Register page — person cards and summary order', () => {
     expect(ids.indexOf('child-info-0')).toBeGreaterThan(1);
     expect(ids[ids.length - 1]).toMatch(/^registration-extra-/);
     expect(bannerLines()[1]).toBe('Parent 1: Add an adult guardian for the children.');
+  });
+});
+
+// Guardian-only increment 2: the confirmation summary on a flat-price event.
+// Found live: every row, attending children included, read "No ticket" and
+// "Total: 0.00" while the backend charged the flat price, so a parent could
+// not tell whether her children were registered. The backend charges
+// event.price once per registration (pricing.calculate_total) and applies a
+// discount to that same base (calculate_discount); ticket types, extras and
+// headcount play no part in flat mode.
+describe('Register page — summary on a flat-price event', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  function flatEvent(overrides: Partial<Record<string, unknown>> = {}) {
+    return ticketlessEventInfo({ is_paid: true, price: '150.00', ...overrides });
+  }
+
+  async function submitFlat(
+    user: ReturnType<typeof userEvent.setup>,
+    { extraChildren = 0, guardianOnly = false, promo = null }: {
+      extraChildren?: number;
+      guardianOnly?: boolean;
+      promo?: Record<string, unknown> | null;
+    } = {}
+  ) {
+    submit.mockResolvedValue({ reference_code: 'REF1', message: 'ok', email_sent: true });
+    render(RegisterPage);
+    await screen.findByTestId('register-form');
+    await fillMinimalRequiredFields(user);
+    for (let i = 1; i <= extraChildren; i++) {
+      await user.click(screen.getByText(/Add another child/));
+      await user.type(document.getElementById(`child-first-name-${i}`) as HTMLInputElement, `Kid${i}`);
+      await user.type(document.getElementById(`child-last-name-${i}`) as HTMLInputElement, 'Karlsson');
+      await user.type(document.getElementById(`child-birthdate-${i}`) as HTMLInputElement, '2014-03-03');
+      await user.tab();
+    }
+    if (guardianOnly) await user.click(screen.getByTestId('parent-guardian-only-0'));
+    if (promo) {
+      validatePromoCode.mockResolvedValue({
+        valid: true,
+        applies_to_ticket_type_ids: [],
+        unlocks_ticket_types: [],
+        ...promo
+      });
+      await user.type(screen.getByTestId('register-promo-code-input'), 'CODE');
+      await user.click(screen.getByTestId('register-promo-code-apply'));
+      await screen.findByTestId('register-promo-code-chip');
+    }
+    await user.click(screen.getByTestId('register-submit-button'));
+    await screen.findByTestId('register-success');
+    return screen.getByTestId('register-summary');
+  }
+
+  it('labels attending people "Attending" and a guardian-only adult "Guardian – not attending", in muted text', async () => {
+    const user = userEvent.setup();
+    getEvent.mockResolvedValue(flatEvent());
+    const summary = await submitFlat(user, { guardianOnly: true });
+
+    // Parent row (guardian-only) and the child row (attending).
+    const guardian = screen.getByTestId('register-summary-guardian-only');
+    expect(guardian.textContent?.trim()).toBe('Guardian – not attending');
+    expect(guardian.className).toContain('text-neutral-500');
+    expect(summary.textContent).toContain('Attending');
+    expect(summary.textContent).not.toContain('No ticket');
+  });
+
+  it('labels an attending adult and the child both "Attending"', async () => {
+    const user = userEvent.setup();
+    getEvent.mockResolvedValue(flatEvent());
+    const summary = await submitFlat(user);
+    expect(summary.textContent?.match(/Attending/g)).toHaveLength(2);
+    expect(screen.queryByTestId('register-summary-guardian-only')).not.toBeInTheDocument();
+    expect(summary.textContent).not.toContain('No ticket');
+  });
+
+  it('totals the flat price once for two attendees, and says it is for the whole registration', async () => {
+    const user = userEvent.setup();
+    getEvent.mockResolvedValue(flatEvent());
+    await submitFlat(user);
+    expect(screen.getByTestId('register-summary-total').textContent).toContain('150.00');
+    const priceLine = screen.getByTestId('register-summary-flat-price');
+    expect(priceLine.textContent).toContain('Price for the whole registration');
+    expect(priceLine.textContent).toContain('150.00 SEK');
+    expect(screen.queryByTestId('register-summary-discount')).not.toBeInTheDocument();
+  });
+
+  it('does not multiply the flat price by headcount (three attendees, still one price)', async () => {
+    const user = userEvent.setup();
+    getEvent.mockResolvedValue(flatEvent());
+    await submitFlat(user, { extraChildren: 1 });
+    expect(screen.getByTestId('register-summary-total').textContent).toContain('150.00');
+    expect(screen.getByTestId('register-summary-total').textContent).not.toContain('450');
+  });
+
+  it('applies a percent code to the flat price', async () => {
+    const user = userEvent.setup();
+    getEvent.mockResolvedValue(flatEvent());
+    await submitFlat(user, { promo: { discount_type: 'percent', discount_value: '20' } });
+    expect(screen.getByTestId('register-summary-discount').textContent).toContain('30.00');
+    expect(screen.getByTestId('register-summary-total').textContent).toContain('120.00');
+  });
+
+  it('applies a fixed code to the flat price', async () => {
+    const user = userEvent.setup();
+    getEvent.mockResolvedValue(flatEvent());
+    await submitFlat(user, { promo: { discount_type: 'fixed', discount_value: '40' } });
+    expect(screen.getByTestId('register-summary-discount').textContent).toContain('40.00');
+    expect(screen.getByTestId('register-summary-total').textContent).toContain('110.00');
+  });
+
+  it('caps a fixed code larger than the price at the price (total 0, never negative)', async () => {
+    const user = userEvent.setup();
+    getEvent.mockResolvedValue(flatEvent());
+    await submitFlat(user, { promo: { discount_type: 'fixed', discount_value: '500' } });
+    expect(screen.getByTestId('register-summary-discount').textContent).toContain('150.00');
+    expect(screen.getByTestId('register-summary-total').textContent).toContain('0.00');
+    expect(screen.getByTestId('register-summary-total').textContent).not.toContain('-');
+  });
+
+  it('a code scoped to ticket types discounts nothing on a flat event', async () => {
+    const user = userEvent.setup();
+    getEvent.mockResolvedValue(flatEvent());
+    await submitFlat(user, {
+      promo: {
+        discount_type: 'percent',
+        discount_value: '50',
+        applies_to_ticket_type_ids: ['tt-elsewhere']
+      }
+    });
+    expect(screen.queryByTestId('register-summary-discount')).not.toBeInTheDocument();
+    expect(screen.getByTestId('register-summary-total').textContent).toContain('150.00');
+  });
+
+  it('shows no total and no price line on a free flat event, still labelling rows "Attending"', async () => {
+    const user = userEvent.setup();
+    getEvent.mockResolvedValue(flatEvent({ is_paid: false, price: null }));
+    const summary = await submitFlat(user);
+    expect(screen.queryByTestId('register-summary-total')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('register-summary-flat-price')).not.toBeInTheDocument();
+    expect(summary.textContent).toContain('Attending');
+  });
+
+  it('decides by the price, not is_paid: a zero price shows no total even when is_paid is set', async () => {
+    const user = userEvent.setup();
+    getEvent.mockResolvedValue(flatEvent({ is_paid: true, price: '0.00' }));
+    await submitFlat(user);
+    expect(screen.queryByTestId('register-summary-total')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('register-summary-flat-price')).not.toBeInTheDocument();
+  });
+
+  it('ignores extras in the flat total (the backend does too)', async () => {
+    const user = userEvent.setup();
+    getEvent.mockResolvedValue(
+      flatEvent({
+        extras: [
+          {
+            id: 'extra-cabin',
+            name: 'Cabin',
+            price: '300.00',
+            session_id: null,
+            per_attendee: false,
+            applies_to: 'either',
+            requires_choice: false,
+            required: false,
+            default_selected: true,
+            choices: []
+          }
+        ]
+      })
+    );
+    await submitFlat(user);
+    expect(screen.getByTestId('register-summary-total').textContent).toContain('150.00');
+  });
+
+  it('a hidden-ticket-types event with none visible stays on the itemized path (no flat price, "No ticket" for an attendee)', async () => {
+    const user = userEvent.setup();
+    // The backend itemizes as soon as any active type exists, hidden or not,
+    // so event.price is never charged here: do not state it as the total.
+    getEvent.mockResolvedValue(flatEvent({ has_hidden_ticket_types: true }));
+    const summary = await submitFlat(user);
+    expect(screen.queryByTestId('register-summary-flat-price')).not.toBeInTheDocument();
+    expect(screen.getByTestId('register-summary-total').textContent).toContain('0.00');
+    expect(screen.getByTestId('register-summary-total').textContent).not.toContain('150');
+    expect(summary.textContent).toContain('No ticket');
+    expect(summary.textContent).not.toContain('Attending');
+  });
+});
+
+describe('Register page — summary rows on an itemized event', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('shows the ticket name for a ticketed attendee and "Guardian – not attending" for a guardian-only adult', async () => {
+    const user = userEvent.setup();
+    getEvent.mockResolvedValue(familyEventInfo());
+    submit.mockResolvedValue({ reference_code: 'REF1', message: 'ok', email_sent: true });
+    render(RegisterPage);
+    await screen.findByTestId('register-form');
+    await fillGuardian(user);
+    await user.type(screen.getByTestId('register-contact-email'), 'guardian@example.com');
+    await user.type(document.getElementById('child-first-name-0') as HTMLInputElement, 'Alex');
+    await user.type(document.getElementById('child-last-name-0') as HTMLInputElement, 'Karlsson');
+    await user.type(document.getElementById('child-birthdate-0') as HTMLInputElement, '2015-05-01');
+    await user.tab();
+    await user.selectOptions(await screen.findByTestId('child-ticket-type-0'), 'tt-solo');
+    await user.selectOptions(screen.getByTestId('parent-ticket-type-0'), 'guardian-only');
+    await user.click(screen.getByTestId('register-submit-button'));
+    await screen.findByTestId('register-success');
+
+    const summary = screen.getByTestId('register-summary');
+    expect(screen.getByTestId('register-summary-guardian-only').textContent?.trim()).toBe(
+      'Guardian – not attending'
+    );
+    expect(summary.textContent).toContain('Solo');
+    // "Attending" is the flat-event label only; an itemized row names its ticket.
+    expect(summary.textContent).not.toContain('Attending');
+    expect(summary.textContent).not.toContain('No ticket');
+    // Itemized totals are unchanged: the child's ticket only, no flat price line.
+    expect(screen.getByTestId('register-summary-total').textContent).toContain('300.00');
+    expect(screen.queryByTestId('register-summary-flat-price')).not.toBeInTheDocument();
+  });
+});
+
+describe('Register page — guardian-only hint wording per site', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  // The flat checkbox hint drops the "costs nothing / no extras" claims that
+  // are only true on an itemized event; the other two sites keep the old key.
+  it('uses the flat-only key at the flat-price checkbox', async () => {
+    const user = userEvent.setup();
+    getEvent.mockResolvedValue(ticketlessEventInfo());
+    render(RegisterPage);
+    await screen.findByTestId('register-form');
+    await user.click(screen.getByTestId('parent-guardian-only-0'));
+    expect(screen.getByTestId('parent-guardian-only-hint-0').textContent?.trim()).toBe(
+      'register.guardianOnlyHintFlat'
+    );
+  });
+
+  it('keeps the original key at the itemized select hint', async () => {
+    const user = userEvent.setup();
+    getEvent.mockResolvedValue(familyEventInfo());
+    render(RegisterPage);
+    await screen.findByTestId('register-form');
+    await user.selectOptions(screen.getByTestId('parent-ticket-type-0'), 'guardian-only');
+    expect(screen.getByTestId('parent-guardian-only-hint-0').textContent?.trim()).toBe(
+      'register.guardianOnlyHint'
+    );
+  });
+
+  it('keeps the original key at the child-only-types hint', async () => {
+    getEvent.mockResolvedValue(baseEventInfo());
+    render(RegisterPage);
+    await screen.findByTestId('register-form');
+    expect(screen.getByTestId('parent-guardian-only-hint-0').textContent?.trim()).toBe(
+      'register.guardianOnlyHint'
+    );
   });
 });
