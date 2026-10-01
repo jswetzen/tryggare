@@ -230,3 +230,71 @@ class UnpaidSweepTests(TestCase):
 
         promo.refresh_from_db()
         self.assertEqual(promo.uses_count, 0)
+
+
+class GuardianOnlySweepTests(TestCase):
+    """The created_new_family=False branch finds the attendees a registration
+    created through their tickets; a guardian-only adult holds none, so the
+    stored marker has to be the second way in."""
+
+    def test_unfinished_registration_sweep_removes_a_guardian_only_adult(self):
+        event = Event.objects.create(
+            name="Camp",
+            start_date=timezone.now().date(),
+            end_date=timezone.now().date(),
+        )
+        existing_family = Family.objects.create(last_name="PreExisting")
+        survivor = Child.objects.create(first_name="Original", family=existing_family)
+        new_child = Child.objects.create(first_name="New", family=existing_family)
+        guardian = Parent.objects.create(first_name="Guardian", family=existing_family)
+        registration = Registration.objects.create(
+            event=event,
+            family=existing_family,
+            contact_email="guardian@example.com",
+            verification_token_hash=hash_token(generate_verification_token()),
+            created_new_family=False,
+        )
+        EventTicket.objects.create(
+            attendee=new_child, event=event, registration=registration
+        )
+        registration.guardian_only_parents.add(guardian)
+        Registration.objects.filter(pk=registration.pk).update(
+            expires_at=timezone.now() - timedelta(hours=1)
+        )
+
+        sweep_expired_registrations()
+
+        self.assertFalse(Registration.objects.filter(pk=registration.pk).exists())
+        self.assertFalse(Child.objects.filter(pk=new_child.pk).exists())
+        self.assertFalse(Parent.objects.filter(pk=guardian.pk).exists())
+        self.assertTrue(Family.objects.filter(pk=existing_family.pk).exists())
+        self.assertTrue(Child.objects.filter(pk=survivor.pk).exists())
+
+    def test_sweep_leaves_an_unmarked_pre_existing_adult_alone(self):
+        event = Event.objects.create(
+            name="Camp",
+            start_date=timezone.now().date(),
+            end_date=timezone.now().date(),
+        )
+        existing_family = Family.objects.create(last_name="PreExisting")
+        bystander = Parent.objects.create(
+            first_name="Bystander", family=existing_family
+        )
+        new_child = Child.objects.create(first_name="New", family=existing_family)
+        registration = Registration.objects.create(
+            event=event,
+            family=existing_family,
+            contact_email="guardian@example.com",
+            verification_token_hash=hash_token(generate_verification_token()),
+            created_new_family=False,
+        )
+        EventTicket.objects.create(
+            attendee=new_child, event=event, registration=registration
+        )
+        Registration.objects.filter(pk=registration.pk).update(
+            expires_at=timezone.now() - timedelta(hours=1)
+        )
+
+        sweep_expired_registrations()
+
+        self.assertTrue(Parent.objects.filter(pk=bystander.pk).exists())

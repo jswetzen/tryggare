@@ -46,9 +46,18 @@ def sweep_expired_registrations():
         if registration.created_new_family:
             registration.family.delete()
         else:
-            attendee_ids = list(
-                registration.event_tickets.values_list("attendee_id", flat=True)
-            ) + list(registration.session_tickets.values_list("attendee_id", flat=True))
+            # Attendees this registration created = everyone it issued a
+            # ticket to, plus its stored guardian-only adults, who hold no
+            # ticket and would otherwise be found by neither query and left
+            # behind in the pre-existing family. Collected before the
+            # registration is deleted, which drops the M2M links with it.
+            attendee_ids = (
+                list(registration.event_tickets.values_list("attendee_id", flat=True))
+                + list(
+                    registration.session_tickets.values_list("attendee_id", flat=True)
+                )
+                + list(registration.guardian_only_parents.values_list("pk", flat=True))
+            )
             Attendee.objects.filter(id__in=attendee_ids).delete()
             registration.delete()
         swept += 1

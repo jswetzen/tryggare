@@ -42,7 +42,30 @@ def registration_checkin_gate_error(attendee: Attendee, session: Session) -> str
     ):
         return _("Registration is not yet confirmed")
 
+    # A guardian-only adult (Registration.guardian_only_parents) holds no
+    # ticket, so the two checks above find nothing to block on -- but they
+    # must not be able to check in through a registration that a ticketed
+    # attendee would be refused on. Same message, same rule: blocked unless
+    # at least one of their registrations for this event is CONFIRMED.
+    guardian_statuses = _guardian_only_statuses(attendee, session)
+    if guardian_statuses and Registration.Status.CONFIRMED not in guardian_statuses:
+        return _("Registration is not yet confirmed")
+
     return None
+
+
+def _guardian_only_statuses(attendee: Attendee, session: Session) -> set[str]:
+    """Statuses of the registrations for ``session``'s event on which
+    ``attendee`` is a stored guardian-only adult (empty for everyone else,
+    including every staff-created adult). Works from a base ``Attendee`` or a
+    ``Parent``: the reverse relation lives on ``Parent`` but is keyed by the
+    shared primary key.
+    """
+    return set(
+        Registration.objects.filter(
+            event_id=session.event_id, guardian_only_parents__pk=attendee.pk
+        ).values_list("status", flat=True)
+    )
 
 
 def parent_checkin_gate_error(parent: Parent, session: Session) -> str | None:
@@ -59,6 +82,15 @@ def parent_checkin_gate_error(parent: Parent, session: Session) -> str | None:
         return _("Parent check-in is not enabled for this session")
 
     if policy == Session.ParentCheckinPolicy.TICKET_REQUIRED and not parent.has_ticket:
+        # A stored guardian-only adult on a CONFIRMED registration for this
+        # event satisfies the policy without a ticket (owner decision
+        # d9245e21: they are responsible for the children but not attending,
+        # so "has a ticket" is the wrong question for them). Deliberately
+        # keyed on the stored marker, not on "has no ticket", so an ordinary
+        # adult whose ticket went missing is still refused; and only for
+        # TICKET_REQUIRED -- DISABLED above still disables for everyone.
+        if Registration.Status.CONFIRMED in _guardian_only_statuses(parent, session):
+            return None
         return _("Parent does not have a ticket for this event")
 
     return None

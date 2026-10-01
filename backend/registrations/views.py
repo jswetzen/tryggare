@@ -114,6 +114,11 @@ def _split_selections(items):
             {
                 "ticket_type": item.pop("ticket_type", None),
                 "extras": item.pop("extras", []),
+                # Only parents carry this (RegistrationParentSerializer);
+                # RegistrationSubmitSerializer.validate has already resolved
+                # it to the effective value. Popped here because it is not a
+                # Parent model field.
+                "guardian_only": item.pop("guardian_only", False),
             }
         )
         model_data.append(item)
@@ -496,6 +501,16 @@ def _create_registration(
         verification_token_hash=hash_token(token),
         verification_sent_at=timezone.now(),
     )
+    # The stored fact the check-in gate and the expiry sweep read -- see
+    # Registration.guardian_only_parents for why it lives here and not on
+    # Parent.
+    guardian_only_parents = [
+        parent
+        for parent, selection in zip(created_parents, parent_selections)
+        if selection["guardian_only"]
+    ]
+    if guardian_only_parents:
+        registration.guardian_only_parents.add(*guardian_only_parents)
 
     # Itemized pricing only activates once staff have configured at least
     # one active TicketType for this event — otherwise every attendee gets
@@ -517,6 +532,15 @@ def _create_registration(
     # (see the age-band ValidationError just below).
     child_index = 0
 
+    # A registration in which nobody is attending (an adults-only submission
+    # where every adult is "guardian only") would confirm with no seat and no
+    # line item -- nothing to attend, on a flat-price event just as on an
+    # itemized one. Children can't reach this: they always hold a ticket.
+    if all(selection["guardian_only"] for _c, _a, selection in attendees):
+        raise ValidationError(
+            _("At least one person on the registration needs to be attending.")
+        )
+
     # Pass 1: validate every attendee's ticket-type selection (existence,
     # eligibility, age band) — read-only, no writes, no locks. Split out
     # from materialization (pass 2 below) so capacity can be checked for
@@ -527,15 +551,13 @@ def _create_registration(
     if itemized:
         for is_child, _attendee, selection in attendees:
             ticket_type = selection["ticket_type"]
+            if selection["guardian_only"]:
+                # "Guardian only" (owner decisions eb5d26f4 / d9245e21): a
+                # responsible adult who is not attending -- no eligibility
+                # check, no seat, no price line. (Always an adult: the
+                # serializer only sets this on parents.)
+                continue
             if ticket_type is None:
-                if not is_child:
-                    # "Guardian only" (owner decision eb5d26f4): an adult
-                    # with no ticket_type is accepted as a guardian of the
-                    # registration's children but holds no ticket -- no
-                    # eligibility check, no seat, no price line. Children
-                    # always need a ticket, so they still fall through to
-                    # the error below.
-                    continue
                 raise ValidationError(
                     _("Please select a ticket type for every attendee.")
                 )
@@ -552,14 +574,6 @@ def _create_registration(
                     raise ValidationError({"children": {str(child_index): [age_error]}})
                 child_index += 1
 
-        # A registration in which nobody holds a ticket (an adults-only
-        # submission where every adult is "guardian only") would confirm at
-        # 0 kr with no seat and no line item -- nothing to attend. Children
-        # can't reach this (they always carry a ticket), so this only ever
-        # catches the adults-only case.
-        if all(selection["ticket_type"] is None for _c, _a, selection in attendees):
-            raise ValidationError(_("Please select a ticket type for every attendee."))
-
         # Batch capacity lock+check (R1, gate review 2026-09-25 — replaces
         # the per-attendee select_for_update this increment shipped with
         # originally, which the verifier reproduced deadlocking in 5/6
@@ -573,7 +587,7 @@ def _create_registration(
         needed_by_ticket_type: dict = {}
         for _is_child, _attendee, selection in attendees:
             ticket_type = selection["ticket_type"]
-            if ticket_type is None:
+            if selection["guardian_only"]:
                 continue  # guardian only: consumes no seat
             needed_by_ticket_type[ticket_type] = (
                 needed_by_ticket_type.get(ticket_type, 0) + 1
@@ -598,11 +612,13 @@ def _create_registration(
     parent_index = 0
     for is_child, attendee, selection in attendees:
         ticket_type = selection["ticket_type"]
-        if itemized and ticket_type is None:
-            # Guardian-only adult (pass 1 already rejected a ticketless
-            # child). No ticket, so nothing per-attendee can attach to them:
-            # a per-attendee extra would be a priced line for someone who
-            # isn't attending, and required per-attendee extras don't apply.
+        if selection["guardian_only"]:
+            # Guardian-only adult (never a child). No ticket, so nothing
+            # per-attendee can attach to them: a per-attendee extra would be
+            # a priced line for someone who isn't attending, and required
+            # per-attendee extras don't apply (nor does anything else
+            # per-attendee: the serializer has already refused health
+            # information for them).
             # Refuse a submitted extra loudly rather than dropping it, so a
             # guardian never believes they bought something they didn't.
             if selection["extras"]:

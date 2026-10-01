@@ -1835,3 +1835,24 @@ msgstr "En anmälan med barn behöver minst en vuxen som är barnens vårdnadsha
 
 msgid "Extras can only be added for an adult with a ticket."
 msgstr "Tillval kan bara läggas till för en vuxen som har en biljett."
+
+# Guardian-only adults (owner decision d9245e21) - registrations/models.py,
+# registrations/serializers.py, registrations/views.py, families/admin.py
+
+msgid "Guardian-Only Adults"
+msgstr "Endast vårdnadshavare"
+
+msgid "Adults on this registration who are responsible for the children but are not attending themselves: no ticket, no seat, no charge, no health information."
+msgstr "Vuxna i den här anmälan som ansvarar för barnen men inte själva deltar: ingen biljett, ingen plats, ingen avgift och inga hälsouppgifter."
+
+msgid "Guardian only"
+msgstr "Endast vårdnadshavare"
+
+msgid "A guardian who isn't attending can't also choose a ticket."
+msgstr "En vårdnadshavare som inte deltar kan inte också välja en biljett."
+
+msgid "Health information can't be recorded for a guardian who isn't attending."
+msgstr "Hälsouppgifter kan inte registreras för en vårdnadshavare som inte deltar."
+
+msgid "At least one person on the registration needs to be attending."
+msgstr "Minst en person i anmälan måste delta."

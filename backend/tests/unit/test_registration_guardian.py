@@ -410,3 +410,316 @@ def test_phone_error_is_swedish_under_accept_language_sv(api, itemized_event):
             }
         ]
     }
+
+
+# ------------------------------------------------- owner decision d9245e21
+# Option B: a guardian-only adult is responsible but NOT attending. The
+# marker is a stored fact (Registration.guardian_only_parents), not
+# inferred from "has no ticket".
+
+
+def _marked(registration):
+    return {p.first_name for p in registration.guardian_only_parents.all()}
+
+
+def test_itemized_ticketless_adult_is_marked_and_ticketed_adult_is_not(
+    api, itemized_event
+):
+    response = _post(
+        api,
+        _payload(
+            itemized_event,
+            parents=[
+                _parent("Anna"),
+                _parent("Bo", ticket_type=str(itemized_event.adult_type.id)),
+            ],
+            children=[_child(itemized_event)],
+        ),
+    )
+    assert response.status_code == 201, response.content
+    assert _marked(Registration.objects.get()) == {"Anna"}
+
+
+@pytest.fixture
+def priced_flat_event(flat_event):
+    flat_event.price = 500
+    flat_event.save()
+    return flat_event
+
+
+def test_flat_event_guardian_only_adult_gets_no_ticket_and_is_not_charged(
+    api, priced_flat_event
+):
+    response = _post(
+        api,
+        _payload(
+            priced_flat_event,
+            parents=[_parent(guardian_only=True)],
+            children=[_child()],
+        ),
+    )
+    assert response.status_code == 201, response.content
+
+    registration = Registration.objects.get()
+    guardian = Parent.objects.get()
+    assert _marked(registration) == {"Anna"}
+    assert not guardian.has_ticket
+    # Only the child holds the flat ticket.
+    assert EventTicket.objects.get().attendee_id == Child.objects.get().id
+    # The flat price is per registration: the guardian changes nothing.
+    assert calculate_total(registration) == 500
+
+
+def test_flat_price_is_identical_with_and_without_a_guardian_only_adult(
+    api, priced_flat_event
+):
+    with_guardian = _post(
+        api,
+        _payload(
+            priced_flat_event,
+            parents=[_parent(guardian_only=True)],
+            children=[_child()],
+            contact_email="a@example.com",
+        ),
+    )
+    without = _post(
+        api,
+        _payload(
+            priced_flat_event,
+            parents=[_parent()],
+            children=[_child()],
+            contact_email="b@example.com",
+        ),
+    )
+    assert with_guardian.status_code == without.status_code == 201
+    totals = {calculate_total(r) for r in Registration.objects.all()}
+    assert totals == {500}
+
+
+def test_flat_event_ordinary_adult_still_gets_the_flat_ticket_and_no_marker(
+    api, flat_event
+):
+    response = _post(
+        api,
+        _payload(flat_event, parents=[_parent()], children=[_child()]),
+    )
+    assert response.status_code == 201, response.content
+    assert EventTicket.objects.count() == 2
+    assert _marked(Registration.objects.get()) == set()
+
+
+def test_flat_event_with_only_guardian_only_adults_is_rejected(api, flat_event):
+    response = _post(
+        api,
+        _payload(flat_event, parents=[_parent(guardian_only=True)], children=[]),
+    )
+    assert response.status_code == 400
+    assert not Registration.objects.exists()
+
+
+def test_flat_event_extras_on_a_guardian_only_adult_are_refused(api, flat_event):
+    extra = Extra.objects.create(
+        event=flat_event,
+        name="T-shirt",
+        price=100,
+        per_attendee=True,
+        applies_to="parent",
+    )
+    response = _post(
+        api,
+        _payload(
+            flat_event,
+            parents=[_parent(guardian_only=True, extras=[{"extra": str(extra.id)}])],
+            children=[_child()],
+        ),
+    )
+    assert response.status_code == 400
+    assert not Registration.objects.exists()
+
+
+def test_child_only_ticket_types_adult_is_a_marked_guardian(api, itemized_event):
+    """Every active type is child-only: the adult has nothing to pick, so
+    ticket_type omitted/null (optionally with guardian_only: true) is the
+    payload, and the adult is marked rather than rejected."""
+    itemized_event.adult_type.delete()
+    response = _post(
+        api,
+        _payload(
+            itemized_event,
+            parents=[_parent(guardian_only=True)],
+            children=[_child(itemized_event)],
+        ),
+    )
+    assert response.status_code == 201, response.content
+    assert _marked(Registration.objects.get()) == {"Anna"}
+    assert EventTicket.objects.get().attendee_id == Child.objects.get().id
+
+
+def test_child_only_ticket_types_adult_without_the_flag_is_also_marked(
+    api, itemized_event
+):
+    itemized_event.adult_type.delete()
+    response = _post(
+        api,
+        _payload(
+            itemized_event,
+            parents=[_parent()],
+            children=[_child(itemized_event)],
+        ),
+    )
+    assert response.status_code == 201, response.content
+    assert _marked(Registration.objects.get()) == {"Anna"}
+
+
+def test_child_only_ticket_types_adult_cannot_pick_a_child_ticket(api, itemized_event):
+    itemized_event.adult_type.delete()
+    response = _post(
+        api,
+        _payload(
+            itemized_event,
+            parents=[_parent(ticket_type=str(itemized_event.child_type.id))],
+            children=[_child(itemized_event)],
+        ),
+    )
+    assert response.status_code == 400
+    assert not Registration.objects.exists()
+
+
+def test_guardian_only_flag_together_with_a_ticket_is_a_contradiction(
+    api, itemized_event
+):
+    response = _post(
+        api,
+        _payload(
+            itemized_event,
+            parents=[
+                _parent(
+                    guardian_only=True,
+                    ticket_type=str(itemized_event.adult_type.id),
+                )
+            ],
+            children=[_child(itemized_event)],
+        ),
+    )
+    assert response.status_code == 400
+    assert response.json() == {
+        "parents": [
+            {
+                "ticket_type": [
+                    "A guardian who isn't attending can't also choose a ticket."
+                ]
+            }
+        ]
+    }
+
+
+@pytest.mark.parametrize("status", ["granted", "declined"])
+@pytest.mark.parametrize("flat", [True, False], ids=["flat", "itemized"])
+def test_health_information_for_a_guardian_only_adult_is_rejected(
+    api, flat_event, itemized_event, status, flat
+):
+    event = flat_event if flat else itemized_event
+    parent = _parent(
+        health_consent_status=status, allergies="Peanuts", guardian_only=flat
+    )
+    response = _post(
+        api,
+        _payload(event, parents=[parent], children=[_child(event)]),
+    )
+    assert response.status_code == 400
+    assert response.json() == {
+        "parents": [
+            {
+                "health_consent_status": [
+                    "Health information can't be recorded for a guardian who isn't attending."
+                ]
+            }
+        ]
+    }
+    assert not Registration.objects.exists()
+    assert not Parent.objects.exists()
+
+
+def test_guardian_only_adult_stores_no_per_attendee_data(api, itemized_event):
+    # allergies sent with the default (not_applicable) consent status are
+    # blanked by ParentCreateSerializer, exactly as for any adult.
+    response = _post(
+        api,
+        _payload(
+            itemized_event,
+            parents=[_parent(allergies="Peanuts", notes="n")],
+            children=[_child(itemized_event)],
+        ),
+    )
+    assert response.status_code == 201, response.content
+    guardian = Parent.objects.get()
+    assert guardian.allergies is None and guardian.notes is None
+    assert guardian.health_consent_status == "not_applicable"
+    assert guardian.registration_extras.count() == 0
+    assert not guardian.has_ticket
+
+
+def test_ordinary_adult_may_still_record_health_information(api, itemized_event):
+    response = _post(
+        api,
+        _payload(
+            itemized_event,
+            parents=[
+                _parent(
+                    ticket_type=str(itemized_event.adult_type.id),
+                    health_consent_status="granted",
+                    allergies="Shellfish",
+                )
+            ],
+            children=[],
+        ),
+    )
+    assert response.status_code == 201, response.content
+    assert Parent.objects.get().allergies == "Shellfish"
+
+
+# ------------------------------------------------------- migration backfill
+
+
+def test_migration_backfill_marks_only_ticketless_adults_of_own_family_registrations(
+    flat_event,
+):
+    import importlib
+
+    from django.apps import apps
+
+    from families.models import Family
+    from registrations.tokens import generate_verification_token, hash_token
+
+    migration = importlib.import_module(
+        "registrations.migrations.0009_registration_guardian_only_parents"
+    )
+
+    def make(created_new_family):
+        family = Family.objects.create(last_name="F")
+        ticketed = Parent.objects.create(
+            first_name="Ticketed", family=family, phone=PHONE
+        )
+        ticketless = Parent.objects.create(
+            first_name="Ticketless", family=family, phone=PHONE
+        )
+        registration = Registration.objects.create(
+            event=flat_event,
+            family=family,
+            contact_email="x@example.com",
+            verification_token_hash=hash_token(generate_verification_token()),
+            created_new_family=created_new_family,
+        )
+        EventTicket.objects.create(
+            attendee=ticketed, event=flat_event, registration=registration
+        )
+        return registration, ticketless
+
+    own, _ticketless = make(True)
+    attached, _other = make(False)
+
+    migration.backfill_guardian_only(apps, None)
+    migration.backfill_guardian_only(apps, None)  # idempotent
+
+    assert _marked(own) == {"Ticketless"}
+    assert _marked(attached) == set()

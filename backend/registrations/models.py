@@ -165,6 +165,25 @@ class Registration(models.Model):
             "was charged."
         ),
     )
+    # Per-registration (hence per-event) fact, deliberately NOT a flag on
+    # Parent: "this adult is responsible but not attending" is a property of
+    # how one registration was submitted, not of the person -- the same adult
+    # may attend another event, and a flag on the person would leak this
+    # event's answer into that one. It is also a stored fact, never inferred
+    # from "has no ticket": a ticketless adult could equally be a data bug
+    # (a deleted ticket), and the check-in gate and the expiry sweep must
+    # not guess. Owner decision d9245e21 (option B).
+    guardian_only_parents = models.ManyToManyField(
+        "families.Parent",
+        blank=True,
+        related_name="guardian_only_registrations",
+        verbose_name=_("Guardian-Only Adults"),
+        help_text=_(
+            "Adults on this registration who are responsible for the "
+            "children but are not attending themselves: no ticket, no seat, "
+            "no charge, no health information."
+        ),
+    )
 
     class Meta:
         db_table = "registrations"
