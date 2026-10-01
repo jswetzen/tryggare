@@ -4,7 +4,7 @@
   import type { Family, Child, TicketType, Session, FamilyApiResponse } from '$lib/checkin/types';
 
   // Import shared UI components
-  import { PageHeader, StickySearchBox, EmptyState, Alert, Icon } from '$lib/components/ui';
+  import { PageHeader, StickySearchBox, EmptyState, Alert, Icon, Button } from '$lib/components/ui';
 
   // Import checkin-specific components
   import SessionIndicator from '$lib/components/checkin/SessionIndicator.svelte';
@@ -24,7 +24,7 @@
     cleanup as cleanupUndoTimer,
   } from '$lib/checkin/stores/undoTimer';
   import { getVisibleFamilies } from '$lib/checkin/utils/familyVisibility';
-  import { mergeFamilies, transformFamily } from '$lib/checkin/utils/mergeFamilies';
+  import { mergeFamilies, transformFamily, adultsNotCheckedIn } from '$lib/checkin/utils/mergeFamilies';
 
   // Import API services
   import { checkinApi, checkInApi, ticketApi, printingApi } from '$lib/api/services';
@@ -32,6 +32,7 @@
   import { websocketStore } from '$lib/stores/websocket';
   import type { WebSocketMessage, Printer } from '$lib/api/types';
   import { canEditFamilyHealthInfo, type SessionUser } from '$lib/auth/permissions';
+  import { pickSession, saveSessionId } from '$lib/checkin/utils/sessionChoice';
 
   // Comes from the root layout's auth check. Used for one thing on this page:
   // whether the inline family panel is an edit form or a read-behind-reveal
@@ -56,9 +57,9 @@
   let families = $state<Family[]>([]);
   let activeSession = $state<Session | null>(null);
   let activeSessions = $state<Session[]>([]);
-  let parentCheckinEnabled = $derived(
-    activeSession?.effective_parent_checkin_policy !== 'disabled'
-  );
+  // False when the session never checks adults in (adults_not_checked_in); the Guardians
+  // section still renders then, as a calm note, because the people are still there.
+  let parentCheckinEnabled = $derived(!adultsNotCheckedIn(activeSession));
   let loading = $state(true);
   let error = $state<string | null>(null);
   let searchQuery = $state('');
@@ -108,7 +109,8 @@
       const sessions = await checkinApi.getActiveSessions();
       activeSessions = sessions;
       if (sessions.length > 0) {
-        activeSession = sessions[0]; // Use the first active session
+        // The session this desk last picked if it is still active, else the first one.
+        activeSession = pickSession(sessions);
       } else {
         error = 'No active session found';
       }
@@ -358,13 +360,26 @@
 
     if (!searchQuery) return filtered;
 
-    const query = searchQuery.toLowerCase();
-    return filtered.filter(
-      (family) =>
-        family.name.toLowerCase().includes(query) ||
-        family.children.some((child) => child.name.toLowerCase().includes(query))
-    );
+    return filtered.filter((family) => familyMatchesSearch(family, searchQuery));
   });
+
+  function familyMatchesSearch(family: Family, search: string): boolean {
+    const query = search.toLowerCase();
+    return (
+      family.name.toLowerCase().includes(query) ||
+      family.children.some((child) => child.name.toLowerCase().includes(query))
+    );
+  }
+
+  // When a search finds nothing, the family may exist but be hidden only because everyone in it
+  // is already checked in (the default list hides finished families). A volunteer who typed the
+  // name of a family that just arrived should be told that, not "no families found" as if the
+  // name were misspelled. Only meaningful while the list is empty, so it is read in that branch.
+  const hiddenCheckedInMatch = $derived(
+    searchQuery && !showCheckedInFamilies
+      ? (families.find((family) => familyMatchesSearch(family, searchQuery)) ?? null)
+      : null
+  );
 
   // ============================================================================
   // EFFECTS
@@ -694,6 +709,7 @@
   // Handle session selection from modal
   function handleSessionSelect(session: Session) {
     activeSession = session;
+    saveSessionId(session.id);
     showSessionSelector = false;
     loadFamilies();
   }
@@ -730,7 +746,7 @@
           ...fam,
           children: fam.children.map((child) => {
             if (child.id !== childId) return child;
-            return { ...child, ticket: ticketType, ticket_type: ticketType };
+            return { ...child, ticket: ticketType, ticket_type: ticketType, ticketExemption: undefined };
           }),
         };
       });
@@ -879,7 +895,7 @@
           ...fam,
           parents: fam.parents.map((parent) => {
             if (parent.id !== parentId) return parent;
-            return { ...parent, ticket: ticketType, ticket_type: ticketType };
+            return { ...parent, ticket: ticketType, ticket_type: ticketType, ticketExemption: undefined };
           }),
         };
       });
@@ -1251,12 +1267,20 @@
 
     <!-- Family List -->
     {#if visibleFamilies.length === 0}
+      {#snippet showCheckedInAction()}
+        <Button size="sm" onclick={() => (showCheckedInFamilies = true)}>
+          {$_('checkin.showCheckedInFamilies')}
+        </Button>
+      {/snippet}
       <EmptyState
         type="empty"
-        title={searchQuery
-          ? $_('checkin.noFamiliesFound', { values: { query: searchQuery } })
-          : $_('checkin.noFamilies')}
-        description={searchQuery ? $_('checkin.tryDifferentSearch') : undefined}
+        action={hiddenCheckedInMatch ? showCheckedInAction : undefined}
+        title={hiddenCheckedInMatch
+          ? $_('checkin.fullyCheckedInMatch', { values: { name: hiddenCheckedInMatch.name } })
+          : searchQuery
+            ? $_('checkin.noFamiliesFound', { values: { query: searchQuery } })
+            : $_('checkin.noFamilies')}
+        description={searchQuery && !hiddenCheckedInMatch ? $_('checkin.tryDifferentSearch') : undefined}
       >
         {#snippet icon()}
           <Icon name="users" size="xl" />

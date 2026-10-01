@@ -323,7 +323,8 @@ describe('parent transform and merge', () => {
     is_active: true,
     event_name: 'Annual Conference',
     requires_ticket: true,
-    parent_checkin_policy: 'ticket_required',
+    effective_ticket_rule: 'all',
+    adults_not_checked_in: false,
     effective_parent_checkin_policy: 'ticket_required',
   };
 
@@ -462,8 +463,8 @@ describe('parent transform and merge', () => {
     expect(parent.checkInTime).toBe('10:00 AM');
   });
 
-  it('should treat a ticketless parent as eligible when the session policy is open', () => {
-    const openSession = { ...sessionWithTicket, parent_checkin_policy: 'open' as const, effective_parent_checkin_policy: 'open' as const };
+  it('should treat a ticketless parent as eligible when the session rule only asks children for a ticket', () => {
+    const openSession = { ...sessionWithTicket, effective_ticket_rule: 'children' as const, effective_parent_checkin_policy: 'open' as const };
     const apiFamily = makeApiFamily([
       {
         id: 'parent-4',
@@ -483,8 +484,8 @@ describe('parent transform and merge', () => {
     expect(merged[0].parents[0].ticket).toBe('event');
   });
 
-  it('should treat any parent as ineligible when the session policy is disabled, ticket or not', () => {
-    const disabledSession = { ...sessionWithTicket, parent_checkin_policy: 'disabled' as const, effective_parent_checkin_policy: 'disabled' as const };
+  it('should treat any parent as ineligible when adults are not checked in, ticket or not', () => {
+    const disabledSession = { ...sessionWithTicket, adults_not_checked_in: true, effective_parent_checkin_policy: 'disabled' as const };
     const apiFamily = makeApiFamily([
       {
         id: 'parent-5',
@@ -507,7 +508,7 @@ describe('parent transform and merge', () => {
     expect(merged[0].parents[0].ticket).toBe('none');
   });
 
-  it('should still require a real ticket under ticket_required, even with a ticket for a different session', () => {
+  it('should still require a real ticket under rule all, even with a ticket for a different session', () => {
     const apiFamily = makeApiFamily([
       {
         id: 'parent-6',
@@ -528,5 +529,60 @@ describe('parent transform and merge', () => {
 
     const merged = mergeFamilies([], [apiFamily], sessionWithTicket);
     expect(merged[0].parents[0].ticket).toBe('none');
+  });
+});
+
+describe('guardian-only adults in the transformed family', () => {
+  const allSession: import('$lib/checkin/types').Session = {
+    id: 'session-1',
+    event: 'event-1',
+    name: 'Morning Session',
+    start_time: '09:00',
+    is_active: true,
+    event_name: 'Annual Conference',
+    requires_ticket: true,
+    effective_ticket_rule: 'all',
+    adults_not_checked_in: false,
+  };
+
+  const family = (guardianEvents: string[]): FamilyApiResponse =>
+    ({
+      id: 'family-g',
+      last_name: 'Gu',
+      display_name: 'Gu Family',
+      children: [],
+      parents: [
+        {
+          id: 'parent-g',
+          first_name: 'Gu',
+          last_name: 'Gu',
+          name: 'Gu Gu',
+          relationship_type: 'mother',
+          family: 'family-g',
+          ticket_type: null,
+          ticket_details: null,
+          guardian_only_event_ids: guardianEvents,
+          is_checked_in: false,
+          active_checkin_id: null,
+        },
+      ],
+    }) as FamilyApiResponse;
+
+  it('shows a confirmed guardian-only adult as allowed, with the exemption recorded', () => {
+    const parent = mergeFamilies([], [family(['event-1'])], allSession)[0].parents[0];
+    expect(parent.ticket).toBe('event');
+    expect(parent.ticketExemption).toBe('guardian_only');
+  });
+
+  it('shows the same adult as blocked when the marker is for another event', () => {
+    const parent = mergeFamilies([], [family(['event-2'])], allSession)[0].parents[0];
+    expect(parent.ticket).toBe('none');
+  });
+
+  it('flags adults as not checked in here under the checkbox, guardians included', () => {
+    const s = { ...allSession, adults_not_checked_in: true };
+    const parent = mergeFamilies([], [family(['event-1'])], s)[0].parents[0];
+    expect(parent.ticket).toBe('none');
+    expect(parent.notCheckedInHere).toBe(true);
   });
 });

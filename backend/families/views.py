@@ -104,6 +104,17 @@ class FamilyViewSet(viewsets.ModelViewSet):
 
         # Prefetch parents with their tickets and active check-ins
         parents_qs = Parent.objects.prefetch_related(
+            # Guardian-only adults' CONFIRMED registrations: the check-in
+            # screen needs them for the ticket exemption
+            # (ParentSerializer.get_guardian_only_event_ids), which the server
+            # grants only on a confirmed registration.
+            Prefetch(
+                "guardian_only_registrations",
+                queryset=Registration.objects.filter(
+                    status=Registration.Status.CONFIRMED
+                ),
+                to_attr="guardian_registrations",
+            ),
             Prefetch(
                 "event_tickets",
                 queryset=EventTicket.objects.select_related("event"),

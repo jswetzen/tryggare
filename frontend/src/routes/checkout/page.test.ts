@@ -93,4 +93,27 @@ describe('Checkout page - session filter', () => {
     await waitFor(() => expect(screen.getAllByText(/Aliceson family/).length).toBeGreaterThan(0));
     expect(screen.queryByText(/Bertilsson family/)).not.toBeInTheDocument();
   });
+
+  it('opens on the session this desk last picked, when it is still active', async () => {
+    (localStorage.getItem as unknown as ReturnType<typeof vi.fn>).mockReturnValue('session-b');
+    sessionActive.mockResolvedValue([sessionA, sessionB]);
+
+    render(CheckoutPage);
+
+    await waitFor(() => expect(screen.getByTestId('session-indicator')).toHaveTextContent('Session B'));
+    await waitFor(() => expect(screen.getAllByText(/Bertilsson family/).length).toBeGreaterThan(0));
+    expect(screen.queryByText(/Aliceson family/)).not.toBeInTheDocument();
+  });
+
+  it('falls back to the first session when storage cannot be read', async () => {
+    (localStorage.getItem as unknown as ReturnType<typeof vi.fn>).mockImplementation(() => {
+      throw new DOMException('denied', 'SecurityError');
+    });
+    sessionActive.mockResolvedValue([sessionA, sessionB]);
+
+    render(CheckoutPage);
+
+    await waitFor(() => expect(screen.getByTestId('session-indicator')).toHaveTextContent('Session A'));
+    await waitFor(() => expect(screen.getAllByText(/Aliceson family/).length).toBeGreaterThan(0));
+  });
 });

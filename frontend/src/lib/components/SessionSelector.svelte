@@ -1,5 +1,6 @@
 <script lang="ts">
   import { _ } from 'svelte-i18n';
+  import Badge from '$lib/components/ui/Badge.svelte';
 
   // A narrow local shape, not the full `$lib/api/types` or `$lib/checkin/types`
   // Session — this component only ever reads these fields, and the two
@@ -11,6 +12,10 @@
     event_name: string;
     start_time: string;
     end_time?: string;
+    /** The ticket rule in force for this session (own rule, else the event default). */
+    effective_ticket_rule?: 'open' | 'children' | 'all';
+    /** Drop-off sessions: no adult is checked in, guardians included. */
+    adults_not_checked_in?: boolean;
   }
 
   interface SessionSelectorProps {
@@ -44,6 +49,15 @@
   function handleModalClick(e: MouseEvent) {
     e.stopPropagation();
   }
+
+  // One neutral pill per fact a volunteer needs before picking a desk: who has to hold a ticket,
+  // and whether adults are checked in at all. Neutral on purpose: the choice is not a verdict.
+  // A missing rule (an older server) shows no ticket pill rather than guessing.
+  const RULE_KEYS = {
+    open: 'session.ruleOpen',
+    children: 'session.ruleChildren',
+    all: 'session.ruleAll'
+  } as const;
 
   function formatTime(isoString: string): string {
     return new Date(isoString).toLocaleTimeString('en-US', {
@@ -87,6 +101,20 @@
               <div class="text-sm text-neutral-500">
                 {formatTime(session.start_time)} - {session.end_time ? formatTime(session.end_time) : 'Open'}
               </div>
+              {#if session.effective_ticket_rule || session.adults_not_checked_in}
+                <div class="flex flex-wrap gap-1.5 mt-2" data-testid={`session-rules-${session.id}`}>
+                  {#if session.effective_ticket_rule}
+                    <Badge color="secondary" variant="soft" size="sm">
+                      {$_(RULE_KEYS[session.effective_ticket_rule])}
+                    </Badge>
+                  {/if}
+                  {#if session.adults_not_checked_in}
+                    <Badge color="secondary" variant="soft" size="sm">
+                      {$_('session.adultsNotCheckedIn')}
+                    </Badge>
+                  {/if}
+                </div>
+              {/if}
             </button>
           {/each}
         </div>

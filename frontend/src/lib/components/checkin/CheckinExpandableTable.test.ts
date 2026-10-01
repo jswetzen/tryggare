@@ -5,7 +5,7 @@
  * so we use getAllBy* queries to handle multiple matching elements.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen } from '@testing-library/svelte';
+import { render, screen, within } from '@testing-library/svelte';
 import userEvent from '@testing-library/user-event';
 import CheckinExpandableTable from './CheckinExpandableTable.svelte';
 import type { Family, Parent } from '$lib/checkin/types';
@@ -28,7 +28,19 @@ vi.mock('svelte-i18n', () => ({
           'checkin.ticketEvent': 'Event',
           'checkin.ticketSession': 'Session',
           'checkin.ticketNone': 'No Ticket',
+          'checkin.ticketNotRequired': 'No ticket needed',
+          'checkin.ticketGuardianOnly': 'Guardian, no ticket needed',
+          'checkin.adultsNotCheckedInHere': 'Adults are not checked in at this session',
           'checkin.checkedInAt': 'Checked in at {time}',
+          'checkin.expandFamily': 'Expand {familyName} family',
+          'checkin.collapseFamily': 'Collapse {familyName} family',
+          'checkin.undoFamilyAria': 'Undo family check-in, {seconds} seconds remaining',
+          'checkin.checkInFamilyAria': 'Check in {count} children from {familyName} family',
+          'checkin.grantTicketPromptChild': 'This session requires a ticket for children. Check in {name} with:',
+          'checkin.grantTicketPromptAdult': 'This session requires a ticket for adults. Check in {name} with:',
+          'checkin.colFamily': 'Family',
+          'checkin.colStatus': 'Status',
+          'checkin.colActions': 'Actions',
           'checkin.guardianPresent': 'Guardian Present',
           'checkin.checkIn': 'Check In',
           'checkin.guardian': 'Guardian',
@@ -645,7 +657,27 @@ describe('CheckinExpandableTable', () => {
       expect(screen.queryByText('Guardians')).not.toBeInTheDocument();
     });
 
-    it('should not render guardians section when parentCheckinEnabled is false, even with parents present', async () => {
+    it('shows a guardian-only adult as allowed, with a neutral line instead of a ticket name', async () => {
+      const user = userEvent.setup();
+      const guardianOnly: Parent = {
+        ...(mockFamilies[0].parents[0] as Parent),
+        id: 'parent-guardian',
+        ticket: 'event',
+        ticket_type: 'event',
+        ticketExemption: 'guardian_only',
+      };
+
+      render(CheckinExpandableTable, {
+        props: { ...defaultProps, families: [{ ...mockFamilies[0], parents: [guardianOnly] }] }
+      });
+      await user.click(screen.getAllByTestId('family-toggle-button-family-1')[0]);
+
+      expect(screen.queryAllByText('Guardian, no ticket needed').length).toBeGreaterThanOrEqual(1);
+      expect(screen.queryAllByTestId('parent-check-in-button-parent-guardian').length).toBeGreaterThanOrEqual(1);
+      expect(screen.queryAllByTestId('parent-expand-button-parent-guardian')).toHaveLength(0);
+    });
+
+    it('lists guardians with a calm note and no check-in button when parentCheckinEnabled is false', async () => {
       const user = userEvent.setup();
 
       render(CheckinExpandableTable, {
@@ -655,7 +687,186 @@ describe('CheckinExpandableTable', () => {
       const toggleButtons = screen.getAllByTestId('family-toggle-button-family-1');
       await user.click(toggleButtons[0]);
 
-      expect(screen.queryByText('Guardians')).not.toBeInTheDocument();
+      // Still listed (they are there, just not checked in at this session) ...
+      expect(screen.queryAllByText('Guardians').length).toBeGreaterThanOrEqual(1);
+      expect(screen.queryAllByText('Adults are not checked in at this session').length).toBeGreaterThanOrEqual(1);
+      // ... but neither an action nor the red no-ticket state is offered.
+      expect(screen.queryAllByTestId(/^parent-check-in-button-/)).toHaveLength(0);
+      expect(screen.queryAllByTestId(/^parent-expand-button-/)).toHaveLength(0);
+    });
+  });
+
+  describe('Adults not checked in at this session', () => {
+    const adultCheckedInElsewhere: Parent = {
+      id: 'parent-in',
+      first_name: 'Carol',
+      last_name: 'Smith',
+      name: 'Carol Smith',
+      relationship_type: 'mother',
+      // Checked in for another session; in this one adults are not checked in.
+      ticket: 'none',
+      ticket_type: 'none',
+      checkedIn: true,
+      checkInTime: '10:00'
+    };
+
+    it('shows the note for an adult whatever their checkedIn flag, not "No Ticket"', async () => {
+      const user = userEvent.setup();
+      render(CheckinExpandableTable, {
+        props: {
+          ...defaultProps,
+          families: [{ ...mockFamilies[0], parents: [adultCheckedInElsewhere, mockFamilies[0].parents[0]] }],
+          parentCheckinEnabled: false
+        }
+      });
+      await user.click(screen.getAllByTestId('family-toggle-button-family-1')[0]);
+
+      for (const id of ['parent-in', 'parent-1']) {
+        const rows = screen.getAllByTestId(`parent-row-${id}`);
+        for (const row of rows) {
+          expect(within(row).getByText(/Adults are not checked in at this session/)).toBeInTheDocument();
+          expect(within(row).queryByText('No Ticket')).not.toBeInTheDocument();
+        }
+      }
+    });
+  });
+
+  describe('Family check-in with a ticketless sibling', () => {
+    const ticketless = {
+      id: 'child-3',
+      first_name: 'Kim',
+      last_name: 'Smith',
+      name: 'Kim Smith',
+      ticket: 'none' as const,
+      ticket_type: 'none' as const,
+      checkedIn: false,
+      family: 'family-1'
+    };
+
+    it('still offers "Check In (n)" for the eligible children', async () => {
+      const user = userEvent.setup();
+      const onCheckInFamily = vi.fn();
+      render(CheckinExpandableTable, {
+        props: {
+          ...defaultProps,
+          onCheckInFamily,
+          families: [{ ...mockFamilies[0], children: [...mockFamilies[0].children, ticketless] }]
+        }
+      });
+
+      // Two eligible children (the ticketless one is not counted) in both layouts.
+      const buttons = screen.getAllByTestId('family-check-in-button-family-1');
+      expect(buttons).toHaveLength(2);
+      expect(buttons[0]).toHaveTextContent('Check In 2');
+      await user.click(buttons[0]);
+      expect(onCheckInFamily).toHaveBeenCalledWith('family-1');
+    });
+  });
+
+  describe('Localised labels', () => {
+    it('takes the expand / collapse and family check-in aria-labels from the catalogue', async () => {
+      const user = userEvent.setup();
+      render(CheckinExpandableTable, { props: defaultProps });
+
+      const toggle = screen.getAllByTestId('family-toggle-button-family-1')[0];
+      expect(toggle).toHaveAttribute('aria-label', 'Expand Smith Family family');
+      await user.click(toggle);
+      expect(toggle).toHaveAttribute('aria-label', 'Collapse Smith Family family');
+      expect(screen.getAllByTestId('family-check-in-button-family-1')[0]).toHaveAttribute(
+        'aria-label',
+        'Check in 2 children from Smith Family family'
+      );
+    });
+
+    it('takes the desktop column headers from the catalogue', () => {
+      render(CheckinExpandableTable, { props: defaultProps });
+      const headers = screen.getAllByRole('columnheader', { hidden: true }).map((h) => h.textContent?.trim());
+      expect(headers).toEqual(['Family', 'Status', 'Actions']);
+    });
+  });
+
+  describe('Grant-ticket panel', () => {
+    const noTicketChild = {
+      id: 'child-9',
+      first_name: 'Nils',
+      last_name: 'Smith',
+      name: 'Nils Smith',
+      ticket: 'none' as const,
+      ticket_type: 'none' as const,
+      checkedIn: false,
+      family: 'family-1'
+    };
+    const noTicketAdult: Parent = {
+      id: 'parent-9',
+      first_name: 'Ola',
+      last_name: 'Smith',
+      name: 'Ola Smith',
+      relationship_type: 'father',
+      ticket: 'none',
+      ticket_type: 'none',
+      checkedIn: false
+    };
+    const family: Family = { ...mockFamilies[0], children: [noTicketChild], parents: [noTicketAdult] };
+
+    it('states why, for a child, and offers both tickets in the same blue', async () => {
+      const user = userEvent.setup();
+      render(CheckinExpandableTable, { props: { ...defaultProps, families: [family], expandedChildId: 'child-9' } });
+      await user.click(screen.getAllByTestId('family-toggle-button-family-1')[0]);
+
+      const panel = screen.getAllByTestId('grant-ticket-panel-child-9')[0];
+      expect(panel).toHaveTextContent('This session requires a ticket for children. Check in Nils Smith with:');
+      const session = within(panel).getByTestId('ticket-assign-session-child-9');
+      const event = within(panel).getByTestId('ticket-assign-event-child-9');
+      expect(session.className).toContain('bg-primary-600');
+      expect(event.className).toContain('bg-primary-600');
+      expect(event.className).not.toContain('success');
+    });
+
+    it('says adults, not children, for an adult', async () => {
+      const user = userEvent.setup();
+      render(CheckinExpandableTable, { props: { ...defaultProps, families: [family], expandedChildId: 'parent-9' } });
+      await user.click(screen.getAllByTestId('family-toggle-button-family-1')[0]);
+
+      expect(screen.getAllByTestId('grant-ticket-panel-parent-9')[0]).toHaveTextContent(
+        'This session requires a ticket for adults. Check in Ola Smith with:'
+      );
+    });
+
+    it('assigns the chosen ticket in one tap', async () => {
+      const user = userEvent.setup();
+      const onAssignTicket = vi.fn();
+      render(CheckinExpandableTable, {
+        props: { ...defaultProps, families: [family], expandedChildId: 'child-9', onAssignTicket }
+      });
+      await user.click(screen.getAllByTestId('family-toggle-button-family-1')[0]);
+      await user.click(screen.getAllByTestId('ticket-assign-event-child-9')[0]);
+      expect(onAssignTicket).toHaveBeenCalledWith('family-1', 'child-9', 'event');
+    });
+
+    it('says "No Ticket" once on the row (the chip), not again as a subtitle', async () => {
+      const user = userEvent.setup();
+      render(CheckinExpandableTable, { props: { ...defaultProps, families: [family] } });
+      await user.click(screen.getAllByTestId('family-toggle-button-family-1')[0]);
+
+      for (const row of screen.getAllByTestId('child-row-child-9')) {
+        expect(within(row).getAllByText('No Ticket')).toHaveLength(1);
+      }
+      for (const row of screen.getAllByTestId('parent-row-parent-9')) {
+        expect(within(row).getAllByText('No Ticket')).toHaveLength(1);
+      }
+    });
+
+    it('draws the chip chevron as an inline stroke icon, not a text glyph', async () => {
+      const user = userEvent.setup();
+      render(CheckinExpandableTable, { props: { ...defaultProps, families: [family] } });
+      await user.click(screen.getAllByTestId('family-toggle-button-family-1')[0]);
+
+      const chip = screen.getAllByTestId('child-expand-button-child-9')[0];
+      expect(chip.textContent).not.toMatch(/[▲▼]/);
+      const svg = chip.querySelector('svg');
+      expect(svg).not.toBeNull();
+      expect(svg).toHaveAttribute('stroke', 'currentColor');
+      expect(svg).toHaveAttribute('stroke-width', '2');
     });
   });
 

@@ -41,7 +41,8 @@
     onCheckInParent?: (familyId: string, parentId: string) => Promise<void>;
     onUndoParent?: (familyId: string, parentId: string) => Promise<void>;
     onAssignParentTicket?: (familyId: string, parentId: string, ticketType: TicketType) => Promise<void>;
-    /** False when the active session's effective_parent_checkin_policy is 'disabled'. */
+    /** False when the active session never checks adults in (adults_not_checked_in): guardians are
+     listed with a calm note instead of a check-in button. */
     parentCheckinEnabled?: boolean;
     onMarkPaid?: (registrationId: string, method: 'swish' | 'bankgiro' | 'manual_other') => Promise<void>;
     onConfirmDespiteBalance?: (registrationId: string) => Promise<void>;
@@ -237,17 +238,20 @@
 
   // Helper to get ticket type display (shows specific session name for session tickets)
   // Works for both Child and Parent since both have ticket and ticket_details fields.
+  // Someone allowed in without a ticket (the rule does not ask for one, or a guardian-only
+  // adult) gets a neutral line rather than "Full Event Pass", which they do not hold.
   function getTicketDisplay(attendee: Child | Parent): string {
+    if (attendee.ticketExemption === 'guardian_only') return $_('checkin.ticketGuardianOnly');
+    if (attendee.ticketExemption === 'not_required') return $_('checkin.ticketNotRequired');
     switch (attendee.ticket) {
       case 'event':
-        return `🟢 ${$_('checkin.ticketEvent')}`;
+        return $_('checkin.ticketEvent');
       case 'session': {
         const sessionTicket = attendee.ticket_details?.session_tickets[0];
-        const label = sessionTicket?.session_name ?? $_('checkin.ticketSession');
-        return `🔵 ${label}`;
+        return sessionTicket?.session_name ?? $_('checkin.ticketSession');
       }
       case 'none':
-        return `🔴 ${$_('checkin.ticketNone')}`;
+        return $_('checkin.ticketNone');
       default:
         return '';
     }
@@ -287,10 +291,58 @@
     );
   }
 
-  function hasNoTicketChildren(family: Family): boolean {
-    return family.children.some(c => c.ticket === 'none');
+  // The red "No Ticket" chip is what a row shows when the session asks for a ticket the person
+  // does not hold. Repeating "No Ticket" as the subtitle under the name says the same thing twice,
+  // so the subtitle is dropped on exactly the rows that show the chip. A family blocked on payment
+  // shows "Unpaid" instead of the chip, so there the subtitle still carries the ticket state.
+  function ticketSubtitle(attendee: Child | Parent, family: Family): string {
+    if (attendee.ticket === 'none' && !attendee.checkedIn && !family.pending_payment) return '';
+    return getTicketDisplay(attendee);
   }
 </script>
+
+<!--
+  The one-tap "grant a ticket" panel opened from the red No Ticket chip. It states WHY the person
+  cannot be checked in (the session's rule asks for a ticket from children, or from adults under
+  the "everyone" rule) and offers the two tickets. Both buttons are the same blue: this is a
+  commercial action, and green is reserved for trust / success / live signals. Deliberately no
+  price, confirm step or revoke-on-undo; the owner wants it to stay one tap.
+-->
+{#snippet grantTicketPanel(
+  who: 'child' | 'adult',
+  name: string,
+  id: string,
+  wrapperClass: string,
+  assign: (ticket: TicketType) => void
+)}
+  {@const testPrefix = who === 'adult' ? 'parent-ticket-assign' : 'ticket-assign'}
+  <div
+    class="{wrapperClass} bg-warning-50 border border-warning-200 rounded-card p-3 animate-expand"
+    data-testid={`grant-ticket-panel-${id}`}
+  >
+    <p class="text-sm text-neutral-700 mb-2 font-medium">
+      {$_(who === 'adult' ? 'checkin.grantTicketPromptAdult' : 'checkin.grantTicketPromptChild', { values: { name } })}
+    </p>
+    <div class="flex gap-2">
+      <button
+        type="button"
+        onclick={() => assign('session')}
+        class="flex-1 px-3 py-2 bg-primary-600 text-white text-sm font-semibold rounded-button hover:bg-primary-700 transition-colors"
+        data-testid={`${testPrefix}-session-${id}`}
+      >
+        {$_('checkin.ticketSession')}
+      </button>
+      <button
+        type="button"
+        onclick={() => assign('event')}
+        class="flex-1 px-3 py-2 bg-primary-600 text-white text-sm font-semibold rounded-button hover:bg-primary-700 transition-colors"
+        data-testid={`${testPrefix}-event-${id}`}
+      >
+        {$_('checkin.ticketEvent')}
+      </button>
+    </div>
+  </div>
+{/snippet}
 
 <!-- Mobile Layout (<768px) -->
 <div class="md:hidden space-y-3">
@@ -302,7 +354,6 @@
     {@const checkedInParentsCount = getCheckedInParentsCount(family)}
     {@const canCheckInCount = getCanCheckInCount(family)}
     {@const allCheckedIn = isAllCheckedIn(family)}
-    {@const noTicketChildren = hasNoTicketChildren(family)}
     {@const familyUndoSeconds = getFamilyUndoSeconds(family)}
 
     <div
@@ -329,7 +380,7 @@
             toggleFamily(family.id, e);
           }
         }}
-        aria-label={`${expanded ? 'Collapse' : 'Expand'} ${family.name} family`}
+        aria-label={$_(expanded ? 'checkin.collapseFamily' : 'checkin.expandFamily', { values: { familyName: family.name } })}
         data-testid={`family-toggle-button-${family.id}`}
       >
         <div class="flex items-start justify-between gap-2">
@@ -393,7 +444,7 @@
                 type="button"
                 onclick={() => onUndoFamily(family.id)}
                 class="px-3 py-1.5 sm:px-4 sm:py-2 bg-warning-600 text-white font-semibold rounded-button hover:bg-warning-700 transition-colors text-xs sm:text-sm whitespace-nowrap"
-                aria-label={`Undo family check-in, ${familyUndoSeconds} seconds remaining`}
+                aria-label={$_('checkin.undoFamilyAria', { values: { seconds: familyUndoSeconds } })}
                 data-testid={`family-undo-button-${family.id}`}
               >
                 {$_('checkin.undoSeconds', { values: { seconds: familyUndoSeconds } })}
@@ -406,13 +457,13 @@
               >
                 {$_('checkin.pendingPaymentAwaiting')}
               </span>
-            {:else if !allCheckedIn && canCheckInCount > 0 && !noTicketChildren}
+            {:else if !allCheckedIn && canCheckInCount > 0}
               <!-- Check In Family button -->
               <button
                 type="button"
                 onclick={() => onCheckInFamily(family.id)}
                 class="px-3 py-1.5 sm:px-4 sm:py-2 bg-primary-600 text-white font-semibold rounded-button hover:bg-primary-700 transition-colors text-xs sm:text-sm whitespace-nowrap"
-                aria-label={`Check in ${canCheckInCount} children from ${family.name} family`}
+                aria-label={$_('checkin.checkInFamilyAria', { values: { count: canCheckInCount, familyName: family.name } })}
                 data-testid={`family-check-in-button-${family.id}`}
               >
                 {$_('checkin.checkInCount', { values: { count: canCheckInCount } })}
@@ -497,7 +548,7 @@
                 <div class="flex-1 min-w-0">
                   <div class="font-medium text-neutral-700 text-sm sm:text-base">{child.name}</div>
                   <div class="text-xs text-neutral-500 mt-0.5">
-                    {getTicketDisplay(child)}
+                    {ticketSubtitle(child, family)}
                     {#if child.checkedIn && child.checkInTime}
                       • {$_('checkin.checkedInAt', { values: { time: child.checkInTime } })}
                     {/if}
@@ -533,33 +584,13 @@
 
               <!-- Ticket assignment expansion (for "No Ticket" children) -->
               {#if isChildExpanded && child.ticket === 'none'}
-                <div class="w-full bg-warning-50 border border-warning-200 rounded p-3 animate-expand">
-                  <p class="text-sm text-neutral-700 mb-2 font-medium">
-                    {$_('checkin.checkIn')} {child.name} with:
-                  </p>
-                  <div class="flex gap-2">
-                    <button
-                      onclick={() => onAssignTicket(family.id, child.id, 'session')}
-                      class="flex-1 px-3 py-2 bg-primary-500 text-white text-sm font-semibold rounded-button hover:bg-primary-600 transition-colors"
-                      data-testid={`ticket-assign-session-${child.id}`}
-                    >
-                      {$_('checkin.ticketSession')}
-                    </button>
-                    <button
-                      onclick={() => onAssignTicket(family.id, child.id, 'event')}
-                      class="flex-1 px-3 py-2 bg-success-600 text-white text-sm font-semibold rounded-button hover:bg-success-700 transition-colors"
-                      data-testid={`ticket-assign-event-${child.id}`}
-                    >
-                      {$_('checkin.ticketEvent')}
-                    </button>
-                  </div>
-                </div>
+                {@render grantTicketPanel('child', child.name, child.id, 'w-full', (ticket) => onAssignTicket(family.id, child.id, ticket))}
               {/if}
             </div>
           {/each}
 
           <!-- Guardians subsection (mobile) -->
-          {#if parentCheckinEnabled && family.parents.length > 0}
+          {#if family.parents.length > 0}
             <div class="mt-1">
               <p class="text-xs font-semibold text-neutral-500 uppercase px-1 mb-1">
                 {$_('checkin.guardians')}
@@ -583,7 +614,7 @@
                         </span>
                       </div>
                       <div class="text-xs text-neutral-500 mt-0.5">
-                        {getTicketDisplay(parent)}
+                        {parentCheckinEnabled ? ticketSubtitle(parent, family) : $_('checkin.adultsNotCheckedInHere')}
                         {#if parent.checkedIn && parent.checkInTime}
                           • {$_('checkin.checkedInAt', { values: { time: parent.checkInTime } })}
                         {/if}
@@ -592,7 +623,8 @@
 
                     <!-- Actions -->
                     <div class="flex items-center gap-2 flex-wrap">
-                      <ParentCheckInButton
+                      {#if parentCheckinEnabled || parent.checkedIn}
+                        <ParentCheckInButton
                         {parent}
                         onCheckIn={() => onCheckInParent(family.id, parent.id)}
                         onUndo={() => onUndoParent(family.id, parent.id)}
@@ -601,32 +633,13 @@
                         expanded={isParentExpanded}
                         pendingPayment={!!family.pending_payment}
                       />
+                      {/if}
                     </div>
                   </div>
 
                   <!-- Ticket assignment expansion (for "No Ticket" parents) -->
                   {#if isParentExpanded && parent.ticket === 'none'}
-                    <div class="w-full bg-warning-50 border border-warning-200 rounded p-3 animate-expand">
-                      <p class="text-sm text-neutral-700 mb-2 font-medium">
-                        {$_('checkin.checkIn')} {parent.name} with:
-                      </p>
-                      <div class="flex gap-2">
-                        <button
-                          onclick={() => onAssignParentTicket(family.id, parent.id, 'session')}
-                          class="flex-1 px-3 py-2 bg-primary-500 text-white text-sm font-semibold rounded-button hover:bg-primary-600 transition-colors"
-                          data-testid={`parent-ticket-assign-session-${parent.id}`}
-                        >
-                          {$_('checkin.ticketSession')}
-                        </button>
-                        <button
-                          onclick={() => onAssignParentTicket(family.id, parent.id, 'event')}
-                          class="flex-1 px-3 py-2 bg-success-600 text-white text-sm font-semibold rounded-button hover:bg-success-700 transition-colors"
-                          data-testid={`parent-ticket-assign-event-${parent.id}`}
-                        >
-                          {$_('checkin.ticketEvent')}
-                        </button>
-                      </div>
-                    </div>
+                    {@render grantTicketPanel('adult', parent.name, parent.id, 'w-full', (ticket) => onAssignParentTicket(family.id, parent.id, ticket))}
                   {/if}
                 </div>
               {/each}
@@ -645,13 +658,13 @@
     <thead class="bg-neutral-50 border-b-2 border-neutral-300 sticky top-0 z-[5]">
       <tr>
         <th class="px-4 py-3 text-left text-sm font-medium text-neutral-700">
-          Family
+          {$_('checkin.colFamily')}
         </th>
         <th class="px-4 py-3 text-left text-sm font-medium text-neutral-700">
-          Status
+          {$_('checkin.colStatus')}
         </th>
         <th class="px-4 py-3 text-right text-sm font-medium text-neutral-700">
-          Actions
+          {$_('checkin.colActions')}
         </th>
       </tr>
     </thead>
@@ -665,7 +678,6 @@
         {@const checkedInParentsCount = getCheckedInParentsCount(family)}
         {@const canCheckInCount = getCanCheckInCount(family)}
         {@const allCheckedIn = isAllCheckedIn(family)}
-        {@const noTicketChildren = hasNoTicketChildren(family)}
         {@const familyUndoSeconds = getFamilyUndoSeconds(family)}
 
         <!-- Family header row -->
@@ -752,7 +764,7 @@
                 >
                   {$_('checkin.pendingPaymentAwaiting')}
                 </span>
-              {:else if !allCheckedIn && canCheckInCount > 0 && !noTicketChildren}
+              {:else if !allCheckedIn && canCheckInCount > 0}
                 <button
                   type="button"
                   onclick={() => onCheckInFamily(family.id)}
@@ -838,7 +850,7 @@
                   <div class="flex-1">
                     <div class="font-medium text-neutral-700">{child.name}</div>
                     <div class="text-xs text-neutral-500 mt-0.5">
-                      {getTicketDisplay(child)}
+                      {ticketSubtitle(child, family)}
                       {#if child.checkedIn && child.checkInTime}
                         • {$_('checkin.checkedInAt', { values: { time: child.checkInTime } })}
                       {/if}
@@ -861,27 +873,7 @@
 
                 <!-- Ticket assignment expansion (inline for desktop) -->
                 {#if isChildExpanded && child.ticket === 'none'}
-                  <div class="mt-2 bg-warning-50 border border-warning-200 rounded p-3 animate-expand">
-                    <p class="text-sm text-neutral-700 mb-2 font-medium">
-                      {$_('checkin.checkIn')} {child.name} with:
-                    </p>
-                    <div class="flex gap-2">
-                      <button
-                        onclick={() => onAssignTicket(family.id, child.id, 'session')}
-                        class="flex-1 px-3 py-2 bg-primary-500 text-white text-sm font-semibold rounded-button hover:bg-primary-600 transition-colors"
-                        data-testid={`ticket-assign-session-${child.id}`}
-                      >
-                        {$_('checkin.ticketSession')}
-                      </button>
-                      <button
-                        onclick={() => onAssignTicket(family.id, child.id, 'event')}
-                        class="flex-1 px-3 py-2 bg-success-600 text-white text-sm font-semibold rounded-button hover:bg-success-700 transition-colors"
-                        data-testid={`ticket-assign-event-${child.id}`}
-                      >
-                        {$_('checkin.ticketEvent')}
-                      </button>
-                    </div>
-                  </div>
+                  {@render grantTicketPanel('child', child.name, child.id, 'mt-2', (ticket) => onAssignTicket(family.id, child.id, ticket))}
                 {/if}
               </td>
               <td class="px-4 py-3">
@@ -901,7 +893,7 @@
           {/each}
 
           <!-- Guardians subsection heading row (desktop) -->
-          {#if parentCheckinEnabled && family.parents.length > 0}
+          {#if family.parents.length > 0}
             <tr class="border-b border-neutral-200 bg-neutral-50">
               <td class="px-4 py-1 pl-12" colspan="3">
                 <span class="text-xs font-semibold text-neutral-500 uppercase">
@@ -925,7 +917,7 @@
                         </span>
                       </div>
                       <div class="text-xs text-neutral-500 mt-0.5">
-                        {getTicketDisplay(parent)}
+                        {parentCheckinEnabled ? ticketSubtitle(parent, family) : $_('checkin.adultsNotCheckedInHere')}
                         {#if parent.checkedIn && parent.checkInTime}
                           • {$_('checkin.checkedInAt', { values: { time: parent.checkInTime } })}
                         {/if}
@@ -935,32 +927,13 @@
 
                   <!-- Ticket assignment expansion (inline for desktop) -->
                   {#if isParentExpanded && parent.ticket === 'none'}
-                    <div class="mt-2 bg-warning-50 border border-warning-200 rounded p-3 animate-expand">
-                      <p class="text-sm text-neutral-700 mb-2 font-medium">
-                        {$_('checkin.checkIn')} {parent.name} with:
-                      </p>
-                      <div class="flex gap-2">
-                        <button
-                          onclick={() => onAssignParentTicket(family.id, parent.id, 'session')}
-                          class="flex-1 px-3 py-2 bg-primary-500 text-white text-sm font-semibold rounded-button hover:bg-primary-600 transition-colors"
-                          data-testid={`parent-ticket-assign-session-${parent.id}`}
-                        >
-                          {$_('checkin.ticketSession')}
-                        </button>
-                        <button
-                          onclick={() => onAssignParentTicket(family.id, parent.id, 'event')}
-                          class="flex-1 px-3 py-2 bg-success-600 text-white text-sm font-semibold rounded-button hover:bg-success-700 transition-colors"
-                          data-testid={`parent-ticket-assign-event-${parent.id}`}
-                        >
-                          {$_('checkin.ticketEvent')}
-                        </button>
-                      </div>
-                    </div>
+                    {@render grantTicketPanel('adult', parent.name, parent.id, 'mt-2', (ticket) => onAssignParentTicket(family.id, parent.id, ticket))}
                   {/if}
                 </td>
                 <td class="px-4 py-3">
                   <div class="flex justify-end">
-                    <ParentCheckInButton
+                    {#if parentCheckinEnabled || parent.checkedIn}
+                      <ParentCheckInButton
                       {parent}
                       onCheckIn={() => onCheckInParent(family.id, parent.id)}
                       onUndo={() => onUndoParent(family.id, parent.id)}
@@ -969,6 +942,7 @@
                       expanded={isParentExpanded}
                       pendingPayment={!!family.pending_payment}
                     />
+                    {/if}
                   </div>
                 </td>
               </tr>

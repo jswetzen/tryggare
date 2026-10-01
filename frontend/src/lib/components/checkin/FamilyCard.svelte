@@ -115,7 +115,7 @@
       <button
         on:click={onToggle}
         class="flex items-start gap-2 flex-1 min-w-0 text-left hover:bg-neutral-100 rounded px-2 py-1.5 -mx-2 -my-1.5 transition-colors"
-        aria-label={`${expanded ? 'Collapse' : 'Expand'} ${family.name} family`}
+        aria-label={$_(expanded ? 'checkin.collapseFamily' : 'checkin.expandFamily', { values: { familyName: family.name } })}
         data-testid={`family-toggle-button-${family.id}`}
       >
         <div class="text-neutral-600 flex-shrink-0 pt-0.5">
@@ -150,7 +150,7 @@
           <button
             on:click={onUndoFamily}
             class="px-3 py-1.5 sm:px-4 sm:py-2 bg-warning-600 text-white font-semibold rounded-button hover:bg-warning-700 transition-colors text-xs sm:text-sm whitespace-nowrap"
-            aria-label={`Undo family check-in, ${familyUndoSeconds} seconds remaining`}
+            aria-label={$_('checkin.undoFamilyAria', { values: { seconds: familyUndoSeconds } })}
             data-testid={`family-undo-button-${family.id}`}
           >
             {$_('checkin.undoSeconds', { values: { seconds: familyUndoSeconds } })}
@@ -161,7 +161,7 @@
             type="button"
             on:click={onCheckInFamily}
             class="px-3 py-1.5 sm:px-4 sm:py-2 bg-primary-600 text-white font-semibold rounded-button hover:bg-primary-700 transition-colors text-xs sm:text-sm whitespace-nowrap"
-            aria-label={`Check in ${canCheckInCount} children from ${family.name} family`}
+            aria-label={$_('checkin.checkInFamilyAria', { values: { count: canCheckInCount, familyName: family.name } })}
             data-testid={`family-check-in-button-${family.id}`}
           >
             {$_('checkin.checkInCount', { values: { count: canCheckInCount } })}
@@ -283,7 +283,7 @@
           {#if isExpanded && child.ticket === 'none'}
             <div class="w-full bg-warning-50 border border-warning-200 rounded p-3 animate-expand">
               <p class="text-sm text-neutral-700 mb-2 font-medium">
-                {$_('checkin.checkIn')} {child.name} with:
+                {$_('checkin.checkInWith', { values: { name: child.name } })}
               </p>
               <div class="flex gap-2">
                 <button

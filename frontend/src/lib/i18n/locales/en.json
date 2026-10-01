@@ -75,6 +75,20 @@
     "ticketNone": "No Ticket",
     "ticketSession": "Session Only",
     "ticketEvent": "Full Event Pass",
+    "ticketNotRequired": "No ticket needed",
+    "ticketGuardianOnly": "Guardian, no ticket needed",
+    "adultsNotCheckedInHere": "Adults are not checked in at this session",
+    "expandFamily": "Expand {familyName} family",
+    "collapseFamily": "Collapse {familyName} family",
+    "undoFamilyAria": "Undo family check-in, {seconds} seconds remaining",
+    "checkInFamilyAria": "Check in {count} children from {familyName} family",
+    "checkInWith": "Check in {name} with:",
+    "grantTicketPromptChild": "This session requires a ticket for children. Check in {name} with:",
+    "grantTicketPromptAdult": "This session requires a ticket for adults. Check in {name} with:",
+    "colFamily": "Family",
+    "colStatus": "Status",
+    "colActions": "Actions",
+    "fullyCheckedInMatch": "{name} is already fully checked in",
     "ticketTypeNewMembersHint": "Only applies to parents or children added just now — existing members keep whatever ticket they already have.",
     "checkIn": "Check In",
     "checkInFamily": "Check in {family} ({count})",
@@ -479,7 +493,11 @@
   "session": {
     "event": "Event:",
     "session": "Session:",
-    "changeSession": "Change Session"
+    "changeSession": "Change Session",
+    "ruleOpen": "Open - no ticket needed",
+    "ruleChildren": "Children need a ticket",
+    "ruleAll": "Everyone needs a ticket",
+    "adultsNotCheckedIn": "Adults are not checked in"
   },
   "common": {
     "searchFamilies": "Search Families",

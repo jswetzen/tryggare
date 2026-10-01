@@ -5,6 +5,11 @@
 
 export type TicketType = 'event' | 'session' | 'none';
 
+/** Why someone may be checked in without holding a ticket for the session: the rule does not
+ *  ask their kind of person for one, or they are a guardian-only adult on a confirmed
+ *  registration. Display only; the allow/block decision is `ticket !== 'none'`. */
+export type TicketExemption = 'not_required' | 'guardian_only';
+
 export interface Child {
   id: string;
   first_name: string;
@@ -12,6 +17,7 @@ export interface Child {
   name: string; // Computed from first_name + last_name
   ticket: TicketType;
   ticket_type: TicketType; // Backend field name
+  ticketExemption?: TicketExemption;
   ticket_details?: {
     event_tickets: Array<{
       id: string;
@@ -54,6 +60,9 @@ export interface Parent {
   relationship_type: string;
   ticket: TicketType;
   ticket_type: TicketType;
+  ticketExemption?: TicketExemption;
+  /** The session never checks adults in (adults_not_checked_in). */
+  notCheckedInHere?: boolean;
   ticket_details?: {
     event_tickets: Array<{
       id: string;
@@ -117,9 +126,9 @@ export interface Session {
   /** The session's own ticket rule; blank inherits the event default. */
   ticket_rule?: TicketRule | '';
   /** The rule actually in force (own rule, else the event default). The check-in UI
-   *  moves onto this and adults_not_checked_in in a later increment; until then
-   *  requires_ticket and effective_parent_checkin_policy are derived, read-only
-   *  compatibility values the server computes from these. */
+   *  reads this and adults_not_checked_in; requires_ticket and
+   *  effective_parent_checkin_policy are derived, read-only compatibility values the
+   *  server still derives from these (mergeFamilies falls back to them only when this is missing). */
   effective_ticket_rule?: TicketRule;
   /** True for drop-off sessions where no adult is checked in (guardians included). */
   adults_not_checked_in?: boolean;
@@ -156,6 +165,8 @@ export interface FamilyApiResponse {
     email?: string;
     relationship_type: string;
     ticket_type: string | null;
+    /** Events where this adult is a guardian-only adult on a CONFIRMED registration. */
+    guardian_only_event_ids?: string[];
     ticket_details?: {
       event_tickets: Array<{
         id: string;

@@ -75,6 +75,20 @@
     "ticketNone": "Ingen biljett",
     "ticketSession": "Endast session",
     "ticketEvent": "Fullt evenemangspass",
+    "ticketNotRequired": "Ingen biljett krävs",
+    "ticketGuardianOnly": "Vårdnadshavare, ingen biljett krävs",
+    "adultsNotCheckedInHere": "Vuxna checkas inte in på det här passet",
+    "expandFamily": "Visa familjen {familyName}",
+    "collapseFamily": "Dölj familjen {familyName}",
+    "undoFamilyAria": "Ångra familjens incheckning, {seconds} sekunder kvar",
+    "checkInFamilyAria": "Checka in {count} barn i familjen {familyName}",
+    "checkInWith": "Checka in {name} med:",
+    "grantTicketPromptChild": "Det här passet kräver biljett för barn. Checka in {name} med:",
+    "grantTicketPromptAdult": "Det här passet kräver biljett för vuxna. Checka in {name} med:",
+    "colFamily": "Familj",
+    "colStatus": "Status",
+    "colActions": "Åtgärder",
+    "fullyCheckedInMatch": "{name} är redan helt incheckad",
     "ticketTypeNewMembersHint": "Gäller endast föräldrar eller barn som just lagts till — befintliga medlemmar behåller sin nuvarande biljett.",
     "checkIn": "Checka in",
     "checkInFamily": "Checka in {family} ({count})",
@@ -479,7 +493,11 @@
   "session": {
     "event": "Evenemang:",
     "session": "Session:",
-    "changeSession": "Byt session"
+    "changeSession": "Byt session",
+    "ruleOpen": "Öppet - ingen biljett krävs",
+    "ruleChildren": "Barn behöver biljett",
+    "ruleAll": "Alla behöver biljett",
+    "adultsNotCheckedIn": "Vuxna checkas inte in"
   },
   "common": {
     "searchFamilies": "Sök familjer",

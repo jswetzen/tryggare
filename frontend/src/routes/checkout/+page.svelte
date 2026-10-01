@@ -13,6 +13,7 @@
   import CheckoutExpandableTable from '$lib/components/checkout/CheckoutExpandableTable.svelte';
   import SessionIndicator from '$lib/components/checkin/SessionIndicator.svelte';
   import SessionSelector from '$lib/components/SessionSelector.svelte';
+  import { pickSession, saveSessionId } from '$lib/checkin/utils/sessionChoice';
 
   let searchQuery = $state('');
   let activeCheckIns = $state<CheckInRecord[]>([]);
@@ -141,7 +142,8 @@
       const sessions = await sessionApi.active();
       activeSessions = sessions;
       if (sessions.length > 0) {
-        activeSession = sessions[0]; // Use the first active session
+        // The session this desk last picked if it is still active, else the first one.
+        activeSession = pickSession(sessions);
       }
     } catch (err) {
       console.error('Failed to load active session:', err);
@@ -188,6 +190,7 @@
 
   function handleSessionSelect(session: Session) {
     activeSession = session;
+    saveSessionId(session.id);
     showSessionSelector = false;
     loadActiveCheckIns();
   }

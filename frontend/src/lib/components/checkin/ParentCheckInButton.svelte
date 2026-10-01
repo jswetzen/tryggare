@@ -9,6 +9,7 @@
    * - No Ticket (red) - for parents without tickets, expands to show ticket assignment
    */
   import { _ } from 'svelte-i18n';
+  import { Icon } from '$lib/components/ui';
   import type { Parent } from '$lib/checkin/types';
 
   let {
@@ -68,7 +69,8 @@
     aria-label={$_('checkin.noTicketClickToAssign')}
     data-testid={`parent-expand-button-${parent.id}`}
   >
-    {$_('checkin.ticketNone')} {expanded ? '▲' : '▼'}
+    {$_('checkin.ticketNone')}
+    <Icon name={expanded ? 'chevron-up' : 'chevron-down'} size="xs" class="inline-block ml-1 align-middle" />
   </button>
 {:else}
   <!-- Has valid ticket, ready to check in -->

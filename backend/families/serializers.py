@@ -64,6 +64,7 @@ class ParentSerializer(SafetyInfoDisclosureMixin, serializers.ModelSerializer):
     name = serializers.ReadOnlyField()
     ticket_type = serializers.SerializerMethodField()
     ticket_details = serializers.SerializerMethodField()
+    guardian_only_event_ids = serializers.SerializerMethodField()
     is_checked_in = serializers.SerializerMethodField()
     active_checkin_id = serializers.SerializerMethodField()
     has_safety_info = serializers.SerializerMethodField()
@@ -89,6 +90,7 @@ class ParentSerializer(SafetyInfoDisclosureMixin, serializers.ModelSerializer):
             "family",
             "ticket_type",
             "ticket_details",
+            "guardian_only_event_ids",
             "is_checked_in",
             "active_checkin_id",
         ]
@@ -103,6 +105,7 @@ class ParentSerializer(SafetyInfoDisclosureMixin, serializers.ModelSerializer):
             "last_participation_date",
             "ticket_type",
             "ticket_details",
+            "guardian_only_event_ids",
             "is_checked_in",
             "active_checkin_id",
         ]
@@ -115,6 +118,24 @@ class ParentSerializer(SafetyInfoDisclosureMixin, serializers.ModelSerializer):
         if not obj.has_ticket:
             return None
         return obj.get_ticket_details()
+
+    def get_guardian_only_event_ids(self, obj: Parent) -> list[str]:
+        """Events on which this adult is a stored guardian-only adult of a
+        CONFIRMED registration. The check-in screen needs it to agree with the
+        server's ticket gate (checkins/eligibility.py): such an adult is exempt
+        from the ``all`` ticket rule, and only on a confirmed registration.
+
+        Deliberately separate from ``ticket_details``, which stays unscoped
+        display data. Uses the ``guardian_registrations`` prefetch (confirmed
+        registrations only) when the viewset provided it, a query otherwise.
+        """
+        if hasattr(obj, "guardian_registrations"):
+            registrations = obj.guardian_registrations
+        else:
+            registrations = obj.guardian_only_registrations.filter(
+                status=Registration.Status.CONFIRMED
+            )
+        return sorted({str(r.event_id) for r in registrations})
 
     def get_is_checked_in(self, obj: Parent) -> bool:
         if hasattr(obj, "active_checkins"):
