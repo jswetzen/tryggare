@@ -51,7 +51,6 @@ const session = {
   start_time: '2026-07-11T09:00:00Z',
   end_time: '2026-07-11T12:00:00Z',
   is_active: true,
-  requires_ticket: false,
   effective_ticket_rule: 'open',
   adults_not_checked_in: false
 };

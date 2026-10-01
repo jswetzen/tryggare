@@ -156,15 +156,10 @@ class SessionAdmin(admin.ModelAdmin):
     )
     list_filter = ("is_active", "event", "ticket_rule", "adults_not_checked_in")
     search_fields = ("name", "event__name")
-    # Deprecated columns, read by nothing: not shown, so nobody sets a dead
-    # control. The proper admin redesign (and the column drop) is a later
-    # increment.
-    exclude = ("requires_ticket", "parent_checkin_policy")
     # The two controls that decide who gets checked in here sit in one block:
     # staff evaluating the old layout could not tell them apart, because the
     # ticket rule and the "adults" checkbox were scattered through one flat
-    # list. ``fieldsets`` is an allow-list, so the deprecated columns stay off
-    # the form without needing ``exclude`` (kept anyway as a second guard).
+    # list.
     fieldsets = (
         (
             None,

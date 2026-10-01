@@ -75,7 +75,7 @@ def registration_checkin_gate_error(attendee: Attendee, session: Session) -> str
 
     New gate, not an extension of an existing one: before self-serve
     registration existed there was no ticket-validity check for children at
-    check-in at all (the old `requires_ticket` was pure display metadata). A ticket
+    check-in at all (the former Session.requires_ticket was pure display metadata). A ticket
     whose `registration` FK is set only counts toward eligibility once
     `registration.status == CONFIRMED` — staff-created tickets always have
     `registration=None` and are entirely unaffected. `EventTicket`/
@@ -127,7 +127,7 @@ def parent_checkin_gate_error(parent: Parent, session: Session) -> str | None:
     action and the serializer's validate() so a stray POST to the generic
     CheckInRecord endpoint can't bypass it. Driven by the session's ticket
     rule (``Session.effective_ticket_rule``) and ``adults_not_checked_in``;
-    the old ``parent_checkin_policy`` is no longer read.
+    the former ``parent_checkin_policy`` column no longer exists.
     """
     # The checkbox beats everything, guardians included: nobody is checked in
     # as an adult here, whatever they hold.

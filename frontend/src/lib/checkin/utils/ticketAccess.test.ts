@@ -26,10 +26,6 @@ const session = (rule: TicketRule, adultsNotHere = false): Session => ({
   start_time: '09:00',
   is_active: true,
   event_name: 'Conference',
-  // The derived legacy fields must NOT be what decides: give deliberately
-  // misleading values so a regression to reading them shows up.
-  requires_ticket: false,
-  effective_parent_checkin_policy: 'open',
   effective_ticket_rule: rule,
   adults_not_checked_in: adultsNotHere,
 });
@@ -151,27 +147,22 @@ describe('ticket scoping (Attendee.has_ticket_for)', () => {
 });
 
 describe('rule resolution', () => {
-  it('prefers effective_ticket_rule over the derived legacy fields', () => {
+  it('reads effective_ticket_rule and adults_not_checked_in', () => {
     expect(ticketRuleOf(session('all'))).toBe('all');
     expect(adultsNotCheckedIn(session('open', true))).toBe(true);
     expect(adultsNotCheckedIn(null)).toBe(false);
   });
 
-  it('falls back to the legacy fields when talking to an older server', () => {
-    const legacy = (requires_ticket: boolean, policy: Session['effective_parent_checkin_policy']) =>
-      ({
-        id: SESSION,
-        event: EVENT,
-        name: 'S',
-        start_time: '09:00',
-        is_active: true,
-        event_name: 'E',
-        requires_ticket,
-        effective_parent_checkin_policy: policy,
-      }) as Session;
-    expect(ticketRuleOf(legacy(false, 'open'))).toBe('open');
-    expect(ticketRuleOf(legacy(true, 'open'))).toBe('children');
-    expect(ticketRuleOf(legacy(true, 'ticket_required'))).toBe('all');
-    expect(adultsNotCheckedIn(legacy(true, 'disabled'))).toBe(true);
+  it('treats a payload without the new fields as open, adults checked in', () => {
+    const bare = {
+      id: SESSION,
+      event: EVENT,
+      name: 'S',
+      start_time: '09:00',
+      is_active: true,
+      event_name: 'E',
+    } as Session;
+    expect(ticketRuleOf(bare)).toBe('open');
+    expect(adultsNotCheckedIn(bare)).toBe(false);
   });
 });

@@ -10,9 +10,9 @@ from django.utils.translation import gettext_lazy as _
 
 class ParentCheckinPolicy(models.TextChoices):
     """DEPRECATED (2026-10-01): superseded by ``TicketRule`` +
-    ``Session.adults_not_checked_in``. Nothing reads it any more; it stays only
-    so the migration that folds it into the new fields has a reverse, and goes
-    away with the old columns in the admin increment.
+    ``Session.adults_not_checked_in``. Nothing reads it any more; it survives
+    only as the choices of ``Event.parent_checkin_policy_default``, the one
+    deprecated column still in the schema (the ``Session`` columns are gone).
 
     Who's allowed to check in as a parent/guardian, and whether they need a ticket.
 
@@ -31,9 +31,10 @@ class TicketRule(models.TextChoices):
     """Who needs a ticket to be checked in to a session.
 
     Replaces two overlapping per-session controls that disagreed with each
-    other (decided 2026-10-01): ``Session.requires_ticket`` (children only,
-    enforced only in the check-in UI) and ``Session.parent_checkin_policy``
-    (adults only, server-enforced). One rule, server-enforced, for everyone.
+    other (decided 2026-10-01): the former ``Session.requires_ticket``
+    (children only, enforced only in the check-in UI) and
+    ``Session.parent_checkin_policy`` (adults only, server-enforced), both
+    since dropped. One rule, server-enforced, for everyone.
     Module level for the same reason as ``ParentCheckinPolicy``: Event and
     Session both reference ``TicketRule.choices``.
 
@@ -207,7 +208,6 @@ class Event(models.Model):
 
 
 class Session(models.Model):
-    ParentCheckinPolicy = ParentCheckinPolicy
     TicketRule = TicketRule
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
@@ -262,25 +262,6 @@ class Session(models.Model):
         # The "already ticked when you add a new session" sentence is NOT
         # here: it is false on a change page, so SessionAdmin.get_form adds
         # it on the add form only.
-    )
-    # DEPRECATED 2026-10-01: neither of the next two fields is read by
-    # anything. Superseded by ticket_rule / adults_not_checked_in; kept only so
-    # the data migration is cheaply reversible. Dropped in the admin increment.
-    requires_ticket = models.BooleanField(
-        default=False,
-        verbose_name=_("Requires Ticket"),
-        help_text=_("Deprecated and no longer used - see 'Ticket Rule'."),
-    )
-    parent_checkin_policy = models.CharField(
-        max_length=20,
-        choices=ParentCheckinPolicy.choices,
-        blank=True,
-        default="",
-        verbose_name=_("Parent Check-In Policy"),
-        help_text=_(
-            "Deprecated and no longer used - see 'Ticket Rule' and 'Adults "
-            "are not checked in here'."
-        ),
     )
     event = models.ForeignKey(
         Event,

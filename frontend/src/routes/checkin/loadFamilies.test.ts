@@ -322,10 +322,8 @@ describe('parent transform and merge', () => {
     start_time: '09:00',
     is_active: true,
     event_name: 'Annual Conference',
-    requires_ticket: true,
     effective_ticket_rule: 'all',
     adults_not_checked_in: false,
-    effective_parent_checkin_policy: 'ticket_required',
   };
 
   const makeApiFamily = (parents: FamilyApiResponse['parents']): FamilyApiResponse => ({
@@ -464,7 +462,7 @@ describe('parent transform and merge', () => {
   });
 
   it('should treat a ticketless parent as eligible when the session rule only asks children for a ticket', () => {
-    const openSession = { ...sessionWithTicket, effective_ticket_rule: 'children' as const, effective_parent_checkin_policy: 'open' as const };
+    const openSession = { ...sessionWithTicket, effective_ticket_rule: 'children' as const };
     const apiFamily = makeApiFamily([
       {
         id: 'parent-4',
@@ -485,7 +483,7 @@ describe('parent transform and merge', () => {
   });
 
   it('should treat any parent as ineligible when adults are not checked in, ticket or not', () => {
-    const disabledSession = { ...sessionWithTicket, adults_not_checked_in: true, effective_parent_checkin_policy: 'disabled' as const };
+    const disabledSession = { ...sessionWithTicket, adults_not_checked_in: true };
     const apiFamily = makeApiFamily([
       {
         id: 'parent-5',
@@ -540,7 +538,6 @@ describe('guardian-only adults in the transformed family', () => {
     start_time: '09:00',
     is_active: true,
     event_name: 'Annual Conference',
-    requires_ticket: true,
     effective_ticket_rule: 'all',
     adults_not_checked_in: false,
   };

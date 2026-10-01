@@ -124,8 +124,6 @@ export interface Family {
   pending_payment?: PendingPayment | null;
 }
 
-export type ParentCheckinPolicy = 'disabled' | 'open' | 'ticket_required';
-
 /** Who needs a ticket to be checked in to a session (server-enforced; see
  *  checkins/eligibility.py). A blank Session.ticket_rule inherits the event default. */
 export type TicketRule = 'open' | 'children' | 'all';
@@ -138,23 +136,13 @@ export interface Session {
   end_time?: string;
   is_active: boolean;
   event_name: string;
-  requires_ticket: boolean;
   /** The session's own ticket rule; blank inherits the event default. */
   ticket_rule?: TicketRule | '';
   /** The rule actually in force (own rule, else the event default). The check-in UI
-   *  reads this and adults_not_checked_in; requires_ticket and
-   *  effective_parent_checkin_policy are derived, read-only compatibility values the
-   *  server still derives from these (mergeFamilies falls back to them only when this is missing). */
+   *  reads this and adults_not_checked_in. */
   effective_ticket_rule?: TicketRule;
   /** True for drop-off sessions where no adult is checked in (guardians included). */
   adults_not_checked_in?: boolean;
-  /** DEPRECATED: no longer returned by the API (the column drives nothing).
-   *  Blank meant "inherit the event's default" — read effective_parent_checkin_policy instead.
-   *  Optional (rather than required) only to avoid widening the pre-existing structural
-   *  mismatch with the separate Session type in $lib/api/types — both are always present
-   *  on the actual API response. */
-  parent_checkin_policy?: ParentCheckinPolicy | '';
-  effective_parent_checkin_policy?: ParentCheckinPolicy;
 }
 
 export interface UndoAction {

@@ -2,9 +2,9 @@
 The merged, server-enforced ticket rule (owner decision 2026-10-01).
 
 ``Session.ticket_rule`` (open / children / all, blank inherits
-``Event.ticket_rule_default``) plus ``Session.adults_not_checked_in`` replace the
+``Event.ticket_rule_default``) plus ``Session.adults_not_checked_in`` replaced the
 old ``requires_ticket`` (children only, UI-enforced) and
-``parent_checkin_policy`` (adults only). ``Attendee.has_ticket_for(session)``
+``parent_checkin_policy`` (adults only), whose columns migration 0025 dropped. ``Attendee.has_ticket_for(session)``
 is the single helper the gate asks.
 
 Every row of the matrix is asserted through BOTH entry points, because they are
@@ -12,9 +12,9 @@ two separate code paths that must agree: the ``check_in`` view action and the
 generic ``POST /api/checkins/`` (``CheckInRecordSerializer.validate``).
 
 Also covered: migration 0022 (six combinations, event-default inheritance,
-forward-then-reverse on EFFECTIVE behaviour), the derived read-only serializer
-fields an older frontend still reads, and the check-out PATCH that must never
-be refused.
+forward-then-reverse on EFFECTIVE behaviour), migration 0025 (the columns are
+dropped and its reverse re-adds them), the serializer no longer exposing the
+old derived fields, and the check-out PATCH that must never be refused.
 """
 
 import importlib
@@ -22,8 +22,9 @@ import uuid
 from datetime import timedelta
 
 import pytest
-from django.apps import apps as global_apps
 from django.contrib.auth import get_user_model
+from django.db import connection
+from django.db.migrations.executor import MigrationExecutor
 from django.urls import reverse
 from django.utils import timezone
 from rest_framework.test import APIClient
@@ -412,35 +413,33 @@ class TestSessionSerializer:
         return _client().get(reverse("session-detail", args=[session.id])).data
 
     @pytest.mark.parametrize(
-        "rule,adults_off,requires_ticket,policy",
+        "rule,adults_off",
         [
-            (OPEN, False, False, "open"),
-            (CHILDREN, False, True, "open"),
-            (ALL, False, True, "ticket_required"),
-            (OPEN, True, False, "disabled"),
-            (CHILDREN, True, True, "disabled"),
-            (ALL, True, True, "disabled"),
+            (OPEN, False),
+            (CHILDREN, False),
+            (ALL, False),
+            (OPEN, True),
+            (CHILDREN, True),
+            (ALL, True),
         ],
     )
-    def test_exposes_new_fields_and_derived_legacy_ones(
-        self, rule, adults_off, requires_ticket, policy
-    ):
+    def test_exposes_the_rule_and_the_adults_flag(self, rule, adults_off):
         session = _session(_event(), rule, adults_not_checked_in=adults_off)
         data = self._get(session)
         assert data["ticket_rule"] == rule
         assert data["effective_ticket_rule"] == rule
         assert data["adults_not_checked_in"] is adults_off
-        assert data["requires_ticket"] is requires_ticket
-        assert data["effective_parent_checkin_policy"] == policy
+        # The derived legacy fields are gone from the payload.
+        assert "requires_ticket" not in data
+        assert "effective_parent_checkin_policy" not in data
 
     def test_effective_rule_resolves_the_event_default(self):
         session = _session(_event(ticket_rule_default=ALL), "")
         data = self._get(session)
         assert data["ticket_rule"] == ""
         assert data["effective_ticket_rule"] == ALL
-        assert data["requires_ticket"] is True
 
-    def test_legacy_fields_are_read_only(self):
+    def test_legacy_fields_in_a_request_are_ignored(self):
         session = _session(_event(), OPEN)
         coordinator = _client(_user(COORDINATOR, "coord3"))
         response = coordinator.patch(
@@ -468,19 +467,56 @@ class TestSessionSerializer:
 
 
 # ---------------------------------------------------------------------------
-# Migration 0022
+# Migrations 0022 (fold) and 0025 (drop the old columns)
+#
+# The old columns no longer exist on the real models, so these tests walk the
+# real schema BACK to 0024 (which is also the proof that 0025's reverse
+# re-adds both columns), build rows through the historical model registry
+# for that state, run 0022's forward/reverse against it, and migrate forward
+# to the leaf again afterwards. Needs a transactional DB: DDL plus a flush.
 # ---------------------------------------------------------------------------
 
 migration = importlib.import_module(
     "events.migrations.0022_fold_ticket_controls_into_ticket_rule"
 )
 
+BEFORE_DROP = ("events", "0024_ticket_door_grant_permissions")
 
-def _old_session(event, requires_ticket, policy, name="old"):
+
+def _session_columns():
+    with connection.cursor() as cursor:
+        return {
+            column.name
+            for column in connection.introspection.get_table_description(
+                cursor, Session._meta.db_table
+            )
+        }
+
+
+@pytest.fixture
+def legacy_apps():
+    """The model registry as it was at 0024: the old columns exist."""
+    executor = MigrationExecutor(connection)
+    executor.migrate([BEFORE_DROP])
+    try:
+        yield MigrationExecutor(connection).loader.project_state([BEFORE_DROP]).apps
+    finally:
+        executor = MigrationExecutor(connection)
+        executor.migrate(executor.loader.graph.leaf_nodes())
+
+
+def _old_event(apps, name="E", **extra):
+    today = timezone.now().date()
+    return apps.get_model("events", "Event").objects.create(
+        name=name, start_date=today, end_date=today, **extra
+    )
+
+
+def _old_session(apps, event, requires_ticket, policy, name="old"):
     """A session as the OLD columns describe it (the new ones left at their
-    defaults, as they are when the migration starts)."""
+    defaults, as they are when 0022 starts)."""
     now = timezone.now()
-    return Session.objects.create(
+    return apps.get_model("events", "Session").objects.create(
         name=name,
         event=event,
         start_time=now,
@@ -488,6 +524,17 @@ def _old_session(event, requires_ticket, policy, name="old"):
         requires_ticket=requires_ticket,
         parent_checkin_policy=policy,
     )
+
+
+def _reload(apps, row):
+    manager = type(row).objects
+    if hasattr(row, "event_id"):  # a Session: resolve its event default too
+        manager = manager.select_related("event")
+    return manager.get(pk=row.pk)
+
+
+def _effective_ticket_rule(session):
+    return session.ticket_rule or session.event.ticket_rule_default
 
 
 def _effective_adult_policy(session):
@@ -505,110 +552,151 @@ SIX = [
 ]
 
 
-@pytest.mark.django_db
-class TestMigration0022:
-    def _forward(self):
-        migration.forward(global_apps, None)
+@pytest.mark.django_db(transaction=True)
+class TestMigration0025:
+    def test_the_old_columns_are_gone_at_the_leaf(self):
+        columns = _session_columns()
+        assert "requires_ticket" not in columns
+        assert "parent_checkin_policy" not in columns
+        assert {"ticket_rule", "adults_not_checked_in"} <= columns
 
-    def _reverse(self):
-        migration.reverse(global_apps, None)
+    def test_reverse_re_adds_both_columns(self, legacy_apps):
+        columns = _session_columns()
+        assert {"requires_ticket", "parent_checkin_policy"} <= columns
+        # Rows can be created with the old defaults, so a backwards migrate
+        # leaves a usable table.
+        session = _old_session(legacy_apps, _old_event(legacy_apps), False, "")
+        assert session.requires_ticket is False
+        assert session.parent_checkin_policy == ""
+
+    def test_forward_migrates_cleanly_with_rows_present(self, legacy_apps):
+        _old_session(legacy_apps, _old_event(legacy_apps), True, "disabled")
+        executor = MigrationExecutor(connection)
+        executor.migrate(executor.loader.graph.leaf_nodes())
+        assert "requires_ticket" not in _session_columns()
+        assert Session.objects.count() == 1
+
+
+@pytest.mark.django_db(transaction=True)
+class TestMigration0022:
+    def _forward(self, apps):
+        migration.forward(apps, None)
+
+    def _reverse(self, apps):
+        migration.reverse(apps, None)
 
     @pytest.mark.parametrize("rc,policy,rule,adults_off", SIX)
-    def test_each_combination_maps_as_decided(self, rc, policy, rule, adults_off):
-        session = _old_session(_event(), rc, policy)
-        self._forward()
-        session.refresh_from_db()
-        assert session.effective_ticket_rule == rule
+    def test_each_combination_maps_as_decided(
+        self, legacy_apps, rc, policy, rule, adults_off
+    ):
+        session = _old_session(legacy_apps, _old_event(legacy_apps), rc, policy)
+        self._forward(legacy_apps)
+        session = _reload(legacy_apps, session)
+        assert _effective_ticket_rule(session) == rule
         assert session.adults_not_checked_in is adults_off
 
-    def test_a_rule_equal_to_the_event_default_is_left_blank_else_explicit(self):
-        event = _event()  # old default policy: open -> new default: open
-        same = _old_session(event, False, "open", "same")
-        differs = _old_session(event, True, "open", "differs")
-        self._forward()
-        same.refresh_from_db()
-        differs.refresh_from_db()
-        event.refresh_from_db()
+    def test_a_rule_equal_to_the_event_default_is_left_blank_else_explicit(
+        self, legacy_apps
+    ):
+        event = _old_event(legacy_apps)  # old default policy: open -> new default: open
+        same = _old_session(legacy_apps, event, False, "open", "same")
+        differs = _old_session(legacy_apps, event, True, "open", "differs")
+        self._forward(legacy_apps)
+        event = _reload(legacy_apps, event)
         assert event.ticket_rule_default == "open"
-        assert same.ticket_rule == ""
-        assert differs.ticket_rule == "children"
+        assert _reload(legacy_apps, same).ticket_rule == ""
+        assert _reload(legacy_apps, differs).ticket_rule == "children"
 
     @pytest.mark.parametrize(
         "old_default,new_default",
         [("open", "open"), ("ticket_required", "all"), ("disabled", "open")],
     )
-    def test_event_default_mapping(self, old_default, new_default):
-        event = _event(parent_checkin_policy_default=old_default)
-        self._forward()
-        event.refresh_from_db()
-        assert event.ticket_rule_default == new_default
+    def test_event_default_mapping(self, legacy_apps, old_default, new_default):
+        event = _old_event(legacy_apps, parent_checkin_policy_default=old_default)
+        self._forward(legacy_apps)
+        assert _reload(legacy_apps, event).ticket_rule_default == new_default
 
-    def test_sessions_inheriting_the_event_default_policy(self):
+    def test_sessions_inheriting_the_event_default_policy(self, legacy_apps):
         """Blank policy resolves through the event's OLD default before mapping."""
-        ticketed = _event("T", parent_checkin_policy_default="ticket_required")
-        disabled = _event("D", parent_checkin_policy_default="disabled")
-        t_free = _old_session(ticketed, False, "", "t_free")  # LOSSY via inheritance
-        t_children = _old_session(ticketed, True, "", "t_children")
-        d_free = _old_session(disabled, False, "", "d_free")
-        d_children = _old_session(disabled, True, "", "d_children")
-        self._forward()
-        for session in (t_free, t_children, d_free, d_children):
-            session.refresh_from_db()
+        ticketed = _old_event(
+            legacy_apps, "T", parent_checkin_policy_default="ticket_required"
+        )
+        disabled = _old_event(
+            legacy_apps, "D", parent_checkin_policy_default="disabled"
+        )
+        t_free = _old_session(legacy_apps, ticketed, False, "", "t_free")  # LOSSY
+        t_children = _old_session(legacy_apps, ticketed, True, "", "t_children")
+        d_free = _old_session(legacy_apps, disabled, False, "", "d_free")
+        d_children = _old_session(legacy_apps, disabled, True, "", "d_children")
+        self._forward(legacy_apps)
+        t_free, t_children, d_free, d_children = (
+            _reload(legacy_apps, s) for s in (t_free, t_children, d_free, d_children)
+        )
 
-        assert t_free.effective_ticket_rule == "all"
+        assert _effective_ticket_rule(t_free) == "all"
         assert t_free.ticket_rule == ""  # equals the event's new default
-        assert t_children.effective_ticket_rule == "all"
-        assert d_free.effective_ticket_rule == "open"
+        assert _effective_ticket_rule(t_children) == "all"
+        assert _effective_ticket_rule(d_free) == "open"
         assert d_free.adults_not_checked_in is True
-        assert d_children.effective_ticket_rule == "children"
+        assert _effective_ticket_rule(d_children) == "children"
         assert d_children.ticket_rule == "children"  # differs from "open"
         assert d_children.adults_not_checked_in is True
 
-    def test_the_lossy_case_is_printed_and_logged(self, capsys, caplog):
-        event = _event("Lossy Event")
-        _old_session(event, False, "ticket_required", "Lossy Session")
-        _old_session(event, True, "ticket_required", "Fine Session")
+    def test_the_lossy_case_is_printed_and_logged(self, legacy_apps, capsys, caplog):
+        event = _old_event(legacy_apps, "Lossy Event")
+        _old_session(legacy_apps, event, False, "ticket_required", "Lossy Session")
+        _old_session(legacy_apps, event, True, "ticket_required", "Fine Session")
         with caplog.at_level("WARNING"):
-            self._forward()
+            self._forward(legacy_apps)
         printed = capsys.readouterr().out
         assert "Lossy Event" in printed and "Lossy Session" in printed
         assert "Fine Session" not in printed
         logged = caplog.text
         assert "Lossy Session" in logged and "Lossy Event" in logged
 
-    def test_the_old_columns_are_left_untouched_by_the_forward_step(self):
-        session = _old_session(_event(), True, "disabled")
-        self._forward()
-        session.refresh_from_db()
+    def test_the_old_columns_are_left_untouched_by_the_forward_step(self, legacy_apps):
+        session = _old_session(legacy_apps, _old_event(legacy_apps), True, "disabled")
+        self._forward(legacy_apps)
+        session = _reload(legacy_apps, session)
         assert session.requires_ticket is True
         assert session.parent_checkin_policy == "disabled"
 
-    def test_forward_then_reverse_preserves_effective_behaviour(self):
+    def test_forward_then_reverse_preserves_effective_behaviour(self, legacy_apps):
         """Effective behaviour, not field equality: (F, ticket_required)
         comes back as (T, ticket_required) and an event default of disabled
         comes back as open plus an explicit disabled per session."""
-        ticketed = _event("T", parent_checkin_policy_default="ticket_required")
-        disabled = _event("D", parent_checkin_policy_default="disabled")
-        plain = _event("P")
+        ticketed = _old_event(
+            legacy_apps, "T", parent_checkin_policy_default="ticket_required"
+        )
+        disabled = _old_event(
+            legacy_apps, "D", parent_checkin_policy_default="disabled"
+        )
+        plain = _old_event(legacy_apps, "P")
         sessions = []
         for event in (ticketed, disabled, plain):
             for rc in (False, True):
                 for policy in ("", "open", "disabled", "ticket_required"):
                     sessions.append(
-                        _old_session(event, rc, policy, f"{event.name}-{rc}-{policy}")
+                        _old_session(
+                            legacy_apps,
+                            event,
+                            rc,
+                            policy,
+                            f"{event.name}-{rc}-{policy}",
+                        )
                     )
 
         def old_behaviour(session):
             # What the OLD code enforced for (children, adults).
             return session.requires_ticket, _effective_adult_policy(session)
 
-        before = {s.pk: old_behaviour(Session.objects.get(pk=s.pk)) for s in sessions}
+        before = {s.pk: old_behaviour(_reload(legacy_apps, s)) for s in sessions}
 
-        self._forward()
-        self._reverse()
+        self._forward(legacy_apps)
+        self._reverse(legacy_apps)
 
         for session in sessions:
-            session = Session.objects.select_related("event").get(pk=session.pk)
+            session = _reload(legacy_apps, session)
             old_children, old_adults = before[session.pk]
             children, adults = old_behaviour(session)
             # Children: needed a ticket before -> still do. The only change is
@@ -626,30 +714,35 @@ class TestMigration0022:
                 "ticket_required",
             )
 
-    def test_reverse_of_a_disabled_event_default_is_open_plus_explicit_disabled(self):
-        event = _event("D", parent_checkin_policy_default="disabled")
-        session = _old_session(event, False, "")
-        self._forward()
-        self._reverse()
-        event.refresh_from_db()
-        session.refresh_from_db()
+    def test_reverse_of_a_disabled_event_default_is_open_plus_explicit_disabled(
+        self, legacy_apps
+    ):
+        event = _old_event(legacy_apps, "D", parent_checkin_policy_default="disabled")
+        session = _old_session(legacy_apps, event, False, "")
+        self._forward(legacy_apps)
+        self._reverse(legacy_apps)
+        event = _reload(legacy_apps, event)
+        session = _reload(legacy_apps, session)
         assert event.parent_checkin_policy_default == "open"
         assert session.parent_checkin_policy == "disabled"
         assert session.requires_ticket is False
 
-    def test_local_dev_shape_is_a_no_op_on_behaviour(self):
+    def test_local_dev_shape_is_a_no_op_on_behaviour(self, legacy_apps):
         """The 8 sessions in the local dev DB: all (False, '', open) with an
         event default of open."""
-        event = _event()
-        sessions = [_old_session(event, False, "", f"s{i}") for i in range(8)]
-        self._forward()
+        event = _old_event(legacy_apps)
+        sessions = [
+            _old_session(legacy_apps, event, False, "", f"s{i}") for i in range(8)
+        ]
+        self._forward(legacy_apps)
         for session in sessions:
-            session.refresh_from_db()
+            session = _reload(legacy_apps, session)
             assert session.ticket_rule == ""
-            assert session.effective_ticket_rule == "open"
+            assert _effective_ticket_rule(session) == "open"
             assert session.adults_not_checked_in is False
 
 
+# ---------------------------------------------------------------------------
 # ---------------------------------------------------------------------------
 # Admin: new fields editable, dead controls not shown
 # ---------------------------------------------------------------------------

@@ -31,19 +31,15 @@ export type TicketAccess = {
 };
 
 // The rule the server enforces (checkins/eligibility.py): Session.effective_ticket_rule,
-// i.e. the session's own rule or the event default. An older server only sends the
-// derived requires_ticket / effective_parent_checkin_policy, so fall back to those.
+// i.e. the session's own rule or the event default. A payload without it (a fixture)
+// means no rule, so nobody is held back.
 export function ticketRuleOf(session: Session): TicketRule {
-  if (session.effective_ticket_rule) return session.effective_ticket_rule;
-  if (session.effective_parent_checkin_policy === 'ticket_required') return 'all';
-  return session.requires_ticket ? 'children' : 'open';
+  return session.effective_ticket_rule ?? 'open';
 }
 
 export function adultsNotCheckedIn(session: Session | null): boolean {
   if (!session) return false;
-  return (
-    session.adults_not_checked_in ?? session.effective_parent_checkin_policy === 'disabled'
-  );
+  return session.adults_not_checked_in ?? false;
 }
 
 // The server refuses an unconfirmed registration on every session of an event in event_ids and

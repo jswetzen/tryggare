@@ -21,7 +21,6 @@ const session = (over: Partial<Session> = {}): Session => ({
   start_time: '09:00',
   is_active: true,
   event_name: 'Conference',
-  requires_ticket: true,
   effective_ticket_rule: 'children',
   adults_not_checked_in: false,
   ...over,

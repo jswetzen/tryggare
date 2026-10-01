@@ -546,20 +546,6 @@ msgstr "Tick if only children are checked in to this session, not adults, as at 
 msgid "The box is already ticked when you add a new session: untick it for sessions where adults are checked in."
 msgstr "The box is already ticked when you add a new session: untick it for sessions where adults are checked in."
 
-msgid "Requires Ticket"
-msgstr "Requires Ticket"
-
-msgid "Deprecated and no longer used - see 'Ticket Rule'."
-msgstr "Deprecated and no longer used - see 'Ticket Rule'."
-
-msgid "Parent Check-In Policy"
-msgstr "Parent Check-In Policy"
-
-msgid ""
-"Deprecated and no longer used - see 'Ticket Rule' and 'Adults are not "
-"checked in here'."
-msgstr "Deprecated and no longer used - see 'Ticket Rule' and 'Adults are not checked in here'."
-
 msgid "Sessions"
 msgstr "Sessions"
 

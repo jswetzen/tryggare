@@ -353,7 +353,7 @@ gate check-in.
 a door?** If the session needs its own admission control (limited-seat
 excursion where gate-crashing matters), model it as a Session whose
 effective ticket rule is `children` or `all` (the merged `Session.ticket_rule`;
-the old `requires_ticket` boolean was retired 2026-10-01) that is **excluded from EventTicket coverage** —
+the old `requires_ticket` boolean was retired 2026-10-01 and its column dropped) that is **excluded from EventTicket coverage** —
 add `Session.included_in_event_ticket = BooleanField(default=True)`; the
 check-in eligibility gate and the registration form both read it.
 Pass-holders buy a real `SessionTicket` (with `ticket_type`, priced,

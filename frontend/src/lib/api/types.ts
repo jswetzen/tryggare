@@ -61,8 +61,6 @@ export interface Session {
   max_age_months?: number;
   description?: string;
   is_active: boolean;
-  /** Derived read-only: true when the effective ticket rule is children or all. */
-  requires_ticket: boolean;
   ticket_rule?: 'open' | 'children' | 'all' | '';
   effective_ticket_rule?: 'open' | 'children' | 'all';
   adults_not_checked_in?: boolean;

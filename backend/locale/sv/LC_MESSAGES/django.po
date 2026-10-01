@@ -553,20 +553,6 @@ msgstr "Kryssa i om bara barn checkas in på den här sessionen och inte vuxna, 
 msgid "The box is already ticked when you add a new session: untick it for sessions where adults are checked in."
 msgstr "Rutan är redan ikryssad när du lägger till en ny session: avmarkera den för sessioner där vuxna checkas in."
 
-msgid "Requires Ticket"
-msgstr "Kräver biljett"
-
-msgid "Deprecated and no longer used - see 'Ticket Rule'."
-msgstr "Används inte längre – se ”Biljettregel”."
-
-msgid "Parent Check-In Policy"
-msgstr "Regel för incheckning av föräldrar"
-
-msgid ""
-"Deprecated and no longer used - see 'Ticket Rule' and 'Adults are not "
-"checked in here'."
-msgstr "Används inte längre – se ”Biljettregel” och ”Vuxna checkas inte in här”."
-
 msgid "Sessions"
 msgstr "Sessioner"
 
