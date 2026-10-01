@@ -351,8 +351,9 @@ gate check-in.
 
 **Recommendation.** Decide by one question: **does staff scan for it at
 a door?** If the session needs its own admission control (limited-seat
-excursion where gate-crashing matters), model it as a Session with
-`requires_ticket=True` that is **excluded from EventTicket coverage** —
+excursion where gate-crashing matters), model it as a Session whose
+effective ticket rule is `children` or `all` (the merged `Session.ticket_rule`;
+the old `requires_ticket` boolean was retired 2026-10-01) that is **excluded from EventTicket coverage** —
 add `Session.included_in_event_ticket = BooleanField(default=True)`; the
 check-in eligibility gate and the registration form both read it.
 Pass-holders buy a real `SessionTicket` (with `ticket_type`, priced,
@@ -360,6 +361,17 @@ capacity-counted) for it. If nobody scans (Saturday dinner — kitchen
 just needs a count), it's a session-scoped `Extra` (case 3.1) and the
 ticket model stays out of it. Both mechanisms exist anyway; the flag is
 the only new schema.
+
+> **Status note (2026-10-01).** `Session.included_in_event_ticket` is still
+> NOT built. What exists now is the merged per-session ticket rule
+> (`Session.ticket_rule` open / children / all, inheriting
+> `Event.ticket_rule_default`, plus `Session.adults_not_checked_in`), enforced
+> server-side in `checkins/eligibility.py`. The two coexist: the rule decides
+> *who* must hold a ticket, and when `included_in_event_ticket` lands it will
+> only change *which* tickets count. The single helper both read is
+> `Attendee.has_ticket_for(session)` (an EventTicket for the session's event OR
+> a SessionTicket for that session); the flag belongs inside that helper, not
+> in a second check at the call sites.
 
 ### 2.5 Zero-priced ticket types and the `Event.is_paid` trap
 

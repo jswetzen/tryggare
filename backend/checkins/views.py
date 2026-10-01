@@ -12,7 +12,11 @@ from config.permissions import DjangoModelPermissionsWithView
 from families.models import Attendee, Parent
 from events.models import Session
 
-from .eligibility import parent_checkin_gate_error, registration_checkin_gate_error
+from .eligibility import (
+    child_ticket_gate_error,
+    parent_checkin_gate_error,
+    registration_checkin_gate_error,
+)
 from .audit import log_audit
 from .models import AuditLog, CheckInRecord
 from .serializers import (
@@ -105,8 +109,9 @@ class CheckInRecordViewSet(viewsets.ModelViewSet):
             )
 
         if is_parent:
-            # Parent check-in: gated by the session's parent_checkin_policy,
-            # not a hardcoded ticket requirement. No multi-session blocking.
+            # Parent check-in: gated by the session's ticket rule and
+            # adults_not_checked_in, not a hardcoded ticket requirement. No
+            # multi-session blocking.
             gate_error = parent_checkin_gate_error(attendee, session)
             if gate_error:
                 return Response(
@@ -121,7 +126,14 @@ class CheckInRecordViewSet(viewsets.ModelViewSet):
                     status=status.HTTP_400_BAD_REQUEST,
                 )
         else:
-            # Child check-in: enforce single-session rule
+            # Child check-in: the session's ticket rule first (server-enforced
+            # since 2026-10-01; it used to live only in the check-in UI), then
+            # the single-session rule.
+            child_error = child_ticket_gate_error(attendee, session)
+            if child_error:
+                return Response(
+                    {"error": child_error}, status=status.HTTP_400_BAD_REQUEST
+                )
             existing = CheckInRecord.objects.filter(
                 attendee=attendee, session=session, check_out_time__isnull=True
             ).first()
@@ -314,7 +326,11 @@ class CheckInRecordViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        # Undo the check-out
+        # Undo the check-out. This deliberately does NOT re-run the ticket
+        # gates: it reopens a record that was legitimately created inside the
+        # five-minute window, and refusing the undo because a ticket was
+        # removed in between would strand a child the door already admitted.
+        # Accepted, owner-approved trade-off (2026-10-01).
         record.check_out_time = None
         record.check_out_staff = None
         record.picked_up_by = ""

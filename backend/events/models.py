@@ -9,7 +9,12 @@ from django.utils.translation import gettext_lazy as _
 
 
 class ParentCheckinPolicy(models.TextChoices):
-    """Who's allowed to check in as a parent/guardian, and whether they need a ticket.
+    """DEPRECATED (2026-10-01): superseded by ``TicketRule`` +
+    ``Session.adults_not_checked_in``. Nothing reads it any more; it stays only
+    so the migration that folds it into the new fields has a reverse, and goes
+    away with the old columns in the admin increment.
+
+    Who's allowed to check in as a parent/guardian, and whether they need a ticket.
 
     Lives at module level (not nested in Session) so both Event and Session
     can reference ParentCheckinPolicy.choices directly — a nested class
@@ -20,6 +25,25 @@ class ParentCheckinPolicy(models.TextChoices):
     DISABLED = "disabled", _("Disabled")
     OPEN = "open", _("Open (no ticket required)")
     TICKET_REQUIRED = "ticket_required", _("Ticket required")
+
+
+class TicketRule(models.TextChoices):
+    """Who needs a ticket to be checked in to a session.
+
+    Replaces two overlapping per-session controls that disagreed with each
+    other (decided 2026-10-01): ``Session.requires_ticket`` (children only,
+    enforced only in the check-in UI) and ``Session.parent_checkin_policy``
+    (adults only, server-enforced). One rule, server-enforced, for everyone.
+    Module level for the same reason as ``ParentCheckinPolicy``: Event and
+    Session both reference ``TicketRule.choices``.
+
+    Whether *adults are checked in at all* is a separate fact, not a rung on
+    this ladder: ``Session.adults_not_checked_in``.
+    """
+
+    OPEN = "open", _("Open - no ticket required")
+    CHILDREN = "children", _("Children need a ticket")
+    ALL = "all", _("Everyone attending needs a ticket")
 
 
 class AppliesTo(models.TextChoices):
@@ -48,14 +72,25 @@ class Event(models.Model):
     name = models.CharField(max_length=255, verbose_name=_("Event Name"))
     start_date = models.DateField(verbose_name=_("Start Date"))
     end_date = models.DateField(verbose_name=_("End Date"))
+    ticket_rule_default = models.CharField(
+        max_length=10,
+        choices=TicketRule.choices,
+        default=TicketRule.OPEN,
+        verbose_name=_("Default Ticket Rule"),
+        help_text=_(
+            "Who needs a ticket to be checked in. Applied to sessions of this "
+            "event that don't set their own rule."
+        ),
+    )
+    # DEPRECATED 2026-10-01: nothing reads this. Superseded by
+    # ticket_rule_default (+ Session.adults_not_checked_in); kept only so the
+    # data migration is cheaply reversible. Dropped in the admin increment.
     parent_checkin_policy_default = models.CharField(
         max_length=20,
         choices=ParentCheckinPolicy.choices,
         default=ParentCheckinPolicy.OPEN,
         verbose_name=_("Default Parent Check-In Policy"),
-        help_text=_(
-            "Applied to sessions of this event that don't set their own policy."
-        ),
+        help_text=_("Deprecated and no longer used - see 'Default Ticket Rule'."),
     )
     price = models.DecimalField(
         max_digits=8,
@@ -161,14 +196,36 @@ class Event(models.Model):
 
 class Session(models.Model):
     ParentCheckinPolicy = ParentCheckinPolicy
+    TicketRule = TicketRule
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     name = models.CharField(max_length=255, verbose_name=_("Session Name"))
     start_time = models.DateTimeField(verbose_name=_("Start Time"))
     end_time = models.DateTimeField(verbose_name=_("End Time"))
     is_active = models.BooleanField(default=False, verbose_name=_("Is Active"))
+    ticket_rule = models.CharField(
+        max_length=10,
+        choices=TicketRule.choices,
+        blank=True,
+        default="",
+        verbose_name=_("Ticket Rule"),
+        help_text=_("Leave blank to inherit the event's default ticket rule."),
+    )
+    adults_not_checked_in = models.BooleanField(
+        default=False,
+        verbose_name=_("Adults are not checked in here"),
+        help_text=_(
+            "Tick for sessions where only children are checked in (drop-off "
+            "sessions). Applies to every adult, guardians included."
+        ),
+    )
+    # DEPRECATED 2026-10-01: neither of the next two fields is read by
+    # anything. Superseded by ticket_rule / adults_not_checked_in; kept only so
+    # the data migration is cheaply reversible. Dropped in the admin increment.
     requires_ticket = models.BooleanField(
-        default=False, verbose_name=_("Requires Ticket")
+        default=False,
+        verbose_name=_("Requires Ticket"),
+        help_text=_("Deprecated and no longer used - see 'Ticket Rule'."),
     )
     parent_checkin_policy = models.CharField(
         max_length=20,
@@ -176,7 +233,10 @@ class Session(models.Model):
         blank=True,
         default="",
         verbose_name=_("Parent Check-In Policy"),
-        help_text=_("Leave blank to inherit the event's default policy."),
+        help_text=_(
+            "Deprecated and no longer used - see 'Ticket Rule' and 'Adults "
+            "are not checked in here'."
+        ),
     )
     event = models.ForeignKey(
         Event,
@@ -199,8 +259,17 @@ class Session(models.Model):
         return f"{self.event.name} - {self.name}"
 
     @property
-    def effective_parent_checkin_policy(self) -> str:
-        return self.parent_checkin_policy or self.event.parent_checkin_policy_default
+    def effective_ticket_rule(self) -> str:
+        """The session's own rule, or the event's default when blank."""
+        return self.ticket_rule or self.event.ticket_rule_default
+
+    @property
+    def children_need_ticket(self) -> bool:
+        return self.effective_ticket_rule in (TicketRule.CHILDREN, TicketRule.ALL)
+
+    @property
+    def adults_need_ticket(self) -> bool:
+        return self.effective_ticket_rule == TicketRule.ALL
 
 
 class TicketType(models.Model):

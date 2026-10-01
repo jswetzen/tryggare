@@ -634,7 +634,6 @@ class Command(BaseCommand):
                     start_time=_aware(day, 9),
                     end_time=_aware(day, 21),
                     is_active=False,
-                    requires_ticket=False,
                 )
 
             sort_order = 0

@@ -10,7 +10,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: 1.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-09-24 20:08+0000\n"
+"POT-Creation-Date: 2026-10-01 16:32+0200\n"
 "PO-Revision-Date: 2025-11-25 12:00+0000\n"
 "Last-Translator: \n"
 "Language-Team: Swedish\n"
@@ -64,6 +64,9 @@ msgstr "Incheckning av föräldrar är inte påslagen för den här sessionen"
 
 msgid "Parent does not have a ticket for this event"
 msgstr "Föräldern har ingen biljett till det här evenemanget"
+
+msgid "Child does not have a ticket for this session"
+msgstr "Barnet har ingen biljett till den här sessionen"
 
 # Model field labels - checkins/models.py
 msgid "Check-In Time"
@@ -234,8 +237,8 @@ msgstr "Anmälningssida"
 msgid "Generate / refresh report snapshot"
 msgstr "Skapa / uppdatera rapport"
 
-msgid "Effective parent policy"
-msgstr "Gällande regel för föräldrar"
+msgid "Effective ticket rule"
+msgstr "Gällande biljettregel"
 
 msgid "Age fits the ticket type"
 msgstr "Åldern passar biljettypen"
@@ -253,7 +256,8 @@ msgid "New ticket type"
 msgstr "Ny biljettyp"
 
 msgid "I've reviewed the warning(s) above and want to make this change anyway"
-msgstr "Jag har granskat varningen/varningarna ovan och vill göra ändringen ändå"
+msgstr ""
+"Jag har granskat varningen/varningarna ovan och vill göra ändringen ändå"
 
 msgid ""
 "Covers every warning shown above — an age that doesn't fit the window, the "
@@ -263,6 +267,10 @@ msgstr ""
 "Gäller alla varningar ovan — en ålder som inte passar intervallet, att den "
 "nya biljettypen är fullbokad eller överbokad, eller båda delarna. Kryssa "
 "bara i om du har kontrollerat att placeringen ändå är korrekt trots det."
+
+#, python-format
+msgid "\"%(name)s\" is now over capacity (%(sold)s/%(capacity)s)."
+msgstr "\"%(name)s\" är nu överbokad (%(sold)s/%(capacity)s)."
 
 msgid "Ticket Type"
 msgstr "Biljettyp"
@@ -305,8 +313,8 @@ msgid ""
 "Tick the acknowledgement before confirming. Nothing was changed — the "
 "selection below is unchanged, review the warning(s) and try again."
 msgstr ""
-"Bocka i bekräftelsen innan du bekräftar. Ingenting ändrades — urvalet "
-"nedan är oförändrat, granska varningen/varningarna och försök igen."
+"Bocka i bekräftelsen innan du bekräftar. Ingenting ändrades — urvalet nedan "
+"är oförändrat, granska varningen/varningarna och försök igen."
 
 #, python-format
 msgid "%(changed)d ticket(s) changed, %(skipped)d skipped."
@@ -333,10 +341,6 @@ msgstr ""
 "registrerade som barn, så det här intervallet kommer aldrig faktiskt att "
 "kontrolleras för en biljettyp som bara gäller föräldrar — som konfigurerat "
 "begränsar det ingenting."
-
-#, python-format
-msgid "\"%(name)s\" is now over capacity (%(sold)s/%(capacity)s)."
-msgstr "\"%(name)s\" är nu överbokad (%(sold)s/%(capacity)s)."
 
 # Admin changelist columns - events/admin.py (ticket triage)
 msgid "Target event"
@@ -373,6 +377,15 @@ msgstr "Öppen (ingen biljett krävs)"
 msgid "Ticket required"
 msgstr "Biljett krävs"
 
+msgid "Open - no ticket required"
+msgstr "Öppen – ingen biljett krävs"
+
+msgid "Children need a ticket"
+msgstr "Barn behöver biljett"
+
+msgid "Everyone attending needs a ticket"
+msgstr "Alla deltagare behöver biljett"
+
 msgid "Parent"
 msgstr "Förälder"
 
@@ -404,11 +417,19 @@ msgstr "Startdatum"
 msgid "End Date"
 msgstr "Slutdatum"
 
+msgid "Default Ticket Rule"
+msgstr "Standardregel för biljetter"
+
+msgid ""
+"Who needs a ticket to be checked in. Applied to sessions of this event that "
+"don't set their own rule."
+msgstr "Vem som behöver biljett för att checkas in. Gäller för de sessioner i evenemanget som inte har en egen regel."
+
 msgid "Default Parent Check-In Policy"
 msgstr "Standardregel för incheckning av föräldrar"
 
-msgid "Applied to sessions of this event that don't set their own policy."
-msgstr "Gäller för de sessioner i evenemanget som inte har en egen regel."
+msgid "Deprecated and no longer used - see 'Default Ticket Rule'."
+msgstr "Används inte längre – se ”Standardregel för biljetter”."
 
 msgid "Price"
 msgstr "Pris"
@@ -480,14 +501,33 @@ msgstr "Sluttid"
 msgid "Is Active"
 msgstr "Aktiv"
 
+msgid "Ticket Rule"
+msgstr "Biljettregel"
+
+msgid "Leave blank to inherit the event's default ticket rule."
+msgstr "Lämna tomt för att använda evenemangets standardregel för biljetter."
+
+msgid "Adults are not checked in here"
+msgstr "Vuxna checkas inte in här"
+
+msgid ""
+"Tick for sessions where only children are checked in (drop-off sessions). "
+"Applies to every adult, guardians included."
+msgstr "Kryssa i för sessioner där bara barn checkas in (lämna-och-gå). Gäller alla vuxna, även vårdnadshavare."
+
 msgid "Requires Ticket"
 msgstr "Kräver biljett"
+
+msgid "Deprecated and no longer used - see 'Ticket Rule'."
+msgstr "Används inte längre – se ”Biljettregel”."
 
 msgid "Parent Check-In Policy"
 msgstr "Regel för incheckning av föräldrar"
 
-msgid "Leave blank to inherit the event's default policy."
-msgstr "Lämna tomt för att använda evenemangets standardregel."
+msgid ""
+"Deprecated and no longer used - see 'Ticket Rule' and 'Adults are not "
+"checked in here'."
+msgstr "Används inte längre – se ”Biljettregel” och ”Vuxna checkas inte in här”."
 
 msgid "Sessions"
 msgstr "Sessioner"
@@ -595,16 +635,16 @@ msgstr "Antal platser"
 
 msgid ""
 "Leave blank for no limit. Enforced for guest self-registration: every "
-"registration counts against it except a cancelled one, including one "
-"still awaiting email verification (for up to 48 hours). Staff can still "
-"exceed it from this admin or the ticket-type-change wizard, with a "
-"warning to acknowledge first."
+"registration counts against it except a cancelled one, including one still "
+"awaiting email verification (for up to 48 hours). Staff can still exceed it "
+"from this admin or the ticket-type-change wizard, with a warning to "
+"acknowledge first."
 msgstr ""
 "Lämna tomt för ingen gräns. Tillämpas för gästers självregistrering: alla "
 "anmälningar räknas mot gränsen utom avbokade, inklusive de som fortfarande "
 "väntar på e-postverifiering (i upp till 48 timmar). Personal kan ändå "
-"överskrida gränsen härifrån eller i guiden för byte av biljettyp, men får "
-"då en varning att bekräfta först."
+"överskrida gränsen härifrån eller i guiden för byte av biljettyp, men får då "
+"en varning att bekräfta först."
 
 msgid "Requires Ticket Type"
 msgstr "Kräver biljettyp"
@@ -905,13 +945,12 @@ msgid "Effect on the payment"
 msgstr "Effekt på betalningen"
 
 msgid ""
-"One tick confirms every warning listed above, for all tickets in this "
-"batch — age, capacity, or both, including any age that could not be "
-"verified."
+"One tick confirms every warning listed above, for all tickets in this batch "
+"— age, capacity, or both, including any age that could not be verified."
 msgstr ""
-"En bock bekräftar alla varningar ovan, för samtliga biljetter i denna "
-"batch — ålder, antal platser, eller båda, inklusive en ålder som inte "
-"gick att kontrollera."
+"En bock bekräftar alla varningar ovan, för samtliga biljetter i denna batch "
+"— ålder, antal platser, eller båda, inklusive en ålder som inte gick att "
+"kontrollera."
 
 msgid "Show what this changes"
 msgstr "Visa vad det här ändrar"
@@ -956,6 +995,9 @@ msgstr "Radera valda familjer (rätten att bli glömd enligt GDPR)"
 msgid "Erased %(count)d families (data deleted, audit trail scrubbed)."
 msgstr ""
 "Raderade %(count)d familjer (uppgifterna borttagna, händelseloggen rensad)."
+
+msgid "Guardian only"
+msgstr "Endast vårdnadshavare"
 
 msgid "Families"
 msgstr "Familjer"
@@ -1448,6 +1490,18 @@ msgstr ""
 "Rabatten som den här anmälan fick. Det är riskfritt att ändra rabattkoden "
 "efteråt – det påverkar inte vad familjen har debiterats."
 
+# Guardian-only adults (owner decision d9245e21) - registrations/models.py,
+# registrations/serializers.py, registrations/views.py, families/admin.py
+msgid "Guardian-Only Adults"
+msgstr "Endast vårdnadshavare"
+
+msgid ""
+"Adults on this registration who are responsible for the children but are not "
+"attending themselves: no ticket, no seat, no charge, no health information."
+msgstr ""
+"Vuxna i den här anmälan som ansvarar för barnen men inte själva deltar: "
+"ingen biljett, ingen plats, ingen avgift och inga hälsouppgifter."
+
 msgid "Swish"
 msgstr "Swish"
 
@@ -1571,6 +1625,27 @@ msgstr "Tillval i anmälan"
 msgid "Registration Extras"
 msgstr "Tillval i anmälan"
 
+# Public registration: guardian rules (owner decision eb5d26f4) -
+# registrations/serializers.py, registrations/views.py
+msgid "A phone number is required for every adult."
+msgstr "Ange ett telefonnummer så att vi kan nå dig under evenemanget."
+
+msgid "A registration needs at least one parent or child"
+msgstr "En anmälan behöver minst en vuxen eller ett barn."
+
+msgid ""
+"A registration with children needs at least one adult who is their guardian."
+msgstr ""
+"En anmälan med barn behöver minst en vuxen som är barnens vårdnadshavare."
+
+msgid "A guardian who isn't attending can't also choose a ticket."
+msgstr "En vårdnadshavare som inte deltar kan inte också välja en biljett."
+
+msgid ""
+"Health information can't be recorded for a guardian who isn't attending."
+msgstr ""
+"Hälsouppgifter kan inte registreras för en vårdnadshavare som inte deltar."
+
 msgid "No change to what the family owes."
 msgstr "Ingen förändring av vad familjen ska betala."
 
@@ -1628,8 +1703,8 @@ msgid ""
 "%(ticket_type)s would be over capacity (%(after)s/%(capacity)s) after this "
 "change. Continue only if this is deliberate."
 msgstr ""
-"%(ticket_type)s skulle bli överbokad (%(after)s/%(capacity)s) efter den "
-"här ändringen. Fortsätt bara om det är avsiktligt."
+"%(ticket_type)s skulle bli överbokad (%(after)s/%(capacity)s) efter den här "
+"ändringen. Fortsätt bara om det är avsiktligt."
 
 #, python-format
 msgid "%(ticket_type)s belongs to a different event."
@@ -1716,8 +1791,14 @@ msgstr "Den här deltagaren är inte anmäld till den sessionen."
 msgid "This extra is already attached to this attendee."
 msgstr "Det här tillvalet är redan kopplat till den här deltagaren."
 
+msgid "At least one person on the registration needs to be attending."
+msgstr "Minst en person i anmälan måste delta."
+
 msgid "Please select a ticket type for every attendee."
 msgstr "Välj en biljettyp för varje deltagare."
+
+msgid "Extras can only be added for an adult with a ticket."
+msgstr "Tillval kan bara läggas till för en vuxen som har en biljett."
 
 #, python-format
 msgid "Please make a required choice for %(name)s: %(extras)s"
@@ -1734,13 +1815,9 @@ msgid "Registration is not currently open for this event."
 msgstr "Anmälan är inte öppen för det här evenemanget just nu."
 
 msgid ""
-"A confirmation email was already sent recently — please check your inbox."
-msgstr "Ett bekräftelsemejl skickades nyligen – titta i din inkorg."
-
-msgid ""
-"A registration for this email is already waiting for confirmation. We "
-"can't resend so soon — please use the confirmation email already sent. "
-"Any changes you just made were not saved."
+"A registration for this email is already waiting for confirmation. We can't "
+"resend so soon — please use the confirmation email already sent. Any changes "
+"you just made were not saved."
 msgstr ""
 "En anmälan för den här e-postadressen väntar redan på bekräftelse. Vi kan "
 "inte skicka ett nytt mejl så snart – använd bekräftelsemejlet som redan "
@@ -1748,8 +1825,7 @@ msgstr ""
 
 msgid ""
 "A registration for this email is already waiting for confirmation. We've "
-"sent a fresh confirmation email — any changes you just made were not "
-"saved."
+"sent a fresh confirmation email — any changes you just made were not saved."
 msgstr ""
 "En anmälan för den här e-postadressen väntar redan på bekräftelse. Vi har "
 "skickat ett nytt bekräftelsemejl – de ändringar du precis gjorde sparades "
@@ -1821,38 +1897,3 @@ msgstr "Vem är skulden hos?"
 # Admin chrome language switcher - templates/admin/language_switcher.html
 msgid "Change admin language"
 msgstr "Byt adminspråk"
-
-# Public registration: guardian rules (owner decision eb5d26f4) -
-# registrations/serializers.py, registrations/views.py
-msgid "A phone number is required for every adult."
-msgstr "Ange ett telefonnummer så att vi kan nå dig under evenemanget."
-
-msgid "A registration needs at least one parent or child"
-msgstr "En anmälan behöver minst en vuxen eller ett barn."
-
-msgid "A registration with children needs at least one adult who is their guardian."
-msgstr "En anmälan med barn behöver minst en vuxen som är barnens vårdnadshavare."
-
-msgid "Extras can only be added for an adult with a ticket."
-msgstr "Tillval kan bara läggas till för en vuxen som har en biljett."
-
-# Guardian-only adults (owner decision d9245e21) - registrations/models.py,
-# registrations/serializers.py, registrations/views.py, families/admin.py
-
-msgid "Guardian-Only Adults"
-msgstr "Endast vårdnadshavare"
-
-msgid "Adults on this registration who are responsible for the children but are not attending themselves: no ticket, no seat, no charge, no health information."
-msgstr "Vuxna i den här anmälan som ansvarar för barnen men inte själva deltar: ingen biljett, ingen plats, ingen avgift och inga hälsouppgifter."
-
-msgid "Guardian only"
-msgstr "Endast vårdnadshavare"
-
-msgid "A guardian who isn't attending can't also choose a ticket."
-msgstr "En vårdnadshavare som inte deltar kan inte också välja en biljett."
-
-msgid "Health information can't be recorded for a guardian who isn't attending."
-msgstr "Hälsouppgifter kan inte registreras för en vårdnadshavare som inte deltar."
-
-msgid "At least one person on the registration needs to be attending."
-msgstr "Minst en person i anmälan måste delta."

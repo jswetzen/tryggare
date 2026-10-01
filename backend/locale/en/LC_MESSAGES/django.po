@@ -10,7 +10,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: 1.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-09-24 20:08+0000\n"
+"POT-Creation-Date: 2026-10-01 16:32+0200\n"
 "PO-Revision-Date: 2025-11-25 12:00+0000\n"
 "Last-Translator: \n"
 "Language-Team: English\n"
@@ -64,6 +64,9 @@ msgstr "Parent check-in is not enabled for this session"
 
 msgid "Parent does not have a ticket for this event"
 msgstr "Parent does not have a ticket for this event"
+
+msgid "Child does not have a ticket for this session"
+msgstr "Child does not have a ticket for this session"
 
 # Model field labels - checkins/models.py
 msgid "Check-In Time"
@@ -232,8 +235,8 @@ msgstr "Registration page"
 msgid "Generate / refresh report snapshot"
 msgstr "Generate / refresh report snapshot"
 
-msgid "Effective parent policy"
-msgstr "Effective parent policy"
+msgid "Effective ticket rule"
+msgstr "Effective ticket rule"
 
 msgid "Age fits the ticket type"
 msgstr "Age fits the ticket type"
@@ -261,6 +264,10 @@ msgstr ""
 "Covers every warning shown above — an age that doesn't fit the window, the "
 "new type being at or over capacity, or both. Tick this only if you have "
 "checked and the placement is still correct despite it."
+
+#, python-format
+msgid "\"%(name)s\" is now over capacity (%(sold)s/%(capacity)s)."
+msgstr "\"%(name)s\" is now over capacity (%(sold)s/%(capacity)s)."
 
 msgid "Ticket Type"
 msgstr "Ticket Type"
@@ -330,10 +337,6 @@ msgstr ""
 "registered as a child, so this window will never actually be evaluated for a "
 "parent-only ticket type — it constrains nothing as configured."
 
-#, python-format
-msgid "\"%(name)s\" is now over capacity (%(sold)s/%(capacity)s)."
-msgstr "\"%(name)s\" is now over capacity (%(sold)s/%(capacity)s)."
-
 # Admin changelist columns - events/admin.py (ticket triage)
 msgid "Target event"
 msgstr "Target event"
@@ -369,6 +372,15 @@ msgstr "Open (no ticket required)"
 msgid "Ticket required"
 msgstr "Ticket required"
 
+msgid "Open - no ticket required"
+msgstr "Open - no ticket required"
+
+msgid "Children need a ticket"
+msgstr "Children need a ticket"
+
+msgid "Everyone attending needs a ticket"
+msgstr "Everyone attending needs a ticket"
+
 msgid "Parent"
 msgstr "Parent"
 
@@ -400,11 +412,19 @@ msgstr "Start Date"
 msgid "End Date"
 msgstr "End Date"
 
+msgid "Default Ticket Rule"
+msgstr "Default Ticket Rule"
+
+msgid ""
+"Who needs a ticket to be checked in. Applied to sessions of this event that "
+"don't set their own rule."
+msgstr "Who needs a ticket to be checked in. Applied to sessions of this event that don't set their own rule."
+
 msgid "Default Parent Check-In Policy"
 msgstr "Default Parent Check-In Policy"
 
-msgid "Applied to sessions of this event that don't set their own policy."
-msgstr "Applied to sessions of this event that don't set their own policy."
+msgid "Deprecated and no longer used - see 'Default Ticket Rule'."
+msgstr "Deprecated and no longer used - see 'Default Ticket Rule'."
 
 msgid "Price"
 msgstr "Price"
@@ -474,14 +494,33 @@ msgstr "End Time"
 msgid "Is Active"
 msgstr "Is Active"
 
+msgid "Ticket Rule"
+msgstr "Ticket Rule"
+
+msgid "Leave blank to inherit the event's default ticket rule."
+msgstr "Leave blank to inherit the event's default ticket rule."
+
+msgid "Adults are not checked in here"
+msgstr "Adults are not checked in here"
+
+msgid ""
+"Tick for sessions where only children are checked in (drop-off sessions). "
+"Applies to every adult, guardians included."
+msgstr "Tick for sessions where only children are checked in (drop-off sessions). Applies to every adult, guardians included."
+
 msgid "Requires Ticket"
 msgstr "Requires Ticket"
+
+msgid "Deprecated and no longer used - see 'Ticket Rule'."
+msgstr "Deprecated and no longer used - see 'Ticket Rule'."
 
 msgid "Parent Check-In Policy"
 msgstr "Parent Check-In Policy"
 
-msgid "Leave blank to inherit the event's default policy."
-msgstr "Leave blank to inherit the event's default policy."
+msgid ""
+"Deprecated and no longer used - see 'Ticket Rule' and 'Adults are not "
+"checked in here'."
+msgstr "Deprecated and no longer used - see 'Ticket Rule' and 'Adults are not checked in here'."
 
 msgid "Sessions"
 msgstr "Sessions"
@@ -588,16 +627,16 @@ msgstr "Capacity"
 
 msgid ""
 "Leave blank for no limit. Enforced for guest self-registration: every "
-"registration counts against it except a cancelled one, including one "
-"still awaiting email verification (for up to 48 hours). Staff can still "
-"exceed it from this admin or the ticket-type-change wizard, with a "
-"warning to acknowledge first."
+"registration counts against it except a cancelled one, including one still "
+"awaiting email verification (for up to 48 hours). Staff can still exceed it "
+"from this admin or the ticket-type-change wizard, with a warning to "
+"acknowledge first."
 msgstr ""
 "Leave blank for no limit. Enforced for guest self-registration: every "
-"registration counts against it except a cancelled one, including one "
-"still awaiting email verification (for up to 48 hours). Staff can still "
-"exceed it from this admin or the ticket-type-change wizard, with a "
-"warning to acknowledge first."
+"registration counts against it except a cancelled one, including one still "
+"awaiting email verification (for up to 48 hours). Staff can still exceed it "
+"from this admin or the ticket-type-change wizard, with a warning to "
+"acknowledge first."
 
 msgid "Requires Ticket Type"
 msgstr "Requires Ticket Type"
@@ -895,13 +934,11 @@ msgid "Effect on the payment"
 msgstr "Effect on the payment"
 
 msgid ""
-"One tick confirms every warning listed above, for all tickets in this "
-"batch — age, capacity, or both, including any age that could not be "
-"verified."
+"One tick confirms every warning listed above, for all tickets in this batch "
+"— age, capacity, or both, including any age that could not be verified."
 msgstr ""
-"One tick confirms every warning listed above, for all tickets in this "
-"batch — age, capacity, or both, including any age that could not be "
-"verified."
+"One tick confirms every warning listed above, for all tickets in this batch "
+"— age, capacity, or both, including any age that could not be verified."
 
 msgid "Show what this changes"
 msgstr "Show what this changes"
@@ -945,6 +982,9 @@ msgstr "Erase selected families (GDPR right to erasure)"
 #, python-format
 msgid "Erased %(count)d families (data deleted, audit trail scrubbed)."
 msgstr "Erased %(count)d families (data deleted, audit trail scrubbed)."
+
+msgid "Guardian only"
+msgstr "Guardian only"
 
 msgid "Families"
 msgstr "Families"
@@ -1426,6 +1466,18 @@ msgstr ""
 "The discount this registration was given. Editing the promo code afterwards "
 "is safe — it does not change what this family was charged."
 
+# Guardian-only adults (owner decision d9245e21) - registrations/models.py,
+# registrations/serializers.py, registrations/views.py, families/admin.py
+msgid "Guardian-Only Adults"
+msgstr "Guardian-Only Adults"
+
+msgid ""
+"Adults on this registration who are responsible for the children but are not "
+"attending themselves: no ticket, no seat, no charge, no health information."
+msgstr ""
+"Adults on this registration who are responsible for the children but are not "
+"attending themselves: no ticket, no seat, no charge, no health information."
+
 msgid "Swish"
 msgstr "Swish"
 
@@ -1546,6 +1598,27 @@ msgstr "Registration Extra"
 
 msgid "Registration Extras"
 msgstr "Registration Extras"
+
+# Public registration: guardian rules (owner decision eb5d26f4) -
+# registrations/serializers.py, registrations/views.py
+msgid "A phone number is required for every adult."
+msgstr "A phone number is required for every adult."
+
+msgid "A registration needs at least one parent or child"
+msgstr "A registration needs at least one parent or child"
+
+msgid ""
+"A registration with children needs at least one adult who is their guardian."
+msgstr ""
+"A registration with children needs at least one adult who is their guardian."
+
+msgid "A guardian who isn't attending can't also choose a ticket."
+msgstr "A guardian who isn't attending can't also choose a ticket."
+
+msgid ""
+"Health information can't be recorded for a guardian who isn't attending."
+msgstr ""
+"Health information can't be recorded for a guardian who isn't attending."
 
 msgid "No change to what the family owes."
 msgstr "No change to what the family owes."
@@ -1693,8 +1766,14 @@ msgstr "This attendee isn't registered for that session."
 msgid "This extra is already attached to this attendee."
 msgstr "This extra is already attached to this attendee."
 
+msgid "At least one person on the registration needs to be attending."
+msgstr "At least one person on the registration needs to be attending."
+
 msgid "Please select a ticket type for every attendee."
 msgstr "Please select a ticket type for every attendee."
+
+msgid "Extras can only be added for an adult with a ticket."
+msgstr "Extras can only be added for an adult with a ticket."
 
 #, python-format
 msgid "Please make a required choice for %(name)s: %(extras)s"
@@ -1711,27 +1790,20 @@ msgid "Registration is not currently open for this event."
 msgstr "Registration is not currently open for this event."
 
 msgid ""
-"A confirmation email was already sent recently — please check your inbox."
+"A registration for this email is already waiting for confirmation. We can't "
+"resend so soon — please use the confirmation email already sent. Any changes "
+"you just made were not saved."
 msgstr ""
-"A confirmation email was already sent recently — please check your inbox."
-
-msgid ""
-"A registration for this email is already waiting for confirmation. We "
-"can't resend so soon — please use the confirmation email already sent. "
-"Any changes you just made were not saved."
-msgstr ""
-"A registration for this email is already waiting for confirmation. We "
-"can't resend so soon — please use the confirmation email already sent. "
-"Any changes you just made were not saved."
+"A registration for this email is already waiting for confirmation. We can't "
+"resend so soon — please use the confirmation email already sent. Any changes "
+"you just made were not saved."
 
 msgid ""
 "A registration for this email is already waiting for confirmation. We've "
-"sent a fresh confirmation email — any changes you just made were not "
-"saved."
+"sent a fresh confirmation email — any changes you just made were not saved."
 msgstr ""
 "A registration for this email is already waiting for confirmation. We've "
-"sent a fresh confirmation email — any changes you just made were not "
-"saved."
+"sent a fresh confirmation email — any changes you just made were not saved."
 
 msgid "This idempotency key was already used for a different submission."
 msgstr "This idempotency key was already used for a different submission."
@@ -1800,38 +1872,3 @@ msgstr "Who owes money?"
 # Admin chrome language switcher - templates/admin/language_switcher.html
 msgid "Change admin language"
 msgstr "Change admin language"
-
-# Public registration: guardian rules (owner decision eb5d26f4) -
-# registrations/serializers.py, registrations/views.py
-msgid "A phone number is required for every adult."
-msgstr "A phone number is required for every adult."
-
-msgid "A registration needs at least one parent or child"
-msgstr "A registration needs at least one parent or child"
-
-msgid "A registration with children needs at least one adult who is their guardian."
-msgstr "A registration with children needs at least one adult who is their guardian."
-
-msgid "Extras can only be added for an adult with a ticket."
-msgstr "Extras can only be added for an adult with a ticket."
-
-# Guardian-only adults (owner decision d9245e21) - registrations/models.py,
-# registrations/serializers.py, registrations/views.py, families/admin.py
-
-msgid "Guardian-Only Adults"
-msgstr "Guardian-Only Adults"
-
-msgid "Adults on this registration who are responsible for the children but are not attending themselves: no ticket, no seat, no charge, no health information."
-msgstr "Adults on this registration who are responsible for the children but are not attending themselves: no ticket, no seat, no charge, no health information."
-
-msgid "Guardian only"
-msgstr "Guardian only"
-
-msgid "A guardian who isn't attending can't also choose a ticket."
-msgstr "A guardian who isn't attending can't also choose a ticket."
-
-msgid "Health information can't be recorded for a guardian who isn't attending."
-msgstr "Health information can't be recorded for a guardian who isn't attending."
-
-msgid "At least one person on the registration needs to be attending."
-msgstr "At least one person on the registration needs to be attending."

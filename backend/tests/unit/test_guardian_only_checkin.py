@@ -2,7 +2,7 @@
 Check-in gates for a guardian-only adult (owner decision d9245e21).
 
 A stored guardian-only adult on a CONFIRMED registration for the session's
-event satisfies ``ticket_required`` without a ticket; everyone else is gated
+event satisfies the ``all`` ticket rule without a ticket; everyone else is gated
 exactly as before, and an unconfirmed registration blocks them the same way
 it blocks a ticketed attendee.
 """
@@ -34,7 +34,7 @@ def _event(name="E"):
     return Event.objects.create(name=name, start_date=today, end_date=today)
 
 
-def _session(event, policy=Session.ParentCheckinPolicy.TICKET_REQUIRED):
+def _session(event, rule=Session.TicketRule.ALL, adults_not_checked_in=False):
     now = timezone.now()
     return Session.objects.create(
         name="S",
@@ -42,8 +42,8 @@ def _session(event, policy=Session.ParentCheckinPolicy.TICKET_REQUIRED):
         start_time=now,
         end_time=now + timedelta(hours=2),
         is_active=True,
-        requires_ticket=False,
-        parent_checkin_policy=policy,
+        ticket_rule=rule,
+        adults_not_checked_in=adults_not_checked_in,
     )
 
 
@@ -118,9 +118,9 @@ class TestGuardianOnlyGate:
         assert response.status_code == 400
         assert "not yet confirmed" in response.data["error"]
 
-    def test_disabled_policy_still_disables_for_a_confirmed_guardian(self):
+    def test_adults_not_checked_in_still_excludes_a_confirmed_guardian(self):
         event = _event()
-        session = _session(event, Session.ParentCheckinPolicy.DISABLED)
+        session = _session(event, adults_not_checked_in=True)
         parent, _ = _guardian(event)
 
         assert parent_checkin_gate_error(parent, session) is not None

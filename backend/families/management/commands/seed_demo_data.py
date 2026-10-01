@@ -134,7 +134,6 @@ class Command(BaseCommand):
                 "start_time": morning_start,
                 "end_time": morning_end,
                 "is_active": True,
-                "requires_ticket": False,
             },
         )
 
@@ -151,7 +150,6 @@ class Command(BaseCommand):
                 "start_time": afternoon_start,
                 "end_time": afternoon_end,
                 "is_active": False,
-                "requires_ticket": False,
             },
         )
 
@@ -725,7 +723,6 @@ class Command(BaseCommand):
                         timezone.get_default_timezone(),
                     ),
                     "is_active": False,
-                    "requires_ticket": False,
                 },
             )
             days.append(session)

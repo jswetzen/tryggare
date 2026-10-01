@@ -22,6 +22,7 @@ from .models import (
     Session,
     SessionTicket,
     Ticket,
+    TicketRule,
     TicketType,
 )
 
@@ -65,13 +66,17 @@ class EventAdmin(admin.ModelAdmin):
         "name",
         "start_date",
         "end_date",
-        "parent_checkin_policy_default",
+        "ticket_rule_default",
         "price",
         "registration_window_status",
         "registration_link",
     )
-    list_filter = ("parent_checkin_policy_default",)
+    list_filter = ("ticket_rule_default",)
     search_fields = ("name",)
+    # Deprecated column, read by nothing: not shown, so nobody sets a dead
+    # control. The proper admin redesign (and the column drop) is a later
+    # increment.
+    exclude = ("parent_checkin_policy_default",)
     actions = ("generate_report",)
 
     # No event-management UI exists in the frontend yet (just checkin/checkout/
@@ -108,15 +113,20 @@ class SessionAdmin(admin.ModelAdmin):
         "start_time",
         "end_time",
         "is_active",
-        "parent_checkin_policy",
-        "effective_parent_checkin_policy",
+        "ticket_rule",
+        "effective_ticket_rule",
+        "adults_not_checked_in",
     )
-    list_filter = ("is_active", "event", "parent_checkin_policy")
+    list_filter = ("is_active", "event", "ticket_rule", "adults_not_checked_in")
     search_fields = ("name", "event__name")
+    # Deprecated columns, read by nothing: not shown, so nobody sets a dead
+    # control. The proper admin redesign (and the column drop) is a later
+    # increment.
+    exclude = ("requires_ticket", "parent_checkin_policy")
 
-    @admin.display(description=_("Effective parent policy"))
-    def effective_parent_checkin_policy(self, obj):
-        return obj.effective_parent_checkin_policy
+    @admin.display(description=_("Effective ticket rule"))
+    def effective_ticket_rule(self, obj):
+        return TicketRule(obj.effective_ticket_rule).label
 
 
 @admin.register(Ticket)

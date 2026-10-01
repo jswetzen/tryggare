@@ -11,7 +11,7 @@ def registration_checkin_gate_error(attendee: Attendee, session: Session) -> str
 
     New gate, not an extension of an existing one: before self-serve
     registration existed there was no ticket-validity check for children at
-    check-in at all (`requires_ticket` was pure display metadata). A ticket
+    check-in at all (the old `requires_ticket` was pure display metadata). A ticket
     whose `registration` FK is set only counts toward eligibility once
     `registration.status == CONFIRMED` — staff-created tickets always have
     `registration=None` and are entirely unaffected. `EventTicket`/
@@ -69,28 +69,48 @@ def _guardian_only_statuses(attendee: Attendee, session: Session) -> set[str]:
 
 
 def parent_checkin_gate_error(parent: Parent, session: Session) -> str | None:
-    """Return an error message if `parent` may not check into `session`, else None.
+    """Return an error message if the adult ``parent`` may not check into
+    ``session``, else None.
 
-    Single source of truth for the session's effective parent-check-in
-    policy, used by both the check_in view action and the serializer's
-    validate() so a stray POST to the generic CheckInRecord endpoint can't
-    bypass it.
+    Single source of truth for adult check-in, used by both the check_in view
+    action and the serializer's validate() so a stray POST to the generic
+    CheckInRecord endpoint can't bypass it. Driven by the session's ticket
+    rule (``Session.effective_ticket_rule``) and ``adults_not_checked_in``;
+    the old ``parent_checkin_policy`` is no longer read.
     """
-    policy = session.effective_parent_checkin_policy
-
-    if policy == Session.ParentCheckinPolicy.DISABLED:
+    # The checkbox beats everything, guardians included: nobody is checked in
+    # as an adult here, whatever they hold.
+    if session.adults_not_checked_in:
         return _("Parent check-in is not enabled for this session")
 
-    if policy == Session.ParentCheckinPolicy.TICKET_REQUIRED and not parent.has_ticket:
+    if session.adults_need_ticket and not parent.has_ticket_for(session):
         # A stored guardian-only adult on a CONFIRMED registration for this
-        # event satisfies the policy without a ticket (owner decision
+        # event satisfies the rule without a ticket (owner decision
         # d9245e21: they are responsible for the children but not attending,
         # so "has a ticket" is the wrong question for them). Deliberately
         # keyed on the stored marker, not on "has no ticket", so an ordinary
-        # adult whose ticket went missing is still refused; and only for
-        # TICKET_REQUIRED -- DISABLED above still disables for everyone.
+        # adult whose ticket went missing is still refused; and only for the
+        # rule that asks adults for a ticket -- the checkbox above still
+        # excludes everyone.
         if Registration.Status.CONFIRMED in _guardian_only_statuses(parent, session):
             return None
         return _("Parent does not have a ticket for this event")
 
+    return None
+
+
+def child_ticket_gate_error(child: Attendee, session: Session) -> str | None:
+    """Return an error message if ``child`` needs a ticket for ``session`` and
+    has none, else None.
+
+    Fires when the session's effective rule is ``children`` or ``all``. The
+    ticket must cover THIS session (``has_ticket_for``): a ticket for another
+    event, or a SessionTicket for another session, does not count. Staff
+    assigning a ticket at the door creates it with ``registration=None``, so
+    the gate passes right after assignment; whether a self-serve registration
+    is confirmed is ``registration_checkin_gate_error``'s question, not this
+    one's.
+    """
+    if session.children_need_ticket and not child.has_ticket_for(session):
+        return _("Child does not have a ticket for this session")
     return None

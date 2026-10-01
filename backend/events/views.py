@@ -51,7 +51,11 @@ class SessionViewSet(viewsets.ModelViewSet):
     serializer_class = SessionSerializer
     permission_classes = [DjangoModelPermissionsWithView]
     search_fields = ["name", "event__name"]
-    filterset_fields = ["event", "is_active", "requires_ticket"]
+    # `requires_ticket` used to be filterable here; it had no caller in the
+    # frontend and no longer exists as a driving field, so it is replaced by
+    # `ticket_rule` (the session's OWN value: blank means "inherits the
+    # event default", it does not match the effective rule).
+    filterset_fields = ["event", "is_active", "ticket_rule"]
     ordering = ["-start_time"]
 
     # ``activate``/``deactivate`` are POSTs that edit an existing session. Left

@@ -12,7 +12,25 @@ class EventSerializer(serializers.ModelSerializer):
 
 class SessionSerializer(serializers.ModelSerializer):
     event_name = serializers.CharField(source="event.name", read_only=True)
-    effective_parent_checkin_policy = serializers.CharField(read_only=True)
+    effective_ticket_rule = serializers.CharField(read_only=True)
+    # Derived, READ-ONLY compatibility fields (2026-10-01). The check-in UI
+    # still reads `requires_ticket` and `effective_parent_checkin_policy`; the
+    # rows no longer store them, so they are computed from the new rule and
+    # keep an older frontend working until the check-in UI moves to
+    # `effective_ticket_rule` / `adults_not_checked_in`. Delete both (and the
+    # two methods) in that increment. They cannot be written: the old
+    # writable `requires_ticket` / `parent_checkin_policy` columns drive
+    # nothing any more, so accepting them would be a dead control.
+    requires_ticket = serializers.SerializerMethodField()
+    effective_parent_checkin_policy = serializers.SerializerMethodField()
+
+    def get_requires_ticket(self, obj) -> bool:
+        return obj.children_need_ticket
+
+    def get_effective_parent_checkin_policy(self, obj) -> str:
+        if obj.adults_not_checked_in:
+            return "disabled"
+        return "ticket_required" if obj.adults_need_ticket else "open"
 
     class Meta:
         model = Session
@@ -22,8 +40,10 @@ class SessionSerializer(serializers.ModelSerializer):
             "start_time",
             "end_time",
             "is_active",
+            "ticket_rule",
+            "effective_ticket_rule",
+            "adults_not_checked_in",
             "requires_ticket",
-            "parent_checkin_policy",
             "effective_parent_checkin_policy",
             "event",
             "event_name",

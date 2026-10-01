@@ -43,9 +43,14 @@ A web application for managing children at conferences with check-in, check-out,
 
 ### Sessions
 - Part of an event
-- Can be:
+- One ticket rule per session, enforced by the server for everyone (not just in the check-in UI):
   - Open to all (no ticket required)
-  - Require tickets
+  - Children need a ticket
+  - Everyone attending needs a ticket
+  - The session inherits the event's default rule unless it sets its own
+- Separately, a session can be marked "adults are not checked in here" (drop-off sessions): no adult is checked in there, guardians included, whatever the rule says
+- A guardian who is not attending (a guardian-only adult on a confirmed registration) holds no ticket and is let in under "everyone attending needs a ticket", unless the session excludes adults
+- "Has a ticket" always means a ticket for this session: an event pass for this session's event, or a session ticket for this very session (`Attendee.has_ticket_for(session)`)
 - **One child can only be checked into ONE session at a time (system enforced)**
 - **Multiple sessions can be active simultaneously**
 

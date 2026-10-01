@@ -191,6 +191,25 @@ class Attendee(models.Model):
         """
         return self.event_tickets.exists() or self.session_tickets.exists()
 
+    def has_ticket_for(self, session) -> bool:
+        """True if this attendee holds a ticket that covers ``session``: an
+        EventTicket for the session's event, or a SessionTicket for that very
+        session.
+
+        The single helper the check-in gate asks (``checkins/eligibility.py``).
+        ``has_ticket`` above is deliberately NOT event-scoped (any ticket for
+        any event counts) and stays as it is for display
+        (``ParentSerializer.get_ticket_details``); using it to gate check-in
+        let a ticket for last year's event open this year's door.
+
+        Whether a ticket is *confirmed* (self-serve registrations) is a
+        separate question answered by ``registration_checkin_gate_error``.
+        """
+        return (
+            self.event_tickets.filter(event_id=session.event_id).exists()
+            or self.session_tickets.filter(session_id=session.pk).exists()
+        )
+
     def get_ticket_type(self) -> str:
         """
         Get the type of ticket the attendee has.
