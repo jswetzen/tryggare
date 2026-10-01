@@ -122,12 +122,12 @@ class FamilyViewSet(viewsets.ModelViewSet):
         children_qs = Child.objects.prefetch_related(
             Prefetch(
                 "event_tickets",
-                queryset=EventTicket.objects.select_related("event"),
+                queryset=EventTicket.objects.select_related("event", "registration"),
             ),
             Prefetch(
                 "session_tickets",
                 queryset=SessionTicket.objects.select_related(
-                    "session", "session__event"
+                    "session", "session__event", "registration"
                 ),
             ),
             Prefetch(
@@ -139,25 +139,25 @@ class FamilyViewSet(viewsets.ModelViewSet):
 
         # Prefetch parents with their tickets and active check-ins
         parents_qs = Parent.objects.prefetch_related(
-            # Guardian-only adults' CONFIRMED registrations: the check-in
-            # screen needs them for the ticket exemption
-            # (ParentSerializer.get_guardian_only_event_ids), which the server
-            # grants only on a confirmed registration.
+            # Guardian-only adults' registrations, EVERY status: the check-in
+            # screen needs the confirmed ones for the ticket exemption
+            # (ParentSerializer.get_guardian_only_event_ids, which the server
+            # grants only on a confirmed registration) and, from the same
+            # rows, the unconfirmed ones for the per-person "registration not
+            # confirmed" marker (get_unconfirmed_registration). One prefetch,
+            # filtered in Python, so the marker adds no query.
             Prefetch(
                 "guardian_only_registrations",
-                queryset=Registration.objects.filter(
-                    status=Registration.Status.CONFIRMED
-                ),
                 to_attr="guardian_registrations",
             ),
             Prefetch(
                 "event_tickets",
-                queryset=EventTicket.objects.select_related("event"),
+                queryset=EventTicket.objects.select_related("event", "registration"),
             ),
             Prefetch(
                 "session_tickets",
                 queryset=SessionTicket.objects.select_related(
-                    "session", "session__event"
+                    "session", "session__event", "registration"
                 ),
             ),
             Prefetch(
@@ -425,11 +425,36 @@ class ParentViewSet(viewsets.ModelViewSet):
     Gated on the matching ``families.*_parent`` permission.
     """
 
-    queryset = Parent.objects.select_related("family").all()
     serializer_class = ParentSerializer
     permission_classes = [DjangoModelPermissionsWithView]
     search_fields = ["first_name", "last_name", "email", "phone"]
     filterset_fields = ["family", "relationship_type"]
+
+    def get_queryset(self):
+        """The rows ``ParentSerializer.unconfirmed_registration`` reads,
+        prefetched, so the marker costs three flat queries per request instead
+        of a handful per adult."""
+        return (
+            Parent.objects.select_related("family")
+            .prefetch_related(
+                Prefetch(
+                    "event_tickets",
+                    queryset=EventTicket.objects.select_related(
+                        "event", "registration"
+                    ),
+                ),
+                Prefetch(
+                    "session_tickets",
+                    queryset=SessionTicket.objects.select_related(
+                        "session", "session__event", "registration"
+                    ),
+                ),
+                Prefetch(
+                    "guardian_only_registrations", to_attr="guardian_registrations"
+                ),
+            )
+            .all()
+        )
 
 
 class ChildViewSet(viewsets.ModelViewSet):
@@ -451,11 +476,14 @@ class ChildViewSet(viewsets.ModelViewSet):
         from checkins.models import CheckInRecord
 
         event_ticket_prefetch = Prefetch(
-            "event_tickets", queryset=EventTicket.objects.select_related("event")
+            "event_tickets",
+            queryset=EventTicket.objects.select_related("event", "registration"),
         )
         session_ticket_prefetch = Prefetch(
             "session_tickets",
-            queryset=SessionTicket.objects.select_related("session", "session__event"),
+            queryset=SessionTicket.objects.select_related(
+                "session", "session__event", "registration"
+            ),
         )
         # Prefetch all check-in records to avoid N+1 queries when checking is_checked_in
         # We prefetch all records (not just active ones) so the relationship name stays the same

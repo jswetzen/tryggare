@@ -1,5 +1,6 @@
 from rest_framework import serializers
 
+from checkins.eligibility import unconfirmed_registration_blocks
 from registrations.models import Registration
 from .models import Child, Family, Parent
 from .services import create_family_with_members, update_family_with_members
@@ -65,6 +66,7 @@ class ParentSerializer(SafetyInfoDisclosureMixin, serializers.ModelSerializer):
     ticket_type = serializers.SerializerMethodField()
     ticket_details = serializers.SerializerMethodField()
     guardian_only_event_ids = serializers.SerializerMethodField()
+    unconfirmed_registration = serializers.SerializerMethodField()
     is_checked_in = serializers.SerializerMethodField()
     active_checkin_id = serializers.SerializerMethodField()
     checked_in_elsewhere = serializers.SerializerMethodField()
@@ -92,6 +94,7 @@ class ParentSerializer(SafetyInfoDisclosureMixin, serializers.ModelSerializer):
             "ticket_type",
             "ticket_details",
             "guardian_only_event_ids",
+            "unconfirmed_registration",
             "is_checked_in",
             "active_checkin_id",
             "checked_in_elsewhere",
@@ -108,6 +111,7 @@ class ParentSerializer(SafetyInfoDisclosureMixin, serializers.ModelSerializer):
             "ticket_type",
             "ticket_details",
             "guardian_only_event_ids",
+            "unconfirmed_registration",
             "is_checked_in",
             "active_checkin_id",
             "checked_in_elsewhere",
@@ -129,16 +133,22 @@ class ParentSerializer(SafetyInfoDisclosureMixin, serializers.ModelSerializer):
         from the ``all`` ticket rule, and only on a confirmed registration.
 
         Deliberately separate from ``ticket_details``, which stays unscoped
-        display data. Uses the ``guardian_registrations`` prefetch (confirmed
-        registrations only) when the viewset provided it, a query otherwise.
+        display data. Reads the same ``guardian_registrations`` rows as
+        ``get_unconfirmed_registration`` (every status, filtered to CONFIRMED
+        here) so one prefetch serves both.
         """
-        if hasattr(obj, "guardian_registrations"):
-            registrations = obj.guardian_registrations
-        else:
-            registrations = obj.guardian_only_registrations.filter(
-                status=Registration.Status.CONFIRMED
-            )
-        return sorted({str(r.event_id) for r in registrations})
+        return sorted(
+            {
+                str(r.event_id)
+                for r in _guardian_registrations(obj)
+                if r.status == Registration.Status.CONFIRMED
+            }
+        )
+
+    def get_unconfirmed_registration(self, obj: Parent) -> dict:
+        return _unconfirmed_registration_payload(
+            obj, guardian_registrations=_guardian_registrations(obj)
+        )
 
     # --- check-in state of an adult -------------------------------------
     #
@@ -205,6 +215,7 @@ class ChildSerializer(SafetyInfoDisclosureMixin, serializers.ModelSerializer):
 
     ticket_type = serializers.SerializerMethodField()
     ticket_details = serializers.SerializerMethodField()
+    unconfirmed_registration = serializers.SerializerMethodField()
     is_checked_in = serializers.SerializerMethodField()
     active_checkin_id = serializers.SerializerMethodField()
     has_safety_info = serializers.SerializerMethodField()
@@ -227,6 +238,7 @@ class ChildSerializer(SafetyInfoDisclosureMixin, serializers.ModelSerializer):
             "family",
             "ticket_type",
             "ticket_details",
+            "unconfirmed_registration",
             "is_checked_in",
             "active_checkin_id",
         ]
@@ -240,6 +252,7 @@ class ChildSerializer(SafetyInfoDisclosureMixin, serializers.ModelSerializer):
             "last_participation_date",
             "ticket_type",
             "ticket_details",
+            "unconfirmed_registration",
             "is_checked_in",
             "active_checkin_id",
         ]
@@ -261,6 +274,9 @@ class ChildSerializer(SafetyInfoDisclosureMixin, serializers.ModelSerializer):
             dict: Ticket details including event_tickets and session_tickets lists
         """
         return obj.get_ticket_details()
+
+    def get_unconfirmed_registration(self, obj: Child) -> dict:
+        return _unconfirmed_registration_payload(obj)
 
     def get_is_checked_in(self, obj: Child) -> bool:
         """
@@ -324,15 +340,21 @@ class ChildSerializer(SafetyInfoDisclosureMixin, serializers.ModelSerializer):
         return str(active_checkin.id) if active_checkin else None
 
 
-def _pending_payment_payload(family: Family) -> dict | None:
-    """9.3 "unpaid at the door": the family's single pending_payment
-    registration (if any), shaped for the check-in screen's unpaid banner.
-    A family registers once per event and Registration.status blocks
-    check-in the moment it isn't confirmed, so at most one row is relevant
-    here — take the first. Uses the FamilyViewSet prefetch
-    (`pending_payment_registrations`) when present; falls back to a direct
-    query for serializer uses that don't go through that queryset (e.g. the
-    walk-up FamilyCreateSerializer response, which never has one anyway).
+def _surfaced_pending_payment(family: Family):
+    """The one registration the family-level ``pending_payment`` marker
+    actually shows, or None when it shows nothing.
+
+    The marker surfaces only the FIRST pending_payment registration and only
+    when it has a payment, so a pending_payment registration without a
+    payment, or a second one, is not surfaced and must stay visible some
+    other way. ``_pending_payment_payload`` and the per-person
+    ``unconfirmed_registration`` exclusion both ask this, so the two cannot
+    disagree about what "the unpaid banner already covers" means.
+
+    Uses the FamilyViewSet prefetch (`pending_payment_registrations`) when
+    present; falls back to a direct query for serializer uses that don't go
+    through that queryset (e.g. the walk-up FamilyCreateSerializer response,
+    which never has one anyway).
     """
     if hasattr(family, "pending_payment_registrations"):
         registrations = family.pending_payment_registrations
@@ -344,13 +366,92 @@ def _pending_payment_payload(family: Family) -> dict | None:
         )
 
     registration = registrations[0] if registrations else None
+    if registration is None or getattr(registration, "payment", None) is None:
+        return None
+    return registration
+
+
+def _guardian_registrations(parent: Parent):
+    """Registrations (any status) on which ``parent`` is a stored
+    guardian-only adult: the family viewset's ``guardian_registrations``
+    prefetch when present, a query otherwise."""
+    if hasattr(parent, "guardian_registrations"):
+        return parent.guardian_registrations
+    return list(parent.guardian_only_registrations.all())
+
+
+def _tickets_with_registration(attendee, relation: str):
+    """``attendee.<relation>`` rows with ``registration`` loaded: the viewset's
+    prefetch (which select_related's the registration) when there is one, one
+    joined query otherwise."""
+    manager = getattr(attendee, relation)
+    if relation in getattr(attendee, "_prefetched_objects_cache", {}):
+        return manager.all()
+    return manager.select_related("registration")
+
+
+def _banner_covered_registration_ids(attendee) -> set[str]:
+    """Ids of the registrations the family-level unpaid banner speaks for, as
+    seen from ``attendee`` -- empty when there is no banner to speak.
+
+    The banner only exists on the family payloads, whose viewset prefetches
+    ``pending_payment_registrations`` onto the (already loaded) family. When
+    the family is not loaded that way (``/api/children/``, ``/api/parents/``,
+    the print queue) nothing is covered: the person is listed in full rather
+    than costing a family lookup and a registrations query per person, which
+    is also the safe direction -- an unmarked person is the failure this
+    marker exists to prevent.
+    """
+    family = attendee._meta.get_field("family").get_cached_value(attendee, None)
+    if family is None or not hasattr(family, "pending_payment_registrations"):
+        return set()
+    surfaced = _surfaced_pending_payment(family)
+    return {str(surfaced.id)} if surfaced is not None else set()
+
+
+def _unconfirmed_registration_payload(attendee, guardian_registrations=()) -> dict:
+    """Where the server would refuse this person for an unconfirmed
+    registration, as ``{"event_ids": [...], "session_ids": [...]}``.
+
+    The decision is ``checkins.eligibility.unconfirmed_registration_blocks``,
+    the same function the check-in gate calls. A person blocked on an event
+    cannot check into any of its sessions; one blocked on a session only on
+    that session -- hence two lists, and the screen's rule "blocked iff
+    session.event in event_ids or session.id in session_ids".
+
+    Exclusion: a person is left out of a list ONLY when every registration
+    blocking them there is the one the family-level ``pending_payment``
+    marker surfaces (that banner, with its own buttons, already speaks for
+    them). Anything else -- a pending_payment registration with no payment, a
+    second one, a pending_verification one -- stays listed, or that person
+    would be silently unmarked while the server still refuses them.
+    """
+    by_event, by_session = unconfirmed_registration_blocks(
+        _tickets_with_registration(attendee, "event_tickets"),
+        _tickets_with_registration(attendee, "session_tickets"),
+        guardian_registrations,
+    )
+    covered = _banner_covered_registration_ids(attendee)
+
+    def listed(blocks: dict[str, set[str]]) -> list[str]:
+        return sorted(target for target, ids in blocks.items() if not ids <= covered)
+
+    return {"event_ids": listed(by_event), "session_ids": listed(by_session)}
+
+
+def _pending_payment_payload(family: Family) -> dict | None:
+    """9.3 "unpaid at the door": the family's single pending_payment
+    registration (if any), shaped for the check-in screen's unpaid banner.
+    A family registers once per event and Registration.status blocks
+    check-in the moment it isn't confirmed, so at most one row is relevant
+    here — take the first (``_surfaced_pending_payment``, which is also what
+    the per-person ``unconfirmed_registration`` exclusion asks).
+    """
+    registration = _surfaced_pending_payment(family)
     if registration is None:
         return None
 
-    payment = getattr(registration, "payment", None)
-    if payment is None:
-        return None
-
+    payment = registration.payment
     return {
         "registration_id": str(registration.id),
         "reference_code": registration.reference_code,

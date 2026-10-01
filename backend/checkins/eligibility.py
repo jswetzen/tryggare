@@ -5,6 +5,70 @@ from families.models import Attendee, Parent
 from registrations.models import Registration
 
 
+def unconfirmed_registration_blocks(
+    event_tickets, session_tickets, guardian_registrations
+) -> tuple[dict[str, set[str]], dict[str, set[str]]]:
+    """The ONE statement of "this person's registration is not confirmed".
+
+    Both ``registration_checkin_gate_error`` (the door's refusal) and the
+    family serializers' ``unconfirmed_registration`` marker (the check-in
+    screen's warning) call this, so what the screen marks and what the server
+    refuses cannot drift apart. It takes already-loaded rows so each caller
+    keeps its own query strategy: the gate asks about one session and loads
+    just those rows; the serializers work from the family list's prefetch and
+    so add no query per person.
+
+    Arguments:
+        event_tickets: the person's ``EventTicket`` rows, ``registration``
+            loaded (``select_related``) so reading it costs no query.
+        session_tickets: the person's ``SessionTicket`` rows, likewise.
+        guardian_registrations: the ``Registration`` rows, of ANY status, on
+            which the person is a stored guardian-only adult.
+
+    Returns ``(by_event, by_session)``: event id -> ids of the registrations
+    that block the person on every session of that event, and session id ->
+    ids of the registrations that block them on that exact session. All ids
+    are strings. Returning the blocking registrations (not just a flag) is
+    what lets the serializers tell "blocked by the registration the unpaid
+    banner already shows" from "blocked by one nothing else surfaces".
+
+    Rules (unchanged from the gate they were lifted out of): a ticket whose
+    ``registration`` FK is set counts only once that registration is
+    CONFIRMED -- staff-created tickets (``registration=None``) are never
+    blocked; and a guardian-only adult holds no ticket, so they are blocked on
+    an event unless at least one of their guardian-only registrations for it
+    is CONFIRMED.
+    """
+    confirmed = Registration.Status.CONFIRMED
+    by_event: dict[str, set[str]] = {}
+    by_session: dict[str, set[str]] = {}
+
+    for ticket in event_tickets:
+        if ticket.registration_id and ticket.registration.status != confirmed:
+            by_event.setdefault(str(ticket.event_id), set()).add(
+                str(ticket.registration_id)
+            )
+
+    for ticket in session_tickets:
+        if ticket.registration_id and ticket.registration.status != confirmed:
+            by_session.setdefault(str(ticket.session_id), set()).add(
+                str(ticket.registration_id)
+            )
+
+    guardian_by_event: dict[str, list[Registration]] = {}
+    for registration in guardian_registrations:
+        guardian_by_event.setdefault(str(registration.event_id), []).append(
+            registration
+        )
+    for event_id, registrations in guardian_by_event.items():
+        if not any(r.status == confirmed for r in registrations):
+            by_event.setdefault(event_id, set()).update(
+                str(r.id) for r in registrations
+            )
+
+    return by_event, by_session
+
+
 def registration_checkin_gate_error(attendee: Attendee, session: Session) -> str | None:
     """Return an error message if a pending self-serve registration blocks
     `attendee` from checking into `session`, else None.
@@ -17,40 +81,27 @@ def registration_checkin_gate_error(attendee: Attendee, session: Session) -> str
     `registration=None` and are entirely unaffected. `EventTicket`/
     `SessionTicket` are each unique per (attendee, event)/(attendee,
     session), so there's at most one relevant ticket to check per call.
+
+    The decision itself is ``unconfirmed_registration_blocks`` (shared with
+    the serializers that mark the same people on the check-in screen); this
+    function only loads the rows that matter for ``session`` and asks it.
+    A guardian-only adult (Registration.guardian_only_parents) holds no
+    ticket, so the ticket rows find nothing to block on -- but they must not
+    be able to check in through a registration that a ticketed attendee would
+    be refused on. Same message, same rule: blocked unless at least one of
+    their registrations for this event is CONFIRMED.
     """
-    event_ticket = (
-        attendee.event_tickets.filter(event=session.event)
-        .select_related("registration")
-        .first()
+    by_event, by_session = unconfirmed_registration_blocks(
+        attendee.event_tickets.filter(event=session.event).select_related(
+            "registration"
+        ),
+        attendee.session_tickets.filter(session=session).select_related("registration"),
+        Registration.objects.filter(
+            event_id=session.event_id, guardian_only_parents__pk=attendee.pk
+        ),
     )
-    if (
-        event_ticket
-        and event_ticket.registration_id
-        and event_ticket.registration.status != Registration.Status.CONFIRMED
-    ):
+    if str(session.event_id) in by_event or str(session.pk) in by_session:
         return _("Registration is not yet confirmed")
-
-    session_ticket = (
-        attendee.session_tickets.filter(session=session)
-        .select_related("registration")
-        .first()
-    )
-    if (
-        session_ticket
-        and session_ticket.registration_id
-        and session_ticket.registration.status != Registration.Status.CONFIRMED
-    ):
-        return _("Registration is not yet confirmed")
-
-    # A guardian-only adult (Registration.guardian_only_parents) holds no
-    # ticket, so the two checks above find nothing to block on -- but they
-    # must not be able to check in through a registration that a ticketed
-    # attendee would be refused on. Same message, same rule: blocked unless
-    # at least one of their registrations for this event is CONFIRMED.
-    guardian_statuses = _guardian_only_statuses(attendee, session)
-    if guardian_statuses and Registration.Status.CONFIRMED not in guardian_statuses:
-        return _("Registration is not yet confirmed")
-
     return None
 
 
