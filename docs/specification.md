@@ -43,9 +43,16 @@ A web application for managing children at conferences with check-in, check-out,
 
 ### Sessions
 - Part of an event
-- Can be:
+- One ticket rule per session, enforced by the server for everyone (not just in the check-in UI):
   - Open to all (no ticket required)
-  - Require tickets
+  - Children need a ticket
+  - Everyone attending needs a ticket
+  - The session inherits the event's default rule unless it sets its own
+- Separately, a session can be marked "adults are not checked in here" (drop-off sessions): no adult is checked in there, guardians included, whatever the rule says
+- A guardian who is not attending (a guardian-only adult on a confirmed registration) holds no ticket and is let in under "everyone attending needs a ticket", unless the session excludes adults. This exemption covers only the ticket gate: a responsible adult who is not attending is not a ticket-holder, and an ordinary adult whose ticket is missing is still refused
+- Adult check-in is per session: an adult checked in to one session still shows as not checked in, with a live Check In button, in every other session (the check-in screen scopes an adult's status to the session on screen); only a duplicate check-in to the *same* session is refused
+- The rule is stored on the session (`ticket_rule`, blank = inherit the event default) together with `adults_not_checked_in`; the earlier pair of overlapping controls (a children-only "requires ticket" flag and a separate adult check-in policy) was merged into these and the old columns have been dropped. Where the two used to disagree, one combination had no equivalent (adults needed a ticket, children were free) and was migrated to "everyone attending needs a ticket", which is stricter for the children
+- "Has a ticket" always means a ticket for this session: an event pass for this session's event, or a session ticket for this very session (`Attendee.has_ticket_for(session)`)
 - **One child can only be checked into ONE session at a time (system enforced)**
 - **Multiple sessions can be active simultaneously**
 
@@ -53,6 +60,8 @@ A web application for managing children at conferences with check-in, check-out,
 - **Event Pass**: Full multi-day access to all sessions
 - **Session Ticket**: Access to specific session(s)
 - **No Ticket**: For open sessions
+- **Unconfirmed self-serve registrations do not count**: a ticket created by a self-serve registration only counts once that registration is confirmed. Until then the server refuses the check-in at the door ("Registration is not yet confirmed") on every session the ticket covers, and a guardian-only adult is refused until one of their registrations for the event is confirmed. No ticket grant lifts this refusal. Staff-created tickets are never affected
+- **Granting at the door**: a Volontär (volunteer) can grant an event pass or a session ticket to a ticketless child or adult from the check-in desk, through the dedicated "grant" action (own permission, `grant_eventticket_at_door` / `grant_sessionticket_at_door`). It creates exactly one ticket and nothing more: a Volontär still cannot edit or delete tickets, set prices or ticket types, or use the ticket forms in Django Admin. A Koordinator (coordinator) holds the full ticket permissions as well
 
 
 ### Check-In/Check-Out Records
@@ -91,7 +100,8 @@ A web application for managing children at conferences with check-in, check-out,
 4. Check in selected children (can be individual or multiple)
 5. System validates:
    - Child not already checked into ANY session
-   - Has appropriate pass/ticket for selected session
+   - Has appropriate pass/ticket for selected session (per the session's ticket rule)
+   - Registration, if self-serve, is confirmed
 6. **QR token generated** (if first time for this child)
 7. System auto-sends to label printer (or displays QR for stub)
 8. Labels print with QR codes
@@ -105,7 +115,8 @@ A web application for managing children at conferences with check-in, check-out,
 4. Staff selects which children to check in
 5. System validates:
    - **Child not currently checked into ANY session**
-   - Has appropriate pass/ticket for selected session
+   - Has appropriate pass/ticket for selected session (per the session's ticket rule)
+   - Registration, if self-serve, is confirmed
 6. Labels auto-print (using existing QR token)
 7. **Last participation date updated** for child and all associated parents
 8. Complete
@@ -119,6 +130,8 @@ A web application for managing children at conferences with check-in, check-out,
 - Late arrivals allowed
 - Multiple events possible per day with separate sessions
 - System shows current session child is checked into (if any)
+- A person the server will refuse because their self-serve registration is unconfirmed is flagged on the desk before anyone taps Check In, with a calm "not confirmed" reason instead of a Check In button or a ticket-grant offer, and their family stays in view so the rest of the family can still be checked in
+- Adults are checked in only where the session allows it (not on "adults are not checked in here" sessions) and, under "everyone attending needs a ticket", only with a ticket or the guardian-only exemption above
 
 
 ### 2. Label Printing
@@ -200,6 +213,7 @@ A web application for managing children at conferences with check-in, check-out,
 - Check-in status indicators:
   - "Not checked in"
   - "Checked in to [Session Name]" (with timestamp)
+  - "Not confirmed" for a person whose self-serve registration the door will refuse
 - Add/edit family and child details
 - Mobile-friendly but optimized for laptop
 
@@ -251,6 +265,7 @@ A web application for managing children at conferences with check-in, check-out,
 - **No password reset flow** (admin must be reset manually by another admin)
 - Session timeout after 8 hours of inactivity
 - **Staff attribution**: All check-ins/check-outs logged with admin user ID
+- **Roles**: a Volontär (volunteer) does the door work (check in, check out, undo, print labels, grant a ticket at the door, take payment from the family at the desk) and can only view the rest of the operational data; a Koordinator (coordinator) holds all of that and also administers events, sessions and tickets, with reports and the audit log read-only
 
 ### QR Code Security Model
 - **Token generation**: UUID v4 generated on child's first check-in
@@ -322,6 +337,7 @@ A web application for managing children at conferences with check-in, check-out,
 
 ### Time & Session Management
 - Events have date and time ranges
+- **All times are Swedish local time (`Europe/Stockholm`)**: the server's `TIME_ZONE` is Europe/Stockholm and timestamps are stored timezone-aware. A coordinator who types 23:59 as a registration close time means 23:59 in Sweden, whatever the server's own clock says
 - Sessions have specific date and time ranges
 
 - **Multiple sessions can be active simultaneously**
@@ -408,6 +424,12 @@ A web application for managing children at conferences with check-in, check-out,
 ✅ No capacity limits  
 ✅ **Last participation date tracking (manual review, no automated warnings)**  
 ✅ **QR tokens generated on first check-in, persist forever**  
+✅ **One ticket rule per session (open / children / all, inherits the event default), enforced by the server for everyone**  
+✅ **"Adults are not checked in here" is a separate per-session flag, not a rung of the rule**  
+✅ **Guardian-only adults (responsible, not attending) are exempt from the ticket gate; adult check-in is per session**  
+✅ **A Volontär may grant a ticket at the door, via the dedicated grant action only**  
+✅ **Unconfirmed self-serve registrations are refused at the door and flagged on the desk**  
+✅ **Times are Swedish local time (Europe/Stockholm)**  
 
 ---
 
@@ -430,8 +452,9 @@ A web application for managing children at conferences with check-in, check-out,
 - Specified session selector UI behavior
 - Added validation error messages for check-in conflicts
 - Clarified that last participation date updates on check-in only
+- Merged the per-session ticket controls into one server-enforced ticket rule plus the "adults are not checked in" flag (round 4, October 2026); the deprecated columns were dropped
 
 ---
 
-*Last Updated: November 12, 2025*  
+*Last Updated: October 2, 2026*  
 *Version: 2.0*

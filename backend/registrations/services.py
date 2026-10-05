@@ -9,11 +9,11 @@ from typing import Literal
 
 from django.core.exceptions import ObjectDoesNotExist
 from django.db import transaction
-from django.db.models import F, Q
+from django.db.models import Count, F, Q
 from django.db.models.functions import Greatest
 from django.utils.translation import gettext_lazy as _
 
-from events.models import EventTicket, PromoCode, TicketType
+from events.models import EventTicket, PromoCode, SessionTicket, TicketType
 
 from .emails import send_confirmation_email, send_payment_instructions_email
 from .models import (
@@ -30,6 +30,215 @@ class InvalidPaymentTransition(Exception):
     act on a Payment/Registration that isn't in the right state for it.
     Callers (the admin actions) catch this per-row rather than letting one
     bad row abort a bulk action."""
+
+
+# ---------------------------------------------------------------------------
+# Ticket-type capacity (registration dev-cycle round 4, increment 2; race/
+# deadlock fix and the sold-count query shared out to admin + the wizard in
+# the gate-review revision, both 2026-09-25).
+#
+# Shared by registrations/views.py (guest self-serve submission — the one
+# path that actually enforces capacity), events/admin.py (EventTicket/
+# SessionTicket add-form's passive over-capacity warning — advisory only,
+# see reserve_ticket_type_capacity's own docstring for why the guest path
+# is different), and this module's own ticket-type-change wizard
+# (TicketTypeChangePlan.capacity_warning below). One "what counts as sold"
+# rule read from three call sites, not three copies that could drift.
+# ---------------------------------------------------------------------------
+
+
+class TicketTypeSoldOut(Exception):
+    """Raised by reserve_ticket_type_capacity when a registration's
+    selections can't fit within a TicketType's capacity. Deliberately a
+    plain exception, not DRF's ValidationError — this module stays
+    framework-agnostic per its own module docstring above.
+    registrations/views.py (the only caller that needs an HTTP-shaped
+    error) translates this into its own
+    ``{"ticket_type": [...], "code": "ticket_sold_out"}`` response."""
+
+    def __init__(self, ticket_type):
+        self.ticket_type = ticket_type
+        super().__init__(f'"{ticket_type.name}" is sold out.')
+
+
+def _not_cancelled_q() -> Q:
+    """Every Registration status except CANCELLED — see
+    ticket_type_sold_count's docstring for the full reasoning against
+    tasks.py's sweeps. Split out because sold_counts_for_event needs the
+    identical predicate applied twice (once per ticket kind); a second,
+    independently-typed copy is exactly the kind of drift this module
+    exists to prevent.
+
+    A NULL ``registration`` (a staff-created or imported ticket — see
+    EventTicket.registration's own help_text) always counts: it can never
+    become CANCELLED by construction, so it represents a real, indefinite
+    seat. That has to be spelled out as an explicit ``isnull`` branch
+    rather than folded into a bare ``~Q(registration__status=CANCELLED)``
+    — Django's NOT over a nullable LEFT OUTER JOIN evaluates to SQL NULL
+    (neither true nor false) for a row whose join side is empty, which
+    WHERE then drops, silently excluding exactly the staff-created rows
+    this is supposed to count.
+    """
+    return Q(registration__isnull=True) | ~Q(
+        registration__status=Registration.Status.CANCELLED
+    )
+
+
+def ticket_type_sold_count(ticket_type) -> int:
+    """How many currently-consuming tickets exist against a single
+    ``ticket_type``. "Consuming" means every Registration.Status *except*
+    CANCELLED — picked to agree with what the sweeps in
+    registrations/tasks.py already do to the statuses, not chosen fresh:
+
+    * PENDING_VERIFICATION: Registration's own docstring says these rows
+      are "materialized immediately" at submission, tickets included — so
+      a not-yet-verified guardian is already holding a real seat, for up
+      to REGISTRATION_TTL_HOURS. D2 (product decision, 2026-09-25,
+      confirmed unchanged on review): an abandoned pending_verification
+      row holds its seat for the full 48h TTL exactly like a real one —
+      there is no way to tell them apart before the sweep runs, and
+      guessing would mean either occasionally overselling a real
+      guardian's seat to a phantom or occasionally bouncing a real
+      guardian because of someone else's abandoned attempt.
+      sweep_expired_registrations() then hard-deletes the row (cascading
+      to its tickets) once that TTL passes, which is what actually frees
+      the seat — there's no "expired but unswept" case to special-case
+      here, since until the sweep runs the row is still real and still
+      occupying the seat it always was.
+    * PENDING_PAYMENT: same reasoning for the PAYMENT_TTL_DAYS window.
+      sweep_unpaid_registrations() flips these to CANCELLED (never
+      deletes) once expired, which this query already excludes — the seat
+      frees itself the moment that sweep runs.
+    * PENDING_REVIEW: a real registration sitting on a staff decision, not
+      a self-expiring hold. It keeps its seat until a human cancels it.
+    * CONFIRMED: obviously counts.
+    * CANCELLED: never counts — every path that reaches this status (staff
+      cancelling directly, or either sweep above) means exactly "this seat
+      is free again".
+
+    A session_bundle TicketType materializes one SessionTicket row *per
+    covered session* for the same attendee (_materialize_ticket in
+    views.py) — raw COUNT would charge one guardian's single seat once per
+    session in the bundle. Capacity is a per-attendee concept (one
+    guardian occupies one seat against the type, whatever it bundles), so
+    this counts distinct attendees for that kind instead of raw rows.
+
+    Single-type, single-query — right for the wizard's one-type
+    capacity_warning and the admin add-form's one-type post-save warning.
+    For a whole event's ticket types at once (the public listing
+    endpoints), use sold_counts_for_event instead: one of these per ticket
+    type rendered is exactly the N+1 that function exists to avoid (R3,
+    gate review 2026-09-25).
+    """
+    not_cancelled = _not_cancelled_q()
+    if ticket_type.kind == TicketType.Kind.SESSION_BUNDLE:
+        return (
+            SessionTicket.objects.filter(ticket_type=ticket_type)
+            .filter(not_cancelled)
+            .values("attendee_id")
+            .distinct()
+            .count()
+        )
+    return (
+        EventTicket.objects.filter(ticket_type=ticket_type)
+        .filter(not_cancelled)
+        .count()
+    )
+
+
+def sold_counts_for_event(event) -> dict:
+    """{ticket_type_id (str): sold_count} for every TicketType on `event`
+    that has sold anything, in two queries total regardless of how many
+    ticket types the event has (R3, gate review 2026-09-25) — the version
+    this replaced called ticket_type_sold_count once per ticket type
+    rendered by registration_event_info/validate_promo_code, an N+1 on the
+    public, unauthenticated form-load endpoint. A type absent from the
+    returned dict has sold 0 — callers read it with
+    ``counts.get(str(ticket_type.id), 0)``.
+
+    Two GROUP BY aggregates, not one: an 'event'-kind type's seats are
+    EventTicket rows (one row = one seat, so a plain COUNT is right); a
+    'session_bundle'-kind type's seats are attendees, and one attendee
+    produces several SessionTicket rows (one per covered session) — see
+    ticket_type_sold_count's own docstring for why that needs
+    COUNT(DISTINCT attendee_id) instead. No TicketType is ever both kinds
+    (TicketType.kind is one fixed choice), so the two dicts never collide
+    on a key.
+    """
+    not_cancelled = _not_cancelled_q()
+    counts: dict = {}
+    event_rows = (
+        EventTicket.objects.filter(event=event, ticket_type__isnull=False)
+        .filter(not_cancelled)
+        .values("ticket_type_id")
+        .annotate(n=Count("id"))
+    )
+    for row in event_rows:
+        counts[str(row["ticket_type_id"])] = row["n"]
+
+    bundle_rows = (
+        SessionTicket.objects.filter(session__event=event, ticket_type__isnull=False)
+        .filter(not_cancelled)
+        .values("ticket_type_id")
+        .annotate(n=Count("attendee_id", distinct=True))
+    )
+    for row in bundle_rows:
+        counts[str(row["ticket_type_id"])] = row["n"]
+
+    return counts
+
+
+def reserve_ticket_type_capacity(needed_by_ticket_type: dict) -> None:
+    """Race-safe, deadlock-safe capacity gate for a whole registration at
+    once. ``needed_by_ticket_type`` is ``{TicketType instance: distinct
+    attendee count in this registration selecting it}``. Raises
+    TicketTypeSoldOut naming the first (in pk order) type that can't fit.
+
+    Must be called inside the caller's ``transaction.atomic()`` block —
+    see registrations/views.py::_create_registration, itself inside
+    _execute_submit_registration's atomic block.
+
+    R1 (gate review 2026-09-25, BLOCKING — a live verifier reproduced this
+    as a bare 500 in 5/6 opposite-order pairs): this replaced a version
+    that called ``select_for_update()`` once per attendee, in whatever
+    order the frontend's parents[]/children[] arrays happened to submit
+    them. Two concurrent registrations each picking the same two
+    capacity-limited types in *opposite* order would lock them in opposite
+    order too — a textbook Postgres deadlock. Postgres can only deadlock
+    between transactions racing to acquire the *same set* of row locks in
+    *different* orders; one multi-row ``SELECT ... FOR UPDATE ... ORDER BY
+    pk`` statement takes every lock this registration needs at once, in
+    one deterministic order, so it can never be the losing half of that
+    pattern no matter what order the attendees arrived in. See
+    submit_registration's own deadlock/serialization-failure handling for
+    the defence-in-depth backstop this doesn't make redundant — Postgres
+    can still legitimately detect and abort a deadlock between this and
+    some *other* lock-ordering elsewhere in the same transaction, and that
+    must surface as a clean 503, not a bare 500, regardless.
+
+    ``capacity is None`` (TicketType.capacity's own help_text: "leave
+    blank for no limit") skips the capacity comparison for that type — it
+    is still included in the same locked SELECT (simplest to just lock
+    everything the registration asked for in one statement), the lock
+    just never fails anything.
+    """
+    if not needed_by_ticket_type:
+        return
+    needed_by_pk = {
+        ticket_type.pk: needed for ticket_type, needed in needed_by_ticket_type.items()
+    }
+    locked = (
+        TicketType.objects.select_for_update()
+        .filter(pk__in=needed_by_pk)
+        .order_by("pk")
+    )
+    for ticket_type in locked:
+        if ticket_type.capacity is None:
+            continue
+        needed = needed_by_pk[ticket_type.pk]
+        sold = ticket_type_sold_count(ticket_type)
+        if sold + needed > ticket_type.capacity:
+            raise TicketTypeSoldOut(ticket_type)
 
 
 def record_payment_event(
@@ -327,7 +536,13 @@ EFFECT_LABELS = {
 @dataclass(frozen=True)
 class TicketTypeChangePlan:
     """Everything the operator must be shown before the change is committed,
-    and everything ``change_attendee_ticket_type`` needs to commit it."""
+    and everything ``change_attendee_ticket_type`` needs to commit it.
+
+    ``capacity_warning`` (D1/R4, product decision + gate review
+    2026-09-25): staff may exceed a TicketType's capacity from this wizard,
+    same stance as ``age_warning`` below — a warning to acknowledge, never
+    a rejection. See ``_capacity_warning_for``.
+    """
 
     ticket: EventTicket
     old_ticket_type: TicketType | None
@@ -338,6 +553,7 @@ class TicketTypeChangePlan:
     payment: Payment | None
     effect: PriceEffect
     age_warning: str | None
+    capacity_warning: str | None
     age_at_event: int | None
 
     @property
@@ -345,8 +561,19 @@ class TicketTypeChangePlan:
         return EFFECT_LABELS[self.effect]
 
     @property
+    def warnings(self) -> list[str]:
+        """Every active warning on this plan, age first then capacity — a
+        fixed order so the confirmation template and the group-
+        acknowledgement banner always list them the same way. Both are
+        acknowledged by the same single checkbox (R4: "one tick covers
+        both" — batch semantics for per-warning acknowledgement are out of
+        scope for this screen, same as TicketTriageMixin's existing
+        one-tick-per-batch stance)."""
+        return [w for w in (self.age_warning, self.capacity_warning) if w is not None]
+
+    @property
     def requires_acknowledgement(self) -> bool:
-        return self.age_warning is not None
+        return bool(self.warnings)
 
 
 # Revision round 1 (R2): a coordinator persona test had to eye-scan 212
@@ -477,6 +704,40 @@ def _age_warning_for(ticket: EventTicket, ticket_type: TicketType):
     )
 
 
+def _capacity_warning_for(ticket_type: TicketType) -> str | None:
+    """A warning (never a rejection — D1, product decision 2026-09-25:
+    staff may exceed capacity from this wizard, the identical stance
+    ``_age_warning_for`` above already takes on the age window) for moving
+    one more ticket onto ``ticket_type``. None when the type has no
+    configured capacity at all (TicketType.capacity's own help_text: blank
+    means unlimited — guarded first, before touching the database) or the
+    move still fits inside it.
+
+    "+1", not a batch count: this wizard always moves exactly one
+    EventTicket at a time (see plan_ticket_type_change's own docstring),
+    so "sold count after this specific move" is simply
+    ticket_type_sold_count(ticket_type) + 1 — unlike
+    reserve_ticket_type_capacity, which totals several attendees at once
+    for a brand-new registration.
+    """
+    if ticket_type.capacity is None:
+        return None
+    after = ticket_type_sold_count(ticket_type) + 1
+    if after <= ticket_type.capacity:
+        return None
+    return str(
+        _(
+            "%(ticket_type)s would be over capacity (%(after)s/%(capacity)s) "
+            "after this change. Continue only if this is deliberate."
+        )
+        % {
+            "ticket_type": ticket_type.name,
+            "after": after,
+            "capacity": ticket_type.capacity,
+        }
+    )
+
+
 def plan_ticket_type_change(
     ticket: EventTicket, new_ticket_type: TicketType
 ) -> TicketTypeChangePlan:
@@ -502,6 +763,7 @@ def plan_ticket_type_change(
         )
 
     age_warning, age_at_event = _age_warning_for(ticket, new_ticket_type)
+    capacity_warning = _capacity_warning_for(new_ticket_type)
 
     old_price = ticket.price_at_registration
     new_price = new_ticket_type.price
@@ -540,6 +802,7 @@ def plan_ticket_type_change(
         payment=payment,
         effect=effect,
         age_warning=age_warning,
+        capacity_warning=capacity_warning,
         age_at_event=age_at_event,
     )
 
@@ -549,7 +812,7 @@ def change_attendee_ticket_type(
     *,
     new_ticket_type: TicketType,
     changed_by,
-    acknowledge_age_warning: bool = False,
+    acknowledge_warnings: bool = False,
 ) -> TicketTypeChangePlan:
     """Move one EventTicket onto another TicketType and carry the money with
     it. The safe version of the raw Django-admin field edit, which changed
@@ -559,10 +822,18 @@ def change_attendee_ticket_type(
       * the new type belongs to the same Event as the ticket;
       * the new type is still ``is_active``;
       * it is not the type the ticket already has;
-      * any age warning has been acknowledged by the caller.
+      * every warning on the plan (age, capacity — see
+        TicketTypeChangePlan.warnings) has been acknowledged by the caller.
+        ``acknowledge_warnings`` (renamed from ``acknowledge_age_warning``,
+        R4/D1, gate review 2026-09-25) covers both with one flag — a
+        capacity-over-limit move is exactly as staff-overridable as an
+        age-window mismatch, so it shares the same single checkbox rather
+        than adding a second one for a second warning.
 
     Warns (never blocks): the attendee's birthdate falling outside the new
-    type's min/max window — see ``_age_warning_for`` and case catalog §2.2.
+    type's min/max window (``_age_warning_for``, case catalog §2.2), and
+    the new type being at or over its configured capacity
+    (``_capacity_warning_for``, D1).
 
     Writes:
       * ``EventTicket.ticket_type``;
@@ -592,8 +863,12 @@ def change_attendee_ticket_type(
     what happened.
     """
     plan = plan_ticket_type_change(ticket, new_ticket_type)
-    if plan.requires_acknowledgement and not acknowledge_age_warning:
-        raise TicketTypeChangeRejected(plan.age_warning)
+    if plan.requires_acknowledgement and not acknowledge_warnings:
+        # Never None: requires_acknowledgement means plan.warnings is
+        # non-empty (see its own property), so joining it always yields a
+        # real message naming what needs acknowledging — age, capacity, or
+        # both.
+        raise TicketTypeChangeRejected(" ".join(plan.warnings))
 
     note = str(
         _("Ticket type changed from %(old)s to %(new)s")

@@ -398,7 +398,6 @@ class TestDataMixin:
             start_time=now,
             end_time=now + timezone.timedelta(hours=hours_duration),
             is_active=is_active,
-            requires_ticket=False,
         )
 
         return event, session

@@ -11,6 +11,12 @@
    */
   import type { Family, TicketType } from '$lib/checkin/types';
   import ChildCheckInButton from './ChildCheckInButton.svelte';
+  import AwaitingConfirmation from './AwaitingConfirmation.svelte';
+  import {
+    confirmationBadgeMessage,
+    familyConfirmationState,
+    hasBlockedPerson
+  } from '$lib/checkin/utils/familyConfirmation';
   import { Alert, Button } from '$lib/components/ui';
   import { _ } from 'svelte-i18n';
 
@@ -83,8 +89,18 @@
 
   const totalChildren = $derived(family.children.length);
   const checkedInCount = $derived(family.children.filter((c) => c.checkedIn).length);
-  const canCheckInCount = $derived(family.children.filter((c) => !c.checkedIn && c.ticket !== 'none').length);
-  const allCheckedIn = $derived(checkedInCount === totalChildren);
+  const canCheckInCount = $derived(family.children.filter((c) => !c.checkedIn && c.ticket !== 'none' && !c.registrationUnconfirmed).length);
+  // Mirrors CheckinExpandableTable (the live component): never "all checked in" while anyone in
+  // the family is blocked on this session as unconfirmed.
+  const allCheckedIn = $derived(checkedInCount === totalChildren && !hasBlockedPerson(family));
+  const confirmation = $derived(familyConfirmationState(family));
+  const confirmationMessage = $derived(confirmationBadgeMessage(confirmation));
+  const confirmationLabel = $derived(
+    confirmationMessage ? $_(confirmationMessage.key, { values: { count: confirmationMessage.count } }) : ''
+  );
+  // Everyone blocked: the badge goes in the right-hand status slot (unless the undo countdown holds
+  // it); otherwise it stays inline by the count line.
+  const confirmationInStatus = $derived(confirmation.all && familyUndoSeconds === null);
   const hasNoTicketChildren = $derived(family.children.some((c) => c.ticket === 'none'));
 
   // Helper to get ticket type display
@@ -115,7 +131,7 @@
       <button
         on:click={onToggle}
         class="flex items-start gap-2 flex-1 min-w-0 text-left hover:bg-neutral-100 rounded px-2 py-1.5 -mx-2 -my-1.5 transition-colors"
-        aria-label={`${expanded ? 'Collapse' : 'Expand'} ${family.name} family`}
+        aria-label={$_(expanded ? 'checkin.collapseFamily' : 'checkin.expandFamily', { values: { familyName: family.name } })}
         data-testid={`family-toggle-button-${family.id}`}
       >
         <div class="text-neutral-600 flex-shrink-0 pt-0.5">
@@ -134,9 +150,17 @@
               </span>
             {/if}
           </div>
-          <p class="text-xs sm:text-sm text-neutral-600 mt-0.5">
-            {totalChildren} {totalChildren === 1 ? $_('checkin.child') : $_('checkin.children')} •
-            {$_('checkin.checkedInCount', { values: { count: checkedInCount } })}
+          <p class="text-xs sm:text-sm text-neutral-600 mt-0.5 flex items-center gap-x-2 gap-y-1 flex-wrap">
+            <span>
+              {totalChildren} {totalChildren === 1 ? $_('checkin.child') : $_('checkin.children')} •
+              {$_('checkin.checkedInCount', { values: { count: checkedInCount } })}
+            </span>
+            {#if confirmationMessage && !confirmationInStatus}
+              <AwaitingConfirmation
+                label={confirmationLabel}
+                testId={`family-awaiting-confirmation-${family.id}`}
+              />
+            {/if}
           </p>
         </div>
       </button>
@@ -150,18 +174,26 @@
           <button
             on:click={onUndoFamily}
             class="px-3 py-1.5 sm:px-4 sm:py-2 bg-warning-600 text-white font-semibold rounded-button hover:bg-warning-700 transition-colors text-xs sm:text-sm whitespace-nowrap"
-            aria-label={`Undo family check-in, ${familyUndoSeconds} seconds remaining`}
+            aria-label={$_('checkin.undoFamilyAria', { values: { seconds: familyUndoSeconds } })}
             data-testid={`family-undo-button-${family.id}`}
           >
             {$_('checkin.undoSeconds', { values: { seconds: familyUndoSeconds } })}
           </button>
+        {:else if confirmationInStatus}
+          <!-- Everyone is blocked: the status slot, like the other states -->
+          <AwaitingConfirmation
+            variant="status"
+            class="px-3 py-1.5 sm:px-4 sm:py-2 text-xs sm:text-sm font-semibold"
+            label={confirmationLabel}
+            testId={`family-awaiting-confirmation-${family.id}`}
+          />
         {:else if !allCheckedIn && canCheckInCount > 0 && !hasNoTicketChildren}
           <!-- Check In Family button -->
           <button
             type="button"
             on:click={onCheckInFamily}
             class="px-3 py-1.5 sm:px-4 sm:py-2 bg-primary-600 text-white font-semibold rounded-button hover:bg-primary-700 transition-colors text-xs sm:text-sm whitespace-nowrap"
-            aria-label={`Check in ${canCheckInCount} children from ${family.name} family`}
+            aria-label={$_('checkin.checkInFamilyAria', { values: { count: canCheckInCount, familyName: family.name } })}
             data-testid={`family-check-in-button-${family.id}`}
           >
             {$_('checkin.checkInCount', { values: { count: canCheckInCount } })}
@@ -255,7 +287,7 @@
 
             <!-- Actions -->
             <div class="flex items-center gap-2 flex-wrap">
-              {#if !child.checkedIn && child.ticket !== 'none' && supervisedState}
+              {#if !child.checkedIn && child.ticket !== 'none' && !child.registrationUnconfirmed && supervisedState}
                 <label class="flex items-center gap-1.5 text-xs cursor-pointer whitespace-nowrap">
                   <input
                     type="checkbox"
@@ -280,10 +312,10 @@
           </div>
 
           <!-- Ticket assignment expansion (for "No Ticket" children) -->
-          {#if isExpanded && child.ticket === 'none'}
+          {#if isExpanded && child.ticket === 'none' && !child.registrationUnconfirmed}
             <div class="w-full bg-warning-50 border border-warning-200 rounded p-3 animate-expand">
               <p class="text-sm text-neutral-700 mb-2 font-medium">
-                {$_('checkin.checkIn')} {child.name} with:
+                {$_('checkin.checkInWith', { values: { name: child.name } })}
               </p>
               <div class="flex gap-2">
                 <button

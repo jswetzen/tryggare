@@ -1,6 +1,7 @@
 import json
 
 from django.contrib import admin, messages
+from django.db.models import Exists, OuterRef
 from django.http import HttpResponse
 from django.utils.translation import gettext_lazy as _
 
@@ -226,6 +227,7 @@ class ParentAdmin(admin.ModelAdmin):
         "last_name",
         "relationship_type",
         "family",
+        "guardian_only",
         "phone_locked",
         "email_locked",
         "health_consent_status",
@@ -238,6 +240,32 @@ class ParentAdmin(admin.ModelAdmin):
         "health_consent_status",
     )
     autocomplete_fields = ["family"]
+
+    def get_queryset(self, request):
+        # One EXISTS per row instead of a query per row for the column below.
+        return (
+            super()
+            .get_queryset(request)
+            .annotate(
+                _guardian_only=Exists(
+                    Registration.guardian_only_parents.through.objects.filter(
+                        parent_id=OuterRef("pk")
+                    )
+                )
+            )
+        )
+
+    @admin.display(
+        boolean=True,
+        ordering="_guardian_only",
+        description=_("Guardian only"),
+    )
+    def guardian_only(self, obj):
+        """Responsible for the children on a registration but not attending
+        (no ticket, no seat, no charge) -- see
+        Registration.guardian_only_parents. Read-only by design: it is set by
+        the public registration form, not edited here."""
+        return obj._guardian_only
 
 
 @admin.register(Child)

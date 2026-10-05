@@ -39,6 +39,7 @@ class RegistrationDedupTests(TestCase):
             "parents": [
                 {
                     "first_name": "Anna",
+                    "phone": "070-123 45 67",
                     "relationship_type": "Mother",
                     "email": "guardian@example.com",
                 }
@@ -97,6 +98,103 @@ class RegistrationDedupTests(TestCase):
         self.assertEqual(Registration.objects.count(), 1)
         mock_send.assert_not_called()
 
+    # ------------------------------------------------------------------
+    # "registration_already_pending" (registration dev-cycle round 4,
+    # increment 6, 2026-09-29): a resubmit that hits this dedup used to come
+    # back looking exactly like a fresh success (2xx, no way to tell it
+    # apart) while silently discarding whatever the guardian just changed —
+    # e.g. a forgotten child added via "Edit and resend" (2026-09-28
+    # incident, knowitall 6d4f0964). These tests cover the new `code` field
+    # the frontend now branches on (+page.svelte::submitPayload). The
+    # status codes are deliberately unchanged (200 throttled / 201 resent —
+    # see the inline comment on this branch in views.py for why a 4xx would
+    # have broken the confirmation screen's own explicit "resend" button,
+    # which also lands on this exact branch and has no code-check at all).
+    # ------------------------------------------------------------------
+
+    @patch("registrations.views.send_verification_email", return_value=True)
+    def test_pending_resubmit_within_cooldown_carries_the_code(self, mock_send):
+        self.client.post(self.url, self._payload(), format="json")
+        mock_send.reset_mock()
+
+        response = self.client.post(self.url, self._payload(), format="json")
+
+        self.assertEqual(response.status_code, 200, response.data)
+        self.assertEqual(response.data.get("code"), "registration_already_pending")
+        # No new email attempted on the throttled branch — must not read as
+        # "we just sent you a fresh one" on the frontend (see
+        # pendingDuplicate's own comment in +page.svelte for how it reads
+        # this field).
+        self.assertNotIn("email_sent", response.data)
+
+    @patch("registrations.views.send_verification_email", return_value=True)
+    def test_pending_resubmit_past_cooldown_also_carries_the_code(self, mock_send):
+        self.client.post(self.url, self._payload(), format="json")
+        registration = Registration.objects.get()
+        Registration.objects.filter(pk=registration.pk).update(
+            verification_sent_at=timezone.now() - timedelta(minutes=11)
+        )
+
+        response = self.client.post(self.url, self._payload(), format="json")
+
+        self.assertEqual(response.status_code, 201, response.data)
+        self.assertEqual(response.data.get("code"), "registration_already_pending")
+        # This branch DID just send a fresh token/email — the frontend must
+        # be able to tell the two dedup branches apart on this field.
+        self.assertIs(response.data.get("email_sent"), True)
+
+    @patch("registrations.views.send_verification_email", return_value=True)
+    def test_different_email_same_event_has_no_pending_code(self, mock_send):
+        self.client.post(self.url, self._payload(), format="json")
+        response = self.client.post(
+            self.url,
+            self._payload(
+                contact_email="other@example.com",
+                parents=[
+                    {
+                        "first_name": "Bo",
+                        "phone": "070-123 45 67",
+                        "relationship_type": "Father",
+                        "email": "other@example.com",
+                    }
+                ],
+            ),
+            format="json",
+        )
+        self.assertEqual(response.status_code, 201, response.data)
+        self.assertNotIn("code", response.data)
+
+    @patch("registrations.views.send_verification_email", return_value=True)
+    def test_verified_registration_does_not_trigger_the_dedup_code(self, mock_send):
+        """A resubmit for an email whose existing registration is no longer
+        PENDING_VERIFICATION (already confirmed) must create a genuine new
+        registration, not be routed into the dedup/code path — the dedup
+        filter is explicitly scoped to PENDING_VERIFICATION rows only."""
+        self.client.post(self.url, self._payload(), format="json")
+        registration = Registration.objects.get()
+        registration.status = Registration.Status.CONFIRMED
+        registration.save(update_fields=["status"])
+
+        response = self.client.post(self.url, self._payload(), format="json")
+
+        self.assertEqual(response.status_code, 201, response.data)
+        self.assertNotIn("code", response.data)
+        self.assertEqual(Registration.objects.count(), 2)
+
+    @patch("registrations.views.send_verification_email", return_value=True)
+    def test_expired_pending_registration_has_no_pending_code(self, mock_send):
+        self.client.post(self.url, self._payload(), format="json")
+        old = Registration.objects.get()
+        Registration.objects.filter(pk=old.pk).update(
+            expires_at=timezone.now() - timedelta(hours=1)
+        )
+
+        response = self.client.post(self.url, self._payload(), format="json")
+
+        self.assertEqual(response.status_code, 201, response.data)
+        self.assertNotIn("code", response.data)
+        self.assertEqual(Registration.objects.count(), 2)
+
     @patch("registrations.views.send_verification_email", return_value=True)
     def test_expired_pending_registration_gets_a_fresh_row_not_resent(self, mock_send):
         self.client.post(self.url, self._payload(), format="json")
@@ -120,6 +218,7 @@ class RegistrationDedupTests(TestCase):
                 parents=[
                     {
                         "first_name": "Bo",
+                        "phone": "070-123 45 67",
                         "relationship_type": "Father",
                         "email": "other@example.com",
                     }

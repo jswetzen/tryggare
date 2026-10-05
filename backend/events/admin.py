@@ -19,9 +19,11 @@ from .models import (
     Extra,
     ExtraChoice,
     PromoCode,
+    RegistrationWindowStatus,
     Session,
     SessionTicket,
     Ticket,
+    TicketRule,
     TicketType,
 )
 
@@ -53,6 +55,7 @@ from registrations.services import (
     TicketTypeChangeRejected,
     change_attendee_ticket_type,
     plan_ticket_type_change,
+    ticket_type_sold_count,
 )
 
 from .services import duplicate_extra_to_event
@@ -64,22 +67,57 @@ class EventAdmin(admin.ModelAdmin):
         "name",
         "start_date",
         "end_date",
-        "parent_checkin_policy_default",
+        "ticket_rule_default",
         "price",
-        "registration_window_status",
+        "registration_window_status_label",
         "registration_link",
     )
-    list_filter = ("parent_checkin_policy_default",)
+    list_filter = ("ticket_rule_default",)
     search_fields = ("name",)
+    # Deprecated column, read by nothing: not shown, so nobody sets a dead
+    # control. The proper admin redesign (and the column drop) is a later
+    # increment.
+    exclude = ("parent_checkin_policy_default",)
     actions = ("generate_report",)
+    # Explicit fieldsets so the check-in rule gets a block of its own, away
+    # from the registration/branding fields. Every editable field must be
+    # listed here: unlike ``exclude``, ``fieldsets`` is an allow-list, so a
+    # field added to Event later is invisible in admin until it is added.
+    fieldsets = (
+        (
+            None,
+            {
+                "fields": (
+                    "name",
+                    "start_date",
+                    "end_date",
+                    "price",
+                    "registration_opens_at",
+                    "registration_closes_at",
+                    "header_image_url",
+                    "accent_color",
+                )
+            },
+        ),
+        (_("Check-in rules"), {"fields": ("ticket_rule_default",)}),
+    )
 
     # No event-management UI exists in the frontend yet (just checkin/checkout/
     # printing/reports), so Django admin is the only place staff can grab a
     # given event's public registration URL.
+    # The model property returns the raw code ("open", "not_configured"),
+    # which the changelist printed verbatim under an English header. Render the
+    # translated choice label instead. Not sortable: the status is computed
+    # from "now" and two datetimes, so there is no column to order by and a
+    # misleading ordering would be worse than none.
+    @admin.display(description=_("Registration window status"))
+    def registration_window_status_label(self, obj):
+        return RegistrationWindowStatus(obj.registration_window_status).label
+
     @admin.display(description=_("Registration page"))
     def registration_link(self, obj):
         url = f"{settings.FRONTEND_BASE_URL}/register/{obj.id}/"
-        return format_html('<a href="{0}" target="_blank">Open</a>', url)
+        return format_html('<a href="{0}" target="_blank">{1}</a>', url, _("Open page"))
 
     def view_on_site(self, obj):
         return f"{settings.FRONTEND_BASE_URL}/register/{obj.id}/"
@@ -102,20 +140,96 @@ class EventAdmin(admin.ModelAdmin):
 @admin.register(Session)
 class SessionAdmin(admin.ModelAdmin):
     list_display = (
+        # The change-link column stays first. The rule columns used to come
+        # right after it and, in Swedish at 1280px, pushed Active / Start time
+        # / Event off-screen (designer critique, 2026-10-01). Now: identity
+        # (name, event), state (active), the resolved rule and the adults
+        # flag, then the times, with the raw (mostly blank) override last.
         "name",
         "event",
+        "is_active",
+        "effective_ticket_rule",
+        "adults_not_checked_in",
         "start_time",
         "end_time",
-        "is_active",
-        "parent_checkin_policy",
-        "effective_parent_checkin_policy",
+        "ticket_rule",
     )
-    list_filter = ("is_active", "event", "parent_checkin_policy")
+    list_filter = ("is_active", "event", "ticket_rule", "adults_not_checked_in")
     search_fields = ("name", "event__name")
+    # The two controls that decide who gets checked in here sit in one block:
+    # staff evaluating the old layout could not tell them apart, because the
+    # ticket rule and the "adults" checkbox were scattered through one flat
+    # list.
+    fieldsets = (
+        (
+            None,
+            {"fields": ("event", "name", "start_time", "end_time", "is_active")},
+        ),
+        (
+            _("Check-in rules"),
+            {"fields": ("ticket_rule", "adults_not_checked_in")},
+        ),
+    )
 
-    @admin.display(description=_("Effective parent policy"))
-    def effective_parent_checkin_policy(self, obj):
-        return obj.effective_parent_checkin_policy
+    def get_changeform_initial_data(self, request):
+        # New sessions start with "adults are not checked in" ticked: most
+        # sessions are children's, and an adult check-in is the exception
+        # staff should have to opt into. Done here rather than as the model
+        # default so existing rows, seed scripts and API/ORM callers keep the
+        # old behaviour (False) -- a changed model default would also change
+        # what every ``Session.objects.create(...)`` without the field means.
+        initial = super().get_changeform_initial_data(request)
+        initial.setdefault("adults_not_checked_in", True)
+        return initial
+
+    def formfield_for_choice_field(self, db_field, request, **kwargs):
+        if db_field.name == "ticket_rule":
+            # The stored value for "inherit" is "", which Django would label
+            # "---------". Say what it does instead. This is the generic label
+            # (used on the add form, where no event is known yet);
+            # get_form() sharpens it for an existing session.
+            kwargs["choices"] = [
+                ("", _("Same as the event's default")),
+                *TicketRule.choices,
+            ]
+        return super().formfield_for_choice_field(db_field, request, **kwargs)
+
+    def get_form(self, request, obj=None, change=False, **kwargs):
+        form = super().get_form(request, obj, change=change, **kwargs)
+        # ``modelform_factory`` builds fresh field instances on every call, so
+        # editing base_fields here cannot leak between requests or languages.
+        fields = form.base_fields
+        if obj is None:
+            # The "pre-ticked" sentence is only true on the add form (see
+            # get_changeform_initial_data); on a change page it would
+            # contradict the box the user is looking at. So it lives here
+            # rather than in the model's help_text.
+            if "adults_not_checked_in" in fields:
+                field = fields["adults_not_checked_in"]
+                field.help_text = "{} {}".format(
+                    field.help_text,
+                    _(
+                        "The box is already ticked when you add a new "
+                        "session: untick it for sessions where adults are "
+                        "checked in."
+                    ),
+                )
+        elif "ticket_rule" in fields and obj.event_id:
+            # Say what "blank" resolves to for THIS session's event, so the
+            # coordinator does not have to open the event to find out.
+            fields["ticket_rule"].choices = [
+                (
+                    "",
+                    _("Same as the event's default (%(rule)s)")
+                    % {"rule": obj.event.get_ticket_rule_default_display()},
+                ),
+                *TicketRule.choices,
+            ]
+        return form
+
+    @admin.display(description=_("Effective ticket rule"))
+    def effective_ticket_rule(self, obj):
+        return TicketRule(obj.effective_ticket_rule).label
 
 
 @admin.register(Ticket)
@@ -204,14 +318,22 @@ class ChangeTicketTypeForm(forms.Form):
         queryset=TicketType.objects.none(),
         label=_("New ticket type"),
     )
-    acknowledge_age_warning = forms.BooleanField(
+    # Renamed from acknowledge_age_warning (R4/D1, gate review 2026-09-25):
+    # one checkbox now covers every warning TicketTypeChangePlan.warnings
+    # can carry, not just an age mismatch — capacity joined it the same
+    # way age was always handled, a warning to override, never a block
+    # (see TicketTypeChangePlan.warnings and _capacity_warning_for in
+    # registrations/services.py).
+    acknowledge_warnings = forms.BooleanField(
         required=False,
-        label=_("The age does not fit, and I want to make this change anyway"),
+        label=_(
+            "I've reviewed the warning(s) above and want to make this change anyway"
+        ),
         help_text=_(
-            "Age is judged once, on the event's start date — there is no "
-            "exception for a birthday during the event. Tick this only if "
-            "you have checked and the placement is still correct despite "
-            "the warning."
+            "Covers every warning shown above — an age that doesn't fit the "
+            "window, the new type being at or over capacity, or both. Tick "
+            "this only if you have checked and the placement is still "
+            "correct despite it."
         ),
     )
 
@@ -278,6 +400,18 @@ class TicketTypeGuardMixin:
     permissions. A genuine cancellation still has a route: the Django shell,
     deliberately visible and deliberate rather than one click on a
     changelist.
+
+    R4/D1 (product decision + gate review, 2026-09-25): the add form here
+    is also the one other place (besides the guest self-serve submission
+    in registrations/views.py, and the ticket-type-change wizard below)
+    that can put a ticket type over its configured capacity — staff are
+    deliberately exempt from the guest-facing hard refusal, the same
+    "warn, don't block" stance already established for the age-window
+    check on TicketTypeAdmin (``_warn_if_age_window_uncheckable``). See
+    ``save_model``/``_warn_if_over_capacity`` below. Change-form saves
+    never trigger it: ``ticket_type`` is excluded from that form entirely
+    (see ``get_exclude``), so a change-form save can never be the write
+    that pushes a type over capacity in the first place.
     """
 
     def get_readonly_fields(self, request, obj=None):
@@ -285,6 +419,40 @@ class TicketTypeGuardMixin:
         if obj is not None:
             readonly += ["ticket_type_locked"]
         return readonly
+
+    def save_model(self, request, obj, form, change):
+        super().save_model(request, obj, form, change)
+        if not change:
+            self._warn_if_over_capacity(request, obj)
+
+    def _warn_if_over_capacity(self, request, obj):
+        """Passive, add-form-only warning (R4/D1, 2026-09-25) — never
+        blocks the save. ``obj.ticket_type`` is already the *saved* value
+        by the time ``save_model`` calls this, so ``ticket_type_sold_count``
+        below counts this very row.
+
+        Deliberately a plain ``>`` against ``ticket_type_sold_count``, not
+        ``reserve_ticket_type_capacity``'s lock-then-compare: staff are
+        never refused here, so there is nothing to gate — only something to
+        report after the fact — and a lock protecting a write that cannot
+        be rejected would just be pointless contention on a row several
+        operators might be adding tickets against at once.
+        """
+        ticket_type = obj.ticket_type
+        if ticket_type is None or ticket_type.capacity is None:
+            return
+        sold = ticket_type_sold_count(ticket_type)
+        if sold > ticket_type.capacity:
+            self.message_user(
+                request,
+                _('"%(name)s" is now over capacity (%(sold)s/%(capacity)s).')
+                % {
+                    "name": ticket_type.name,
+                    "sold": sold,
+                    "capacity": ticket_type.capacity,
+                },
+                level=messages.WARNING,
+            )
 
     def get_exclude(self, request, obj=None):
         exclude = list(super().get_exclude(request, obj) or [])
@@ -562,7 +730,7 @@ class EventTicketAdmin(TicketTriageMixin, TicketTypeGuardMixin, admin.ModelAdmin
         acknowledged = False
         if submitted and form.is_valid():
             new_ticket_type = form.cleaned_data["ticket_type"]
-            acknowledged = form.cleaned_data["acknowledge_age_warning"]
+            acknowledged = form.cleaned_data["acknowledge_warnings"]
             for ticket in tickets:
                 try:
                     plans.append(plan_ticket_type_change(ticket, new_ticket_type))
@@ -584,9 +752,9 @@ class EventTicketAdmin(TicketTriageMixin, TicketTypeGuardMixin, admin.ModelAdmin
                     self.message_user(
                         request,
                         _(
-                            "Tick the age acknowledgement before confirming. "
+                            "Tick the acknowledgement before confirming. "
                             "Nothing was changed — the selection below is "
-                            "unchanged, review the warning and try again."
+                            "unchanged, review the warning(s) and try again."
                         ),
                         messages.ERROR,
                     )
@@ -598,7 +766,7 @@ class EventTicketAdmin(TicketTriageMixin, TicketTypeGuardMixin, admin.ModelAdmin
                                 plan.ticket,
                                 new_ticket_type=new_ticket_type,
                                 changed_by=request.user,
-                                acknowledge_age_warning=acknowledged,
+                                acknowledge_warnings=acknowledged,
                             )
                         except (
                             TicketTypeChangeRejected,
@@ -642,8 +810,23 @@ class EventTicketAdmin(TicketTriageMixin, TicketTypeGuardMixin, admin.ModelAdmin
                                     if plan.age_warning is None
                                     else str(plan.age_warning)
                                 ),
-                                "age_warning_acknowledged": bool(
-                                    plan.age_warning and acknowledged
+                                # Added alongside age_warning, same shape
+                                # (R4/D1, gate review 2026-09-25) — nothing
+                                # outside this module and its own test reads
+                                # either key, so no dual-write/migration of
+                                # old audit rows is needed.
+                                "capacity_warning": (
+                                    None
+                                    if plan.capacity_warning is None
+                                    else str(plan.capacity_warning)
+                                ),
+                                # Renamed from age_warning_acknowledged: one
+                                # checkbox now covers every warning on the
+                                # plan, not just age (TicketTypeChangePlan.
+                                # warnings), so "acknowledged" is a property
+                                # of the whole plan, not of age specifically.
+                                "warnings_acknowledged": bool(
+                                    plan.warnings and acknowledged
                                 ),
                             },
                         )
@@ -664,7 +847,7 @@ class EventTicketAdmin(TicketTriageMixin, TicketTypeGuardMixin, admin.ModelAdmin
         # above) and step 2's preview can never drift into two renderings
         # of the same number — the "1050,00" vs "10 500,00" failure this
         # increment exists to prevent.
-        warning_plans = [plan for plan in plans if plan.age_warning]
+        warning_plans = [plan for plan in plans if plan.warnings]
         single_warning_plan = warning_plans[0] if len(warning_plans) == 1 else None
         plan_rows = [
             {

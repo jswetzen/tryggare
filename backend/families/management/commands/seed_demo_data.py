@@ -3,7 +3,7 @@ Management command to seed realistic demo data for screenshots and development.
 Idempotent — safe to re-run (uses get_or_create throughout).
 """
 
-from datetime import date, datetime, time, timedelta
+from datetime import datetime, time, timedelta
 from decimal import Decimal
 
 from django.contrib.auth import get_user_model
@@ -115,16 +115,18 @@ class Command(BaseCommand):
             self.stdout.write("Created staff user 'maria'")
 
         # --- Event & Sessions ---
-        today = date.today()
+        today = timezone.localdate()
         event, _ = Event.objects.get_or_create(
             name="Spring Conference 2026",
             defaults={"start_date": today, "end_date": today + timedelta(days=1)},
         )
 
-        morning_start = timezone.now().replace(
+        morning_start = timezone.localtime().replace(
             hour=9, minute=0, second=0, microsecond=0
         )
-        morning_end = timezone.now().replace(hour=12, minute=0, second=0, microsecond=0)
+        morning_end = timezone.localtime().replace(
+            hour=12, minute=0, second=0, microsecond=0
+        )
         morning, _ = Session.objects.get_or_create(
             event=event,
             name="Morning Session",
@@ -132,14 +134,13 @@ class Command(BaseCommand):
                 "start_time": morning_start,
                 "end_time": morning_end,
                 "is_active": True,
-                "requires_ticket": False,
             },
         )
 
-        afternoon_start = timezone.now().replace(
+        afternoon_start = timezone.localtime().replace(
             hour=13, minute=0, second=0, microsecond=0
         )
-        afternoon_end = timezone.now().replace(
+        afternoon_end = timezone.localtime().replace(
             hour=16, minute=0, second=0, microsecond=0
         )
         Session.objects.get_or_create(
@@ -149,7 +150,6 @@ class Command(BaseCommand):
                 "start_time": afternoon_start,
                 "end_time": afternoon_end,
                 "is_active": False,
-                "requires_ticket": False,
             },
         )
 
@@ -304,7 +304,7 @@ class Command(BaseCommand):
 
         # Backdate check_in_time (auto_now_add can't be set on save, use update)
         for record, hour, minute in checkin_records:
-            checkin_time = timezone.now().replace(
+            checkin_time = timezone.localtime().replace(
                 hour=hour, minute=minute, second=0, microsecond=0
             )
             CheckInRecord.objects.filter(pk=record.pk).update(
@@ -365,7 +365,7 @@ class Command(BaseCommand):
                 "email": "nina.karlsson@example.com",
             },
         )
-        today = date.today()
+        today = timezone.localdate()
         child, _ = Child.objects.get_or_create(
             family=family,
             first_name="Alice",
@@ -406,7 +406,7 @@ class Command(BaseCommand):
         must-choose-one extra, an opt-out-by-default extra, and a
         per-registration (shared cabin) extra with quantity.
         """
-        today = date.today()
+        today = timezone.localdate()
         camp, _ = Event.objects.get_or_create(
             name="Sommarläger 2026",
             defaults={
@@ -438,12 +438,14 @@ class Command(BaseCommand):
                     "start_time": timezone.make_aware(
                         timezone.datetime.combine(
                             day, timezone.datetime.min.time()
-                        ).replace(hour=start_hour)
+                        ).replace(hour=start_hour),
+                        timezone.get_default_timezone(),
                     ),
                     "end_time": timezone.make_aware(
                         timezone.datetime.combine(
                             day, timezone.datetime.min.time()
-                        ).replace(hour=end_hour)
+                        ).replace(hour=end_hour),
+                        timezone.get_default_timezone(),
                     ),
                     "is_active": False,
                 },
@@ -459,13 +461,21 @@ class Command(BaseCommand):
         # the wrong pricing tier instead of failing loudly at seed time.
         # TicketType._clean_age_window() (events/models.py) is the source of
         # truth for what a valid window looks like.
+        #
+        # The upper age in a tier name is inclusive ("0-12 år" admits a
+        # 12-year-old), and _min_birthdate(event, years) means "under
+        # `years`", so a tier ending at N passes N + 1. Until 2026-09-28 these
+        # passed N itself, which left every child exactly 12 (and exactly 17,
+        # and exactly 6 on the weekend event) with no ticket they could pick:
+        # the round-4 parent persona had to drop her 12-year-old from the
+        # registration because both Barn and Ungdom rejected him.
         barn, _ = TicketType.objects.get_or_create(
             event=camp,
             name="Barn (0-12 år)",
             defaults={
                 "price": 400,
                 "applies_to": AppliesTo.CHILD,
-                "min_birthdate": _min_birthdate(camp, 12),
+                "min_birthdate": _min_birthdate(camp, 13),
                 "max_birthdate": camp.start_date,
                 "sort_order": 1,
             },
@@ -477,7 +487,7 @@ class Command(BaseCommand):
             defaults={
                 "price": 700,
                 "applies_to": AppliesTo.CHILD,
-                "min_birthdate": _min_birthdate(camp, 17),
+                "min_birthdate": _min_birthdate(camp, 18),
                 "max_birthdate": _max_birthdate(camp, 13),
                 "sort_order": 2,
             },
@@ -613,7 +623,7 @@ class Command(BaseCommand):
         has a story for yet, so both accommodation questions render
         unconditionally required here.
         """
-        today = date.today()
+        today = timezone.localdate()
         weekend, _ = Event.objects.get_or_create(
             name="Weekend 2026",
             defaults={
@@ -641,7 +651,8 @@ class Command(BaseCommand):
             defaults={
                 "price": 0,
                 "applies_to": AppliesTo.CHILD,
-                "min_birthdate": _min_birthdate(weekend, 6),
+                # Upper age inclusive, hence 7: see the note above the camp tiers.
+                "min_birthdate": _min_birthdate(weekend, 7),
                 "max_birthdate": weekend.start_date,
                 "sort_order": 2,
             },
@@ -704,13 +715,14 @@ class Command(BaseCommand):
                 name=day_name,
                 defaults={
                     "start_time": timezone.make_aware(
-                        datetime.combine(day_date, time(9, 0))
+                        datetime.combine(day_date, time(9, 0)),
+                        timezone.get_default_timezone(),
                     ),
                     "end_time": timezone.make_aware(
-                        datetime.combine(day_date, time(22, 0))
+                        datetime.combine(day_date, time(22, 0)),
+                        timezone.get_default_timezone(),
                     ),
                     "is_active": False,
-                    "requires_ticket": False,
                 },
             )
             days.append(session)

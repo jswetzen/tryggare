@@ -1,8 +1,11 @@
+import uuid
+
 from django.db.models import Prefetch
 from django.http import HttpResponse
 from django.utils import timezone
 from rest_framework import viewsets
 from rest_framework.decorators import action
+from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
 
 from config.permissions import DjangoModelPermissionsWithView, model_permissions
@@ -72,14 +75,46 @@ class FamilyViewSet(viewsets.ModelViewSet):
             return [self._reveal_safety_info_permission()]
         return super().get_permissions()
 
+    def get_serializer_context(self):
+        """Carry the optional ``?session=<uuid>`` into the serializers.
+
+        It scopes an ADULT's check-in state to the session the desk is looking
+        at (ParentSerializer). Absent, every payload is exactly what it was.
+        A malformed id is a 400 rather than a silent fall back to the any-session
+        answer, which would reintroduce the very bug the parameter exists for.
+        """
+        context = super().get_serializer_context()
+        raw = self.request.query_params.get("session") if self.request else None
+        if raw:
+            try:
+                context["session_id"] = uuid.UUID(raw)
+            except ValueError:
+                raise ValidationError({"session": "Not a valid session id."})
+        return context
+
     def get_queryset(self):
+        """The prefetched queryset, except for writes.
+
+        update() hands the instance to services that call ``family.children.get(...)``
+        and ``.filter(...)``; with the attendee prefetch in place those resolve to
+        the read-only list proxy (families/models.py), which has neither. Writes
+        therefore load the plain row, and re-read through the prefetched queryset
+        for the response (``update`` below).
+        """
+        if self.action in ("update", "partial_update"):
+            return Family.objects.all()
+        return self._prefetched_queryset()
+
+    def _prefetched_queryset(self):
         """
         Optimize queries with prefetch_related to avoid N+1 problems.
         Includes ticket information and check-in status for children and parents.
 
         Since Child and Parent are MTI subclasses of Attendee, their family FK
         lives on the Attendee table. We prefetch through "attendees" and store
-        each subclass in a to_attr that Family._AttendeeSubclassAccessor exposes.
+        each subclass in a to_attr that Family._AttendeeSubclassAccessor exposes
+        (``_prefetched_parents`` / ``_prefetched_children``; the bare names would
+        be treated by Django as already fetched and skipped, see the accessor).
         """
         from checkins.models import CheckInRecord
 
@@ -87,12 +122,12 @@ class FamilyViewSet(viewsets.ModelViewSet):
         children_qs = Child.objects.prefetch_related(
             Prefetch(
                 "event_tickets",
-                queryset=EventTicket.objects.select_related("event"),
+                queryset=EventTicket.objects.select_related("event", "registration"),
             ),
             Prefetch(
                 "session_tickets",
                 queryset=SessionTicket.objects.select_related(
-                    "session", "session__event"
+                    "session", "session__event", "registration"
                 ),
             ),
             Prefetch(
@@ -104,19 +139,35 @@ class FamilyViewSet(viewsets.ModelViewSet):
 
         # Prefetch parents with their tickets and active check-ins
         parents_qs = Parent.objects.prefetch_related(
+            # Guardian-only adults' registrations, EVERY status: the check-in
+            # screen needs the confirmed ones for the ticket exemption
+            # (ParentSerializer.get_guardian_only_event_ids, which the server
+            # grants only on a confirmed registration) and, from the same
+            # rows, the unconfirmed ones for the per-person "registration not
+            # confirmed" marker (get_unconfirmed_registration). One prefetch,
+            # filtered in Python, so the marker adds no query.
+            Prefetch(
+                "guardian_only_registrations",
+                to_attr="guardian_registrations",
+            ),
             Prefetch(
                 "event_tickets",
-                queryset=EventTicket.objects.select_related("event"),
+                queryset=EventTicket.objects.select_related("event", "registration"),
             ),
             Prefetch(
                 "session_tickets",
                 queryset=SessionTicket.objects.select_related(
-                    "session", "session__event"
+                    "session", "session__event", "registration"
                 ),
             ),
             Prefetch(
                 "checkin_records",
-                queryset=CheckInRecord.objects.filter(check_out_time__isnull=True),
+                # select_related("session"): the desk names the OTHER session an
+                # adult is checked in to (ParentSerializer.get_checked_in_elsewhere)
+                # without a query per adult.
+                queryset=CheckInRecord.objects.filter(
+                    check_out_time__isnull=True
+                ).select_related("session"),
                 to_attr="active_checkins",
             ),
         )
@@ -130,8 +181,8 @@ class FamilyViewSet(viewsets.ModelViewSet):
         ).select_related("payment")
 
         return Family.objects.prefetch_related(
-            Prefetch("attendees", queryset=children_qs, to_attr="children"),
-            Prefetch("attendees", queryset=parents_qs, to_attr="parents"),
+            Prefetch("attendees", queryset=children_qs, to_attr="_prefetched_children"),
+            Prefetch("attendees", queryset=parents_qs, to_attr="_prefetched_parents"),
             Prefetch(
                 "registrations",
                 queryset=pending_payment_qs,
@@ -160,7 +211,7 @@ class FamilyViewSet(viewsets.ModelViewSet):
         serializer.is_valid(raise_exception=True)
         family = serializer.save()
         output = FamilyDetailSerializer(
-            self.get_queryset().get(pk=family.pk),
+            self._prefetched_queryset().get(pk=family.pk),
             context=self.get_serializer_context(),
         )
         return Response(output.data)
@@ -209,7 +260,7 @@ class FamilyViewSet(viewsets.ModelViewSet):
             return Response({"error": "not_found"}, status=404)
 
         # Use the full queryset to get the family with all prefetches
-        family_qs = self.get_queryset().filter(pk=family.pk).first()
+        family_qs = self._prefetched_queryset().filter(pk=family.pk).first()
         if not family_qs:
             return Response({"error": "not_found"}, status=404)
 
@@ -374,11 +425,36 @@ class ParentViewSet(viewsets.ModelViewSet):
     Gated on the matching ``families.*_parent`` permission.
     """
 
-    queryset = Parent.objects.select_related("family").all()
     serializer_class = ParentSerializer
     permission_classes = [DjangoModelPermissionsWithView]
     search_fields = ["first_name", "last_name", "email", "phone"]
     filterset_fields = ["family", "relationship_type"]
+
+    def get_queryset(self):
+        """The rows ``ParentSerializer.unconfirmed_registration`` reads,
+        prefetched, so the marker costs three flat queries per request instead
+        of a handful per adult."""
+        return (
+            Parent.objects.select_related("family")
+            .prefetch_related(
+                Prefetch(
+                    "event_tickets",
+                    queryset=EventTicket.objects.select_related(
+                        "event", "registration"
+                    ),
+                ),
+                Prefetch(
+                    "session_tickets",
+                    queryset=SessionTicket.objects.select_related(
+                        "session", "session__event", "registration"
+                    ),
+                ),
+                Prefetch(
+                    "guardian_only_registrations", to_attr="guardian_registrations"
+                ),
+            )
+            .all()
+        )
 
 
 class ChildViewSet(viewsets.ModelViewSet):
@@ -400,11 +476,14 @@ class ChildViewSet(viewsets.ModelViewSet):
         from checkins.models import CheckInRecord
 
         event_ticket_prefetch = Prefetch(
-            "event_tickets", queryset=EventTicket.objects.select_related("event")
+            "event_tickets",
+            queryset=EventTicket.objects.select_related("event", "registration"),
         )
         session_ticket_prefetch = Prefetch(
             "session_tickets",
-            queryset=SessionTicket.objects.select_related("session", "session__event"),
+            queryset=SessionTicket.objects.select_related(
+                "session", "session__event", "registration"
+            ),
         )
         # Prefetch all check-in records to avoid N+1 queries when checking is_checked_in
         # We prefetch all records (not just active ones) so the relationship name stays the same

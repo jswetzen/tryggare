@@ -12,7 +12,7 @@ class EventSerializer(serializers.ModelSerializer):
 
 class SessionSerializer(serializers.ModelSerializer):
     event_name = serializers.CharField(source="event.name", read_only=True)
-    effective_parent_checkin_policy = serializers.CharField(read_only=True)
+    effective_ticket_rule = serializers.CharField(read_only=True)
 
     class Meta:
         model = Session
@@ -22,9 +22,9 @@ class SessionSerializer(serializers.ModelSerializer):
             "start_time",
             "end_time",
             "is_active",
-            "requires_ticket",
-            "parent_checkin_policy",
-            "effective_parent_checkin_policy",
+            "ticket_rule",
+            "effective_ticket_rule",
+            "adults_not_checked_in",
             "event",
             "event_name",
         ]

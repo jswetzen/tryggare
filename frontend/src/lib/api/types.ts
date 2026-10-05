@@ -61,7 +61,9 @@ export interface Session {
   max_age_months?: number;
   description?: string;
   is_active: boolean;
-  requires_ticket: boolean;
+  ticket_rule?: 'open' | 'children' | 'all' | '';
+  effective_ticket_rule?: 'open' | 'children' | 'all';
+  adults_not_checked_in?: boolean;
 }
 
 export interface Event {
@@ -229,6 +231,11 @@ export interface RegistrationTicketType {
   kind: 'event' | 'session_bundle';
   requires_ticket_type_id: string | null;
   max_per_required: number | null;
+  // Capacity enforcement, 2026-09-24 (registration dev-cycle round 4,
+  // increment 2): false once TicketType.capacity is reached. Only a bool
+  // — the backend deliberately never exposes the sold count or remaining
+  // seats on this public endpoint (see _ticket_type_payload's docstring).
+  available: boolean;
 }
 
 export interface RegistrationExtraChoice {
@@ -286,6 +293,11 @@ export interface RegistrationParentPayload {
   notes?: string;
   health_consent_status?: 'not_applicable' | 'granted' | 'declined';
   ticket_type?: string | null;
+  // A responsible adult who is NOT attending (owner decision d9245e21):
+  // no ticket, no seat, no charge, no health data, no extras. Sent as true
+  // (alongside ticket_type null) for every such row on every event shape;
+  // omitted for an attending adult.
+  guardian_only?: boolean;
   extras?: RegistrationExtraSelectionPayload[];
 }
 
@@ -314,6 +326,17 @@ export interface RegistrationSubmitPayload {
   promo_code?: string;
   // Honeypot: must stay empty. Hidden from real users via CSS.
   website?: string;
+  // Client-generated (crypto.randomUUID(), once per form "attempt" — see
+  // register/[eventId]/+page.svelte) so a retried POST (network failure, a
+  // double submit that slips past the frontend's own in-flight guard, a
+  // stale tab resubmitting) replays the backend's original response
+  // instead of creating a second registration or re-sending the
+  // verification email. Added 2026-09-24 after an audit found no
+  // protection against a retried submit anywhere in the stack — see
+  // backend registrations/models.py::RegistrationIdempotencyKey. Optional:
+  // omitting it (as handleResend deliberately does) falls back to the
+  // pre-existing (event, contact_email) dedup behavior, unchanged.
+  idempotency_key?: string;
 }
 
 export interface RegistrationSubmitResponse {
@@ -324,6 +347,15 @@ export interface RegistrationSubmitResponse {
   // response, where nothing was attempted — treat only an explicit false as
   // a failure.
   email_sent?: boolean;
+  // Present and equal to "registration_already_pending" when this submit
+  // hit the backend's (event, contact_email) dedup for a still-pending
+  // registration — see registrations/views.py::_execute_submit_registration.
+  // The request still comes back 2xx (the explicit "resend" action on the
+  // confirmation screen relies on that — see handleResend in
+  // +page.svelte), so this is the only way to tell a genuine new
+  // registration apart from a resubmit whose form data was silently
+  // discarded in favor of the still-pending one.
+  code?: 'registration_already_pending';
 }
 
 export interface PromoCodeValidation {

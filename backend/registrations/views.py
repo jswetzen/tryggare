@@ -1,8 +1,10 @@
+import hashlib
+import json
 import logging
 from datetime import timedelta
 from decimal import Decimal
 
-from django.db import transaction
+from django.db import IntegrityError, OperationalError, transaction
 from django.db.models import F, Prefetch, Q
 from django.http import Http404
 from django.shortcuts import get_object_or_404
@@ -41,6 +43,7 @@ from .models import (
     Payment,
     Registration,
     RegistrationExtra,
+    RegistrationIdempotencyKey,
     default_payment_expires_at,
 )
 from .pricing import calculate_discount, calculate_total
@@ -48,8 +51,11 @@ from .serializers import RegistrationSubmitSerializer
 from .ticket_rules import validate_ticket_composition
 from .services import (
     InvalidPaymentTransition,
+    TicketTypeSoldOut,
     confirm_registration_despite_balance,
     mark_payment_paid,
+    reserve_ticket_type_capacity,
+    sold_counts_for_event,
 )
 from .swish import payment_instructions
 from .tokens import generate_verification_token, hash_token
@@ -108,16 +114,43 @@ def _split_selections(items):
             {
                 "ticket_type": item.pop("ticket_type", None),
                 "extras": item.pop("extras", []),
+                # Only parents carry this (RegistrationParentSerializer);
+                # RegistrationSubmitSerializer.validate has already resolved
+                # it to the effective value. Popped here because it is not a
+                # Parent model field.
+                "guardian_only": item.pop("guardian_only", False),
             }
         )
         model_data.append(item)
     return model_data, selections
 
 
-def _ticket_type_payload(ticket_type):
+def _ticket_type_payload(ticket_type, *, sold_count):
     """Shared public JSON shape for a TicketType — used both by
     registration_event_info's normal listing and validate_promo_code's
-    unlocked-types payload, so the two never drift apart."""
+    unlocked-types payload, so the two never drift apart.
+
+    ``sold_count`` is passed in rather than computed here (R3, gate review
+    2026-09-25): both call sites list several ticket types at once, and
+    this used to call the single-type count function once per type — an
+    N+1 on a public, unauthenticated endpoint. Callers compute the whole
+    event's counts in one shot with
+    registrations.services.sold_counts_for_event and pass each type's
+    share in.
+
+    ``available`` (added 2026-09-24, capacity enforcement increment): a
+    plain bool, not a remaining count — see
+    registrations.services.ticket_type_sold_count's docstring for what
+    "sold" means here. Deliberately not exposing the raw sold count or a
+    remaining-seats number: nothing else on this public, unauthenticated
+    endpoint reveals how many of anything have sold (prices and age
+    windows are configuration, not activity), and "3 left!" is exactly the
+    kind of number a competitor or a nosy guardian could poll for over
+    time to infer registration velocity. A bool is the minimum a
+    guardian's form needs to grey out a full option — matches
+    registration_event_info's own "minimal ... without exposing" framing
+    for the rest of this payload.
+    """
     return {
         "id": str(ticket_type.id),
         "name": ticket_type.name,
@@ -136,6 +169,7 @@ def _ticket_type_payload(ticket_type):
             else None
         ),
         "max_per_required": ticket_type.max_per_required,
+        "available": ticket_type.capacity is None or sold_count < ticket_type.capacity,
     }
 
 
@@ -163,8 +197,16 @@ def _resolve_promo_code(*, event, code_str):
     if not code_str:
         return None
 
+    # "code" is a literal key in the body (not just the ValidationError
+    # constructor's own `code=` kwarg, which DRF's default JSONRenderer
+    # never serializes) — same pattern as the ticket_sold_out error below,
+    # so the frontend can branch on a stable machine-readable value instead
+    # of string-matching the translated message.
     invalid = ValidationError(
-        {"promo_code": [_("This promo code is not valid.")]},
+        {
+            "promo_code": [_("This promo code is not valid.")],
+            "code": "invalid_promo_code",
+        },
         code="invalid_promo_code",
     )
     try:
@@ -459,6 +501,16 @@ def _create_registration(
         verification_token_hash=hash_token(token),
         verification_sent_at=timezone.now(),
     )
+    # The stored fact the check-in gate and the expiry sweep read -- see
+    # Registration.guardian_only_parents for why it lives here and not on
+    # Parent.
+    guardian_only_parents = [
+        parent
+        for parent, selection in zip(created_parents, parent_selections)
+        if selection["guardian_only"]
+    ]
+    if guardian_only_parents:
+        registration.guardian_only_parents.add(*guardian_only_parents)
 
     # Itemized pricing only activates once staff have configured at least
     # one active TicketType for this event — otherwise every attendee gets
@@ -479,11 +531,32 @@ def _create_registration(
     # a field error point at the exact row the guardian needs to fix
     # (see the age-band ValidationError just below).
     child_index = 0
-    parent_index = 0
 
-    for is_child, attendee, selection in attendees:
-        ticket_type = selection["ticket_type"]
-        if itemized:
+    # A registration in which nobody is attending (an adults-only submission
+    # where every adult is "guardian only") would confirm with no seat and no
+    # line item -- nothing to attend, on a flat-price event just as on an
+    # itemized one. Children can't reach this: they always hold a ticket.
+    if all(selection["guardian_only"] for _c, _a, selection in attendees):
+        raise ValidationError(
+            _("At least one person on the registration needs to be attending.")
+        )
+
+    # Pass 1: validate every attendee's ticket-type selection (existence,
+    # eligibility, age band) — read-only, no writes, no locks. Split out
+    # from materialization (pass 2 below) so capacity can be checked for
+    # the *whole registration* in one batch between the two passes — see
+    # that batch's own comment (R1, gate review 2026-09-25) for why a
+    # single deterministic-order lock replaced locking one TicketType row
+    # per attendee as this loop reached it.
+    if itemized:
+        for is_child, _attendee, selection in attendees:
+            ticket_type = selection["ticket_type"]
+            if selection["guardian_only"]:
+                # "Guardian only" (owner decisions eb5d26f4 / d9245e21): a
+                # responsible adult who is not attending -- no eligibility
+                # check, no seat, no price line. (Always an adult: the
+                # serializer only sets this on parents.)
+                continue
             if ticket_type is None:
                 raise ValidationError(
                     _("Please select a ticket type for every attendee.")
@@ -491,14 +564,80 @@ def _create_registration(
             _validate_ticket_type_for_attendee(
                 ticket_type,
                 event=event,
-                attendee=attendee,
+                attendee=_attendee,
                 is_child=is_child,
                 promo_code=promo_code,
             )
             if is_child:
-                age_error = _child_ticket_age_error(ticket_type, attendee.birthdate)
+                age_error = _child_ticket_age_error(ticket_type, _attendee.birthdate)
                 if age_error:
                     raise ValidationError({"children": {str(child_index): [age_error]}})
+                child_index += 1
+
+        # Batch capacity lock+check (R1, gate review 2026-09-25 — replaces
+        # the per-attendee select_for_update this increment shipped with
+        # originally, which the verifier reproduced deadlocking in 5/6
+        # opposite-order pairs: two registrations each picking the same two
+        # capacity-limited types in opposite order would lock them in
+        # opposite order too, the textbook Postgres deadlock shape).
+        # `needed` is per-attendee, not per-materialized-row — a
+        # session_bundle attendee still needs exactly one seat no matter
+        # how many sessions their type bundles (see
+        # reserve_ticket_type_capacity's own docstring).
+        needed_by_ticket_type: dict = {}
+        for _is_child, _attendee, selection in attendees:
+            ticket_type = selection["ticket_type"]
+            if selection["guardian_only"]:
+                continue  # guardian only: consumes no seat
+            needed_by_ticket_type[ticket_type] = (
+                needed_by_ticket_type.get(ticket_type, 0) + 1
+            )
+        try:
+            reserve_ticket_type_capacity(needed_by_ticket_type)
+        except TicketTypeSoldOut as exc:
+            raise ValidationError(
+                {
+                    "ticket_type": [
+                        _bilingual(
+                            f'"{exc.ticket_type.name}" is sold out.',
+                            f'"{exc.ticket_type.name}" är fullbokad.',
+                        )
+                    ],
+                    "code": "ticket_sold_out",
+                }
+            ) from exc
+
+    # Pass 2: materialize tickets/extras now that every selection in this
+    # registration is known to be valid and to fit within capacity.
+    parent_index = 0
+    for is_child, attendee, selection in attendees:
+        ticket_type = selection["ticket_type"]
+        if selection["guardian_only"]:
+            # Guardian-only adult (never a child). No ticket, so nothing
+            # per-attendee can attach to them: a per-attendee extra would be
+            # a priced line for someone who isn't attending, and required
+            # per-attendee extras don't apply (nor does anything else
+            # per-attendee: the serializer has already refused health
+            # information for them).
+            # Refuse a submitted extra loudly rather than dropping it, so a
+            # guardian never believes they bought something they didn't.
+            if selection["extras"]:
+                raise ValidationError(
+                    {
+                        "parents": {
+                            str(parent_index): [
+                                _(
+                                    "Extras can only be added for an adult with a ticket."
+                                )
+                            ]
+                        }
+                    }
+                )
+            parent_index += 1
+            continue
+        if not is_child:
+            parent_index += 1
+        if itemized:
             _materialize_ticket(
                 attendee=attendee,
                 event=event,
@@ -534,11 +673,6 @@ def _create_registration(
                 selection=extra_selection,
                 is_child=is_child,
             )
-
-        if is_child:
-            child_index += 1
-        else:
-            parent_index += 1
 
     validate_ticket_composition(registration)
 
@@ -609,9 +743,15 @@ def registration_event_info(request, event_id):
     """
     event = get_object_or_404(Event, pk=event_id)
 
+    # One bulk query pair for the whole event (R3, gate review
+    # 2026-09-25), not one _ticket_type_payload-internal query per ticket
+    # type rendered below — see sold_counts_for_event's own docstring.
+    sold_counts = sold_counts_for_event(event)
     active_ticket_types = event.ticket_types.filter(is_active=True)
     ticket_types = [
-        _ticket_type_payload(ticket_type)
+        _ticket_type_payload(
+            ticket_type, sold_count=sold_counts.get(str(ticket_type.id), 0)
+        )
         for ticket_type in active_ticket_types.filter(is_hidden=False).order_by(
             "sort_order", "name"
         )
@@ -720,6 +860,10 @@ def validate_promo_code(request):
     if promo_code.max_uses is not None and promo_code.uses_count >= promo_code.max_uses:
         return Response({"valid": False})
 
+    # Same bulk-query rationale as registration_event_info above — a
+    # promo code can unlock several hidden ticket types at once (R3, gate
+    # review 2026-09-25).
+    sold_counts = sold_counts_for_event(event)
     return Response(
         {
             "valid": True,
@@ -732,7 +876,9 @@ def validate_promo_code(request):
                 )
             ],
             "unlocks_ticket_types": [
-                _ticket_type_payload(ticket_type)
+                _ticket_type_payload(
+                    ticket_type, sold_count=sold_counts.get(str(ticket_type.id), 0)
+                )
                 for ticket_type in promo_code.unlocks_ticket_types.filter(
                     is_active=True
                 )
@@ -741,35 +887,72 @@ def validate_promo_code(request):
     )
 
 
-@api_view(["POST"])
-@permission_classes([AllowAny])
-@throttle_classes([RegistrationSubmitThrottle])
-def submit_registration(request):
-    """
-    Public, unauthenticated self-serve registration submission.
+# How long an idempotency-key reservation can sit unfinished before it's
+# treated as abandoned rather than "still in progress" — see
+# _reserve_idempotency_key's docstring (P2, added 2026-09-24 after gate
+# review) for why this exists at all: without it, a worker that dies
+# mid-request (killed process, rescheduled pod) between reserving a key and
+# filling in its response would leave every future retry under that key
+# stuck on a 409 forever, since nothing else ever completes the reservation.
+# 60s is generous for this endpoint's own work (a single DB transaction plus
+# one best-effort email send, see _execute_submit_registration) while still
+# being short enough that a guardian who retries a couple of times inside a
+# minute never races a reclaim against their own still-healthy request.
+STALE_RESERVATION_AGE = timedelta(seconds=60)
 
-    Materializes Family/Parent/Child/EventTicket rows immediately
-    (status=pending_verification) rather than deferring to a JSON blob — see
-    the Track 1 plan for why (keeps special-category child data inside every
-    existing compliance mechanism). A second submission for a still-pending
-    (event, contact_email) pair resends the verification email instead of
-    creating a duplicate row.
-    """
-    serializer = RegistrationSubmitSerializer(data=request.data)
-    serializer.is_valid(raise_exception=True)
-    data = serializer.validated_data
 
+def _idempotency_fingerprint(raw_payload) -> str:
+    """SHA-256 of the raw submitted JSON body, minus the idempotency key
+    itself (that's the lookup key, not part of what has to match) and with
+    dict keys sorted so the hash is stable regardless of field-insertion
+    order — the frontend always sends the same shape, but nothing enforces
+    that, and a non-canonical hash would make a byte-identical retry fail
+    to match itself purely over key ordering.
+
+    Hashes ``request.data`` (already-parsed JSON, plain dicts/lists/
+    scalars) rather than the serializer's ``validated_data`` on purpose:
+    validated_data has PrimaryKeyRelatedField values resolved to model
+    instances (Event, TicketType, Extra, ExtraChoice...), which aren't
+    JSON-serializable without extra plumbing, and comparing the raw wire
+    payload is exactly "was this the same request" anyway — the whole point
+    here, unlike validation, isn't to interpret the payload, just to tell
+    two submissions apart byte-for-byte.
+    """
+    if isinstance(raw_payload, dict):
+        canonical = {k: v for k, v in raw_payload.items() if k != "idempotency_key"}
+    else:
+        canonical = raw_payload
+    encoded = json.dumps(canonical, sort_keys=True, default=str)
+    return hashlib.sha256(encoded.encode("utf-8")).hexdigest()
+
+
+def _execute_submit_registration(request, data):
+    """The actual submission logic: validated payload in, ``(response
+    body, HTTP status, Registration-or-None)`` out.
+
+    Split out of ``submit_registration`` on 2026-09-24 so the idempotency-
+    key wrapper below (see ``RegistrationIdempotencyKey``) can cache
+    exactly what this function returns without duplicating the honeypot/
+    window/dedup/create logic, and so the wrapper can tell "raised before
+    reaching a persisted outcome" (nothing to cache, safe to retry under
+    the same key once the caller fixes whatever was wrong) apart from
+    "returned a real result" (cache it) purely from whether this function
+    returns normally or raises. Every branch is unchanged from before the
+    split — this is a pure extraction, not a behavior change for a request
+    with no idempotency key.
+    """
     # Honeypot: real guardians never fill this hidden field. Respond as if
     # successful — bots shouldn't learn their submission was rejected —
     # without persisting anything.
     if data.get("website"):
         logger.warning("Registration honeypot triggered for event %s", data["event"].id)
-        return Response(
+        return (
             {
                 "reference_code": None,
                 "message": _("Thanks — check your email to confirm."),
             },
-            status=status.HTTP_201_CREATED,
+            status.HTTP_201_CREATED,
+            None,
         )
 
     event = data["event"]
@@ -795,17 +978,42 @@ def submit_registration(request):
     )
 
     if existing is not None and not existing.is_expired:
+        # This branch is deliberately reached by two different callers with
+        # different intent, and the response has to serve both:
+        #   - the confirmation screen's explicit "resend" action (handleResend
+        #     in +page.svelte), which sends this exact payload back on
+        #     purpose and treats any 2xx as "an email is on its way" — that
+        #     flow already shipped and must not break.
+        #   - a guardian who used "Edit and resend" (or just double-submitted)
+        #     with genuinely *changed* form data — before this "code" field
+        #     existed, that resubmit silently hit this same branch, the new
+        #     data was discarded, and the guardian saw the ordinary success
+        #     screen with no indication anything was dropped (2026-09-28
+        #     incident, knowitall 6d4f0964).
+        # The status codes stay exactly what they were (200 throttled / 201
+        # resent) rather than moving to a 4xx like idempotency_conflict's —
+        # a 4xx would land in submitPayload's catch block and also break
+        # handleResend, which has no code-check and just wants the request to
+        # succeed. Instead "code": "registration_already_pending" rides
+        # alongside the existing 2xx body so submitPayload's *success* path
+        # can recognize the dedup happened and show a dedicated "not saved"
+        # state, while handleResend keeps ignoring it and working exactly as
+        # before.
         registration, token, throttled = _resend_verification(existing)
         if throttled:
-            return Response(
+            return (
                 {
                     "reference_code": registration.reference_code,
+                    "code": "registration_already_pending",
                     "message": _(
-                        "A confirmation email was already sent recently — "
-                        "please check your inbox."
+                        "A registration for this email is already waiting "
+                        "for confirmation. We can't resend so soon — please "
+                        "use the confirmation email already sent. Any "
+                        "changes you just made were not saved."
                     ),
                 },
-                status=status.HTTP_200_OK,
+                status.HTTP_200_OK,
+                registration,
             )
         email_sent = send_verification_email(registration, token)
         log_audit(
@@ -815,17 +1023,23 @@ def submit_registration(request):
             entity_id=str(registration.id),
             details={"reference_code": registration.reference_code},
         )
-        return Response(
+        return (
             {
                 "reference_code": registration.reference_code,
+                "code": "registration_already_pending",
                 # False means the registration is stored but the mail didn't
                 # go out (see emails.py::_send_or_degrade) — the client says
                 # so plainly and offers the resend action rather than
                 # claiming an email is on its way.
                 "email_sent": email_sent,
-                "message": _("Thanks — check your email to confirm."),
+                "message": _(
+                    "A registration for this email is already waiting for "
+                    "confirmation. We've sent a fresh confirmation email — "
+                    "any changes you just made were not saved."
+                ),
             },
-            status=status.HTTP_201_CREATED,
+            status.HTTP_201_CREATED,
+            registration,
         )
 
     with transaction.atomic():
@@ -852,14 +1066,341 @@ def submit_registration(request):
         },
     )
 
-    return Response(
+    return (
         {
             "reference_code": registration.reference_code,
             "email_sent": email_sent,
             "message": _("Thanks — check your email to confirm."),
         },
-        status=status.HTTP_201_CREATED,
+        status.HTTP_201_CREATED,
+        registration,
     )
+
+
+def _idempotency_replay_or_conflict_response(existing_key, fingerprint):
+    """Given a RegistrationIdempotencyKey this request did NOT win the
+    reservation for, decide what to hand back: the winner's cached response
+    (a true replay), a hard conflict (the same key reused for a genuinely
+    different payload), or "still working on it" (the winner reserved the
+    key but hasn't finished yet). Shared by _reserve_idempotency_key's
+    first-collision path and its post-reclaim-attempt path below, so a
+    losing request is resolved identically either way.
+
+    Both conflict shapes carry a machine-readable ``code`` (P1, added
+    2026-09-24 after gate review) alongside the existing translated
+    message/details — the frontend needs to tell "same key, different
+    payload" apart from "still processing" *before* it falls back to
+    extractErrorMessage's generic first-string-in-the-body heuristic, which
+    would otherwise have no way to distinguish them (see
+    handleSubmit's catch block).
+    """
+    if existing_key.request_fingerprint != fingerprint:
+        # Same key, different payload: either a client bug (the key didn't
+        # get reset when it should have — see the frontend's "starts a new
+        # registration resets the key" rule) or an attempt to read back a
+        # response that was never this caller's. Either way, silently
+        # returning the other payload's result would be actively wrong, so
+        # this is a hard conflict, not a replay.
+        return Response(
+            {
+                "idempotency_key": [
+                    _(
+                        "This idempotency key was already used for a "
+                        "different submission."
+                    )
+                ],
+                "code": "idempotency_conflict",
+            },
+            status=status.HTTP_409_CONFLICT,
+        )
+    if existing_key.response_body is None:
+        # The reservation exists but the request that made it hasn't
+        # finished yet — the losing side of the exact race the reservation
+        # exists to prevent. There is no result to replay yet; asking the
+        # caller to retry is honest, returning a guessed result would not
+        # be.
+        return _idempotency_in_progress_response()
+    return Response(existing_key.response_body, status=existing_key.response_status)
+
+
+def _idempotency_in_progress_response():
+    """The "try again shortly" 409 — factored out because
+    _reserve_idempotency_key also reaches for it when a concurrent
+    reclaimer's DELETE-then-INSERT leaves a real, narrow gap where the row
+    genuinely doesn't exist for a moment (see that function's ``except
+    RegistrationIdempotencyKey.DoesNotExist`` handling): that gap is a
+    finer-grained instance of "someone else is mid-flight on this key",
+    exactly what this response already says, so there is no separate
+    message to maintain for it.
+    """
+    return Response(
+        {
+            "error": _(
+                "This submission is already being processed — "
+                "please try again in a moment."
+            ),
+            "code": "idempotency_in_progress",
+        },
+        status=status.HTTP_409_CONFLICT,
+    )
+
+
+def _reserve_idempotency_key(*, key, event, fingerprint):
+    """Reserves ``key`` for this request, or resolves a request that lost
+    the reservation race. Returns either a RegistrationIdempotencyKey (this
+    request won and must run the real work, then fill it in) or a Response
+    (this request lost — the Response is the final answer).
+
+    Reserving the row *before* doing any real work — not a plain
+    check-then-insert — is what closes the concurrent-request race: two
+    requests arriving within microseconds of each other both see "no row
+    yet" under a SELECT, but only one INSERT can win the unique constraint
+    on ``key``; the other raises IntegrityError.
+
+    The reclaim step (P2, added 2026-09-24 after gate review) handles the
+    case where the *winner* of that race never gets to finish: a worker
+    killed mid-request, a rescheduled pod, any hard process death between
+    reserving the key and filling in response_body. Without it, every
+    future retry under that key would see "already being processed"
+    forever, since nothing else was ever going to complete the reservation.
+    A reservation unfinished for longer than STALE_RESERVATION_AGE is
+    reclaimed: deleted via a *conditional* delete (matched on pk +
+    still-unfinished + still-stale, so two requests reclaiming at the same
+    instant can't both succeed) and re-reserved for this request. Deletion
+    uses the model's existing ``created_at`` — no new field, no migration.
+
+    Per the reviewed plan, the reclaim is attempted at most once: if the
+    conditional delete matches nothing (someone else already reclaimed, or
+    the original request finished, between our read and our delete) or the
+    retried INSERT itself loses a fresh race, this falls through to
+    resolving normally against whatever is there now — replay, conflict, or
+    "still in progress" — rather than looping. That keeps this function's
+    worst case bounded (at most two INSERT attempts) instead of risking a
+    request retrying indefinitely against a key under contention.
+
+    Both re-reads below tolerate the row having vanished entirely
+    (RegistrationIdempotencyKey.DoesNotExist) rather than letting that
+    propagate as a 500. This is a real, narrow possibility, not defensive
+    overkill: a reclaim is a DELETE followed by a *separate*, later INSERT
+    statement — nothing makes that pair atomic against a concurrent
+    reader — so a second request racing the same reclaim can legitimately
+    read in the gap between "the stale row is gone" and "the reclaiming
+    request's new row exists yet". A multi-threaded, two-real-connections
+    test (IdempotencyKeyStaleReclaimRaceTests in tests_idempotency.py) is
+    what caught this — a single-connection mocked IntegrityError can't
+    reproduce it, since mocking can only fake a collision at a call
+    boundary, not an genuinely empty moment between two separate
+    statements on another connection.
+    """
+    try:
+        with transaction.atomic():
+            return RegistrationIdempotencyKey.objects.create(
+                key=key, event=event, request_fingerprint=fingerprint
+            )
+    except IntegrityError:
+        pass
+
+    try:
+        existing_key = RegistrationIdempotencyKey.objects.get(key=key)
+    except RegistrationIdempotencyKey.DoesNotExist:
+        return _idempotency_in_progress_response()
+
+    cutoff = timezone.now() - STALE_RESERVATION_AGE
+    if existing_key.response_body is None and existing_key.created_at < cutoff:
+        deleted_count, _unused = RegistrationIdempotencyKey.objects.filter(
+            pk=existing_key.pk,
+            response_body__isnull=True,
+            created_at__lt=cutoff,
+        ).delete()
+        if deleted_count:
+            try:
+                with transaction.atomic():
+                    return RegistrationIdempotencyKey.objects.create(
+                        key=key, event=event, request_fingerprint=fingerprint
+                    )
+            except IntegrityError:
+                # Another request reserved (or reclaimed) the same key in
+                # the instant between our delete and our retry — re-read
+                # and resolve against that below, rather than reclaiming
+                # again (see the "at most once" note above).
+                pass
+        # Either the conditional delete matched nothing (someone else
+        # already reclaimed, or the original request finished, first) or
+        # our own post-reclaim retry just lost a fresh race — re-read
+        # current state either way.
+        try:
+            existing_key = RegistrationIdempotencyKey.objects.get(key=key)
+        except RegistrationIdempotencyKey.DoesNotExist:
+            return _idempotency_in_progress_response()
+
+    return _idempotency_replay_or_conflict_response(existing_key, fingerprint)
+
+
+# Postgres error codes (SQLSTATE) for the two conflicts
+# reserve_ticket_type_capacity's single deterministic-order lock is meant to
+# make unreachable for *its own* lock ordering, but that lock is not the
+# only thing this transaction can collide with — some other, unrelated
+# ordering elsewhere (or Postgres's SERIALIZABLE machinery, if that
+# isolation level is ever turned on) can still legitimately abort one side.
+# 40P01 = deadlock_detected, 40001 = serialization_failure. See
+# _submit_registration_or_busy's own docstring for why both are handled
+# identically here (both mean "retry the whole request, nothing was your
+# fault").
+_DEADLOCK_PGCODES = frozenset({"40P01", "40001"})
+
+
+def _is_deadlock_or_serialization_failure(exc: OperationalError) -> bool:
+    """Django wraps the DB-API driver's own exception (psycopg's
+    OperationalError subclasses, e.g. ``errors.DeadlockDetected``) as
+    ``django.db.OperationalError`` with the original attached as
+    ``__cause__`` — that original carries the real Postgres SQLSTATE in
+    ``.pgcode``. Checking the code, not the exception class or message
+    text, is deliberate: psycopg raises several different
+    OperationalError subclasses for unrelated conditions (a dropped
+    connection, a statement timeout, ...) that must NOT be swallowed into
+    a misleading "try again" response — only these two specific,
+    inherently-transient conflicts should ever be.
+    """
+    return getattr(exc.__cause__, "pgcode", None) in _DEADLOCK_PGCODES
+
+
+def _registration_busy_response():
+    """The 503 a deadlock/serialization failure resolves to — R1, gate
+    review 2026-09-25, added after a live verifier reproduced a bare 500 in
+    5/6 opposite-order pairs before reserve_ticket_type_capacity's
+    single-lock fix. Even with that fix, Postgres can still detect and
+    abort a genuine conflict between this transaction and some other one;
+    the guardian did nothing wrong, so this is a clean, retryable 503 with
+    a machine-readable code, not a 500 that looks like a bug.
+    """
+    return Response(
+        {
+            "error": _bilingual(
+                "Many people are registering right now — please try again.",
+                "Många anmäler sig just nu — försök igen om en liten stund.",
+            ),
+            "code": "registration_busy_retry",
+        },
+        status=status.HTTP_503_SERVICE_UNAVAILABLE,
+    )
+
+
+def _submit_registration_or_busy(request, data):
+    """Runs _execute_submit_registration, translating a Postgres deadlock
+    or serialization failure into ``_registration_busy_response()`` instead
+    of letting it propagate as an unhandled 500.
+
+    Returns either the normal ``(body, status, registration)`` tuple, or a
+    Response standing in for "the database was too busy, try again" —
+    mirrors ``_reserve_idempotency_key``'s own Response-or-real-value
+    convention above, for the same reason: the caller tells the two apart
+    with a single ``isinstance(result, Response)`` check instead of a
+    second exception type.
+
+    Shared by both of submit_registration's branches (with and without an
+    idempotency key) so the deadlock/serialization-failure handling exists
+    in exactly one place — R1, gate review 2026-09-25. Every other
+    exception (ValidationError from a rejected submission,
+    ticket_sold_out, any other OperationalError that isn't one of these
+    two specific codes, ...) is deliberately left to propagate unchanged;
+    this function only ever intercepts the one thing it names.
+    """
+    try:
+        return _execute_submit_registration(request, data)
+    except OperationalError as exc:
+        if not _is_deadlock_or_serialization_failure(exc):
+            raise
+        logger.warning(
+            "Registration submission hit a deadlock/serialization failure "
+            "(pgcode=%s) — returning 503 for the client to retry",
+            getattr(exc.__cause__, "pgcode", None),
+        )
+        return _registration_busy_response()
+
+
+@api_view(["POST"])
+@permission_classes([AllowAny])
+@throttle_classes([RegistrationSubmitThrottle])
+def submit_registration(request):
+    """
+    Public, unauthenticated self-serve registration submission.
+
+    Materializes Family/Parent/Child/EventTicket rows immediately
+    (status=pending_verification) rather than deferring to a JSON blob — see
+    the Track 1 plan for why (keeps special-category child data inside every
+    existing compliance mechanism). A second submission for a still-pending
+    (event, contact_email) pair resends the verification email instead of
+    creating a duplicate row — see _execute_submit_registration.
+
+    Idempotency (added 2026-09-24, see RegistrationIdempotencyKey for the
+    full reasoning): an optional client-supplied ``idempotency_key`` makes a
+    retried POST — network failure, a double submit that slips past the
+    frontend's own in-flight guard, a stale tab resubmitting — replay the
+    exact original response instead of running _execute_submit_registration
+    a second time, so nothing gets created (or resent, or emailed) twice.
+    Blank/omitted key: every branch below is skipped and this behaves
+    exactly as it did before this key existed.
+
+    Both branches below route the actual work through
+    _submit_registration_or_busy rather than calling
+    _execute_submit_registration directly, so a Postgres deadlock or
+    serialization failure (R1, gate review 2026-09-25) is caught
+    identically either way — see that helper's own docstring.
+    """
+    serializer = RegistrationSubmitSerializer(data=request.data)
+    serializer.is_valid(raise_exception=True)
+    data = serializer.validated_data
+
+    idempotency_key = (data.get("idempotency_key") or "").strip()
+    if not idempotency_key:
+        result = _submit_registration_or_busy(request, data)
+        if isinstance(result, Response):
+            return result
+        body, response_status, _registration = result
+        return Response(body, status=response_status)
+
+    fingerprint = _idempotency_fingerprint(request.data)
+
+    reservation = _reserve_idempotency_key(
+        key=idempotency_key, event=data.get("event"), fingerprint=fingerprint
+    )
+    if isinstance(reservation, Response):
+        # This request lost the reservation (a true replay, a hard
+        # conflict, or "still in progress") — _reserve_idempotency_key
+        # already built the final answer; nothing below has anything left
+        # to do.
+        return reservation
+    key_record = reservation
+
+    try:
+        result = _submit_registration_or_busy(request, data)
+    except Exception:
+        # Nothing persisted under this key (the registration-creation
+        # transaction, if entered at all, already rolled back on its own).
+        # Delete the reservation so a retry with a corrected payload under
+        # the *same* key — e.g. the guardian fixes a ticket-eligibility
+        # error the client-side checks didn't catch and resubmits — is a
+        # fresh attempt, not a permanent 409 against a reservation that
+        # will never complete. See RegistrationIdempotencyKey's docstring.
+        key_record.delete()
+        raise
+
+    if isinstance(result, Response):
+        # The database was too busy (deadlock/serialization failure) —
+        # same reservation-cleanup reasoning as the except-block above:
+        # nothing persisted under this key, so a retry (the 503 is
+        # explicitly asking the caller to do exactly that) must not find a
+        # permanent reservation blocking it.
+        key_record.delete()
+        return result
+
+    body, response_status, registration = result
+    key_record.response_status = response_status
+    key_record.response_body = body
+    key_record.registration = registration
+    key_record.save(update_fields=["response_status", "response_body", "registration"])
+
+    return Response(body, status=response_status)
 
 
 @api_view(["GET"])

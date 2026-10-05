@@ -5,7 +5,7 @@
  * so we use getAllBy* queries to handle multiple matching elements.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen } from '@testing-library/svelte';
+import { render, screen, within } from '@testing-library/svelte';
 import userEvent from '@testing-library/user-event';
 import CheckinExpandableTable from './CheckinExpandableTable.svelte';
 import type { Family, Parent } from '$lib/checkin/types';
@@ -28,7 +28,20 @@ vi.mock('svelte-i18n', () => ({
           'checkin.ticketEvent': 'Event',
           'checkin.ticketSession': 'Session',
           'checkin.ticketNone': 'No Ticket',
+          'checkin.ticketNotRequired': 'No ticket needed',
+          'checkin.ticketGuardianOnly': 'Guardian, no ticket needed',
+          'checkin.adultsNotCheckedInHere': 'Adults are not checked in at this session',
           'checkin.checkedInAt': 'Checked in at {time}',
+          'checkin.checkedInElsewhere': 'Checked in to {session}',
+          'checkin.expandFamily': 'Expand {familyName} family',
+          'checkin.collapseFamily': 'Collapse {familyName} family',
+          'checkin.undoFamilyAria': 'Undo family check-in, {seconds} seconds remaining',
+          'checkin.checkInFamilyAria': 'Check in {count} children from {familyName} family',
+          'checkin.grantTicketPromptChild': 'This session requires a ticket for children. Check in {name} with:',
+          'checkin.grantTicketPromptAdult': 'This session requires a ticket for adults. Check in {name} with:',
+          'checkin.colFamily': 'Family',
+          'checkin.colStatus': 'Status',
+          'checkin.colActions': 'Actions',
           'checkin.guardianPresent': 'Guardian Present',
           'checkin.checkIn': 'Check In',
           'checkin.guardian': 'Guardian',
@@ -45,6 +58,14 @@ vi.mock('svelte-i18n', () => ({
           'checkin.pendingPaymentShort': 'Unpaid',
           'checkin.pendingPaymentBlockedTitle':
             'Registration is unpaid — resolve via the banner above before checking in',
+          'checkin.registrationNotConfirmed': 'Registration awaiting confirmation',
+          'checkin.registrationNotConfirmedHint': 'Ask a coordinator to confirm it.',
+          'checkin.awaitingConfirmation': 'Awaiting confirmation',
+          'checkin.awaitingConfirmationCount': '{count} awaiting confirmation',
+          'checkin.awaitingConfirmationAdultOne': '1 adult awaiting confirmation',
+          'checkin.awaitingConfirmationAdultMany': '{count} adults awaiting confirmation',
+          'checkin.awaitingConfirmationChildOne': '1 child awaiting confirmation',
+          'checkin.awaitingConfirmationChildMany': '{count} children awaiting confirmation',
         };
 
         if (options?.values) {
@@ -645,7 +666,27 @@ describe('CheckinExpandableTable', () => {
       expect(screen.queryByText('Guardians')).not.toBeInTheDocument();
     });
 
-    it('should not render guardians section when parentCheckinEnabled is false, even with parents present', async () => {
+    it('shows a guardian-only adult as allowed, with a neutral line instead of a ticket name', async () => {
+      const user = userEvent.setup();
+      const guardianOnly: Parent = {
+        ...(mockFamilies[0].parents[0] as Parent),
+        id: 'parent-guardian',
+        ticket: 'event',
+        ticket_type: 'event',
+        ticketExemption: 'guardian_only',
+      };
+
+      render(CheckinExpandableTable, {
+        props: { ...defaultProps, families: [{ ...mockFamilies[0], parents: [guardianOnly] }] }
+      });
+      await user.click(screen.getAllByTestId('family-toggle-button-family-1')[0]);
+
+      expect(screen.queryAllByText('Guardian, no ticket needed').length).toBeGreaterThanOrEqual(1);
+      expect(screen.queryAllByTestId('parent-check-in-button-parent-guardian').length).toBeGreaterThanOrEqual(1);
+      expect(screen.queryAllByTestId('parent-expand-button-parent-guardian')).toHaveLength(0);
+    });
+
+    it('lists guardians with a calm note and no check-in button when parentCheckinEnabled is false', async () => {
       const user = userEvent.setup();
 
       render(CheckinExpandableTable, {
@@ -655,7 +696,244 @@ describe('CheckinExpandableTable', () => {
       const toggleButtons = screen.getAllByTestId('family-toggle-button-family-1');
       await user.click(toggleButtons[0]);
 
-      expect(screen.queryByText('Guardians')).not.toBeInTheDocument();
+      // Still listed (they are there, just not checked in at this session) ...
+      expect(screen.queryAllByText('Guardians').length).toBeGreaterThanOrEqual(1);
+      expect(screen.queryAllByText('Adults are not checked in at this session').length).toBeGreaterThanOrEqual(1);
+      // ... but neither an action nor the red no-ticket state is offered.
+      expect(screen.queryAllByTestId(/^parent-check-in-button-/)).toHaveLength(0);
+      expect(screen.queryAllByTestId(/^parent-expand-button-/)).toHaveLength(0);
+    });
+  });
+
+  describe('Adults not checked in at this session', () => {
+    const adultCheckedInElsewhere: Parent = {
+      id: 'parent-in',
+      first_name: 'Carol',
+      last_name: 'Smith',
+      name: 'Carol Smith',
+      relationship_type: 'mother',
+      // Checked in for another session; in this one adults are not checked in.
+      ticket: 'none',
+      ticket_type: 'none',
+      checkedIn: true,
+      checkInTime: '10:00'
+    };
+
+    it('shows the note for an adult whatever their checkedIn flag, not "No Ticket"', async () => {
+      const user = userEvent.setup();
+      render(CheckinExpandableTable, {
+        props: {
+          ...defaultProps,
+          families: [{ ...mockFamilies[0], parents: [adultCheckedInElsewhere, mockFamilies[0].parents[0]] }],
+          parentCheckinEnabled: false
+        }
+      });
+      await user.click(screen.getAllByTestId('family-toggle-button-family-1')[0]);
+
+      for (const id of ['parent-in', 'parent-1']) {
+        const rows = screen.getAllByTestId(`parent-row-${id}`);
+        for (const row of rows) {
+          expect(within(row).getByText(/Adults are not checked in at this session/)).toBeInTheDocument();
+          expect(within(row).queryByText('No Ticket')).not.toBeInTheDocument();
+        }
+      }
+    });
+  });
+
+  describe('Adult checked in to a different session', () => {
+    const adult = (over: Partial<Parent>): Parent => ({
+      id: 'parent-x',
+      first_name: 'Anna',
+      last_name: 'Smith',
+      name: 'Anna Smith',
+      relationship_type: 'mother',
+      ticket: 'event',
+      ticket_type: 'event',
+      checkedIn: false,
+      ...over
+    });
+
+    async function rowsFor(parent: Parent) {
+      const user = userEvent.setup();
+      render(CheckinExpandableTable, {
+        props: { ...defaultProps, families: [{ ...mockFamilies[0], parents: [parent] }] }
+      });
+      await user.click(screen.getAllByTestId('family-toggle-button-family-1')[0]);
+      return screen.getAllByTestId('parent-row-parent-x');
+    }
+
+    it('says where, keeps the Check In button live, and does not read "Already Checked In"', async () => {
+      const rows = await rowsFor(adult({ checkedInElsewhere: ['B children'] }));
+
+      for (const row of rows) {
+        expect(within(row).getByText(/Checked in to B children/)).toBeInTheDocument();
+        expect(within(row).getByTestId('parent-check-in-button-parent-x')).toBeEnabled();
+        expect(within(row).queryByText('Already Checked In')).not.toBeInTheDocument();
+      }
+    });
+
+    it('lists every other session', async () => {
+      const rows = await rowsFor(adult({ checkedInElsewhere: ['B children', 'C'] }));
+
+      expect(within(rows[0]).getByText(/Checked in to B children, C/)).toBeInTheDocument();
+    });
+
+    it('shows no note for an adult who is not checked in anywhere else', async () => {
+      const rows = await rowsFor(adult({ checkedInElsewhere: [] }));
+
+      for (const row of rows) {
+        expect(within(row).queryByText(/Checked in to/)).not.toBeInTheDocument();
+      }
+    });
+
+    it('shows no note once the adult is checked in HERE', async () => {
+      const rows = await rowsFor(
+        adult({ checkedIn: true, checkInTime: '10:00', checkedInElsewhere: ['B children'] })
+      );
+
+      for (const row of rows) {
+        expect(within(row).queryByText(/Checked in to B children/)).not.toBeInTheDocument();
+        expect(within(row).getByText('Already Checked In')).toBeInTheDocument();
+      }
+    });
+  });
+
+  describe('Family check-in with a ticketless sibling', () => {
+    const ticketless = {
+      id: 'child-3',
+      first_name: 'Kim',
+      last_name: 'Smith',
+      name: 'Kim Smith',
+      ticket: 'none' as const,
+      ticket_type: 'none' as const,
+      checkedIn: false,
+      family: 'family-1'
+    };
+
+    it('still offers "Check In (n)" for the eligible children', async () => {
+      const user = userEvent.setup();
+      const onCheckInFamily = vi.fn();
+      render(CheckinExpandableTable, {
+        props: {
+          ...defaultProps,
+          onCheckInFamily,
+          families: [{ ...mockFamilies[0], children: [...mockFamilies[0].children, ticketless] }]
+        }
+      });
+
+      // Two eligible children (the ticketless one is not counted) in both layouts.
+      const buttons = screen.getAllByTestId('family-check-in-button-family-1');
+      expect(buttons).toHaveLength(2);
+      expect(buttons[0]).toHaveTextContent('Check In 2');
+      await user.click(buttons[0]);
+      expect(onCheckInFamily).toHaveBeenCalledWith('family-1');
+    });
+  });
+
+  describe('Localised labels', () => {
+    it('takes the expand / collapse and family check-in aria-labels from the catalogue', async () => {
+      const user = userEvent.setup();
+      render(CheckinExpandableTable, { props: defaultProps });
+
+      const toggle = screen.getAllByTestId('family-toggle-button-family-1')[0];
+      expect(toggle).toHaveAttribute('aria-label', 'Expand Smith Family family');
+      await user.click(toggle);
+      expect(toggle).toHaveAttribute('aria-label', 'Collapse Smith Family family');
+      expect(screen.getAllByTestId('family-check-in-button-family-1')[0]).toHaveAttribute(
+        'aria-label',
+        'Check in 2 children from Smith Family family'
+      );
+    });
+
+    it('takes the desktop column headers from the catalogue', () => {
+      render(CheckinExpandableTable, { props: defaultProps });
+      const headers = screen.getAllByRole('columnheader', { hidden: true }).map((h) => h.textContent?.trim());
+      expect(headers).toEqual(['Family', 'Status', 'Actions']);
+    });
+  });
+
+  describe('Grant-ticket panel', () => {
+    const noTicketChild = {
+      id: 'child-9',
+      first_name: 'Nils',
+      last_name: 'Smith',
+      name: 'Nils Smith',
+      ticket: 'none' as const,
+      ticket_type: 'none' as const,
+      checkedIn: false,
+      family: 'family-1'
+    };
+    const noTicketAdult: Parent = {
+      id: 'parent-9',
+      first_name: 'Ola',
+      last_name: 'Smith',
+      name: 'Ola Smith',
+      relationship_type: 'father',
+      ticket: 'none',
+      ticket_type: 'none',
+      checkedIn: false
+    };
+    const family: Family = { ...mockFamilies[0], children: [noTicketChild], parents: [noTicketAdult] };
+
+    it('states why, for a child, and offers both tickets in the same blue', async () => {
+      const user = userEvent.setup();
+      render(CheckinExpandableTable, { props: { ...defaultProps, families: [family], expandedChildId: 'child-9' } });
+      await user.click(screen.getAllByTestId('family-toggle-button-family-1')[0]);
+
+      const panel = screen.getAllByTestId('grant-ticket-panel-child-9')[0];
+      expect(panel).toHaveTextContent('This session requires a ticket for children. Check in Nils Smith with:');
+      const session = within(panel).getByTestId('ticket-assign-session-child-9');
+      const event = within(panel).getByTestId('ticket-assign-event-child-9');
+      expect(session.className).toContain('bg-primary-600');
+      expect(event.className).toContain('bg-primary-600');
+      expect(event.className).not.toContain('success');
+    });
+
+    it('says adults, not children, for an adult', async () => {
+      const user = userEvent.setup();
+      render(CheckinExpandableTable, { props: { ...defaultProps, families: [family], expandedChildId: 'parent-9' } });
+      await user.click(screen.getAllByTestId('family-toggle-button-family-1')[0]);
+
+      expect(screen.getAllByTestId('grant-ticket-panel-parent-9')[0]).toHaveTextContent(
+        'This session requires a ticket for adults. Check in Ola Smith with:'
+      );
+    });
+
+    it('assigns the chosen ticket in one tap', async () => {
+      const user = userEvent.setup();
+      const onAssignTicket = vi.fn();
+      render(CheckinExpandableTable, {
+        props: { ...defaultProps, families: [family], expandedChildId: 'child-9', onAssignTicket }
+      });
+      await user.click(screen.getAllByTestId('family-toggle-button-family-1')[0]);
+      await user.click(screen.getAllByTestId('ticket-assign-event-child-9')[0]);
+      expect(onAssignTicket).toHaveBeenCalledWith('family-1', 'child-9', 'event');
+    });
+
+    it('says "No Ticket" once on the row (the chip), not again as a subtitle', async () => {
+      const user = userEvent.setup();
+      render(CheckinExpandableTable, { props: { ...defaultProps, families: [family] } });
+      await user.click(screen.getAllByTestId('family-toggle-button-family-1')[0]);
+
+      for (const row of screen.getAllByTestId('child-row-child-9')) {
+        expect(within(row).getAllByText('No Ticket')).toHaveLength(1);
+      }
+      for (const row of screen.getAllByTestId('parent-row-parent-9')) {
+        expect(within(row).getAllByText('No Ticket')).toHaveLength(1);
+      }
+    });
+
+    it('draws the chip chevron as an inline stroke icon, not a text glyph', async () => {
+      const user = userEvent.setup();
+      render(CheckinExpandableTable, { props: { ...defaultProps, families: [family] } });
+      await user.click(screen.getAllByTestId('family-toggle-button-family-1')[0]);
+
+      const chip = screen.getAllByTestId('child-expand-button-child-9')[0];
+      expect(chip.textContent).not.toMatch(/[▲▼]/);
+      const svg = chip.querySelector('svg');
+      expect(svg).not.toBeNull();
+      expect(svg).toHaveAttribute('stroke', 'currentColor');
+      expect(svg).toHaveAttribute('stroke-width', '2');
     });
   });
 
@@ -875,6 +1153,336 @@ describe('CheckinExpandableTable', () => {
       // Still collapsed — a click on the nested edit button must not also
       // bubble into toggleFamily's expand/collapse handler.
       expect(screen.queryByText('John Smith')).not.toBeInTheDocument();
+    });
+  });
+
+  describe('Unconfirmed registration', () => {
+    const blockedChild = {
+      id: 'child-8',
+      first_name: 'Nils',
+      last_name: 'Smith',
+      name: 'Nils Smith',
+      // Ticketless: before this marker the desk offered a grant to this very child.
+      ticket: 'none' as const,
+      ticket_type: 'none' as const,
+      registrationUnconfirmed: true,
+      checkedIn: false,
+      family: 'family-1'
+    };
+    const blockedAdult: Parent = {
+      id: 'parent-8',
+      first_name: 'Ola',
+      last_name: 'Smith',
+      name: 'Ola Smith',
+      relationship_type: 'father',
+      ticket: 'event',
+      ticket_type: 'event',
+      registrationUnconfirmed: true,
+      checkedIn: false
+    };
+    const family: Family = { ...mockFamilies[0], children: [blockedChild], parents: [blockedAdult] };
+    const open = async (props = {}) => {
+      const user = userEvent.setup();
+      render(CheckinExpandableTable, { props: { ...defaultProps, families: [family], ...props } });
+      await user.click(screen.getAllByTestId('family-toggle-button-family-1')[0]);
+      return user;
+    };
+
+    it('shows no button and no pill for a blocked child or adult, only the two reason lines', async () => {
+      await open();
+      for (const id of ['child-unconfirmed-child-8', 'parent-unconfirmed-parent-8']) {
+        expect(screen.queryByTestId(id)).not.toBeInTheDocument();
+      }
+      expect(screen.queryByTestId('child-check-in-button-child-8')).not.toBeInTheDocument();
+      expect(screen.queryByTestId('parent-check-in-button-parent-8')).not.toBeInTheDocument();
+      expect(screen.queryByTestId('child-expand-button-child-8')).not.toBeInTheDocument();
+      // The reason is stated once, as text, under the name: no second "Awaiting confirmation" pill.
+      for (const id of ['child-row-child-8', 'parent-row-parent-8']) {
+        for (const row of screen.getAllByTestId(id)) {
+          expect(within(row).queryByText('Awaiting confirmation')).not.toBeInTheDocument();
+        }
+      }
+    });
+
+    it('says what is wrong as plain text; the who-can-fix-it line moves to the header when all are blocked', async () => {
+      await open();
+      for (const note of screen.getAllByTestId('unconfirmed-note-child-8')) {
+        expect(note).toHaveTextContent('Registration awaiting confirmation');
+        // Everyone in this family is blocked, so the coordinator hint is said once under the header.
+        expect(note).not.toHaveTextContent('Ask a coordinator to confirm it.');
+        expect(note.tagName).toBe('SPAN');
+      }
+    });
+
+    it('renders a blocked person with nothing that reads as a control: no button, role, tabindex or handler', async () => {
+      await open();
+      for (const id of ['child-row-child-8', 'parent-row-parent-8']) {
+        for (const row of screen.getAllByTestId(id)) {
+          expect(within(row).queryByRole('button')).not.toBeInTheDocument();
+          expect(row.querySelector('button, [role="button"], [tabindex]')).toBeNull();
+        }
+      }
+    });
+
+    it('does not offer a ticket grant to someone the server would refuse anyway', async () => {
+      await open({ expandedChildId: 'child-8' });
+      expect(screen.queryByTestId('grant-ticket-panel-child-8')).not.toBeInTheDocument();
+    });
+
+    it('hides the guardian-present checkbox and leaves the family check-in count at zero', async () => {
+      await open();
+      expect(screen.queryByTestId('supervised-checkbox-child-8')).not.toBeInTheDocument();
+      expect(screen.queryByText('Check In 1')).not.toBeInTheDocument();
+    });
+
+    it('leaves everyone else on the same family with their Check In button', async () => {
+      const fine = { ...mockFamilies[0].children[0], id: 'child-ok', name: 'Ok Smith' };
+      await open({ families: [{ ...family, children: [blockedChild, fine] }] });
+      expect(screen.getAllByTestId('child-check-in-button-child-ok')[0]).toBeEnabled();
+      expect(screen.queryByTestId('unconfirmed-note-child-ok')).not.toBeInTheDocument();
+    });
+
+    it('shows nothing once the person is checked in', async () => {
+      await open({
+        families: [{ ...family, children: [{ ...blockedChild, checkedIn: true }], parents: [] }]
+      });
+      expect(screen.queryByTestId('unconfirmed-note-child-8')).not.toBeInTheDocument();
+      expect(screen.queryByTestId('child-unconfirmed-child-8')).not.toBeInTheDocument();
+    });
+  });
+
+  describe('Family row and unconfirmed registration', () => {
+    const child = (id: string, over = {}) => ({
+      id,
+      first_name: id,
+      last_name: 'Berg',
+      name: `${id} Berg`,
+      ticket: 'event' as const,
+      ticket_type: 'event' as const,
+      checkedIn: false,
+      family: 'family-9',
+      ...over
+    });
+    const adult = (id: string, over = {}): Parent => ({
+      id,
+      first_name: id,
+      last_name: 'Berg',
+      name: `${id} Berg`,
+      relationship_type: 'mother',
+      ticket: 'event',
+      ticket_type: 'event',
+      checkedIn: false,
+      ...over
+    });
+    const fam = (children: any[], parents: Parent[] = []): Family => ({
+      id: 'family-9',
+      last_name: 'Berg',
+      display_name: 'Berg',
+      name: 'Berg',
+      children,
+      parents
+    });
+    // The collapsed row, as rendered on both layouts.
+    const renderRow = (family: Family, props = {}) =>
+      render(CheckinExpandableTable, { props: { ...defaultProps, families: [family], ...props } });
+    const badges = () => screen.queryAllByTestId('family-awaiting-confirmation-family-9');
+
+    it('shows no badge when nobody is blocked', () => {
+      renderRow(fam([child('a'), child('b')]));
+      expect(badges()).toHaveLength(0);
+      expect(screen.getAllByTestId('family-check-in-button-family-9')[0]).toHaveTextContent('Check In 2');
+    });
+
+    it('says who is waiting when only some are blocked, and keeps the count line', () => {
+      renderRow(fam([child('a', { registrationUnconfirmed: true }), child('b')]));
+      const found = badges();
+      expect(found.length).toBeGreaterThan(0);
+      for (const b of found) expect(b).toHaveTextContent(/^\s*1 child awaiting confirmation\s*$/);
+      expect(screen.getAllByText(/2 children •/)[0]).toHaveTextContent('0 checked in');
+      // The family button keeps its existing rules for the admissible rest.
+      expect(screen.getAllByTestId('family-check-in-button-family-9')[0]).toHaveTextContent('Check In 1');
+    });
+
+    it('names adults when only adults are blocked, singular and plural', () => {
+      renderRow(fam([child('a')], [adult('m', { registrationUnconfirmed: true }), adult('f')]));
+      expect(badges().length).toBeGreaterThan(0);
+      for (const b of badges()) expect(b).toHaveTextContent(/^\s*1 adult awaiting confirmation\s*$/);
+    });
+
+    it('names adults in the plural when several adults are blocked', () => {
+      renderRow(
+        fam([child('a')], [adult('m', { registrationUnconfirmed: true }), adult('f', { registrationUnconfirmed: true }), adult('g')])
+      );
+      for (const b of badges()) expect(b).toHaveTextContent(/^\s*2 adults awaiting confirmation\s*$/);
+    });
+
+    it('names children in the plural when several children are blocked', () => {
+      renderRow(
+        fam([
+          child('a', { registrationUnconfirmed: true }),
+          child('b', { registrationUnconfirmed: true }),
+          child('c')
+        ])
+      );
+      expect(badges().length).toBeGreaterThan(0);
+      for (const b of badges()) expect(b).toHaveTextContent(/^\s*2 children awaiting confirmation\s*$/);
+    });
+
+    it('says a bare count when a child and an adult are blocked', () => {
+      renderRow(
+        fam(
+          [child('a', { registrationUnconfirmed: true }), child('b')],
+          [adult('m', { registrationUnconfirmed: true }), adult('f')]
+        )
+      );
+      expect(badges().length).toBeGreaterThan(0);
+      for (const b of badges()) expect(b).toHaveTextContent(/^\s*2 awaiting confirmation\s*$/);
+    });
+
+    it('leaves an adult out of the count when the session does not check adults in', () => {
+      renderRow(fam([child('a')], [adult('m', { registrationUnconfirmed: true })]), { parentCheckinEnabled: false });
+      expect(badges()).toHaveLength(0);
+    });
+
+    it('keeps the partial badge inline and "Check In (n)" on the right', () => {
+      renderRow(fam([child('a', { registrationUnconfirmed: true }), child('b')]));
+      const button = screen.getAllByTestId('family-check-in-button-family-9')[0];
+      expect(button).toHaveTextContent('Check In 1');
+      for (const b of badges()) expect(button.parentElement).not.toContainElement(b);
+      expect(badges().length).toBeGreaterThan(0);
+    });
+
+    it('puts the all-blocked badge in the right-hand status slot, where the unpaid badge goes', () => {
+      renderRow(fam([child('a', { registrationUnconfirmed: true }), child('b', { registrationUnconfirmed: true })]));
+      expect(badges().length).toBeGreaterThan(0);
+      for (const b of badges()) {
+        // Not inside the count line (the <p> on mobile, the middle <td> on desktop)...
+        expect(b.closest('p')).toBeNull();
+        expect(b.closest('td')?.className ?? 'text-right').toMatch(/text-right/);
+        expect(b.className).toMatch(/rounded-button/);
+      }
+    });
+
+    it('lets the unpaid badge keep the status slot, and puts the all-blocked badge inline beside the count', () => {
+      renderRow({
+        ...fam([child('a', { registrationUnconfirmed: true })]),
+        pending_payment: { registration_id: 'r1', amount_owed: 100, currency: 'SEK' } as any
+      });
+      expect(screen.getAllByTestId('family-pending-payment-badge-family-9')[0]).toHaveTextContent('Awaiting payment');
+      expect(badges().length).toBeGreaterThan(0);
+      for (const b of badges()) expect(b.className).toMatch(/rounded-pill/);
+    });
+
+    it('carries a user-check glyph so it is not mistaken for "Awaiting payment"', () => {
+      renderRow(fam([child('a', { registrationUnconfirmed: true }), child('b')]));
+      renderRow(fam([child('a', { registrationUnconfirmed: true })]));
+      for (const b of badges()) {
+        const svg = b.querySelector('svg');
+        expect(svg).not.toBeNull();
+        expect(svg?.getAttribute('stroke')).toBe('currentColor');
+        expect(svg?.getAttribute('stroke-width')).toBe('2');
+        expect(svg?.getAttribute('stroke-linecap')).toBe('round');
+        expect(svg?.getAttribute('aria-hidden')).toBe('true');
+      }
+      expect(screen.queryAllByTestId('family-pending-payment-badge-family-9').length).toBe(0);
+    });
+
+    describe('expanded', () => {
+      const open = async (family: Family, props = {}) => {
+        const user = userEvent.setup();
+        render(CheckinExpandableTable, { props: { ...defaultProps, families: [family], ...props } });
+        await user.click(screen.getAllByTestId('family-toggle-button-family-9')[0]);
+      };
+      const hint = 'Ask a coordinator to confirm it.';
+
+      it('says the coordinator hint once under the header when everyone is blocked, not per person', async () => {
+        await open(fam([child('a', { registrationUnconfirmed: true }), child('b', { registrationUnconfirmed: true })]));
+        // One per layout (mobile and desktop both render), never one per person.
+        expect(screen.getAllByTestId('family-confirmation-hint-family-9')).toHaveLength(2);
+        expect(screen.getAllByText(hint)).toHaveLength(2);
+        for (const id of ['a', 'b']) {
+          for (const note of screen.getAllByTestId(`unconfirmed-note-${id}`)) {
+            expect(note).toHaveTextContent('Registration awaiting confirmation');
+            expect(note).not.toHaveTextContent(hint);
+          }
+        }
+      });
+
+      it('keeps both lines on the blocked person when only some are blocked', async () => {
+        await open(fam([child('a', { registrationUnconfirmed: true }), child('b')]));
+        expect(screen.queryByTestId('family-confirmation-hint-family-9')).not.toBeInTheDocument();
+        for (const note of screen.getAllByTestId('unconfirmed-note-a')) {
+          expect(note).toHaveTextContent('Registration awaiting confirmation');
+          expect(note).toHaveTextContent(hint);
+        }
+      });
+
+      it('draws the hint in a darker ink than the 500 subtitle grey', async () => {
+        await open(fam([child('a', { registrationUnconfirmed: true })]));
+        for (const h of screen.getAllByTestId('family-confirmation-hint-family-9')) {
+          expect(h.className).toMatch(/text-neutral-(6|7|8|9)00/);
+        }
+      });
+    });
+
+    it('says "Awaiting confirmation" when every person shown is blocked', () => {
+      renderRow(
+        fam(
+          [child('a', { registrationUnconfirmed: true }), child('b', { registrationUnconfirmed: true })],
+          [adult('m', { registrationUnconfirmed: true })]
+        )
+      );
+      expect(badges().length).toBeGreaterThan(0);
+      for (const b of badges()) expect(b).toHaveTextContent(/^\s*Awaiting confirmation\s*$/);
+      expect(screen.queryByTestId('family-check-in-button-family-9')).not.toBeInTheDocument();
+    });
+
+    it('reads all-blocked on children alone when the session does not check adults in', () => {
+      renderRow(fam([child('a', { registrationUnconfirmed: true })], [adult('m')]), {
+        parentCheckinEnabled: false
+      });
+      for (const b of badges()) expect(b).toHaveTextContent(/^\s*Awaiting confirmation\s*$/);
+    });
+
+    it('never says all checked in while a child is blocked, even if every other child is in', () => {
+      renderRow(fam([child('a', { checkedIn: true }), child('b', { registrationUnconfirmed: true })]));
+      expect(screen.queryByText('All Checked In')).not.toBeInTheDocument();
+      expect(screen.queryByText('Already Checked In')).not.toBeInTheDocument();
+      expect(badges().length).toBeGreaterThan(0);
+    });
+
+    it('never says all checked in while an adult is blocked, even if every child is in', () => {
+      renderRow(
+        fam([child('a', { checkedIn: true })], [adult('m', { registrationUnconfirmed: true })])
+      );
+      expect(screen.queryByText('All Checked In')).not.toBeInTheDocument();
+      expect(screen.queryByText('Already Checked In')).not.toBeInTheDocument();
+    });
+
+    it('still says all checked in when everyone is in and nobody is blocked', () => {
+      renderRow(fam([child('a', { checkedIn: true })]));
+      expect(screen.getAllByText('All Checked In').length).toBeGreaterThan(0);
+      expect(badges()).toHaveLength(0);
+    });
+
+    it('leaves the unpaid badge and banner as they were', () => {
+      renderRow({
+        ...fam([child('a', { registrationUnconfirmed: true }), child('b')]),
+        pending_payment: { registration_id: 'r1', amount_owed: 100, currency: 'SEK' } as any
+      });
+      expect(screen.getAllByTestId('family-pending-payment-badge-family-9')[0]).toHaveTextContent('Awaiting payment');
+      expect(badges().length).toBeGreaterThan(0);
+    });
+
+    it('draws the family badge in the same tone as the unpaid badge, not neutral grey', () => {
+      renderRow(fam([child('a', { registrationUnconfirmed: true }), child('b')]));
+      for (const b of badges()) {
+        expect(b.className).toMatch(/bg-warning-100/);
+        expect(b.className).toMatch(/text-warning-800/);
+        expect(b.className).toMatch(/border-warning-200/);
+        expect(b.className).not.toMatch(/neutral/);
+        expect(b.tagName).toBe('SPAN');
+      }
     });
   });
 });

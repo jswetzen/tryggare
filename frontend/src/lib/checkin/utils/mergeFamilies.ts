@@ -1,4 +1,13 @@
-import type { Family, Child, Session, FamilyApiResponse, TicketType } from '$lib/checkin/types';
+import type {
+  Family,
+  Child,
+  Session,
+  FamilyApiResponse,
+  TicketType,
+  TicketRule,
+  TicketExemption,
+  UnconfirmedRegistration
+} from '$lib/checkin/types';
 
 type TicketableApiItem = {
   ticket_type?: string | null;
@@ -6,56 +15,104 @@ type TicketableApiItem = {
     event_tickets: { event: string }[];
     session_tickets: { session: string }[];
   } | null;
+  /** Parents only: events where this adult is a guardian-only adult on a CONFIRMED registration. */
+  guardian_only_event_ids?: string[] | null;
+  /** Where the server refuses this person for an unconfirmed registration (eligibility.py). */
+  unconfirmed_registration?: UnconfirmedRegistration | null;
 };
 
-function effectiveTicketType(
-  child: TicketableApiItem,
+export type TicketAccess = {
+  /** 'none' means the server would refuse; anything else means it would accept. */
+  ticket: TicketType;
+  /** Why the person is allowed without holding a ticket (undefined when they hold one, or are blocked). */
+  exemption?: TicketExemption;
+  /** Adults only: the session never checks adults in (Session.adults_not_checked_in). */
+  notCheckedInHere?: boolean;
+};
+
+// The rule the server enforces (checkins/eligibility.py): Session.effective_ticket_rule,
+// i.e. the session's own rule or the event default. A payload without it (a fixture)
+// means no rule, so nobody is held back.
+export function ticketRuleOf(session: Session): TicketRule {
+  return session.effective_ticket_rule ?? 'open';
+}
+
+export function adultsNotCheckedIn(session: Session | null): boolean {
+  if (!session) return false;
+  return session.adults_not_checked_in ?? false;
+}
+
+// The server refuses an unconfirmed registration on every session of an event in event_ids and
+// on the sessions in session_ids (checkins/eligibility.py). It is a hard refusal that no ticket
+// grant can lift, so the desk reads it BEFORE ticket state: a blocked person gets a calm
+// "not confirmed" reason instead of a Check In button or a one-tap ticket-grant offer.
+// Tolerates a missing field (fixtures, an older server): that means "not blocked".
+export function isRegistrationUnconfirmed(
+  item: TicketableApiItem,
   session: Session | null
-): TicketType {
-  if (!session) return (child.ticket_type as TicketType) || 'none';
+): boolean {
+  if (!session) return false;
+  const marker = item.unconfirmed_registration;
+  if (!marker) return false;
+  return (
+    (marker.event_ids ?? []).includes(session.event) ||
+    (marker.session_ids ?? []).includes(session.id)
+  );
+}
 
-  // Session doesn't require a ticket — everyone can check in
-  if (!session.requires_ticket) return 'event';
-
-  const details = child.ticket_details;
+// The ticket the person actually holds that covers THIS session: an EventTicket for the
+// session's event or a SessionTicket for that very session (Attendee.has_ticket_for).
+// A ticket for another event or session does not count, whatever ticket_type says.
+function heldTicketFor(item: TicketableApiItem, session: Session): TicketType {
+  const details = item.ticket_details;
   if (!details) return 'none';
-
-  // EventTicket covers all sessions of the event
   if (details.event_tickets.some((t) => t.event === session.event)) return 'event';
-
-  // SessionTicket must match the active session exactly
   if (details.session_tickets.some((t) => t.session === session.id)) return 'session';
-
   return 'none';
 }
 
-// Whether/how a parent can check in is governed by the session's
-// effective_parent_checkin_policy (see checkins/eligibility.py
-// parent_checkin_gate_error, the backend's single source of truth):
-// - 'disabled': parent check-in isn't offered at all for this session — the
-//   Guardians section won't even render (see CheckinExpandableTable's
-//   parentCheckinEnabled prop), but return 'none' defensively.
-// - 'open': no ticket needed, same shortcut children get when
-//   session.requires_ticket is false.
-// - 'ticket_required': same real ticket lookup children use.
-function effectiveParentTicketType(
+export function childTicketAccess(child: TicketableApiItem, session: Session | null): TicketAccess {
+  if (!session) return { ticket: (child.ticket_type as TicketType) || 'none' };
+
+  const held = heldTicketFor(child, session);
+  if (held !== 'none') return { ticket: held };
+
+  // Children need a ticket on 'children' and 'all'; 'open' lets everyone in.
+  if (ticketRuleOf(session) === 'open') return { ticket: 'event', exemption: 'not_required' };
+  return { ticket: 'none' };
+}
+
+// Adults, in the server's order (parent_checkin_gate_error):
+// 1. adults_not_checked_in beats everything, guardian-only adults included. The screen
+//    shows this as a calm note, not as an error; 'none' only keeps the check-in button off.
+// 2. Only rule 'all' asks adults for a ticket.
+// 3. Under 'all', a guardian-only adult on a CONFIRMED registration for this event is exempt.
+//    The server sends only confirmed ones in guardian_only_event_ids.
+export function parentTicketAccess(
   parent: TicketableApiItem,
   session: Session | null
-): TicketType {
-  if (!session) return (parent.ticket_type as TicketType) || 'none';
+): TicketAccess {
+  if (!session) return { ticket: (parent.ticket_type as TicketType) || 'none' };
 
-  const policy = session.effective_parent_checkin_policy;
-  if (policy === 'disabled') return 'none';
-  if (policy === 'open') return 'event';
+  if (adultsNotCheckedIn(session)) return { ticket: 'none', notCheckedInHere: true };
 
-  const details = parent.ticket_details;
-  if (!details) return 'none';
+  const held = heldTicketFor(parent, session);
+  if (held !== 'none') return { ticket: held };
 
-  if (details.event_tickets.some((t) => t.event === session.event)) return 'event';
-  if (details.session_tickets.some((t) => t.session === session.id)) return 'session';
-
-  return 'none';
+  if (ticketRuleOf(session) !== 'all') return { ticket: 'event', exemption: 'not_required' };
+  if (parent.guardian_only_event_ids?.includes(session.event)) {
+    return { ticket: 'event', exemption: 'guardian_only' };
+  }
+  return { ticket: 'none' };
 }
+
+export const effectiveTicketType = (child: TicketableApiItem, session: Session | null): TicketType =>
+  childTicketAccess(child, session).ticket;
+
+export const effectiveParentTicketType = (
+  parent: TicketableApiItem,
+  session: Session | null
+): TicketType => parentTicketAccess(parent, session).ticket;
 
 export function transformFamily(apiFamily: FamilyApiResponse, session: Session | null): Family {
   return {
@@ -64,7 +121,8 @@ export function transformFamily(apiFamily: FamilyApiResponse, session: Session |
     display_name: apiFamily.display_name,
     name: apiFamily.display_name,
     children: apiFamily.children.map((child) => {
-      const ticketType = effectiveTicketType(child, session);
+      const access = childTicketAccess(child, session);
+      const ticketType = access.ticket;
       return {
         id: child.id,
         first_name: child.first_name,
@@ -72,6 +130,8 @@ export function transformFamily(apiFamily: FamilyApiResponse, session: Session |
         name: `${child.first_name} ${child.last_name}`,
         ticket: ticketType,
         ticket_type: ticketType,
+        ticketExemption: access.exemption,
+        registrationUnconfirmed: isRegistrationUnconfirmed(child, session),
         ticket_details: child.ticket_details,
         checkedIn: child.is_checked_in || false,
         family: child.family,
@@ -84,7 +144,8 @@ export function transformFamily(apiFamily: FamilyApiResponse, session: Session |
       };
     }),
     parents: apiFamily.parents.map((parent) => {
-      const ticketType = effectiveParentTicketType(parent, session);
+      const access = parentTicketAccess(parent, session);
+      const ticketType = access.ticket;
       return {
         id: parent.id,
         first_name: parent.first_name,
@@ -95,9 +156,16 @@ export function transformFamily(apiFamily: FamilyApiResponse, session: Session |
         relationship_type: parent.relationship_type,
         ticket: ticketType,
         ticket_type: ticketType,
+        ticketExemption: access.exemption,
+        notCheckedInHere: access.notCheckedInHere,
+        // A session that never checks adults in shows its own calm note and no button at all,
+        // and the server answers that first, so no unconfirmed marker is layered on top of it.
+        registrationUnconfirmed:
+          !access.notCheckedInHere && isRegistrationUnconfirmed(parent, session),
         ticket_details: parent.ticket_details ?? undefined,
         checkedIn: parent.is_checked_in || false,
         checkInRecordId: parent.active_checkin_id ?? undefined,
+        checkedInElsewhere: parent.checked_in_elsewhere ?? [],
         family: parent.family,
         is_parent: true,
         allergies: parent.allergies,

@@ -125,7 +125,27 @@ LANGUAGES = [
     ("sv", "Swedish"),
 ]
 LOCALE_PATHS = [BASE_DIR / "locale"]
-TIME_ZONE = "UTC"
+# Swedish wall-clock time, decided 2026-10-01. This used to be "UTC", and the
+# Django admin is where that hurt: admin DateTimeFields are interpreted in
+# TIME_ZONE, so a coordinator who typed 23:59 as an event's registration close
+# got 23:59Z stored, i.e. 01:59 the next morning (CEST) or 00:59 (CET) in
+# Sweden, and the sign-up form closed two hours late. USE_TZ stays True and
+# every datetime column is timezone-aware, so there is NO data migration: the
+# stored instants do not change, only how they are rendered and how new admin
+# input is read. Consequence to audit BEFORE deploying: production rows that
+# coordinators entered under the UTC regime hold their typed wall-clock as UTC
+# and will now display 1-2 h later than what was typed (23:59 shows as 01:59).
+# That is a correction of what they meant, not a regression, but check the
+# registration_opens_at / registration_closes_at and session times of live
+# events and fix any that are due to close or start soon.
+#
+# Side effect worth knowing: Django exports TIME_ZONE to the process
+# environment (os.environ["TZ"] + time.tzset()) at settings load, so anything
+# using local time follows it, including APScheduler's cron triggers that
+# default to the system zone. The daily GDPR retention job in families/apps.py
+# therefore moves from 03:00 UTC to 03:00 Europe/Stockholm, which is intended
+# (a night-time sweep in the organisers' own night, not 04:00-05:00 local).
+TIME_ZONE = "Europe/Stockholm"
 USE_I18N = True
 USE_L10N = True
 USE_TZ = True

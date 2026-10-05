@@ -70,7 +70,6 @@ class TestChildTicketType:
             start_time=now,
             end_time=now + timedelta(hours=2),
             is_active=True,
-            requires_ticket=False,
         )
 
     def test_no_ticket(self):

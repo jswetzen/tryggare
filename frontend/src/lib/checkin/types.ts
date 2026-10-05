@@ -5,6 +5,20 @@
 
 export type TicketType = 'event' | 'session' | 'none';
 
+/** Why someone may be checked in without holding a ticket for the session: the rule does not
+ *  ask their kind of person for one, or they are a guardian-only adult on a confirmed
+ *  registration. Display only; the allow/block decision is `ticket !== 'none'`. */
+export type TicketExemption = 'not_required' | 'guardian_only';
+
+/** Where the server refuses a person with "Registration is not yet confirmed": on every session
+ *  of an event in `event_ids`, or on the sessions in `session_ids`. Always sent by the API on
+ *  every Parent and Child; optional where it is read only so fixtures and older payloads need
+ *  not carry it. */
+export interface UnconfirmedRegistration {
+  event_ids: string[];
+  session_ids: string[];
+}
+
 export interface Child {
   id: string;
   first_name: string;
@@ -12,6 +26,10 @@ export interface Child {
   name: string; // Computed from first_name + last_name
   ticket: TicketType;
   ticket_type: TicketType; // Backend field name
+  ticketExemption?: TicketExemption;
+  /** The server would refuse this child on the session on screen because the registration is
+   *  not confirmed. Takes priority over `ticket`: no check-in button, no ticket-grant offer. */
+  registrationUnconfirmed?: boolean;
   ticket_details?: {
     event_tickets: Array<{
       id: string;
@@ -54,6 +72,13 @@ export interface Parent {
   relationship_type: string;
   ticket: TicketType;
   ticket_type: TicketType;
+  ticketExemption?: TicketExemption;
+  /** The session never checks adults in (adults_not_checked_in). */
+  notCheckedInHere?: boolean;
+  /** See Child.registrationUnconfirmed. Never set when the session does not check adults in. */
+  registrationUnconfirmed?: boolean;
+  /** Adults: names of the OTHER sessions they are currently checked in to (check-in is per session). */
+  checkedInElsewhere?: string[];
   ticket_details?: {
     event_tickets: Array<{
       id: string;
@@ -99,7 +124,9 @@ export interface Family {
   pending_payment?: PendingPayment | null;
 }
 
-export type ParentCheckinPolicy = 'disabled' | 'open' | 'ticket_required';
+/** Who needs a ticket to be checked in to a session (server-enforced; see
+ *  checkins/eligibility.py). A blank Session.ticket_rule inherits the event default. */
+export type TicketRule = 'open' | 'children' | 'all';
 
 export interface Session {
   id: string;
@@ -109,13 +136,13 @@ export interface Session {
   end_time?: string;
   is_active: boolean;
   event_name: string;
-  requires_ticket: boolean;
-  /** Blank means "inherit the event's default" — read effective_parent_checkin_policy instead.
-   *  Optional (rather than required) only to avoid widening the pre-existing structural
-   *  mismatch with the separate Session type in $lib/api/types — both are always present
-   *  on the actual API response. */
-  parent_checkin_policy?: ParentCheckinPolicy | '';
-  effective_parent_checkin_policy?: ParentCheckinPolicy;
+  /** The session's own ticket rule; blank inherits the event default. */
+  ticket_rule?: TicketRule | '';
+  /** The rule actually in force (own rule, else the event default). The check-in UI
+   *  reads this and adults_not_checked_in. */
+  effective_ticket_rule?: TicketRule;
+  /** True for drop-off sessions where no adult is checked in (guardians included). */
+  adults_not_checked_in?: boolean;
 }
 
 export interface UndoAction {
@@ -142,6 +169,9 @@ export interface FamilyApiResponse {
     email?: string;
     relationship_type: string;
     ticket_type: string | null;
+    /** Events where this adult is a guardian-only adult on a CONFIRMED registration. */
+    guardian_only_event_ids?: string[];
+    unconfirmed_registration?: UnconfirmedRegistration;
     ticket_details?: {
       event_tickets: Array<{
         id: string;
@@ -162,6 +192,8 @@ export interface FamilyApiResponse {
     last_participation_date?: string;
     is_checked_in?: boolean;
     active_checkin_id?: string | null;
+    /** Names of the OTHER sessions this adult is checked in to; only sent with ?session=. */
+    checked_in_elsewhere?: string[];
   }>;
   children: Array<{
     id: string;
@@ -187,6 +219,7 @@ export interface FamilyApiResponse {
     has_safety_info?: boolean;
     health_consent_status?: 'not_applicable' | 'granted' | 'declined' | 'withdrawn' | 'needs_reconfirmation';
     qr_token?: string;
+    unconfirmed_registration?: UnconfirmedRegistration;
     is_checked_in?: boolean;
     active_checkin_id?: string | null;
   }>;

@@ -6,9 +6,11 @@
    * - Check In (green) - for children with valid tickets who aren't checked in
    * - Undo (Xs) (orange) - for recently checked-in children during grace period
    * - Checked In (gray, disabled) - for checked-in children after grace period
+   * - Nothing at all - the server refuses an unconfirmed registration and the row's text says why; wins over No Ticket
    * - No Ticket (red) - for children without tickets, expands to show ticket assignment
    */
   import { _ } from 'svelte-i18n';
+  import { Icon } from '$lib/components/ui';
   import type { Child, TicketType } from '$lib/checkin/types';
 
   let {
@@ -58,11 +60,16 @@
   <button
     disabled
     title={$_('checkin.pendingPaymentBlockedTitle')}
-    class="px-3 py-1.5 bg-warning-100 text-warning-800 text-sm font-semibold rounded-button border border-warning-300 cursor-not-allowed min-w-[100px]"
+    class="px-3 py-1.5 bg-warning-100 text-warning-800 text-sm font-semibold rounded-button border border-warning-200 cursor-not-allowed min-w-[100px]"
     data-testid={`child-pending-payment-${child.id}`}
   >
     {$_('checkin.pendingPaymentShort')}
   </button>
+{:else if child.registrationUnconfirmed}
+  <!-- The server refuses an unconfirmed registration whatever ticket they hold, so no Check In
+       and no ticket-grant offer, and deliberately nothing in its place either: a pill here read
+       as a button to volunteers (tapped twice in two rounds) and repeated the first reason line
+       the row already prints under the name. The two plain-text lines carry the state. -->
 {:else if child.ticket === 'none'}
   <!-- No ticket - show button only (expansion handled by parent) -->
   <button
@@ -71,7 +78,8 @@
     aria-label={$_('checkin.noTicketClickToAssign')}
     data-testid={`child-expand-button-${child.id}`}
   >
-    {$_('checkin.ticketNone')} {expanded ? '▲' : '▼'}
+    {$_('checkin.ticketNone')}
+    <Icon name={expanded ? 'chevron-up' : 'chevron-down'} size="xs" class="inline-block ml-1 align-middle" />
   </button>
 {:else}
   <!-- Has valid ticket, ready to check in -->

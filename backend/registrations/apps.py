@@ -25,9 +25,10 @@ class RegistrationsConfig(AppConfig):
         # Hourly, not daily like the GDPR retention sweep: a 48h TTL needs
         # finer granularity than a once-a-day cutoff would give guardians —
         # hourly keeps the window tight without meaningfully increasing load
-        # (this table stays small). run_registration_sweeps() runs both the
-        # unverified-registration hard-delete pass and the unpaid-registration
-        # cancel pass.
+        # (this table stays small). run_registration_sweeps() runs the
+        # unverified-registration hard-delete pass, the unpaid-registration
+        # cancel pass, and (added 2026-09-24) the stale-idempotency-key
+        # hard-delete pass — the same job, not a separate scheduler entry.
         scheduler.add_job(
             run_registration_sweeps,
             "interval",
