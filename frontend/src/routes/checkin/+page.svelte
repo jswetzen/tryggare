@@ -722,6 +722,15 @@
     loadFamilies();
   }
 
+  // The door-grant refusals carry a stable `code`; show our own EN/SV text for
+  // it, falling back to the server's message for anything else.
+  function grantErrorMessage(apiError: ApiError): string {
+    const code = (apiError.details as { code?: string } | undefined)?.code;
+    const key = code ? `checkin.grantError.${code}` : null;
+    if (key && $_(key) !== key) return $_(key);
+    return apiError.message || 'Failed to assign ticket';
+  }
+
   // Assign ticket and check in child
   async function assignTicketAndCheckIn(
     familyId: string,
@@ -738,7 +747,7 @@
       if (ticketType === 'event') {
         await ticketApi.assignEventTicket({
           child: childId,
-          event: activeSession.event,
+          session: activeSession.id,
         });
       } else if (ticketType === 'session') {
         await ticketApi.assignSessionTicket({
@@ -763,7 +772,7 @@
       await checkInChild(familyId, childId);
     } catch (err) {
       const apiError = err as ApiError;
-      const msg = apiError.message || 'Failed to assign ticket';
+      const msg = grantErrorMessage(apiError);
       errorToast = msg;
       setTimeout(() => { if (errorToast === msg) errorToast = null; }, 4000);
       console.error('Error assigning ticket:', err);
@@ -887,7 +896,7 @@
       if (ticketType === 'event') {
         await ticketApi.assignEventTicket({
           child: parentId,
-          event: activeSession.event,
+          session: activeSession.id,
         });
       } else if (ticketType === 'session') {
         await ticketApi.assignSessionTicket({
@@ -912,7 +921,7 @@
       await checkInParent(familyId, parentId);
     } catch (err) {
       const apiError = err as ApiError;
-      const msg = apiError.message || 'Failed to assign ticket';
+      const msg = grantErrorMessage(apiError);
       errorToast = msg;
       setTimeout(() => { if (errorToast === msg) errorToast = null; }, 4000);
       console.error('Error assigning ticket:', err);
@@ -1009,7 +1018,7 @@
           if (data.ticketType === 'event') {
             await ticketApi.assignEventTicket({
               child: child.id,
-              event: activeSession.event,
+              session: activeSession.id,
             });
           } else if (data.ticketType === 'session') {
             await ticketApi.assignSessionTicket({
@@ -1110,7 +1119,7 @@
           if (data.ticketType === 'event') {
             await ticketApi.assignEventTicket({
               child: child.id,
-              event: activeSession.event,
+              session: activeSession.id,
             });
           } else if (data.ticketType === 'session') {
             await ticketApi.assignSessionTicket({

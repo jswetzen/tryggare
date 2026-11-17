@@ -15,6 +15,8 @@ import importlib
 from django.contrib.admin.sites import site as admin_site
 from django.contrib.auth.models import Group, Permission
 from django.db import connection
+from decimal import Decimal
+
 from django.test import RequestFactory, TestCase
 
 from accounts.roles import (
@@ -24,8 +26,11 @@ from accounts.roles import (
     VOLUNTEER,
 )
 from accounts.tests_roles import RoleFixtureMixin, make_user
-from events.models import EventTicket, SessionTicket
+from checkins.models import AuditLog
+from events.models import Event, EventTicket, SessionTicket, TicketRule
 from families.models import Child
+from registrations.models import Registration
+from registrations.tokens import generate_verification_token, hash_token
 
 GRANT_PERMISSIONS = {
     "events.grant_eventticket_at_door",
@@ -37,6 +42,8 @@ TICKET_MODELS = ("eventticket", "sessionticket", "ticket")
 class VolunteerGrantsAtTheDoorTests(RoleFixtureMixin, TestCase):
     def setUp(self):
         super().setUp()
+        self.session.ticket_rule = TicketRule.ALL
+        self.session.save()
         # The fixture child already holds an event ticket; this one holds none.
         self.walk_in = Child.objects.create(
             first_name="Nils", last_name="Andersson", family=self.family
@@ -59,7 +66,7 @@ class VolunteerGrantsAtTheDoorTests(RoleFixtureMixin, TestCase):
     def test_volunteer_can_grant_an_event_ticket(self):
         response = self.as_volunteer().post(
             "/api/event-tickets/grant/",
-            {"child": str(self.walk_in.id), "event": str(self.event.id)},
+            {"child": str(self.walk_in.id), "session": str(self.session.id)},
             format="json",
         )
         self.assertEqual(response.status_code, 201, response.content)
@@ -190,9 +197,143 @@ class VolunteerGrantsAtTheDoorTests(RoleFixtureMixin, TestCase):
                 self.assertFalse(model_admin.has_delete_permission(request))
 
 
+class DoorGrantRefusalTests(RoleFixtureMixin, TestCase):
+    """The grant is for the session being checked into, nothing wider."""
+
+    def setUp(self):
+        super().setUp()
+        self.session.ticket_rule = TicketRule.CHILDREN
+        self.session.save()
+        self.walk_in = Child.objects.create(
+            first_name="Nils", last_name="Andersson", family=self.family
+        )
+
+    def post(self, kind, attendee=None, session=None):
+        return self.as_volunteer().post(
+            f"/api/{kind}-tickets/grant/",
+            {
+                "child": str((attendee or self.walk_in).id),
+                "session": str((session or self.session).id),
+            },
+            format="json",
+        )
+
+    def assertRefused(self, response, code):
+        self.assertEqual(response.status_code, 400, response.content)
+        self.assertEqual(response.json()["code"], code)
+        self.assertTrue(response.json()["error"])
+        self.assertFalse(AuditLog.objects.filter(action="ticket_granted_at_door"))
+
+    def test_happy_path_writes_exactly_one_audit_row(self):
+        for kind, model in (("event", EventTicket), ("session", SessionTicket)):
+            with self.subTest(kind=kind):
+                AuditLog.objects.all().delete()
+                model.objects.filter(attendee=self.walk_in).delete()
+                self.assertEqual(self.post(kind).status_code, 201)
+                rows = AuditLog.objects.filter(action="ticket_granted_at_door")
+                self.assertEqual(rows.count(), 1)
+                row = rows.get()
+                self.assertEqual(row.user, self.volunteer)
+                self.assertEqual(row.details["attendee_id"], str(self.walk_in.id))
+                self.assertEqual(row.details["session_id"], str(self.session.id))
+                self.assertEqual(row.details["event_id"], str(self.event.id))
+
+    def test_event_ticket_event_comes_from_the_session(self):
+        other = Event.objects.create(
+            name="Annat",
+            start_date=self.event.start_date,
+            end_date=self.event.end_date,
+            price=Decimal("0"),
+        )
+        response = self.as_volunteer().post(
+            "/api/event-tickets/grant/",
+            {
+                "child": str(self.walk_in.id),
+                "session": str(self.session.id),
+                "event": str(other.id),
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, 201, response.content)
+        self.assertTrue(
+            EventTicket.objects.filter(attendee=self.walk_in, event=self.event)
+        )
+        self.assertFalse(EventTicket.objects.filter(event=other))
+
+    def test_inactive_session_is_refused(self):
+        self.session.is_active = False
+        self.session.save()
+        for kind in ("event", "session"):
+            with self.subTest(kind=kind):
+                self.assertRefused(self.post(kind), "session_not_active")
+
+    def test_open_rule_is_refused(self):
+        self.session.ticket_rule = TicketRule.OPEN
+        self.session.save()
+        for kind in ("event", "session"):
+            with self.subTest(kind=kind):
+                self.assertRefused(self.post(kind), "ticket_not_required")
+
+    def test_adult_on_children_rule_is_refused(self):
+        for kind in ("event", "session"):
+            with self.subTest(kind=kind):
+                self.assertRefused(self.post(kind, self.parent), "ticket_not_required")
+
+    def test_ticket_of_cancelled_registration_gets_a_coded_error(self):
+        registration = Registration.objects.create(
+            event=self.event,
+            contact_email="x@example.com",
+            family=self.family,
+            status=Registration.Status.CANCELLED,
+        )
+        EventTicket.objects.create(
+            attendee=self.walk_in, event=self.event, registration=registration
+        )
+        response = self.post("event")
+        self.assertRefused(response, "registration_cancelled")
+        self.assertIn("Koordinator", response.json()["error"])
+        self.assertEqual(EventTicket.objects.filter(attendee=self.walk_in).count(), 1)
+
+    def _cancel_fixture_registration(self):
+        # The fixture family already holds one live registration for the event.
+        self.registration.status = Registration.Status.CANCELLED
+        self.registration.save()
+
+    def test_cancelled_registration_without_a_ticket_is_refused(self):
+        self._cancel_fixture_registration()
+        for kind in ("event", "session"):
+            with self.subTest(kind=kind):
+                response = self.post(kind)
+                self.assertRefused(response, "registration_cancelled")
+                self.assertIn("Koordinator", response.json()["error"])
+                self.assertFalse(EventTicket.objects.filter(attendee=self.walk_in))
+                self.assertFalse(SessionTicket.objects.filter(attendee=self.walk_in))
+
+    def test_cancelled_plus_active_registration_may_be_granted(self):
+        Registration.objects.create(
+            event=self.event,
+            contact_email="x@example.com",
+            family=self.family,
+            status=Registration.Status.CANCELLED,
+            verification_token_hash=hash_token(generate_verification_token()),
+        )
+        for kind in ("event", "session"):
+            with self.subTest(kind=kind):
+                self.assertEqual(self.post(kind).status_code, 201)
+        self.assertEqual(
+            AuditLog.objects.filter(action="ticket_granted_at_door").count(), 2
+        )
+
+    def test_existing_valid_ticket_is_refused_not_a_500(self):
+        SessionTicket.objects.create(attendee=self.walk_in, session=self.session)
+        self.assertRefused(self.post("session"), "already_ticketed")
+
+
 class OtherRolesUnchangedTests(RoleFixtureMixin, TestCase):
     def setUp(self):
         super().setUp()
+        self.session.ticket_rule = TicketRule.ALL
+        self.session.save()
         self.walk_in = Child.objects.create(
             first_name="Nils", last_name="Andersson", family=self.family
         )
@@ -208,7 +349,7 @@ class OtherRolesUnchangedTests(RoleFixtureMixin, TestCase):
     def test_coordinator_can_also_grant_at_the_door(self):
         response = self.as_coordinator().post(
             "/api/event-tickets/grant/",
-            {"child": str(self.walk_in.id), "event": str(self.event.id)},
+            {"child": str(self.walk_in.id), "session": str(self.session.id)},
             format="json",
         )
         self.assertEqual(response.status_code, 201, response.content)

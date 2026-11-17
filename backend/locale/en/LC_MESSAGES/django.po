@@ -1837,3 +1837,15 @@ msgstr "Who owes money?"
 # Admin chrome language switcher - templates/admin/language_switcher.html
 msgid "Change admin language"
 msgstr "Change admin language"
+
+msgid "This session is not open for check-in, so a ticket cannot be given"
+msgstr "This session is not open for check-in, so a ticket cannot be given"
+
+msgid "This session does not require a ticket for this person"
+msgstr "This session does not require a ticket for this person"
+
+msgid "This person already has a ticket here"
+msgstr "This person already has a ticket here"
+
+msgid "This person's registration was cancelled, so they cannot be given a ticket here. Send the family to a Koordinator."
+msgstr "This person's registration was cancelled, so they cannot be given a ticket here. Send the family to a Koordinator."

@@ -1861,3 +1861,15 @@ msgstr "Vem är skulden hos?"
 # Admin chrome language switcher - templates/admin/language_switcher.html
 msgid "Change admin language"
 msgstr "Byt adminspråk"
+
+msgid "This session is not open for check-in, so a ticket cannot be given"
+msgstr "Sessionen är inte öppen för incheckning, så ingen biljett kan ges"
+
+msgid "This session does not require a ticket for this person"
+msgstr "Den här sessionen kräver ingen biljett för den här personen"
+
+msgid "This person already has a ticket here"
+msgstr "Personen har redan en biljett här"
+
+msgid "This person's registration was cancelled, so they cannot be given a ticket here. Send the family to a Koordinator."
+msgstr "Personens anmälan är avbruten, så hen kan inte få en biljett här. Skicka familjen till en koordinator."

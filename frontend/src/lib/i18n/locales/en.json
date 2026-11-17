@@ -84,6 +84,12 @@
     "checkInFamilyAria": "Check in {count} children from {familyName} family",
     "checkInWith": "Check in {name} with:",
     "grantTicketPromptChild": "This session requires a ticket for children. Check in {name} with:",
+    "grantError": {
+      "session_not_active": "This session is not open for check-in, so no ticket can be given. Pick an open session.",
+      "ticket_not_required": "This session does not require a ticket for this person.",
+      "already_ticketed": "This person already has a ticket here. Reload the list.",
+      "registration_cancelled": "This person's registration was cancelled. Send the family to a Koordinator."
+    },
     "grantTicketPromptAdult": "This session requires a ticket for adults. Check in {name} with:",
     "colFamily": "Family",
     "colStatus": "Status",

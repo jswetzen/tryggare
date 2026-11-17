@@ -31,6 +31,19 @@ class SessionSerializer(serializers.ModelSerializer):
         read_only_fields = ["id"]
 
 
+class DoorGrantSerializer(serializers.Serializer):
+    """Body of both ``grant/`` actions: who, and the session being checked into.
+    The event is derived from the session, so there is no ``event`` field."""
+
+    child = serializers.PrimaryKeyRelatedField(
+        source="attendee",
+        queryset=EventTicket._meta.get_field("attendee").related_model.objects.all(),
+    )
+    session = serializers.PrimaryKeyRelatedField(
+        queryset=Session.objects.select_related("event")
+    )
+
+
 class TicketSerializer(serializers.ModelSerializer):
     """
     DEPRECATED: Use EventTicketSerializer or SessionTicketSerializer instead.

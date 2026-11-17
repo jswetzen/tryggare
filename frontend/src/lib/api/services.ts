@@ -353,10 +353,10 @@ export const reportApi = {
 export const ticketApi = {
   /**
    * Assign an event ticket to a child. Goes through the door-only ``grant/``
-   * action (``events.grant_eventticket_at_door``), not the general create, so a
+   * action (``events.grant_eventticket_at_door``); names the session being checked into, the server derives the event, not the general create, so a
    * Volontär can do it without holding ``add_eventticket``.
    */
-  assignEventTicket: (data: { child: string; event: string }) =>
+  assignEventTicket: (data: { child: string; session: string }) =>
     apiClient.post('/event-tickets/grant/', data),
 
   /**

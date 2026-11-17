@@ -165,3 +165,55 @@ def child_ticket_gate_error(child: Attendee, session: Session) -> str | None:
     if session.children_need_ticket and not child.has_ticket_for(session):
         return _("Child does not have a ticket for this session")
     return None
+
+
+# Codes for ``door_grant_error``; the desk maps each to its own translated text.
+GRANT_SESSION_NOT_ACTIVE = "session_not_active"
+GRANT_NO_TICKET_NEEDED = "ticket_not_required"
+GRANT_ALREADY_TICKETED = "already_ticketed"
+GRANT_REGISTRATION_CANCELLED = "registration_cancelled"
+
+
+def registration_cancelled_refusal() -> tuple[str, str]:
+    return (
+        GRANT_REGISTRATION_CANCELLED,
+        _(
+            "This person's registration was cancelled, so they cannot be "
+            "given a ticket here. Send the family to a Koordinator."
+        ),
+    )
+
+
+def door_grant_error(attendee: Attendee, session: Session) -> tuple[str, str] | None:
+    """Return ``(code, message)`` if the desk may not mint a ticket for
+    ``attendee`` at ``session``, else None.
+
+    "Active" is the desk picker's own test (``Session.is_active``, what
+    ``GET /sessions/active/`` filters on). A ticket is only worth granting where
+    the session's effective rule asks this kind of person for one: children
+    under ``children``/``all``, adults only under ``all``.
+    """
+    if not session.is_active:
+        return (
+            GRANT_SESSION_NOT_ACTIVE,
+            _("This session is not open for check-in, so a ticket cannot be given"),
+        )
+    is_adult = Parent.objects.filter(pk=attendee.pk).exists()
+    needs = session.adults_need_ticket if is_adult else session.children_need_ticket
+    if not needs:
+        return (
+            GRANT_NO_TICKET_NEEDED,
+            _("This session does not require a ticket for this person"),
+        )
+    # Cancelling keeps the tickets, so a cancelled family may or may not have
+    # one; either way only a Koordinator may undo it. A family that also holds
+    # a live registration for the event is fine.
+    registrations = Registration.objects.filter(
+        family_id=attendee.family_id, event_id=session.event_id
+    )
+    if (
+        registrations.filter(status=Registration.Status.CANCELLED).exists()
+        and not registrations.exclude(status=Registration.Status.CANCELLED).exists()
+    ):
+        return registration_cancelled_refusal()
+    return None

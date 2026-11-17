@@ -84,6 +84,12 @@
     "checkInFamilyAria": "Checka in {count} barn i familjen {familyName}",
     "checkInWith": "Checka in {name} med:",
     "grantTicketPromptChild": "Det här passet kräver biljett för barn. Checka in {name} med:",
+    "grantError": {
+      "session_not_active": "Passet är inte öppet för incheckning, så ingen biljett kan ges. Välj ett öppet pass.",
+      "ticket_not_required": "Det här passet kräver ingen biljett för den här personen.",
+      "already_ticketed": "Personen har redan en biljett här. Ladda om listan.",
+      "registration_cancelled": "Personens anmälan är avbruten. Skicka familjen till en koordinator."
+    },
     "grantTicketPromptAdult": "Det här passet kräver biljett för vuxna. Checka in {name} med:",
     "colFamily": "Familj",
     "colStatus": "Status",
