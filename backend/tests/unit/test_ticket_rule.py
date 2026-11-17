@@ -4,7 +4,7 @@ The merged, server-enforced ticket rule (owner decision 2026-10-01).
 ``Session.ticket_rule`` (open / children / all, blank inherits
 ``Event.ticket_rule_default``) plus ``Session.adults_not_checked_in`` replaced the
 old ``requires_ticket`` (children only, UI-enforced) and
-``parent_checkin_policy`` (adults only), whose columns migration 0025 dropped. ``Attendee.has_ticket_for(session)``
+``parent_checkin_policy`` (adults only), whose columns migrations 0025/0026 dropped. ``Attendee.has_ticket_for(session)``
 is the single helper the gate asks.
 
 Every row of the matrix is asserted through BOTH entry points, because they are
@@ -368,8 +368,8 @@ class TestCheckoutAndDoorAssign:
         assert response.status_code == 200, response.data
 
     def test_assigning_a_ticket_at_the_door_then_checking_in_succeeds(self):
-        """The check-in UI posts /event-tickets/ (or /session-tickets/) and
-        then check_in. Staff-created tickets carry registration=None, so the
+        """The check-in UI posts /event-tickets/grant/ (or
+        /session-tickets/grant/) and then check_in. Staff-created tickets carry registration=None, so the
         gate passes as soon as the ticket exists."""
         event = _event()
         session = _session(event, CHILDREN)

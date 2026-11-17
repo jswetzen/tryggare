@@ -369,15 +369,6 @@ msgstr "Duplicate extras to another event"
 msgid "Events"
 msgstr "Events"
 
-msgid "Disabled"
-msgstr "Disabled"
-
-msgid "Open (no ticket required)"
-msgstr "Open (no ticket required)"
-
-msgid "Ticket required"
-msgstr "Ticket required"
-
 msgid "Open - no ticket required"
 msgstr "Open - no ticket required"
 
@@ -443,12 +434,6 @@ msgstr "Same as the event's default"
 #, python-format
 msgid "Same as the event's default (%(rule)s)"
 msgstr "Same as the event's default (%(rule)s)"
-
-msgid "Default Parent Check-In Policy"
-msgstr "Default Parent Check-In Policy"
-
-msgid "Deprecated and no longer used - see 'Default Ticket Rule'."
-msgstr "Deprecated and no longer used - see 'Default Ticket Rule'."
 
 msgid "Price"
 msgstr "Price"

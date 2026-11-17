@@ -374,15 +374,6 @@ msgstr "Kopiera tillval till ett annat evenemang"
 msgid "Events"
 msgstr "Evenemang"
 
-msgid "Disabled"
-msgstr "Avstängd"
-
-msgid "Open (no ticket required)"
-msgstr "Öppen (ingen biljett krävs)"
-
-msgid "Ticket required"
-msgstr "Biljett krävs"
-
 msgid "Open - no ticket required"
 msgstr "Öppen – ingen biljett krävs"
 
@@ -448,12 +439,6 @@ msgstr "Samma som evenemangets standard"
 #, python-format
 msgid "Same as the event's default (%(rule)s)"
 msgstr "Samma som evenemangets standard (%(rule)s)"
-
-msgid "Default Parent Check-In Policy"
-msgstr "Standardregel för incheckning av föräldrar"
-
-msgid "Deprecated and no longer used - see 'Default Ticket Rule'."
-msgstr "Används inte längre – se ”Standardregel för biljetter”."
 
 msgid "Price"
 msgstr "Pris"

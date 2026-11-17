@@ -8,25 +8,6 @@ from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
 
-class ParentCheckinPolicy(models.TextChoices):
-    """DEPRECATED (2026-10-01): superseded by ``TicketRule`` +
-    ``Session.adults_not_checked_in``. Nothing reads it any more; it survives
-    only as the choices of ``Event.parent_checkin_policy_default``, the one
-    deprecated column still in the schema (the ``Session`` columns are gone).
-
-    Who's allowed to check in as a parent/guardian, and whether they need a ticket.
-
-    Lives at module level (not nested in Session) so both Event and Session
-    can reference ParentCheckinPolicy.choices directly — a nested class
-    would force one of the two field definitions into a lambda, which Django
-    migrations can't serialize.
-    """
-
-    DISABLED = "disabled", _("Disabled")
-    OPEN = "open", _("Open (no ticket required)")
-    TICKET_REQUIRED = "ticket_required", _("Ticket required")
-
-
 class TicketRule(models.TextChoices):
     """Who needs a ticket to be checked in to a session.
 
@@ -35,8 +16,8 @@ class TicketRule(models.TextChoices):
     (children only, enforced only in the check-in UI) and
     ``Session.parent_checkin_policy`` (adults only, server-enforced), both
     since dropped. One rule, server-enforced, for everyone.
-    Module level for the same reason as ``ParentCheckinPolicy``: Event and
-    Session both reference ``TicketRule.choices``.
+    Module level so Event and Session can both reference
+    ``TicketRule.choices``.
 
     Whether *adults are checked in at all* is a separate fact, not a rung on
     this ladder: ``Session.adults_not_checked_in``.
@@ -49,7 +30,7 @@ class TicketRule(models.TextChoices):
 
 class AppliesTo(models.TextChoices):
     """Who a TicketType or Extra is offered to. Module level (like
-    ParentCheckinPolicy above) so both models can reference the same
+    TicketRule above) so both models can reference the same
     choices without duplicating them."""
 
     PARENT = "parent", _("Parent")
@@ -94,16 +75,6 @@ class Event(models.Model):
             "Guardians who only bring the children and do not attend "
             "themselves never need a ticket."
         ),
-    )
-    # DEPRECATED 2026-10-01: nothing reads this. Superseded by
-    # ticket_rule_default (+ Session.adults_not_checked_in); kept only so the
-    # data migration is cheaply reversible. Dropped in the admin increment.
-    parent_checkin_policy_default = models.CharField(
-        max_length=20,
-        choices=ParentCheckinPolicy.choices,
-        default=ParentCheckinPolicy.OPEN,
-        verbose_name=_("Default Parent Check-In Policy"),
-        help_text=_("Deprecated and no longer used - see 'Default Ticket Rule'."),
     )
     price = models.DecimalField(
         max_digits=8,

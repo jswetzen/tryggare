@@ -74,10 +74,6 @@ class EventAdmin(admin.ModelAdmin):
     )
     list_filter = ("ticket_rule_default",)
     search_fields = ("name",)
-    # Deprecated column, read by nothing: not shown, so nobody sets a dead
-    # control. The proper admin redesign (and the column drop) is a later
-    # increment.
-    exclude = ("parent_checkin_policy_default",)
     actions = ("generate_report",)
     # Explicit fieldsets so the check-in rule gets a block of its own, away
     # from the registration/branding fields. Every editable field must be
