@@ -654,6 +654,29 @@ class TestMigration0022:
         logged = caplog.text
         assert "Lossy Session" in logged and "Lossy Event" in logged
 
+    def test_the_lossy_case_writes_a_durable_audit_row_per_session(self, legacy_apps):
+        AuditLog = legacy_apps.get_model("checkins", "AuditLog")
+        event = _old_event(legacy_apps, "Lossy Event")
+        lossy = _old_session(legacy_apps, event, False, "ticket_required", "Lossy")
+        _old_session(legacy_apps, event, True, "ticket_required", "Fine")
+        _old_session(legacy_apps, event, False, "disabled", "Also fine")
+        self._forward(legacy_apps)
+        row = AuditLog.objects.get()  # exactly one: only the lossy session
+        assert row.action == "ticket_rule_migrated_lossy"
+        assert row.entity_type == "Session"
+        assert row.entity_id == str(lossy.pk)
+        assert row.user is None
+        assert row.details == {
+            "migration": "events.0022",
+            "session_id": str(lossy.pk),
+            "session_name": "Lossy",
+            "event_name": "Lossy Event",
+            "old_requires_ticket": False,
+            "old_parent_checkin_policy": "ticket_required",
+            "effective_parent_checkin_policy": "ticket_required",
+            "new_ticket_rule": "all",
+        }
+
     def test_the_old_columns_are_left_untouched_by_the_forward_step(self, legacy_apps):
         session = _old_session(legacy_apps, _old_event(legacy_apps), True, "disabled")
         self._forward(legacy_apps)

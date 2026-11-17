@@ -28,9 +28,11 @@ were free". That combination no longer exists: there is no rule under which
 adults need a ticket but children do not. It becomes ``all`` (children now need
 a ticket too), which is stricter for the children. This is a chosen trade-off,
 not an accident. The forward step therefore prints AND logs (logger
-``events.migrations``) every session and event it applied this to. The printed
-list can be lost in a Portainer deploy (nobody watches the container output),
-so the release note MUST name these sessions: query the log, or re-derive with
+``events.migrations``) every session it applied this to, and also writes one
+durable ``checkins.AuditLog`` row per session (action
+``ticket_rule_migrated_lossy``, entity_type ``Session``, no user), because
+container output rotates. The release note MUST name these sessions: query
+the audit log, or re-derive with
 ``requires_ticket = false`` and an effective ``ticket_required`` policy on the
 old columns, which this increment deliberately does not drop.
 
@@ -82,6 +84,7 @@ def session_rule(requires_ticket: bool, policy: str) -> tuple[str, bool, bool]:
 def forward(apps, schema_editor):
     Event = apps.get_model("events", "Event")
     Session = apps.get_model("events", "Session")
+    AuditLog = apps.get_model("checkins", "AuditLog")
 
     lossy = []  # (event name, session name, session id)
 
@@ -97,6 +100,22 @@ def forward(apps, schema_editor):
             session.save(update_fields=["ticket_rule", "adults_not_checked_in"])
             if is_lossy:
                 lossy.append((event.name, session.name, str(session.pk)))
+                AuditLog.objects.create(
+                    user=None,
+                    action="ticket_rule_migrated_lossy",
+                    entity_type="Session",
+                    entity_id=str(session.pk),
+                    details={
+                        "migration": "events.0022",
+                        "session_id": str(session.pk),
+                        "session_name": session.name,
+                        "event_name": event.name,
+                        "old_requires_ticket": session.requires_ticket,
+                        "old_parent_checkin_policy": session.parent_checkin_policy,
+                        "effective_parent_checkin_policy": policy,
+                        "new_ticket_rule": RULE_ALL,
+                    },
+                )
 
         event.ticket_rule_default = new_default
         event.save(update_fields=["ticket_rule_default"])
@@ -145,6 +164,7 @@ def reverse(apps, schema_editor):
 class Migration(migrations.Migration):
     dependencies = [
         ("events", "0021_ticket_rule_fields"),
+        ("checkins", "0008_alter_auditlog_options_alter_auditlog_action_and_more"),
     ]
 
     operations = [
