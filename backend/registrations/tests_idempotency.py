@@ -22,6 +22,7 @@ from rest_framework.test import APIClient
 
 from events.models import Event
 
+from . import views
 from .models import Registration, RegistrationIdempotencyKey
 from .views import _idempotency_fingerprint
 
@@ -434,6 +435,72 @@ class IdempotencyKeyStaleReclaimRaceTests(TransactionTestCase):
         # the whole point of the reservation-before-work ordering.
         self.assertEqual(Registration.objects.count(), 1)
         self.assertEqual(RegistrationIdempotencyKey.objects.filter(key=key).count(), 1)
+
+
+class PendingDedupRaceTests(TransactionTestCase):
+    """Two submits for the same event + email (differing only in case, no
+    idempotency key) must not both pass the pending-registration check."""
+
+    @patch("registrations.views.send_verification_email", return_value=True)
+    def test_concurrent_same_email_submits_yield_one_pending_registration(
+        self, mock_send
+    ):
+        event = _make_event()
+        real_create = views._create_registration
+        # Holds each thread between check and create until both are there;
+        # with the lock the second never arrives, so the wait times out.
+        meet = threading.Barrier(2)
+
+        def create_after_meeting(**kwargs):
+            try:
+                meet.wait(timeout=1.5)
+            except threading.BrokenBarrierError:
+                pass
+            return real_create(**kwargs)
+
+        results, errors = [], []
+        start = threading.Barrier(2)
+
+        def worker(email):
+            try:
+                start.wait(timeout=5)
+                payload = {
+                    "event": str(event.id),
+                    "contact_email": email,
+                    "parents": [
+                        {
+                            "first_name": "Anna",
+                            "phone": "070-123 45 67",
+                            "relationship_type": "Mother",
+                            "email": email,
+                        }
+                    ],
+                    "children": [],
+                }
+                response = APIClient().post("/api/registrations/", payload, "json")
+                results.append(response.status_code)
+            except Exception as exc:  # pragma: no cover - surfaced below
+                errors.append(exc)
+            finally:
+                connection.close()
+
+        with patch.object(views, "_create_registration", create_after_meeting):
+            threads = [
+                threading.Thread(target=worker, args=(e,)) for e in ("A@x.se", "a@x.se")
+            ]
+            for t in threads:
+                t.start()
+            for t in threads:
+                t.join(timeout=20)
+
+        self.assertEqual(errors, [], errors)
+        self.assertEqual(len(results), 2, results)
+        self.assertEqual(
+            Registration.objects.filter(
+                event=event, status=Registration.Status.PENDING_VERIFICATION
+            ).count(),
+            1,
+        )
 
 
 class IdempotencyKeySweepTests(TestCase):

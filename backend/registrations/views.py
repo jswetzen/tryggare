@@ -4,7 +4,7 @@ import logging
 from datetime import timedelta
 from decimal import Decimal
 
-from django.db import IntegrityError, OperationalError, transaction
+from django.db import IntegrityError, OperationalError, connection, transaction
 from django.db.models import F, Prefetch, Q
 from django.http import Http404
 from django.shortcuts import get_object_or_404
@@ -927,6 +927,18 @@ def _idempotency_fingerprint(raw_payload) -> str:
     return hashlib.sha256(encoded.encode("utf-8")).hexdigest()
 
 
+def _lock_pending_registration(event, email):
+    """Serialize the pending-registration check-then-create per (event,
+    email); an advisory lock leaves other families of the event unblocked."""
+    if connection.vendor != "postgresql":
+        return
+    with connection.cursor() as cur:
+        cur.execute(
+            "SELECT pg_advisory_xact_lock(hashtext(%s), hashtext(%s))",
+            [str(event.id), email.lower()],
+        )
+
+
 def _execute_submit_registration(request, data):
     """The actual submission logic: validated payload in, ``(response
     body, HTTP status, Registration-or-None)`` out.
@@ -968,17 +980,30 @@ def _execute_submit_registration(request, data):
             code="registration_not_open",
         )
 
-    existing = (
-        Registration.objects.filter(
-            event=event,
-            contact_email__iexact=contact_email,
-            status=Registration.Status.PENDING_VERIFICATION,
+    registration = token = None
+    with transaction.atomic():
+        _lock_pending_registration(event, contact_email)
+        existing = (
+            Registration.objects.filter(
+                event=event,
+                contact_email__iexact=contact_email,
+                status=Registration.Status.PENDING_VERIFICATION,
+            )
+            .order_by("-submitted_at")
+            .first()
         )
-        .order_by("-submitted_at")
-        .first()
-    )
+        if existing is None or existing.is_expired:
+            registration, token = _create_registration(
+                event=event,
+                contact_email=contact_email,
+                last_name=data.get("last_name", ""),
+                parents_data=data.get("parents", []),
+                children_data=data.get("children", []),
+                extras_data=data.get("extras", []),
+                promo_code_str=data.get("promo_code"),
+            )
 
-    if existing is not None and not existing.is_expired:
+    if registration is None:
         # This branch is deliberately reached by two different callers with
         # different intent, and the response has to serve both:
         #   - the confirmation screen's explicit "resend" action (handleResend
@@ -1041,17 +1066,6 @@ def _execute_submit_registration(request, data):
             },
             status.HTTP_201_CREATED,
             registration,
-        )
-
-    with transaction.atomic():
-        registration, token = _create_registration(
-            event=event,
-            contact_email=contact_email,
-            last_name=data.get("last_name", ""),
-            parents_data=data.get("parents", []),
-            children_data=data.get("children", []),
-            extras_data=data.get("extras", []),
-            promo_code_str=data.get("promo_code"),
         )
 
     email_sent = send_verification_email(registration, token)
