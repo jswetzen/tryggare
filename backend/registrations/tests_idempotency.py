@@ -294,6 +294,45 @@ class RegistrationIdempotencyTests(TestCase):
             1,
         )
 
+    def test_email_timeout_is_set_and_shorter_than_stale_reservation_age(self):
+        from django.conf import settings
+
+        from .views import STALE_RESERVATION_AGE
+
+        self.assertTrue(settings.EMAIL_TIMEOUT)
+        self.assertLess(settings.EMAIL_TIMEOUT, STALE_RESERVATION_AGE.total_seconds())
+
+    def test_final_save_after_reservation_was_reclaimed_returns_success(self):
+        """A slow request whose reservation a retry reclaimed mid-flight must
+        still return its own result (not 500) and leave the reclaimer's row
+        untouched."""
+        payload = self._payload()
+        key = payload["idempotency_key"]
+        fingerprint = _idempotency_fingerprint(dict(payload))
+        reclaimer = {}
+
+        def reclaim_during_email(*args, **kwargs):
+            RegistrationIdempotencyKey.objects.filter(key=key).delete()
+            reclaimer["row"] = RegistrationIdempotencyKey.objects.create(
+                key=key, event=self.event, request_fingerprint=fingerprint
+            )
+            return True
+
+        with patch(
+            "registrations.views.send_verification_email",
+            side_effect=reclaim_during_email,
+        ):
+            response = self.client.post(self.url, payload, format="json")
+
+        self.assertEqual(response.status_code, 201, response.data)
+        self.assertEqual(Registration.objects.count(), 1)
+        rows = RegistrationIdempotencyKey.objects.filter(key=key)
+        self.assertEqual(rows.count(), 1)
+        row = rows.get()
+        self.assertEqual(row.pk, reclaimer["row"].pk)
+        self.assertIsNone(row.response_body)
+        self.assertIsNone(row.registration)
+
     # A third P2 scenario — two requests genuinely racing to reclaim the
     # same stale key — needs two real DB connections to be faithful (see
     # IdempotencyKeyStaleReclaimRaceTests below, a TransactionTestCase):

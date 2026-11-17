@@ -898,6 +898,7 @@ def validate_promo_code(request):
 # one best-effort email send, see _execute_submit_registration) while still
 # being short enough that a guardian who retries a couple of times inside a
 # minute never races a reclaim against their own still-healthy request.
+# Keep settings.EMAIL_TIMEOUT well below this, or a slow SMTP outlives it.
 STALE_RESERVATION_AGE = timedelta(seconds=60)
 
 
@@ -1395,10 +1396,22 @@ def submit_registration(request):
         return result
 
     body, response_status, registration = result
-    key_record.response_status = response_status
-    key_record.response_body = body
-    key_record.registration = registration
-    key_record.save(update_fields=["response_status", "response_body", "registration"])
+    # Scoped to the row this request reserved: if a slow request outlived
+    # STALE_RESERVATION_AGE, a retry deleted it and reserved a new row (new
+    # pk), so this matches 0 rows instead of clobbering or 500ing.
+    updated = RegistrationIdempotencyKey.objects.filter(
+        pk=key_record.pk, response_body__isnull=True
+    ).update(
+        response_status=response_status,
+        response_body=body,
+        registration=registration,
+    )
+    if not updated:
+        logger.warning(
+            "Idempotency reservation for key %s was reclaimed before this "
+            "request finished; returning its own result without caching it",
+            idempotency_key,
+        )
 
     return Response(body, status=response_status)
 
