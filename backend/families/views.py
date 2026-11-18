@@ -188,6 +188,15 @@ class FamilyViewSet(viewsets.ModelViewSet):
                 queryset=pending_payment_qs,
                 to_attr="pending_payment_registrations",
             ),
+            # Every status, for the per-person cancelled marker
+            # (_registration_cancelled_event_ids).
+            Prefetch(
+                "registrations",
+                queryset=Registration.objects.only(
+                    "id", "family_id", "event_id", "status"
+                ),
+                to_attr="family_registrations",
+            ),
         ).all()
 
     def get_serializer_class(self):

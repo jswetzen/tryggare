@@ -228,6 +228,7 @@
     "pendingPaymentAwaiting": "Väntar på betalning",
     "pendingPaymentBlockedTitle": "Anmälan är obetald — lös det via anmälan ovan innan incheckning",
     "registrationNotConfirmed": "Anmälan väntar på bekräftelse",
+    "registrationCancelled": "Anmälan avbruten – skicka familjen till en koordinator",
     "registrationNotConfirmedHint": "Be en koordinator bekräfta anmälan.",
     "awaitingConfirmation": "Väntar på bekräftelse",
     "awaitingConfirmationCount": "{count} väntar på bekräftelse",

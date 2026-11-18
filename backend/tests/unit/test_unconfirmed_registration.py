@@ -434,3 +434,67 @@ class TestOutsideTheFamilyPayload:
             "event_ids": [str(event.id)],
             "session_ids": [],
         }
+
+
+@pytest.mark.django_db
+class TestRegistrationCancelledMarker:
+    """``registration_cancelled_event_ids``: the family-level cancelled test
+    (``cancelled_registration_event_ids``) copied onto each person, which is
+    also what ``door_grant_error`` refuses on."""
+
+    def _ids(self, family):
+        data = _family_payload(family)
+        return {
+            p["first_name"]: p["registration_cancelled_event_ids"]
+            for p in data["children"] + data["parents"]
+        }
+
+    def _family(self, world):
+        event, family = world
+        Child.objects.create(first_name="Kim", family=family)
+        Parent.objects.create(first_name="Pat", family=family)
+        return event, family
+
+    def test_cancelled_with_no_live_registration_is_marked(self, world):
+        event, family = self._family(world)
+        _registration(event, family, Status.CANCELLED)
+        assert self._ids(family) == {"Kim": [str(event.id)], "Pat": [str(event.id)]}
+
+    def test_cancelled_with_a_live_registration_is_not_marked(self, world):
+        event, family = self._family(world)
+        _registration(event, family, Status.CANCELLED)
+        _registration(event, family, Status.CONFIRMED)
+        assert self._ids(family) == {"Kim": [], "Pat": []}
+
+    def test_no_registration_is_not_marked(self, world):
+        _, family = self._family(world)
+        assert self._ids(family) == {"Kim": [], "Pat": []}
+
+    def test_door_grant_error_refuses_through_the_helper(self, world):
+        from checkins.eligibility import (
+            GRANT_REGISTRATION_CANCELLED,
+            door_grant_error,
+        )
+
+        event, family = self._family(world)
+        session = _session(event, "Verkstad")
+        session.ticket_rule = "children"
+        session.save()
+        kim = Child.objects.get(first_name="Kim")
+        _registration(event, family, Status.CANCELLED)
+        error = door_grant_error(kim, session)
+        assert error is not None and error[0] == GRANT_REGISTRATION_CANCELLED
+        _registration(event, family, Status.CONFIRMED)
+        assert door_grant_error(kim, session) is None
+
+    def test_list_query_count_is_flat(self, world):
+        event, family = self._family(world)
+        _registration(event, family, Status.CANCELLED)
+        small = TestQueryCount()._queries_for_list()[0]
+        for n in range(3):
+            f = Family.objects.create(last_name=f"X{n}")
+            Child.objects.create(first_name="c", family=f)
+            Parent.objects.create(first_name="p", family=f)
+            _registration(event, f, Status.CANCELLED)
+        big = TestQueryCount()._queries_for_list()[0]
+        assert big == small

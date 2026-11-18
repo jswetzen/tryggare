@@ -29,6 +29,8 @@
     hasBlockedPerson
   } from '$lib/checkin/utils/familyConfirmation';
   import { Alert, Button, Icon } from '$lib/components/ui';
+  import { isCancelledAtDoor } from '$lib/checkin/utils/mergeFamilies';
+  import { sessionRowLabel } from '$lib/checkin/utils/sessionTicketLabel';
   import { undoActionsWithTick } from '$lib/checkin/stores/undoTimer';
 
   interface Props {
@@ -61,6 +63,9 @@
      * that.
      */
     canEditFamily?: boolean;
+    /** The desk's active session: a session ticket for it is the one a row names. */
+    activeSessionId?: string | null;
+    activeSessionName?: string | null;
   }
 
   let {
@@ -83,7 +88,9 @@
     onMarkPaid = async () => {},
     onConfirmDespiteBalance = async () => {},
     onEditFamily = undefined,
-    canEditFamily = true
+    canEditFamily = true,
+    activeSessionId = null,
+    activeSessionName = null
   }: Props = $props();
 
   // 9.3 "unpaid at the door" — which families currently have a mark-paid /
@@ -253,8 +260,10 @@
       case 'event':
         return $_('checkin.ticketEvent');
       case 'session': {
-        const sessionTicket = attendee.ticket_details?.session_tickets[0];
-        return sessionTicket?.session_name ?? $_('checkin.ticketSession');
+        return (
+          sessionRowLabel(attendee.ticket_details?.session_tickets, activeSessionId, activeSessionName) ??
+          $_('checkin.ticketSession')
+        );
       }
       case 'none':
         return $_('checkin.ticketNone');
@@ -344,7 +353,11 @@
   blocked, otherwise the family header says it once). Staff to-do, not an accusation.
 -->
 {#snippet unconfirmedNote(attendee: Child | Parent, showHint: boolean)}
-  {#if attendee.registrationUnconfirmed && !attendee.checkedIn}
+  {#if isCancelledAtDoor(attendee) && !attendee.checkedIn}
+    <span class="block" data-testid={`cancelled-note-${attendee.id}`}>
+      <span class="block font-medium text-neutral-700">{$_('checkin.registrationCancelled')}</span>
+    </span>
+  {:else if attendee.registrationUnconfirmed && !attendee.checkedIn}
     <span class="block" data-testid={`unconfirmed-note-${attendee.id}`}>
       <span class="block font-medium text-neutral-700">{$_('checkin.registrationNotConfirmed')}</span>
       {#if showHint}
@@ -668,7 +681,7 @@
               </div>
 
               <!-- Ticket assignment expansion (for "No Ticket" children) -->
-              {#if isChildExpanded && child.ticket === 'none' && !child.registrationUnconfirmed}
+              {#if isChildExpanded && child.ticket === 'none' && !child.registrationUnconfirmed && !child.registrationCancelled}
                 {@render grantTicketPanel('child', child.name, child.id, 'w-full', (ticket) => onAssignTicket(family.id, child.id, ticket))}
               {/if}
             </div>
@@ -727,7 +740,7 @@
                   </div>
 
                   <!-- Ticket assignment expansion (for "No Ticket" parents) -->
-                  {#if isParentExpanded && parent.ticket === 'none' && !parent.registrationUnconfirmed}
+                  {#if isParentExpanded && parent.ticket === 'none' && !parent.registrationUnconfirmed && !parent.registrationCancelled}
                     {@render grantTicketPanel('adult', parent.name, parent.id, 'w-full', (ticket) => onAssignParentTicket(family.id, parent.id, ticket))}
                   {/if}
                 </div>
@@ -986,7 +999,7 @@
                 </div>
 
                 <!-- Ticket assignment expansion (inline for desktop) -->
-                {#if isChildExpanded && child.ticket === 'none' && !child.registrationUnconfirmed}
+                {#if isChildExpanded && child.ticket === 'none' && !child.registrationUnconfirmed && !child.registrationCancelled}
                   {@render grantTicketPanel('child', child.name, child.id, 'mt-2', (ticket) => onAssignTicket(family.id, child.id, ticket))}
                 {/if}
               </td>
@@ -1044,7 +1057,7 @@
                   </div>
 
                   <!-- Ticket assignment expansion (inline for desktop) -->
-                  {#if isParentExpanded && parent.ticket === 'none' && !parent.registrationUnconfirmed}
+                  {#if isParentExpanded && parent.ticket === 'none' && !parent.registrationUnconfirmed && !parent.registrationCancelled}
                     {@render grantTicketPanel('adult', parent.name, parent.id, 'mt-2', (ticket) => onAssignParentTicket(family.id, parent.id, ticket))}
                   {/if}
                 </td>

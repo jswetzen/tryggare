@@ -1,6 +1,9 @@
 from rest_framework import serializers
 
-from checkins.eligibility import unconfirmed_registration_blocks
+from checkins.eligibility import (
+    cancelled_registration_event_ids,
+    unconfirmed_registration_blocks,
+)
 from registrations.models import Registration
 from .models import Child, Family, Parent
 from .services import create_family_with_members, update_family_with_members
@@ -67,6 +70,7 @@ class ParentSerializer(SafetyInfoDisclosureMixin, serializers.ModelSerializer):
     ticket_details = serializers.SerializerMethodField()
     guardian_only_event_ids = serializers.SerializerMethodField()
     unconfirmed_registration = serializers.SerializerMethodField()
+    registration_cancelled_event_ids = serializers.SerializerMethodField()
     is_checked_in = serializers.SerializerMethodField()
     active_checkin_id = serializers.SerializerMethodField()
     checked_in_elsewhere = serializers.SerializerMethodField()
@@ -95,6 +99,7 @@ class ParentSerializer(SafetyInfoDisclosureMixin, serializers.ModelSerializer):
             "ticket_details",
             "guardian_only_event_ids",
             "unconfirmed_registration",
+            "registration_cancelled_event_ids",
             "is_checked_in",
             "active_checkin_id",
             "checked_in_elsewhere",
@@ -112,6 +117,7 @@ class ParentSerializer(SafetyInfoDisclosureMixin, serializers.ModelSerializer):
             "ticket_details",
             "guardian_only_event_ids",
             "unconfirmed_registration",
+            "registration_cancelled_event_ids",
             "is_checked_in",
             "active_checkin_id",
             "checked_in_elsewhere",
@@ -149,6 +155,9 @@ class ParentSerializer(SafetyInfoDisclosureMixin, serializers.ModelSerializer):
         return _unconfirmed_registration_payload(
             obj, guardian_registrations=_guardian_registrations(obj)
         )
+
+    def get_registration_cancelled_event_ids(self, obj: Parent) -> list[str]:
+        return _registration_cancelled_event_ids(obj)
 
     # --- check-in state of an adult -------------------------------------
     #
@@ -216,6 +225,7 @@ class ChildSerializer(SafetyInfoDisclosureMixin, serializers.ModelSerializer):
     ticket_type = serializers.SerializerMethodField()
     ticket_details = serializers.SerializerMethodField()
     unconfirmed_registration = serializers.SerializerMethodField()
+    registration_cancelled_event_ids = serializers.SerializerMethodField()
     is_checked_in = serializers.SerializerMethodField()
     active_checkin_id = serializers.SerializerMethodField()
     has_safety_info = serializers.SerializerMethodField()
@@ -239,6 +249,7 @@ class ChildSerializer(SafetyInfoDisclosureMixin, serializers.ModelSerializer):
             "ticket_type",
             "ticket_details",
             "unconfirmed_registration",
+            "registration_cancelled_event_ids",
             "is_checked_in",
             "active_checkin_id",
         ]
@@ -253,6 +264,7 @@ class ChildSerializer(SafetyInfoDisclosureMixin, serializers.ModelSerializer):
             "ticket_type",
             "ticket_details",
             "unconfirmed_registration",
+            "registration_cancelled_event_ids",
             "is_checked_in",
             "active_checkin_id",
         ]
@@ -277,6 +289,9 @@ class ChildSerializer(SafetyInfoDisclosureMixin, serializers.ModelSerializer):
 
     def get_unconfirmed_registration(self, obj: Child) -> dict:
         return _unconfirmed_registration_payload(obj)
+
+    def get_registration_cancelled_event_ids(self, obj: Child) -> list[str]:
+        return _registration_cancelled_event_ids(obj)
 
     def get_is_checked_in(self, obj: Child) -> bool:
         """
@@ -407,6 +422,20 @@ def _banner_covered_registration_ids(attendee) -> set[str]:
         return set()
     surfaced = _surfaced_pending_payment(family)
     return {str(surfaced.id)} if surfaced is not None else set()
+
+
+def _registration_cancelled_event_ids(attendee) -> list[str]:
+    """Events on which this person's FAMILY is cancelled (the door refuses a
+    grant there: ``checkins.eligibility.cancelled_registration_event_ids``).
+
+    Uses the family viewset's ``family_registrations`` prefetch; when the
+    family is not loaded that way (``/api/children/``, ``/api/parents/``) it
+    returns [] rather than costing a query per person.
+    """
+    family = attendee._meta.get_field("family").get_cached_value(attendee, None)
+    if family is None or not hasattr(family, "family_registrations"):
+        return []
+    return sorted(cancelled_registration_event_ids(family.family_registrations))
 
 
 def _unconfirmed_registration_payload(attendee, guardian_registrations=()) -> dict:

@@ -11,6 +11,7 @@
    */
   import { _ } from 'svelte-i18n';
   import { Icon } from '$lib/components/ui';
+  import { isCancelledAtDoor } from '$lib/checkin/utils/mergeFamilies';
   import type { Parent } from '$lib/checkin/types';
 
   let {
@@ -67,6 +68,15 @@
        and no ticket-grant offer, and deliberately nothing in its place either: a pill here read
        as a button to volunteers (tapped twice in two rounds) and repeated the first reason line
        the row already prints under the name. The two plain-text lines carry the state. -->
+{:else if isCancelledAtDoor(parent)}
+  <!-- Cancelled registration: the server refuses the door grant and the row's note says so, so the
+       chip stays as a plain label: no arrow, no button role, nothing to toggle. -->
+  <span
+    class="inline-block px-3 py-1.5 bg-danger-100 text-danger-700 text-sm font-semibold rounded-button border border-danger-300 min-w-[100px] text-center"
+    data-testid="parent-no-ticket-label-{parent.id}"
+  >
+    {$_('checkin.ticketNone')}
+  </span>
 {:else if parent.ticket === 'none'}
   <!-- No ticket - show button only (expansion handled by parent) -->
   <button

@@ -184,6 +184,23 @@ def registration_cancelled_refusal() -> tuple[str, str]:
     )
 
 
+def cancelled_registration_event_ids(registrations) -> set[str]:
+    """Events on which a family is cancelled: it has a CANCELLED registration
+    there and no live one. Cancelling keeps the tickets, so only a Koordinator
+    may undo it; a family that also holds a live registration is fine.
+
+    ``door_grant_error`` (the refusal) and the family serializers'
+    ``registration_cancelled_event_ids`` (the screen's marker) both call this,
+    so the two cannot drift. Takes already-loaded rows (``event_id``/``status``).
+    """
+    cancelled: set[str] = set()
+    live: set[str] = set()
+    for r in registrations:
+        bucket = cancelled if r.status == Registration.Status.CANCELLED else live
+        bucket.add(str(r.event_id))
+    return cancelled - live
+
+
 def door_grant_error(attendee: Attendee, session: Session) -> tuple[str, str] | None:
     """Return ``(code, message)`` if the desk may not mint a ticket for
     ``attendee`` at ``session``, else None.
@@ -205,15 +222,9 @@ def door_grant_error(attendee: Attendee, session: Session) -> tuple[str, str] | 
             GRANT_NO_TICKET_NEEDED,
             _("This session does not require a ticket for this person"),
         )
-    # Cancelling keeps the tickets, so a cancelled family may or may not have
-    # one; either way only a Koordinator may undo it. A family that also holds
-    # a live registration for the event is fine.
     registrations = Registration.objects.filter(
         family_id=attendee.family_id, event_id=session.event_id
-    )
-    if (
-        registrations.filter(status=Registration.Status.CANCELLED).exists()
-        and not registrations.exclude(status=Registration.Status.CANCELLED).exists()
-    ):
+    ).only("event_id", "status")
+    if str(session.event_id) in cancelled_registration_event_ids(registrations):
         return registration_cancelled_refusal()
     return None

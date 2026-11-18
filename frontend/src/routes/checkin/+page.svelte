@@ -9,6 +9,7 @@
   // Import checkin-specific components
   import SessionIndicator from '$lib/components/checkin/SessionIndicator.svelte';
   import SuccessToast from '$lib/components/checkin/SuccessToast.svelte';
+  import { withGrantedTicket } from '$lib/checkin/utils/sessionTicketLabel';
   import CheckinExpandableTable from '$lib/components/checkin/CheckinExpandableTable.svelte';
   import AddFamilyPanel from '$lib/components/checkin/AddFamilyPanel.svelte';
   import SessionSelector from '$lib/components/SessionSelector.svelte';
@@ -763,7 +764,7 @@
           ...fam,
           children: fam.children.map((child) => {
             if (child.id !== childId) return child;
-            return { ...child, ticket: ticketType, ticket_type: ticketType, ticketExemption: undefined };
+            return withGrantedTicket(child, ticketType as 'event' | 'session');
           }),
         };
       });
@@ -912,7 +913,7 @@
           ...fam,
           parents: fam.parents.map((parent) => {
             if (parent.id !== parentId) return parent;
-            return { ...parent, ticket: ticketType, ticket_type: ticketType, ticketExemption: undefined };
+            return withGrantedTicket(parent, ticketType as 'event' | 'session');
           }),
         };
       });
@@ -1322,6 +1323,8 @@
           showAddPanel = true;
         }}
         {parentCheckinEnabled}
+        activeSessionId={activeSession?.id ?? null}
+        activeSessionName={activeSession?.name ?? null}
         {getRemainingTime}
         bind:supervisedState
         {expandedChildId}

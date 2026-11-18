@@ -30,6 +30,9 @@ export interface Child {
   /** The server would refuse this child on the session on screen because the registration is
    *  not confirmed. Takes priority over `ticket`: no check-in button, no ticket-grant offer. */
   registrationUnconfirmed?: boolean;
+  /** The family's registration for this session's event is cancelled (and none is live): the
+   *  row says so up front and offers no ticket grant. Does not change Check In gating. */
+  registrationCancelled?: boolean;
   ticket_details?: {
     event_tickets: Array<{
       id: string;
@@ -77,6 +80,8 @@ export interface Parent {
   notCheckedInHere?: boolean;
   /** See Child.registrationUnconfirmed. Never set when the session does not check adults in. */
   registrationUnconfirmed?: boolean;
+  /** See Child.registrationCancelled. Never set when the session does not check adults in. */
+  registrationCancelled?: boolean;
   /** Adults: names of the OTHER sessions they are currently checked in to (check-in is per session). */
   checkedInElsewhere?: string[];
   ticket_details?: {
@@ -172,6 +177,7 @@ export interface FamilyApiResponse {
     /** Events where this adult is a guardian-only adult on a CONFIRMED registration. */
     guardian_only_event_ids?: string[];
     unconfirmed_registration?: UnconfirmedRegistration;
+    registration_cancelled_event_ids?: string[];
     ticket_details?: {
       event_tickets: Array<{
         id: string;
@@ -220,6 +226,7 @@ export interface FamilyApiResponse {
     health_consent_status?: 'not_applicable' | 'granted' | 'declined' | 'withdrawn' | 'needs_reconfirmation';
     qr_token?: string;
     unconfirmed_registration?: UnconfirmedRegistration;
+    registration_cancelled_event_ids?: string[];
     is_checked_in?: boolean;
     active_checkin_id?: string | null;
   }>;

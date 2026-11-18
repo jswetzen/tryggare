@@ -19,6 +19,8 @@ type TicketableApiItem = {
   guardian_only_event_ids?: string[] | null;
   /** Where the server refuses this person for an unconfirmed registration (eligibility.py). */
   unconfirmed_registration?: UnconfirmedRegistration | null;
+  /** Events on which this person's family is cancelled (eligibility.cancelled_registration_event_ids). */
+  registration_cancelled_event_ids?: string[] | null;
 };
 
 export type TicketAccess = {
@@ -58,6 +60,27 @@ export function isRegistrationUnconfirmed(
     (marker.event_ids ?? []).includes(session.event) ||
     (marker.session_ids ?? []).includes(session.id)
   );
+}
+
+// The server refuses a ticket grant (door_grant_error) for a family whose registration for the
+// session's event is cancelled and which holds no live one. The desk says so on the row up front
+// and offers no grant; the Check In gating itself is unchanged. Tolerates a missing field.
+export function isRegistrationCancelled(
+  item: TicketableApiItem,
+  session: Session | null
+): boolean {
+  if (!session) return false;
+  return (item.registration_cancelled_event_ids ?? []).includes(session.event);
+}
+
+// Someone who would otherwise have been offered the door grant (no ticket, not unconfirmed) but
+// whose registration is cancelled: the row says so and the chip is inert. Anyone else is untouched.
+export function isCancelledAtDoor(a: {
+  ticket: TicketType;
+  registrationCancelled?: boolean;
+  registrationUnconfirmed?: boolean;
+}): boolean {
+  return !!a.registrationCancelled && a.ticket === 'none' && !a.registrationUnconfirmed;
 }
 
 // The ticket the person actually holds that covers THIS session: an EventTicket for the
@@ -132,6 +155,7 @@ export function transformFamily(apiFamily: FamilyApiResponse, session: Session |
         ticket_type: ticketType,
         ticketExemption: access.exemption,
         registrationUnconfirmed: isRegistrationUnconfirmed(child, session),
+        registrationCancelled: isRegistrationCancelled(child, session),
         ticket_details: child.ticket_details,
         checkedIn: child.is_checked_in || false,
         family: child.family,
@@ -162,6 +186,8 @@ export function transformFamily(apiFamily: FamilyApiResponse, session: Session |
         // and the server answers that first, so no unconfirmed marker is layered on top of it.
         registrationUnconfirmed:
           !access.notCheckedInHere && isRegistrationUnconfirmed(parent, session),
+        registrationCancelled:
+          !access.notCheckedInHere && isRegistrationCancelled(parent, session),
         ticket_details: parent.ticket_details ?? undefined,
         checkedIn: parent.is_checked_in || false,
         checkInRecordId: parent.active_checkin_id ?? undefined,
