@@ -58,6 +58,8 @@ vi.mock('svelte-i18n', () => ({
           'checkin.pendingPaymentShort': 'Unpaid',
           'checkin.pendingPaymentBlockedTitle':
             'Registration is unpaid — resolve via the banner above before checking in',
+          'checkin.openBooking': 'Open booking',
+          'checkin.registrationCancelled': 'Registration cancelled',
           'checkin.registrationNotConfirmed': 'Registration awaiting confirmation',
           'checkin.registrationNotConfirmedHint': 'Ask a coordinator to confirm it.',
           'checkin.awaitingConfirmation': 'Awaiting confirmation',
@@ -1483,6 +1485,40 @@ describe('CheckinExpandableTable', () => {
         expect(b.className).not.toMatch(/neutral/);
         expect(b.tagName).toBe('SPAN');
       }
+    });
+  });
+  describe('Cancelled registration note', () => {
+    const cancelled = (): Family[] => [
+      {
+        ...mockFamilies[0],
+        children: [
+          {
+            ...mockFamilies[0].children[0],
+            ticket: 'none',
+            ticket_type: 'none',
+            registrationCancelled: true,
+            registrationCancelledId: 'reg-77'
+          }
+        ]
+      }
+    ];
+    const open = async (props = {}) => {
+      render(CheckinExpandableTable, { props: { ...defaultProps, families: cancelled(), ...props } });
+      await userEvent.setup().click(screen.getAllByTestId('family-toggle-button-family-1')[0]);
+    };
+
+    it('links staff to the cancelled booking in a new tab', async () => {
+      await open({ canOpenBooking: true });
+      const link = screen.getAllByText('Open booking')[0].closest('a')!;
+      expect(link).toHaveAttribute('href', expect.stringMatching(/\/admin\/registrations\/registration\/reg-77\/change\/$/));
+      expect(link).toHaveAttribute('target', '_blank');
+      expect(link).toHaveAttribute('rel', 'noopener');
+    });
+
+    it('shows the note but no link without the flag', async () => {
+      await open();
+      expect(screen.getAllByText('Registration cancelled').length).toBeGreaterThan(0);
+      expect(screen.queryByText('Open booking')).not.toBeInTheDocument();
     });
   });
 });

@@ -30,6 +30,7 @@
   } from '$lib/checkin/utils/familyConfirmation';
   import { Alert, Button, Icon } from '$lib/components/ui';
   import { isCancelledAtDoor } from '$lib/checkin/utils/mergeFamilies';
+  import { registrationAdminUrl } from '$lib/api/adminUrl';
   import { sessionRowLabel } from '$lib/checkin/utils/sessionTicketLabel';
   import { undoActionsWithTick } from '$lib/checkin/stores/undoTimer';
 
@@ -66,6 +67,8 @@
     /** The desk's active session: a session ticket for it is the one a row names. */
     activeSessionId?: string | null;
     activeSessionName?: string | null;
+    /** Staff who can open Django admin (canOpenRegistrationAdmin): the cancelled note links to the booking. */
+    canOpenBooking?: boolean;
   }
 
   let {
@@ -90,7 +93,8 @@
     onEditFamily = undefined,
     canEditFamily = true,
     activeSessionId = null,
-    activeSessionName = null
+    activeSessionName = null,
+    canOpenBooking = false
   }: Props = $props();
 
   // 9.3 "unpaid at the door" — which families currently have a mark-paid /
@@ -356,6 +360,17 @@
   {#if isCancelledAtDoor(attendee) && !attendee.checkedIn}
     <span class="block" data-testid={`cancelled-note-${attendee.id}`}>
       <span class="block font-medium text-neutral-700">{$_('checkin.registrationCancelled')}</span>
+      {#if canOpenBooking && attendee.registrationCancelledId}
+        <Button
+          variant="link"
+          size="sm"
+          class="!px-0 !py-0.5"
+          href={registrationAdminUrl(attendee.registrationCancelledId)}
+          newTab
+        >
+          {$_('checkin.openBooking')}
+        </Button>
+      {/if}
     </span>
   {:else if attendee.registrationUnconfirmed && !attendee.checkedIn}
     <span class="block" data-testid={`unconfirmed-note-${attendee.id}`}>

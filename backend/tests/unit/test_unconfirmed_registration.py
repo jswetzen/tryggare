@@ -487,6 +487,48 @@ class TestRegistrationCancelledMarker:
         _registration(event, family, Status.CONFIRMED)
         assert door_grant_error(kim, session) is None
 
+    def test_cancelled_registration_id_is_exposed_per_event(self, world):
+        event, family = self._family(world)
+        cancelled = _registration(event, family, Status.CANCELLED)
+        data = _family_payload(family)
+        for person in data["children"] + data["parents"]:
+            assert person["registration_cancelled_ids"] == {
+                str(event.id): str(cancelled.id)
+            }
+
+    def test_no_cancelled_id_when_a_live_registration_exists(self, world):
+        event, family = self._family(world)
+        _registration(event, family, Status.CANCELLED)
+        _registration(event, family, Status.CONFIRMED)
+        data = _family_payload(family)
+        assert all(
+            p["registration_cancelled_ids"] == {}
+            for p in data["children"] + data["parents"]
+        )
+
+    def test_admin_link_gate_is_staff_plus_change_permission(self):
+        """The desk shows the admin link on ``is_staff`` AND
+        ``registrations.change_registration``: a Volontär and a Koordinator both
+        hold the permission but only the Administrator can open /admin/."""
+        from accounts.models import AdminUser
+        from accounts.roles import ADMINISTRATOR, COORDINATOR, VOLUNTEER
+        from accounts.views import session_user_payload
+        from django.contrib.auth.models import Group
+
+        def payload(role):
+            user = AdminUser.objects.create(
+                username=f"u-{role}", is_staff=role == ADMINISTRATOR
+            )
+            user.groups.set([Group.objects.get(name=role)])
+            return session_user_payload(user)
+
+        seen = {role: payload(role) for role in (VOLUNTEER, COORDINATOR, ADMINISTRATOR)}
+        perm = "registrations.change_registration"
+        assert [
+            seen[r]["is_staff"] for r in (VOLUNTEER, COORDINATOR, ADMINISTRATOR)
+        ] == [False, False, True]
+        assert all(perm in seen[r]["permissions"] for r in seen)
+
     def test_list_query_count_is_flat(self, world):
         event, family = self._family(world)
         _registration(event, family, Status.CANCELLED)

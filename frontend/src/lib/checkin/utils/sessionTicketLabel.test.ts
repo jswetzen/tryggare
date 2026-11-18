@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import type { FamilyApiResponse, Session } from '$lib/checkin/types';
 import { sessionTicketName, sessionRowLabel, withGrantedTicket } from './sessionTicketLabel';
-import { isRegistrationCancelled, isCancelledAtDoor, transformFamily } from './mergeFamilies';
+import { cancelledRegistrationId, isRegistrationCancelled, isCancelledAtDoor, transformFamily } from './mergeFamilies';
 
 const tickets = [
   { session: 's-morning', session_name: 'Morning Session' },
@@ -108,5 +108,14 @@ describe('isCancelledAtDoor (only who would have been offered the grant)', () =>
   it('false when unconfirmed wins or not cancelled', () => {
     expect(isCancelledAtDoor({ ticket: 'none', registrationCancelled: true, registrationUnconfirmed: true })).toBe(false);
     expect(isCancelledAtDoor({ ticket: 'none' })).toBe(false);
+  });
+});
+
+describe('cancelledRegistrationId', () => {
+  it('reads the id for the desk event only', () => {
+    const item = { registration_cancelled_ids: { 'ev-1': 'reg-1' } };
+    expect(cancelledRegistrationId(item, session)).toBe('reg-1');
+    expect(cancelledRegistrationId({}, session)).toBeUndefined();
+    expect(cancelledRegistrationId(item, null)).toBeUndefined();
   });
 });

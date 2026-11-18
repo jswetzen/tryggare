@@ -32,7 +32,7 @@
   import type { ApiError } from '$lib/api/client';
   import { websocketStore } from '$lib/stores/websocket';
   import type { WebSocketMessage, Printer } from '$lib/api/types';
-  import { canEditFamilyHealthInfo, type SessionUser } from '$lib/auth/permissions';
+  import { canEditFamilyHealthInfo, canOpenRegistrationAdmin, type SessionUser } from '$lib/auth/permissions';
   import { pickSession, saveSessionId } from '$lib/checkin/utils/sessionChoice';
 
   // Comes from the root layout's auth check. Used for one thing on this page:
@@ -42,6 +42,7 @@
   // browsing everyone's finances.
   let { data }: { data: { user: SessionUser | null } } = $props();
   let canEditFamilies = $derived(canEditFamilyHealthInfo(data.user));
+  let canOpenBooking = $derived(canOpenRegistrationAdmin(data.user));
 
   // ============================================================================
   // HELPER FUNCTIONS - Transform API responses to frontend types
@@ -1306,6 +1307,7 @@
       </EmptyState>
     {:else}
       <CheckinExpandableTable
+        canOpenBooking={canOpenBooking}
         families={visibleFamilies}
         onCheckInChild={checkInChild}
         onCheckInFamily={checkInFamily}

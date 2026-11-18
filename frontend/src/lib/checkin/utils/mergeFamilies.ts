@@ -21,6 +21,8 @@ type TicketableApiItem = {
   unconfirmed_registration?: UnconfirmedRegistration | null;
   /** Events on which this person's family is cancelled (eligibility.cancelled_registration_event_ids). */
   registration_cancelled_event_ids?: string[] | null;
+  /** event id -> the cancelled registration's id (families/serializers.py). */
+  registration_cancelled_ids?: Record<string, string> | null;
 };
 
 export type TicketAccess = {
@@ -71,6 +73,15 @@ export function isRegistrationCancelled(
 ): boolean {
   if (!session) return false;
   return (item.registration_cancelled_event_ids ?? []).includes(session.event);
+}
+
+// The cancelled registration for the session's event, for the coordinator's admin link.
+export function cancelledRegistrationId(
+  item: TicketableApiItem,
+  session: Session | null
+): string | undefined {
+  if (!session) return undefined;
+  return item.registration_cancelled_ids?.[session.event] ?? undefined;
 }
 
 // Someone who would otherwise have been offered the door grant (no ticket, not unconfirmed) but
@@ -156,6 +167,7 @@ export function transformFamily(apiFamily: FamilyApiResponse, session: Session |
         ticketExemption: access.exemption,
         registrationUnconfirmed: isRegistrationUnconfirmed(child, session),
         registrationCancelled: isRegistrationCancelled(child, session),
+        registrationCancelledId: cancelledRegistrationId(child, session),
         ticket_details: child.ticket_details,
         checkedIn: child.is_checked_in || false,
         family: child.family,
@@ -188,6 +200,7 @@ export function transformFamily(apiFamily: FamilyApiResponse, session: Session |
           !access.notCheckedInHere && isRegistrationUnconfirmed(parent, session),
         registrationCancelled:
           !access.notCheckedInHere && isRegistrationCancelled(parent, session),
+        registrationCancelledId: cancelledRegistrationId(parent, session),
         ticket_details: parent.ticket_details ?? undefined,
         checkedIn: parent.is_checked_in || false,
         checkInRecordId: parent.active_checkin_id ?? undefined,

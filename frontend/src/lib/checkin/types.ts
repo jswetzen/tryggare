@@ -33,6 +33,8 @@ export interface Child {
   /** The family's registration for this session's event is cancelled (and none is live): the
    *  row says so up front and offers no ticket grant. Does not change Check In gating. */
   registrationCancelled?: boolean;
+  /** Id of that cancelled registration, for the coordinator's link to its admin page. */
+  registrationCancelledId?: string;
   ticket_details?: {
     event_tickets: Array<{
       id: string;
@@ -82,6 +84,7 @@ export interface Parent {
   registrationUnconfirmed?: boolean;
   /** See Child.registrationCancelled. Never set when the session does not check adults in. */
   registrationCancelled?: boolean;
+  registrationCancelledId?: string;
   /** Adults: names of the OTHER sessions they are currently checked in to (check-in is per session). */
   checkedInElsewhere?: string[];
   ticket_details?: {
@@ -178,6 +181,7 @@ export interface FamilyApiResponse {
     guardian_only_event_ids?: string[];
     unconfirmed_registration?: UnconfirmedRegistration;
     registration_cancelled_event_ids?: string[];
+    registration_cancelled_ids?: Record<string, string>;
     ticket_details?: {
       event_tickets: Array<{
         id: string;
@@ -227,6 +231,7 @@ export interface FamilyApiResponse {
     qr_token?: string;
     unconfirmed_registration?: UnconfirmedRegistration;
     registration_cancelled_event_ids?: string[];
+    registration_cancelled_ids?: Record<string, string>;
     is_checked_in?: boolean;
     active_checkin_id?: string | null;
   }>;

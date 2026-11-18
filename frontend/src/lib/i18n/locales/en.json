@@ -229,6 +229,7 @@
     "pendingPaymentBlockedTitle": "Registration is unpaid — resolve via the banner above before checking in",
     "registrationNotConfirmed": "Registration awaiting confirmation",
     "registrationCancelled": "Registration cancelled – send the family to a Koordinator",
+    "openBooking": "Open booking",
     "registrationNotConfirmedHint": "Ask a coordinator to confirm it.",
     "awaitingConfirmation": "Awaiting confirmation",
     "awaitingConfirmationCount": "{count} awaiting confirmation",

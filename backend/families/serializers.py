@@ -71,6 +71,7 @@ class ParentSerializer(SafetyInfoDisclosureMixin, serializers.ModelSerializer):
     guardian_only_event_ids = serializers.SerializerMethodField()
     unconfirmed_registration = serializers.SerializerMethodField()
     registration_cancelled_event_ids = serializers.SerializerMethodField()
+    registration_cancelled_ids = serializers.SerializerMethodField()
     is_checked_in = serializers.SerializerMethodField()
     active_checkin_id = serializers.SerializerMethodField()
     checked_in_elsewhere = serializers.SerializerMethodField()
@@ -100,6 +101,7 @@ class ParentSerializer(SafetyInfoDisclosureMixin, serializers.ModelSerializer):
             "guardian_only_event_ids",
             "unconfirmed_registration",
             "registration_cancelled_event_ids",
+            "registration_cancelled_ids",
             "is_checked_in",
             "active_checkin_id",
             "checked_in_elsewhere",
@@ -118,6 +120,7 @@ class ParentSerializer(SafetyInfoDisclosureMixin, serializers.ModelSerializer):
             "guardian_only_event_ids",
             "unconfirmed_registration",
             "registration_cancelled_event_ids",
+            "registration_cancelled_ids",
             "is_checked_in",
             "active_checkin_id",
             "checked_in_elsewhere",
@@ -158,6 +161,9 @@ class ParentSerializer(SafetyInfoDisclosureMixin, serializers.ModelSerializer):
 
     def get_registration_cancelled_event_ids(self, obj: Parent) -> list[str]:
         return _registration_cancelled_event_ids(obj)
+
+    def get_registration_cancelled_ids(self, obj: Parent) -> dict[str, str]:
+        return _registration_cancelled_ids(obj)
 
     # --- check-in state of an adult -------------------------------------
     #
@@ -226,6 +232,7 @@ class ChildSerializer(SafetyInfoDisclosureMixin, serializers.ModelSerializer):
     ticket_details = serializers.SerializerMethodField()
     unconfirmed_registration = serializers.SerializerMethodField()
     registration_cancelled_event_ids = serializers.SerializerMethodField()
+    registration_cancelled_ids = serializers.SerializerMethodField()
     is_checked_in = serializers.SerializerMethodField()
     active_checkin_id = serializers.SerializerMethodField()
     has_safety_info = serializers.SerializerMethodField()
@@ -250,6 +257,7 @@ class ChildSerializer(SafetyInfoDisclosureMixin, serializers.ModelSerializer):
             "ticket_details",
             "unconfirmed_registration",
             "registration_cancelled_event_ids",
+            "registration_cancelled_ids",
             "is_checked_in",
             "active_checkin_id",
         ]
@@ -265,6 +273,7 @@ class ChildSerializer(SafetyInfoDisclosureMixin, serializers.ModelSerializer):
             "ticket_details",
             "unconfirmed_registration",
             "registration_cancelled_event_ids",
+            "registration_cancelled_ids",
             "is_checked_in",
             "active_checkin_id",
         ]
@@ -292,6 +301,9 @@ class ChildSerializer(SafetyInfoDisclosureMixin, serializers.ModelSerializer):
 
     def get_registration_cancelled_event_ids(self, obj: Child) -> list[str]:
         return _registration_cancelled_event_ids(obj)
+
+    def get_registration_cancelled_ids(self, obj: Child) -> dict[str, str]:
+        return _registration_cancelled_ids(obj)
 
     def get_is_checked_in(self, obj: Child) -> bool:
         """
@@ -436,6 +448,26 @@ def _registration_cancelled_event_ids(attendee) -> list[str]:
     if family is None or not hasattr(family, "family_registrations"):
         return []
     return sorted(cancelled_registration_event_ids(family.family_registrations))
+
+
+def _registration_cancelled_ids(attendee) -> dict[str, str]:
+    """``{event_id: registration_id}`` for the events in
+    ``registration_cancelled_event_ids``, so the desk can link a coordinator to
+    the cancelled booking. Always sent, whoever asks: an id is not a secret and
+    the admin page itself enforces access. Same prefetch, no extra queries; with
+    several cancelled rows on one event the lowest id wins (deterministic)."""
+    family = attendee._meta.get_field("family").get_cached_value(attendee, None)
+    if family is None or not hasattr(family, "family_registrations"):
+        return {}
+    registrations = family.family_registrations
+    return {
+        event_id: min(
+            str(r.id)
+            for r in registrations
+            if str(r.event_id) == event_id and r.status == Registration.Status.CANCELLED
+        )
+        for event_id in cancelled_registration_event_ids(registrations)
+    }
 
 
 def _unconfirmed_registration_payload(attendee, guardian_registrations=()) -> dict:
