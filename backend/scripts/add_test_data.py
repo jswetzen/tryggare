@@ -182,7 +182,6 @@ def setup_test_data():
             start_time="2025-11-26T09:00:00Z",
             end_time="2025-11-26T12:00:00Z",
             is_active=True,
-            requires_ticket=False,
         )
 
         # Create test family

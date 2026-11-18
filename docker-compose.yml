@@ -59,9 +59,16 @@ services:
       - static_files:/app/staticfiles
     ports:
       - "8000:8000"
+    # service_healthy, not the bare list form: a bare depends_on only waits for the db
+    # container to *start*, not for Postgres to accept connections. On a fresh pg_data volume
+    # initdb takes long enough that web's startup migrate hit "Connection refused" and the
+    # container exited (seen 2026-09-24 bringing the stack up on the dev LXC). Matches
+    # docker-compose.prod.yml, which already gates on health.
     depends_on:
-      - db
-      - valkey
+      db:
+        condition: service_healthy
+      valkey:
+        condition: service_healthy
     logging:
       options:
         max-size: "50m"

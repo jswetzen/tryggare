@@ -1,6 +1,8 @@
+from django.utils.translation import gettext_lazy as _
 from rest_framework import serializers
 
 from events.models import Event, Extra, ExtraChoice, TicketType
+from families.models import Parent
 from families.serializers import ChildCreateSerializer, ParentCreateSerializer
 
 
@@ -32,6 +34,33 @@ class RegistrationParentSerializer(ParentCreateSerializer):
     families/serializers.py directly, so the shared staff AddFamilyPanel
     flow (which has no ticket-type concept) stays untouched."""
 
+    # Phone is mandatory for every adult on a public registration, ticketed
+    # or not (owner decision eb5d26f4, child safety: any adult on the
+    # registration is a guardian of all its children, so staff must be able
+    # to reach every one of them). Declared here rather than on
+    # ParentCreateSerializer so the staff AddFamilyPanel flow, where a phone
+    # is optional, is untouched. Enforced at field level (not in the
+    # top-level validate()) so a missing phone comes back in DRF's native
+    # per-row shape -- {"parents": [{}, {"phone": [msg]}]} -- and is
+    # reported together with any other field errors in one round trip.
+    phone = serializers.CharField(
+        max_length=50,
+        error_messages={
+            "required": _("A phone number is required for every adult."),
+            "blank": _("A phone number is required for every adult."),
+            "null": _("A phone number is required for every adult."),
+        },
+    )
+    # "Guardian only" (owner decisions eb5d26f4, d9245e21): a responsible
+    # adult who is NOT attending -- no ticket, no seat, no charge, no health
+    # information. On an itemized event (>= 1 active TicketType) a null/omitted
+    # ``ticket_type`` already means that; there is no ticket to pick "none"
+    # of on a flat-price event, so ``guardian_only: true`` is the explicit way
+    # to say it there (and is accepted, redundantly, on an itemized event as
+    # long as no ticket_type is also given). RegistrationSubmitSerializer.validate
+    # normalizes this to the effective value, so everything downstream reads
+    # one flag.
+    guardian_only = serializers.BooleanField(required=False, default=False)
     ticket_type = serializers.PrimaryKeyRelatedField(
         queryset=TicketType.objects.filter(is_active=True),
         required=False,
@@ -45,7 +74,11 @@ class RegistrationParentSerializer(ParentCreateSerializer):
         # in Meta.fields — a subclass doesn't inherit its parent's list
         # automatically extended, only the same list, so ticket_type/extras
         # must be added explicitly here.
-        fields = ParentCreateSerializer.Meta.fields + ["ticket_type", "extras"]
+        fields = ParentCreateSerializer.Meta.fields + [
+            "ticket_type",
+            "extras",
+            "guardian_only",
+        ]
 
 
 class RegistrationChildSerializer(ChildCreateSerializer):
@@ -95,10 +128,75 @@ class RegistrationSubmitSerializer(serializers.Serializer):
     website = serializers.CharField(
         required=False, allow_blank=True, default="", trim_whitespace=False
     )
+    # Optional, client-generated (crypto.randomUUID() at form mount — see
+    # register/[eventId]/+page.svelte) — added 2026-09-24 so a retried POST
+    # (network failure, a double submit that slips past the frontend's own
+    # in-flight guard) replays the original response instead of creating a
+    # second registration. Omitted entirely, behavior is unchanged — see
+    # views.py::submit_registration's idempotency handling, which is a
+    # no-op when this is blank.
+    idempotency_key = serializers.CharField(
+        max_length=255, required=False, allow_blank=True, default=""
+    )
 
     def validate(self, data):
         if not data.get("parents") and not data.get("children"):
             raise serializers.ValidationError(
-                "A registration needs at least one parent or child"
+                _("A registration needs at least one parent or child")
             )
+        # Owner decision eb5d26f4: a guardian is required only when there are
+        # children. Every adult on the registration is a guardian of all its
+        # children (no per-child link), and needn't hold a ticket. Keyed under
+        # "parents" (a plain list of messages, not per-row) so the client can
+        # hang it on the first-parent row; per-row phone errors arrive in the
+        # field-level shape instead, see RegistrationParentSerializer.phone.
+        if data.get("children") and not data.get("parents"):
+            raise serializers.ValidationError(
+                {
+                    "parents": [
+                        _(
+                            "A registration with children needs at least one "
+                            "adult who is their guardian."
+                        )
+                    ]
+                }
+            )
+
+        # Resolve who is a guardian-only adult and police what that implies.
+        # Per-row errors use DRF's native list-of-dicts shape (like phone), so
+        # a client keyed on the row index can attach them to the right field.
+        itemized = data["event"].ticket_types.filter(is_active=True).exists()
+        row_errors = []
+        any_error = False
+        for parent in data.get("parents", []):
+            errors = {}
+            ticket_type = parent.get("ticket_type")
+            explicit = parent.get("guardian_only", False)
+            if explicit and itemized and ticket_type is not None:
+                errors["ticket_type"] = [
+                    _("A guardian who isn't attending can't also choose a ticket.")
+                ]
+            guardian_only = explicit or (itemized and ticket_type is None)
+            parent["guardian_only"] = guardian_only
+            if guardian_only and (
+                parent.get("health_consent_status")
+                != Parent.HealthConsentStatus.NOT_APPLICABLE
+            ):
+                # Rejected rather than silently dropped: a guardian-only
+                # adult is not asked per-attendee questions, so a client that
+                # sends health information is out of step with the form and
+                # should hear about it instead of the data quietly vanishing
+                # (ParentCreateSerializer.validate has already blanked
+                # allergies/notes unless consent was granted, so the consent
+                # status is the one field that tells us).
+                errors["health_consent_status"] = [
+                    _(
+                        "Health information can't be recorded for a guardian "
+                        "who isn't attending."
+                    )
+                ]
+            any_error = any_error or bool(errors)
+            row_errors.append(errors)
+        if any_error:
+            raise serializers.ValidationError({"parents": row_errors})
         return data

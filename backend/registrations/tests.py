@@ -75,6 +75,7 @@ class RegistrationWindowGateTests(TestCase):
                 {
                     "first_name": "Anna",
                     "last_name": "Andersson",
+                    "phone": "070-123 45 67",
                     "relationship_type": "Mother",
                     "email": "guardian@example.com",
                 }
@@ -142,6 +143,7 @@ class SubmitRegistrationTests(TestCase):
                 {
                     "first_name": "Anna",
                     "last_name": "Andersson",
+                    "phone": "070-123 45 67",
                     "relationship_type": "Mother",
                     "email": "guardian@example.com",
                 }
@@ -210,11 +212,13 @@ class SubmitRegistrationTests(TestCase):
                 parents=[
                     {
                         "first_name": "Anna",
+                        "phone": "070-123 45 67",
                         "relationship_type": "Mother",
                         "email": "anna@example.com",
                     },
                     {
                         "first_name": "Bo",
+                        "phone": "070-123 45 67",
                         "relationship_type": "Father",
                         "email": "bo@example.com",
                     },
@@ -271,6 +275,7 @@ class SubmitRegistrationTests(TestCase):
                 parents=[
                     {
                         "first_name": "Pat",
+                        "phone": "070-123 45 67",
                         "relationship_type": "MOM",
                         "email": "pat@example.com",
                         "allergies": "Shellfish",
@@ -297,6 +302,7 @@ class SubmitRegistrationTests(TestCase):
                 parents=[
                     {
                         "first_name": "Pat",
+                        "phone": "070-123 45 67",
                         "relationship_type": "MOM",
                         "email": "pat@example.com",
                         "allergies": "Shellfish",
@@ -332,6 +338,7 @@ class VerifyRegistrationTests(TestCase):
             "parents": [
                 {
                     "first_name": "Anna",
+                    "phone": "070-123 45 67",
                     "relationship_type": "Mother",
                     "email": contact_email,
                 }
@@ -455,6 +462,7 @@ class EmailDeliveryFailureTests(TestCase):
             "parents": [
                 {
                     "first_name": "Anna",
+                    "phone": "070-123 45 67",
                     "relationship_type": "Mother",
                     "email": contact_email,
                 }

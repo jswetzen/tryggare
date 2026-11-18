@@ -38,6 +38,7 @@
     onAssignPrinter,
     printers = [],
     formatTime = (iso) => new Date(iso).toLocaleTimeString('en-US', {
+      timeZone: 'Europe/Stockholm',
       hour: 'numeric',
       minute: '2-digit'
     })

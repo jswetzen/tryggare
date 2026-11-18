@@ -4,11 +4,12 @@
   import type { Family, Child, TicketType, Session, FamilyApiResponse } from '$lib/checkin/types';
 
   // Import shared UI components
-  import { PageHeader, StickySearchBox, EmptyState, Alert, Icon } from '$lib/components/ui';
+  import { PageHeader, StickySearchBox, EmptyState, Alert, Icon, Button } from '$lib/components/ui';
 
   // Import checkin-specific components
   import SessionIndicator from '$lib/components/checkin/SessionIndicator.svelte';
   import SuccessToast from '$lib/components/checkin/SuccessToast.svelte';
+  import { withGrantedTicket } from '$lib/checkin/utils/sessionTicketLabel';
   import CheckinExpandableTable from '$lib/components/checkin/CheckinExpandableTable.svelte';
   import AddFamilyPanel from '$lib/components/checkin/AddFamilyPanel.svelte';
   import SessionSelector from '$lib/components/SessionSelector.svelte';
@@ -24,14 +25,15 @@
     cleanup as cleanupUndoTimer,
   } from '$lib/checkin/stores/undoTimer';
   import { getVisibleFamilies } from '$lib/checkin/utils/familyVisibility';
-  import { mergeFamilies, transformFamily } from '$lib/checkin/utils/mergeFamilies';
+  import { mergeFamilies, transformFamily, adultsNotCheckedIn } from '$lib/checkin/utils/mergeFamilies';
 
   // Import API services
   import { checkinApi, checkInApi, ticketApi, printingApi } from '$lib/api/services';
   import type { ApiError } from '$lib/api/client';
   import { websocketStore } from '$lib/stores/websocket';
   import type { WebSocketMessage, Printer } from '$lib/api/types';
-  import { canEditFamilyHealthInfo, type SessionUser } from '$lib/auth/permissions';
+  import { canEditFamilyHealthInfo, canOpenRegistrationAdmin, type SessionUser } from '$lib/auth/permissions';
+  import { pickSession, saveSessionId } from '$lib/checkin/utils/sessionChoice';
 
   // Comes from the root layout's auth check. Used for one thing on this page:
   // whether the inline family panel is an edit form or a read-behind-reveal
@@ -40,6 +42,7 @@
   // browsing everyone's finances.
   let { data }: { data: { user: SessionUser | null } } = $props();
   let canEditFamilies = $derived(canEditFamilyHealthInfo(data.user));
+  let canOpenBooking = $derived(canOpenRegistrationAdmin(data.user));
 
   // ============================================================================
   // HELPER FUNCTIONS - Transform API responses to frontend types
@@ -56,9 +59,9 @@
   let families = $state<Family[]>([]);
   let activeSession = $state<Session | null>(null);
   let activeSessions = $state<Session[]>([]);
-  let parentCheckinEnabled = $derived(
-    activeSession?.effective_parent_checkin_policy !== 'disabled'
-  );
+  // False when the session never checks adults in (adults_not_checked_in); the Guardians
+  // section still renders then, as a calm note, because the people are still there.
+  let parentCheckinEnabled = $derived(!adultsNotCheckedIn(activeSession));
   let loading = $state(true);
   let error = $state<string | null>(null);
   let searchQuery = $state('');
@@ -92,7 +95,12 @@
     try {
       loading = true;
       error = null;
-      const response = await checkinApi.getFamilies();
+      // An adult's check-in is per session, so the server answers for the session this
+      // desk is looking at (and names the others). Ask for it, and drop the answer if the
+      // desk has moved to another session while it was in flight.
+      const sessionId = activeSession?.id;
+      const response = await checkinApi.getFamilies(sessionId);
+      if (sessionId !== activeSession?.id) return;
       families = mergeFamilies(families, response, activeSession);
     } catch (err) {
       const apiError = err as ApiError;
@@ -108,7 +116,8 @@
       const sessions = await checkinApi.getActiveSessions();
       activeSessions = sessions;
       if (sessions.length > 0) {
-        activeSession = sessions[0]; // Use the first active session
+        // The session this desk last picked if it is still active, else the first one.
+        activeSession = pickSession(sessions);
       } else {
         error = 'No active session found';
       }
@@ -141,7 +150,10 @@
   // Load data on mount
   onMount(() => {
     // Load initial data - each loader manages its own loading/error state
-    Promise.all([loadFamilies(), loadActiveSession(), loadPrinters()]);
+    // The session first: the family list is requested FOR a session (an adult's check-in is
+    // per session), so it cannot be asked for before the desk knows which one it is on.
+    // loadActiveSession swallows its own errors, so the list still loads with no session.
+    Promise.all([loadActiveSession().then(loadFamilies), loadPrinters()]);
 
     // Connect to WebSocket for real-time updates
     websocketStore.connect();
@@ -164,6 +176,7 @@
   // Helper to get current time formatted
   function getCurrentTime(): string {
     return new Date().toLocaleTimeString('en-US', {
+      timeZone: 'Europe/Stockholm',
       hour: '2-digit',
       minute: '2-digit',
       hour12: false,
@@ -173,6 +186,7 @@
   // Helper to format ISO timestamp to local time string
   function formatTime(isoTimestamp: string): string {
     return new Date(isoTimestamp).toLocaleTimeString('en-US', {
+      timeZone: 'Europe/Stockholm',
       hour: '2-digit',
       minute: '2-digit',
       hour12: false,
@@ -344,7 +358,7 @@
     // Otherwise, apply the standard visibility filtering
     let filtered = showCheckedInFamilies
       ? [...families].sort((a, b) => a.name.localeCompare(b.name))
-      : getVisibleFamilies(families, undoActions);
+      : getVisibleFamilies(families, undoActions, parentCheckinEnabled);
 
     // Always include a highlighted family (e.g. QR-scanned) even if it would normally be hidden
     if (highlightedFamilyId && !filtered.some((f) => f.id === highlightedFamilyId)) {
@@ -356,13 +370,26 @@
 
     if (!searchQuery) return filtered;
 
-    const query = searchQuery.toLowerCase();
-    return filtered.filter(
-      (family) =>
-        family.name.toLowerCase().includes(query) ||
-        family.children.some((child) => child.name.toLowerCase().includes(query))
-    );
+    return filtered.filter((family) => familyMatchesSearch(family, searchQuery));
   });
+
+  function familyMatchesSearch(family: Family, search: string): boolean {
+    const query = search.toLowerCase();
+    return (
+      family.name.toLowerCase().includes(query) ||
+      family.children.some((child) => child.name.toLowerCase().includes(query))
+    );
+  }
+
+  // When a search finds nothing, the family may exist but be hidden only because everyone in it
+  // is already checked in (the default list hides finished families). A volunteer who typed the
+  // name of a family that just arrived should be told that, not "no families found" as if the
+  // name were misspelled. Only meaningful while the list is empty, so it is read in that branch.
+  const hiddenCheckedInMatch = $derived(
+    searchQuery && !showCheckedInFamilies
+      ? (families.find((family) => familyMatchesSearch(family, searchQuery)) ?? null)
+      : null
+  );
 
   // ============================================================================
   // EFFECTS
@@ -459,7 +486,7 @@
     if (!family) return;
 
     const childIdsToCheckIn = family.children
-      .filter((c) => !c.checkedIn && c.ticket !== 'none')
+      .filter((c) => !c.checkedIn && c.ticket !== 'none' && !c.registrationUnconfirmed)
       .map((c) => c.id);
 
     if (childIdsToCheckIn.length === 0) return;
@@ -661,7 +688,7 @@
   async function handleQrScan(code: string) {
     showQrScanner = false;
     try {
-      const apiFamily = await checkinApi.lookupByTicket(code);
+      const apiFamily = await checkinApi.lookupByTicket(code, activeSession?.id);
       const found = families.find((f) => f.id === apiFamily.id);
       if (found) {
         highlightedFamilyId = found.id;
@@ -692,8 +719,18 @@
   // Handle session selection from modal
   function handleSessionSelect(session: Session) {
     activeSession = session;
+    saveSessionId(session.id);
     showSessionSelector = false;
     loadFamilies();
+  }
+
+  // The door-grant refusals carry a stable `code`; show our own EN/SV text for
+  // it, falling back to the server's message for anything else.
+  function grantErrorMessage(apiError: ApiError): string {
+    const code = (apiError.details as { code?: string } | undefined)?.code;
+    const key = code ? `checkin.grantError.${code}` : null;
+    if (key && $_(key) !== key) return $_(key);
+    return apiError.message || 'Failed to assign ticket';
   }
 
   // Assign ticket and check in child
@@ -712,7 +749,7 @@
       if (ticketType === 'event') {
         await ticketApi.assignEventTicket({
           child: childId,
-          event: activeSession.event,
+          session: activeSession.id,
         });
       } else if (ticketType === 'session') {
         await ticketApi.assignSessionTicket({
@@ -728,7 +765,7 @@
           ...fam,
           children: fam.children.map((child) => {
             if (child.id !== childId) return child;
-            return { ...child, ticket: ticketType, ticket_type: ticketType };
+            return withGrantedTicket(child, ticketType as 'event' | 'session');
           }),
         };
       });
@@ -737,7 +774,7 @@
       await checkInChild(familyId, childId);
     } catch (err) {
       const apiError = err as ApiError;
-      const msg = apiError.message || 'Failed to assign ticket';
+      const msg = grantErrorMessage(apiError);
       errorToast = msg;
       setTimeout(() => { if (errorToast === msg) errorToast = null; }, 4000);
       console.error('Error assigning ticket:', err);
@@ -861,7 +898,7 @@
       if (ticketType === 'event') {
         await ticketApi.assignEventTicket({
           child: parentId,
-          event: activeSession.event,
+          session: activeSession.id,
         });
       } else if (ticketType === 'session') {
         await ticketApi.assignSessionTicket({
@@ -877,7 +914,7 @@
           ...fam,
           parents: fam.parents.map((parent) => {
             if (parent.id !== parentId) return parent;
-            return { ...parent, ticket: ticketType, ticket_type: ticketType };
+            return withGrantedTicket(parent, ticketType as 'event' | 'session');
           }),
         };
       });
@@ -886,7 +923,7 @@
       await checkInParent(familyId, parentId);
     } catch (err) {
       const apiError = err as ApiError;
-      const msg = apiError.message || 'Failed to assign ticket';
+      const msg = grantErrorMessage(apiError);
       errorToast = msg;
       setTimeout(() => { if (errorToast === msg) errorToast = null; }, 4000);
       console.error('Error assigning ticket:', err);
@@ -983,7 +1020,7 @@
           if (data.ticketType === 'event') {
             await ticketApi.assignEventTicket({
               child: child.id,
-              event: activeSession.event,
+              session: activeSession.id,
             });
           } else if (data.ticketType === 'session') {
             await ticketApi.assignSessionTicket({
@@ -1084,7 +1121,7 @@
           if (data.ticketType === 'event') {
             await ticketApi.assignEventTicket({
               child: child.id,
-              event: activeSession.event,
+              session: activeSession.id,
             });
           } else if (data.ticketType === 'session') {
             await ticketApi.assignSessionTicket({
@@ -1146,10 +1183,12 @@
         sessionName={activeSession?.name || 'No Active Session'}
         sessionTime={activeSession
           ? `${new Date(activeSession.start_time).toLocaleTimeString('en-US', {
+              timeZone: 'Europe/Stockholm',
               hour: '2-digit',
               minute: '2-digit',
               hour12: false,
             })} - ${activeSession.end_time ? new Date(activeSession.end_time).toLocaleTimeString('en-US', {
+              timeZone: 'Europe/Stockholm',
               hour: '2-digit',
               minute: '2-digit',
               hour12: false,
@@ -1247,12 +1286,20 @@
 
     <!-- Family List -->
     {#if visibleFamilies.length === 0}
+      {#snippet showCheckedInAction()}
+        <Button size="sm" onclick={() => (showCheckedInFamilies = true)}>
+          {$_('checkin.showCheckedInFamilies')}
+        </Button>
+      {/snippet}
       <EmptyState
         type="empty"
-        title={searchQuery
-          ? $_('checkin.noFamiliesFound', { values: { query: searchQuery } })
-          : $_('checkin.noFamilies')}
-        description={searchQuery ? $_('checkin.tryDifferentSearch') : undefined}
+        action={hiddenCheckedInMatch ? showCheckedInAction : undefined}
+        title={hiddenCheckedInMatch
+          ? $_('checkin.fullyCheckedInMatch', { values: { name: hiddenCheckedInMatch.name } })
+          : searchQuery
+            ? $_('checkin.noFamiliesFound', { values: { query: searchQuery } })
+            : $_('checkin.noFamilies')}
+        description={searchQuery && !hiddenCheckedInMatch ? $_('checkin.tryDifferentSearch') : undefined}
       >
         {#snippet icon()}
           <Icon name="users" size="xl" />
@@ -1260,6 +1307,7 @@
       </EmptyState>
     {:else}
       <CheckinExpandableTable
+        canOpenBooking={canOpenBooking}
         families={visibleFamilies}
         onCheckInChild={checkInChild}
         onCheckInFamily={checkInFamily}
@@ -1277,6 +1325,8 @@
           showAddPanel = true;
         }}
         {parentCheckinEnabled}
+        activeSessionId={activeSession?.id ?? null}
+        activeSessionName={activeSession?.name ?? null}
         {getRemainingTime}
         bind:supervisedState
         {expandedChildId}

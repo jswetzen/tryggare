@@ -176,6 +176,7 @@ class TicketCompositionSubmissionTests(TestCase):
             "parents": [
                 {
                     "first_name": "Anna",
+                    "phone": "070-123 45 67",
                     "relationship_type": "Mother",
                     "ticket_type": str(parent_ticket_type.id),
                 }

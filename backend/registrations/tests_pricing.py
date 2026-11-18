@@ -282,6 +282,7 @@ class SubmitWithTicketTypesTests(TestCase):
             "parents": [
                 {
                     "first_name": "Anna",
+                    "phone": "070-123 45 67",
                     "relationship_type": "Mother",
                     "ticket_type": str(self.adult_type.id),
                 }
@@ -400,6 +401,7 @@ class RequiredExtraTests(TestCase):
             "parents": [
                 {
                     "first_name": "Anna",
+                    "phone": "070-123 45 67",
                     "relationship_type": "Mother",
                     "ticket_type": str(self.adult_type.id),
                 }

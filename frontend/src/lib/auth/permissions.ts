@@ -50,7 +50,9 @@ export const PERMISSION = {
   /** Edit a child's record, including the allergy/medical text. */
   changeChild: 'families.change_child',
   /** Edit a parent's record. Adults carry health fields too. */
-  changeParent: 'families.change_parent'
+  changeParent: 'families.change_parent',
+  /** The Django admin change page of a registration. Volontär and Koordinator hold this too. */
+  changeRegistration: 'registrations.change_registration'
 } as const;
 
 export type PermissionString = (typeof PERMISSION)[keyof typeof PERMISSION];
@@ -61,6 +63,17 @@ export function hasPermission(
   permission: string
 ): boolean {
   return Boolean(user?.permissions?.includes(permission));
+}
+
+/**
+ * Whether this user can actually open a registration's Django admin page: the
+ * admin needs `is_staff` as well as the model permission, and the Volontär and
+ * Koordinator roles hold the permission without `is_staff`.
+ */
+export function canOpenRegistrationAdmin(
+  user: Pick<SessionUser, 'permissions' | 'is_staff'> | null | undefined
+): boolean {
+  return Boolean(user?.is_staff) && hasPermission(user, PERMISSION.changeRegistration);
 }
 
 /**

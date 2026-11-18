@@ -60,19 +60,21 @@
     <td>{% if row.delta is None %}—{% else %}{{ row.delta }}{% endif %}</td>
     <td>{{ row.plan.effect_label }}</td>
 </tr>
-{% if row.plan.age_warning %}
+{% if row.plan.warnings %}
 <tr>
     <td colspan="6">
     <ul class="messagelist" style="margin:0;">
+    {% for warning in row.plan.warnings %}
     <li class="warning">
-        {{ row.plan.age_warning }}
-        {% if row.inline_ack %}
+        {{ warning }}
+        {% if row.inline_ack and forloop.last %}
         <div style="margin-top:.6em;">
-            <label>{{ form.acknowledge_age_warning }} {{ form.acknowledge_age_warning.label }}</label>
-            <div class="help" style="margin-left:0;">{{ form.acknowledge_age_warning.help_text }}</div>
+            <label>{{ form.acknowledge_warnings }} {{ form.acknowledge_warnings.label }}</label>
+            <div class="help" style="margin-left:0;">{{ form.acknowledge_warnings.help_text }}</div>
         </div>
         {% endif %}
     </li>
+    {% endfor %}
     </ul>
     </td>
 </tr>
@@ -84,8 +86,8 @@
 {% if show_group_ack_banner %}
 <ul class="messagelist">
 <li class="warning">
-    <label>{{ form.acknowledge_age_warning }} {% translate "One tick confirms every age warning listed above, for all tickets in this batch — including any age that could not be verified." %}</label>
-    <div class="help" style="margin-left:0;">{{ form.acknowledge_age_warning.help_text }}</div>
+    <label>{{ form.acknowledge_warnings }} {% translate "One tick confirms every warning listed above, for all tickets in this batch — age, capacity, or both, including any age that could not be verified." %}</label>
+    <div class="help" style="margin-left:0;">{{ form.acknowledge_warnings.help_text }}</div>
 </li>
 </ul>
 {% endif %}
@@ -99,11 +101,11 @@
 {% if is_preview %}
     <input type="hidden" name="apply" value="yes">
     {{ form.ticket_type.as_hidden }}
-    <input type="submit" id="id_change_ticket_type_submit" value="{% translate 'Change ticket type' %}"{% if not plans or needs_acknowledgement and not form.acknowledge_age_warning.value %} disabled{% endif %}>
+    <input type="submit" id="id_change_ticket_type_submit" value="{% translate 'Change ticket type' %}"{% if not plans or needs_acknowledgement and not form.acknowledge_warnings.value %} disabled{% endif %}>
     {% if needs_acknowledgement %}
     <script>
     (function () {
-        document.querySelectorAll('#id_acknowledge_age_warning').forEach(function (checkbox) {
+        document.querySelectorAll('#id_acknowledge_warnings').forEach(function (checkbox) {
             checkbox.addEventListener('change', function () {
                 var submit = document.getElementById('id_change_ticket_type_submit');
                 submit.disabled = !checkbox.checked;

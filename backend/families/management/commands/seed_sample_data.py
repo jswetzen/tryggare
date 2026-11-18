@@ -54,7 +54,6 @@ class Command(BaseCommand):
                 "start_time": timezone.now(),
                 "end_time": timezone.now() + timezone.timedelta(hours=2),
                 "is_active": True,
-                "requires_ticket": False,
             },
         )
 

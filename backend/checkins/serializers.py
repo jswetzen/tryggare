@@ -4,7 +4,11 @@ from rest_framework import serializers
 
 from families.models import Parent
 from families.serializers import ParentSerializer
-from .eligibility import parent_checkin_gate_error, registration_checkin_gate_error
+from .eligibility import (
+    child_ticket_gate_error,
+    parent_checkin_gate_error,
+    registration_checkin_gate_error,
+)
 from .models import AuditLog, CheckInRecord
 
 
@@ -75,11 +79,40 @@ class CheckInRecordSerializer(serializers.ModelSerializer):
             if registration_gate_error:
                 raise serializers.ValidationError(registration_gate_error)
 
+        # The ticket gates (adult and child) ask "may this person be checked
+        # in here", which only makes sense when a record is being created or
+        # pointed at a different attendee/session. A check-out is a PATCH of
+        # check_out_time/picked_up_by that carries neither field, and must
+        # never be refused because a ticket was removed after check-in -- so
+        # on an update, `attendee`/`session` are absent from `data` and are
+        # compared against `self.instance` rather than trusted.
+        instance = self.instance
+        gate_attendee = data.get("attendee", getattr(instance, "attendee", None))
+        gate_session = data.get("session", getattr(instance, "session", None))
+        moved = instance is None or (
+            ("attendee" in data and data["attendee"].pk != instance.attendee_id)
+            or ("session" in data and data["session"].pk != instance.session_id)
+        )
+
+        if gate_attendee and gate_session and moved and parent is None:
+            gate_parent = Parent.objects.filter(pk=gate_attendee.pk).first()
+            if gate_parent is None:
+                child_error = child_ticket_gate_error(gate_attendee, gate_session)
+                if child_error:
+                    raise serializers.ValidationError(child_error)
+            else:
+                # Only reachable on an update that moves a record to another
+                # session/attendee without naming both (e.g. PATCH session).
+                gate_error = parent_checkin_gate_error(gate_parent, gate_session)
+                if gate_error:
+                    raise serializers.ValidationError(gate_error)
+
         if parent is not None:
             # Parents are check-in only — skip multi-session validation, but
-            # are still gated by the session's parent_checkin_policy (same
-            # gate the check_in view enforces, kept here too so the generic
-            # CheckInRecord create/update endpoint can't bypass it).
+            # are still gated by the session's ticket rule and
+            # adults_not_checked_in (same gate the check_in view enforces,
+            # kept here too so the generic CheckInRecord create/update
+            # endpoint can't bypass it).
             if session:
                 gate_error = parent_checkin_gate_error(parent, session)
                 if gate_error:

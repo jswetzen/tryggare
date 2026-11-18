@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   PERMISSION,
   canEditFamilyHealthInfo,
+  canOpenRegistrationAdmin,
   hasPermission,
   type SessionUser
 } from './permissions';
@@ -62,5 +63,15 @@ describe('canEditFamilyHealthInfo', () => {
         user(['families.view_family', 'families.view_child', 'families.view_parent'])
       )
     ).toBe(false);
+  });
+});
+
+describe('canOpenRegistrationAdmin', () => {
+  const perm = 'registrations.change_registration';
+  it('needs is_staff as well as the permission', () => {
+    expect(canOpenRegistrationAdmin(user([perm], { is_staff: true }))).toBe(true);
+    expect(canOpenRegistrationAdmin(user([perm], { is_staff: false }))).toBe(false);
+    expect(canOpenRegistrationAdmin(user([], { is_staff: true }))).toBe(false);
+    expect(canOpenRegistrationAdmin(null)).toBe(false);
   });
 });

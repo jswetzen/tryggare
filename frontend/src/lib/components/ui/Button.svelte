@@ -15,6 +15,9 @@
     children?: Snippet;
     class?: string;
     title?: string;
+    /** Renders an <a> styled as the button; opens in a new tab (rel=noopener) when `newTab`. */
+    href?: string;
+    newTab?: boolean;
   }
 
   let {
@@ -27,7 +30,9 @@
     onclick,
     children,
     class: className = '',
-    title
+    title,
+    href,
+    newTab = false
   }: Props = $props();
 
   const baseStyles = 'inline-flex items-center justify-center font-semibold transition-colors rounded-button focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed';
@@ -54,6 +59,11 @@
   const buttonClass = `${baseStyles} ${variantStyles[variant]} ${sizeStyles[size]} ${widthStyle} ${loadingCursor} ${className}`.trim();
 </script>
 
+{#if href}
+  <a {href} {title} class={buttonClass} target={newTab ? '_blank' : undefined} rel={newTab ? 'noopener' : undefined}>
+    {@render children?.()}
+  </a>
+{:else}
 <button
   {type}
   {title}
@@ -69,3 +79,4 @@
   {/if}
   {@render children?.()}
 </button>
+{/if}

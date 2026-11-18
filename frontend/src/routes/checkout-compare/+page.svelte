@@ -30,6 +30,7 @@
 
   function formatTime(isoString: string) {
     return new Date(isoString).toLocaleTimeString('en-US', {
+      timeZone: 'Europe/Stockholm',
       hour: '2-digit',
       minute: '2-digit',
       hour12: false,

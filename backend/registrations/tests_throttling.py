@@ -40,7 +40,12 @@ class RegistrationSubmitThrottleTests(TestCase):
             "event": str(self.event.id),
             "contact_email": email,
             "parents": [
-                {"first_name": "Anna", "relationship_type": "Mother", "email": email}
+                {
+                    "first_name": "Anna",
+                    "phone": "070-123 45 67",
+                    "relationship_type": "Mother",
+                    "email": email,
+                }
             ],
             "children": [],
         }

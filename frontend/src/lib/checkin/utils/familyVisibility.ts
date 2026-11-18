@@ -1,4 +1,5 @@
 import type { Family, UndoAction } from '../types';
+import { familyConfirmationState } from './familyConfirmation';
 
 /**
  * Determines if a family should be visible in the check-in list
@@ -6,7 +7,14 @@ import type { Family, UndoAction } from '../types';
  * A family is visible if:
  * - It has at least one unchecked child, OR
  * - It has no children at all AND has at least one unchecked parent, OR
- * - It has at least one active undo action
+ * - It has at least one active undo action, OR
+ * - Someone in it is still blocked as an unconfirmed registration on the session on screen
+ *
+ * The last rule exists because a blocked person is not checked in and the door will not take
+ * them: a family whose children are all in but whose guardian is stuck would otherwise vanish
+ * from the default list (and from search) and leave the stuck guardian with no one to find.
+ * `includeAdults` follows the session: when it does not check adults in, an adult cannot be
+ * blocked here.
  *
  * This keeps families visible during the grace period even if all
  * children are checked in, allowing users to undo recent check-ins.
@@ -22,8 +30,13 @@ import type { Family, UndoAction } from '../types';
  */
 export function shouldShowFamily(
   family: Family,
-  undoActions: UndoAction[]
+  undoActions: UndoAction[],
+  includeAdults: boolean = true
 ): boolean {
+  if (familyConfirmationState(family, includeAdults).blocked > 0) {
+    return true;
+  }
+
   const hasUncheckedChildren = family.children.some((child) => !child.checkedIn);
   if (hasUncheckedChildren) {
     return true;
@@ -62,9 +75,13 @@ export function shouldShowFamily(
  */
 export function sortFamiliesByStatus(
   families: Family[],
-  _undoActions: UndoAction[]
+  _undoActions: UndoAction[],
+  includeAdults: boolean = true
 ): Family[] {
+  // A family with someone blocked as unconfirmed still has work left, so it sorts with the
+  // unfinished families and not down among the finished ones kept only for an undo.
   const hasUnchecked = (f: Family) =>
+    familyConfirmationState(f, includeAdults).blocked > 0 ||
     f.children.some((child) => !child.checkedIn) ||
     (f.children.length === 0 && f.parents.some((parent) => !parent.checkedIn));
 
@@ -86,8 +103,9 @@ export function sortFamiliesByStatus(
  */
 export function getVisibleFamilies(
   families: Family[],
-  undoActions: UndoAction[]
+  undoActions: UndoAction[],
+  includeAdults: boolean = true
 ): Family[] {
-  const visible = families.filter((family) => shouldShowFamily(family, undoActions));
-  return sortFamiliesByStatus(visible, undoActions);
+  const visible = families.filter((family) => shouldShowFamily(family, undoActions, includeAdults));
+  return sortFamiliesByStatus(visible, undoActions, includeAdults);
 }

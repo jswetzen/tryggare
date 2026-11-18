@@ -13,6 +13,7 @@
   import CheckoutExpandableTable from '$lib/components/checkout/CheckoutExpandableTable.svelte';
   import SessionIndicator from '$lib/components/checkin/SessionIndicator.svelte';
   import SessionSelector from '$lib/components/SessionSelector.svelte';
+  import { pickSession, saveSessionId } from '$lib/checkin/utils/sessionChoice';
 
   let searchQuery = $state('');
   let activeCheckIns = $state<CheckInRecord[]>([]);
@@ -41,11 +42,19 @@
     // Subscribe to WebSocket messages
     unsubscribe = websocketStore.onMessage(handleWebSocketMessage);
 
-    // Load active session, families, and check-ins
-    loadActiveSession();
+    // Load active session, families, and check-ins. The session must be
+    // known BEFORE the check-in list is filtered by it: started concurrently,
+    // loadActiveCheckIns() ran with activeSession still null, skipped the
+    // filter, and the page listed every open check-in (other sessions and
+    // events too) under a header naming the first session.
     loadFamilies();
-    loadActiveCheckIns();
+    void loadSessionThenCheckIns();
   });
+
+  async function loadSessionThenCheckIns() {
+    await loadActiveSession();
+    await loadActiveCheckIns();
+  }
 
   onDestroy(() => {
     if (unsubscribe) {
@@ -133,7 +142,8 @@
       const sessions = await sessionApi.active();
       activeSessions = sessions;
       if (sessions.length > 0) {
-        activeSession = sessions[0]; // Use the first active session
+        // The session this desk last picked if it is still active, else the first one.
+        activeSession = pickSession(sessions);
       }
     } catch (err) {
       console.error('Failed to load active session:', err);
@@ -180,6 +190,7 @@
 
   function handleSessionSelect(session: Session) {
     activeSession = session;
+    saveSessionId(session.id);
     showSessionSelector = false;
     loadActiveCheckIns();
   }
@@ -331,6 +342,7 @@
   // Helper function to format time
   function formatTime(isoString: string) {
     return new Date(isoString).toLocaleTimeString('en-US', {
+      timeZone: 'Europe/Stockholm',
       hour: '2-digit',
       minute: '2-digit',
       hour12: false,
@@ -449,10 +461,12 @@
         sessionName={activeSession.name || 'No Active Session'}
         sessionTime={activeSession
           ? `${new Date(activeSession.start_time).toLocaleTimeString('en-US', {
+              timeZone: 'Europe/Stockholm',
               hour: '2-digit',
               minute: '2-digit',
               hour12: false,
             })} - ${activeSession.end_time ? new Date(activeSession.end_time).toLocaleTimeString('en-US', {
+              timeZone: 'Europe/Stockholm',
               hour: '2-digit',
               minute: '2-digit',
               hour12: false,

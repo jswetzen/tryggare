@@ -83,10 +83,17 @@ class RegistrationEventInfoTests(TestCase):
             )
             ExtraChoice.objects.create(extra=extra, label="Only choice")
 
-        # event, active ticket types, has_hidden_ticket_types exists(),
-        # extras, and one prefetch query for all their choice_rows —
-        # constant regardless of how many extras/choices exist.
-        with self.assertNumQueries(5):
+        # event, sold_counts_for_event's two bulk aggregates (R3, gate
+        # review 2026-09-25 — one for 'event'-kind ticket types, one for
+        # 'session_bundle'-kind; see registrations/services.py::
+        # sold_counts_for_event), active ticket types,
+        # has_hidden_ticket_types exists(), extras, and one prefetch query
+        # for all their choice_rows — constant regardless of how many
+        # extras/choices (or ticket types) exist. See
+        # tests_capacity.py::SoldCountsForEventQueryCountTests for the
+        # matching "stays constant as ticket types grow" coverage this
+        # test doesn't itself vary.
+        with self.assertNumQueries(7):
             response = self.client.get(f"/api/registrations/events/{event.id}/")
 
         self.assertEqual(response.status_code, 200, response.data)
