@@ -79,6 +79,24 @@ MESSAGES = {
     "promo_ticket_types_inactive": _(
         "Every ticket type this code refers to is inactive."
     ),
+    "bundle_replaces_pass": _(
+        "This session bundle covers the same attendees as an event ticket (or requires one), so it can never be bought alongside it; it replaces the pass."
+    ),
+    "ticket_rule_open_with_tickets": _(
+        "Check-in is open to everyone by default but the event sells tickets, so nobody needs a ticket at the door. Intended?"
+    ),
+    "event_price_ignored": _(
+        "The flat event price is ignored while an active ticket type exists, and applies again if all of them are made inactive."
+    ),
+    "age_band_gap": _(
+        "No active ticket covers %(audience)s aged %(start)s to %(end)s."
+    ),
+    "age_band_overlap": _(
+        "This age tier covers the same ages as '%(other)s'; an attendee in both gets two options. Intended?"
+    ),
+    "inactive_unreferenced": _(
+        "This row is inactive and nothing refers to it, but it is still copied with the event. Delete it if it is not needed."
+    ),
 }
 
 

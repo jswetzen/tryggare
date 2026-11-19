@@ -21,6 +21,14 @@ def validate_at_now(spec, event=None, now=NOW):
         return validate(spec, event)
 
 
+# Part B of docs/setup-checker-plan.md fixes the example; then this and its users go.
+EXAMPLE_WARNINGS = {"bundle_replaces_pass", "ticket_rule_open_with_tickets"}
+
+
+def without_example_warnings(warnings):
+    return [w for w in warnings if w["code"] not in EXAMPLE_WARNINGS]
+
+
 def by_path(issues):
     return {i["path"]: i for i in issues}
 

@@ -3,7 +3,7 @@
 import json
 import os
 import tempfile
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from io import StringIO
 
 from django.contrib.auth.models import Permission
@@ -14,7 +14,7 @@ from django.urls import reverse
 from rest_framework.test import APIClient
 
 from accounts.models import AdminUser
-from events.event_spec import example_spec, export
+from events.event_spec import apply, example_spec, export
 from events.spec_test_support import add_ticket, at_now, empty_event, foreign_session
 from events.management.commands.event_spec import Command
 from events.models import Event, TicketType
@@ -449,7 +449,10 @@ class CommandTests(TestCase):
     def test_validate_ok(self):
         out, err = self.run_cmd("validate", self.spec_file(example_spec()))
         self.assertTrue(json.loads(out)["valid"])
-        self.assertEqual(err, "")
+        self.assertEqual(
+            {w["code"] for w in json.loads(out)["warnings"]},
+            {"bundle_replaces_pass", "ticket_rule_open_with_tickets"},
+        )
 
     def test_validate_against_event(self):
         event = make_event()
@@ -582,3 +585,76 @@ class CommandTests(TestCase):
                 self.run_cmd("apply", path, *extra)
         self.assertEqual(Event.objects.count(), 0)
         self.assertEqual(TicketType.objects.count(), 0)
+
+
+class SetupCheckTests(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        with at_now():
+            cls.event, _, _ = apply(example_spec())
+        cls.user = AdminUser.objects.create_superuser("checker", "pw12345")
+
+    def test_command_labels_rows_and_skips_guards(self):
+        add_ticket(self.event)  # event_not_empty is an apply guard, not a setup problem
+        with at_now(), self.assertRaises(CommandError) as ctx:
+            call_command("event_spec", "check", "--event", "nope", stdout=StringIO())
+        self.assertEqual(ctx.exception.returncode, 2)
+        out, err = StringIO(), StringIO()
+        with at_now():
+            call_command(
+                "event_spec",
+                "check",
+                "--event",
+                str(self.event.pk),
+                stdout=out,
+                stderr=err,
+            )
+        result = json.loads(out.getvalue())
+        self.assertEqual(result["errors"], [])
+        rows = {w["code"]: w["row"] for w in result["warnings"]}
+        self.assertEqual(
+            rows["bundle_replaces_pass"], "Ticket type 'Saturday workshop 13-17'"
+        )
+        self.assertEqual(rows["ticket_rule_open_with_tickets"], "Event")
+        self.assertNotIn("event_not_empty", rows)
+        self.assertIn("[bundle_replaces_pass]", err.getvalue())
+
+    def test_command_exits_non_zero_on_errors(self):
+        self.event.registration_closes_at = self.event.registration_opens_at
+        self.event.save()
+        TicketType.objects.filter(event=self.event).update(
+            requires_ticket_type=None, min_birthdate=date(2014, 6, 1)
+        )
+        with at_now(), self.assertRaises(CommandError):
+            call_command(
+                "event_spec",
+                "check",
+                "--event",
+                str(self.event.pk),
+                stdout=StringIO(),
+                stderr=StringIO(),
+            )
+
+    def test_admin_page_and_action(self):
+        self.client.force_login(self.user)
+        with at_now():
+            page = self.client.get(
+                reverse("admin:events_event_check_setup", args=[self.event.pk])
+            )
+            action = self.client.post(
+                reverse("admin:events_event_changelist"),
+                {
+                    "action": "check_setup_action",
+                    "_selected_action": [str(self.event.pk)],
+                },
+            )
+            change = self.client.get(
+                reverse("admin:events_event_change", args=[self.event.pk])
+            )
+        for response in (page, action):
+            self.assertContains(
+                response, "Ticket type &#x27;Saturday workshop 13-17&#x27;"
+            )
+        self.assertContains(
+            change, reverse("admin:events_event_check_setup", args=[self.event.pk])
+        )

@@ -2051,3 +2051,46 @@ msgstr "Cannot write %(path)s: %(error)s"
 #, python-format
 msgid "The %(kind)s '%(name)s' refers to the %(target)s '%(other)s', which belongs to another event."
 msgstr "The %(kind)s '%(name)s' refers to the %(target)s '%(other)s', which belongs to another event."
+
+msgid "This session bundle covers the same attendees as an event ticket (or requires one), so it can never be bought alongside it; it replaces the pass."
+msgstr "This session bundle covers the same attendees as an event ticket (or requires one), so it can never be bought alongside it; it replaces the pass."
+
+msgid "Check-in is open to everyone by default but the event sells tickets, so nobody needs a ticket at the door. Intended?"
+msgstr "Check-in is open to everyone by default but the event sells tickets, so nobody needs a ticket at the door. Intended?"
+
+msgid "The flat event price is ignored while an active ticket type exists, and applies again if all of them are made inactive."
+msgstr "The flat event price is ignored while an active ticket type exists, and applies again if all of them are made inactive."
+
+#, python-format
+msgid "No active ticket covers %(audience)s aged %(start)s to %(end)s."
+msgstr "No active ticket covers %(audience)s aged %(start)s to %(end)s."
+
+#, python-format
+msgid "This age tier covers the same ages as '%(other)s'; an attendee in both gets two options. Intended?"
+msgstr "This age tier covers the same ages as '%(other)s'; an attendee in both gets two options. Intended?"
+
+msgid "This row is inactive and nothing refers to it, but it is still copied with the event. Delete it if it is not needed."
+msgstr "This row is inactive and nothing refers to it, but it is still copied with the event. Delete it if it is not needed."
+
+msgid "choice"
+msgstr "choice"
+
+msgid "Check setup"
+msgstr "Check setup"
+
+msgid "No problems found."
+msgstr "No problems found."
+
+msgid "Errors"
+msgstr "Errors"
+
+msgid "Warnings"
+msgstr "Warnings"
+
+#, python-format
+msgid "The event cannot be checked: %(count)d error(s)."
+msgstr "The event cannot be checked: %(count)d error(s)."
+
+#, python-format
+msgid "The setup has %(count)d error(s)."
+msgstr "The setup has %(count)d error(s)."

@@ -7,6 +7,7 @@ are advice. Each issue is ``{"path", "code", "message"}`` with a path such as
 """
 
 from collections import Counter
+from datetime import date
 
 from django.core.exceptions import ValidationError
 from django.utils import timezone
@@ -16,6 +17,7 @@ from checkins.models import CheckInRecord
 from registrations.models import Registration
 
 from ..models import (
+    AppliesTo,
     EventTicket,
     SessionTicket,
     Ticket,
@@ -279,6 +281,9 @@ def _going_live_issues(ev: Event) -> list[Issue]:
 def _warnings(spec: EventSpec, ev: Event) -> list[Issue]:
     return [
         *_event_warnings(ev),
+        *_pricing_warnings(spec),
+        *_age_band_warnings(spec),
+        *_inactive_unreferenced_warnings(spec),
         *_session_warnings(spec),
         *_requires_cycles(spec),
         *_derived_key_warnings(spec),
@@ -350,6 +355,119 @@ def _ticket_type_warnings(spec: EventSpec) -> list[Issue]:
             for field, code, hit in checks
             if hit
         ]
+    return out
+
+
+def _pricing_warnings(spec: EventSpec) -> list[Issue]:
+    # Event.price is ignored only while an active ticket type exists (pricing.calculate_total).
+    out = []
+    ev = spec.event
+    active = any(t.is_active for t in spec.ticket_types)
+    if ev.price and active:
+        out.append(issue("event.price", "event_price_ignored"))
+    if ev.ticket_rule_default == "open" and active:
+        out.append(issue("event.ticket_rule_default", "ticket_rule_open_with_tickets"))
+    return out
+
+
+_NO_AGE_LIMIT = 10**6
+
+
+def _age_on_start(spec: EventSpec, born: date) -> int:
+    start = spec.event.start_date
+    return start.year - born.year - ((start.month, start.day) < (born.month, born.day))
+
+
+def _age_range(spec: EventSpec, t) -> tuple[int, int]:
+    """Whole ages on the event start the ticket admits. The bounds are birthdates:
+    ``min_birthdate`` limits the oldest, ``max_birthdate`` the youngest."""
+    youngest = _age_on_start(spec, t.max_birthdate) if t.max_birthdate else 0
+    oldest = _age_on_start(spec, t.min_birthdate) if t.min_birthdate else _NO_AGE_LIMIT
+    return youngest, oldest
+
+
+def _audience(t) -> set[str]:
+    return {"parent", "child"} if t.applies_to == "either" else {t.applies_to}
+
+
+def _age_band_warnings(spec: EventSpec) -> list[Issue]:
+    ranges = {i: _age_range(spec, t) for i, t in enumerate(spec.ticket_types)}
+    unbounded = (0, _NO_AGE_LIMIT)
+    out: dict[tuple[str, str], Issue] = {}
+    active = [(i, t) for i, t in enumerate(spec.ticket_types) if t.is_active]
+
+    # A bundle matching an event ticket in audience and age is never bought
+    # alongside it: attendees pick one ticket, or the bundle requires the pass.
+    passes = [(i, t) for i, t in active if t.kind == "event" and not t.is_hidden]
+    by_key = {t.key: t for t in spec.ticket_types}
+    for i, t in active:
+        if t.kind != "session_bundle":
+            continue
+        required = by_key.get(t.requires_ticket_type)
+        clash = (required is not None and required.kind == "event") or any(
+            _audience(t) & _audience(p)
+            and ranges[i][0] <= ranges[j][1]
+            and ranges[j][0] <= ranges[i][1]
+            for j, p in passes
+        )
+        if clash:
+            path = f"ticket_types[{i}].kind"
+            out[(path, "bundle_replaces_pass")] = issue(path, "bundle_replaces_pass")
+
+    for kind in ("event", "session_bundle"):
+        for audience in ("parent", "child"):
+            tiers = sorted(
+                (
+                    (i, t)
+                    for i, t in active
+                    if t.kind == kind and not t.is_hidden and audience in _audience(t)
+                ),
+                key=lambda it: ranges[it[0]],
+            )
+            covered = None
+            for n, (i, t) in enumerate(tiers):
+                low, high = ranges[i]
+                path = f"ticket_types[{i}].min_birthdate"
+                if covered is not None and low > covered + 1:
+                    out[(path, "age_band_gap")] = issue(
+                        path,
+                        "age_band_gap",
+                        audience=AppliesTo(audience).label,
+                        start=covered + 1,
+                        end=low - 1,
+                    )
+                for j, other in tiers[:n]:
+                    if (
+                        ranges[i] != unbounded
+                        and ranges[j] != unbounded
+                        and low <= ranges[j][1]
+                    ):
+                        out[(path, "age_band_overlap")] = issue(
+                            path, "age_band_overlap", other=other.name
+                        )
+                covered = high if covered is None else max(covered, high)
+    return sorted(out.values(), key=lambda w: (w["path"], w["code"]))
+
+
+def _inactive_unreferenced_warnings(spec: EventSpec) -> list[Issue]:
+    # Rows nothing points at that are switched off still travel with an event copy.
+    referenced: dict[str, set[str]] = {}
+    for kind in TOP_KINDS:
+        for row in getattr(spec, kind.name):
+            for name, target in kind.refs.items():
+                value = getattr(row, name)
+                keys = value if kind.is_list_ref(name) else [value]
+                referenced.setdefault(target, set()).update(k for k in keys if k)
+    out = []
+    for kind in KINDS.values():
+        if "is_active" not in kind.spec.model_fields:
+            continue
+        for path, rows in row_groups(spec, kind):
+            out += [
+                issue(f"{path}[{i}].is_active", "inactive_unreferenced")
+                for i, row in enumerate(rows)
+                if not row.is_active and row.key not in referenced.get(kind.name, ())
+            ]
     return out
 
 

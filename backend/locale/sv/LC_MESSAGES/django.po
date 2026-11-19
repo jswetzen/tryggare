@@ -2075,3 +2075,46 @@ msgstr "Kan inte skriva %(path)s: %(error)s"
 #, python-format
 msgid "The %(kind)s '%(name)s' refers to the %(target)s '%(other)s', which belongs to another event."
 msgstr "”%(name)s” (%(kind)s) refererar till %(target)s ”%(other)s”, som hör till ett annat evenemang."
+
+msgid "This session bundle covers the same attendees as an event ticket (or requires one), so it can never be bought alongside it; it replaces the pass."
+msgstr "Den här sessionsbiljetten gäller samma deltagare som en eventbiljett (eller kräver en), så den kan aldrig köpas tillsammans med den; den ersätter passet."
+
+msgid "Check-in is open to everyone by default but the event sells tickets, so nobody needs a ticket at the door. Intended?"
+msgstr "Incheckning är öppen för alla som standard, men evenemanget säljer biljetter, så ingen behöver biljett vid dörren. Avsiktligt?"
+
+msgid "The flat event price is ignored while an active ticket type exists, and applies again if all of them are made inactive."
+msgstr "Evenemangets fasta pris ignoreras så länge det finns en aktiv biljettyp, och gäller igen om alla görs inaktiva."
+
+#, python-format
+msgid "No active ticket covers %(audience)s aged %(start)s to %(end)s."
+msgstr "Ingen aktiv biljett gäller %(audience)s i åldern %(start)s till %(end)s."
+
+#, python-format
+msgid "This age tier covers the same ages as '%(other)s'; an attendee in both gets two options. Intended?"
+msgstr "Den här åldersnivån gäller samma åldrar som '%(other)s'; en deltagare i båda får två val. Avsiktligt?"
+
+msgid "This row is inactive and nothing refers to it, but it is still copied with the event. Delete it if it is not needed."
+msgstr "Raden är inaktiv och ingenting hänvisar till den, men den kopieras ändå med evenemanget. Ta bort den om den inte behövs."
+
+msgid "choice"
+msgstr "val"
+
+msgid "Check setup"
+msgstr "Kontrollera upplägg"
+
+msgid "No problems found."
+msgstr "Inga problem hittades."
+
+msgid "Errors"
+msgstr "Fel"
+
+msgid "Warnings"
+msgstr "Varningar"
+
+#, python-format
+msgid "The event cannot be checked: %(count)d error(s)."
+msgstr "Evenemanget kan inte kontrolleras: %(count)d fel."
+
+#, python-format
+msgid "The setup has %(count)d error(s)."
+msgstr "Upplägget har %(count)d fel."

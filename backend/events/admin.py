@@ -5,9 +5,9 @@ from django.conf import settings
 from django.contrib import admin, messages
 from django.contrib.admin import helpers
 from django.core.exceptions import ObjectDoesNotExist
-from django.http import HttpResponseRedirect
+from django.http import Http404, HttpResponseRedirect
 from django.template.response import TemplateResponse
-from django.urls import reverse
+from django.urls import path, reverse
 from django.utils.html import format_html, format_html_join
 from django.utils.safestring import mark_safe
 from django.utils.translation import gettext_lazy as _
@@ -59,7 +59,7 @@ from registrations.services import (
     ticket_type_sold_count,
 )
 
-from .event_spec import SpecError
+from .event_spec import SpecError, check_setup
 from .services import (
     can_copy_events,
     copy_event_with_warnings,
@@ -92,8 +92,9 @@ class EventAdmin(admin.ModelAdmin):
     )
     list_filter = ("ticket_rule_default",)
     search_fields = ("name",)
-    actions = ("generate_report", "copy_event_action")
+    actions = ("generate_report", "copy_event_action", "check_setup_action")
     readonly_fields = ("cloned_from",)
+    change_form_template = "admin/events/event/change_form.html"
     # Explicit fieldsets so the check-in rule gets a block of its own, away
     # from the registration/branding fields. Every editable field must be
     # listed here: unlike ``exclude``, ``fieldsets`` is an allow-list, so a
@@ -140,6 +141,41 @@ class EventAdmin(admin.ModelAdmin):
 
     def has_copy_permission(self, request):
         return can_copy_events(request.user)
+
+    def get_urls(self):
+        return [
+            path(
+                "<path:object_id>/check-setup/",
+                self.admin_site.admin_view(self.check_setup_view),
+                name="events_event_check_setup",
+            ),
+            *super().get_urls(),
+        ]
+
+    def _check_setup_response(self, request, events):
+        results = []
+        for event in events:
+            try:
+                results.append({"event": event, **check_setup(event)})
+            except SpecError as exc:
+                results.append({"event": event, "errors": exc.errors, "warnings": []})
+        context = {
+            **self.admin_site.each_context(request),
+            "title": _("Check setup"),
+            "results": results,
+            "opts": self.model._meta,
+        }
+        return TemplateResponse(request, "admin/events/event/check_setup.html", context)
+
+    def check_setup_view(self, request, object_id):
+        event = self.get_object(request, object_id)
+        if event is None or not self.has_view_permission(request, event):
+            raise Http404
+        return self._check_setup_response(request, [event])
+
+    @admin.action(description=_("Check setup"), permissions=["view"])
+    def check_setup_action(self, request, queryset):
+        return self._check_setup_response(request, list(queryset.order_by("name")))
 
     @admin.action(description=_("Copy event…"), permissions=["copy"])
     def copy_event_action(self, request, queryset):

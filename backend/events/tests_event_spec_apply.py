@@ -11,6 +11,7 @@ from events.event_spec import SpecError, apply, diff, example_spec, export
 from events.event_spec import _apply as apply_module
 from events.spec_test_support import (
     NOW,
+    without_example_warnings,
     add_ticket,
     at_now,
     validate_at_now,
@@ -48,7 +49,7 @@ class ApplyNewEventTests(TestCase):
     def test_example_round_trips(self):
         event, changes, warnings = do_apply(example_spec())
         self.assertEqual(export(event), normalize(example_spec()))
-        self.assertEqual(warnings, [])
+        self.assertEqual(without_example_warnings(warnings), [])
         self.assertTrue(all(c["change"] == "added" for c in changes))
         self.assertEqual([c["kind"] for c in changes][:2], ["event", "sessions"])
         self.assertEqual(event.registration_window_status, "not_open_yet")
@@ -378,7 +379,10 @@ class SameNameRowsTests(TestCase):
     def test_same_names_round_trip_and_keep_contents(self):
         spec = self.spec()
         event, _, warnings = do_apply(spec)
-        self.assertEqual(warnings, [])
+        self.assertEqual(
+            {w["code"] for w in without_example_warnings(warnings)},
+            {"age_band_overlap"},
+        )
         ids = {t.price: t.id for t in event.ticket_types.all()}
         _, changes, _ = do_apply(spec, event)
         self.assertEqual(changes, [])
