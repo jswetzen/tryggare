@@ -133,7 +133,14 @@ class EventAdmin(admin.ModelAdmin):
     def view_on_site(self, obj):
         return f"{settings.FRONTEND_BASE_URL}/register/{obj.id}/"
 
-    @admin.action(description=_("Copy event…"), permissions=["add"])
+    def has_copy_permission(self, request):
+        # The copy creates rows in all five models, not just events.
+        return all(
+            request.user.has_perm(f"events.add_{m}")
+            for m in ("event", "session", "tickettype", "extra", "promocode")
+        )
+
+    @admin.action(description=_("Copy event…"), permissions=["copy"])
     def copy_event_action(self, request, queryset):
         if queryset.count() != 1:
             self.message_user(
@@ -147,11 +154,15 @@ class EventAdmin(admin.ModelAdmin):
         if "apply" in request.POST:
             form = CopyEventForm(request.POST)
             if form.is_valid():
-                new_event = copy_event(
-                    source,
-                    name=form.cleaned_data["name"],
-                    start_date=form.cleaned_data["start_date"],
-                )
+                try:
+                    new_event = copy_event(
+                        source,
+                        name=form.cleaned_data["name"],
+                        start_date=form.cleaned_data["start_date"],
+                    )
+                except ValueError as exc:
+                    self.message_user(request, str(exc), messages.ERROR)
+                    return None
                 self.message_user(
                     request,
                     _("Copied '%(source)s' to '%(event)s'.")

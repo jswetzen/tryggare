@@ -17,11 +17,11 @@ Branch: `feat/form-spec-foundation` (off `main`).
 ## Step A: event copy (`backend/events/`)
 
 - `copy_event(source, *, name, start_date) -> Event` in `events/services.py`, one transaction.
-- Copies: event settings, sessions, ticket types, extras + choices, promo codes. Preserves `is_active`.
+- Copies: event settings, sessions, ticket types, extras + choices, promo codes. Preserves `is_active` on ticket types, extras, choices and promo codes; copied sessions start inactive (live check-in state).
 - Remaps internal references to the new rows: `TicketType.sessions`, `TicketType.requires_ticket_type`,
   `Extra.session`, `PromoCode.applies_to_ticket_types`, `PromoCode.unlocks_ticket_types`.
 - Shifts every date by `new start_date - source.start_date`: event end_date, registration window,
-  session start/end, `TicketType.available_from/until`, `TicketType.min/max_birthdate` (age tiers),
+  session start/end, `TicketType.available_from/until`, `TicketType.min/max_birthdate` (age tiers, rebuilt from the new start date so they stay on the anniversary `_clean_age_window` requires),
   `PromoCode.valid_from/until`. Datetimes shift in Europe/Stockholm wall-clock time (DST-safe).
 - Resets `PromoCode.uses_count`. Never copies registrations, attendees, tickets
   (`Ticket`, `EventTicket`, `SessionTicket`), or check-in data.

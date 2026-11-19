@@ -1240,7 +1240,7 @@ class CopyEventTest(TestCase):
             name="Child",
             price=100,
             applies_to="child",
-            min_birthdate=date(2015, 3, 20),
+            min_birthdate=date(2015, 3, 21),
             max_birthdate=date(2022, 3, 20),
             available_from=self._stockholm(2027, 3, 1, 8, 0),
             available_until=self._stockholm(2027, 3, 10, 12, 0),
@@ -1334,7 +1334,8 @@ class CopyEventTest(TestCase):
 
         sat = new.sessions.get(name="Saturday")
         self.assertNotEqual(sat.pk, self.sat.pk)
-        self.assertTrue(sat.is_active)
+        self.assertTrue(self.sat.is_active)
+        self.assertFalse(sat.is_active)
         self.assertEqual(sat.ticket_rule, "all")
         self.assertTrue(sat.adults_not_checked_in)
         self.assertEqual(
@@ -1372,7 +1373,7 @@ class CopyEventTest(TestCase):
         new = self._copy()  # +14 days
 
         child = new.ticket_types.get(name="Child")
-        self.assertEqual(child.min_birthdate, date(2015, 4, 3))
+        self.assertEqual(child.min_birthdate, date(2015, 4, 4))
         self.assertEqual(child.max_birthdate, date(2022, 4, 3))
         until = timezone.localtime(child.available_until, self.tz)
         # 2027-03-10 12:00 CET -> 2027-03-24 12:00 CET (before the DST change).
@@ -1386,6 +1387,91 @@ class CopyEventTest(TestCase):
         # 23:59 CET is 22:59 UTC; 23:59 CEST is 21:59 UTC.
         self.assertEqual(self.source.registration_closes_at.astimezone(UTC).hour, 22)
         self.assertEqual(new.registration_closes_at.astimezone(UTC).hour, 21)
+
+    def test_age_bounds_stay_on_the_anniversary_across_a_leap_day(self):
+        # Delta is 364 days; a plain shift would give 2020-06-10.
+        source = Event.objects.create(
+            name="June", start_date=date(2026, 6, 12), end_date=date(2026, 6, 12)
+        )
+        TicketType.objects.create(
+            event=source,
+            name="Kids",
+            price=0,
+            max_birthdate=date(2019, 6, 12),
+            min_birthdate=date(2013, 6, 13),
+        )
+        from events.services import copy_event
+
+        new = copy_event(source, name="June 27", start_date=date(2027, 6, 11))
+
+        kids = new.ticket_types.get()
+        self.assertEqual(kids.max_birthdate, date(2020, 6, 11))
+        self.assertEqual(kids.min_birthdate, date(2014, 6, 12))
+
+    def test_age_bound_off_the_anniversary_gets_the_plain_shift(self):
+        from events.services import copy_event
+
+        TicketType.objects.create(
+            event=self.source, name="Odd", price=0, max_birthdate=date(2020, 1, 1)
+        )
+        new = copy_event(self.source, name="X", start_date=date(2027, 4, 3))
+        self.assertEqual(
+            new.ticket_types.get(name="Odd").max_birthdate, date(2020, 1, 15)
+        )
+
+    def test_leap_day_start_uses_nearest_leap_year(self):
+        from events.services import copy_event
+
+        source = Event.objects.create(
+            name="Leap", start_date=date(2028, 2, 29), end_date=date(2028, 2, 29)
+        )
+        TicketType.objects.create(
+            event=source, name="K", price=0, max_birthdate=date(2016, 2, 29)
+        )
+        new = copy_event(source, name="Leap 2", start_date=date(2029, 2, 28))
+        self.assertEqual(new.ticket_types.get().max_birthdate, date(2017, 2, 28))
+
+    def test_every_copied_row_passes_full_clean(self):
+        new = self._copy()
+
+        new.full_clean()
+        for obj in [
+            *new.sessions.all(),
+            *new.ticket_types.all(),
+            *new.extras.all(),
+            *new.promo_codes.all(),
+        ]:
+            obj.full_clean()
+
+    def test_cross_event_reference_is_refused_before_anything_is_created(self):
+        from events.services import copy_event
+
+        other = Event.objects.create(
+            name="Other", start_date=date(2027, 1, 1), end_date=date(2027, 1, 1)
+        )
+        foreign = TicketType.objects.create(event=other, name="Foreign", price=1)
+        self.promo.applies_to_ticket_types.add(foreign)
+
+        with self.assertRaisesMessage(ValueError, "Foreign"):
+            copy_event(self.source, name="Nope", start_date=date(2027, 5, 1))
+        self.assertFalse(Event.objects.filter(name="Nope").exists())
+
+    def test_cross_event_session_in_bundle_is_refused(self):
+        from events.services import copy_event
+
+        other = Event.objects.create(
+            name="Other", start_date=date(2027, 1, 1), end_date=date(2027, 1, 1)
+        )
+        foreign = Session.objects.create(
+            event=other,
+            name="Elsewhere",
+            start_time=timezone.now(),
+            end_time=timezone.now(),
+        )
+        self.day_type.sessions.add(foreign)
+
+        with self.assertRaisesMessage(ValueError, "Elsewhere"):
+            copy_event(self.source, name="Nope", start_date=date(2027, 5, 1))
 
     def test_extras_copied_with_choices_and_session_remap(self):
         new = self._copy()
@@ -1588,3 +1674,38 @@ class CopyEventAdminActionTest(NonManifestStaticfilesTestCase, TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertNotIn("cloned_from", response.context["adminform"].form.fields)
         self.assertContains(response, "Alpha")
+
+    def test_cross_event_reference_shows_error_not_500(self):
+        other = Event.objects.create(
+            name="Other", start_date=date(2027, 1, 1), end_date=date(2027, 1, 1)
+        )
+        foreign = TicketType.objects.create(event=other, name="Foreign", price=1)
+        promo = PromoCode.objects.create(event=self.a, code="X")
+        promo.applies_to_ticket_types.add(foreign)
+
+        response = self._post(
+            [self.a.pk],
+            apply="yes",
+            name="Alpha 2",
+            start_date="2028-06-01",
+            follow=True,
+        )
+        self.assertContains(response, "Foreign")
+        self.assertFalse(Event.objects.filter(name="Alpha 2").exists())
+
+    def test_user_with_only_add_event_is_refused(self):
+        from django.contrib.auth.models import Permission
+
+        staff = AdminUser.objects.create_user("limited", password="pw12345")
+        staff.is_staff = True
+        staff.save()
+        staff.user_permissions.set(
+            Permission.objects.filter(
+                codename__in=["add_event", "change_event", "view_event"]
+            )
+        )
+        self.client.force_login(staff)
+
+        self._post([self.a.pk], apply="yes", name="Sneaky", start_date="2028-06-01")
+
+        self.assertFalse(Event.objects.filter(name="Sneaky").exists())
