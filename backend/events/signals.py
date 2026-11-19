@@ -101,33 +101,25 @@ def auto_checkout_on_deactivate(sender, instance, **kwargs):
 # A gate emptied by deleting its ticket types would read as "offered to everyone".
 # The Collector deletes the M2M rows before any TicketType row, so pre_delete (all
 # instances, rows intact) records the gated extras and post_delete re-checks them.
-# State is keyed on the delete's `origin`, so a failed delete's leftovers are never
-# consumed by a later unrelated one.
 _pending = threading.local()
 
 
 @receiver(pre_delete, sender=TicketType)
-def remember_gated_extras(sender, instance, using=None, origin=None, **kwargs):
-    if getattr(_pending, "origin", None) is not origin:
-        _pending.origin = origin
-        _pending.extras = set()
-    _pending.extras.update(
-        instance.gated_extras.using(using)
-        .filter(is_active=True)
-        .values_list("pk", flat=True)
+def remember_gated_extras(sender, instance, **kwargs):
+    pks = getattr(_pending, "extras", None)
+    if pks is None:
+        pks = _pending.extras = set()
+    pks.update(
+        instance.gated_extras.filter(is_active=True).values_list("pk", flat=True)
     )
 
 
 @receiver(post_delete, sender=TicketType)
-def deactivate_extras_with_emptied_gate(
-    sender, instance, using=None, origin=None, **kwargs
-):
-    if getattr(_pending, "origin", None) is not origin:
-        return
+def deactivate_extras_with_emptied_gate(sender, instance, **kwargs):
     pks = getattr(_pending, "extras", None)
-    _pending.origin = None
+    if not pks:
+        return
     _pending.extras = set()
-    if pks:
-        Extra.objects.using(using).filter(
-            pk__in=pks, is_active=True, ticket_types__isnull=True
-        ).update(is_active=False)
+    Extra.objects.filter(pk__in=pks, is_active=True, ticket_types__isnull=True).update(
+        is_active=False
+    )
