@@ -497,6 +497,19 @@ class ValidatePromoCodeEndpointTests(TestCase):
         unlocked_ids = [t["id"] for t in response.data["unlocks_ticket_types"]]
         self.assertEqual(unlocked_ids, [str(self.vip_type.id)])
 
+    def test_unlock_payload_leaves_out_another_events_types(self):
+        other = _make_event()
+        foreign = TicketType.objects.create(event=other, name="Foreign", price=0)
+        promo = _make_promo_code(self.event, code="MIXED")
+        promo.unlocks_ticket_types.add(self.vip_type, foreign)
+
+        response = self.client.post(
+            self.url, {"event": str(self.event.id), "code": "MIXED"}, format="json"
+        )
+
+        unlocked_ids = [t["id"] for t in response.data["unlocks_ticket_types"]]
+        self.assertEqual(unlocked_ids, [str(self.vip_type.id)])
+
     def test_invalid_code_returns_valid_false(self):
         response = self.client.post(
             self.url, {"event": str(self.event.id), "code": "NOPE"}, format="json"

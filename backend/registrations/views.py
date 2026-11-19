@@ -760,10 +760,12 @@ def validate_promo_code(request):
     if promo_code.max_uses is not None and promo_code.uses_count >= promo_code.max_uses:
         return Response({"valid": False})
 
+    # applies_to ids are sent unfiltered: pricing scopes to them even when a
+    # type is inactive, and an empty list would read as "whole order".
     # Bulk queries, as in form_spec.build_form_spec: a code can unlock
     # several hidden ticket types at once.
     sold_counts = sold_counts_for_event(event)
-    unlocked = list(promo_code.unlocks_ticket_types.filter(is_active=True))
+    unlocked = list(promo_code.unlocks_ticket_types.filter(event=event, is_active=True))
     bundle_ids = bundle_session_ids(unlocked)
     return Response(
         {

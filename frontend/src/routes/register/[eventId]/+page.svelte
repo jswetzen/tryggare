@@ -1463,21 +1463,23 @@
           })
         );
       } else {
-        // A restricted code never says "on the total": name the ticket types
-        // (up to two, and only when every name is known), else count them.
+        // A restricted code never says "on the total". Ids the form does not
+        // know (hidden, inactive, another event) are dropped; none left = no clause.
         const byId = new Map((spec?.ticket_types ?? []).map((tt) => [tt.id, tt.name]));
-        const names = scopeIds.map((id) => byId.get(id));
-        const named = scopeIds.length <= 2 && names.every((n) => n);
-        const scope = named
-          ? names.join(', ')
-          : scopeIds.length === 1
-            ? $t('register.promoTicketTypeOne')
-            : $t('register.promoTicketTypesCount', { values: { count: scopeIds.length } });
-        parts.push(
-          $t(isPercent ? 'register.promoEffectPercentOn' : 'register.promoEffectFixedOn', {
-            values: isPercent ? { percent: amount, names: scope } : { amount, names: scope }
-          })
-        );
+        const names = scopeIds.map((id) => byId.get(id)).filter((n): n is string => !!n);
+        if (names.length > 0) {
+          const scope =
+            names.length === 1
+              ? $t('register.promoScopeOne', { values: { name: names[0] } })
+              : names.length === 2
+                ? $t('register.promoScopeTwo', { values: { first: names[0], second: names[1] } })
+                : $t('register.promoTicketTypesCount', { values: { count: names.length } });
+          parts.push(
+            $t(isPercent ? 'register.promoEffectPercentOn' : 'register.promoEffectFixedOn', {
+              values: isPercent ? { percent: amount, names: scope } : { amount, names: scope }
+            })
+          );
+        }
       }
     }
     // Only types this code newly revealed: one already visible is not "now available".

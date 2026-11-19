@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/svelte';
+import { render, screen, waitFor, cleanup } from '@testing-library/svelte';
 import userEvent from '@testing-library/user-event';
 // The mocked pushState below (see the $app/navigation vi.mock further down)
 // — imported here so the "Back button from confirmation" tests can assert
@@ -70,9 +70,10 @@ vi.mock('svelte-i18n', () => {
     'register.promoEffectPercent': '{percent}% discount on the total.',
     'register.promoEffectFixed': '{amount} kr discount on the total.',
     'register.promoEffectPercentOn': '{percent}% discount on {names}.',
-    'register.promoEffectFixedOn': '{amount} kr discount on {names}.',
+    'register.promoEffectFixedOn': '{amount} kr off the total for {names}.',
+    'register.promoScopeOne': 'the ticket type {name}',
+    'register.promoScopeTwo': 'the ticket types {first} and {second}',
     'register.promoTicketTypesCount': '{count} ticket types',
-    'register.promoTicketTypeOne': '1 ticket type',
     'register.promoEffectUnlocks': '{names} — now available under Ticket type.',
     'register.promoRemoved': 'The code was removed.',
     'register.promoRemovedWithReset':
@@ -1757,9 +1758,12 @@ describe('Register page — promo code', () => {
       expect(applied.textContent).toContain('10.00 kr discount on the total.');
     });
 
-    async function applyPromo(validation: Record<string, unknown>) {
+    async function applyPromo(
+      validation: Record<string, unknown>,
+      eventInfo: unknown = hiddenTicketEventInfo()
+    ) {
       const user = userEvent.setup();
-      getEvent.mockResolvedValue(hiddenTicketEventInfo());
+      getEvent.mockResolvedValue(eventInfo);
       validatePromoCode.mockResolvedValue({
         valid: true,
         unlocks_ticket_types: [],
@@ -1778,35 +1782,79 @@ describe('Register page — promo code', () => {
         discount_value: '10',
         applies_to_ticket_type_ids: ['tt-child']
       });
-      expect(text).toContain('10% discount on Barn (0-12 år).');
+      expect(text).toContain('10% discount on the ticket type Barn (0-12 år).');
       expect(text).not.toContain('on the total');
     });
 
-    it('names the ticket type a restricted fixed code discounts', async () => {
+    it('says a restricted fixed code comes off the total once, for the named type', async () => {
       const text = await applyPromo({
         discount_type: 'fixed',
         discount_value: '25',
         applies_to_ticket_type_ids: ['tt-child']
       });
-      expect(text).toContain('25.00 kr discount on Barn (0-12 år).');
+      expect(text).toContain('25.00 kr off the total for the ticket type Barn (0-12 år).');
     });
 
-    it('counts ticket types when more than two, or when a name is not known', async () => {
-      const text = await applyPromo({
-        discount_type: 'percent',
-        discount_value: '10',
-        applies_to_ticket_type_ids: ['tt-child', 'a', 'b']
-      });
+    it('joins two ticket types with "and"', async () => {
+      const text = await applyPromo(
+        {
+          discount_type: 'percent',
+          discount_value: '10',
+          applies_to_ticket_type_ids: ['tt-family', 'tt-solo']
+        },
+        familyEventInfo()
+      );
+      expect(text).toContain('10% discount on the ticket types Familjebiljett and Solo.');
+    });
+
+    it('counts ticket types when more than two are known', async () => {
+      const text = await applyPromo(
+        {
+          discount_type: 'percent',
+          discount_value: '10',
+          applies_to_ticket_type_ids: ['tt-family', 'tt-member', 'tt-solo']
+        },
+        familyEventInfo()
+      );
       expect(text).toContain('10% discount on 3 ticket types.');
     });
 
-    it('counts a single ticket type whose name is not known', async () => {
-      const text = await applyPromo({
+    it('drops scope ids the form does not know, and the clause when none remain', async () => {
+      let text = await applyPromo({
+        discount_type: 'percent',
+        discount_value: '10',
+        applies_to_ticket_type_ids: ['tt-child', 'tt-hidden']
+      });
+      expect(text).toContain('10% discount on the ticket type Barn (0-12 år).');
+      cleanup();
+      text = await applyPromo({
         discount_type: 'percent',
         discount_value: '10',
         applies_to_ticket_type_ids: ['tt-hidden']
       });
-      expect(text).toContain('10% discount on 1 ticket type.');
+      expect(text).not.toContain('discount');
+      expect(text).toBe('Code applied.');
+    });
+
+    it('does not announce unlocking a ticket type that was already visible', async () => {
+      const text = await applyPromo({
+        discount_type: 'fixed',
+        discount_value: '0',
+        applies_to_ticket_type_ids: [],
+        unlocks_ticket_types: [hiddenTicketEventInfo().ticket_types[0]]
+      });
+      expect(text).not.toContain('now available');
+    });
+
+    it('names a type the same code unlocks and discounts', async () => {
+      const text = await applyPromo({
+        discount_type: 'percent',
+        discount_value: '20',
+        applies_to_ticket_type_ids: ['tt-vip'],
+        unlocks_ticket_types: [vipTicketType]
+      });
+      expect(text).toContain('20% discount on the ticket type VIP.');
+      expect(text).toContain('VIP — now available under Ticket type.');
     });
 
     it('states the unlocked ticket type in the applied confirmation', async () => {
