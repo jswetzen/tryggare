@@ -49,41 +49,74 @@ def _money(value):
     return None if value is None else str(value)
 
 
+def keyed_rows(event: Event) -> dict:
+    """The event's rows in export order with their derived keys.
+
+    ``{"sessions": [(key, obj)], "ticket_types": [...], "extras": [...],
+    "choices": [(extra_key, key, obj)], "promo_codes": [...]}``. Ties in the
+    ordering break on id so derived keys do not swap between runs.
+    """
+    _check_references_stay_in_event(event)
+    allocator = KeyAllocator()
+    sessions = [
+        (allocator.allocate(s.name), s)
+        for s in event.sessions.order_by("start_time", "name", "id")
+    ]
+    allocator = KeyAllocator()
+    ticket_types = [
+        (allocator.allocate(t.name), t)
+        for t in event.ticket_types.prefetch_related("sessions").order_by(
+            "sort_order", "name", "id"
+        )
+    ]
+    allocator = KeyAllocator()
+    extras, choices = [], []
+    for e in event.extras.order_by("sort_order", "name", "id"):
+        extra_key = allocator.allocate(e.name)
+        extras.append((extra_key, e))
+        choice_alloc = KeyAllocator()
+        for c in e.choice_rows.order_by("sort_order", "label", "id"):
+            choices.append((extra_key, choice_alloc.allocate(c.label), c))
+    allocator = KeyAllocator()
+    promos = [
+        (allocator.allocate(p.code), p)
+        for p in event.promo_codes.prefetch_related(
+            "applies_to_ticket_types", "unlocks_ticket_types"
+        ).order_by("code", "id")
+    ]
+    return {
+        "sessions": sessions,
+        "ticket_types": ticket_types,
+        "extras": extras,
+        "choices": choices,
+        "promo_codes": promos,
+    }
+
+
 def export(event: Event) -> dict:
     """The event's configuration as a JSON-ready spec; ids and live state are left out.
 
     Built as plain dicts, not through the spec models, so data the models allow
-    but validation rejects (a negative price) still exports. Ties in the ordering
-    break on id so derived keys do not swap between runs.
+    but validation rejects (a negative price) still exports.
     """
-    _check_references_stay_in_event(event)
+    rows = keyed_rows(event)
+    session_keys = {s.id: key for key, s in rows["sessions"]}
+    type_keys = {t.id: key for key, t in rows["ticket_types"]}
 
-    session_keys: dict = {}
-    allocator = KeyAllocator()
-    sessions = []
-    for s in event.sessions.order_by("start_time", "name", "id"):
-        session_keys[s.id] = allocator.allocate(s.name)
-        sessions.append(
-            {
-                "key": session_keys[s.id],
-                "name": s.name,
-                "start_time": _dt(s.start_time),
-                "end_time": _dt(s.end_time),
-                "ticket_rule": s.ticket_rule,
-                "adults_not_checked_in": s.adults_not_checked_in,
-            }
-        )
-
-    type_rows = list(
-        event.ticket_types.prefetch_related("sessions").order_by(
-            "sort_order", "name", "id"
-        )
-    )
-    allocator = KeyAllocator()
-    type_keys = {t.id: allocator.allocate(t.name) for t in type_rows}
+    sessions = [
+        {
+            "key": key,
+            "name": s.name,
+            "start_time": _dt(s.start_time),
+            "end_time": _dt(s.end_time),
+            "ticket_rule": s.ticket_rule,
+            "adults_not_checked_in": s.adults_not_checked_in,
+        }
+        for key, s in rows["sessions"]
+    ]
     ticket_types = [
         {
-            "key": type_keys[t.id],
+            "key": key,
             "name": t.name,
             "price": _money(t.price),
             "applies_to": t.applies_to,
@@ -100,16 +133,13 @@ def export(event: Event) -> dict:
             "sort_order": t.sort_order,
             "is_active": t.is_active,
         }
-        for t in type_rows
+        for key, t in rows["ticket_types"]
     ]
-
-    allocator = KeyAllocator()
     extras = []
-    for e in event.extras.order_by("sort_order", "name", "id"):
-        choice_alloc = KeyAllocator()
+    for key, e in rows["extras"]:
         extras.append(
             {
-                "key": allocator.allocate(e.name),
+                "key": key,
                 "name": e.name,
                 "price": _money(e.price),
                 "per_attendee": e.per_attendee,
@@ -122,41 +152,36 @@ def export(event: Event) -> dict:
                 "is_active": e.is_active,
                 "choices": [
                     {
-                        "key": choice_alloc.allocate(c.label),
+                        "key": ckey,
                         "label": c.label,
                         "price_delta": _money(c.price_delta),
                         "sort_order": c.sort_order,
                         "is_active": c.is_active,
                     }
-                    for c in e.choice_rows.order_by("sort_order", "label", "id")
+                    for extra_key, ckey, c in rows["choices"]
+                    if extra_key == key
                 ],
             }
         )
-
-    allocator = KeyAllocator()
-    promos = []
-    for p in event.promo_codes.prefetch_related(
-        "applies_to_ticket_types", "unlocks_ticket_types"
-    ).order_by("code", "id"):
-        promos.append(
-            {
-                "key": allocator.allocate(p.code),
-                "code": p.code,
-                "discount_type": p.discount_type,
-                "discount_value": _money(p.discount_value),
-                "applies_to_ticket_types": sorted(
-                    type_keys[t.id] for t in p.applies_to_ticket_types.all()
-                ),
-                "unlocks_ticket_types": sorted(
-                    type_keys[t.id] for t in p.unlocks_ticket_types.all()
-                ),
-                "max_uses": p.max_uses,
-                "valid_from": _dt(p.valid_from),
-                "valid_until": _dt(p.valid_until),
-                "is_active": p.is_active,
-            }
-        )
-
+    promos = [
+        {
+            "key": key,
+            "code": p.code,
+            "discount_type": p.discount_type,
+            "discount_value": _money(p.discount_value),
+            "applies_to_ticket_types": sorted(
+                type_keys[t.id] for t in p.applies_to_ticket_types.all()
+            ),
+            "unlocks_ticket_types": sorted(
+                type_keys[t.id] for t in p.unlocks_ticket_types.all()
+            ),
+            "max_uses": p.max_uses,
+            "valid_from": _dt(p.valid_from),
+            "valid_until": _dt(p.valid_until),
+            "is_active": p.is_active,
+        }
+        for key, p in rows["promo_codes"]
+    ]
     return {
         "event_spec_version": 1,
         "event": {
