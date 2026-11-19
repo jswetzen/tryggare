@@ -69,6 +69,10 @@ vi.mock('svelte-i18n', () => {
     'register.promoCodeAppliedPrefix': 'Code applied',
     'register.promoEffectPercent': '{percent}% discount on the total.',
     'register.promoEffectFixed': '{amount} kr discount on the total.',
+    'register.promoEffectPercentOn': '{percent}% discount on {names}.',
+    'register.promoEffectFixedOn': '{amount} kr discount on {names}.',
+    'register.promoTicketTypesCount': '{count} ticket types',
+    'register.promoTicketTypeOne': '1 ticket type',
     'register.promoEffectUnlocks': '{names} — now available under Ticket type.',
     'register.promoRemoved': 'The code was removed.',
     'register.promoRemovedWithReset':
@@ -1751,6 +1755,58 @@ describe('Register page — promo code', () => {
 
       const applied = await screen.findByTestId('register-promo-code-applied');
       expect(applied.textContent).toContain('10.00 kr discount on the total.');
+    });
+
+    async function applyPromo(validation: Record<string, unknown>) {
+      const user = userEvent.setup();
+      getEvent.mockResolvedValue(hiddenTicketEventInfo());
+      validatePromoCode.mockResolvedValue({
+        valid: true,
+        unlocks_ticket_types: [],
+        ...validation
+      });
+      render(RegisterPage);
+      await screen.findByTestId('register-form');
+      await user.type(screen.getByTestId('register-promo-code-input'), 'CODE');
+      await user.click(screen.getByTestId('register-promo-code-apply'));
+      return (await screen.findByTestId('register-promo-code-applied')).textContent ?? '';
+    }
+
+    it('names the ticket type a restricted percent code discounts, not the total', async () => {
+      const text = await applyPromo({
+        discount_type: 'percent',
+        discount_value: '10',
+        applies_to_ticket_type_ids: ['tt-child']
+      });
+      expect(text).toContain('10% discount on Barn (0-12 år).');
+      expect(text).not.toContain('on the total');
+    });
+
+    it('names the ticket type a restricted fixed code discounts', async () => {
+      const text = await applyPromo({
+        discount_type: 'fixed',
+        discount_value: '25',
+        applies_to_ticket_type_ids: ['tt-child']
+      });
+      expect(text).toContain('25.00 kr discount on Barn (0-12 år).');
+    });
+
+    it('counts ticket types when more than two, or when a name is not known', async () => {
+      const text = await applyPromo({
+        discount_type: 'percent',
+        discount_value: '10',
+        applies_to_ticket_type_ids: ['tt-child', 'a', 'b']
+      });
+      expect(text).toContain('10% discount on 3 ticket types.');
+    });
+
+    it('counts a single ticket type whose name is not known', async () => {
+      const text = await applyPromo({
+        discount_type: 'percent',
+        discount_value: '10',
+        applies_to_ticket_type_ids: ['tt-hidden']
+      });
+      expect(text).toContain('10% discount on 1 ticket type.');
     });
 
     it('states the unlocked ticket type in the applied confirmation', async () => {

@@ -1453,13 +1453,38 @@
     const parts: string[] = [];
     const value = parseFloat(promoCodeValidation.discount_value ?? '0');
     if (value > 0) {
-      parts.push(
-        promoCodeValidation.discount_type === 'percent'
-          ? $t('register.promoEffectPercent', { values: { percent: value } })
-          : $t('register.promoEffectFixed', { values: { amount: formatCurrency(value) } })
-      );
+      const isPercent = promoCodeValidation.discount_type === 'percent';
+      const scopeIds = promoCodeValidation.applies_to_ticket_type_ids ?? [];
+      const amount = isPercent ? value : formatCurrency(value);
+      if (scopeIds.length === 0) {
+        parts.push(
+          $t(isPercent ? 'register.promoEffectPercent' : 'register.promoEffectFixed', {
+            values: isPercent ? { percent: amount } : { amount }
+          })
+        );
+      } else {
+        // A restricted code never says "on the total": name the ticket types
+        // (up to two, and only when every name is known), else count them.
+        const byId = new Map((spec?.ticket_types ?? []).map((tt) => [tt.id, tt.name]));
+        const names = scopeIds.map((id) => byId.get(id));
+        const named = scopeIds.length <= 2 && names.every((n) => n);
+        const scope = named
+          ? names.join(', ')
+          : scopeIds.length === 1
+            ? $t('register.promoTicketTypeOne')
+            : $t('register.promoTicketTypesCount', { values: { count: scopeIds.length } });
+        parts.push(
+          $t(isPercent ? 'register.promoEffectPercentOn' : 'register.promoEffectFixedOn', {
+            values: isPercent ? { percent: amount, names: scope } : { amount, names: scope }
+          })
+        );
+      }
     }
-    const unlocked = promoCodeValidation.unlocks_ticket_types ?? [];
+    // Only types this code newly revealed: one already visible is not "now available".
+    const unlockedIds = new Set(promoCodeUnlockedIds);
+    const unlocked = (promoCodeValidation.unlocks_ticket_types ?? []).filter((tt) =>
+      unlockedIds.has(tt.id)
+    );
     if (unlocked.length > 0) {
       parts.push(
         $t('register.promoEffectUnlocks', {
