@@ -9,12 +9,24 @@ from datetime import date, datetime, timedelta
 
 from django.db import transaction
 from django.utils import timezone
+from django.utils.translation import gettext as _
 
 from .models import Event, Extra, PromoCode, Session, TicketType
 
 # Copying (and spec apply) creates rows in all five models, not just events.
-COPY_PERMISSIONS = tuple(
-    f"events.add_{m}" for m in ("event", "session", "tickettype", "extra", "promocode")
+SPEC_MODELS = (
+    "event",
+    "session",
+    "tickettype",
+    "extra",
+    "extrachoice",
+    "promocode",
+)
+COPY_PERMISSIONS = tuple(f"events.add_{m}" for m in SPEC_MODELS)
+VIEW_PERMISSIONS = tuple(f"events.view_{m}" for m in SPEC_MODELS)
+# Replacing a setup deletes rows too.
+REPLACE_PERMISSIONS = tuple(
+    f"events.{verb}_{m}" for m in SPEC_MODELS for verb in ("add", "change", "delete")
 )
 
 
@@ -120,14 +132,24 @@ def _check_references_stay_in_event(source: Event) -> None:
         for session in ticket_type.sessions.all():
             if session.event_id != source.id:
                 raise ValueError(
-                    f"Ticket type '{ticket_type.name}' includes session "
-                    f"'{session.name}' from another event."
+                    _(
+                        "Ticket type '%(name)s' includes session '%(other)s' from another event."
+                    )
+                    % {"name": ticket_type.name, "other": session.name}
                 )
         required = ticket_type.requires_ticket_type
         if required is not None and required.event_id != source.id:
             raise ValueError(
-                f"Ticket type '{ticket_type.name}' requires ticket type "
-                f"'{required.name}' from another event."
+                _(
+                    "Ticket type '%(name)s' requires ticket type '%(other)s' from another event."
+                )
+                % {"name": ticket_type.name, "other": required.name}
+            )
+    for extra in source.extras.select_related("session"):
+        if extra.session is not None and extra.session.event_id != source.id:
+            raise ValueError(
+                _("Extra '%(name)s' is tied to session '%(other)s' from another event.")
+                % {"name": extra.name, "other": extra.session.name}
             )
     for promo in source.promo_codes.prefetch_related(
         "applies_to_ticket_types", "unlocks_ticket_types"
@@ -138,8 +160,10 @@ def _check_references_stay_in_event(source: Event) -> None:
         ]:
             if ticket_type.event_id != source.id:
                 raise ValueError(
-                    f"Promo code '{promo.code}' refers to ticket type "
-                    f"'{ticket_type.name}' from another event."
+                    _(
+                        "Promo code '%(name)s' refers to ticket type '%(other)s' from another event."
+                    )
+                    % {"name": promo.code, "other": ticket_type.name}
                 )
 
 

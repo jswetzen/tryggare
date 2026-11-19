@@ -71,7 +71,12 @@ def apply(
                 recheck = _target_issues(event)
                 if recheck:
                     raise SpecError(recheck, warnings)
-                current = export(event)
+                try:
+                    current = export(event)
+                except ValueError as exc:
+                    raise SpecError(
+                        [_issue("event", "cross_event_reference", str(exc))], warnings
+                    ) from exc
             changes = diff_normalized(current, normalize(parsed))
             _write(event, parsed)
     except IntegrityError as exc:

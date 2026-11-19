@@ -17,8 +17,10 @@ from rest_framework.test import APIClient
 
 from accounts.models import AdminUser
 from events.event_spec import example_spec, export
+from events.management.commands.event_spec import Command
 from events.models import Event, EventTicket, Session, TicketType
-from events.services import COPY_PERMISSIONS
+from accounts.roles import COORDINATOR, grant
+from events.services import COPY_PERMISSIONS, VIEW_PERMISSIONS
 from families.models import Child, Family
 
 NOW = datetime(2026, 11, 19, 12, 0, tzinfo=UTC)
@@ -36,6 +38,27 @@ def add_ticket(event):
         birthdate=date(2020, 1, 1),
     )
     EventTicket.objects.create(attendee=child, event=event)
+
+
+def foreign_session_event():
+    """An otherwise empty event whose ticket type includes another event's session."""
+    target = Event.objects.create(
+        name="Target", start_date=date(2027, 5, 1), end_date=date(2027, 5, 2)
+    )
+    other = Event.objects.create(
+        name="Other", start_date=date(2027, 1, 1), end_date=date(2027, 1, 2)
+    )
+    foreign = Session.objects.create(
+        event=other,
+        name="Foreign",
+        start_time=datetime(2027, 1, 1, 9, tzinfo=UTC),
+        end_time=datetime(2027, 1, 1, 10, tzinfo=UTC),
+    )
+    ticket_type = TicketType.objects.create(
+        event=target, name="T", price=0, kind="session_bundle"
+    )
+    ticket_type.sessions.add(foreign)
+    return target
 
 
 def make_event(spec=None):
@@ -82,8 +105,82 @@ ENDPOINTS = [
 
 
 class PermissionTests(ApiTestCase):
-    def test_copy_permissions_are_the_five_add_perms(self):
-        self.assertEqual(len(COPY_PERMISSIONS), 5)
+    def user_with(self, name, labels):
+        user = AdminUser.objects.create_user(name, "pw12345")
+        for label in labels:
+            app, codename = label.split(".")
+            user.user_permissions.add(
+                Permission.objects.get(content_type__app_label=app, codename=codename)
+            )
+        return user
+
+    def test_spec_models_are_the_six_event_owned_ones(self):
+        self.assertEqual(len(COPY_PERMISSIONS), 6)
+        self.assertIn("events.add_extrachoice", COPY_PERMISSIONS)
+
+    def test_coordinator_is_allowed_everywhere(self):
+        event = make_event()
+        user = grant(AdminUser.objects.create_user("coord", "pw12345"), COORDINATOR)
+        client = self.client_for(user)
+        for method, name, with_id in ENDPOINTS:
+            url = reverse(name, args=[event.pk] if with_id else [])
+            response = getattr(client, method)(
+                url, {"spec": example_spec()}, format="json"
+            )
+            self.assertNotIn(response.status_code, (401, 403), (method, name))
+
+    def test_create_only_user_cannot_put(self):
+        target = Event.objects.create(
+            name="Empty", start_date=date(2027, 5, 1), end_date=date(2027, 5, 2)
+        )
+        client = self.client_for(self.user_with("creator", COPY_PERMISSIONS))
+        created = self.post(
+            client, reverse("event-spec-create"), {"spec": example_spec()}
+        )
+        self.assertEqual(created.status_code, 201)
+        with at_now():
+            response = client.put(
+                reverse("event-spec", args=[target.pk]),
+                {"spec": example_spec()},
+                format="json",
+            )
+        self.assertEqual(response.status_code, 403)
+        self.assertFalse(target.sessions.exists())
+
+    def test_export_needs_view_promocode(self):
+        event = make_event()
+        labels = [p for p in VIEW_PERMISSIONS if not p.endswith("promocode")]
+        client = self.client_for(self.user_with("noview", labels))
+        for method, name, with_id in ENDPOINTS[:3] + ENDPOINTS[3:5]:
+            if method == "post" and name == "event-spec-create":
+                continue
+            url = reverse(name, args=[event.pk] if with_id else [])
+            response = getattr(client, method)(
+                url, {"spec": example_spec()}, format="json"
+            )
+            self.assertEqual(response.status_code, 403, name)
+
+    def test_put_needs_csrf_with_session_auth(self):
+        target = Event.objects.create(
+            name="Empty", start_date=date(2027, 5, 1), end_date=date(2027, 5, 2)
+        )
+        client = APIClient(enforce_csrf_checks=True)
+        client.force_login(self.staff)
+        response = client.put(
+            reverse("event-spec", args=[target.pk]),
+            {"spec": example_spec()},
+            format="json",
+        )
+        self.assertEqual(response.status_code, 403)
+        self.assertFalse(target.sessions.exists())
+
+    def test_refusals_use_the_error_shape(self):
+        response = self.client_for(self.plain).get(reverse("event-spec-schema"))
+        self.assertEqual(response.status_code, 403)
+        body = response.json()
+        self.assertEqual(body["warnings"], [])
+        self.assertEqual(set(body["errors"][0]), {"path", "code", "message"})
+        self.assertEqual(body["errors"][0]["code"], "permission_denied")
 
     def test_nobody_below_the_copy_rule_gets_in(self):
         event = make_event()
@@ -269,7 +366,7 @@ class EventSpecTests(ApiTestCase):
         )
         self.assertEqual(response.status_code, 200)
         body = response.json()
-        self.assertEqual(set(body), {"diff", "errors", "warnings"})
+        self.assertEqual(set(body), {"valid", "diff", "errors", "warnings"})
         self.assertEqual(
             [c["change"] for c in body["diff"] if c["kind"] == "event"], ["changed"]
         )
@@ -347,6 +444,78 @@ class EventSpecTests(ApiTestCase):
             )
         self.assertEqual(response.status_code, 400)
         self.assertFalse(target.sessions.exists())
+
+    def test_put_malformed_path_id_is_404_in_error_shape(self):
+        for call in (
+            self.as_staff().get,
+            lambda url: self.as_staff().put(
+                url, {"spec": example_spec()}, format="json"
+            ),
+        ):
+            response = call("/api/events/not-a-uuid/spec/")
+            self.assertEqual(response.status_code, 404)
+            self.assertEqual(response.json()["errors"][0]["code"], "event_not_found")
+
+    def test_bare_spec_body_is_accepted(self):
+        client = self.as_staff()
+        created = self.post(client, reverse("event-spec-create"), example_spec())
+        self.assertEqual(created.status_code, 201)
+        target = Event.objects.create(
+            name="Empty", start_date=date(2027, 5, 1), end_date=date(2027, 5, 2)
+        )
+        with at_now():
+            response = client.put(
+                reverse("event-spec", args=[target.pk]), example_spec(), format="json"
+            )
+        self.assertEqual(response.status_code, 200)
+
+    def test_diff_reports_valid(self):
+        event = make_event()
+        url = reverse("event-spec-diff", args=[event.pk])
+        ok = self.post(
+            self.as_staff(), url, {"spec": json.loads(json.dumps(export(event)))}
+        )
+        self.assertTrue(ok.json()["valid"])
+        bad = self.post(self.as_staff(), url, {"spec": {"event": {}}})
+        self.assertFalse(bad.json()["valid"])
+
+    def test_put_with_open_registration_is_409(self):
+        target = Event.objects.create(
+            name="Open",
+            start_date=date(2027, 5, 1),
+            end_date=date(2027, 5, 2),
+            registration_opens_at=datetime(2026, 11, 1, tzinfo=UTC),
+        )
+        client = self.as_staff()
+        with at_now():
+            response = client.put(
+                reverse("event-spec", args=[target.pk]),
+                {"spec": example_spec()},
+                format="json",
+            )
+        self.assertEqual(response.status_code, 409)
+        self.assertEqual(
+            response.json()["errors"][0]["code"], "registration_open_on_target"
+        )
+
+    def test_put_cross_event_reference_is_409_not_500(self):
+        target = foreign_session_event()
+        with at_now():
+            response = self.as_staff().put(
+                reverse("event-spec", args=[target.pk]),
+                {"spec": example_spec()},
+                format="json",
+            )
+        self.assertEqual(response.status_code, 409)
+        self.assertEqual(response.json()["errors"][0]["code"], "cross_event_reference")
+
+    def test_spec_size_is_capped(self):
+        spec = example_spec()
+        spec["sessions"] = [spec["sessions"][0]] * 301
+        response = self.post(
+            self.as_staff(), reverse("event-spec-validate"), {"spec": spec}
+        )
+        self.assertFalse(response.json()["valid"])
 
     def test_put_unknown_event(self):
         response = self.as_staff().put(
@@ -461,6 +630,37 @@ class CommandTests(TestCase):
         )
         self.assertEqual(json.loads(out)["event_id"], str(target.pk))
         self.assertTrue(target.sessions.exists())
+
+    def test_cross_event_reference_is_a_command_error(self):
+        target = foreign_session_event()
+        path = self.spec_file(example_spec())
+        for extra in ((), ("--dry-run",)):
+            with self.assertRaises(CommandError) as ctx:
+                self.run_cmd("apply", path, "--event", str(target.pk), *extra)
+            self.assertEqual(ctx.exception.returncode, 1)
+
+    def test_exit_codes(self):
+        spec = example_spec()
+        spec["event"]["end_date"] = "2000-01-01"
+        with self.assertRaises(CommandError) as ctx:
+            self.run_cmd("validate", self.spec_file(spec))
+        self.assertEqual(ctx.exception.returncode, 1)
+        for args in (
+            ("validate", "/nonexistent/spec.json"),
+            ("export", "--event", "not-a-uuid"),
+            ("export", "--event", str(make_event().pk), "-o", "/nonexistent/x.json"),
+        ):
+            with self.assertRaises(CommandError) as ctx:
+                self.run_cmd(*args)
+            self.assertEqual(ctx.exception.returncode, 2, args)
+
+    def test_spec_from_stdin(self):
+        command = Command()
+        command.stdin = StringIO(json.dumps(example_spec()))
+        out = StringIO()
+        with at_now():
+            call_command(command, "apply", "-", "--dry-run", stdout=out)
+        self.assertTrue(json.loads(out.getvalue())["dry_run"])
 
     def test_apply_error_exits_nonzero_and_writes_nothing(self):
         spec = example_spec()

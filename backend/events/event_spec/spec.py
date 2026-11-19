@@ -13,6 +13,10 @@ from typing import Annotated, Literal
 from django.utils import timezone
 from pydantic import AfterValidator, BaseModel, ConfigDict, Field, StringConstraints
 
+# Bounds on what one spec may carry, so a request cannot be made arbitrarily large.
+MAX_ROWS = 300
+MAX_CHOICES = 100
+
 KEY_PATTERN = r"^[a-z0-9]+(-[a-z0-9]+)*$"
 
 Key = Annotated[
@@ -185,6 +189,7 @@ class TicketTypeSpec(_Row):
     )
     sessions: list[Key] = Field(
         default_factory=list,
+        max_length=MAX_ROWS,
         description="Keys of the sessions a 'session_bundle' ticket covers. Ignored for kind 'event'.",
     )
     capacity: int | None = Field(
@@ -270,6 +275,7 @@ class ExtraSpec(_Row):
     )
     choices: list[ExtraChoiceSpec] = Field(
         default_factory=list,
+        max_length=MAX_CHOICES,
         description="The options when requires_choice is true; ignored otherwise.",
     )
 
@@ -293,10 +299,12 @@ class PromoCodeSpec(_Row):
     )
     applies_to_ticket_types: list[Key] = Field(
         default_factory=list,
+        max_length=MAX_ROWS,
         description="Keys of ticket types the discount applies to. Empty means the whole order.",
     )
     unlocks_ticket_types: list[Key] = Field(
         default_factory=list,
+        max_length=MAX_ROWS,
         description="Keys of hidden ticket types this code makes selectable.",
     )
     max_uses: int | None = Field(
@@ -323,15 +331,20 @@ class EventSpec(_Row):
     event_spec_version: Literal[1] = Field(description="Spec format version. Always 1.")
     event: EventSection = Field(description="Event settings.")
     sessions: list[SessionSpec] = Field(
-        default_factory=list, description="Sessions of the event."
+        default_factory=list, max_length=MAX_ROWS, description="Sessions of the event."
     )
     ticket_types: list[TicketTypeSpec] = Field(
-        default_factory=list, description="Ticket types sold for the event."
+        default_factory=list,
+        max_length=MAX_ROWS,
+        description="Ticket types sold for the event.",
     )
     extras: list[ExtraSpec] = Field(
-        default_factory=list, description="Paid or free add-ons, with their choices."
+        default_factory=list,
+        max_length=MAX_ROWS,
+        description="Paid or free add-ons, with their choices.",
     )
     promo_codes: list[PromoCodeSpec] = Field(
         default_factory=list,
+        max_length=MAX_ROWS,
         description="Promo codes: discounts and/or unlocks for hidden ticket types. One code per registration.",
     )

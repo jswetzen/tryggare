@@ -249,13 +249,22 @@ def _reference_issues(spec: EventSpec) -> list[Issue]:
 def _requires_cycles(spec: EventSpec) -> list[Issue]:
     # A type requiring itself is an error from TicketType.clean; longer loops are only suspicious.
     parent = {t.key: t.requires_ticket_type for t in spec.ticket_types}
+    in_cycle: set[str] = set()
+    done: set[str] = set()  # shared across start nodes: each chain is walked once
+    for t in spec.ticket_types:
+        path, node = [], t.key
+        while node is not None and node not in done:
+            if node in path:
+                members = path[path.index(node) :]
+                if len(members) > 1:  # a self-reference is TicketType.clean's error
+                    in_cycle.update(members)
+                break
+            path.append(node)
+            node = parent.get(node)
+        done.update(path)
     issues = []
     for i, t in enumerate(spec.ticket_types):
-        seen, node = {t.key}, parent.get(t.key)
-        while node is not None and node != t.key and node not in seen:
-            seen.add(node)
-            node = parent.get(node)
-        if node == t.key and parent.get(t.key) != t.key:
+        if t.key in in_cycle:
             issues.append(
                 _issue(
                     f"ticket_types[{i}].requires_ticket_type",

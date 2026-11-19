@@ -2061,3 +2061,18 @@ msgstr "fel"
 
 msgid "warning"
 msgstr "varning"
+
+msgid "Cannot write %(path)s: %(error)s"
+msgstr "Kan inte skriva %(path)s: %(error)s"
+
+msgid "Ticket type '%(name)s' includes session '%(other)s' from another event."
+msgstr "Biljettypen ”%(name)s” innehåller sessionen ”%(other)s” från ett annat evenemang."
+
+msgid "Ticket type '%(name)s' requires ticket type '%(other)s' from another event."
+msgstr "Biljettypen ”%(name)s” kräver biljettypen ”%(other)s” från ett annat evenemang."
+
+msgid "Extra '%(name)s' is tied to session '%(other)s' from another event."
+msgstr "Tillvalet ”%(name)s” är knutet till sessionen ”%(other)s” från ett annat evenemang."
+
+msgid "Promo code '%(name)s' refers to ticket type '%(other)s' from another event."
+msgstr "Kampanjkoden ”%(name)s” hänvisar till biljettypen ”%(other)s” från ett annat evenemang."

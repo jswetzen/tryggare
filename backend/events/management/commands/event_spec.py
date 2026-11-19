@@ -39,6 +39,8 @@ class Command(BaseCommand):
         p.add_argument("--event", help="Apply onto this empty event instead.")
         p.add_argument("--dry-run", action="store_true", help="Validate and diff only.")
 
+    stdin = None  # injectable for tests; defaults to sys.stdin
+
     def handle(self, *args, **options):
         getattr(self, f"_{options['action']}")(options)
 
@@ -47,23 +49,25 @@ class Command(BaseCommand):
             return Event.objects.get(pk=event_id)
         except (Event.DoesNotExist, ValidationError):
             raise CommandError(
-                _("Event %(id)s does not exist.") % {"id": event_id}
+                _("Event %(id)s does not exist.") % {"id": event_id}, returncode=2
             ) from None
 
     def _spec(self, path):
         try:
             if path == "-":
-                return json.load(sys.stdin)
+                return json.load(self.stdin or sys.stdin)
             with open(path, encoding="utf-8") as f:
                 return json.load(f)
         except OSError as exc:
             raise CommandError(
-                _("Cannot read %(path)s: %(error)s") % {"path": path, "error": exc}
+                _("Cannot read %(path)s: %(error)s") % {"path": path, "error": exc},
+                returncode=2,
             ) from exc
         except ValueError as exc:
             raise CommandError(
                 _("%(path)s is not valid JSON: %(error)s")
-                % {"path": path, "error": exc}
+                % {"path": path, "error": exc},
+                returncode=2,
             ) from exc
 
     def _json(self, data):
@@ -93,9 +97,16 @@ class Command(BaseCommand):
         except ValueError as exc:
             raise CommandError(str(exc)) from exc
         if options["output"]:
-            with open(options["output"], "w", encoding="utf-8") as f:
-                json.dump(spec, f, indent=2, ensure_ascii=False)
-                f.write("\n")
+            try:
+                with open(options["output"], "w", encoding="utf-8") as f:
+                    json.dump(spec, f, indent=2, ensure_ascii=False)
+                    f.write("\n")
+            except OSError as exc:
+                raise CommandError(
+                    _("Cannot write %(path)s: %(error)s")
+                    % {"path": options["output"], "error": exc},
+                    returncode=2,
+                ) from exc
         else:
             self._json(spec)
 
@@ -115,11 +126,19 @@ class Command(BaseCommand):
         self._report(errors, warnings)
         try:
             changes = event_spec.diff(event, spec)
-        except (PydanticValidationError, ValueError, TypeError):
+        except PydanticValidationError:
             changes = []  # a shape error; the issues above say where
+        except ValueError as exc:
+            raise CommandError(str(exc)) from exc
         self._json({"diff": changes, "errors": errors, "warnings": warnings})
         if errors:
             self._fail(errors)
+
+    def _dry_diff(self, event, spec):
+        try:
+            return event_spec.diff(event, spec)
+        except ValueError as exc:  # a cross-event reference on the target
+            raise CommandError(str(exc)) from exc
 
     def _apply(self, options):
         spec = self._spec(options["file"])
@@ -134,7 +153,7 @@ class Command(BaseCommand):
                 {
                     "dry_run": True,
                     "event_id": str(event.pk) if event else None,
-                    "diff": event_spec.diff(event, spec),
+                    "diff": self._dry_diff(event, spec),
                     "warnings": warnings,
                 }
             )

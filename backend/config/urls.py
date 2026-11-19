@@ -87,11 +87,9 @@ urlpatterns = [
         EventSpecValidateView.as_view(),
         name="event-spec-validate",
     ),
+    path("api/events/<str:event_id>/spec/", EventSpecView.as_view(), name="event-spec"),
     path(
-        "api/events/<uuid:event_id>/spec/", EventSpecView.as_view(), name="event-spec"
-    ),
-    path(
-        "api/events/<uuid:event_id>/spec/diff/",
+        "api/events/<str:event_id>/spec/diff/",
         EventSpecDiffView.as_view(),
         name="event-spec-diff",
     ),
