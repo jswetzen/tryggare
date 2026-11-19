@@ -95,11 +95,7 @@ The prompt and notice are not a guarantee, since a model can miss something. The
 
 #### Feature request content
 
-A `submit_feature_request` tool produces a draft with: use case, current workaround, desired behavior, and who is affected. Stored in a DB table with a status once confirmed. Optional email to the maintainer after maintainer review.
-
-- Fixed fields with length caps, rate limited.
-- Plain-text email only.
-- Nothing is posted to GitHub automatically.
+See `feature_requests.md`: the record structure, the personal-data rules, the local record with manual GitHub export (replacing the earlier email-to-maintainer idea), and the assistant's `file_feature_request` tool.
 
 ### Providers (D only)
 
