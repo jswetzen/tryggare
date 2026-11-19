@@ -7,97 +7,47 @@ A change is ``{"kind", "key", "change", ...}`` where ``change`` is ``added``
 ordered by kind, then key; reference lists compare as sets.
 """
 
-from decimal import Decimal
-
 from ..models import Event
-from ._export import _d, _dt, export
-from .spec import EventSpec
-
-KIND_ORDER = ["event", "sessions", "ticket_types", "extras", "choices", "promo_codes"]
-_TWO_PLACES = Decimal("0.01")
-_SET_FIELDS = {"sessions", "applies_to_ticket_types", "unlocks_ticket_types"}
-
-
-def _money(value: Decimal | None):
-    return None if value is None else format(value.quantize(_TWO_PLACES), "f")
+from ._export import export
+from ._kinds import KIND_ORDER, TOP_KINDS, nested, row_dict
+from .spec import EventSection, EventSpec
 
 
 def normalize(spec: dict | EventSpec) -> dict:
     """A spec in exactly the form ``export`` produces (Stockholm datetimes, 2-place
     money, rows in export order, reference lists sorted)."""
     parsed = spec if isinstance(spec, EventSpec) else EventSpec.model_validate(spec)
-    e = parsed.event
-
-    def row(model, money=(), dts=(), dates=(), drop=()):
-        out = {}
-        for name in type(model).model_fields:
-            if name in drop:
-                continue
-            value = getattr(model, name)
-            if name in money:
-                value = _money(value)
-            elif name in dts:
-                value = _dt(value)
-            elif name in dates:
-                value = _d(value)
-            elif name in _SET_FIELDS:
-                value = sorted(value)
-            out[name] = value
-        return out
-
-    sessions = [
-        row(s, dts=("start_time", "end_time"))
-        for s in sorted(parsed.sessions, key=lambda s: (s.start_time, s.name))
-    ]
-    ticket_types = [
-        row(
-            t,
-            money=("price",),
-            dts=("available_from", "available_until"),
-            dates=("min_birthdate", "max_birthdate"),
-        )
-        for t in sorted(parsed.ticket_types, key=lambda t: (t.sort_order, t.name))
-    ]
-    extras = []
-    for x in sorted(parsed.extras, key=lambda x: (x.sort_order, x.name)):
-        data = row(x, money=("price",), drop=("choices",))
-        data["choices"] = [
-            row(c, money=("price_delta",))
-            for c in sorted(x.choices, key=lambda c: (c.sort_order, c.label))
-        ]
-        extras.append(data)
-    promos = [
-        row(p, money=("discount_value",), dts=("valid_from", "valid_until"))
-        for p in sorted(parsed.promo_codes, key=lambda p: p.code)
-    ]
-    return {
-        "event_spec_version": 1,
-        "event": row(
-            e,
-            money=("price",),
-            dts=("registration_opens_at", "registration_closes_at"),
-            dates=("start_date", "end_date"),
-        ),
-        "sessions": sessions,
-        "ticket_types": ticket_types,
-        "extras": extras,
-        "promo_codes": promos,
-    }
+    out = {"event_spec_version": 1, "event": row_dict(EventSection, parsed.event)}
+    for kind in TOP_KINDS:
+        out[kind.name] = []
+        for row in kind.sort(getattr(parsed, kind.name)):
+            data = row_dict(kind.spec, row)
+            for child in nested(kind):
+                data[child.name] = [
+                    row_dict(child.spec, c)
+                    for c in child.sort(getattr(row, child.name))
+                ]
+            out[kind.name].append(data)
+    return out
 
 
 def _flat(spec: dict | None) -> dict:
-    """``{kind: {key: row}}`` with choices lifted out as kind ``choices``."""
+    """``{kind: {key: row}}`` with nested rows lifted out under their own kind."""
     out = {kind: {} for kind in KIND_ORDER}
     if spec is None:
         return out
     out["event"][None] = spec["event"]
-    for kind in ("sessions", "ticket_types", "promo_codes"):
-        for r in spec[kind]:
-            out[kind][r["key"]] = r
-    for x in spec["extras"]:
-        out["extras"][x["key"]] = {k: v for k, v in x.items() if k != "choices"}
-        for c in x["choices"]:
-            out["choices"][(x["key"], c["key"])] = {**c, "parent": x["key"]}
+    for kind in TOP_KINDS:
+        children = nested(kind)
+        for row in spec[kind.name]:
+            own = {k: v for k, v in row.items() if k not in {c.name for c in children}}
+            out[kind.name][row["key"]] = own
+            for child in children:
+                for sub in row[child.name]:
+                    out[child.name][(row["key"], sub["key"])] = {
+                        **sub,
+                        "parent": row["key"],
+                    }
     return out
 
 

@@ -21,16 +21,12 @@ from ..models import (
     SessionTicket,
     Ticket,
     Event,
-    Extra,
-    ExtraChoice,
-    PromoCode,
     RegistrationWindowStatus,
-    Session,
-    TicketType,
 )
 from ._export import KeyAllocator
-from ._issues import NOUNS, issue
-from .spec import EventSpec
+from ._issues import issue
+from ._kinds import KINDS, TOP_KINDS, nested, row_groups
+from .spec import EventSection, EventSpec
 
 Issue = dict
 
@@ -63,12 +59,15 @@ def validate(spec, event: Event | None = None) -> tuple[list[Issue], list[Issue]
     except PydanticValidationError as exc:
         return _shape_issues(exc), []
 
+    ev = Event(**parsed.event.model_dump())
+    if event is not None:
+        ev.pk = event.pk
     errors = _target_issues(event)
     errors += _reference_issues(parsed)
-    errors += _model_issues(parsed, event)
+    errors += _model_issues(parsed, ev)
     ties = _ordering_issues(parsed)
-    errors += _going_live_issues(parsed)
-    warnings = _warnings(parsed)
+    errors += _going_live_issues(ev)
+    warnings = _warnings(parsed, ev)
     # Ties only matter when rows are matched against existing ones; a new event
     # has nothing to match, so they are a warning there.
     if event is None or event._state.adding:
@@ -145,44 +144,32 @@ def _shape_issues(exc: PydanticValidationError) -> list[Issue]:
 # ---- references -----------------------------------------------------------
 
 
+def _duplicate_keys(rows, path: str) -> list[Issue]:
+    seen = Counter(r.key for r in rows)
+    return [
+        issue(
+            f"{path}[{i}].key",
+            "duplicate_key",
+            _("Key '%(key)s' is used more than once; keys must be unique.")
+            % {"key": row.key},
+        )
+        for i, row in enumerate(rows)
+        if seen[row.key] > 1
+    ]
+
+
 def _reference_issues(spec: EventSpec) -> list[Issue]:
     issues: list[Issue] = []
-    kinds = {
-        "sessions": spec.sessions,
-        "ticket_types": spec.ticket_types,
-        "extras": spec.extras,
-        "promo_codes": spec.promo_codes,
-    }
-    for name, rows in kinds.items():
-        seen = Counter(r.key for r in rows)
-        for i, row in enumerate(rows):
-            if seen[row.key] > 1:
-                issues.append(
-                    issue(
-                        f"{name}[{i}].key",
-                        "duplicate_key",
-                        _("Key '%(key)s' is used more than once; keys must be unique.")
-                        % {"key": row.key},
-                    )
-                )
-    for i, extra in enumerate(spec.extras):
-        seen = Counter(c.key for c in extra.choices)
-        for j, choice in enumerate(extra.choices):
-            if seen[choice.key] > 1:
-                issues.append(
-                    issue(
-                        f"extras[{i}].choices[{j}].key",
-                        "duplicate_key",
-                        _("Key '%(key)s' is used more than once; keys must be unique.")
-                        % {"key": choice.key},
-                    )
-                )
+    for kind in KINDS.values():
+        for path, rows in row_groups(spec, kind):
+            issues += _duplicate_keys(rows, path)
 
     owner: dict[str, str] = {}
-    for name, rows in kinds.items():
-        for row in rows:
-            owner.setdefault(row.key, name)
-    valid = {name: {r.key for r in rows} for name, rows in kinds.items()}
+    valid: dict[str, set[str]] = {}
+    for kind in TOP_KINDS:
+        valid[kind.name] = {r.key for r in getattr(spec, kind.name)}
+        for row in getattr(spec, kind.name):
+            owner.setdefault(row.key, kind.name)
 
     def check(path: str, key: str, target: str):
         if key in valid[target]:
@@ -197,8 +184,8 @@ def _reference_issues(spec: EventSpec) -> list[Issue]:
                     )
                     % {
                         "key": key,
-                        "found": NOUNS[owner[key]],
-                        "expected": NOUNS[target],
+                        "found": KINDS[owner[key]].noun,
+                        "expected": KINDS[target].noun,
                     },
                 )
             )
@@ -208,7 +195,7 @@ def _reference_issues(spec: EventSpec) -> list[Issue]:
                     path,
                     "unknown_key",
                     _("No %(kind)s has the key '%(key)s'.")
-                    % {"kind": NOUNS[target], "key": key},
+                    % {"kind": KINDS[target].noun, "key": key},
                 )
             )
 
@@ -226,20 +213,14 @@ def _reference_issues(spec: EventSpec) -> list[Issue]:
             seen.add(key)
             check(f"{path}[{j}]", key, target)
 
-    for i, t in enumerate(spec.ticket_types):
-        check_list(f"ticket_types[{i}].sessions", t.sessions, "sessions")
-        if t.requires_ticket_type is not None:
-            check(
-                f"ticket_types[{i}].requires_ticket_type",
-                t.requires_ticket_type,
-                "ticket_types",
-            )
-    for i, extra in enumerate(spec.extras):
-        if extra.session is not None:
-            check(f"extras[{i}].session", extra.session, "sessions")
-    for i, p in enumerate(spec.promo_codes):
-        for field in ("applies_to_ticket_types", "unlocks_ticket_types"):
-            check_list(f"promo_codes[{i}].{field}", getattr(p, field), "ticket_types")
+    for kind in TOP_KINDS:
+        for i, row in enumerate(getattr(spec, kind.name)):
+            for name, target in kind.refs.items():
+                value, path = getattr(row, name), f"{kind.name}[{i}].{name}"
+                if kind.is_list_ref(name):
+                    check_list(path, value, target)
+                elif value is not None:
+                    check(path, value, target)
     return issues
 
 
@@ -294,91 +275,62 @@ def _clean(obj, exclude, path: str, section: str, fields: set[str]) -> list[Issu
     return []
 
 
-def _model_issues(spec: EventSpec, target: Event | None) -> list[Issue]:
-    issues: list[Issue] = []
-    ev = Event(**spec.event.model_dump())
-    if target is not None:
-        ev.pk = target.pk
-    issues += _clean(
-        ev, ["cloned_from"], "event", "event", set(spec.event.model_fields)
+def _model_issues(spec: EventSpec, ev: Event) -> list[Issue]:
+    issues = _clean(
+        ev, ["cloned_from"], "event", "event", set(EventSection.model_fields)
     )
 
-    sessions: dict[str, Session] = {}
-    for i, s in enumerate(spec.sessions):
-        obj = Session(event=ev, **s.model_dump(exclude={"key"}))
-        sessions[s.key] = obj
-        issues += _clean(
-            obj, ["event"], f"sessions[{i}]", "sessions", set(s.model_fields)
+    # Build every row first so references can point at rows defined later.
+    built = {
+        kind.name: [
+            kind.model(**{kind.parent: ev}, **kind.plain(row))
+            for row in getattr(spec, kind.name)
+        ]
+        for kind in TOP_KINDS
+    }
+    by_key = {
+        name: {r.key: obj for r, obj in zip(getattr(spec, name), objs)}
+        for name, objs in built.items()
+    }
+    for kind in TOP_KINDS:
+        for row, obj in zip(getattr(spec, kind.name), built[kind.name]):
+            for name in kind.fk_refs:
+                setattr(obj, name, by_key[kind.refs[name]].get(getattr(row, name)))
+
+    def clean(kind, obj, path):
+        return _clean(
+            obj, kind.clean_exclude(), path, kind.name, set(kind.spec.model_fields)
         )
 
-    types: dict[str, TicketType] = {}
-    for t in spec.ticket_types:
-        types[t.key] = TicketType(
-            event=ev,
-            **t.model_dump(exclude={"key", "sessions", "requires_ticket_type"}),
-        )
-    for i, t in enumerate(spec.ticket_types):
-        obj = types[t.key]
-        required = types.get(t.requires_ticket_type)
-        if required is not None:
-            obj.requires_ticket_type = required
-        issues += _clean(
-            obj,
-            ["event", "requires_ticket_type"],
-            f"ticket_types[{i}]",
-            "ticket_types",
-            set(t.model_fields),
-        )
-
-    for i, e in enumerate(spec.extras):
-        extra = Extra(event=ev, **e.model_dump(exclude={"key", "session", "choices"}))
-        issues += _clean(
-            extra,
-            ["event", "session", "cloned_from"],
-            f"extras[{i}]",
-            "extras",
-            set(e.model_fields),
-        )
-        for j, c in enumerate(e.choices):
-            choice = ExtraChoice(extra=extra, **c.model_dump(exclude={"key"}))
-            issues += _clean(
-                choice,
-                ["extra"],
-                f"extras[{i}].choices[{j}]",
-                "choices",
-                set(c.model_fields),
-            )
-
-    codes = Counter(p.code for p in spec.promo_codes)
-    for i, p in enumerate(spec.promo_codes):
-        promo = PromoCode(
-            event=ev,
-            **p.model_dump(
-                exclude={"key", "applies_to_ticket_types", "unlocks_ticket_types"}
-            ),
-        )
-        issues += _clean(
-            promo, ["event"], f"promo_codes[{i}]", "promo_codes", set(p.model_fields)
-        )
-        if codes[p.code] > 1:
-            issues.append(
-                issue(
-                    f"promo_codes[{i}].code",
-                    "duplicate_code",
-                    _(
-                        "Code '%(code)s' appears more than once; codes are matched case-insensitively and must be unique."
+    codes = Counter(r.code for r in spec.promo_codes)
+    for kind in TOP_KINDS:
+        for i, (row, obj) in enumerate(zip(getattr(spec, kind.name), built[kind.name])):
+            issues += clean(kind, obj, f"{kind.name}[{i}]")
+            for child in nested(kind):
+                for j, sub in enumerate(getattr(row, child.name)):
+                    issues += clean(
+                        child,
+                        child.model(**{child.parent: obj}, **child.plain(sub)),
+                        f"{kind.name}[{i}].{child.name}[{j}]",
                     )
-                    % {"code": p.code},
+            if kind.name == "promo_codes" and codes[row.code] > 1:
+                issues.append(
+                    issue(
+                        f"promo_codes[{i}].code",
+                        "duplicate_code",
+                        _(
+                            "Code '%(code)s' appears more than once; codes are matched case-insensitively and must be unique."
+                        )
+                        % {"code": row.code},
+                    )
                 )
-            )
     return issues
 
 
 # ---- going live -----------------------------------------------------------
 
 
-def _going_live_issues(spec: EventSpec) -> list[Issue]:
-    ev = Event(**spec.event.model_dump())
+def _going_live_issues(ev: Event) -> list[Issue]:
     if ev.registration_window_status == RegistrationWindowStatus.OPEN:
         return [
             issue(
@@ -396,9 +348,8 @@ def _going_live_issues(spec: EventSpec) -> list[Issue]:
 # ---- warnings -------------------------------------------------------------
 
 
-def _warnings(spec: EventSpec) -> list[Issue]:
+def _warnings(spec: EventSpec, ev: Event) -> list[Issue]:
     out: list[Issue] = []
-    ev = Event(**spec.event.model_dump())
     status = ev.registration_window_status
     if status == RegistrationWindowStatus.NOT_CONFIGURED:
         out.append(
@@ -531,92 +482,57 @@ def _warnings(spec: EventSpec) -> list[Issue]:
     return out
 
 
-def _ordering(spec: EventSpec) -> dict:
-    """The (kind, ordering key) pairs export sorts by, minus the id tiebreak."""
-    return {
-        "sessions": (spec.sessions, lambda r: (r.start_time, r.name), "start_time"),
-        "ticket_types": (
-            spec.ticket_types,
-            lambda r: (r.sort_order, r.name),
-            "sort_order",
-        ),
-        "extras": (spec.extras, lambda r: (r.sort_order, r.name), "sort_order"),
-    }
-
-
-def _derive(rows, order, text):
+def _derive(rows, kind) -> dict[int, str]:
     """``{index: key}`` as export would allocate them over this ordering."""
     allocator = KeyAllocator()
     return {
-        i: allocator.allocate(text(rows[i]))
-        for i in sorted(range(len(rows)), key=lambda i: order(rows[i]))
+        i: allocator.allocate(getattr(rows[i], kind.key_from))
+        for i in sorted(range(len(rows)), key=lambda i: kind.sort_key(rows[i]))
     }
 
 
-def _ties(rows, order, path, field) -> list[Issue]:
+def _ties(rows, kind, path) -> list[Issue]:
     seen, out = set(), []
     for i, row in enumerate(rows):
-        o = order(row)
-        if o in seen:
+        order = kind.sort_key(row)
+        if order in seen:
             out.append(
                 issue(
-                    f"{path}[{i}].{field}",
+                    f"{path}[{i}].{kind.order[0]}",
                     "ambiguous_order",
                     _(
                         "These rows tie on their ordering fields; give them different sort_order or names."
                     ),
                 )
             )
-        seen.add(o)
+        seen.add(order)
     return out
 
 
 def _ordering_issues(spec: EventSpec) -> list[Issue]:
     """Rows that tie on export's ordering get keys by database id: an error against an existing event, a warning for a new one."""
     out = []
-    for name, (rows, order, field) in _ordering(spec).items():
-        out += _ties(rows, order, name, field)
-    for i, e in enumerate(spec.extras):
-        out += _ties(
-            e.choices,
-            lambda c: (c.sort_order, c.label),
-            f"extras[{i}].choices",
-            "sort_order",
-        )
+    for kind in KINDS.values():
+        if kind.ties:
+            for path, rows in row_groups(spec, kind):
+                out += _ties(rows, kind, path)
     return out
 
 
 def _derived_key_warnings(spec: EventSpec) -> list[Issue]:
     out: list[Issue] = []
-
-    def check(path: str, rows, order, text):
-        for i, derived in _derive(rows, order, text).items():
-            if rows[i].key != derived:
-                out.append(
-                    issue(
-                        f"{path}[{i}].key",
-                        "key_not_derived",
-                        _(
-                            "The key '%(key)s' is not the one export derives ('%(derived)s'), so a later export will show this row as removed and added."
+    for kind in KINDS.values():
+        for path, rows in row_groups(spec, kind):
+            for i, derived in _derive(rows, kind).items():
+                if rows[i].key != derived:
+                    out.append(
+                        issue(
+                            f"{path}[{i}].key",
+                            "key_not_derived",
+                            _(
+                                "The key '%(key)s' is not the one export derives ('%(derived)s'), so a later export will show this row as removed and added."
+                            )
+                            % {"key": rows[i].key, "derived": derived},
                         )
-                        % {"key": rows[i].key, "derived": derived},
                     )
-                )
-
-    check("sessions", spec.sessions, lambda r: (r.start_time, r.name), lambda r: r.name)
-    check(
-        "ticket_types",
-        spec.ticket_types,
-        lambda r: (r.sort_order, r.name),
-        lambda r: r.name,
-    )
-    check("extras", spec.extras, lambda r: (r.sort_order, r.name), lambda r: r.name)
-    for i, e in enumerate(spec.extras):
-        check(
-            f"extras[{i}].choices",
-            e.choices,
-            lambda c: (c.sort_order, c.label),
-            lambda c: c.label,
-        )
-    check("promo_codes", spec.promo_codes, lambda r: r.code, lambda r: r.code)
     return sorted(out, key=lambda w: w["path"])

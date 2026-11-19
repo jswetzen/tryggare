@@ -10,6 +10,7 @@ from ._diff import diff_normalized, normalize
 from ._export import export, keyed_rows
 from .spec import EventSpec
 from ._issues import SpecError, issue
+from ._kinds import KINDS
 from ._validate import _target_issues, validate
 
 
@@ -111,13 +112,13 @@ def _write(event: Event, spec: EventSpec) -> None:
         sessions[s.key] = _save(
             old["sessions"].get(s.key),
             Session,
-            s.model_dump(exclude={"key"}),
+            KINDS["sessions"].plain(s),
             event=event,
         )
 
     types: dict[str, TicketType] = {}
     for t in spec.ticket_types:
-        fields = t.model_dump(exclude={"key", "sessions", "requires_ticket_type"})
+        fields = KINDS["ticket_types"].plain(t)
         # requires_ticket_type is set in a second pass (it may point forward); an update leaves it as is until then.
         types[t.key] = _save(
             old["ticket_types"].get(t.key),
@@ -134,7 +135,7 @@ def _write(event: Event, spec: EventSpec) -> None:
 
     extras: dict[str, Extra] = {}
     for x in spec.extras:
-        fields = x.model_dump(exclude={"key", "session", "choices"})
+        fields = KINDS["extras"].plain(x)
         session = sessions[x.session] if x.session else None
         extra = extras[x.key] = _save(
             old["extras"].get(x.key), Extra, {**fields, "session": session}, event=event
@@ -145,7 +146,7 @@ def _write(event: Event, spec: EventSpec) -> None:
             _save(
                 old_choices.get((x.key, c.key)),
                 ExtraChoice,
-                c.model_dump(exclude={"key"}),
+                KINDS["choices"].plain(c),
                 extra=extra,
             )
         for (parent, key), choice in old_choices.items():
@@ -153,9 +154,7 @@ def _write(event: Event, spec: EventSpec) -> None:
                 choice.delete()
 
     for p in spec.promo_codes:
-        fields = p.model_dump(
-            exclude={"key", "applies_to_ticket_types", "unlocks_ticket_types"}
-        )
+        fields = KINDS["promo_codes"].plain(p)
         promo = _save(old["promo_codes"].get(p.key), PromoCode, fields, event=event)
         promo.applies_to_ticket_types.set(types[k] for k in p.applies_to_ticket_types)
         promo.unlocks_ticket_types.set(types[k] for k in p.unlocks_ticket_types)

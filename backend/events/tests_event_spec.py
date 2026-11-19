@@ -1,7 +1,7 @@
 """Event spec: schema, example, export and the validation layers."""
 
 import copy
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, timedelta
 
 from django.core.exceptions import ValidationError
 from django.db import transaction
@@ -16,14 +16,18 @@ from events.event_spec import (
     export,
     json_schema,
 )
+from events.event_spec._diff import normalize
 from events.event_spec._export import KeyAllocator, slugify_key
+from events.event_spec._kinds import codecs, spec_dict_rows
 from events.event_spec.testkit import (
     add_ticket,
+    at_now,
     by_path,
     check,
     empty_event,
     foreign_session,
 )
+from events.services import _shift_spec
 from events.models import (
     Event,
     Extra,
@@ -720,3 +724,26 @@ class CollectedModelErrorTests(SimpleTestCase):
             {"ticket_types[2].available_until", "ticket_types[2].min_birthdate"}
             <= paths
         )
+
+
+class CopyShiftTests(SimpleTestCase):
+    def test_every_datetime_and_date_field_is_shifted(self):
+        # A field the shift missed would keep its old date in a copy.
+        samples = {"datetime": "2027-04-01T10:00:00+02:00", "date": "2027-06-18"}
+        spec = normalize(example_spec())
+        for spec_class, row in spec_dict_rows(spec):
+            for field, codec in codecs(spec_class).items():
+                if codec in samples and row[field] is None:
+                    row[field] = samples[codec]
+        before = copy.deepcopy(spec)
+        start = date.fromisoformat(spec["event"]["start_date"])
+        with at_now():
+            _shift_spec(spec, timedelta(days=400), "Copy", start + timedelta(days=400))
+        for (spec_class, old), (_, new) in zip(
+            spec_dict_rows(before), spec_dict_rows(spec)
+        ):
+            for field, codec in codecs(spec_class).items():
+                if codec in samples:
+                    self.assertNotEqual(
+                        old[field], new[field], f"{spec_class.__name__}.{field}"
+                    )

@@ -1,15 +1,5 @@
 """Issues and the exception that carries them; imported by every other module here."""
 
-from django.utils.translation import gettext_lazy as _
-
-# What each kind of row is called in a message.
-NOUNS = {
-    "sessions": _("session"),
-    "ticket_types": _("ticket type"),
-    "extras": _("extra"),
-    "promo_codes": _("promo code"),
-}
-
 
 def issue(path: str, code: str, message) -> dict:
     return {"path": path, "code": code, "message": str(message)}

@@ -10,17 +10,11 @@ from datetime import date, datetime, timedelta
 from django.db import transaction
 from django.utils import timezone
 
+from .event_spec import apply, export
+from .event_spec._export import keyed_rows
+from .event_spec._kinds import SPEC_MODELS, codecs, spec_dict_rows
 from .models import Event, Extra
 
-# Copying (and spec apply) creates rows in all five models, not just events.
-SPEC_MODELS = (
-    "event",
-    "session",
-    "tickettype",
-    "extra",
-    "extrachoice",
-    "promocode",
-)
 COPY_PERMISSIONS = tuple(f"events.add_{m}" for m in SPEC_MODELS)
 VIEW_PERMISSIONS = tuple(f"events.view_{m}" for m in SPEC_MODELS)
 # Replacing a setup deletes rows too.
@@ -118,17 +112,35 @@ def _shift_iso(value: str | None, delta: timedelta) -> str | None:
     return _shift_datetime(datetime.fromisoformat(value), delta).isoformat()
 
 
+# Age bounds sit on an anniversary of the start date: offset in days after it.
+_BIRTHDATE_BOUNDS = {"min_birthdate": 1, "max_birthdate": 0}
+
+
 def _shift_spec(spec: dict, delta: timedelta, name: str, start_date: date) -> dict:
-    """Move every date and time in an exported spec by `delta`."""
+    """Move every date and time in an exported spec by `delta`.
+
+    Walks the spec classes' field types, so a new datetime or date field is
+    shifted without being listed here.
+    """
     source_start = date.fromisoformat(spec["event"]["start_date"])
+    for spec_class, row in spec_dict_rows(spec):
+        for field, codec in codecs(spec_class).items():
+            if codec == "datetime":
+                row[field] = _shift_iso(row[field], delta)
+            elif codec == "date" and row[field] is not None:
+                value = date.fromisoformat(row[field])
+                if field in _BIRTHDATE_BOUNDS:
+                    value = _shift_birthdate_bound(
+                        value,
+                        source_start,
+                        start_date,
+                        offset_days=_BIRTHDATE_BOUNDS[field],
+                    )
+                else:
+                    value += delta
+                row[field] = value.isoformat()
     event = spec["event"]
-    event.update(
-        name=name,
-        start_date=start_date.isoformat(),
-        end_date=(date.fromisoformat(event["end_date"]) + delta).isoformat(),
-    )
-    for field in ("registration_opens_at", "registration_closes_at"):
-        event[field] = _shift_iso(event[field], delta)
+    event["name"] = name
     # Apply refuses an open window; a copy whose window is already open or
     # past ships with self-serve off rather than being opened by the spec.
     now = timezone.now()
@@ -141,24 +153,6 @@ def _shift_spec(spec: dict, delta: timedelta, name: str, start_date: date) -> di
         event["registration_opens_at"] is None and stamps
     ):
         event["registration_opens_at"] = event["registration_closes_at"] = None
-    for session in spec["sessions"]:
-        for field in ("start_time", "end_time"):
-            session[field] = _shift_iso(session[field], delta)
-    for ticket_type in spec["ticket_types"]:
-        for field in ("available_from", "available_until"):
-            ticket_type[field] = _shift_iso(ticket_type[field], delta)
-        for field, offset in (("min_birthdate", 1), ("max_birthdate", 0)):
-            bound = ticket_type[field]
-            if bound is not None:
-                ticket_type[field] = _shift_birthdate_bound(
-                    date.fromisoformat(bound),
-                    source_start,
-                    start_date,
-                    offset_days=offset,
-                ).isoformat()
-    for promo in spec["promo_codes"]:
-        for field in ("valid_from", "valid_until"):
-            promo[field] = _shift_iso(promo[field], delta)
     return spec
 
 
@@ -185,10 +179,6 @@ def copy_event_with_warnings(
     including one over the spec's row caps (`MAX_ROWS`).
     Returns the new event and the spec warnings.
     """
-    # Imported here: event_spec imports this module.
-    from .event_spec import apply, export
-    from .event_spec._export import keyed_rows
-
     delta = start_date - source.start_date
     spec = _shift_spec(export(source), delta, name, start_date)
     new_event, _diff, warnings = apply(spec)
