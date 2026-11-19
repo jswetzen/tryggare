@@ -59,7 +59,7 @@ from registrations.services import (
     ticket_type_sold_count,
 )
 
-from .services import copy_event, duplicate_extra_to_event
+from .services import can_copy_events, copy_event, duplicate_extra_to_event
 
 
 class CopyEventForm(forms.Form):
@@ -134,11 +134,7 @@ class EventAdmin(admin.ModelAdmin):
         return f"{settings.FRONTEND_BASE_URL}/register/{obj.id}/"
 
     def has_copy_permission(self, request):
-        # The copy creates rows in all five models, not just events.
-        return all(
-            request.user.has_perm(f"events.add_{m}")
-            for m in ("event", "session", "tickettype", "extra", "promocode")
-        )
+        return can_copy_events(request.user)
 
     @admin.action(description=_("Copy event…"), permissions=["copy"])
     def copy_event_action(self, request, queryset):

@@ -16,6 +16,13 @@ from events.views import (
     SessionTicketViewSet,
     TicketViewSet,
 )
+from events.spec_views import (
+    CreateView as EventSpecCreateView,
+    EventSpecDiffView,
+    EventSpecView,
+    SchemaView as EventSpecSchemaView,
+    ValidateView as EventSpecValidateView,
+)
 from checkins.views import AuditLogViewSet, CheckInRecordViewSet, PrintQueueViewSet
 from reports.views import EventReportViewSet
 from accounts.views import csrf_token, check_auth, login_view, logout_view
@@ -69,6 +76,25 @@ urlpatterns = [
     # `(?!admin/)` exclusion below without touching that regex.
     path("admin/i18n/", include("django.conf.urls.i18n")),
     path("admin/", admin.site.urls),
+    path("api/event-specs/", EventSpecCreateView.as_view(), name="event-spec-create"),
+    path(
+        "api/event-specs/schema/",
+        EventSpecSchemaView.as_view(),
+        name="event-spec-schema",
+    ),
+    path(
+        "api/event-specs/validate/",
+        EventSpecValidateView.as_view(),
+        name="event-spec-validate",
+    ),
+    path(
+        "api/events/<uuid:event_id>/spec/", EventSpecView.as_view(), name="event-spec"
+    ),
+    path(
+        "api/events/<uuid:event_id>/spec/diff/",
+        EventSpecDiffView.as_view(),
+        name="event-spec-diff",
+    ),
     path("api/", include(router.urls)),
     # Session-based authentication endpoints
     path("api/csrf/", csrf_token, name="csrf-token"),

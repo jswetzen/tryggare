@@ -12,6 +12,15 @@ from django.utils import timezone
 
 from .models import Event, Extra, PromoCode, Session, TicketType
 
+# Copying (and spec apply) creates rows in all five models, not just events.
+COPY_PERMISSIONS = tuple(
+    f"events.add_{m}" for m in ("event", "session", "tickettype", "extra", "promocode")
+)
+
+
+def can_copy_events(user) -> bool:
+    return all(user.has_perm(p) for p in COPY_PERMISSIONS)
+
 
 def duplicate_extra_to_event(
     extra: Extra, target_event: Event, session_map: dict | None = None

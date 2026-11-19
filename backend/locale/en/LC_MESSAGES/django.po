@@ -2004,3 +2004,36 @@ msgstr "The target event does not exist."
 
 msgid "The database refused the spec and nothing was changed. A promo code may already be in use on this event."
 msgstr "The database refused the spec and nothing was changed. A promo code may already be in use on this event."
+
+msgid "The body is not valid JSON."
+msgstr "The body is not valid JSON."
+
+msgid "The body must be a JSON object."
+msgstr "The body must be a JSON object."
+
+msgid "The body needs a 'spec' object."
+msgstr "The body needs a 'spec' object."
+
+msgid "The event does not exist."
+msgstr "The event does not exist."
+
+msgid "'event_id' is not a valid id."
+msgstr "'event_id' is not a valid id."
+
+msgid "Event %(id)s does not exist."
+msgstr "Event %(id)s does not exist."
+
+msgid "Cannot read %(path)s: %(error)s"
+msgstr "Cannot read %(path)s: %(error)s"
+
+msgid "%(path)s is not valid JSON: %(error)s"
+msgstr "%(path)s is not valid JSON: %(error)s"
+
+msgid "The spec was refused: %(count)d error(s); nothing was written."
+msgstr "The spec was refused: %(count)d error(s); nothing was written."
+
+msgid "error"
+msgstr "error"
+
+msgid "warning"
+msgstr "warning"

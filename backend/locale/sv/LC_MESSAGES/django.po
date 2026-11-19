@@ -2028,3 +2028,36 @@ msgstr "Målevenemanget finns inte."
 
 msgid "The database refused the spec and nothing was changed. A promo code may already be in use on this event."
 msgstr "Databasen avvisade specen och inget ändrades. En kampanjkod kan redan användas på det här evenemanget."
+
+msgid "The body is not valid JSON."
+msgstr "Bodyn är inte giltig JSON."
+
+msgid "The body must be a JSON object."
+msgstr "Bodyn måste vara ett JSON-objekt."
+
+msgid "The body needs a 'spec' object."
+msgstr "Bodyn måste innehålla ett ”spec”-objekt."
+
+msgid "The event does not exist."
+msgstr "Evenemanget finns inte."
+
+msgid "'event_id' is not a valid id."
+msgstr "”event_id” är inget giltigt id."
+
+msgid "Event %(id)s does not exist."
+msgstr "Evenemang %(id)s finns inte."
+
+msgid "Cannot read %(path)s: %(error)s"
+msgstr "Kan inte läsa %(path)s: %(error)s"
+
+msgid "%(path)s is not valid JSON: %(error)s"
+msgstr "%(path)s är inte giltig JSON: %(error)s"
+
+msgid "The spec was refused: %(count)d error(s); nothing was written."
+msgstr "Specen avvisades: %(count)d fel; inget skrevs."
+
+msgid "error"
+msgstr "fel"
+
+msgid "warning"
+msgstr "varning"
