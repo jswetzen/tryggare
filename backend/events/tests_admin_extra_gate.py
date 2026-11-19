@@ -1,5 +1,7 @@
 """ExtraAdmin's ticket-type picker is limited to the extra's own event."""
 
+from django.db import transaction
+from django.db.models.signals import pre_delete
 from django.test import TestCase
 from django.urls import reverse
 from django.utils import timezone
@@ -172,5 +174,27 @@ class GateDeleteGuardTests(TestCase):
         self.assertEqual(list(self.extra.ticket_types.all()), [self.b])
 
     def test_event_cascade_delete_does_not_raise(self):
+        # Smoke only: the event cascade removes extra and types together.
         self.event.delete()
         self.assertFalse(Extra.objects.filter(pk=self.extra.pk).exists())
+
+    def test_failed_delete_leaves_no_stale_state_for_later_delete(self):
+        c = TicketType.objects.create(event=self.event, name="C", price=1)
+        self.extra.ticket_types.remove(self.b)
+
+        def boom(sender, **kwargs):
+            raise RuntimeError("boom")
+
+        pre_delete.connect(boom, sender=TicketType, weak=False)
+        try:
+            with self.assertRaises(RuntimeError), transaction.atomic():
+                self.a.delete()
+        finally:
+            pre_delete.disconnect(boom, sender=TicketType)
+        self.extra.refresh_from_db()
+        self.assertTrue(self.extra.is_active)
+
+        self.extra.ticket_types.clear()
+        c.delete()
+        self.extra.refresh_from_db()
+        self.assertTrue(self.extra.is_active)
