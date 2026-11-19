@@ -4,7 +4,6 @@ from uuid import UUID
 
 from django.core.exceptions import ValidationError
 from django.utils.translation import gettext as _
-from pydantic import ValidationError as PydanticValidationError
 from rest_framework import status
 from rest_framework.exceptions import ParseError, UnsupportedMediaType
 from rest_framework.parsers import JSONParser
@@ -227,19 +226,4 @@ class EventSpecDiffView(SpecAPIView):
         event, error = _event_or_404(event_id)
         if error:
             return error
-        errors, warnings = event_spec.validate(spec, event)
-        try:
-            changes = event_spec.diff(event, spec)
-        except PydanticValidationError:
-            changes = []  # wrong shape: the errors above say where
-        except event_spec.SpecError as exc:
-            changes = []
-            errors += exc.errors
-        return Response(
-            {
-                "valid": not errors,
-                "diff": changes,
-                "errors": errors,
-                "warnings": warnings,
-            }
-        )
+        return Response(event_spec.check(spec, event))

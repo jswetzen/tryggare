@@ -10,7 +10,6 @@ import sys
 from django.core.exceptions import ValidationError
 from django.core.management.base import BaseCommand, CommandError
 from django.utils.translation import gettext as _
-from pydantic import ValidationError as PydanticValidationError
 
 from events import event_spec
 from events.models import Event
@@ -121,34 +120,20 @@ class Command(BaseCommand):
             self._fail(errors)
 
     def _diff(self, options):
-        spec = self._spec(options["file"])
-        event = self._event(options["event"])
-        errors, warnings = event_spec.validate(spec, event)
-        self._report(errors, warnings)
-        try:
-            changes = event_spec.diff(event, spec)
-        except PydanticValidationError:
-            changes = []  # a shape error; the issues above say where
-        except event_spec.SpecError as exc:
-            errors += exc.errors
-            self._report(exc.errors, [])
-            changes = []
-        self._json({"diff": changes, "errors": errors, "warnings": warnings})
-        if errors:
-            self._fail(errors)
-
-    def _dry_diff(self, event, spec):
-        try:
-            return event_spec.diff(event, spec)
-        except event_spec.SpecError as exc:  # a cross-event reference on the target
-            self._report(exc.errors, [])
-            self._fail(exc.errors)
+        result = event_spec.check(
+            self._spec(options["file"]), self._event(options["event"])
+        )
+        self._report(result["errors"], result["warnings"])
+        self._json({k: result[k] for k in ("diff", "errors", "warnings")})
+        if result["errors"]:
+            self._fail(result["errors"])
 
     def _apply(self, options):
         spec = self._spec(options["file"])
         event = self._event(options["event"]) if options["event"] else None
         if options["dry_run"]:
-            errors, warnings = event_spec.validate(spec, event)
+            result = event_spec.check(spec, event)
+            errors, warnings = result["errors"], result["warnings"]
             self._report(errors, warnings)
             if errors:
                 self._json({"errors": errors, "warnings": warnings})
@@ -157,7 +142,7 @@ class Command(BaseCommand):
                 {
                     "dry_run": True,
                     "event_id": str(event.pk) if event else None,
-                    "diff": self._dry_diff(event, spec),
+                    "diff": result["diff"],
                     "warnings": warnings,
                 }
             )

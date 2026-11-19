@@ -1,6 +1,7 @@
 """Event spec: an authoring format for an event's registration setup."""
 
 from ._apply import apply
+from ._check import check
 from ._diff import diff
 from ._export import export
 from ._issues import SpecError, issue
@@ -13,6 +14,7 @@ __all__ = [
     "SpecError",
     "apply",
     "capabilities",
+    "check",
     "diff",
     "example_spec",
     "export",
