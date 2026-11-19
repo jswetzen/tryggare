@@ -8,7 +8,7 @@ from django.urls import reverse
 from django.utils import timezone
 
 from events.event_spec import SpecError
-from events.event_spec.testkit import foreign_session
+from events.event_spec.support import foreign_session
 from events.models import (
     Event,
     Extra,

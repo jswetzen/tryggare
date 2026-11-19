@@ -15,7 +15,7 @@ from rest_framework.test import APIClient
 
 from accounts.models import AdminUser
 from events.event_spec import example_spec, export
-from events.event_spec.testkit import add_ticket, at_now, empty_event, foreign_session
+from events.event_spec.support import add_ticket, at_now, empty_event, foreign_session
 from events.management.commands.event_spec import Command
 from events.models import Event, TicketType
 from accounts.roles import COORDINATOR, grant

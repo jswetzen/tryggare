@@ -9,7 +9,7 @@ from django.test import TestCase
 from events.event_spec import SpecError, apply, diff, example_spec, export
 
 from events.event_spec import _apply as apply_module
-from events.event_spec.testkit import (
+from events.event_spec.support import (
     NOW,
     add_ticket,
     at_now,

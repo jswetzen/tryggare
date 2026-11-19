@@ -1,4 +1,4 @@
-"""Setup shared by the event spec tests (named so test discovery does not pick it up)."""
+"""Setup shared by the event spec tests (a name test discovery does not match)."""
 
 from datetime import UTC, date, datetime
 from unittest.mock import patch

@@ -18,7 +18,7 @@ from events.event_spec import (
 from events.event_spec._diff import normalize
 from events.event_spec._export import KeyAllocator, slugify_key
 from events.event_spec._kinds import codecs, spec_dict_rows
-from events.event_spec.testkit import (
+from events.event_spec.support import (
     at_now,
     by_path,
     check,
