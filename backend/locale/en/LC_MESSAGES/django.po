@@ -2113,8 +2113,12 @@ msgid "This extra requires a different ticket."
 msgstr "This extra requires a different ticket."
 
 #, python-format
-msgid "Created inactive because a ticket type it requires has no same-named type on '%(event)s': %(names)s."
-msgstr "Created inactive because a ticket type it requires has no same-named type on '%(event)s': %(names)s."
+msgid "Created inactive because a ticket type it requires has no single active same-named type on '%(event)s' (a name that stays ambiguous counts as no match). Re-pick its ticket types before activating: %(names)s."
+msgstr "Created inactive because a ticket type it requires has no single active same-named type on '%(event)s' (a name that stays ambiguous counts as no match). Re-pick its ticket types before activating: %(names)s."
+
+#, python-format
+msgid "Deactivated because every ticket type in their gate was deleted: %(names)s."
+msgstr "Deactivated because every ticket type in their gate was deleted: %(names)s."
 
 msgid "No active ticket type in this extra's gate can be held by an attendee it applies to, so nobody can take it."
 msgstr "No active ticket type in this extra's gate can be held by an attendee it applies to, so nobody can take it."

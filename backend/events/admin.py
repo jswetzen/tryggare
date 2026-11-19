@@ -63,6 +63,7 @@ from .event_spec import SpecError, check_setup
 from .services import (
     can_copy_events,
     copy_event_with_warnings,
+    deactivate_extras_emptied_by_deleting,
     duplicate_extra_to_event,
 )
 
@@ -1126,6 +1127,27 @@ class TicketTypeAdmin(admin.ModelAdmin):
     autocomplete_fields = ["event", "requires_ticket_type"]
     filter_horizontal = ["sessions"]
 
+    def _deactivate_emptied_extras(self, request, ticket_types):
+        emptied = deactivate_extras_emptied_by_deleting(ticket_types)
+        if emptied:
+            self.message_user(
+                request,
+                _(
+                    "Deactivated because every ticket type in their gate was "
+                    "deleted: %(names)s."
+                )
+                % {"names": ", ".join(e.name for e in emptied)},
+                messages.WARNING,
+            )
+
+    def delete_model(self, request, obj):
+        self._deactivate_emptied_extras(request, [obj])
+        super().delete_model(request, obj)
+
+    def delete_queryset(self, request, queryset):
+        self._deactivate_emptied_extras(request, list(queryset))
+        super().delete_queryset(request, queryset)
+
     def save_model(self, request, obj, form, change):
         super().save_model(request, obj, form, change)
         self._warn_if_age_window_uncheckable(request, obj)
@@ -1322,8 +1344,10 @@ class ExtraAdmin(admin.ModelAdmin):
                     self.message_user(
                         request,
                         _(
-                            "Created inactive because a ticket type it requires has no "
-                            "same-named type on '%(event)s': %(names)s."
+                            "Created inactive because a ticket type it requires has no single "
+                            "active same-named type on '%(event)s' (a name that stays ambiguous "
+                            "counts as no match). Re-pick its ticket types before "
+                            "activating: %(names)s."
                         )
                         % {"event": target_event.name, "names": ", ".join(gated)},
                         messages.WARNING,

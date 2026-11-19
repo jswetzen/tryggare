@@ -599,6 +599,34 @@ class WarningTests(SimpleTestCase):
         gated["ticket_types"] = ["child-pass-13-17"]
         self.assertIn(key, self.codes(spec))
 
+    def test_extra_gate_unreachable_for_a_session_scoped_extra(self):
+        key = ("extras[1].ticket_types", "extra_gate_unreachable")
+        spec = example_spec()
+        gated = spec["extras"][1]
+        self.assertEqual(gated["session"], "saturday-workshop")
+        pass_ = spec["ticket_types"][2]
+        # A bundle that does not cover the extra's session cannot reach it.
+        spec["sessions"].append(
+            {**spec["sessions"][0], "key": "sunday", "name": "Sunday"}
+        )
+        pass_["kind"] = "session_bundle"
+        pass_["sessions"] = ["sunday"]
+        self.assertIn(key, self.codes(spec))
+        pass_["sessions"] = ["saturday-workshop"]
+        self.assertNotIn(key, self.codes(spec))
+        pass_["kind"] = "event"
+        pass_["sessions"] = []
+        self.assertNotIn(key, self.codes(spec))
+
+    def test_inactive_extra_is_not_flagged_unreachable(self):
+        spec = example_spec()
+        gated = spec["extras"][1]
+        gated["ticket_types"] = ["adult-conference-pass"]
+        gated["is_active"] = False
+        self.assertNotIn(
+            ("extras[1].ticket_types", "extra_gate_unreachable"), self.codes(spec)
+        )
+
     def test_choices_ignored_and_session_outside_event(self):
         spec = example_spec()
         spec["extras"][0]["requires_choice"] = False

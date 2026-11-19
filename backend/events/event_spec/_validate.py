@@ -501,11 +501,21 @@ def _extra_warnings(spec: EventSpec) -> list[Issue]:
         if not e.requires_choice and e.choices:
             out.append(issue(f"extras[{i}].choices", "choices_ignored"))
         gate = [types[k] for k in e.ticket_types if k in types]
-        if gate and not any(
-            t.is_active and (not e.per_attendee or _fits(e.applies_to, t)) for t in gate
-        ):
+        if e.is_active and gate and not any(_gate_reaches(e, t) for t in gate):
             out.append(issue(f"extras[{i}].ticket_types", "extra_gate_unreachable"))
     return out
+
+
+def _gate_reaches(e, t) -> bool:
+    """Whether a holder of ticket type `t` can take extra `e`; a session-scoped
+    per-attendee extra needs a pass that covers its session."""
+    if not t.is_active:
+        return False
+    if not e.per_attendee:
+        return True
+    if not _fits(e.applies_to, t):
+        return False
+    return e.session is None or t.kind == "event" or e.session in t.sessions
 
 
 def _fits(extra_applies_to: str, t) -> bool:

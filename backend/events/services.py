@@ -27,6 +27,27 @@ def can_copy_events(user) -> bool:
     return all(user.has_perm(p) for p in COPY_PERMISSIONS)
 
 
+def _match_gate(source_types, target_event):
+    """Map active source types onto active target types by name. Several same-named
+    targets narrow to the one with the same kind, audience and price; if that is
+    not exactly one, the type counts as unmatched."""
+    targets = list(target_event.ticket_types.filter(is_active=True))
+    matched, unmatched = [], []
+    for t in source_types:
+        found = [c for c in targets if c.name == t.name]
+        if len(found) > 1:
+            found = [
+                c
+                for c in found
+                if (c.kind, c.applies_to, c.price) == (t.kind, t.applies_to, t.price)
+            ]
+        if len(found) == 1:
+            matched.append(found[0])
+        else:
+            unmatched.append(t)
+    return matched, unmatched
+
+
 def duplicate_extra_to_event(extra: Extra, target_event: Event) -> Extra:
     """Deep-copy `extra` (and its ExtraChoice rows) onto `target_event`.
 
@@ -37,7 +58,8 @@ def duplicate_extra_to_event(extra: Extra, target_event: Event) -> Extra:
     (`Session.event`) and the source event's session scoping can never
     carry over to a different event's calendar; staff re-picks it on the
     new copy afterward if needed. The ticket-type gate maps onto the target's
-    types by name; if any has no match the clone is inactive, `gate_incomplete`.
+    active types by name (inactive source types are dropped); if an active one has
+    no unambiguous match the clone is inactive, `gate_incomplete`.
     """
     clone = Extra.objects.create(
         event=target_event,
@@ -55,18 +77,17 @@ def duplicate_extra_to_event(extra: Extra, target_event: Event) -> Extra:
     )
     clone.gate_incomplete = False
     gate = list(extra.ticket_types.all())
-    if gate:
-        if target_event == extra.event:
-            clone.ticket_types.set(gate)
-        else:
-            names = {t.name for t in gate}
-            matched = list(target_event.ticket_types.filter(name__in=names))
-            clone.ticket_types.set(matched)
-            if names - {t.name for t in matched}:
-                # Opening a restricted extra to everyone would be worse than hiding it.
-                clone.gate_incomplete = True
-                clone.is_active = False
-                clone.save(update_fields=["is_active"])
+    if gate and target_event == extra.event:
+        clone.ticket_types.set(gate)
+    elif gate:
+        matched, unmatched = _match_gate([t for t in gate if t.is_active], target_event)
+        clone.ticket_types.set(matched)
+        # Only a once-offered extra turns inactive: an inactive source is hidden already,
+        # and opening a restricted extra to everyone would be worse than hiding it.
+        if extra.is_active and (unmatched or not matched):
+            clone.gate_incomplete = True
+            clone.is_active = False
+            clone.save(update_fields=["is_active"])
     for choice in extra.choice_rows.all():
         clone.choice_rows.create(
             label=choice.label,
@@ -191,3 +212,19 @@ def copy_event_with_warnings(
     for r in keyed_rows(source)["extras"]:
         Extra.objects.filter(pk=new_extras[r.key].pk).update(cloned_from=r.obj)
     return new_event, warnings
+
+
+def deactivate_extras_emptied_by_deleting(ticket_types) -> list[Extra]:
+    """Switch off active extras whose whole gate is in `ticket_types`, which are
+    about to be deleted: an emptied gate would read as "offered to everyone"."""
+    doomed = {t.pk for t in ticket_types}
+    emptied = []
+    for extra in Extra.objects.filter(
+        is_active=True, ticket_types__in=doomed
+    ).distinct():
+        if not extra.ticket_types.exclude(pk__in=doomed).exists():
+            emptied.append(extra)
+    for extra in emptied:
+        extra.is_active = False
+        extra.save(update_fields=["is_active"])
+    return emptied

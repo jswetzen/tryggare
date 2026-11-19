@@ -103,3 +103,39 @@ class ExtraAdminGateTests(NonManifestStaticfilesTestCase, TestCase):
         texts = [str(m) for m in response.context["messages"]]
         self.assertTrue(any("Workshop" in m and "inactive" in m for m in texts), texts)
         self.assertFalse(self.other.extras.get(name="Workshop").is_active)
+        self.assertTrue(any("Re-pick" in m for m in texts), texts)
+
+    def test_deleting_the_only_gate_type_deactivates_the_extra(self):
+        second = TicketType.objects.create(event=self.event, name="Second", price=1)
+        sole = Extra.objects.create(event=self.event, name="Sole")
+        sole.ticket_types.add(self.mine)
+        shared = Extra.objects.create(event=self.event, name="Shared")
+        shared.ticket_types.add(self.mine, second)
+        response = self.client.post(
+            reverse("admin:events_tickettype_delete", args=[self.mine.pk]),
+            {"post": "yes"},
+            follow=True,
+        )
+        texts = [str(m) for m in response.context["messages"]]
+        self.assertTrue(any("Sole" in m and "Shared" not in m for m in texts), texts)
+        sole.refresh_from_db()
+        shared.refresh_from_db()
+        self.assertFalse(sole.is_active)
+        self.assertTrue(shared.is_active)
+
+    def test_bulk_delete_of_every_gate_type_deactivates_the_extra(self):
+        second = TicketType.objects.create(event=self.event, name="Second", price=1)
+        shared = Extra.objects.create(event=self.event, name="Shared")
+        shared.ticket_types.add(self.mine, second)
+        self.client.post(
+            reverse("admin:events_tickettype_changelist"),
+            {
+                "action": "delete_selected",
+                "post": "yes",
+                "_selected_action": [self.mine.pk, second.pk],
+            },
+            follow=True,
+        )
+        shared.refresh_from_db()
+        self.assertFalse(shared.is_active)
+        self.assertFalse(shared.ticket_types.exists())
