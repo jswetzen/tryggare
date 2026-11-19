@@ -82,12 +82,13 @@ def duplicate_extra_to_event(extra: Extra, target_event: Event) -> Extra:
     elif gate:
         matched, unmatched = _match_gate([t for t in gate if t.is_active], target_event)
         clone.ticket_types.set(matched)
-        # Only a once-offered extra turns inactive: an inactive source is hidden already,
-        # and opening a restricted extra to everyone would be worse than hiding it.
-        if extra.is_active and (unmatched or not matched):
+        # An unmapped gate flags the clone even from an inactive source, or activating
+        # it later would open it to everyone.
+        if unmatched or not matched:
             clone.gate_incomplete = True
-            clone.is_active = False
-            clone.save(update_fields=["is_active"])
+            if clone.is_active:
+                clone.is_active = False
+                clone.save(update_fields=["is_active"])
     for choice in extra.choice_rows.all():
         clone.choice_rows.create(
             label=choice.label,
@@ -216,7 +217,11 @@ def copy_event_with_warnings(
 
 def deactivate_extras_emptied_by_deleting(ticket_types) -> list[Extra]:
     """Switch off active extras whose whole gate is in `ticket_types`, which are
-    about to be deleted: an emptied gate would read as "offered to everyone"."""
+    about to be deleted: an emptied gate would read as "offered to everyone".
+
+    Only the admin delete paths call this; deletes outside admin (shell, scripts) are
+    not guarded, the same as promo codes' `applies_to_ticket_types`.
+    """
     doomed = {t.pk for t in ticket_types}
     emptied = []
     for extra in Extra.objects.filter(

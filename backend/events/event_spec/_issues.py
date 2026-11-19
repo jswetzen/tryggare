@@ -85,6 +85,9 @@ MESSAGES = {
     "bundle_replaces_pass": _(
         "This session bundle covers the same attendees as an event ticket. An attendee picks either this or the pass, not both. Intended?"
     ),
+    "bundle_requires_own_pass": _(
+        "This session bundle requires an event ticket for the same attendees, but an attendee holds only one ticket, so it can never be bought."
+    ),
     "ticket_rule_open_with_tickets": _(
         "Check-in is open to everyone by default but the event sells tickets, so nobody needs a ticket at the door. Intended?"
     ),

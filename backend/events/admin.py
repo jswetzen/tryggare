@@ -5,6 +5,7 @@ from django.conf import settings
 from django.contrib import admin, messages
 from django.contrib.admin import helpers
 from django.core.exceptions import ObjectDoesNotExist
+from django.db import transaction
 from django.http import Http404, HttpResponseRedirect
 from django.template.response import TemplateResponse
 from django.urls import path, reverse
@@ -1145,8 +1146,9 @@ class TicketTypeAdmin(admin.ModelAdmin):
         super().delete_model(request, obj)
 
     def delete_queryset(self, request, queryset):
-        self._deactivate_emptied_extras(request, list(queryset))
-        super().delete_queryset(request, queryset)
+        with transaction.atomic():
+            self._deactivate_emptied_extras(request, list(queryset))
+            super().delete_queryset(request, queryset)
 
     def save_model(self, request, obj, form, change):
         super().save_model(request, obj, form, change)

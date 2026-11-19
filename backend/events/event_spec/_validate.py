@@ -430,11 +430,18 @@ def _age_band_warnings(spec: EventSpec) -> list[Issue]:
         required = index.get(t.requires_ticket_type)
         if required is not None and spec.ticket_types[required].kind != "event":
             required = None
-        if any(
-            _same_attendees(t, ranges[i], spec.ticket_types[j], ranges[j])
-            for j in passes | ({required} - {None})
+        path = f"ticket_types[{i}].kind"
+        # Requiring a pass for the same attendees can never be satisfied: they hold one ticket.
+        if required is not None and _same_attendees(
+            t, ranges[i], spec.ticket_types[required], ranges[required]
         ):
-            path = f"ticket_types[{i}].kind"
+            out[(path, "bundle_requires_own_pass")] = issue(
+                path, "bundle_requires_own_pass"
+            )
+        elif any(
+            _same_attendees(t, ranges[i], spec.ticket_types[j], ranges[j])
+            for j in passes
+        ):
             out[(path, "bundle_replaces_pass")] = issue(path, "bundle_replaces_pass")
 
     # Age is only enforced for children, so only their tiers can leave a gap or overlap.

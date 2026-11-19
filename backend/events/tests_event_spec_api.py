@@ -26,7 +26,7 @@ from events.spec_test_support import (
     make_child,
 )
 from events.management.commands.event_spec import Command
-from events.models import Event, EventTicket, Extra, TicketType
+from events.models import Event, EventTicket, Extra, PromoCode, TicketType
 from accounts.roles import COORDINATOR, grant
 from events.services import COPY_PERMISSIONS, VIEW_PERMISSIONS
 
@@ -714,6 +714,29 @@ class SetupCheckTests(TestCase):
         self.assertNotIn("Extra 'T-shirt'", rows)
         self.assertNotIn("Choice 'XL'", rows)
         self.assertIn("Choice 'S'", rows)
+
+    def test_redeemed_promo_codes_are_not_called_deletable(self):
+        promo = PromoCode.objects.create(
+            event=self.event,
+            code="SPENT",
+            discount_type="percent",
+            discount_value=10,
+            is_active=False,
+        )
+        flagged = lambda: {  # noqa: E731
+            w["row"]
+            for w in self.check()["warnings"]
+            if w["code"] == "inactive_unreferenced"
+        }
+        self.assertIn("Promo code 'SPENT'", flagged())
+        Registration.objects.create(
+            event=self.event,
+            family=Family.objects.create(last_name="P"),
+            contact_email="p@example.com",
+            verification_token_hash="x",
+            promo_code=promo,
+        )
+        self.assertNotIn("Promo code 'SPENT'", flagged())
 
     def test_admin_page_and_action(self):
         self.client.force_login(self.user)

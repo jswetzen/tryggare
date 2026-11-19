@@ -2055,6 +2055,9 @@ msgstr "The %(kind)s '%(name)s' refers to the %(target)s '%(other)s', which belo
 msgid "This session bundle covers the same attendees as an event ticket. An attendee picks either this or the pass, not both. Intended?"
 msgstr "This session bundle covers the same attendees as an event ticket. An attendee picks either this or the pass, not both. Intended?"
 
+msgid "This session bundle requires an event ticket for the same attendees, but an attendee holds only one ticket, so it can never be bought."
+msgstr "This session bundle requires an event ticket for the same attendees, but an attendee holds only one ticket, so it can never be bought."
+
 msgid "Check-in is open to everyone by default but the event sells tickets, so nobody needs a ticket at the door. Intended?"
 msgstr "Check-in is open to everyone by default but the event sells tickets, so nobody needs a ticket at the door. Intended?"
 

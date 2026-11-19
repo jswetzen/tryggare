@@ -2079,6 +2079,9 @@ msgstr "”%(name)s” (%(kind)s) refererar till %(target)s ”%(other)s”, som
 msgid "This session bundle covers the same attendees as an event ticket. An attendee picks either this or the pass, not both. Intended?"
 msgstr "Det här sessionspaketet gäller samma deltagare som en evenemangsbiljett. En deltagare väljer antingen det eller passet, inte båda. Avsiktligt?"
 
+msgid "This session bundle requires an event ticket for the same attendees, but an attendee holds only one ticket, so it can never be bought."
+msgstr "Det här sessionspaketet kräver en evenemangsbiljett för samma deltagare, men en deltagare har bara en biljett, så det går aldrig att köpa."
+
 msgid "Check-in is open to everyone by default but the event sells tickets, so nobody needs a ticket at the door. Intended?"
 msgstr "Incheckning är öppen för alla som standard, men evenemanget säljer biljetter, så ingen behöver biljett vid dörren. Avsiktligt?"
 

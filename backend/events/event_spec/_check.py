@@ -67,6 +67,9 @@ def _history_paths(event: Event) -> set[str]:
     for i, (_o, _k, t) in enumerate(rows["ticket_types"]):
         if t.event_tickets.exists() or t.session_tickets.exists():
             paths.add(f"ticket_types[{i}].is_active")
+    for i, (_o, _k, p) in enumerate(rows["promo_codes"]):
+        if p.registrations.exists():
+            paths.add(f"promo_codes[{i}].is_active")
     owner_index = {}
     for i, (_o, key, e) in enumerate(rows["extras"]):
         owner_index[key] = i

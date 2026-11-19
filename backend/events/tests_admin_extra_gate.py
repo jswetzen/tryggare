@@ -127,7 +127,7 @@ class ExtraAdminGateTests(NonManifestStaticfilesTestCase, TestCase):
         second = TicketType.objects.create(event=self.event, name="Second", price=1)
         shared = Extra.objects.create(event=self.event, name="Shared")
         shared.ticket_types.add(self.mine, second)
-        self.client.post(
+        response = self.client.post(
             reverse("admin:events_tickettype_changelist"),
             {
                 "action": "delete_selected",
@@ -139,3 +139,5 @@ class ExtraAdminGateTests(NonManifestStaticfilesTestCase, TestCase):
         shared.refresh_from_db()
         self.assertFalse(shared.is_active)
         self.assertFalse(shared.ticket_types.exists())
+        texts = [str(m) for m in response.context["messages"]]
+        self.assertTrue(any("Shared" in m for m in texts), texts)

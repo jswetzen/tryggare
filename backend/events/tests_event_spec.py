@@ -427,7 +427,10 @@ class WarningTests(SimpleTestCase):
         spec["ticket_types"][3]["min_birthdate"] = "2014-06-19"
         spec["ticket_types"][3]["max_birthdate"] = None
         spec["ticket_types"][1]["is_hidden"] = True
-        self.assertIn(key, self.codes(spec))
+        self.assertNotIn(key, self.codes(spec))
+        self.assertIn(
+            ("ticket_types[3].kind", "bundle_requires_own_pass"), self.codes(spec)
+        )
 
     def test_hidden_tiers_are_ignored_by_age_checks(self):
         spec = example_with_bundle()
