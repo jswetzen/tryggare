@@ -4,7 +4,7 @@
     "name": "Test Conference 2027",
     "start_date": "2027-06-18",
     "end_date": "2027-06-20",
-    "ticket_rule_default": "open",
+    "ticket_rule_default": "all",
     "price": null,
     "registration_opens_at": "2027-03-01T09:00:00",
     "registration_closes_at": "2027-06-04T23:59:00",
@@ -46,17 +46,6 @@
       "min_birthdate": "2009-06-19",
       "max_birthdate": "2014-06-18",
       "sort_order": 30
-    },
-    {
-      "key": "saturday-workshop-13-17",
-      "name": "Saturday workshop 13-17",
-      "price": 150,
-      "applies_to": "child",
-      "min_birthdate": "2009-06-19",
-      "max_birthdate": "2014-06-18",
-      "kind": "session_bundle",
-      "sessions": ["saturday-workshop"],
-      "sort_order": 40
     }
   ],
   "extras": [
@@ -74,6 +63,16 @@
         {"key": "l", "label": "L", "sort_order": 30},
         {"key": "xl", "label": "XL", "sort_order": 40}
       ]
+    },
+    {
+      "key": "saturday-workshop-13-17",
+      "name": "Saturday workshop 13-17",
+      "price": 150,
+      "per_attendee": true,
+      "applies_to": "child",
+      "session": "saturday-workshop",
+      "ticket_types": ["child-pass-13-17"],
+      "sort_order": 30
     }
   ],
   "promo_codes": [

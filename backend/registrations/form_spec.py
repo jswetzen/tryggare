@@ -138,6 +138,12 @@ def build_form_spec(event) -> dict:
             "requires_choice": extra.requires_choice,
             "required": extra.required,
             "default_selected": extra.default_selected,
+            # Empty = offered to all. The form hides or disables the extra for
+            # an attendee holding none of these; the server enforces the same.
+            "ticket_type_ids": [str(t.id) for t in extra.ticket_types.all()],
+            "ticket_type_names": [
+                t.name for t in extra.ticket_types.all() if not t.is_hidden
+            ],
             "choices": [
                 {
                     "id": str(choice.id),
@@ -150,12 +156,13 @@ def build_form_spec(event) -> dict:
         for extra in event.extras.filter(is_active=True)
         .order_by("sort_order", "name")
         .prefetch_related(
+            "ticket_types",
             Prefetch(
                 "choice_rows",
                 queryset=ExtraChoice.objects.filter(is_active=True).order_by(
                     "sort_order", "label"
                 ),
-            )
+            ),
         )
     ]
     referenced = {sid for ids in bundle_ids.values() for sid in ids}

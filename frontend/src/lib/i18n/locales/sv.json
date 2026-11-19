@@ -461,6 +461,8 @@
     "extrasLabel": "Tillval",
     "extraChoicePlaceholder": "Välj...",
     "registrationExtrasHeading": "För hela anmälan",
+    "extraNeedsTicket": "Kräver biljett: {types}",
+    "extraNeedsTicketGeneric": "Kräver en annan biljett",
     "quantityLabel": "Antal",
     "promoCodeLabel": "Rabattkod",
     "promoCodePlaceholder": "Rabattkod (valfritt)",

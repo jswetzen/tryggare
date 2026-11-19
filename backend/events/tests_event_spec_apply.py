@@ -10,8 +10,8 @@ from events.event_spec import SpecError, apply, diff, example_spec, export
 
 from events.event_spec import _apply as apply_module
 from events.spec_test_support import (
+    example_with_bundle,
     NOW,
-    without_example_warnings,
     add_ticket,
     at_now,
     validate_at_now,
@@ -49,13 +49,13 @@ class ApplyNewEventTests(TestCase):
     def test_example_round_trips(self):
         event, changes, warnings = do_apply(example_spec())
         self.assertEqual(export(event), normalize(example_spec()))
-        self.assertEqual(without_example_warnings(warnings), [])
+        self.assertEqual(warnings, [])
         self.assertTrue(all(c["change"] == "added" for c in changes))
         self.assertEqual([c["kind"] for c in changes][:2], ["event", "sessions"])
         self.assertEqual(event.registration_window_status, "not_open_yet")
 
     def test_forward_reference_and_references_are_set(self):
-        spec = example_spec()
+        spec = example_with_bundle()
         spec["ticket_types"][0]["requires_ticket_type"] = "child-pass-0-12"
         event, _, _ = do_apply(spec)
         adult = event.ticket_types.get(name="Adult conference pass")
@@ -67,7 +67,12 @@ class ApplyNewEventTests(TestCase):
             [t.name for t in promo.applies_to_ticket_types.all()],
             ["Adult conference pass"],
         )
-        self.assertEqual(event.extras.get().choice_rows.count(), 4)
+        self.assertEqual(event.extras.get(name="T-shirt").choice_rows.count(), 4)
+        gated = event.extras.get(name="Saturday workshop 13-17")
+        self.assertEqual(
+            [t.name for t in gated.ticket_types.all()], ["Child pass 13-17"]
+        )
+        self.assertEqual(gated.session.name, "Saturday workshop")
 
     def test_export_applied_to_another_empty_event(self):
         first, _, _ = do_apply(example_spec())
@@ -149,7 +154,7 @@ class ApplyExistingEventTests(TestCase):
         self.assertEqual(export(self.event), normalize(spec))
 
     def test_removals_and_reordered_reference_lists(self):
-        spec = example_spec()
+        spec = example_with_bundle()
         spec["promo_codes"][0]["applies_to_ticket_types"] = [
             "adult-conference-pass",
             "child-pass-0-12",
@@ -161,6 +166,7 @@ class ApplyExistingEventTests(TestCase):
         spec["promo_codes"] = []
         spec["extras"][0]["choices"] = spec["extras"][0]["choices"][:2]
         spec["ticket_types"] = spec["ticket_types"][:3]
+        spec["extras"] = spec["extras"][:1]
         spec["sessions"] = []
         _, changes, _ = do_apply(spec, self.event)
         self.assertEqual(
@@ -168,6 +174,7 @@ class ApplyExistingEventTests(TestCase):
             [
                 ("choices", "l"),
                 ("choices", "xl"),
+                ("extras", "saturday-workshop-13-17"),
                 ("promo_codes", "testfamily"),
                 ("sessions", "saturday-workshop"),
                 ("ticket_types", "saturday-workshop-13-17"),
@@ -175,13 +182,44 @@ class ApplyExistingEventTests(TestCase):
         )
         self.assertEqual(export(self.event), normalize(spec))
 
+    def test_extra_gate_is_diffed_and_applied(self):
+        spec = example_spec()
+        self.assertEqual(diff(self.event, spec), [])
+        spec["extras"][1]["ticket_types"] = ["child-pass-0-12", "child-pass-13-17"]
+        changes = diff(self.event, spec)
+        self.assertEqual(
+            [(c["kind"], c["key"], c["change"]) for c in changes],
+            [("extras", "saturday-workshop-13-17", "changed")],
+        )
+        do_apply(spec, self.event)
+        extra = self.event.extras.get(name="Saturday workshop 13-17")
+        self.assertEqual(
+            sorted(t.name for t in extra.ticket_types.all()),
+            ["Child pass 0-12", "Child pass 13-17"],
+        )
+        spec["extras"][1]["ticket_types"] = []
+        do_apply(spec, self.event)
+        self.assertFalse(extra.ticket_types.exists())
+
+    def test_removing_a_gate_type_drops_it_from_the_extra(self):
+        spec = example_spec()
+        spec["extras"][1]["ticket_types"] = ["child-pass-0-12"]
+        spec["ticket_types"] = [
+            t for t in spec["ticket_types"] if t["key"] != "child-pass-13-17"
+        ]
+        do_apply(spec, self.event)
+        extra = self.event.extras.get(name="Saturday workshop 13-17")
+        self.assertEqual(
+            [t.name for t in extra.ticket_types.all()], ["Child pass 0-12"]
+        )
+
     def test_removed_session_does_not_delete_a_kept_extra(self):
         spec = example_spec()
         spec["extras"][0]["session"] = "saturday-workshop"
         do_apply(spec, self.event)
-        extra_id = self.event.extras.get().id
+        extra_id = self.event.extras.get(name="T-shirt").id
         spec["extras"][0]["session"] = None
-        spec["ticket_types"] = spec["ticket_types"][:3]
+        spec["extras"] = spec["extras"][:1]
         spec["sessions"] = []
         do_apply(spec, self.event)
         self.assertEqual(self.event.extras.get().id, extra_id)
@@ -266,8 +304,8 @@ class DiffTests(TestCase):
         self.assertEqual(
             [c["kind"] for c in changes],
             ["event", "sessions"]
-            + ["ticket_types"] * 4
-            + ["extras"]
+            + ["ticket_types"] * 3
+            + ["extras"] * 2
             + ["choices"] * 4
             + ["promo_codes"],
         )
@@ -380,7 +418,7 @@ class SameNameRowsTests(TestCase):
         spec = self.spec()
         event, _, warnings = do_apply(spec)
         self.assertEqual(
-            {w["code"] for w in without_example_warnings(warnings)},
+            {w["code"] for w in warnings},
             {"age_band_overlap"},
         )
         ids = {t.price: t.id for t in event.ticket_types.all()}
@@ -437,14 +475,16 @@ class PreservedFieldsTests(TestCase):
         self.assertFalse(event.sessions.get().is_active)
         self.assertEqual(event.promo_codes.get().uses_count, 0)
         self.assertIsNone(event.cloned_from)
-        self.assertIsNone(event.extras.get().cloned_from)
+        self.assertIsNone(event.extras.get(name="T-shirt").cloned_from)
 
         source = empty_event("Src")
         source_extra = Extra.objects.create(event=source, name="Src extra")
         Session.objects.filter(pk=event.sessions.get().pk).update(is_active=True)
         PromoCode.objects.filter(pk=event.promo_codes.get().pk).update(uses_count=7)
         Event.objects.filter(pk=event.pk).update(cloned_from=source)
-        Extra.objects.filter(pk=event.extras.get().pk).update(cloned_from=source_extra)
+        Extra.objects.filter(pk=event.extras.get(name="T-shirt").pk).update(
+            cloned_from=source_extra
+        )
 
         spec = example_spec()
         spec["sessions"][0]["adults_not_checked_in"] = True
@@ -456,4 +496,4 @@ class PreservedFieldsTests(TestCase):
         self.assertTrue(updated.sessions.get().is_active)
         self.assertEqual(updated.promo_codes.get().uses_count, 7)
         self.assertEqual(updated.cloned_from, source)
-        self.assertEqual(updated.extras.get().cloned_from, source_extra)
+        self.assertEqual(updated.extras.get(name="T-shirt").cloned_from, source_extra)

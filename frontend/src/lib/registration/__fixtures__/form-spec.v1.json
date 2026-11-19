@@ -62,6 +62,8 @@
       "requires_choice": true,
       "required": true,
       "default_selected": false,
+      "ticket_type_ids": [],
+      "ticket_type_names": [],
       "choices": [
         {
           "id": "00000000-0000-0000-0000-00000000001f",
@@ -74,6 +76,24 @@
           "price_delta": "5.00"
         }
       ]
+    },
+    {
+      "id": "00000000-0000-0000-0000-000000000022",
+      "name": "Child workshop",
+      "price": "20.00",
+      "session_id": null,
+      "per_attendee": true,
+      "applies_to": "either",
+      "requires_choice": false,
+      "required": false,
+      "default_selected": false,
+      "ticket_type_ids": [
+        "00000000-0000-0000-0000-000000000015"
+      ],
+      "ticket_type_names": [
+        "Child 0-12"
+      ],
+      "choices": []
     }
   ],
   "sessions": [

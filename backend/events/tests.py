@@ -794,6 +794,21 @@ class ExtraDuplicationTest(TestCase):
 
         self.assertEqual(clone.session, self.session)
 
+    def test_duplicate_keeps_ticket_type_gate_only_within_the_same_event(self):
+        from events.services import duplicate_extra_to_event
+
+        teen = TicketType.objects.create(event=self.event, name="Teen", price=1)
+        extra = Extra.objects.create(event=self.event, name="Workshop")
+        extra.ticket_types.add(teen)
+
+        self.assertEqual(
+            list(duplicate_extra_to_event(extra, self.event).ticket_types.all()),
+            [teen],
+        )
+        self.assertFalse(
+            duplicate_extra_to_event(extra, self.other_event).ticket_types.exists()
+        )
+
     def test_duplicate_leaves_source_untouched(self):
         from events.services import duplicate_extra_to_event
 

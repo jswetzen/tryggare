@@ -2094,3 +2094,17 @@ msgstr "The event cannot be checked: %(count)d error(s)."
 #, python-format
 msgid "The setup has %(count)d error(s)."
 msgstr "The setup has %(count)d error(s)."
+
+msgid "Required ticket types"
+msgstr "Required ticket types"
+
+msgid "Leave empty to offer the extra to everyone. Otherwise it is offered only to an attendee holding any of these ticket types (for a per-booking extra: when anyone in the booking holds one). Ticket types of the extra's own event only."
+msgstr "Leave empty to offer the extra to everyone. Otherwise it is offered only to an attendee holding any of these ticket types (for a per-booking extra: when anyone in the booking holds one). Ticket types of the extra's own event only."
+
+#, python-format
+msgid "Ticket types must belong to the extra's event: %(names)s."
+msgstr "Ticket types must belong to the extra's event: %(names)s."
+
+#, python-format
+msgid "This extra requires one of these ticket types: %(types)s."
+msgstr "This extra requires one of these ticket types: %(types)s."

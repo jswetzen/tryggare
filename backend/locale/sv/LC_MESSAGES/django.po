@@ -2118,3 +2118,17 @@ msgstr "Evenemanget kan inte kontrolleras: %(count)d fel."
 #, python-format
 msgid "The setup has %(count)d error(s)."
 msgstr "Upplägget har %(count)d fel."
+
+msgid "Required ticket types"
+msgstr "Biljettyper som krävs"
+
+msgid "Leave empty to offer the extra to everyone. Otherwise it is offered only to an attendee holding any of these ticket types (for a per-booking extra: when anyone in the booking holds one). Ticket types of the extra's own event only."
+msgstr "Lämna tomt för att erbjuda tillvalet till alla. Annars erbjuds det bara en deltagare som har någon av dessa biljettyper (för ett tillval per bokning: när någon i bokningen har en). Endast biljettyper från tillvalets eget evenemang."
+
+#, python-format
+msgid "Ticket types must belong to the extra's event: %(names)s."
+msgstr "Biljettyperna måste höra till tillvalets evenemang: %(names)s."
+
+#, python-format
+msgid "This extra requires one of these ticket types: %(types)s."
+msgstr "Det här tillvalet kräver någon av dessa biljettyper: %(types)s."

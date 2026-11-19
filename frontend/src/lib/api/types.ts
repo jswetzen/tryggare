@@ -256,6 +256,10 @@ export interface RegistrationExtraInfo {
   requires_choice: boolean;
   required: boolean;
   default_selected: boolean;
+  // Empty = offered to all; else only to holders of one of these ticket types.
+  ticket_type_ids: string[];
+  // Names of the public (non-hidden) ones, for the reason shown when disabled.
+  ticket_type_names: string[];
   choices: RegistrationExtraChoice[];
 }
 

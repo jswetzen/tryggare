@@ -21,10 +21,10 @@ from events.event_spec._export import KeyAllocator, slugify_key
 from events.event_spec._kinds import KINDS, codecs, spec_dict_rows
 from events.event_spec.spec import EventSection
 from events.spec_test_support import (
-    without_example_warnings,
     at_now,
     by_path,
     validate_at_now,
+    example_with_bundle,
     empty_event,
     foreign_session,
 )
@@ -69,8 +69,7 @@ class ExampleTests(SimpleTestCase):
     def test_example_validates_cleanly(self):
         errors, warnings = validate_at_now(example_spec())
         self.assertEqual(errors, [])
-        # The example still models its 13-17 workshop as a bundle beside the 13-17 pass.
-        self.assertEqual({w["code"] for w in warnings}, {"bundle_replaces_pass"})
+        self.assertEqual(warnings, [])
 
 
 class ShapeTests(SimpleTestCase):
@@ -141,7 +140,7 @@ class ReferenceTests(SimpleTestCase):
         self.assertEqual(errors, [])
 
     def test_unknown_references(self):
-        spec = example_spec()
+        spec = example_with_bundle()
         spec["ticket_types"][3]["sessions"] = ["nope"]
         spec["ticket_types"][1]["requires_ticket_type"] = "nope"
         spec["extras"][0]["session"] = "nope"
@@ -156,6 +155,28 @@ class ReferenceTests(SimpleTestCase):
         ):
             self.assertEqual(issues[path]["code"], "unknown_key", path)
 
+    def test_extra_ticket_type_references(self):
+        spec = example_spec()
+        gated = spec["extras"][1]
+        self.assertEqual(gated["ticket_types"], ["child-pass-13-17"])
+        gated["ticket_types"] = [
+            "nope",
+            "t-shirt",
+            "child-pass-13-17",
+            "child-pass-13-17",
+        ]
+        errors, _ = validate_at_now(spec)
+        issues = by_path(errors)
+        self.assertEqual(issues["extras[1].ticket_types[0]"]["code"], "unknown_key")
+        self.assertEqual(issues["extras[1].ticket_types[1]"]["code"], "wrong_kind_key")
+        self.assertEqual(
+            issues["extras[1].ticket_types[3]"]["code"], "duplicate_reference"
+        )
+
+    def test_capabilities_offer_the_extra_gate(self):
+        described = [c["description"] for c in CAPABILITIES["supported"]]
+        self.assertIn("An add-on limited to holders of given ticket types.", described)
+
     def test_reference_to_the_wrong_kind(self):
         spec = example_spec()
         spec["promo_codes"][0]["applies_to_ticket_types"] = ["t-shirt"]
@@ -166,7 +187,7 @@ class ReferenceTests(SimpleTestCase):
         )
 
     def test_duplicate_reference(self):
-        spec = example_spec()
+        spec = example_with_bundle()
         spec["ticket_types"][3]["sessions"] = ["saturday-workshop", "saturday-workshop"]
         errors, _ = validate_at_now(spec)
         self.assertEqual(
@@ -378,7 +399,7 @@ class WarningTests(SimpleTestCase):
         )
 
     def test_bundle_without_sessions_and_ignored_sessions(self):
-        spec = example_spec()
+        spec = example_with_bundle()
         spec["ticket_types"][3]["sessions"] = []
         spec["ticket_types"][0]["sessions"] = ["saturday-workshop"]
         codes = self.codes(spec)
@@ -386,7 +407,7 @@ class WarningTests(SimpleTestCase):
         self.assertIn(("ticket_types[0].sessions", "sessions_ignored"), codes)
 
     def test_bundle_replaces_pass(self):
-        spec = example_spec()
+        spec = example_with_bundle()
         key = ("ticket_types[3].kind", "bundle_replaces_pass")
         self.assertIn(key, self.codes(spec))
         # A different age window no longer overlaps any child pass.
@@ -395,7 +416,7 @@ class WarningTests(SimpleTestCase):
         self.assertNotIn(key, self.codes(spec))
 
     def test_bundle_requiring_a_pass_of_other_attendees_is_fine(self):
-        spec = example_spec()
+        spec = example_with_bundle()
         key = ("ticket_types[3].kind", "bundle_replaces_pass")
         spec["ticket_types"][3]["min_birthdate"] = "2004-06-19"
         spec["ticket_types"][3]["max_birthdate"] = "2009-06-18"
@@ -409,7 +430,7 @@ class WarningTests(SimpleTestCase):
         self.assertIn(key, self.codes(spec))
 
     def test_hidden_tiers_are_ignored_by_age_checks(self):
-        spec = example_spec()
+        spec = example_with_bundle()
         key = ("ticket_types[3].kind", "bundle_replaces_pass")
         spec["ticket_types"][2]["is_hidden"] = True
         self.assertNotIn(key, self.codes(spec))
@@ -421,7 +442,7 @@ class WarningTests(SimpleTestCase):
         self.assertIn(gap, self.codes(spec))
 
     def test_either_audience_counts_as_parent_and_child(self):
-        spec = example_spec()
+        spec = example_with_bundle()
         key = ("ticket_types[3].kind", "bundle_replaces_pass")
         spec["ticket_types"][3]["min_birthdate"] = "2004-06-19"
         spec["ticket_types"][3]["max_birthdate"] = "2009-06-18"
@@ -464,7 +485,7 @@ class WarningTests(SimpleTestCase):
         )
 
     def test_bundles_for_different_sessions_do_not_gap_or_overlap(self):
-        spec = example_spec()
+        spec = example_with_bundle()
         # 0-12 beside the Saturday 13-17 bundle: a gap and an overlap if they were one family.
         self._second_bundle(
             spec, min_birthdate="2014-06-19", max_birthdate="2015-06-18"
@@ -492,13 +513,15 @@ class WarningTests(SimpleTestCase):
         self.assertIn(key, self.codes(spec))
 
     def test_open_door_rule_with_tickets(self):
-        spec = example_spec()
+        spec = example_with_bundle()
+        spec["event"]["ticket_rule_default"] = "open"
         key = ("event.ticket_rule_default", "ticket_rule_open_with_tickets")
         # The example's only session sets its own rule, so the default is never used.
         self.assertNotIn(key, self.codes(spec))
         spec["sessions"][0]["ticket_rule"] = ""
         self.assertIn(key, self.codes(spec))
         spec["sessions"] = []
+        spec["extras"] = spec["extras"][:1]
         spec["ticket_types"] = spec["ticket_types"][:3]
         self.assertIn(key, self.codes(spec))
         spec["event"]["ticket_rule_default"] = "all"
@@ -509,17 +532,18 @@ class WarningTests(SimpleTestCase):
         self.assertNotIn(key, self.codes(spec))
 
     def test_event_price_ignored_while_ticket_types_exist(self):
-        spec = example_spec()
+        spec = example_with_bundle()
         key = ("event.price", "event_price_ignored")
         self.assertNotIn(key, self.codes(spec))
         spec["event"]["price"] = 100
         self.assertIn(key, self.codes(spec))
         spec["ticket_types"] = []
         spec["promo_codes"] = []
+        spec["extras"] = []
         self.assertNotIn(key, self.codes(spec))
 
     def test_age_band_gap(self):
-        spec = example_spec()
+        spec = example_with_bundle()
         key = ("ticket_types[2].min_birthdate", "age_band_gap")
         self.assertNotIn(key, self.codes(spec))
         # 0-12 and 15-17: ages 13 and 14 have no child ticket.
@@ -706,6 +730,13 @@ class ExportTests(TestCase):
         self.assertEqual(spec["promo_codes"][0]["key"], "vip-2027")
         self.assertEqual(spec["promo_codes"][0]["code"], "VIP 2027")
 
+    def test_export_writes_the_extra_gate_as_keys(self):
+        extra = self.event.extras.first()
+        extra.ticket_types.set(self.event.ticket_types.all())
+        gate = export(self.event)["extras"][0]["ticket_types"]
+        self.assertEqual(gate, sorted(gate))
+        self.assertEqual(len(gate), 3)
+
     def test_export_resolves_references_to_keys(self):
         spec = export(self.event)
         first, second, bundle = spec["ticket_types"]
@@ -723,10 +754,10 @@ class ExportTests(TestCase):
         self.assertEqual(parsed.model_dump(mode="json"), spec)
         errors, warnings = validate_at_now(spec)
         self.assertEqual(errors, [])
-        # The fixture's one retired choice is the only thing to flag.
+        # The fixture has a bundle beside a pass, and one retired choice.
         self.assertEqual(
-            [w["code"] for w in without_example_warnings(warnings)],
-            ["inactive_unreferenced"],
+            [w["code"] for w in warnings],
+            ["bundle_replaces_pass", "inactive_unreferenced"],
         )
 
     def test_ties_break_on_id(self):

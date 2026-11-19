@@ -771,6 +771,18 @@ class Extra(models.Model):
             "can decline) — never model an opt-out as a negative price."
         ),
     )
+    ticket_types = models.ManyToManyField(
+        "TicketType",
+        blank=True,
+        related_name="gated_extras",
+        verbose_name=_("Required ticket types"),
+        help_text=_(
+            "Leave empty to offer the extra to everyone. Otherwise it is offered "
+            "only to an attendee holding any of these ticket types (for a "
+            "per-booking extra: when anyone in the booking holds one). "
+            "Ticket types of the extra's own event only."
+        ),
+    )
     sort_order = models.PositiveIntegerField(default=0, verbose_name=_("Sort Order"))
     is_active = models.BooleanField(default=True, verbose_name=_("Active"))
     cloned_from = models.ForeignKey(

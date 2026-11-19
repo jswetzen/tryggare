@@ -461,6 +461,8 @@
     "extrasLabel": "Extras",
     "extraChoicePlaceholder": "Choose...",
     "registrationExtrasHeading": "For the whole booking",
+    "extraNeedsTicket": "Requires ticket: {types}",
+    "extraNeedsTicketGeneric": "Requires a different ticket",
     "quantityLabel": "Quantity",
     "promoCodeLabel": "Promo code",
     "promoCodePlaceholder": "Promo code (optional)",

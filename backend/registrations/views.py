@@ -53,7 +53,11 @@ from .models import (
 )
 from .pricing import calculate_discount, calculate_total
 from .serializers import RegistrationSubmitSerializer
-from .ticket_rules import validate_ticket_composition
+from .ticket_rules import (
+    extra_gate_open,
+    held_ticket_type_ids,
+    validate_ticket_composition,
+)
 from .services import (
     InvalidPaymentTransition,
     TicketTypeSoldOut,
@@ -320,6 +324,7 @@ def _missing_required_extras(
         event=event, is_active=True, required=True, per_attendee=True
     ).filter(Q(applies_to=attendee_kind) | Q(applies_to="either"))
     missing = []
+    held = held_ticket_type_ids(registration, attendee)
     for extra in candidates:
         if extra.id in submitted_extra_ids:
             continue
@@ -327,17 +332,24 @@ def _missing_required_extras(
             attendee=attendee, registration=registration, session_id=extra.session_id
         ):
             continue
+        if not extra_gate_open(extra, held):
+            continue
         missing.append(extra)
     return missing
 
 
-def _missing_required_registration_extras(*, event, submitted_extra_ids):
+def _missing_required_registration_extras(*, event, registration, submitted_extra_ids):
     """Same as _missing_required_extras, for per-registration (attendee=None)
     required extras, checked once for the whole booking."""
     candidates = Extra.objects.filter(
         event=event, is_active=True, required=True, per_attendee=False
     )
-    return [extra for extra in candidates if extra.id not in submitted_extra_ids]
+    held = held_ticket_type_ids(registration)
+    return [
+        extra
+        for extra in candidates
+        if extra.id not in submitted_extra_ids and extra_gate_open(extra, held)
+    ]
 
 
 def _attach_extra(*, registration, attendee, selection, is_child):
@@ -382,6 +394,11 @@ def _attach_extra(*, registration, attendee, selection, is_child):
             attendee=attendee, registration=registration, session_id=extra.session_id
         ):
             raise ValidationError(_("This attendee isn't registered for that session."))
+    if not extra_gate_open(extra, held_ticket_type_ids(registration, attendee)):
+        raise ValidationError(
+            _("This extra requires one of these ticket types: %(types)s.")
+            % {"types": ", ".join(t.name for t in extra.ticket_types.all())}
+        )
     if (
         extra.per_attendee
         and RegistrationExtra.objects.filter(
@@ -635,6 +652,7 @@ def _create_registration(
 
     missing_required_registration = _missing_required_registration_extras(
         event=event,
+        registration=registration,
         submitted_extra_ids={sel["extra"].id for sel in extras_data},
     )
     if missing_required_registration:

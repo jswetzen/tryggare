@@ -1194,8 +1194,49 @@ class DuplicateExtraToEventForm(forms.Form):
     )
 
 
+class ExtraAdminForm(forms.ModelForm):
+    """Offers only the extra's own event's ticket types, and refuses others.
+
+    The queryset can only be narrowed once the event is known (saved extra, or
+    the event chosen on a failed submit); the clean() is the real guard."""
+
+    class Meta:
+        model = Extra
+        fields = "__all__"
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        event_id = self.instance.event_id or (
+            self.data.get(self.add_prefix("event")) if self.is_bound else None
+        )
+        if event_id:
+            self.fields["ticket_types"].queryset = TicketType.objects.filter(
+                event_id=event_id
+            )
+
+    def clean(self):
+        cleaned = super().clean()
+        event = cleaned.get("event")
+        foreign = [
+            t.name
+            for t in cleaned.get("ticket_types") or ()
+            if event is not None and t.event_id != event.id
+        ]
+        if foreign:
+            raise forms.ValidationError(
+                {
+                    "ticket_types": _(
+                        "Ticket types must belong to the extra's event: %(names)s."
+                    )
+                    % {"names": ", ".join(foreign)}
+                }
+            )
+        return cleaned
+
+
 @admin.register(Extra)
 class ExtraAdmin(admin.ModelAdmin):
+    form = ExtraAdminForm
     list_display = (
         "name",
         "event",
@@ -1210,6 +1251,7 @@ class ExtraAdmin(admin.ModelAdmin):
     list_filter = ("event", "applies_to", "per_attendee", "is_active")
     search_fields = ("name", "event__name")
     autocomplete_fields = ["event", "session"]
+    filter_horizontal = ["ticket_types"]
     inlines = [ExtraChoiceInline]
     actions = ["duplicate_to_event"]
     exclude = ("cloned_from",)

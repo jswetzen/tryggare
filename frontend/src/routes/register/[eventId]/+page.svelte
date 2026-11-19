@@ -42,6 +42,8 @@
   import PersonFields from '$lib/components/registrations/PersonFields.svelte';
   import {
     applicablePersonExtras,
+    blockedPersonExtras,
+    blockedRegistrationExtras,
     applicableTicketTypes,
     isFieldRequired,
     isFieldVisible,
@@ -520,14 +522,27 @@
 
   function personExtraLabels(
     selections: Record<string, ExtraSelectionState>,
-    isChild: boolean
+    isChild: boolean,
+    ticketTypeId: string
   ): string[] {
     const labels: string[] = [];
-    for (const extra of applicablePersonExtras(spec, isChild)) {
+    for (const extra of applicablePersonExtras(spec, isChild, ticketTypeId)) {
       const label = extraSummaryLabel(extra, extraState(selections, extra));
       if (label) labels.push(label);
     }
     return labels;
+  }
+
+  // A registration-level gated extra is offered when anyone in the booking holds a
+  // listed ticket type. A guardian-only row's ticketTypeId is cleared, so it adds none.
+  let heldTicketTypeIds = $derived(
+    [...parents, ...children].map((person) => person.ticketTypeId).filter(Boolean)
+  );
+
+  function extraGateReason(extra: RegistrationExtraInfo): string {
+    return (extra.ticket_type_names ?? []).length > 0
+      ? $t('register.extraNeedsTicket', { values: { types: extra.ticket_type_names.join(', ') } })
+      : $t('register.extraNeedsTicketGeneric');
   }
 
   // Whole-registration extras (e.g. a shared cabin) aren't any one
@@ -535,7 +550,7 @@
   // repeated on every row.
   let registrationExtraLabels = $derived.by(() => {
     const labels: string[] = [];
-    for (const extra of registrationExtras(spec)) {
+    for (const extra of registrationExtras(spec, heldTicketTypeIds)) {
       const label = extraSummaryLabel(extra, extraState(registrationExtraSelections, extra));
       if (label) labels.push(label);
     }
@@ -592,7 +607,7 @@
         // A guardian-only row carries no extras (see handleSubmit's payload),
         // so it must not list any either, even ones it clicked before
         // switching to "no ticket".
-        extraLabels: parentGuardianOnly(p) ? [] : personExtraLabels(p.extraSelections, false)
+        extraLabels: parentGuardianOnly(p) ? [] : personExtraLabels(p.extraSelections, false, p.ticketTypeId)
       });
     });
     children.forEach((c, i) => {
@@ -601,7 +616,7 @@
         label: childAttendeeLabel(c, i),
         ticketName: ticketType?.name ?? null,
         status: summaryRowStatus(ticketType !== null, false),
-        extraLabels: personExtraLabels(c.extraSelections, true)
+        extraLabels: personExtraLabels(c.extraSelections, true, c.ticketTypeId)
       });
     });
     return rows;
@@ -1323,18 +1338,18 @@
       if (parentGuardianOnly(parent)) continue;
       const ticketType = spec.ticket_types.find((tt) => tt.id === parent.ticketTypeId);
       if (ticketType) total += parseFloat(ticketType.price);
-      for (const extra of applicablePersonExtras(spec, false)) {
+      for (const extra of applicablePersonExtras(spec, false, parent.ticketTypeId)) {
         total += priceOf(extra, extraState(parent.extraSelections, extra));
       }
     }
     for (const child of children) {
       const ticketType = spec.ticket_types.find((tt) => tt.id === child.ticketTypeId);
       if (ticketType) total += parseFloat(ticketType.price);
-      for (const extra of applicablePersonExtras(spec, true)) {
+      for (const extra of applicablePersonExtras(spec, true, child.ticketTypeId)) {
         total += priceOf(extra, extraState(child.extraSelections, extra));
       }
     }
-    for (const extra of registrationExtras(spec)) {
+    for (const extra of registrationExtras(spec, heldTicketTypeIds)) {
       total += priceOf(extra, extraState(registrationExtraSelections, extra));
     }
     return total;
@@ -1804,7 +1819,7 @@
     for (const { p, index } of validParentEntries) {
       // No extras for a guardian-only row (none are offered, none are sent).
       if (parentGuardianOnly(p)) continue;
-      for (const extra of applicablePersonExtras(spec, false)) {
+      for (const extra of applicablePersonExtras(spec, false, p.ticketTypeId)) {
         if (extra.required && extra.requires_choice && extraState(p.extraSelections, extra).choiceId === '') {
           problems.push({
             id: `parent-extra-${extra.id}-${index}`,
@@ -1817,7 +1832,7 @@
       }
     }
     children.forEach((child, index) => {
-      for (const extra of applicablePersonExtras(spec, true)) {
+      for (const extra of applicablePersonExtras(spec, true, child.ticketTypeId)) {
         if (
           extra.required &&
           extra.requires_choice &&
@@ -1833,7 +1848,7 @@
         }
       }
     });
-    for (const extra of registrationExtras(spec)) {
+    for (const extra of registrationExtras(spec, heldTicketTypeIds)) {
       if (
         extra.required &&
         extra.requires_choice &&
@@ -1889,7 +1904,7 @@
         ...(parentGuardianOnly(p) ? { guardian_only: true } : {}),
         extras: parentGuardianOnly(p)
           ? []
-          : buildExtraSelections(p.extraSelections, applicablePersonExtras(spec, false))
+          : buildExtraSelections(p.extraSelections, applicablePersonExtras(spec, false, p.ticketTypeId))
       })),
       children: children.map((child) => omitHiddenFields(spec, 'child', {
         first_name: child.first_name.trim(),
@@ -1900,9 +1915,9 @@
         notes: child.healthInfoStatus === 'consented' ? child.notes : '',
         health_consent_status: statusMap[child.healthInfoStatus],
         ticket_type: child.ticketTypeId || null,
-        extras: buildExtraSelections(child.extraSelections, applicablePersonExtras(spec, true))
+        extras: buildExtraSelections(child.extraSelections, applicablePersonExtras(spec, true, child.ticketTypeId))
       })),
-      extras: buildExtraSelections(registrationExtraSelections, registrationExtras(spec)),
+      extras: buildExtraSelections(registrationExtraSelections, registrationExtras(spec, heldTicketTypeIds)),
       promo_code: promoCode.trim(),
       website,
       idempotency_key: idempotencyKey
@@ -2948,7 +2963,7 @@
                   <!-- A guardian-only row is offered no extras: none are sent (the backend
                        rejects extras on an adult without a ticket). -->
                   {#if !parentGuardianOnly(parent)}
-                  {#each applicablePersonExtras(spec, false).filter((extra) => extra.required) as extra (extra.id)}
+                  {#each applicablePersonExtras(spec, false, parent.ticketTypeId).filter((extra) => extra.required) as extra (extra.id)}
                     {@const state = extraState(parent.extraSelections, extra)}
                     {#if extra.requires_choice}
                       <fieldset
@@ -2992,10 +3007,10 @@
                     {/if}
                   {/each}
 
-                  {#if applicablePersonExtras(spec, false).filter((extra) => !extra.required).length > 0}
+                  {#if applicablePersonExtras(spec, false, parent.ticketTypeId).filter((extra) => !extra.required).length > 0}
                     <div class="mt-2 space-y-1.5">
                       <div class="block text-xs text-neutral-600">{$t('register.extrasLabel')}</div>
-                      {#each applicablePersonExtras(spec, false).filter((extra) => !extra.required) as extra (extra.id)}
+                      {#each applicablePersonExtras(spec, false, parent.ticketTypeId).filter((extra) => !extra.required) as extra (extra.id)}
                         {@const state = extraState(parent.extraSelections, extra)}
                         <div class="flex items-center gap-2 flex-wrap">
                           <label class="flex items-center gap-1.5 text-sm text-neutral-700">
@@ -3032,6 +3047,15 @@
                       {/each}
                     </div>
                   {/if}
+                  {#each blockedPersonExtras(spec, false, parent.ticketTypeId) as extra (extra.id)}
+                    <div class="mt-2 flex items-center gap-2 flex-wrap" data-testid={`extra-blocked-${extra.id}`}>
+                      <label class="flex items-center gap-1.5 text-sm text-neutral-500">
+                        <input type="checkbox" disabled />
+                        {extra.name} ({formatCurrency(extra.price)} kr)
+                      </label>
+                      <span class="text-xs text-neutral-500">{extraGateReason(extra)}</span>
+                    </div>
+                  {/each}
                   {/if}
                 {/snippet}
               </PersonFields>
@@ -3184,7 +3208,7 @@
                       </div>
                     {/if}
 
-                    {#each applicablePersonExtras(spec, true).filter((extra) => extra.required) as extra (extra.id)}
+                    {#each applicablePersonExtras(spec, true, child.ticketTypeId).filter((extra) => extra.required) as extra (extra.id)}
                       {@const state = extraState(child.extraSelections, extra)}
                       {#if extra.requires_choice}
                         <fieldset
@@ -3228,10 +3252,10 @@
                       {/if}
                     {/each}
 
-                    {#if applicablePersonExtras(spec, true).filter((extra) => !extra.required).length > 0}
+                    {#if applicablePersonExtras(spec, true, child.ticketTypeId).filter((extra) => !extra.required).length > 0}
                       <div class="md:col-span-2 space-y-1.5">
                         <div class="block text-xs text-neutral-600">{$t('register.extrasLabel')}</div>
-                        {#each applicablePersonExtras(spec, true).filter((extra) => !extra.required) as extra (extra.id)}
+                        {#each applicablePersonExtras(spec, true, child.ticketTypeId).filter((extra) => !extra.required) as extra (extra.id)}
                           {@const state = extraState(child.extraSelections, extra)}
                           <div class="flex items-center gap-2 flex-wrap">
                             <label class="flex items-center gap-1.5 text-sm text-neutral-700">
@@ -3268,6 +3292,15 @@
                         {/each}
                       </div>
                     {/if}
+                    {#each blockedPersonExtras(spec, true, child.ticketTypeId) as extra (extra.id)}
+                      <div class="mt-2 flex items-center gap-2 flex-wrap" data-testid={`extra-blocked-${extra.id}`}>
+                        <label class="flex items-center gap-1.5 text-sm text-neutral-500">
+                          <input type="checkbox" disabled />
+                          {extra.name} ({formatCurrency(extra.price)} kr)
+                        </label>
+                        <span class="text-xs text-neutral-500">{extraGateReason(extra)}</span>
+                      </div>
+                    {/each}
                 {/snippet}
               </PersonFields>
             </div>
@@ -3282,7 +3315,7 @@
         </button>
       </div>
 
-      {#each registrationExtras(spec).filter((extra) => extra.required) as extra (extra.id)}
+      {#each registrationExtras(spec, heldTicketTypeIds).filter((extra) => extra.required) as extra (extra.id)}
         {@const state = extraState(registrationExtraSelections, extra)}
         {#if extra.requires_choice}
           <fieldset
@@ -3326,13 +3359,13 @@
         {/if}
       {/each}
 
-      {#if registrationExtras(spec).filter((extra) => !extra.required).length > 0}
+      {#if registrationExtras(spec, heldTicketTypeIds).filter((extra) => !extra.required).length > 0}
         <div class="mb-4">
           <h2 class="text-sm font-semibold text-neutral-700 mb-2">
             {$t('register.registrationExtrasHeading')}:
           </h2>
           <div class="space-y-2">
-            {#each registrationExtras(spec).filter((extra) => !extra.required) as extra (extra.id)}
+            {#each registrationExtras(spec, heldTicketTypeIds).filter((extra) => !extra.required) as extra (extra.id)}
               {@const state = extraState(registrationExtraSelections, extra)}
               <div class="flex items-center gap-2 flex-wrap border border-neutral-200 rounded-card p-2 bg-neutral-50">
                 <label class="flex items-center gap-1.5 text-sm text-neutral-700">
@@ -3387,6 +3420,15 @@
           </div>
         </div>
       {/if}
+      {#each blockedRegistrationExtras(spec, heldTicketTypeIds) as extra (extra.id)}
+        <div class="mt-2 flex items-center gap-2 flex-wrap" data-testid={`extra-blocked-${extra.id}`}>
+          <label class="flex items-center gap-1.5 text-sm text-neutral-500">
+            <input type="checkbox" disabled />
+            {extra.name} ({formatCurrency(extra.price)} kr)
+          </label>
+          <span class="text-xs text-neutral-500">{extraGateReason(extra)}</span>
+        </div>
+      {/each}
 
       {#if spec.ticket_types.length > 0 || spec.is_paid || spec.has_hidden_ticket_types}
         <div class="mb-4">

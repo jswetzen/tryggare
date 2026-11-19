@@ -118,6 +118,7 @@ vi.mock('svelte-i18n', () => {
     'register.summaryWholeRegistrationLine': 'Whole registration: {extras}',
     // Summary row states and the flat price line (guardian-only increment 2) —
     // mapped for real so tests assert the sentence a guardian reads.
+    'register.extraNeedsTicket': 'Requires ticket: {types}',
     'register.summaryNoTicket': 'No ticket',
     'register.summaryAttending': 'Attending',
     'register.summaryGuardianOnly': 'Guardian – not attending',
@@ -2112,6 +2113,40 @@ describe('Register page — extras default state', () => {
 
     const total = await screen.findByTestId('register-running-total');
     expect(total.textContent).toContain('500.00');
+  });
+});
+
+describe('Register page — extras gated by ticket type', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('shows a gated extra disabled with the reason when the child holds no listed ticket', async () => {
+    getEvent.mockResolvedValue(
+      extrasEventInfo({
+        extras: [
+          {
+            id: 'extra-workshop',
+            name: 'Lördagsverkstad',
+            price: '150.00',
+            session_id: null,
+            per_attendee: true,
+            applies_to: 'child',
+            requires_choice: false,
+            required: false,
+            default_selected: false,
+            ticket_type_ids: ['tt-youth'],
+            ticket_type_names: ['Ungdom (13-17 år)'],
+            choices: []
+          }
+        ]
+      })
+    );
+    render(RegisterPage);
+
+    const blocked = await screen.findByTestId('extra-blocked-extra-workshop');
+    expect(blocked.textContent).toContain('Requires ticket: Ungdom (13-17 år)');
+    expect(blocked.querySelector('input')).toBeDisabled();
   });
 });
 

@@ -29,6 +29,10 @@ CAPABILITIES = {
             "description": "Paid or free add-ons per attendee or per booking, optionally tied to a session, with a fixed list of choices (e.g. sizes) and per-choice price deltas.",
         },
         {
+            "id": "extra_ticket_gate",
+            "description": "An add-on limited to holders of given ticket types.",
+        },
+        {
             "id": "promo_codes",
             "description": "Percent or fixed discounts, optionally limited to ticket types, with validity window and use limit; codes can unlock hidden ticket types.",
         },

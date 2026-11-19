@@ -52,6 +52,9 @@ def duplicate_extra_to_event(extra: Extra, target_event: Event) -> Extra:
         is_active=extra.is_active,
         cloned_from=extra,
     )
+    if target_event == extra.event:
+        # Ticket types, like sessions, belong to one event.
+        clone.ticket_types.set(extra.ticket_types.all())
     for choice in extra.choice_rows.all():
         clone.choice_rows.create(
             label=choice.label,

@@ -19,6 +19,7 @@ from registrations.models import Registration, RegistrationExtra
 from events.event_spec import apply, check_setup, example_spec, export
 from events.spec_test_support import (
     add_ticket,
+    example_with_bundle,
     at_now,
     empty_event,
     foreign_session,
@@ -457,10 +458,7 @@ class CommandTests(TestCase):
     def test_validate_ok(self):
         out, err = self.run_cmd("validate", self.spec_file(example_spec()))
         self.assertTrue(json.loads(out)["valid"])
-        self.assertEqual(
-            {w["code"] for w in json.loads(out)["warnings"]},
-            {"bundle_replaces_pass"},
-        )
+        self.assertEqual(json.loads(out)["warnings"], [])
 
     def test_validate_against_event(self):
         event = make_event()
@@ -599,7 +597,7 @@ class SetupCheckTests(TestCase):
     @classmethod
     def setUpTestData(cls):
         with at_now():
-            cls.event, _, _ = apply(example_spec())
+            cls.event, _, _ = apply(example_with_bundle())
         cls.user = AdminUser.objects.create_superuser("checker", "pw12345")
         cls.plain = AdminUser.objects.create_user("plain", "pw12345", is_staff=True)
 
@@ -667,7 +665,9 @@ class SetupCheckTests(TestCase):
 
     def test_rows_with_history_are_not_called_deletable(self):
         retired = TicketType.objects.get(event=self.event, name="Child pass 0-12")
-        unused = TicketType.objects.get(event=self.event, name="Child pass 13-17")
+        unused = TicketType.objects.get(
+            event=self.event, name="Saturday workshop 13-17"
+        )
         TicketType.objects.filter(pk__in=[retired.pk, unused.pk]).update(
             is_active=False
         )
@@ -678,15 +678,15 @@ class SetupCheckTests(TestCase):
         }
         self.assertEqual(
             flagged(),
-            {"Ticket type 'Child pass 0-12'", "Ticket type 'Child pass 13-17'"},
+            {"Ticket type 'Child pass 0-12'", "Ticket type 'Saturday workshop 13-17'"},
         )
         EventTicket.objects.create(
             attendee=make_child(), event=self.event, ticket_type=retired
         )
-        self.assertEqual(flagged(), {"Ticket type 'Child pass 13-17'"})
+        self.assertEqual(flagged(), {"Ticket type 'Saturday workshop 13-17'"})
 
     def test_extras_and_choices_with_history_are_not_called_deletable(self):
-        extra = Extra.objects.get(event=self.event)
+        extra = Extra.objects.get(event=self.event, name="T-shirt")
         extra.choice_rows.update(is_active=False)
         extra.is_active = False
         extra.save()

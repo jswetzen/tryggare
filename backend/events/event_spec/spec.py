@@ -271,6 +271,15 @@ class ExtraSpec(_Row):
         default=None,
         description="Key of the session this extra is tied to. Null means offered for the whole event.",
     )
+    ticket_types: list[Key] = Field(
+        default_factory=list,
+        max_length=MAX_ROWS,
+        description=(
+            "Keys of ticket types that gate this extra: it is offered only to an attendee "
+            "holding any of them (for a per-booking extra, when anyone in the booking does). "
+            "Empty means offered to everyone."
+        ),
+    )
     sort_order: int = Field(default=0, ge=0, description="Display order, lowest first.")
     is_active: bool = Field(
         default=True, description="False takes the extra out of use."
