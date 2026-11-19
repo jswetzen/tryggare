@@ -5,7 +5,7 @@ from ._check import check
 from ._diff import diff
 from ._export import export
 from ._issues import SpecError, issue
-from .schema import capabilities, example_spec, json_schema
+from .schema import CAPABILITIES, JSON_SCHEMA, example_spec
 from .spec import EventSpec
 from ._validate import validate
 
@@ -13,12 +13,12 @@ __all__ = [
     "EventSpec",
     "SpecError",
     "apply",
-    "capabilities",
+    "CAPABILITIES",
     "check",
     "diff",
     "example_spec",
     "export",
     "issue",
-    "json_schema",
+    "JSON_SCHEMA",
     "validate",
 ]

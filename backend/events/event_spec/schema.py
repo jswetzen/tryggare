@@ -5,6 +5,7 @@ from pathlib import Path
 
 from .spec import EventSpec
 
+JSON_SCHEMA = EventSpec.model_json_schema()
 _EXAMPLE = Path(__file__).with_name("example.json")
 
 # Named so a model can answer "not supported" instead of inventing a field.
@@ -64,14 +65,6 @@ CAPABILITIES = {
         "Rows that tie on their ordering fields (sort_order, then name) are a warning for a new event and an error when applying onto an existing one.",
     ],
 }
-
-
-def json_schema() -> dict:
-    return EventSpec.model_json_schema()
-
-
-def capabilities() -> dict:
-    return CAPABILITIES
 
 
 def example_spec() -> dict:

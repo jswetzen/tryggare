@@ -24,9 +24,9 @@ _CONFLICT_CODES = {
 
 
 class CanManageEventSpecs(BasePermission):
-    """Per method, from ``view.permissions_by_method``. Creating needs the copy
-    action's permissions; replacing a setup also needs change and delete; reading
-    needs view on every spec model (an export includes promo codes)."""
+    """Per method, from ``view.permissions_by_method``: creating needs the copy
+    action's permissions, replacing also change and delete, reading view on every
+    spec model (an export includes promo codes)."""
 
     def has_permission(self, request, view):
         needed = view.permissions_by_method.get(request.method)
@@ -112,8 +112,8 @@ class SchemaView(SpecAPIView):
     def get(self, request):
         return Response(
             {
-                "schema": event_spec.json_schema(),
-                "capabilities": event_spec.capabilities(),
+                "schema": event_spec.JSON_SCHEMA,
+                "capabilities": event_spec.CAPABILITIES,
                 "example": event_spec.example_spec(),
             }
         )

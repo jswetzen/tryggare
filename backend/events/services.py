@@ -88,14 +88,9 @@ def _years_before(anchor: date, years: int) -> date:
 def _shift_birthdate_bound(
     bound: date | None, source_start: date, new_start: date, *, offset_days: int
 ) -> date | None:
-    """Shift a TicketType age bound.
-
-    A bound on the anniversary `TicketType._clean_age_window` requires
-    (`offset_days` 0 for max, 1 for min) is rebuilt from the new start date
-    with the same whole-year age; a plain day shift would drift off it
-    whenever the delta is not a multiple of a year. Other bounds shift by
-    the plain delta.
-    """
+    """Shift a TicketType age bound. One on the anniversary `_clean_age_window`
+    requires (`offset_days` 0 for max, 1 for min) is rebuilt from the new start
+    with the same whole-year age; any other shifts by the plain delta."""
     if bound is None:
         return None
     one = timedelta(days=offset_days)
@@ -165,20 +160,10 @@ def copy_event(source: Event, *, name: str, start_date: date) -> Event:
 def copy_event_with_warnings(
     source: Event, *, name: str, start_date: date
 ) -> tuple[Event, list[dict]]:
-    """Copy `source` with its configuration to a new event starting on
-    `start_date`; every date and time moves by the same number of days.
-
-    Exports the source as an event spec, shifts it and applies it, so the
-    copy follows the spec's rules. Copies the event settings, sessions,
-    ticket types, extras (with choices) and promo codes, and remaps their
-    references. Registrations, attendees, tickets and check-ins are never
-    copied, `PromoCode.uses_count` starts over and sessions start inactive.
-    A registration window that would be open or past after the shift is
-    dropped (self-serve off). Raises `event_spec.SpecError` for a source that
-    refers to another event's rows and for a setup the spec rules refuse,
-    including one over the spec's row caps (`MAX_ROWS`).
-    Returns the new event and the spec warnings.
-    """
+    """Copy `source` to a new event starting on `start_date`, every date moving by
+    the same days: export, shift, apply, so the copy follows the spec's rules.
+    Raises `event_spec.SpecError` for a setup the spec refuses; returns the new
+    event and the spec warnings. See docs/form-spec-foundation-plan.md, Step A."""
     delta = start_date - source.start_date
     spec = _shift_spec(export(source), delta, name, start_date)
     new_event, _diff, warnings = apply(spec)

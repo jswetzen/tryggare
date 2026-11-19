@@ -19,14 +19,9 @@ logger = logging.getLogger(__name__)
 def apply(
     spec: dict, event: Event | None = None
 ) -> tuple[Event, list[dict], list[dict]]:
-    """Make ``event`` (or a new event) match ``spec``; returns ``(event, diff, warnings)``.
-
-    Use the returned event: the argument is not refreshed. Rows are matched by key so
-    their ids stay stable. Registration is never opened: validation refuses a window
-    that is open, and refuses a target whose registration is open. Raises SpecError,
-    with no writes, on any validation error, a missing target, or a target that has
-    registrations, tickets or check-ins.
-    """
+    """Make ``event`` (or a new event) match ``spec``: ``(event, diff, warnings)``.
+    Rows match by key, so ids stay stable. Raises SpecError, with no writes, for any
+    validation error, a missing or non-empty target, or a window that is open."""
     if event is not None and (event._state.adding or event.pk is None):
         raise SpecError([issue("event", "event_not_found")])
     errors, warnings = validate(spec, event)

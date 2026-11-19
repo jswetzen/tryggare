@@ -10,10 +10,10 @@ from django.utils import translation
 from events.event_spec import (
     EventSpec,
     SpecError,
-    capabilities,
+    CAPABILITIES,
     example_spec,
     export,
-    json_schema,
+    JSON_SCHEMA,
 )
 from events.event_spec._diff import normalize
 from events.event_spec._export import KeyAllocator, slugify_key
@@ -37,7 +37,7 @@ from events.models import (
 
 class SchemaTests(SimpleTestCase):
     def test_every_property_has_a_description(self):
-        schema = json_schema()
+        schema = JSON_SCHEMA
         missing = []
         for name, definition in [("EventSpec", schema), *schema["$defs"].items()]:
             assert definition["additionalProperties"] is False, name
@@ -47,7 +47,7 @@ class SchemaTests(SimpleTestCase):
         self.assertEqual(missing, [])
 
     def test_capabilities_name_the_unsupported_things(self):
-        unsupported = {c["id"] for c in capabilities()["unsupported"]}
+        unsupported = {c["id"] for c in CAPABILITIES["unsupported"]}
         self.assertTrue(
             {
                 "sibling_discount",
@@ -59,7 +59,7 @@ class SchemaTests(SimpleTestCase):
             }
             <= unsupported
         )
-        self.assertTrue(capabilities()["supported"])
+        self.assertTrue(CAPABILITIES["supported"])
 
 
 class ExampleTests(SimpleTestCase):

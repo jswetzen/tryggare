@@ -56,13 +56,8 @@ CHILD_FIELDS: tuple[FormField, ...] = (
 
 def ticket_type_payload(ticket_type, *, sold_count, session_ids=None):
     """Public JSON shape of a TicketType, shared with validate_promo_code.
-
-    ``available`` is a bool on purpose: sold counts or "3 left" would let
-    anyone poll registration velocity on this unauthenticated endpoint.
-    ``sold_count`` comes from one bulk query (sold_counts_for_event) to
-    avoid an N+1 per ticket type. ``session_ids`` (from
-    bundle_session_ids) is only emitted for session-bundle types.
-    """
+    ``available`` is a bool, never a count (no polling of sales on this public
+    endpoint); ``sold_count`` comes from one bulk query to avoid an N+1."""
     payload = {
         "id": str(ticket_type.id),
         "name": ticket_type.name,
