@@ -150,6 +150,7 @@ class Event(models.Model):
 
     def clean(self):
         super().clean()
+        errors = {}
         # D2: registration_window_status can't itself distinguish a
         # misconfigured window from "not open yet" — closes_at < opens_at
         # makes every moment either NOT_OPEN_YET or CLOSED, never OPEN, with
@@ -159,13 +160,17 @@ class Event(models.Model):
             and self.registration_closes_at is not None
             and self.registration_closes_at < self.registration_opens_at
         ):
-            raise ValidationError(
-                {
-                    "registration_closes_at": _(
-                        "Registration closes-at must be after opens-at."
-                    )
-                }
+            errors["registration_closes_at"] = _(
+                "Registration closes-at must be after opens-at."
             )
+        if (
+            self.start_date is not None
+            and self.end_date is not None
+            and self.end_date < self.start_date
+        ):
+            errors["end_date"] = _("The end date is before the start date.")
+        if errors:
+            raise ValidationError(errors)
 
     @property
     def is_paid(self) -> bool:
@@ -266,6 +271,18 @@ class Session(models.Model):
 
     def __str__(self) -> str:
         return f"{self.event.name} - {self.name}"
+
+    def clean(self):
+        super().clean()
+        # Equal times are allowed (placeholder sessions).
+        if (
+            self.start_time is not None
+            and self.end_time is not None
+            and self.end_time < self.start_time
+        ):
+            raise ValidationError(
+                {"end_time": _("The session must not end before it starts.")}
+            )
 
     @property
     def effective_ticket_rule(self) -> str:
@@ -472,6 +489,14 @@ class TicketType(models.Model):
                         )
                     }
                 )
+        if (
+            self.available_from is not None
+            and self.available_until is not None
+            and self.available_until < self.available_from
+        ):
+            raise ValidationError(
+                {"available_until": _("'Available until' is before 'available from'.")}
+            )
         self._clean_age_window()
 
     def _clean_age_window(self):
@@ -657,6 +682,24 @@ class PromoCode(models.Model):
         # exact match instead of a collation-dependent `iexact`.
         self.code = self.code.strip().upper()
         super().save(*args, **kwargs)
+
+    def clean(self):
+        super().clean()
+        errors = {}
+        if (
+            self.valid_from is not None
+            and self.valid_until is not None
+            and self.valid_until < self.valid_from
+        ):
+            errors["valid_until"] = _("'Valid until' is before 'valid from'.")
+        if (
+            self.discount_type == self.DiscountType.PERCENT
+            and self.discount_value is not None
+            and self.discount_value > 100
+        ):
+            errors["discount_value"] = _("A percent discount cannot be more than 100.")
+        if errors:
+            raise ValidationError(errors)
 
     def __str__(self) -> str:
         return f"{self.event.name} - {self.code}"

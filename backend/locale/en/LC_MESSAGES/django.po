@@ -1903,14 +1903,10 @@ msgstr "Invalid value: %(detail)s"
 msgid "Key '%(key)s' is used more than once; keys must be unique."
 msgstr "Key '%(key)s' is used more than once; keys must be unique."
 
-msgid "'%(key)s' is a %(found)s, but a %(expected)s key is needed here."
-msgstr "'%(key)s' is a %(found)s, but a %(expected)s key is needed here."
 
 msgid "No %(kind)s has the key '%(key)s'."
 msgstr "No %(kind)s has the key '%(key)s'."
 
-msgid "Ticket types require each other in a loop, so none can be bought."
-msgstr "Ticket types require each other in a loop, so none can be bought."
 
 msgid "Code '%(code)s' appears more than once; codes are matched case-insensitively and must be unique."
 msgstr "Code '%(code)s' appears more than once; codes are matched case-insensitively and must be unique."
@@ -1918,8 +1914,6 @@ msgstr "Code '%(code)s' appears more than once; codes are matched case-insensiti
 msgid "The end date is before the start date."
 msgstr "The end date is before the start date."
 
-msgid "The session must end after it starts."
-msgstr "The session must end after it starts."
 
 msgid "'Available until' is before 'available from'."
 msgstr "'Available until' is before 'available from'."
@@ -1965,3 +1959,36 @@ msgstr "Choices are ignored unless requires_choice is true."
 
 msgid "Every ticket type this code refers to is inactive."
 msgstr "Every ticket type this code refers to is inactive."
+
+msgid "session"
+msgstr "session"
+
+msgid "ticket type"
+msgstr "ticket type"
+
+msgid "extra"
+msgstr "extra"
+
+msgid "promo code"
+msgstr "promo code"
+
+msgid "The session must not end before it starts."
+msgstr "The session must not end before it starts."
+
+msgid "'%(key)s' is the key of another kind of row (%(found)s); a key for %(expected)s is needed here."
+msgstr "'%(key)s' is the key of another kind of row (%(found)s); a key for %(expected)s is needed here."
+
+msgid "'%(key)s' is listed more than once."
+msgstr "'%(key)s' is listed more than once."
+
+msgid "The target event already has registrations, tickets or check-ins, so its setup cannot be replaced."
+msgstr "The target event already has registrations, tickets or check-ins, so its setup cannot be replaced."
+
+msgid "These ticket types require each other in a loop. Buying one of each satisfies it, so this is likely a mistake."
+msgstr "These ticket types require each other in a loop. Buying one of each satisfies it, so this is likely a mistake."
+
+msgid "The ticket type this one requires is inactive, so it cannot be bought."
+msgstr "The ticket type this one requires is inactive, so it cannot be bought."
+
+msgid "The key '%(key)s' is not the one export derives ('%(derived)s'), so a later export will show this row as removed and added."
+msgstr "The key '%(key)s' is not the one export derives ('%(derived)s'), so a later export will show this row as removed and added."

@@ -58,6 +58,10 @@ CAPABILITIES = {
             "description": "Configuring which person fields the registration form asks for.",
         },
     ],
+    "notes": [
+        "The example's dates are illustrative. A registration window that is open when a spec is validated is an error, so move the dates into the future.",
+        "Row keys are derived from names on export; a rename is a removal plus an addition.",
+    ],
 }
 
 

@@ -29,6 +29,13 @@ def _localize(value: datetime) -> datetime:
 
 LocalDateTime = Annotated[datetime, AfterValidator(_localize)]
 
+PromoCodeText = Annotated[
+    str,
+    StringConstraints(
+        strip_whitespace=True, to_upper=True, min_length=1, max_length=50
+    ),
+]
+
 Money = Annotated[Decimal, Field(max_digits=8, decimal_places=2)]
 
 TicketRuleValue = Literal["open", "children", "all"]
@@ -36,8 +43,10 @@ AppliesToValue = Literal["parent", "child", "either"]
 
 _TZ = "Without a UTC offset it is read as Europe/Stockholm local time."
 _KEY = (
-    "Stable identifier of this row, lowercase letters, digits and single hyphens "
-    "(e.g. 'adult-pass'). Other rows refer to it. Unique among rows of the same kind."
+    "Identifier other rows use to refer to this one: lowercase letters, digits and "
+    "single hyphens, unique among rows of the same kind. Export derives it from the "
+    "name (so 'Child pass 0-12' becomes 'child-pass-0-12'); a rename therefore shows "
+    "up as a removal plus an addition. Use the derived form."
 )
 
 
@@ -209,7 +218,8 @@ class TicketTypeSpec(_Row):
 
 class ExtraChoiceSpec(_Row):
     key: Key = Field(
-        description="Stable identifier of this choice, unique among the choices of the same extra. Same format as other keys."
+        description=_KEY.replace("the name", "the label")
+        + " Unique among the choices of one extra."
     )
     label: str = Field(max_length=255, description="Option label, e.g. 'M'.")
     price_delta: Money = Field(
@@ -265,10 +275,9 @@ class ExtraSpec(_Row):
 
 
 class PromoCodeSpec(_Row):
-    key: Key = Field(description=_KEY + " For promo codes this is the code lowercased.")
-    code: str = Field(
-        max_length=50,
-        description="The code the guardian types. Matched case-insensitively and stored uppercase; unique per event.",
+    key: Key = Field(description=_KEY.replace("the name", "the code"))
+    code: PromoCodeText = Field(
+        description="The code the guardian types. Trimmed and uppercased on input; matched case-insensitively and unique per event. 1-50 characters.",
     )
     discount_type: Literal["percent", "fixed"] = Field(
         default="fixed",

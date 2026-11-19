@@ -1927,14 +1927,10 @@ msgstr "Ogiltigt värde: %(detail)s"
 msgid "Key '%(key)s' is used more than once; keys must be unique."
 msgstr "Nyckeln ”%(key)s” används fler än en gång; nycklar måste vara unika."
 
-msgid "'%(key)s' is a %(found)s, but a %(expected)s key is needed here."
-msgstr "”%(key)s” är en nyckel för %(found)s, men här behövs en nyckel för %(expected)s."
 
 msgid "No %(kind)s has the key '%(key)s'."
 msgstr "Ingen post i %(kind)s har nyckeln ”%(key)s”."
 
-msgid "Ticket types require each other in a loop, so none can be bought."
-msgstr "Biljettyperna kräver varandra i en ring, så ingen kan köpas."
 
 msgid "Code '%(code)s' appears more than once; codes are matched case-insensitively and must be unique."
 msgstr "Koden ”%(code)s” förekommer mer än en gång; koder matchas utan hänsyn till versaler och måste vara unika."
@@ -1942,8 +1938,6 @@ msgstr "Koden ”%(code)s” förekommer mer än en gång; koder matchas utan h�
 msgid "The end date is before the start date."
 msgstr "Slutdatumet ligger före startdatumet."
 
-msgid "The session must end after it starts."
-msgstr "Passet måste sluta efter att det börjar."
 
 msgid "'Available until' is before 'available from'."
 msgstr "”Tillgänglig till” ligger före ”tillgänglig från”."
@@ -1989,3 +1983,36 @@ msgstr "Val ignoreras om inte requires_choice är sant."
 
 msgid "Every ticket type this code refers to is inactive."
 msgstr "Alla biljettyper som koden hänvisar till är inaktiva."
+
+msgid "session"
+msgstr "pass"
+
+msgid "ticket type"
+msgstr "biljettyp"
+
+msgid "extra"
+msgstr "tillval"
+
+msgid "promo code"
+msgstr "kampanjkod"
+
+msgid "The session must not end before it starts."
+msgstr "Passet får inte sluta före start."
+
+msgid "'%(key)s' is the key of another kind of row (%(found)s); a key for %(expected)s is needed here."
+msgstr "”%(key)s” är nyckeln för en annan sorts rad (%(found)s); här behövs en nyckel för %(expected)s."
+
+msgid "'%(key)s' is listed more than once."
+msgstr "”%(key)s” anges mer än en gång."
+
+msgid "The target event already has registrations, tickets or check-ins, so its setup cannot be replaced."
+msgstr "Målevenemanget har redan anmälningar, biljetter eller incheckningar, så dess upplägg kan inte ersättas."
+
+msgid "These ticket types require each other in a loop. Buying one of each satisfies it, so this is likely a mistake."
+msgstr "Biljettyperna kräver varandra i en ring. Att köpa en av varje uppfyller kravet, så det är troligen ett misstag."
+
+msgid "The ticket type this one requires is inactive, so it cannot be bought."
+msgstr "Biljettypen som den här kräver är inaktiv, så den kan inte köpas."
+
+msgid "The key '%(key)s' is not the one export derives ('%(derived)s'), so a later export will show this row as removed and added."
+msgstr "Nyckeln ”%(key)s” är inte den som export härleder (”%(derived)s”), så en senare export visar raden som borttagen och tillagd."

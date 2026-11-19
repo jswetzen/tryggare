@@ -4,6 +4,7 @@ import copy
 from datetime import UTC, date, datetime
 from unittest.mock import patch
 
+from django.core.exceptions import ValidationError
 from django.test import SimpleTestCase, TestCase
 from django.utils import translation
 
@@ -15,8 +16,16 @@ from events.event_spec import (
     json_schema,
     validate,
 )
-from events.event_spec.export import slugify_key
-from events.models import Event, Extra, PromoCode, Session, TicketType
+from events.event_spec.export import KeyAllocator, slugify_key
+from events.models import (
+    Event,
+    EventTicket,
+    Extra,
+    PromoCode,
+    Session,
+    TicketType,
+)
+from families.models import Child, Family
 
 # The example's registration window is in 2027; pin "now" before it opens.
 NOW = datetime(2026, 11, 19, 12, 0, tzinfo=UTC)
@@ -85,9 +94,9 @@ class ExampleTests(SimpleTestCase):
     def test_example_is_the_walkthrough_brief(self):
         spec = EventSpec.model_validate(example_spec())
         prices = {t.key: int(t.price) for t in spec.ticket_types}
-        self.assertEqual(prices["adult-pass"], 1200)
-        self.assertEqual(prices["child-0-12"], 300)
-        self.assertEqual(prices["child-13-17"], 600)
+        self.assertEqual(prices["adult-conference-pass"], 1200)
+        self.assertEqual(prices["child-pass-0-12"], 300)
+        self.assertEqual(prices["child-pass-13-17"], 600)
         self.assertEqual(spec.ticket_types[0].capacity, 150)
         self.assertEqual(
             [c.label for c in spec.extras[0].choices], ["S", "M", "L", "XL"]
@@ -148,7 +157,7 @@ class ShapeTests(SimpleTestCase):
 class ReferenceTests(SimpleTestCase):
     def test_duplicate_keys(self):
         spec = example_spec()
-        spec["ticket_types"][1]["key"] = "adult-pass"
+        spec["ticket_types"][1]["key"] = "adult-conference-pass"
         spec["extras"][0]["choices"][1]["key"] = "s"
         errors, _ = check(spec)
         issues = by_path(errors)
@@ -185,21 +194,44 @@ class ReferenceTests(SimpleTestCase):
             "wrong_kind_key",
         )
 
-    def test_requires_cycle(self):
+    def test_duplicate_reference(self):
         spec = example_spec()
-        spec["ticket_types"][1]["requires_ticket_type"] = "child-13-17"
-        spec["ticket_types"][2]["requires_ticket_type"] = "child-0-12"
+        spec["ticket_types"][3]["sessions"] = ["saturday-workshop", "saturday-workshop"]
         errors, _ = check(spec)
-        issues = by_path(errors)
         self.assertEqual(
-            issues["ticket_types[1].requires_ticket_type"]["code"], "requires_cycle"
+            by_path(errors)["ticket_types[3].sessions[1]"]["code"],
+            "duplicate_reference",
         )
-        self.assertEqual(
-            issues["ticket_types[2].requires_ticket_type"]["code"], "requires_cycle"
-        )
+
+    def test_noun_in_message_is_translated(self):
+        spec = example_spec()
+        spec["promo_codes"][0]["applies_to_ticket_types"] = ["nope"]
+        with translation.override("sv"):
+            errors, _ = check(spec)
+        message = by_path(errors)["promo_codes[0].applies_to_ticket_types[0]"][
+            "message"
+        ]
+        self.assertIn("biljettyp", message)
+        self.assertNotIn("ticket type", message)
 
 
 class ModelRuleTests(SimpleTestCase):
+    def test_equal_session_times_are_allowed(self):
+        spec = example_spec()
+        spec["sessions"][0]["end_time"] = spec["sessions"][0]["start_time"]
+        errors, _ = check(spec)
+        self.assertEqual(errors, [])
+
+    def test_rules_live_on_the_models(self):
+        with self.assertRaises(ValidationError) as ctx:
+            Event(
+                name="x", start_date=date(2027, 2, 2), end_date=date(2027, 2, 1)
+            ).clean()
+        self.assertIn("end_date", ctx.exception.message_dict)
+        with self.assertRaises(ValidationError) as ctx:
+            PromoCode(discount_type="percent", discount_value=101).clean()
+        self.assertIn("discount_value", ctx.exception.message_dict)
+
     def test_age_window_reuses_the_model_rule(self):
         spec = example_spec()
         spec["ticket_types"][2]["min_birthdate"] = "2009-07-01"
@@ -212,7 +244,7 @@ class ModelRuleTests(SimpleTestCase):
 
     def test_ticket_type_requiring_itself(self):
         spec = example_spec()
-        spec["ticket_types"][1]["requires_ticket_type"] = "child-0-12"
+        spec["ticket_types"][1]["requires_ticket_type"] = "child-pass-0-12"
         errors, _ = check(spec)
         self.assertEqual(
             by_path(errors)["ticket_types[1].requires_ticket_type"]["code"],
@@ -252,7 +284,7 @@ class ModelRuleTests(SimpleTestCase):
         self.assertEqual(issues["promo_codes[0].code"]["code"], "duplicate_code")
         self.assertEqual(issues["promo_codes[1].code"]["code"], "duplicate_code")
 
-    def test_rules_the_models_lack(self):
+    def test_order_rules(self):
         spec = example_spec()
         spec["event"]["end_date"] = "2027-06-01"
         spec["sessions"][0]["end_time"] = "2027-06-19T09:00:00"
@@ -271,6 +303,24 @@ class ModelRuleTests(SimpleTestCase):
         )
         errors, _ = check(example_spec(), event)
         self.assertEqual(errors, [])
+
+
+class TargetEventTests(TestCase):
+    def test_non_empty_target_is_an_error(self):
+        event = Event.objects.create(
+            name="Used", start_date=date(2027, 6, 18), end_date=date(2027, 6, 20)
+        )
+        errors, _ = check(example_spec(), event)
+        self.assertEqual(errors, [])
+        child = Child.objects.create(
+            family=Family.objects.create(),
+            first_name="Test",
+            last_name="Child",
+            birthdate=date(2020, 1, 1),
+        )
+        EventTicket.objects.create(attendee=child, event=event)
+        errors, _ = check(example_spec(), event)
+        self.assertEqual(by_path(errors)["event"]["code"], "event_not_empty")
 
 
 class GoingLiveTests(SimpleTestCase):
@@ -309,6 +359,38 @@ class GoingLiveTests(SimpleTestCase):
 
 
 class WarningTests(SimpleTestCase):
+    def test_requires_loop_is_only_a_warning(self):
+        spec = example_spec()
+        spec["ticket_types"][1]["requires_ticket_type"] = "child-pass-13-17"
+        spec["ticket_types"][2]["requires_ticket_type"] = "child-pass-0-12"
+        errors, warnings = check(spec)
+        self.assertEqual(errors, [])
+        w = by_path(warnings)
+        self.assertEqual(
+            w["ticket_types[1].requires_ticket_type"]["code"], "requires_cycle"
+        )
+        self.assertEqual(
+            w["ticket_types[2].requires_ticket_type"]["code"], "requires_cycle"
+        )
+
+    def test_requires_inactive_ticket_type(self):
+        spec = example_spec()
+        spec["ticket_types"][1]["requires_ticket_type"] = "adult-conference-pass"
+        spec["ticket_types"][0]["is_active"] = False
+        self.assertIn(
+            ("ticket_types[1].requires_ticket_type", "requires_inactive_ticket_type"),
+            self.codes(spec),
+        )
+
+    def test_session_date_is_judged_in_stockholm(self):
+        spec = example_spec()
+        # 23:30 UTC on the 17th is 01:30 on the 18th in Stockholm: inside the event.
+        spec["sessions"][0]["start_time"] = "2027-06-17T23:30:00+00:00"
+        spec["sessions"][0]["end_time"] = "2027-06-18T08:00:00+00:00"
+        self.assertNotIn(
+            ("sessions[0].start_time", "session_outside_event"), self.codes(spec)
+        )
+
     def codes(self, spec):
         errors, warnings = check(spec)
         self.assertEqual(errors, [])
@@ -325,7 +407,7 @@ class WarningTests(SimpleTestCase):
         self.assertIn(
             ("ticket_types[0].is_hidden", "hidden_not_unlocked"), self.codes(spec)
         )
-        spec["promo_codes"][0]["unlocks_ticket_types"] = ["adult-pass"]
+        spec["promo_codes"][0]["unlocks_ticket_types"] = ["adult-conference-pass"]
         self.assertNotIn(
             ("ticket_types[0].is_hidden", "hidden_not_unlocked"), self.codes(spec)
         )
@@ -363,6 +445,51 @@ class WarningTests(SimpleTestCase):
         codes = self.codes(spec)
         self.assertIn(("extras[0].choices", "choices_ignored"), codes)
         self.assertIn(("sessions[0].start_time", "session_outside_event"), codes)
+
+
+class KeyTests(SimpleTestCase):
+    def test_example_keys_are_the_ones_export_derives(self):
+        spec = example_spec()
+        for kind, text in (
+            ("sessions", "name"),
+            ("ticket_types", "name"),
+            ("extras", "name"),
+            ("promo_codes", "code"),
+        ):
+            allocator = KeyAllocator()
+            self.assertEqual(
+                [r["key"] for r in spec[kind]],
+                [allocator.allocate(r[text]) for r in spec[kind]],
+                kind,
+            )
+
+    def test_key_not_derived_warns(self):
+        spec = example_spec()
+        spec["ticket_types"][0]["key"] = "adult-pass"
+        spec["extras"][0]["choices"][0]["key"] = "small"
+        errors, warnings = check(spec)
+        w = by_path(warnings)
+        self.assertEqual(w["ticket_types[0].key"]["code"], "key_not_derived")
+        self.assertIn("adult-conference-pass", w["ticket_types[0].key"]["message"])
+        self.assertIn("extras[0].choices[0].key", w)
+
+    def test_clash_suffix_is_accepted(self):
+        spec = example_spec()
+        spec["ticket_types"][1]["name"] = "Adult conference pass"
+        spec["ticket_types"][1]["key"] = "adult-conference-pass-2"
+        spec["promo_codes"][0]["applies_to_ticket_types"] = ["adult-conference-pass"]
+        _, warnings = check(spec)
+        self.assertNotIn("ticket_types[1].key", by_path(warnings))
+
+    def test_promo_code_is_normalised(self):
+        spec = example_spec()
+        spec["promo_codes"][0]["code"] = "  testfamily "
+        self.assertEqual(
+            EventSpec.model_validate(spec).promo_codes[0].code, "TESTFAMILY"
+        )
+        spec["promo_codes"][0]["code"] = "   "
+        errors, _ = check(spec)
+        self.assertIn("promo_codes[0].code", by_path(errors))
 
 
 class MessageLanguageTests(SimpleTestCase):
@@ -513,6 +640,43 @@ class ExportTests(TestCase):
     def test_export_is_stable(self):
         self.assertEqual(export(self.event), export(self.event))
 
+    def test_ties_break_on_id(self):
+        event = Event.objects.create(
+            name="Ties", start_date=date(2027, 1, 1), end_date=date(2027, 1, 1)
+        )
+        a = TicketType.objects.create(event=event, name="Same", price=1)
+        b = TicketType.objects.create(event=event, name="Same", price=2)
+        first, second = sorted([a, b], key=lambda t: t.id)
+        spec = export(event)
+        self.assertEqual(
+            [(t["key"], t["price"]) for t in spec["ticket_types"]],
+            [("same", f"{first.price:.2f}"), ("same-2", f"{second.price:.2f}")],
+        )
+
+    def test_export_survives_data_validation_rejects(self):
+        event = Event.objects.create(
+            name="Odd", start_date=date(2027, 1, 1), end_date=date(2027, 1, 1)
+        )
+        TicketType.objects.create(event=event, name="Refund", price=-5)
+        spec = export(event)
+        self.assertEqual(spec["ticket_types"][0]["price"], "-5.00")
+        errors, _ = check(spec)
+        self.assertIn("ticket_types[0].price", by_path(errors))
+
+    def test_export_refuses_cross_event_references(self):
+        other = Event.objects.create(
+            name="Other", start_date=date(2027, 1, 1), end_date=date(2027, 1, 1)
+        )
+        foreign = Session.objects.create(
+            event=other,
+            name="Elsewhere",
+            start_time=datetime(2027, 1, 1, 8, tzinfo=UTC),
+            end_time=datetime(2027, 1, 1, 9, tzinfo=UTC),
+        )
+        self.bundle.sessions.add(foreign)
+        with self.assertRaises(ValueError):
+            export(self.event)
+
     def test_export_of_empty_event(self):
         event = Event.objects.create(
             name="Empty", start_date=date(2027, 1, 1), end_date=date(2027, 1, 1)
@@ -522,3 +686,35 @@ class ExportTests(TestCase):
         errors, warnings = check(spec)
         self.assertEqual(errors, [])
         self.assertEqual([w["code"] for w in warnings], ["registration_not_configured"])
+
+
+class SpecParityTests(SimpleTestCase):
+    """The spec carries every concrete model field except an explicit exclusion list."""
+
+    def assert_parity(self, model, spec_model, excluded, extra=()):
+        fields = {f.name for f in model._meta.concrete_fields} - excluded
+        fields |= {f.name for f in model._meta.local_many_to_many}
+        spec_fields = set(spec_model.model_fields) - {"key", *extra}
+        self.assertEqual(spec_fields, fields, model.__name__)
+
+    def test_parity(self):
+        from events.event_spec.spec import (
+            EventSection,
+            ExtraChoiceSpec,
+            ExtraSpec,
+            PromoCodeSpec,
+            SessionSpec,
+            TicketTypeSpec,
+        )
+        from events.models import ExtraChoice
+
+        self.assert_parity(Event, EventSection, {"id", "cloned_from"})
+        self.assert_parity(Session, SessionSpec, {"id", "event", "is_active"})
+        self.assert_parity(TicketType, TicketTypeSpec, {"id", "event"})
+        self.assert_parity(
+            Extra, ExtraSpec, {"id", "event", "cloned_from"}, extra=("choices",)
+        )
+        self.assert_parity(ExtraChoice, ExtraChoiceSpec, {"id", "extra"})
+        self.assert_parity(
+            PromoCode, PromoCodeSpec, {"id", "event", "uses_count", "created_at"}
+        )
