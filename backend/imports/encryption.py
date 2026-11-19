@@ -20,3 +20,11 @@ def encrypt_credentials(username: str, password: str) -> bytes:
 def decrypt_credentials(token: bytes) -> dict:
     # bytes() call handles memoryview returned by psycopg3 for BinaryField
     return json.loads(_get_fernet().decrypt(bytes(token)).decode())
+
+
+def encrypt_text(plaintext: str) -> bytes:
+    return _get_fernet().encrypt(plaintext.encode())
+
+
+def decrypt_text(token: bytes) -> str:
+    return _get_fernet().decrypt(bytes(token)).decode()

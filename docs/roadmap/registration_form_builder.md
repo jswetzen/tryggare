@@ -103,7 +103,7 @@ Two adapters cover the list:
 1. Anthropic Messages API with tool use.
 2. OpenAI-compatible chat completions with tool use. Covers OpenAI, OpenRouter, and Ollama.
 
-Provider, base URL, model, and key come from settings or environment, never from source. Keys are encrypted at rest, never sent to the frontend, and never logged.
+Provider, base URL, model, and key are set per deployment by an admin, never in source. **Built (adapter 2, configuration only):** the `assistant` app holds one `LLMProvider` row, edited in Django admin (Language model provider) or through `GET/PUT/PATCH /api/assistant/provider/`. The admin enters the base URL and key, presses "Load models" (`GET {base_url}/models`, also `POST /api/assistant/provider/models/`) and picks a model, or types one for a provider that does not list. The key is Fernet-encrypted at rest with a key derived from `SECRET_KEY` (as import credentials are), write-only in the API, never rendered in admin, and only ever sent to the origin it was saved with: moving the base URL to another host (by trying it or by saving it) needs the key typed again or removed. Rotating `SECRET_KEY` makes the stored key unreadable; re-enter it. Loading models is server-side and reaches any address the admin enters (Ollama needs private ones), so it is limited to users with change permission on the provider; link-local addresses (cloud metadata) are refused, and the reply never echoes the provider's status or body. No chat call, tool use or Anthropic adapter yet.
 
 `docs/legal/DPA_NOTE.md` does not mention AI or LLM providers. It covers self-hosting, SaaS, and imports. A cloud provider needs its own check: what it receives, whether it retains or trains on it, and what happens to text organizers paste. This must be done before a cloud provider is enabled for real events.
 
@@ -115,7 +115,7 @@ Decided: this is for the open-source release, and the first trial is one organiz
 
 Consequences:
 - **Annual setup fits option A.** A recurring conference is set up once a year, so cloning last year's ticket types, extras, and promo codes is the most likely first win. This is the strongest evidence so far for building A and C first.
-- **Keys are per deployment.** Each self-hosted instance holds its own provider key, set in settings or environment. Per-organizer keys can wait until a hosted version exists. The trial org runs one deployment with one key.
+- **Keys are per deployment.** Each self-hosted instance holds its own provider key, set by an admin and stored encrypted in the database. Per-organizer keys can wait until a hosted version exists. The trial org runs one deployment with one key.
 - **Open source raises the bar for defaults.** The shipped code must not contain keys, provider endpoints tied to one vendor, or a default model that requires a paid key. Local Ollama must work out of the box for anyone who doesn't want a cloud provider.
 - **Personal-data rules apply to every deployment**, not just the trial. The rule in "Personal data is forbidden" is part of the product, not site policy.
 

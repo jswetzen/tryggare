@@ -23,6 +23,7 @@ APP_ORDER = [
     "reports",
     "imports",
     "printing",
+    "assistant",
     "accounts",
     "auth",
 ]
