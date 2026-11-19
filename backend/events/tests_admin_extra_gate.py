@@ -139,3 +139,38 @@ class ExtraAdminGateTests(NonManifestStaticfilesTestCase, TestCase):
         shared.refresh_from_db()
         self.assertFalse(shared.is_active)
         self.assertFalse(shared.ticket_types.exists())
+
+
+class GateDeleteGuardTests(TestCase):
+    """Deleting gate ticket types outside the admin must not open the gate."""
+
+    def setUp(self):
+        self.event = _event("Guard")
+        self.a = TicketType.objects.create(event=self.event, name="A", price=1)
+        self.b = TicketType.objects.create(event=self.event, name="B", price=1)
+        self.extra = Extra.objects.create(event=self.event, name="Gated")
+        self.extra.ticket_types.add(self.a, self.b)
+        self.ungated = Extra.objects.create(event=self.event, name="Open")
+
+    def test_instance_delete_of_sole_gate_type_deactivates(self):
+        self.extra.ticket_types.remove(self.b)
+        self.a.delete()
+        self.extra.refresh_from_db()
+        self.assertFalse(self.extra.is_active)
+
+    def test_queryset_delete_of_every_gate_type_deactivates(self):
+        TicketType.objects.filter(event=self.event).delete()
+        self.extra.refresh_from_db()
+        self.ungated.refresh_from_db()
+        self.assertFalse(self.extra.is_active)
+        self.assertTrue(self.ungated.is_active)
+
+    def test_deleting_one_of_several_gate_types_keeps_extra_active(self):
+        self.a.delete()
+        self.extra.refresh_from_db()
+        self.assertTrue(self.extra.is_active)
+        self.assertEqual(list(self.extra.ticket_types.all()), [self.b])
+
+    def test_event_cascade_delete_does_not_raise(self):
+        self.event.delete()
+        self.assertFalse(Extra.objects.filter(pk=self.extra.pk).exists())
