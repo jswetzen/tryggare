@@ -1898,6 +1898,12 @@ msgstr "Markera exakt ett evenemang att kopiera."
 msgid "Copied '%(source)s' to '%(event)s'."
 msgstr "Kopierade ”%(source)s” till ”%(event)s”."
 
+msgid "Could not copy '%(source)s': %(problems)s"
+msgstr "Kunde inte kopiera ”%(source)s”: %(problems)s"
+
+msgid "Copied '%(source)s' to '%(event)s'. Self-serve registration is off on the copy because the moved registration window would already be open or in the past; set a new window when you are ready."
+msgstr "Kopierade ”%(source)s” till ”%(event)s”. Självbetjäning för anmälan är avstängd på kopian eftersom det flyttade anmälningsfönstret redan skulle vara öppet eller ligga i det förflutna; ange ett nytt fönster när du är redo."
+
 msgid "Copy event"
 msgstr "Kopiera evenemang"
 

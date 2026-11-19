@@ -11,7 +11,7 @@ from django.db import transaction
 from django.utils import timezone
 from django.utils.translation import gettext as _
 
-from .models import Event, Extra, PromoCode, Session, TicketType
+from .models import Event, Extra
 
 # Copying (and spec apply) creates rows in all five models, not just events.
 SPEC_MODELS = (
@@ -90,10 +90,6 @@ def _shift_datetime(value: datetime | None, delta: timedelta) -> datetime | None
     return (local + delta).replace(tzinfo=tz)
 
 
-def _shift_date(value: date | None, delta: timedelta) -> date | None:
-    return None if value is None else value + delta
-
-
 def _years_before(anchor: date, years: int) -> date:
     """`anchor` moved back `years`; for 29 February, the nearest earlier leap
     year, since only a 29 February satisfies the age-window rule there."""
@@ -167,106 +163,83 @@ def _check_references_stay_in_event(source: Event) -> None:
                 )
 
 
+def _shift_iso(value: str | None, delta: timedelta) -> str | None:
+    # Export gives fixed offsets; shift on the Stockholm wall clock instead.
+    if value is None:
+        return None
+    return _shift_datetime(datetime.fromisoformat(value), delta).isoformat()
+
+
+def _shift_spec(spec: dict, delta: timedelta, name: str, start_date: date) -> dict:
+    """Move every date and time in an exported spec by `delta`."""
+    source_start = date.fromisoformat(spec["event"]["start_date"])
+    event = spec["event"]
+    event.update(
+        name=name,
+        start_date=start_date.isoformat(),
+        end_date=(date.fromisoformat(event["end_date"]) + delta).isoformat(),
+    )
+    for field in ("registration_opens_at", "registration_closes_at"):
+        event[field] = _shift_iso(event[field], delta)
+    # Apply refuses an open window; a copy whose window is already open or
+    # past ships with self-serve off rather than being opened by the spec.
+    now = timezone.now()
+    stamps = [
+        datetime.fromisoformat(event[f])
+        for f in ("registration_opens_at", "registration_closes_at")
+        if event[f] is not None
+    ]
+    if any(t <= now for t in stamps) or (
+        event["registration_opens_at"] is None and stamps
+    ):
+        event["registration_opens_at"] = event["registration_closes_at"] = None
+    for session in spec["sessions"]:
+        for field in ("start_time", "end_time"):
+            session[field] = _shift_iso(session[field], delta)
+    for ticket_type in spec["ticket_types"]:
+        for field in ("available_from", "available_until"):
+            ticket_type[field] = _shift_iso(ticket_type[field], delta)
+        for field, offset in (("min_birthdate", 1), ("max_birthdate", 0)):
+            bound = ticket_type[field]
+            if bound is not None:
+                ticket_type[field] = _shift_birthdate_bound(
+                    date.fromisoformat(bound),
+                    source_start,
+                    start_date,
+                    offset_days=offset,
+                ).isoformat()
+    for promo in spec["promo_codes"]:
+        for field in ("valid_from", "valid_until"):
+            promo[field] = _shift_iso(promo[field], delta)
+    return spec
+
+
 @transaction.atomic
 def copy_event(source: Event, *, name: str, start_date: date) -> Event:
     """Copy `source` with its configuration to a new event starting on
     `start_date`; every date and time moves by the same number of days.
 
-    Copies the event settings, sessions, ticket types, extras (with
-    choices) and promo codes, and remaps their references to the new rows.
-    Registrations, attendees, tickets and check-ins are never copied, and
-    `PromoCode.uses_count` starts over and sessions start inactive. Other apps' rows that point at the
-    event (reports, import sources) are left with the source.
+    Exports the source as an event spec, shifts it and applies it, so the
+    copy follows the spec's rules. Copies the event settings, sessions,
+    ticket types, extras (with choices) and promo codes, and remaps their
+    references. Registrations, attendees, tickets and check-ins are never
+    copied, `PromoCode.uses_count` starts over and sessions start inactive.
+    A registration window that would be open or past after the shift is
+    dropped (self-serve off). Raises ValueError for a source that refers to
+    another event's rows and `event_spec.SpecError` for a setup the spec rules refuse.
     """
-    _check_references_stay_in_event(source)
+    # Imported here: event_spec imports this module.
+    from .event_spec import apply, export
+    from .event_spec._export import keyed_rows
+
     delta = start_date - source.start_date
+    spec = _shift_spec(export(source), delta, name, start_date)
+    new_event, _diff, _warnings = apply(spec)
 
-    new_event = Event.objects.create(
-        name=name,
-        start_date=start_date,
-        end_date=_shift_date(source.end_date, delta),
-        ticket_rule_default=source.ticket_rule_default,
-        price=source.price,
-        registration_opens_at=_shift_datetime(source.registration_opens_at, delta),
-        registration_closes_at=_shift_datetime(source.registration_closes_at, delta),
-        header_image_url=source.header_image_url,
-        accent_color=source.accent_color,
-        cloned_from=source,
-    )
-
-    session_map: dict = {}
-    for session in source.sessions.all():
-        session_map[session.id] = Session.objects.create(
-            event=new_event,
-            name=session.name,
-            start_time=_shift_datetime(session.start_time, delta),
-            end_time=_shift_datetime(session.end_time, delta),
-            is_active=False,  # live check-in state, not configuration
-            ticket_rule=session.ticket_rule,
-            adults_not_checked_in=session.adults_not_checked_in,
-        )
-
-    ticket_type_map: dict = {}
-    source_types = list(source.ticket_types.prefetch_related("sessions"))
-    for ticket_type in source_types:
-        new_type = TicketType.objects.create(
-            event=new_event,
-            name=ticket_type.name,
-            price=ticket_type.price,
-            applies_to=ticket_type.applies_to,
-            min_birthdate=_shift_birthdate_bound(
-                ticket_type.min_birthdate,
-                source.start_date,
-                start_date,
-                offset_days=1,
-            ),
-            max_birthdate=_shift_birthdate_bound(
-                ticket_type.max_birthdate,
-                source.start_date,
-                start_date,
-                offset_days=0,
-            ),
-            available_from=_shift_datetime(ticket_type.available_from, delta),
-            available_until=_shift_datetime(ticket_type.available_until, delta),
-            is_hidden=ticket_type.is_hidden,
-            kind=ticket_type.kind,
-            capacity=ticket_type.capacity,
-            max_per_required=ticket_type.max_per_required,
-            sort_order=ticket_type.sort_order,
-            is_active=ticket_type.is_active,
-        )
-        new_type.sessions.set(session_map[s.id] for s in ticket_type.sessions.all())
-        ticket_type_map[ticket_type.id] = new_type
-    # Second pass: the required type may sort after the one that needs it.
-    for ticket_type in source_types:
-        if ticket_type.requires_ticket_type_id is not None:
-            new_type = ticket_type_map[ticket_type.id]
-            new_type.requires_ticket_type = ticket_type_map[
-                ticket_type.requires_ticket_type_id
-            ]
-            new_type.save(update_fields=["requires_ticket_type"])
-
-    for extra in source.extras.all():
-        duplicate_extra_to_event(extra, new_event, session_map)
-
-    for promo in source.promo_codes.prefetch_related(
-        "applies_to_ticket_types", "unlocks_ticket_types"
-    ):
-        new_promo = PromoCode.objects.create(
-            event=new_event,
-            code=promo.code,
-            discount_type=promo.discount_type,
-            discount_value=promo.discount_value,
-            max_uses=promo.max_uses,
-            valid_from=_shift_datetime(promo.valid_from, delta),
-            valid_until=_shift_datetime(promo.valid_until, delta),
-            is_active=promo.is_active,
-        )
-        new_promo.applies_to_ticket_types.set(
-            ticket_type_map[t.id] for t in promo.applies_to_ticket_types.all()
-        )
-        new_promo.unlocks_ticket_types.set(
-            ticket_type_map[t.id] for t in promo.unlocks_ticket_types.all()
-        )
-
+    # Copy history is not part of the spec; both rows are matched by key.
+    Event.objects.filter(pk=new_event.pk).update(cloned_from=source)
+    new_event.cloned_from = source
+    new_extras = dict(keyed_rows(new_event)["extras"])
+    for key, old_extra in keyed_rows(source)["extras"]:
+        Extra.objects.filter(pk=new_extras[key].pk).update(cloned_from=old_extra)
     return new_event

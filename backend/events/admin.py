@@ -59,6 +59,7 @@ from registrations.services import (
     ticket_type_sold_count,
 )
 
+from .event_spec import SpecError
 from .services import can_copy_events, copy_event, duplicate_extra_to_event
 
 
@@ -159,10 +160,29 @@ class EventAdmin(admin.ModelAdmin):
                 except ValueError as exc:
                     self.message_user(request, str(exc), messages.ERROR)
                     return None
+                except SpecError as exc:
+                    self.message_user(
+                        request,
+                        _("Could not copy '%(source)s': %(problems)s")
+                        % {"source": source.name, "problems": str(exc)},
+                        messages.ERROR,
+                    )
+                    return None
+                had_window = (
+                    source.registration_opens_at or source.registration_closes_at
+                )
+                if had_window and not new_event.registration_opens_at:
+                    text = _(
+                        "Copied '%(source)s' to '%(event)s'. Self-serve registration "
+                        "is off on the copy because the moved registration window "
+                        "would already be open or in the past; set a new window "
+                        "when you are ready."
+                    )
+                else:
+                    text = _("Copied '%(source)s' to '%(event)s'.")
                 self.message_user(
                     request,
-                    _("Copied '%(source)s' to '%(event)s'.")
-                    % {"source": source.name, "event": new_event.name},
+                    text % {"source": source.name, "event": new_event.name},
                     messages.SUCCESS,
                 )
                 return HttpResponseRedirect(

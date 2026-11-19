@@ -1874,6 +1874,12 @@ msgstr "Select exactly one event to copy."
 msgid "Copied '%(source)s' to '%(event)s'."
 msgstr "Copied '%(source)s' to '%(event)s'."
 
+msgid "Could not copy '%(source)s': %(problems)s"
+msgstr "Could not copy '%(source)s': %(problems)s"
+
+msgid "Copied '%(source)s' to '%(event)s'. Self-serve registration is off on the copy because the moved registration window would already be open or in the past; set a new window when you are ready."
+msgstr "Copied '%(source)s' to '%(event)s'. Self-serve registration is off on the copy because the moved registration window would already be open or in the past; set a new window when you are ready."
+
 msgid "Copy event"
 msgstr "Copy event"
 

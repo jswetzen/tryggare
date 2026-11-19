@@ -1408,16 +1408,86 @@ class CopyEventTest(TestCase):
         self.assertEqual(kids.max_birthdate, date(2020, 6, 11))
         self.assertEqual(kids.min_birthdate, date(2014, 6, 12))
 
-    def test_age_bound_off_the_anniversary_gets_the_plain_shift(self):
+    def test_age_bound_off_the_anniversary_is_refused_with_its_path(self):
+        # The old copier shifted such a bound and produced a row that failed
+        # clean(); apply's validation now refuses it.
+        from events.event_spec import SpecError
         from events.services import copy_event
 
         TicketType.objects.create(
             event=self.source, name="Odd", price=0, max_birthdate=date(2020, 1, 1)
         )
-        new = copy_event(self.source, name="X", start_date=date(2027, 4, 3))
-        self.assertEqual(
-            new.ticket_types.get(name="Odd").max_birthdate, date(2020, 1, 15)
+        with self.assertRaises(SpecError) as ctx:
+            copy_event(self.source, name="X", start_date=date(2027, 4, 3))
+        self.assertIn(
+            "max_birthdate",
+            {e["path"].rsplit(".", 1)[-1] for e in ctx.exception.errors},
         )
+        self.assertFalse(Event.objects.filter(name="X").exists())
+
+    def test_negative_price_is_refused_and_nothing_is_created(self):
+        from events.event_spec import SpecError
+        from events.services import copy_event
+
+        TicketType.objects.filter(pk=self.family_type.pk).update(price=-5)
+        with self.assertRaises(SpecError) as ctx:
+            copy_event(self.source, name="X", start_date=date(2027, 4, 3))
+        self.assertTrue(any("price" in e["path"] for e in ctx.exception.errors))
+        self.assertFalse(Event.objects.filter(name="X").exists())
+
+    def test_open_or_past_window_is_dropped(self):
+        # Source window 2027-03-01..15; shifting back puts it in the past.
+        past = self._copy(start=date(2020, 3, 20))
+        self.assertIsNone(past.registration_opens_at)
+        self.assertIsNone(past.registration_closes_at)
+
+        # A shifted window that is open right now is dropped too.
+        now = timezone.now()
+        Event.objects.filter(pk=self.source.pk).update(
+            registration_opens_at=now - timezone.timedelta(days=1),
+            registration_closes_at=now + timezone.timedelta(days=30),
+        )
+        self.source.refresh_from_db()
+        from events.services import copy_event
+
+        live = copy_event(self.source, name="Live", start_date=self.source.start_date)
+        self.assertIsNone(live.registration_opens_at)
+        self.assertIsNone(live.registration_closes_at)
+        self.assertEqual(live.sessions.count(), 2)
+
+    def test_future_window_is_kept(self):
+        new = self._copy()
+        self.assertIsNotNone(new.registration_opens_at)
+        self.assertIsNotNone(new.registration_closes_at)
+
+    def test_autumn_dst_change_keeps_wall_clock(self):
+        # 09:00 CEST (+02:00) moved past 2027-10-31 must be 09:00 CET (+01:00),
+        # not the 08:00 a fixed-offset shift would give.
+        from datetime import timedelta
+
+        from events.services import copy_event
+
+        source = Event.objects.create(
+            name="Autumn", start_date=date(2027, 9, 18), end_date=date(2027, 9, 18)
+        )
+        Session.objects.create(
+            event=source,
+            name="Morning",
+            start_time=self._stockholm(2027, 9, 18, 9, 0),
+            end_time=self._stockholm(2027, 9, 18, 11, 0),
+        )
+        new = copy_event(source, name="Autumn 2", start_date=date(2027, 11, 6))
+
+        start = timezone.localtime(new.sessions.get().start_time, self.tz)
+        self.assertEqual((start.date(), start.hour), (date(2027, 11, 6), 9))
+        self.assertEqual(start.utcoffset(), timedelta(hours=1))
+
+    def test_clones_are_recorded_for_event_and_extras(self):
+        new = self._copy()
+
+        self.assertEqual(new.cloned_from, self.source)
+        self.assertEqual(new.extras.get(name="Dinner").cloned_from, self.dinner)
+        self.assertEqual(new.extras.get(name="T-shirt").cloned_from, self.shirt)
 
     def test_leap_day_start_uses_nearest_leap_year(self):
         from events.services import copy_event
@@ -1588,9 +1658,16 @@ class CopyEventTest(TestCase):
     def test_failure_rolls_everything_back(self):
         from events.services import copy_event
 
-        with patch(
-            "events.services.PromoCode.objects.create", side_effect=RuntimeError
-        ):
+        from events.event_spec import _apply
+
+        real_save = _apply._save
+
+        def fail_on_promo(obj, model, *args, **kwargs):
+            if model is PromoCode:
+                raise RuntimeError
+            return real_save(obj, model, *args, **kwargs)
+
+        with patch("events.event_spec._apply._save", side_effect=fail_on_promo):
             with self.assertRaises(RuntimeError):
                 copy_event(self.source, name="Doomed", start_date=date(2027, 5, 1))
 
@@ -1692,6 +1769,40 @@ class CopyEventAdminActionTest(NonManifestStaticfilesTestCase, TestCase):
         )
         self.assertContains(response, "Foreign")
         self.assertFalse(Event.objects.filter(name="Alpha 2").exists())
+
+    def test_refused_spec_shows_error_with_paths_not_500(self):
+        TicketType.objects.create(event=self.a, name="Bad", price=-1)
+
+        response = self._post(
+            [self.a.pk],
+            apply="yes",
+            name="Alpha 3",
+            start_date="2028-06-01",
+            follow=True,
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Could not copy")
+        self.assertContains(response, "ticket_types[0].price")
+        self.assertFalse(Event.objects.filter(name="Alpha 3").exists())
+
+    def test_dropped_registration_window_is_reported(self):
+        now = timezone.now()
+        Event.objects.filter(pk=self.a.pk).update(
+            registration_opens_at=now - timezone.timedelta(days=1),
+            registration_closes_at=now + timezone.timedelta(days=30),
+        )
+
+        response = self._post(
+            [self.a.pk],
+            apply="yes",
+            name="Alpha 4",
+            start_date="2027-06-01",
+            follow=True,
+        )
+        new = Event.objects.get(name="Alpha 4")
+        self.assertIsNone(new.registration_opens_at)
+        self.assertContains(response, "registration")
+        self.assertContains(response, "Alpha 4")
 
     def test_user_with_only_add_event_is_refused(self):
         from django.contrib.auth.models import Permission
