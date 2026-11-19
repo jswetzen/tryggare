@@ -20,7 +20,8 @@ def apply(
     spec: dict, event: Event | None = None
 ) -> tuple[Event, list[dict], list[dict]]:
     """Make ``event`` (or a new event) match ``spec``: ``(event, diff, warnings)``.
-    Rows match by key, so ids stay stable. Raises SpecError, with no writes, for any
+    Rows match by key, so ids stay stable. Use the returned event: the argument is
+    not refreshed. Raises SpecError, with no writes, for any
     validation error, a missing or non-empty target, or a window that is open."""
     if event is not None and (event._state.adding or event.pk is None):
         raise SpecError([issue("event", "event_not_found")])
@@ -67,11 +68,11 @@ def apply(
 def _write(event: Event, spec: EventSpec) -> None:
     existing = keyed_rows(event)
     old = {
-        kind: {row[0]: row[-1] for row in rows}
+        kind: {r.key: r.obj for r in rows}
         for kind, rows in existing.items()
         if kind != "choices"
     }
-    old_choices = {(p, k): c for p, k, c in existing["choices"]}
+    old_choices = {(r.parent, r.key): r.obj for r in existing["choices"]}
 
     for field, value in spec.event.model_dump().items():
         setattr(event, field, value)

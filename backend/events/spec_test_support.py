@@ -5,8 +5,8 @@ from unittest.mock import patch
 
 from families.models import Child, Family
 
-from ..models import Event, EventTicket, Session
-from ._validate import validate
+from .models import Event, EventTicket, Session
+from .event_spec._validate import validate
 
 # The example's registration window is in 2027; pin "now" before it opens.
 NOW = datetime(2026, 11, 19, 12, 0, tzinfo=UTC)
@@ -16,7 +16,7 @@ def at_now(now=NOW):
     return patch("events.models.timezone.now", return_value=now)
 
 
-def check(spec, event=None, now=NOW):
+def validate_at_now(spec, event=None, now=NOW):
     with at_now(now):
         return validate(spec, event)
 

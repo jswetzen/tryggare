@@ -2,6 +2,7 @@
 
 import re
 import unicodedata
+from typing import NamedTuple
 
 
 from ..models import Event
@@ -57,27 +58,32 @@ def _key_of(keys: dict, target, holder_kind: str, holder, target_kind: str):
     return keys[target.id]
 
 
-def keyed_rows(event: Event) -> dict:
-    """The event's rows in export order with their derived keys.
+class Keyed(NamedTuple):
+    parent: str | None  # the owner's key for a nested row, else None
+    key: str
+    obj: object
 
-    ``{kind: [(key, obj)]}``, except ``"choices"``: ``[(extra_key, key, obj)]``.
+
+def keyed_rows(event: Event) -> dict[str, list[Keyed]]:
+    """The event's rows in export order with their derived keys: ``{kind: [Keyed]}``.
+
     Ties in the ordering break on id so derived keys do not swap between runs.
     """
     rows = {}
     for kind in TOP_KINDS:
         allocator = KeyAllocator()
         rows[kind.name] = [
-            (allocator.allocate(getattr(obj, kind.key_from)), obj)
+            Keyed(None, allocator.allocate(getattr(obj, kind.key_from)), obj)
             for obj in kind.rows(event)
         ]
     for kind in KINDS.values():
         if kind.under:
             rows[kind.name] = []
-            for extra_key, extra in rows[kind.under]:
+            for owner in rows[kind.under]:
                 allocator = KeyAllocator()
-                for obj in kind.rows(extra):
+                for obj in kind.rows(owner.obj):
                     key = allocator.allocate(getattr(obj, kind.key_from))
-                    rows[kind.name].append((extra_key, key, obj))
+                    rows[kind.name].append(Keyed(owner.key, key, obj))
     return rows
 
 
@@ -88,13 +94,11 @@ def export(event: Event) -> dict:
     but validation rejects (a negative price) still exports.
     """
     rows = keyed_rows(event)
-    keys = {
-        kind.name: {obj.id: key for key, obj in rows[kind.name]} for kind in TOP_KINDS
-    }
+    keys = {kind.name: {r.obj.id: r.key for r in rows[kind.name]} for kind in TOP_KINDS}
     spec = {"event_spec_version": 1, "event": row_dict(EventSection, event)}
     for kind in TOP_KINDS:
         spec[kind.name] = []
-        for key, obj in rows[kind.name]:
+        for _owner, key, obj in rows[kind.name]:
             resolved = {"key": key}
             for name, target_kind in kind.refs.items():
                 value = getattr(obj, name)

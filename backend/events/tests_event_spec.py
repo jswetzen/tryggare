@@ -4,6 +4,7 @@ import copy
 from datetime import UTC, date, datetime, timedelta
 
 from django.db import transaction
+from django.db.models import DateField, DateTimeField
 from django.test import SimpleTestCase, TestCase
 from django.utils import translation
 
@@ -17,11 +18,12 @@ from events.event_spec import (
 )
 from events.event_spec._diff import normalize
 from events.event_spec._export import KeyAllocator, slugify_key
-from events.event_spec._kinds import codecs, spec_dict_rows
-from events.event_spec.support import (
+from events.event_spec._kinds import KINDS, codecs, spec_dict_rows
+from events.event_spec.spec import EventSection
+from events.spec_test_support import (
     at_now,
     by_path,
-    check,
+    validate_at_now,
     empty_event,
     foreign_session,
 )
@@ -64,7 +66,7 @@ class SchemaTests(SimpleTestCase):
 
 class ExampleTests(SimpleTestCase):
     def test_example_validates_cleanly(self):
-        errors, warnings = check(example_spec())
+        errors, warnings = validate_at_now(example_spec())
         self.assertEqual((errors, warnings), ([], []))
 
 
@@ -72,13 +74,13 @@ class ShapeTests(SimpleTestCase):
     def test_missing_required_field(self):
         spec = example_spec()
         del spec["event"]["name"]
-        errors, _ = check(spec)
+        errors, _ = validate_at_now(spec)
         self.assertEqual(by_path(errors)["event.name"]["code"], "missing")
 
     def test_unknown_key_is_rejected_with_its_path(self):
         spec = example_spec()
         spec["ticket_types"][2]["colour"] = "red"
-        errors, _ = check(spec)
+        errors, _ = validate_at_now(spec)
         self.assertEqual(
             by_path(errors)["ticket_types[2].colour"]["code"], "extra_forbidden"
         )
@@ -87,7 +89,7 @@ class ShapeTests(SimpleTestCase):
         spec = example_spec()
         spec["ticket_types"][0]["applies_to"] = "everyone"
         spec["event_spec_version"] = 2
-        errors, _ = check(spec)
+        errors, _ = validate_at_now(spec)
         issues = by_path(errors)
         self.assertEqual(issues["ticket_types[0].applies_to"]["code"], "literal_error")
         self.assertIn("parent", issues["ticket_types[0].applies_to"]["message"])
@@ -96,7 +98,7 @@ class ShapeTests(SimpleTestCase):
     def test_bad_key_format(self):
         spec = example_spec()
         spec["sessions"][0]["key"] = "Saturday Workshop"
-        errors, _ = check(spec)
+        errors, _ = validate_at_now(spec)
         self.assertEqual(
             by_path(errors)["sessions[0].key"]["code"], "string_pattern_mismatch"
         )
@@ -104,16 +106,16 @@ class ShapeTests(SimpleTestCase):
     def test_negative_price_and_not_a_dict(self):
         spec = example_spec()
         spec["ticket_types"][0]["price"] = -1
-        errors, _ = check(spec)
+        errors, _ = validate_at_now(spec)
         self.assertIn("ticket_types[0].price", by_path(errors))
-        errors, _ = check([])
+        errors, _ = validate_at_now([])
         self.assertEqual(len(errors), 1)
 
     def test_shape_errors_stop_later_layers(self):
         spec = example_spec()
         del spec["event"]["name"]
         spec["ticket_types"][0]["requires_ticket_type"] = "nope"
-        errors, warnings = check(spec)
+        errors, warnings = validate_at_now(spec)
         self.assertNotIn("ticket_types[0].requires_ticket_type", by_path(errors))
         self.assertEqual(warnings, [])
 
@@ -123,7 +125,7 @@ class ReferenceTests(SimpleTestCase):
         spec = example_spec()
         spec["ticket_types"][1]["key"] = "adult-conference-pass"
         spec["extras"][0]["choices"][1]["key"] = "s"
-        errors, _ = check(spec)
+        errors, _ = validate_at_now(spec)
         issues = by_path(errors)
         self.assertEqual(issues["ticket_types[0].key"]["code"], "duplicate_key")
         self.assertEqual(issues["ticket_types[1].key"]["code"], "duplicate_key")
@@ -132,7 +134,7 @@ class ReferenceTests(SimpleTestCase):
     def test_same_key_in_different_kinds_is_fine(self):
         spec = example_spec()
         spec["ticket_types"][1]["key"] = spec["sessions"][0]["key"]
-        errors, _ = check(spec)
+        errors, _ = validate_at_now(spec)
         self.assertEqual(errors, [])
 
     def test_unknown_references(self):
@@ -141,7 +143,7 @@ class ReferenceTests(SimpleTestCase):
         spec["ticket_types"][1]["requires_ticket_type"] = "nope"
         spec["extras"][0]["session"] = "nope"
         spec["promo_codes"][0]["unlocks_ticket_types"] = ["nope"]
-        errors, _ = check(spec)
+        errors, _ = validate_at_now(spec)
         issues = by_path(errors)
         for path in (
             "ticket_types[3].sessions[0]",
@@ -154,7 +156,7 @@ class ReferenceTests(SimpleTestCase):
     def test_reference_to_the_wrong_kind(self):
         spec = example_spec()
         spec["promo_codes"][0]["applies_to_ticket_types"] = ["t-shirt"]
-        errors, _ = check(spec)
+        errors, _ = validate_at_now(spec)
         self.assertEqual(
             by_path(errors)["promo_codes[0].applies_to_ticket_types[0]"]["code"],
             "wrong_kind_key",
@@ -163,7 +165,7 @@ class ReferenceTests(SimpleTestCase):
     def test_duplicate_reference(self):
         spec = example_spec()
         spec["ticket_types"][3]["sessions"] = ["saturday-workshop", "saturday-workshop"]
-        errors, _ = check(spec)
+        errors, _ = validate_at_now(spec)
         self.assertEqual(
             by_path(errors)["ticket_types[3].sessions[1]"]["code"],
             "duplicate_reference",
@@ -175,9 +177,9 @@ class ReferenceTests(SimpleTestCase):
         spec["promo_codes"][0]["discount_value"] = 110
         spec["promo_codes"][0]["applies_to_ticket_types"] = ["nope"]
         with translation.override("en"):
-            en = by_path(check(spec)[0])
+            en = by_path(validate_at_now(spec)[0])
         with translation.override("sv"):
-            sv = by_path(check(spec)[0])
+            sv = by_path(validate_at_now(spec)[0])
         percent = "promo_codes[0].discount_value"
         self.assertEqual(
             en[percent]["message"], "A percent discount cannot be more than 100."
@@ -199,14 +201,14 @@ class ModelRuleTests(SimpleTestCase):
     def test_equal_session_times_are_allowed(self):
         spec = example_spec()
         spec["sessions"][0]["end_time"] = spec["sessions"][0]["start_time"]
-        errors, _ = check(spec)
+        errors, _ = validate_at_now(spec)
         self.assertEqual(errors, [])
 
     def test_age_window_reuses_the_model_rule(self):
         spec = example_spec()
         spec["ticket_types"][2]["min_birthdate"] = "2009-07-01"
         spec["ticket_types"][2]["max_birthdate"] = "2014-01-01"
-        errors, _ = check(spec)
+        errors, _ = validate_at_now(spec)
         issues = by_path(errors)
         self.assertEqual(issues["ticket_types[2].min_birthdate"]["code"], "age_window")
         self.assertIn("2009-06-19", issues["ticket_types[2].min_birthdate"]["message"])
@@ -215,7 +217,7 @@ class ModelRuleTests(SimpleTestCase):
     def test_ticket_type_requiring_itself(self):
         spec = example_spec()
         spec["ticket_types"][1]["requires_ticket_type"] = "child-pass-0-12"
-        errors, _ = check(spec)
+        errors, _ = validate_at_now(spec)
         self.assertEqual(
             by_path(errors)["ticket_types[1].requires_ticket_type"]["code"],
             "invalid_requires",
@@ -224,7 +226,7 @@ class ModelRuleTests(SimpleTestCase):
     def test_registration_window_order(self):
         spec = example_spec()
         spec["event"]["registration_closes_at"] = "2027-02-01T09:00:00"
-        errors, _ = check(spec)
+        errors, _ = validate_at_now(spec)
         self.assertEqual(
             by_path(errors)["event.registration_closes_at"]["code"], "window_order"
         )
@@ -233,7 +235,7 @@ class ModelRuleTests(SimpleTestCase):
         spec = example_spec()
         spec["event"]["accent_color"] = "blue"
         spec["event"]["header_image_url"] = "not a url"
-        errors, _ = check(spec)
+        errors, _ = validate_at_now(spec)
         paths = by_path(errors)
         self.assertIn("event.accent_color", paths)
         self.assertIn("event.header_image_url", paths)
@@ -241,7 +243,7 @@ class ModelRuleTests(SimpleTestCase):
     def test_nested_choice_path(self):
         spec = example_spec()
         spec["extras"][0]["choices"][2]["label"] = ""
-        errors, _ = check(spec)
+        errors, _ = validate_at_now(spec)
         self.assertIn("extras[0].choices[2].label", by_path(errors))
 
     def test_duplicate_promo_code_ignores_case(self):
@@ -249,7 +251,7 @@ class ModelRuleTests(SimpleTestCase):
         other = copy.deepcopy(spec["promo_codes"][0])
         other.update(key="second", code="testfamily")
         spec["promo_codes"].append(other)
-        errors, _ = check(spec)
+        errors, _ = validate_at_now(spec)
         issues = by_path(errors)
         self.assertEqual(issues["promo_codes[0].code"]["code"], "duplicate_code")
         self.assertEqual(issues["promo_codes[1].code"]["code"], "duplicate_code")
@@ -259,7 +261,7 @@ class ModelRuleTests(SimpleTestCase):
         spec["event"]["end_date"] = "2027-06-01"
         spec["sessions"][0]["end_time"] = "2027-06-19T09:00:00"
         spec["promo_codes"][0]["discount_value"] = 110
-        errors, _ = check(spec)
+        errors, _ = validate_at_now(spec)
         issues = by_path(errors)
         self.assertEqual(issues["event.end_date"]["code"], "end_before_start")
         self.assertEqual(issues["sessions[0].end_time"]["code"], "end_before_start")
@@ -270,7 +272,9 @@ class ModelRuleTests(SimpleTestCase):
 
 class GoingLiveTests(SimpleTestCase):
     def test_open_window_is_an_error(self):
-        errors, _ = check(example_spec(), now=datetime(2027, 4, 1, tzinfo=UTC))
+        errors, _ = validate_at_now(
+            example_spec(), now=datetime(2027, 4, 1, tzinfo=UTC)
+        )
         self.assertEqual(
             by_path(errors)["event.registration_opens_at"]["code"], "registration_open"
         )
@@ -279,7 +283,7 @@ class GoingLiveTests(SimpleTestCase):
         spec = example_spec()
         spec["event"]["registration_opens_at"] = "2026-01-01T09:00:00"
         spec["event"]["registration_closes_at"] = None
-        errors, _ = check(spec)
+        errors, _ = validate_at_now(spec)
         self.assertEqual(
             by_path(errors)["event.registration_opens_at"]["code"], "registration_open"
         )
@@ -288,7 +292,7 @@ class GoingLiveTests(SimpleTestCase):
         spec = example_spec()
         spec["event"]["registration_opens_at"] = None
         spec["event"]["registration_closes_at"] = None
-        errors, warnings = check(spec)
+        errors, warnings = validate_at_now(spec)
         self.assertEqual(errors, [])
         self.assertEqual(
             by_path(warnings)["event.registration_opens_at"]["code"],
@@ -296,7 +300,9 @@ class GoingLiveTests(SimpleTestCase):
         )
 
     def test_closed_window_warns(self):
-        _, warnings = check(example_spec(), now=datetime(2027, 7, 1, tzinfo=UTC))
+        _, warnings = validate_at_now(
+            example_spec(), now=datetime(2027, 7, 1, tzinfo=UTC)
+        )
         self.assertEqual(
             by_path(warnings)["event.registration_closes_at"]["code"],
             "registration_closed",
@@ -308,7 +314,7 @@ class WarningTests(SimpleTestCase):
         spec = example_spec()
         spec["ticket_types"][1]["requires_ticket_type"] = "child-pass-13-17"
         spec["ticket_types"][2]["requires_ticket_type"] = "child-pass-0-12"
-        errors, warnings = check(spec)
+        errors, warnings = validate_at_now(spec)
         self.assertEqual(errors, [])
         w = by_path(warnings)
         self.assertEqual(
@@ -337,7 +343,7 @@ class WarningTests(SimpleTestCase):
         )
 
     def codes(self, spec):
-        errors, warnings = check(spec)
+        errors, warnings = validate_at_now(spec)
         self.assertEqual(errors, [])
         return {(w["path"], w["code"]) for w in warnings}
 
@@ -412,7 +418,7 @@ class KeyTests(SimpleTestCase):
         spec = example_spec()
         spec["ticket_types"][0]["key"] = "adult-pass"
         spec["extras"][0]["choices"][0]["key"] = "small"
-        errors, warnings = check(spec)
+        errors, warnings = validate_at_now(spec)
         w = by_path(warnings)
         self.assertEqual(w["ticket_types[0].key"]["code"], "key_not_derived")
         self.assertIn("adult-conference-pass", w["ticket_types[0].key"]["message"])
@@ -423,7 +429,7 @@ class KeyTests(SimpleTestCase):
         spec["ticket_types"][1]["name"] = "Adult conference pass"
         spec["ticket_types"][1]["key"] = "adult-conference-pass-2"
         spec["promo_codes"][0]["applies_to_ticket_types"] = ["adult-conference-pass"]
-        _, warnings = check(spec)
+        _, warnings = validate_at_now(spec)
         self.assertNotIn("ticket_types[1].key", by_path(warnings))
 
     def test_promo_code_is_normalised(self):
@@ -433,7 +439,7 @@ class KeyTests(SimpleTestCase):
             EventSpec.model_validate(spec).promo_codes[0].code, "TESTFAMILY"
         )
         spec["promo_codes"][0]["code"] = "   "
-        errors, _ = check(spec)
+        errors, _ = validate_at_now(spec)
         self.assertIn("promo_codes[0].code", by_path(errors))
 
 
@@ -544,7 +550,7 @@ class ExportTests(TestCase):
         spec = export(self.event)
         parsed = EventSpec.model_validate(spec)
         self.assertEqual(parsed.model_dump(mode="json"), spec)
-        errors, warnings = check(spec)
+        errors, warnings = validate_at_now(spec)
         self.assertEqual(errors, [])
         self.assertEqual(warnings, [])
 
@@ -564,7 +570,7 @@ class ExportTests(TestCase):
         TicketType.objects.create(event=event, name="Refund", price=-5)
         spec = export(event)
         self.assertEqual(spec["ticket_types"][0]["price"], "-5.00")
-        errors, _ = check(spec)
+        errors, _ = validate_at_now(spec)
         self.assertIn("ticket_types[0].price", by_path(errors))
 
     def test_export_refuses_every_kind_of_cross_event_reference(self):
@@ -598,7 +604,7 @@ class ExportTests(TestCase):
         event = empty_event("Empty")
         spec = export(event)
         self.assertEqual(spec["ticket_types"], [])
-        errors, warnings = check(spec)
+        errors, warnings = validate_at_now(spec)
         self.assertEqual(errors, [])
         self.assertEqual([w["code"] for w in warnings], ["registration_not_configured"])
 
@@ -641,7 +647,7 @@ class CollectedModelErrorTests(SimpleTestCase):
         spec["ticket_types"][2]["available_from"] = "2027-05-01T09:00:00"
         spec["ticket_types"][2]["available_until"] = "2027-04-01T09:00:00"
         spec["ticket_types"][2]["min_birthdate"] = "2009-07-01"
-        errors, _ = check(spec)
+        errors, _ = validate_at_now(spec)
         paths = {e["path"] for e in errors}
         self.assertTrue(
             {"ticket_types[2].available_until", "ticket_types[2].min_birthdate"}
@@ -653,6 +659,21 @@ class CopyShiftTests(SimpleTestCase):
     def test_every_datetime_and_date_field_is_shifted(self):
         # A field the shift missed would keep its old date in a copy.
         samples = {"datetime": "2027-04-01T10:00:00+02:00", "date": "2027-06-18"}
+        # codecs() decides what is shifted, so check it against the models.
+        for kind in (*KINDS.values(), None):
+            spec_class = kind.spec if kind else EventSection
+            model = kind.model if kind else Event
+            by_type = {"datetime": DateTimeField, "date": DateField}
+            for codec, field_type in by_type.items():
+                from_codecs = {n for n, c in codecs(spec_class).items() if c == codec}
+                from_model = {
+                    f.name
+                    for f in model._meta.get_fields()
+                    if type(f) is field_type and f.name in spec_class.model_fields
+                }
+                self.assertEqual(
+                    from_codecs, from_model, f"{spec_class.__name__} {codec}"
+                )
         spec = normalize(example_spec())
         for spec_class, row in spec_dict_rows(spec):
             for field, codec in codecs(spec_class).items():

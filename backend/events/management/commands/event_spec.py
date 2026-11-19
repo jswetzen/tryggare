@@ -95,7 +95,10 @@ class Command(BaseCommand):
             spec = event_spec.export(event)
         except event_spec.SpecError as exc:
             self._report(exc.errors, [])
-            self._fail(exc.errors)
+            raise CommandError(
+                _("The event cannot be exported: %(count)d error(s).")
+                % {"count": len(exc.errors)}
+            ) from exc
         if options["output"]:
             try:
                 with open(options["output"], "w", encoding="utf-8") as f:

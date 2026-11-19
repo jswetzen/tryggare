@@ -9,11 +9,11 @@ from django.test import TestCase
 from events.event_spec import SpecError, apply, diff, example_spec, export
 
 from events.event_spec import _apply as apply_module
-from events.event_spec.support import (
+from events.spec_test_support import (
     NOW,
     add_ticket,
     at_now,
-    check,
+    validate_at_now,
     empty_event,
     make_child,
 )
@@ -328,10 +328,14 @@ class TargetGuardTests(TestCase):
         with CaptureQueriesContext(connection) as ctx:
             do_apply(example_spec(), event)
         locks = [q["sql"] for q in ctx.captured_queries if "FOR UPDATE" in q["sql"]]
-        ticket_locks = [q for q in locks if '"ticket_types"' in q]
+        # The event is locked first, then its ticket types in pk order.
+        self.assertIn(f'FROM "{Event._meta.db_table}"', locks[0])
+        ticket_table = TicketType._meta.db_table
+        ticket_locks = [i for i, q in enumerate(locks) if f'"{ticket_table}"' in q]
         self.assertTrue(ticket_locks)
-        for query in ticket_locks:
-            self.assertIn('ORDER BY "ticket_types"."id"', query)
+        self.assertGreater(min(ticket_locks), 0)
+        for i in ticket_locks:
+            self.assertIn(f'ORDER BY "{ticket_table}"."id"', locks[i])
 
     def test_unsaved_or_deleted_target_raises_spec_error(self):
         with self.assertRaises(SpecError) as ctx:
@@ -387,7 +391,7 @@ class SameNameRowsTests(TestCase):
             "child-pass-0-12-2",
             "child-pass-0-12",
         )
-        errors, warnings = check(spec)
+        errors, warnings = validate_at_now(spec)
         self.assertEqual(errors, [])
         self.assertEqual(
             [w["path"] for w in warnings if w["code"] == "key_not_derived"],
@@ -397,7 +401,7 @@ class SameNameRowsTests(TestCase):
     def test_tie_on_ordering_is_a_warning_for_a_new_event(self):
         spec = self.spec()
         spec["ticket_types"][2]["sort_order"] = spec["ticket_types"][1]["sort_order"]
-        errors, warnings = check(spec)
+        errors, warnings = validate_at_now(spec)
         self.assertEqual(errors, [])
         self.assertIn(
             ("ticket_types[2].sort_order", "ambiguous_order"),
@@ -408,7 +412,7 @@ class SameNameRowsTests(TestCase):
         spec = self.spec()
         spec["ticket_types"][2]["sort_order"] = spec["ticket_types"][1]["sort_order"]
         target = empty_event("T")
-        errors, _ = check(spec, target)
+        errors, _ = validate_at_now(spec, target)
         issues = {e["path"]: e["code"] for e in errors}
         self.assertEqual(issues, {"ticket_types[2].sort_order": "ambiguous_order"})
 
@@ -419,7 +423,7 @@ class SameNameRowsTests(TestCase):
         spec["extras"][0]["choices"][1]["label"] = spec["extras"][0]["choices"][0][
             "label"
         ]
-        errors, _ = check(spec, target)
+        errors, _ = validate_at_now(spec, target)
         self.assertIn("extras[0].choices[1].sort_order", {e["path"] for e in errors})
 
 

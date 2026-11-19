@@ -2035,6 +2035,10 @@ msgstr "%(path)s is not valid JSON: %(error)s"
 msgid "The spec was refused: %(count)d error(s); nothing was written."
 msgstr "The spec was refused: %(count)d error(s); nothing was written."
 
+#, python-format
+msgid "The event cannot be exported: %(count)d error(s)."
+msgstr "The event cannot be exported: %(count)d error(s)."
+
 msgid "error"
 msgstr "error"
 

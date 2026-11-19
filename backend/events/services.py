@@ -163,7 +163,8 @@ def copy_event_with_warnings(
     """Copy `source` to a new event starting on `start_date`, every date moving by
     the same days: export, shift, apply, so the copy follows the spec's rules.
     Raises `event_spec.SpecError` for a setup the spec refuses; returns the new
-    event and the spec warnings. See docs/form-spec-foundation-plan.md, Step A."""
+    event and the spec warnings. What is and is not copied: docs/form-spec-foundation-plan.md,
+    "Step A"."""
     delta = start_date - source.start_date
     spec = _shift_spec(export(source), delta, name, start_date)
     new_event, _diff, warnings = apply(spec)
@@ -171,7 +172,7 @@ def copy_event_with_warnings(
     # Copy history is not part of the spec; both rows are matched by key.
     Event.objects.filter(pk=new_event.pk).update(cloned_from=source)
     new_event.cloned_from = source
-    new_extras = dict(keyed_rows(new_event)["extras"])
-    for key, old_extra in keyed_rows(source)["extras"]:
-        Extra.objects.filter(pk=new_extras[key].pk).update(cloned_from=old_extra)
+    new_extras = {r.key: r.obj for r in keyed_rows(new_event)["extras"]}
+    for r in keyed_rows(source)["extras"]:
+        Extra.objects.filter(pk=new_extras[r.key].pk).update(cloned_from=r.obj)
     return new_event, warnings

@@ -2059,6 +2059,10 @@ msgstr "%(path)s är inte giltig JSON: %(error)s"
 msgid "The spec was refused: %(count)d error(s); nothing was written."
 msgstr "Specen avvisades: %(count)d fel; inget skrevs."
 
+#, python-format
+msgid "The event cannot be exported: %(count)d error(s)."
+msgstr "Evenemanget kan inte exporteras: %(count)d fel."
+
 msgid "error"
 msgstr "fel"
 
@@ -2070,4 +2074,4 @@ msgstr "Kan inte skriva %(path)s: %(error)s"
 
 #, python-format
 msgid "The %(kind)s '%(name)s' refers to the %(target)s '%(other)s', which belongs to another event."
-msgstr "Fel: %(kind)s ”%(name)s” refererar till %(target)s ”%(other)s”, som hör till ett annat evenemang."
+msgstr "”%(name)s” (%(kind)s) refererar till %(target)s ”%(other)s”, som hör till ett annat evenemang."

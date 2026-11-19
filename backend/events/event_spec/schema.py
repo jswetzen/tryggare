@@ -1,11 +1,12 @@
 """What an LLM (or script) needs to author a spec: JSON Schema, capabilities, example."""
 
 import json
+from types import MappingProxyType
 from pathlib import Path
 
 from .spec import EventSpec
 
-JSON_SCHEMA = EventSpec.model_json_schema()
+JSON_SCHEMA = MappingProxyType(EventSpec.model_json_schema())
 _EXAMPLE = Path(__file__).with_name("example.json")
 
 # Named so a model can answer "not supported" instead of inventing a field.

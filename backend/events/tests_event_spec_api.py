@@ -15,7 +15,7 @@ from rest_framework.test import APIClient
 
 from accounts.models import AdminUser
 from events.event_spec import example_spec, export
-from events.event_spec.support import add_ticket, at_now, empty_event, foreign_session
+from events.spec_test_support import add_ticket, at_now, empty_event, foreign_session
 from events.management.commands.event_spec import Command
 from events.models import Event, TicketType
 from accounts.roles import COORDINATOR, grant
@@ -328,19 +328,25 @@ class EventSpecTests(ApiTestCase):
         url = reverse("event-spec-diff", args=[event.pk])
         dangling = example_spec()
         dangling["ticket_types"][0]["sessions"] = ["no-such-session"]
+        foreign = foreign_session_event()
         cases = (
-            # spec, valid; a wrong shape has no diff, the errors say where.
-            (json.loads(json.dumps(export(event))), True),
-            ({"event": {}}, False),
-            (dangling, False),
+            # url, spec, valid; a wrong shape has no diff, the errors say where.
+            (url, json.loads(json.dumps(export(event))), True),
+            (url, {"event": {}}, False),
+            (url, dangling, False),
+            (reverse("event-spec-diff", args=[foreign.pk]), example_spec(), False),
         )
-        for spec, valid in cases:
-            response = self.post(self.as_staff(), url, {"spec": spec})
+        for case_url, spec, valid in cases:
+            response = self.post(self.as_staff(), case_url, {"spec": spec})
             self.assertEqual(response.status_code, 200)
             body = response.json()
             self.assertEqual(body["valid"], valid)
             self.assertEqual(bool(body["errors"]), not valid)
-            if spec == {"event": {}}:
+            if case_url != url:
+                self.assertIn(
+                    "cross_event_reference", [e["code"] for e in body["errors"]]
+                )
+            if spec == {"event": {}} or case_url != url:
                 self.assertEqual(body["diff"], [])
 
     def test_put_onto_empty_event(self):
@@ -492,9 +498,39 @@ class CommandTests(TestCase):
         target = foreign_session_event()
         path = self.spec_file(example_spec())
         for extra in ((), ("--dry-run",)):
+            out, err = StringIO(), StringIO()
             with self.assertRaises(CommandError) as ctx:
-                self.run_cmd("apply", path, "--event", str(target.pk), *extra)
+                with at_now():
+                    call_command(
+                        "event_spec",
+                        "apply",
+                        path,
+                        "--event",
+                        str(target.pk),
+                        *extra,
+                        stdout=out,
+                        stderr=err,
+                    )
             self.assertEqual(ctx.exception.returncode, 1)
+            codes = [e["code"] for e in json.loads(out.getvalue())["errors"]]
+            self.assertIn("cross_event_reference", codes)
+
+    def test_export_cross_event_reference_is_a_command_error(self):
+        target = foreign_session_event()
+        out, err = StringIO(), StringIO()
+        with self.assertRaises(CommandError) as ctx:
+            call_command(
+                "event_spec",
+                "export",
+                "--event",
+                str(target.pk),
+                stdout=out,
+                stderr=err,
+            )
+        self.assertEqual(ctx.exception.returncode, 1)
+        self.assertIn("[cross_event_reference]", err.getvalue())
+        self.assertEqual(out.getvalue(), "")
+        self.assertNotIn("The spec was refused", str(ctx.exception))
 
     def test_exit_codes(self):
         # 1: the spec was refused; the issues are readable on stderr, JSON on stdout.

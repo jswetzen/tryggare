@@ -1,8 +1,9 @@
 """The kinds of row a spec holds, in one table.
 
 Export, normalize/diff, validate, apply and the event copy all walk this table, so
-adding a field or a reference means touching the spec class (and the model), not each
-walker. How a field is written out comes from its spec annotation, see ``codecs``.
+adding a field means touching the spec class (and the model), not each walker. A new
+reference field also needs a line in ``_apply._write``, which sets references by hand.
+How a field is written out comes from its spec annotation, see ``codecs``.
 """
 
 import types
@@ -141,12 +142,14 @@ class Kind:
         return rows.prefetch_related(*self.m2m_refs).order_by(*self.order, "id")
 
     def plain(self, row) -> dict:
-        """The model's own fields from a spec row: no key, references or nested rows."""
+        """The model's own fields from a spec row: no key, references or nested rows.
+
+        Refs are excluded here; ``_apply._write`` sets them by hand."""
         return row.model_dump(exclude={"key", *NESTED_NAMES, *self.refs})
 
     def clean_exclude(self) -> list[str]:
         """What ``full_clean`` must skip on an unsaved row: the owner, references, history."""
-        history = [f for f in ("cloned_from",) if hasattr(self.model, f)]
+        history = ["cloned_from"] if hasattr(self.model, "cloned_from") else []
         return [self.parent, *self.fk_refs, *history]
 
 
@@ -154,57 +157,57 @@ KINDS: dict[str, Kind] = {
     k.name: k
     for k in (
         Kind(
-            "sessions",
-            Session,
-            SessionSpec,
-            "event",
-            "sessions",
-            ("start_time", "name"),
-            "name",
-            _("session"),
+            name="sessions",
+            model=Session,
+            spec=SessionSpec,
+            parent="event",
+            related="sessions",
+            order=("start_time", "name"),
+            key_from="name",
+            noun=_("session"),
         ),
         Kind(
-            "ticket_types",
-            TicketType,
-            TicketTypeSpec,
-            "event",
-            "ticket_types",
-            ("sort_order", "name"),
-            "name",
-            _("ticket type"),
+            name="ticket_types",
+            model=TicketType,
+            spec=TicketTypeSpec,
+            parent="event",
+            related="ticket_types",
+            order=("sort_order", "name"),
+            key_from="name",
+            noun=_("ticket type"),
             refs={"sessions": "sessions", "requires_ticket_type": "ticket_types"},
         ),
         Kind(
-            "extras",
-            Extra,
-            ExtraSpec,
-            "event",
-            "extras",
-            ("sort_order", "name"),
-            "name",
-            _("extra"),
+            name="extras",
+            model=Extra,
+            spec=ExtraSpec,
+            parent="event",
+            related="extras",
+            order=("sort_order", "name"),
+            key_from="name",
+            noun=_("extra"),
             refs={"session": "sessions"},
         ),
         Kind(
-            "choices",
-            ExtraChoice,
-            ExtraChoiceSpec,
-            "extra",
-            "choice_rows",
-            ("sort_order", "label"),
-            "label",
-            None,
+            name="choices",
+            model=ExtraChoice,
+            spec=ExtraChoiceSpec,
+            parent="extra",
+            related="choice_rows",
+            order=("sort_order", "label"),
+            key_from="label",
+            noun=None,
             under="extras",
         ),
         Kind(
-            "promo_codes",
-            PromoCode,
-            PromoCodeSpec,
-            "event",
-            "promo_codes",
-            ("code",),
-            "code",
-            _("promo code"),
+            name="promo_codes",
+            model=PromoCode,
+            spec=PromoCodeSpec,
+            parent="event",
+            related="promo_codes",
+            order=("code",),
+            key_from="code",
+            noun=_("promo code"),
             refs={
                 "applies_to_ticket_types": "ticket_types",
                 "unlocks_ticket_types": "ticket_types",
