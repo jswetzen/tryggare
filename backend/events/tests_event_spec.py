@@ -16,7 +16,7 @@ from events.event_spec import (
     json_schema,
     validate,
 )
-from events.event_spec.export import KeyAllocator, slugify_key
+from events.event_spec._export import KeyAllocator, slugify_key
 from events.models import (
     Event,
     EventTicket,
@@ -717,4 +717,18 @@ class SpecParityTests(SimpleTestCase):
         self.assert_parity(ExtraChoice, ExtraChoiceSpec, {"id", "extra"})
         self.assert_parity(
             PromoCode, PromoCodeSpec, {"id", "event", "uses_count", "created_at"}
+        )
+
+
+class CollectedModelErrorTests(SimpleTestCase):
+    def test_ticket_type_errors_are_not_hidden_behind_each_other(self):
+        spec = example_spec()
+        spec["ticket_types"][2]["available_from"] = "2027-05-01T09:00:00"
+        spec["ticket_types"][2]["available_until"] = "2027-04-01T09:00:00"
+        spec["ticket_types"][2]["min_birthdate"] = "2009-07-01"
+        errors, _ = check(spec)
+        paths = {e["path"] for e in errors}
+        self.assertTrue(
+            {"ticket_types[2].available_until", "ticket_types[2].min_birthdate"}
+            <= paths
         )

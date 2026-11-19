@@ -1,4 +1,4 @@
-"""Validate a spec dict without touching the database.
+"""Validate a spec dict. Writes nothing; reads the DB only to check a target event.
 
 Layers: shape (pydantic), references, model rules (unsaved instances through
 ``full_clean()``), going live, setup-check warnings. Errors block; warnings
@@ -13,7 +13,13 @@ from django.utils import timezone
 from django.utils.translation import gettext as _
 from pydantic import ValidationError as PydanticValidationError
 
+from checkins.models import CheckInRecord
+from registrations.models import Registration
+
 from ..models import (
+    EventTicket,
+    SessionTicket,
+    Ticket,
     Event,
     Extra,
     ExtraChoice,
@@ -22,7 +28,7 @@ from ..models import (
     Session,
     TicketType,
 )
-from .export import slugify_key
+from ._export import KeyAllocator
 from .spec import EventSpec
 
 Issue = dict
@@ -70,35 +76,49 @@ def validate(spec, event: Event | None = None) -> tuple[list[Issue], list[Issue]
     errors = _target_issues(event)
     errors += _reference_issues(parsed)
     errors += _model_issues(parsed, event)
+    errors += _ordering_issues(parsed)
     errors += _going_live_issues(parsed)
     return errors, _warnings(parsed)
+
+
+# (model, lookup to the event) for every row that makes an event "in use". A test walks
+# the relations of the spec-owned models and fails on a model missing here.
+EMPTINESS_CHECKS = [
+    (Registration, "event"),
+    (EventTicket, "event"),
+    (Ticket, "session__event"),
+    (SessionTicket, "session__event"),
+    (CheckInRecord, "session__event"),
+]
 
 
 def _target_issues(event: Event | None) -> list[Issue]:
     if event is None or event._state.adding:
         return []
-    from checkins.models import CheckInRecord
-    from registrations.models import Registration
-
-    from ..models import EventTicket, SessionTicket
-
-    in_use = (
-        Registration.objects.filter(event=event).exists()
-        or EventTicket.objects.filter(event=event).exists()
-        or SessionTicket.objects.filter(session__event=event).exists()
-        or CheckInRecord.objects.filter(session__event=event).exists()
-    )
-    if not in_use:
-        return []
-    return [
-        _issue(
-            "event",
-            "event_not_empty",
-            _(
-                "The target event already has registrations, tickets or check-ins, so its setup cannot be replaced."
-            ),
+    issues = []
+    if event.registration_window_status == RegistrationWindowStatus.OPEN:
+        issues.append(
+            _issue(
+                "event",
+                "registration_open_on_target",
+                _(
+                    "Registration is open on the target event; close registration first."
+                ),
+            )
         )
-    ]
+    if any(
+        m.objects.filter(**{lookup: event}).exists() for m, lookup in EMPTINESS_CHECKS
+    ):
+        issues.append(
+            _issue(
+                "event",
+                "event_not_empty",
+                _(
+                    "The target event already has registrations, tickets or check-ins, so its setup cannot be replaced."
+                ),
+            )
+        )
+    return issues
 
 
 def _shape_issues(exc: PydanticValidationError) -> list[Issue]:
@@ -505,37 +525,92 @@ def _warnings(spec: EventSpec) -> list[Issue]:
     return out
 
 
-def _is_derived(key: str, text: str) -> bool:
-    # Export adds -2, -3 to a clash; the order is not knowable here, so accept any suffix.
-    base = slugify_key(text)
-    stem, _sep, tail = key.rpartition("-")
-    return key == base or (tail.isdigit() and stem == base)
+def _ordering(spec: EventSpec) -> dict:
+    """The (kind, ordering key) pairs export sorts by, minus the id tiebreak."""
+    return {
+        "sessions": (spec.sessions, lambda r: (r.start_time, r.name), "start_time"),
+        "ticket_types": (
+            spec.ticket_types,
+            lambda r: (r.sort_order, r.name),
+            "sort_order",
+        ),
+        "extras": (spec.extras, lambda r: (r.sort_order, r.name), "sort_order"),
+    }
+
+
+def _derive(rows, order, text):
+    """``{index: key}`` as export would allocate them over this ordering."""
+    allocator = KeyAllocator()
+    return {
+        i: allocator.allocate(text(rows[i]))
+        for i in sorted(range(len(rows)), key=lambda i: order(rows[i]))
+    }
+
+
+def _ties(rows, order, path, field) -> list[Issue]:
+    seen, out = set(), []
+    for i, row in enumerate(rows):
+        o = order(row)
+        if o in seen:
+            out.append(
+                _issue(
+                    f"{path}[{i}].{field}",
+                    "ambiguous_order",
+                    _(
+                        "These rows tie on their ordering fields; give them different sort_order or names."
+                    ),
+                )
+            )
+        seen.add(o)
+    return out
+
+
+def _ordering_issues(spec: EventSpec) -> list[Issue]:
+    """Rows that tie on export's ordering get keys by database id, so they are an error."""
+    out = []
+    for name, (rows, order, field) in _ordering(spec).items():
+        out += _ties(rows, order, name, field)
+    for i, e in enumerate(spec.extras):
+        out += _ties(
+            e.choices,
+            lambda c: (c.sort_order, c.label),
+            f"extras[{i}].choices",
+            "sort_order",
+        )
+    return out
 
 
 def _derived_key_warnings(spec: EventSpec) -> list[Issue]:
     out: list[Issue] = []
 
-    def check(path: str, key: str, text: str):
-        if not _is_derived(key, text):
-            out.append(
-                _issue(
-                    f"{path}.key",
-                    "key_not_derived",
-                    _(
-                        "The key '%(key)s' is not the one export derives ('%(derived)s'), so a later export will show this row as removed and added."
+    def check(path: str, rows, order, text):
+        for i, derived in _derive(rows, order, text).items():
+            if rows[i].key != derived:
+                out.append(
+                    _issue(
+                        f"{path}[{i}].key",
+                        "key_not_derived",
+                        _(
+                            "The key '%(key)s' is not the one export derives ('%(derived)s'), so a later export will show this row as removed and added."
+                        )
+                        % {"key": rows[i].key, "derived": derived},
                     )
-                    % {"key": key, "derived": slugify_key(text)},
                 )
-            )
 
-    for i, s in enumerate(spec.sessions):
-        check(f"sessions[{i}]", s.key, s.name)
-    for i, t in enumerate(spec.ticket_types):
-        check(f"ticket_types[{i}]", t.key, t.name)
+    check("sessions", spec.sessions, lambda r: (r.start_time, r.name), lambda r: r.name)
+    check(
+        "ticket_types",
+        spec.ticket_types,
+        lambda r: (r.sort_order, r.name),
+        lambda r: r.name,
+    )
+    check("extras", spec.extras, lambda r: (r.sort_order, r.name), lambda r: r.name)
     for i, e in enumerate(spec.extras):
-        check(f"extras[{i}]", e.key, e.name)
-        for j, c in enumerate(e.choices):
-            check(f"extras[{i}].choices[{j}]", c.key, c.label)
-    for i, p in enumerate(spec.promo_codes):
-        check(f"promo_codes[{i}]", p.key, p.code)
-    return out
+        check(
+            f"extras[{i}].choices",
+            e.choices,
+            lambda c: (c.sort_order, c.label),
+            lambda c: c.label,
+        )
+    check("promo_codes", spec.promo_codes, lambda r: r.code, lambda r: r.code)
+    return sorted(out, key=lambda w: w["path"])

@@ -6,9 +6,10 @@ from unittest.mock import patch
 
 from django.test import TestCase
 
-from events.event_spec import SpecError, apply, diff, example_spec, export
-import sys
-from events.event_spec.diff import normalize
+from events.event_spec import SpecError, apply, diff, example_spec, export, validate
+
+from events.event_spec import _apply as apply_module
+from events.event_spec._diff import normalize
 from events.models import (
     Event,
     EventTicket,
@@ -20,7 +21,7 @@ from events.models import (
 )
 from families.models import Child, Family
 
-apply_module = sys.modules["events.event_spec.apply"]
+
 NOW = datetime(2026, 11, 19, 12, 0, tzinfo=UTC)
 
 
@@ -31,6 +32,11 @@ def at_now(now=NOW):
 def do_apply(spec, event=None, now=NOW):
     with at_now(now):
         return apply(spec, event)
+
+
+def check(spec):
+    with at_now():
+        return validate(spec)
 
 
 def row_counts():
@@ -299,3 +305,179 @@ class DiffTests(TestCase):
         )
         self.assertEqual(changes, diff(None, copy.deepcopy(example_spec())))
         self.assertNotIn("choices", changes[-6]["new"])
+
+
+class EmptinessCoverageTests(TestCase):
+    # Models that point at spec-owned rows but are not "event in use" signals.
+    ALLOWED = {
+        "events.TicketType",  # spec-owned
+        "events.PromoCode",
+        "events.Extra",
+        "events.ExtraChoice",
+        "registrations.RegistrationExtra",  # exists only inside a Registration
+    }
+
+    def test_every_model_pointing_at_spec_rows_is_checked_or_allowed(self):
+        from events.event_spec._validate import EMPTINESS_CHECKS
+
+        covered = {m._meta.label for m, _ in EMPTINESS_CHECKS}
+        # Registration is checked through its event FK, and holds the promo code.
+        covered |= {"registrations.Registration"}
+        for model in (Session, TicketType, Extra, ExtraChoice, PromoCode):
+            for rel in model._meta.related_objects:
+                label = rel.related_model._meta.label
+                self.assertIn(
+                    label,
+                    covered | self.ALLOWED,
+                    f"{label} points at {model.__name__} but the emptiness check ignores it",
+                )
+
+    def test_legacy_session_ticket_makes_the_event_non_empty(self):
+        from events.models import Ticket
+
+        event, _, _ = do_apply(example_spec())
+        child = Child.objects.create(
+            family=Family.objects.create(),
+            first_name="T",
+            last_name="C",
+            birthdate=date(2020, 1, 1),
+        )
+        Ticket.objects.create(attendee=child, session=event.sessions.get())
+        with self.assertRaises(SpecError) as ctx:
+            do_apply(example_spec(), event)
+        self.assertEqual(ctx.exception.errors[0]["code"], "event_not_empty")
+        self.assertEqual(event.sessions.count(), 1)
+
+
+class TargetGuardTests(TestCase):
+    def test_open_registration_on_target_is_refused(self):
+        event = Event.objects.create(
+            name="Live",
+            start_date=date(2027, 6, 18),
+            end_date=date(2027, 6, 20),
+            registration_opens_at=datetime(2026, 1, 1, tzinfo=UTC),
+        )
+        with self.assertRaises(SpecError) as ctx:
+            do_apply(example_spec(), event)
+        self.assertEqual(ctx.exception.errors[0]["code"], "registration_open_on_target")
+        self.assertFalse(event.ticket_types.exists())
+
+    def test_ticket_types_are_locked_in_pk_order(self):
+        from django.db import connection
+        from django.test.utils import CaptureQueriesContext
+
+        event, _, _ = do_apply(example_spec())
+        with CaptureQueriesContext(connection) as ctx:
+            do_apply(example_spec(), event)
+        locks = [q["sql"] for q in ctx.captured_queries if "FOR UPDATE" in q["sql"]]
+        self.assertEqual(len(locks), 2)
+        self.assertIn('"ticket_types"', locks[1])
+        self.assertIn('ORDER BY "ticket_types"."id"', locks[1])
+
+    def test_unsaved_or_deleted_target_raises_spec_error(self):
+        with self.assertRaises(SpecError) as ctx:
+            do_apply(
+                example_spec(),
+                Event(name="x", start_date=date(2027, 1, 1), end_date=date(2027, 1, 1)),
+            )
+        self.assertEqual(ctx.exception.errors[0]["code"], "event_not_found")
+        event, _, _ = do_apply(example_spec())
+        stale = Event.objects.get(pk=event.pk)
+        event.delete()
+        with self.assertRaises(SpecError) as ctx:
+            do_apply(example_spec(), stale)
+        self.assertEqual(ctx.exception.errors[0]["code"], "event_not_found")
+
+    def test_integrity_error_is_a_translated_spec_error_without_database_text(self):
+        from django.db import IntegrityError
+
+        boom = IntegrityError(
+            'duplicate key value violates unique constraint "unique_promo_code_per_event"'
+        )
+        with patch.object(apply_module, "_write", side_effect=boom):
+            with self.assertRaises(SpecError) as ctx:
+                do_apply(example_spec())
+        issue = ctx.exception.errors[0]
+        self.assertEqual((issue["path"], issue["code"]), ("promo_codes", "integrity"))
+        self.assertNotIn("duplicate key", issue["message"])
+        self.assertEqual(Event.objects.count(), 0)
+
+
+class SameNameRowsTests(TestCase):
+    def spec(self):
+        spec = example_spec()
+        twin = copy.deepcopy(spec["ticket_types"][1])
+        twin.update(key="child-pass-0-12-2", price=350, sort_order=25)
+        spec["ticket_types"].insert(2, twin)
+        spec["ticket_types"][3]["sort_order"] = 30
+        return spec
+
+    def test_same_names_round_trip_and_keep_contents(self):
+        spec = self.spec()
+        event, _, warnings = do_apply(spec)
+        self.assertEqual(warnings, [])
+        ids = {t.price: t.id for t in event.ticket_types.all()}
+        _, changes, _ = do_apply(spec, event)
+        self.assertEqual(changes, [])
+        self.assertEqual({t.price: t.id for t in event.ticket_types.all()}, ids)
+        self.assertEqual(export(event), normalize(spec))
+
+    def test_swapped_keys_warn(self):
+        spec = self.spec()
+        spec["ticket_types"][1]["key"], spec["ticket_types"][2]["key"] = (
+            "child-pass-0-12-2",
+            "child-pass-0-12",
+        )
+        errors, warnings = check(spec)
+        self.assertEqual(errors, [])
+        self.assertEqual(
+            [w["path"] for w in warnings if w["code"] == "key_not_derived"],
+            ["ticket_types[1].key", "ticket_types[2].key"],
+        )
+
+    def test_tie_on_ordering_is_an_error_at_the_second_row(self):
+        spec = self.spec()
+        spec["ticket_types"][2]["sort_order"] = spec["ticket_types"][1]["sort_order"]
+        errors, _ = check(spec)
+        issues = {e["path"]: e["code"] for e in errors}
+        self.assertEqual(issues, {"ticket_types[2].sort_order": "ambiguous_order"})
+
+        spec = example_spec()
+        spec["extras"][0]["choices"][1]["sort_order"] = spec["extras"][0]["choices"][0][
+            "sort_order"
+        ]
+        spec["extras"][0]["choices"][1]["label"] = spec["extras"][0]["choices"][0][
+            "label"
+        ]
+        errors, _ = check(spec)
+        self.assertIn("extras[0].choices[1].sort_order", {e["path"] for e in errors})
+
+
+class PreservedFieldsTests(TestCase):
+    def test_live_state_is_kept_on_update_and_default_on_create(self):
+        event, _, _ = do_apply(example_spec())
+        self.assertFalse(event.sessions.get().is_active)
+        self.assertEqual(event.promo_codes.get().uses_count, 0)
+        self.assertIsNone(event.cloned_from)
+        self.assertIsNone(event.extras.get().cloned_from)
+
+        source = Event.objects.create(
+            name="Src", start_date=date(2027, 1, 1), end_date=date(2027, 1, 1)
+        )
+        source_extra = Extra.objects.create(event=source, name="Src extra")
+        Session.objects.filter(pk=event.sessions.get().pk).update(is_active=True)
+        PromoCode.objects.filter(pk=event.promo_codes.get().pk).update(uses_count=7)
+        Event.objects.filter(pk=event.pk).update(cloned_from=source)
+        Extra.objects.filter(pk=event.extras.get().pk).update(cloned_from=source_extra)
+
+        spec = example_spec()
+        spec["sessions"][0]["adults_not_checked_in"] = True
+        spec["promo_codes"][0]["discount_value"] = 15
+        spec["event"]["name"] = "Renamed"
+        spec["extras"][0]["price"] = 250
+        updated, changes, _ = do_apply(spec, event)
+        self.assertEqual(len(changes), 4)
+        self.assertTrue(updated.sessions.get().is_active)
+        self.assertEqual(updated.promo_codes.get().uses_count, 7)
+        self.assertEqual(updated.cloned_from, source)
+        self.assertEqual(updated.extras.get().cloned_from, source_extra)

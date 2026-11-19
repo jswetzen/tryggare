@@ -2016,3 +2016,15 @@ msgstr "Biljettypen som den här kräver är inaktiv, så den kan inte köpas."
 
 msgid "The key '%(key)s' is not the one export derives ('%(derived)s'), so a later export will show this row as removed and added."
 msgstr "Nyckeln ”%(key)s” är inte den som export härleder (”%(derived)s”), så en senare export visar raden som borttagen och tillagd."
+
+msgid "Registration is open on the target event; close registration first."
+msgstr "Anmälan är öppen för målevenemanget; stäng anmälan först."
+
+msgid "These rows tie on their ordering fields; give them different sort_order or names."
+msgstr "Raderna har samma sorteringsfält; ge dem olika sort_order eller namn."
+
+msgid "The target event does not exist."
+msgstr "Målevenemanget finns inte."
+
+msgid "The database refused the spec and nothing was changed. A promo code may already be in use on this event."
+msgstr "Databasen avvisade specen och inget ändrades. En kampanjkod kan redan användas på det här evenemanget."

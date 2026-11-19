@@ -10,7 +10,7 @@ ordered by kind, then key; reference lists compare as sets.
 from decimal import Decimal
 
 from ..models import Event
-from .export import _d, _dt, export
+from ._export import _d, _dt, export
 from .spec import EventSpec
 
 KIND_ORDER = ["event", "sessions", "ticket_types", "extras", "choices", "promo_codes"]

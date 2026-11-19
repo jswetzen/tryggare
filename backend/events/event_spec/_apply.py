@@ -1,12 +1,18 @@
 """Apply a spec to a new or empty event in one transaction."""
 
+import logging
+
 from django.db import IntegrityError, transaction
+from django.utils.translation import gettext as _
 
 from ..models import Event, Extra, ExtraChoice, PromoCode, Session, TicketType
-from .diff import diff_normalized, normalize
-from .export import export, keyed_rows
+from ._diff import diff_normalized, normalize
+from ._export import export, keyed_rows
 from .spec import EventSpec
-from .validate import _issue, _target_issues, validate
+from ._validate import _issue, _target_issues, validate
+
+
+logger = logging.getLogger(__name__)
 
 
 class SpecError(Exception):
@@ -23,10 +29,16 @@ def apply(
 ) -> tuple[Event, list[dict], list[dict]]:
     """Make ``event`` (or a new event) match ``spec``; returns ``(event, diff, warnings)``.
 
-    Rows are matched by key so their ids stay stable. Registration is never opened:
-    validation refuses a window that is open. Raises SpecError, with no writes, on
-    any validation error or a target event that has registrations, tickets or check-ins.
+    Use the returned event: the argument is not refreshed. Rows are matched by key so
+    their ids stay stable. Registration is never opened: validation refuses a window
+    that is open, and refuses a target whose registration is open. Raises SpecError,
+    with no writes, on any validation error, a missing target, or a target that has
+    registrations, tickets or check-ins.
     """
+    if event is not None and (event._state.adding or event.pk is None):
+        raise SpecError(
+            [_issue("event", "event_not_found", _("The target event does not exist."))]
+        )
     errors, warnings = validate(spec, event)
     if errors:
         raise SpecError(errors, warnings)
@@ -38,7 +50,24 @@ def apply(
                 event = Event(**parsed.event.model_dump())
                 event.save()
             else:
-                event = Event.objects.select_for_update().get(pk=event.pk)
+                try:
+                    event = Event.objects.select_for_update().get(pk=event.pk)
+                except Event.DoesNotExist:
+                    raise SpecError(
+                        [
+                            _issue(
+                                "event",
+                                "event_not_found",
+                                _("The target event does not exist."),
+                            )
+                        ]
+                    ) from None
+                # Same order as registrations.services, so a racing registration cannot deadlock.
+                list(
+                    TicketType.objects.select_for_update()
+                    .filter(event=event)
+                    .order_by("pk")
+                )
                 recheck = _target_issues(event)
                 if recheck:
                     raise SpecError(recheck, warnings)
@@ -46,8 +75,19 @@ def apply(
             changes = diff_normalized(current, normalize(parsed))
             _write(event, parsed)
     except IntegrityError as exc:
+        logger.warning("event spec apply refused by the database: %s", exc)
+        path = "promo_codes" if "unique_promo_code_per_event" in str(exc) else ""
         raise SpecError(
-            [_issue("", "integrity", f"The database refused the spec: {exc}")], warnings
+            [
+                _issue(
+                    path,
+                    "integrity",
+                    _(
+                        "The database refused the spec and nothing was changed. A promo code may already be in use on this event."
+                    ),
+                )
+            ],
+            warnings,
         ) from exc
     return event, changes, warnings
 
@@ -83,17 +123,17 @@ def _write(event: Event, spec: EventSpec) -> None:
     types: dict[str, TicketType] = {}
     for t in spec.ticket_types:
         fields = t.model_dump(exclude={"key", "sessions", "requires_ticket_type"})
-        # requires_ticket_type is set in a second pass: it may point forward.
+        # requires_ticket_type is set in a second pass (it may point forward); an update leaves it as is until then.
         types[t.key] = _save(
             old["ticket_types"].get(t.key),
             TicketType,
-            {**fields, "requires_ticket_type": None},
+            fields,
             event=event,
         )
         types[t.key].sessions.set(sessions[k] for k in t.sessions)
     for t in spec.ticket_types:
         required = types[t.requires_ticket_type] if t.requires_ticket_type else None
-        if types[t.key].requires_ticket_type != required:
+        if types[t.key].requires_ticket_type_id != (required.pk if required else None):
             types[t.key].requires_ticket_type = required
             types[t.key].save(update_fields=["requires_ticket_type"])
 

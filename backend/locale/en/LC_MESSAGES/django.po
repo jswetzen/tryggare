@@ -1992,3 +1992,15 @@ msgstr "The ticket type this one requires is inactive, so it cannot be bought."
 
 msgid "The key '%(key)s' is not the one export derives ('%(derived)s'), so a later export will show this row as removed and added."
 msgstr "The key '%(key)s' is not the one export derives ('%(derived)s'), so a later export will show this row as removed and added."
+
+msgid "Registration is open on the target event; close registration first."
+msgstr "Registration is open on the target event; close registration first."
+
+msgid "These rows tie on their ordering fields; give them different sort_order or names."
+msgstr "These rows tie on their ordering fields; give them different sort_order or names."
+
+msgid "The target event does not exist."
+msgstr "The target event does not exist."
+
+msgid "The database refused the spec and nothing was changed. A promo code may already be in use on this event."
+msgstr "The database refused the spec and nothing was changed. A promo code may already be in use on this event."

@@ -476,28 +476,32 @@ class TicketType(models.Model):
 
     def clean(self):
         super().clean()
+        # Collected, not raised one by one, so one error never hides another.
+        errors: dict[str, list] = {}
         if self.requires_ticket_type_id is not None:
             if self.requires_ticket_type_id == self.id:
-                raise ValidationError(
-                    {"requires_ticket_type": _("A ticket type cannot require itself.")}
-                )
-            if self.requires_ticket_type.event_id != self.event_id:
-                raise ValidationError(
-                    {
-                        "requires_ticket_type": _(
-                            "The required ticket type must belong to the same event."
-                        )
-                    }
-                )
+                errors["requires_ticket_type"] = [
+                    _("A ticket type cannot require itself.")
+                ]
+            elif self.requires_ticket_type.event_id != self.event_id:
+                errors["requires_ticket_type"] = [
+                    _("The required ticket type must belong to the same event.")
+                ]
         if (
             self.available_from is not None
             and self.available_until is not None
             and self.available_until < self.available_from
         ):
-            raise ValidationError(
-                {"available_until": _("'Available until' is before 'available from'.")}
-            )
-        self._clean_age_window()
+            errors["available_until"] = [
+                _("'Available until' is before 'available from'.")
+            ]
+        try:
+            self._clean_age_window()
+        except ValidationError as exc:
+            for field, errs in exc.error_dict.items():
+                errors.setdefault(field, []).extend(errs)
+        if errors:
+            raise ValidationError(errors)
 
     def _clean_age_window(self):
         """Enforce the single rule the owner settled on: age is judged once,
