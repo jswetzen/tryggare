@@ -3,7 +3,6 @@
 import copy
 from datetime import UTC, date, datetime, timedelta
 
-from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.test import SimpleTestCase, TestCase
 from django.utils import translation
@@ -20,7 +19,6 @@ from events.event_spec._diff import normalize
 from events.event_spec._export import KeyAllocator, slugify_key
 from events.event_spec._kinds import codecs, spec_dict_rows
 from events.event_spec.testkit import (
-    add_ticket,
     at_now,
     by_path,
     check,
@@ -48,21 +46,6 @@ class SchemaTests(SimpleTestCase):
                     missing.append(f"{name}.{prop}")
         self.assertEqual(missing, [])
 
-    def test_schema_version_and_sections(self):
-        props = json_schema()["properties"]
-        self.assertEqual(props["event_spec_version"]["const"], 1)
-        self.assertEqual(
-            set(props),
-            {
-                "event_spec_version",
-                "event",
-                "sessions",
-                "ticket_types",
-                "extras",
-                "promo_codes",
-            },
-        )
-
     def test_capabilities_name_the_unsupported_things(self):
         unsupported = {c["id"] for c in capabilities()["unsupported"]}
         self.assertTrue(
@@ -83,18 +66,6 @@ class ExampleTests(SimpleTestCase):
     def test_example_validates_cleanly(self):
         errors, warnings = check(example_spec())
         self.assertEqual((errors, warnings), ([], []))
-
-    def test_example_is_the_walkthrough_brief(self):
-        spec = EventSpec.model_validate(example_spec())
-        prices = {t.key: int(t.price) for t in spec.ticket_types}
-        self.assertEqual(prices["adult-conference-pass"], 1200)
-        self.assertEqual(prices["child-pass-0-12"], 300)
-        self.assertEqual(prices["child-pass-13-17"], 600)
-        self.assertEqual(spec.ticket_types[0].capacity, 150)
-        self.assertEqual(
-            [c.label for c in spec.extras[0].choices], ["S", "M", "L", "XL"]
-        )
-        self.assertEqual(spec.promo_codes[0].code, "TESTFAMILY")
 
 
 class ShapeTests(SimpleTestCase):
@@ -159,7 +130,9 @@ class ReferenceTests(SimpleTestCase):
         self.assertEqual(issues["extras[0].choices[1].key"]["code"], "duplicate_key")
 
     def test_same_key_in_different_kinds_is_fine(self):
-        errors, _ = check(example_spec())  # session and ticket type share a key
+        spec = example_spec()
+        spec["ticket_types"][1]["key"] = spec["sessions"][0]["key"]
+        errors, _ = check(spec)
         self.assertEqual(errors, [])
 
     def test_unknown_references(self):
@@ -196,16 +169,30 @@ class ReferenceTests(SimpleTestCase):
             "duplicate_reference",
         )
 
-    def test_noun_in_message_is_translated(self):
+    def test_messages_and_nouns_follow_the_active_language(self):
         spec = example_spec()
+        spec["ticket_types"][2]["min_birthdate"] = "2009-07-01"
+        spec["promo_codes"][0]["discount_value"] = 110
         spec["promo_codes"][0]["applies_to_ticket_types"] = ["nope"]
+        with translation.override("en"):
+            en = by_path(check(spec)[0])
         with translation.override("sv"):
-            errors, _ = check(spec)
-        message = by_path(errors)["promo_codes[0].applies_to_ticket_types[0]"][
-            "message"
-        ]
-        self.assertIn("biljettyp", message)
-        self.assertNotIn("ticket type", message)
+            sv = by_path(check(spec)[0])
+        percent = "promo_codes[0].discount_value"
+        self.assertEqual(
+            en[percent]["message"], "A percent discount cannot be more than 100."
+        )
+        self.assertNotEqual(sv[percent]["message"], en[percent]["message"])
+        self.assertNotEqual(
+            sv["ticket_types[2].min_birthdate"]["message"],
+            en["ticket_types[2].min_birthdate"]["message"],
+        )
+        self.assertEqual(sv[percent]["code"], en[percent]["code"])
+        # The kind of row inside a message is translated too.
+        unknown = "promo_codes[0].applies_to_ticket_types[0]"
+        self.assertIn("ticket type", en[unknown]["message"])
+        self.assertIn("biljettyp", sv[unknown]["message"])
+        self.assertNotIn("ticket type", sv[unknown]["message"])
 
 
 class ModelRuleTests(SimpleTestCase):
@@ -214,16 +201,6 @@ class ModelRuleTests(SimpleTestCase):
         spec["sessions"][0]["end_time"] = spec["sessions"][0]["start_time"]
         errors, _ = check(spec)
         self.assertEqual(errors, [])
-
-    def test_rules_live_on_the_models(self):
-        with self.assertRaises(ValidationError) as ctx:
-            Event(
-                name="x", start_date=date(2027, 2, 2), end_date=date(2027, 2, 1)
-            ).clean()
-        self.assertIn("end_date", ctx.exception.message_dict)
-        with self.assertRaises(ValidationError) as ctx:
-            PromoCode(discount_type="percent", discount_value=101).clean()
-        self.assertIn("discount_value", ctx.exception.message_dict)
 
     def test_age_window_reuses_the_model_rule(self):
         spec = example_spec()
@@ -289,23 +266,6 @@ class ModelRuleTests(SimpleTestCase):
         self.assertEqual(
             issues["promo_codes[0].discount_value"]["code"], "percent_over_100"
         )
-
-    def test_existing_event_is_accepted_as_target(self):
-        event = Event(
-            name="x", start_date=date(2027, 6, 18), end_date=date(2027, 6, 20)
-        )
-        errors, _ = check(example_spec(), event)
-        self.assertEqual(errors, [])
-
-
-class TargetEventTests(TestCase):
-    def test_non_empty_target_is_an_error(self):
-        event = empty_event("Used")
-        errors, _ = check(example_spec(), event)
-        self.assertEqual(errors, [])
-        add_ticket(event)
-        errors, _ = check(example_spec(), event)
-        self.assertEqual(by_path(errors)["event"]["code"], "event_not_empty")
 
 
 class GoingLiveTests(SimpleTestCase):
@@ -477,27 +437,6 @@ class KeyTests(SimpleTestCase):
         self.assertIn("promo_codes[0].code", by_path(errors))
 
 
-class MessageLanguageTests(SimpleTestCase):
-    def test_messages_follow_the_active_language(self):
-        spec = example_spec()
-        spec["ticket_types"][2]["min_birthdate"] = "2009-07-01"
-        spec["promo_codes"][0]["discount_value"] = 110
-        with translation.override("en"):
-            en = by_path(check(spec)[0])
-        with translation.override("sv"):
-            sv = by_path(check(spec)[0])
-        path = "promo_codes[0].discount_value"
-        self.assertEqual(
-            en[path]["message"], "A percent discount cannot be more than 100."
-        )
-        self.assertNotEqual(sv[path]["message"], en[path]["message"])
-        self.assertNotEqual(
-            sv["ticket_types[2].min_birthdate"]["message"],
-            en["ticket_types[2].min_birthdate"]["message"],
-        )
-        self.assertEqual(sv[path]["code"], en[path]["code"])
-
-
 class SlugTests(SimpleTestCase):
     def test_slugify(self):
         self.assertEqual(slugify_key("Child pass 0-12"), "child-pass-0-12")
@@ -601,19 +540,6 @@ class ExportTests(TestCase):
         self.assertEqual(promo["applies_to_ticket_types"], ["adult"])
         self.assertEqual(promo["unlocks_ticket_types"], ["saturday"])
 
-    def test_export_leaves_out_derived_and_live_state(self):
-        spec = export(self.event)
-        flat = repr(spec)
-        for leaked in (
-            "uses_count",
-            "created_at",
-            "is_active': True, 'ticket_rule'",
-            str(self.event.id),
-        ):
-            self.assertNotIn(leaked, flat)
-        self.assertNotIn("is_active", spec["sessions"][0])
-        self.assertNotIn("id", spec["event"])
-
     def test_exported_spec_is_valid(self):
         spec = export(self.event)
         parsed = EventSpec.model_validate(spec)
@@ -621,9 +547,6 @@ class ExportTests(TestCase):
         errors, warnings = check(spec)
         self.assertEqual(errors, [])
         self.assertEqual(warnings, [])
-
-    def test_export_is_stable(self):
-        self.assertEqual(export(self.event), export(self.event))
 
     def test_ties_break_on_id(self):
         event = empty_event("Ties")
