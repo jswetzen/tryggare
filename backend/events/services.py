@@ -34,9 +34,7 @@ def can_copy_events(user) -> bool:
     return all(user.has_perm(p) for p in COPY_PERMISSIONS)
 
 
-def duplicate_extra_to_event(
-    extra: Extra, target_event: Event, session_map: dict | None = None
-) -> Extra:
+def duplicate_extra_to_event(extra: Extra, target_event: Event) -> Extra:
     """Deep-copy `extra` (and its ExtraChoice rows) onto `target_event`.
 
     Extras are deliberately event-owned, not a shared catalog (see the
@@ -46,17 +44,10 @@ def duplicate_extra_to_event(
     (`Session.event`) and the source event's session scoping can never
     carry over to a different event's calendar; staff re-picks it on the
     new copy afterward if needed.
-
-    `session_map` (old session id -> new Session) is for callers that copy
-    the sessions too: the extra then follows its session into `target_event`.
     """
-    if session_map is not None:
-        session = session_map.get(extra.session_id)
-    else:
-        session = extra.session if target_event == extra.event else None
     clone = Extra.objects.create(
         event=target_event,
-        session=session,
+        session=extra.session if target_event == extra.event else None,
         name=extra.name,
         price=extra.price,
         per_attendee=extra.per_attendee,

@@ -25,7 +25,6 @@ Branch: `feat/form-spec-foundation` (off `main`).
   `PromoCode.valid_from/until`. Datetimes shift in Europe/Stockholm wall-clock time (DST-safe).
 - Resets `PromoCode.uses_count`. Never copies registrations, attendees, tickets
   (`Ticket`, `EventTicket`, `SessionTicket`), or check-in data.
-- Reuse `duplicate_extra_to_event` by giving it a session map, rather than writing a second copier.
 - New nullable `Event.cloned_from` FK (`SET_NULL`) + migration; shown read-only in admin.
 - Django admin action "Copy event" with an intermediate form (new name, new start date), redirecting
   to the new event's change page. One source event per action.
