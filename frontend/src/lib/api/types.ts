@@ -236,6 +236,8 @@ export interface RegistrationTicketType {
   // — the backend deliberately never exposes the sold count or remaining
   // seats on this public endpoint (see _ticket_type_payload's docstring).
   available: boolean;
+  // Only on session-bundle types: the sessions the ticket covers (see RegistrationFormSpec.sessions).
+  session_ids?: string[];
 }
 
 export interface RegistrationExtraChoice {
@@ -275,6 +277,28 @@ export interface RegistrationEventInfo {
   registration_window_status: RegistrationWindowStatus;
   registration_opens_at: string | null;
   registration_closes_at: string | null;
+}
+
+export interface RegistrationSpecSession {
+  id: string;
+  name: string;
+  start_time: string;
+  end_time: string;
+}
+
+export interface RegistrationFormField {
+  key: string;
+  visible: boolean;
+  // The server's rule (backend/registrations/form_spec.py), not the page's.
+  required: boolean;
+}
+
+// GET /registrations/events/<id>/. Checked against the backend-generated
+// fixture in lib/registration/__fixtures__/form-spec.v1.json.
+export interface RegistrationFormSpec extends RegistrationEventInfo {
+  spec_version: 1;
+  sessions: RegistrationSpecSession[];
+  fields: { parent: RegistrationFormField[]; child: RegistrationFormField[] };
 }
 
 export interface RegistrationExtraSelectionPayload {

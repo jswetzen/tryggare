@@ -1,7 +1,7 @@
 import { apiClient } from './client';
 import type {
   PromoCodeValidation,
-  RegistrationEventInfo,
+  RegistrationFormSpec,
   RegistrationPaymentStatusResponse,
   RegistrationSubmitPayload,
   RegistrationSubmitResponse,
@@ -12,7 +12,7 @@ import type {
  * Public self-serve registration API endpoints (all unauthenticated).
  */
 export const registrationApi = {
-  getEvent: (eventId: string): Promise<RegistrationEventInfo> =>
+  getEvent: (eventId: string): Promise<RegistrationFormSpec> =>
     apiClient.get(`/registrations/events/${eventId}/`),
 
   submit: (data: RegistrationSubmitPayload): Promise<RegistrationSubmitResponse> =>
