@@ -142,7 +142,9 @@ def build_form_spec(event) -> dict:
             # an attendee holding none of these; the server enforces the same.
             "ticket_type_ids": [str(t.id) for t in extra.ticket_types.all()],
             "ticket_type_names": [
-                t.name for t in extra.ticket_types.all() if not t.is_hidden
+                t.name
+                for t in extra.ticket_types.all()
+                if t.is_active and not t.is_hidden
             ],
             "choices": [
                 {
@@ -156,7 +158,10 @@ def build_form_spec(event) -> dict:
         for extra in event.extras.filter(is_active=True)
         .order_by("sort_order", "name")
         .prefetch_related(
-            "ticket_types",
+            Prefetch(
+                "ticket_types",
+                queryset=TicketType.objects.order_by("sort_order", "name"),
+            ),
             Prefetch(
                 "choice_rows",
                 queryset=ExtraChoice.objects.filter(is_active=True).order_by(

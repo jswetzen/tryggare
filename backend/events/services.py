@@ -36,7 +36,8 @@ def duplicate_extra_to_event(extra: Extra, target_event: Event) -> Extra:
     from the source event, since a Session belongs to exactly one event
     (`Session.event`) and the source event's session scoping can never
     carry over to a different event's calendar; staff re-picks it on the
-    new copy afterward if needed.
+    new copy afterward if needed. The ticket-type gate maps onto the target's
+    types by name; if any has no match the clone is inactive, `gate_incomplete`.
     """
     clone = Extra.objects.create(
         event=target_event,
@@ -52,9 +53,20 @@ def duplicate_extra_to_event(extra: Extra, target_event: Event) -> Extra:
         is_active=extra.is_active,
         cloned_from=extra,
     )
-    if target_event == extra.event:
-        # Ticket types, like sessions, belong to one event.
-        clone.ticket_types.set(extra.ticket_types.all())
+    clone.gate_incomplete = False
+    gate = list(extra.ticket_types.all())
+    if gate:
+        if target_event == extra.event:
+            clone.ticket_types.set(gate)
+        else:
+            names = {t.name for t in gate}
+            matched = list(target_event.ticket_types.filter(name__in=names))
+            clone.ticket_types.set(matched)
+            if names - {t.name for t in matched}:
+                # Opening a restricted extra to everyone would be worse than hiding it.
+                clone.gate_incomplete = True
+                clone.is_active = False
+                clone.save(update_fields=["is_active"])
     for choice in extra.choice_rows.all():
         clone.choice_rows.create(
             label=choice.label,

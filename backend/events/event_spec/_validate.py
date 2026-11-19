@@ -494,12 +494,22 @@ def _inactive_unreferenced_warnings(spec: EventSpec) -> list[Issue]:
 
 def _extra_warnings(spec: EventSpec) -> list[Issue]:
     out = []
+    types = {t.key: t for t in spec.ticket_types}
     for i, e in enumerate(spec.extras):
         if e.requires_choice and not any(c.is_active for c in e.choices):
             out.append(issue(f"extras[{i}].choices", "no_active_choices"))
         if not e.requires_choice and e.choices:
             out.append(issue(f"extras[{i}].choices", "choices_ignored"))
+        gate = [types[k] for k in e.ticket_types if k in types]
+        if gate and not any(
+            t.is_active and (not e.per_attendee or _fits(e.applies_to, t)) for t in gate
+        ):
+            out.append(issue(f"extras[{i}].ticket_types", "extra_gate_unreachable"))
     return out
+
+
+def _fits(extra_applies_to: str, t) -> bool:
+    return extra_applies_to == "either" or extra_applies_to in _audience(t)
 
 
 def _promo_warnings(spec: EventSpec) -> list[Issue]:

@@ -395,9 +395,14 @@ def _attach_extra(*, registration, attendee, selection, is_child):
         ):
             raise ValidationError(_("This attendee isn't registered for that session."))
     if not extra_gate_open(extra, held_ticket_type_ids(registration, attendee)):
+        names = [
+            t.name for t in extra.ticket_types.all() if t.is_active and not t.is_hidden
+        ]
+        if not names:
+            raise ValidationError(_("This extra requires a different ticket."))
         raise ValidationError(
             _("This extra requires one of these ticket types: %(types)s.")
-            % {"types": ", ".join(t.name for t in extra.ticket_types.all())}
+            % {"types": ", ".join(names)}
         )
     if (
         extra.per_attendee

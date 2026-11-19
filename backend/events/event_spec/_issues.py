@@ -76,6 +76,9 @@ MESSAGES = {
     ),
     "no_active_choices": _("This extra requires a choice but has no active choices."),
     "choices_ignored": _("Choices are ignored unless requires_choice is true."),
+    "extra_gate_unreachable": _(
+        "No active ticket type in this extra's gate can be held by an attendee it applies to, so nobody can take it."
+    ),
     "promo_ticket_types_inactive": _(
         "Every ticket type this code refers to is inactive."
     ),

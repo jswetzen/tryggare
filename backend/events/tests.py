@@ -805,9 +805,35 @@ class ExtraDuplicationTest(TestCase):
             list(duplicate_extra_to_event(extra, self.event).ticket_types.all()),
             [teen],
         )
-        self.assertFalse(
-            duplicate_extra_to_event(extra, self.other_event).ticket_types.exists()
-        )
+
+    def test_duplicate_maps_the_gate_onto_the_target_by_name(self):
+        from events.services import duplicate_extra_to_event
+
+        teen = TicketType.objects.create(event=self.event, name="Teen", price=1)
+        theirs = TicketType.objects.create(event=self.other_event, name="Teen", price=2)
+        extra = Extra.objects.create(event=self.event, name="Workshop")
+        extra.ticket_types.add(teen)
+
+        clone = duplicate_extra_to_event(extra, self.other_event)
+
+        self.assertEqual(list(clone.ticket_types.all()), [theirs])
+        self.assertTrue(clone.is_active)
+        self.assertFalse(clone.gate_incomplete)
+
+    def test_duplicate_with_an_unmatched_gate_type_is_inactive(self):
+        from events.services import duplicate_extra_to_event
+
+        teen = TicketType.objects.create(event=self.event, name="Teen", price=1)
+        TicketType.objects.create(event=self.other_event, name="Adult", price=1)
+        extra = Extra.objects.create(event=self.event, name="Workshop")
+        extra.ticket_types.add(teen)
+
+        clone = duplicate_extra_to_event(extra, self.other_event)
+        clone.refresh_from_db()
+
+        self.assertFalse(clone.is_active)
+        self.assertFalse(clone.ticket_types.exists())
+        self.assertTrue(extra.is_active)
 
     def test_duplicate_leaves_source_untouched(self):
         from events.services import duplicate_extra_to_event

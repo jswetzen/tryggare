@@ -41,7 +41,7 @@ class ExtraGatingTests(TestCase):
         )
         self.workshop.ticket_types.add(self.teen)
 
-    def post(self, children, extras=(), parent_extras=()):
+    def post(self, children, extras=(), parent_extras=(), guardian_only=False):
         # A fresh address each time: a second pending registration is refused.
         self.sent = getattr(self, "sent", 0) + 1
         payload = {
@@ -52,7 +52,8 @@ class ExtraGatingTests(TestCase):
                     "first_name": "Anna",
                     "phone": "070-123 45 67",
                     "relationship_type": "Mother",
-                    "ticket_type": str(self.adult.id),
+                    "ticket_type": None if guardian_only else str(self.adult.id),
+                    "guardian_only": guardian_only,
                     "extras": [{"extra": str(e.id)} for e in parent_extras],
                 }
             ],
@@ -158,6 +159,95 @@ class ExtraGatingTests(TestCase):
         self.assertEqual(self.post([(self.teen, [])]).status_code, 400)
         self.assertEqual(self.post([(self.teen, [])], extras=[cabin]).status_code, 201)
 
+    def test_hidden_and_inactive_gate_names_are_not_revealed(self):
+        secret = TicketType.objects.create(
+            event=self.event,
+            name="Secret pass",
+            price=1,
+            is_hidden=True,
+            applies_to="child",
+        )
+        retired = TicketType.objects.create(
+            event=self.event,
+            name="Retired pass",
+            price=1,
+            is_active=False,
+            applies_to="child",
+        )
+        self.workshop.ticket_types.set([self.teen, secret, retired])
+        refused = self.post([(self.kid, [self.workshop])])
+        self.assertEqual(refused.status_code, 400, refused.data)
+        text = str(refused.data)
+        self.assertIn("Child 13-17", text)
+        self.assertNotIn("Secret pass", text)
+        self.assertNotIn("Retired pass", text)
+
+        self.workshop.ticket_types.set([secret])
+        refused = self.post([(self.kid, [self.workshop])])
+        self.assertEqual(refused.status_code, 400, refused.data)
+        self.assertNotIn("Secret pass", str(refused.data))
+        self.assertIn("different ticket", str(refused.data))
+
+    def test_gated_per_attendee_extra_on_a_parent(self):
+        perk = Extra.objects.create(
+            event=self.event, name="Speaker lunch", applies_to=AppliesTo.PARENT
+        )
+        perk.ticket_types.add(self.adult)
+        accepted = self.post([(self.kid, [])], parent_extras=[perk])
+        self.assertEqual(accepted.status_code, 201, accepted.data)
+        perk.ticket_types.set([self.teen])
+        refused = self.post([(self.kid, [])], parent_extras=[perk])
+        self.assertEqual(refused.status_code, 400, refused.data)
+
+    def test_guardian_only_adult_holds_no_type_for_a_booking_gate(self):
+        cabin = Extra.objects.create(
+            event=self.event, name="Cabin", per_attendee=False, required=True
+        )
+        cabin.ticket_types.add(self.adult)
+        # The adult has no ticket, so the gate is closed: refused if asked
+        # for, and not demanded though required.
+        self.assertEqual(
+            self.post([(self.kid, [])], guardian_only=True).status_code, 201
+        )
+        refused = self.post([(self.kid, [])], extras=[cabin], guardian_only=True)
+        self.assertEqual(refused.status_code, 400, refused.data)
+
+    def test_flat_price_event_without_active_types_refuses_gated_extras(self):
+        TicketType.objects.update(is_active=False)
+        self.workshop.applies_to = AppliesTo.CHILD
+        self.workshop.save()
+        payload = lambda extras: {  # noqa: E731
+            "event": str(self.event.id),
+            "contact_email": f"flat{len(extras)}@example.com",
+            "parents": [
+                {
+                    "first_name": "Anna",
+                    "phone": "070-123 45 67",
+                    "relationship_type": "Mother",
+                }
+            ],
+            "children": [
+                {
+                    "first_name": "Kid",
+                    "last_name": "Andersson",
+                    "birthdate": "2012-01-01",
+                    "extras": [{"extra": str(e.id)} for e in extras],
+                }
+            ],
+        }
+        with patch("registrations.views.send_verification_email", return_value=True):
+            refused = self.client.post(
+                "/api/registrations/", payload([self.workshop]), format="json"
+            )
+            self.assertEqual(refused.status_code, 400, refused.data)
+            # A required gated extra is not demanded of someone who cannot hold it.
+            self.workshop.required = True
+            self.workshop.save()
+            accepted = self.client.post(
+                "/api/registrations/", payload([]), format="json"
+            )
+        self.assertEqual(accepted.status_code, 201, accepted.data)
+
 
 class ExtraGateFormSpecTests(TestCase):
     def test_form_spec_lists_the_gate(self):
@@ -174,9 +264,13 @@ class ExtraGateFormSpecTests(TestCase):
 
         extras = {e["name"]: e for e in build_form_spec(event)["extras"]}
         self.assertEqual(
-            sorted(extras["Workshop"]["ticket_type_ids"]),
-            sorted([str(teen.id), str(secret.id)]),
+            extras["Workshop"]["ticket_type_ids"], [str(teen.id), str(secret.id)]
         )
-        # A hidden type's name is not published.
+        # Neither a hidden nor an inactive type's name is published.
+        retired = TicketType.objects.create(
+            event=event, name="Retired", price=1, is_active=False, sort_order=3
+        )
+        gated.ticket_types.add(retired)
+        extras = {e["name"]: e for e in build_form_spec(event)["extras"]}
         self.assertEqual(extras["Workshop"]["ticket_type_names"], ["Teen"])
         self.assertEqual(extras["Lunch"]["ticket_type_ids"], [])

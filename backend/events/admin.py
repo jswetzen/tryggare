@@ -1206,9 +1206,15 @@ class ExtraAdminForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        event_id = self.instance.event_id or (
-            self.data.get(self.add_prefix("event")) if self.is_bound else None
-        )
+        event_id = self.instance.event_id
+        if self.is_bound:
+            try:
+                posted = self.fields["event"].to_python(
+                    self.data.get(self.add_prefix("event"))
+                )
+            except forms.ValidationError:
+                posted = None
+            event_id = posted.pk if posted else event_id
         if event_id:
             self.fields["ticket_types"].queryset = TicketType.objects.filter(
                 event_id=event_id
@@ -1302,14 +1308,26 @@ class ExtraAdmin(admin.ModelAdmin):
             if form.is_valid():
                 target_event = form.cleaned_data["target_event"]
                 count = queryset.count()
+                gated = []
                 for extra in queryset:
-                    duplicate_extra_to_event(extra, target_event)
+                    if duplicate_extra_to_event(extra, target_event).gate_incomplete:
+                        gated.append(extra.name)
                 self.message_user(
                     request,
                     _("Duplicated %(count)d extra(s) to '%(event)s'.")
                     % {"count": count, "event": target_event.name},
                     messages.SUCCESS,
                 )
+                if gated:
+                    self.message_user(
+                        request,
+                        _(
+                            "Created inactive because a ticket type it requires has no "
+                            "same-named type on '%(event)s': %(names)s."
+                        )
+                        % {"event": target_event.name, "names": ", ".join(gated)},
+                        messages.WARNING,
+                    )
                 return None
         else:
             form = DuplicateExtraToEventForm()

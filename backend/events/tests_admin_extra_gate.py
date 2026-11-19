@@ -69,3 +69,37 @@ class ExtraAdminGateTests(NonManifestStaticfilesTestCase, TestCase):
             data=self.data(ticket_types=[self.mine.pk]), instance=self.extra
         )
         self.assertTrue(form.is_valid(), form.errors)
+
+    def test_posted_event_narrows_the_picker_of_an_add_form(self):
+        form = ExtraAdminForm(data=self.data(event=self.other.pk))
+        self.assertEqual(list(form.fields["ticket_types"].queryset), [self.foreign])
+
+    def test_malformed_posted_event_does_not_crash(self):
+        form = ExtraAdminForm(data=self.data(event="not-a-uuid"))
+        self.assertFalse(form.is_valid())
+        self.assertIn("event", form.errors)
+        form = ExtraAdminForm(data=self.data(event="not-a-uuid"), instance=self.extra)
+        self.assertEqual(list(form.fields["ticket_types"].queryset), [self.mine])
+
+    def test_unknown_event_falls_back_to_the_instance(self):
+        form = ExtraAdminForm(
+            data=self.data(event="00000000-0000-0000-0000-000000000000"),
+            instance=self.extra,
+        )
+        self.assertEqual(list(form.fields["ticket_types"].queryset), [self.mine])
+
+    def test_duplicate_action_warns_about_an_unmatched_gate(self):
+        self.extra.ticket_types.add(self.mine)
+        response = self.client.post(
+            reverse("admin:events_extra_changelist"),
+            {
+                "action": "duplicate_to_event",
+                "apply": "1",
+                "target_event": self.other.pk,
+                "_selected_action": [self.extra.pk],
+            },
+            follow=True,
+        )
+        texts = [str(m) for m in response.context["messages"]]
+        self.assertTrue(any("Workshop" in m and "inactive" in m for m in texts), texts)
+        self.assertFalse(self.other.extras.get(name="Workshop").is_active)

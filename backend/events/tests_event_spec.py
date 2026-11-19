@@ -583,6 +583,22 @@ class WarningTests(SimpleTestCase):
             c["is_active"] = False
         self.assertIn(("extras[0].choices", "no_active_choices"), self.codes(spec))
 
+    def test_extra_gate_unreachable(self):
+        key = ("extras[1].ticket_types", "extra_gate_unreachable")
+        spec = example_spec()
+        gated = spec["extras"][1]
+        self.assertEqual(gated["ticket_types"], ["child-pass-13-17"])
+        self.assertNotIn(key, self.codes(spec))
+        # Gated on a parent-only pass, a child extra can never be taken.
+        gated["ticket_types"] = ["adult-conference-pass"]
+        self.assertIn(key, self.codes(spec))
+        # An "either" extra is reachable through the parent pass.
+        gated["applies_to"] = "either"
+        self.assertNotIn(key, self.codes(spec))
+        spec["ticket_types"][2]["is_active"] = False
+        gated["ticket_types"] = ["child-pass-13-17"]
+        self.assertIn(key, self.codes(spec))
+
     def test_choices_ignored_and_session_outside_event(self):
         spec = example_spec()
         spec["extras"][0]["requires_choice"] = False
