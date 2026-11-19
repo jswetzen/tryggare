@@ -55,6 +55,8 @@ services:
       - backend/.env.example
     volumes:
       - ./backend:/app
+      # Contract fixture the backend tests compare against (tests_form_spec.py).
+      - ./frontend/src/lib/registration/__fixtures__:/frontend/src/lib/registration/__fixtures__
       - backend_venv:/app/.venv
       - static_files:/app/staticfiles
     ports:

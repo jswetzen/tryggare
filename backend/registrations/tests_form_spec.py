@@ -7,7 +7,6 @@ import uuid
 from datetime import date, datetime, timezone as dt_timezone
 from decimal import Decimal
 from pathlib import Path
-from unittest import skipUnless
 from unittest.mock import patch
 
 from django.conf import settings
@@ -15,12 +14,26 @@ from django.test import TestCase
 from django.utils import timezone
 from rest_framework.test import APIClient
 
-from events.models import AppliesTo, Event, Extra, ExtraChoice, Session, TicketType
+from events.models import (
+    AppliesTo,
+    Event,
+    Extra,
+    ExtraChoice,
+    PromoCode,
+    Session,
+    TicketType,
+)
 
-from .form_spec import CHILD_FIELDS, PARENT_FIELDS, build_form_spec
+from .form_spec import (
+    CHILD_FIELDS,
+    FORM_ONLY_REQUIRED,
+    PARENT_FIELDS,
+    build_form_spec,
+)
+from .serializers import RegistrationChildSerializer, RegistrationParentSerializer
 
-# Not visible from the backend container (it only mounts ./backend); the
-# fixture test runs on the host, see test_matches_frontend_fixture.
+# docker-compose.yml mounts the fixture dir into the web container at
+# /frontend/...; on the host it is the repo's frontend/ directory.
 FIXTURE_PATH = (
     Path(settings.BASE_DIR).parent
     / "frontend/src/lib/registration/__fixtures__/form-spec.v1.json"
@@ -164,14 +177,19 @@ class FormSpecEndpointTests(TestCase):
 
 
 class FormSpecMatchesSubmitTests(TestCase):
-    """The spec's required flags must agree with what submit enforces."""
+    """The spec's required flags (= what the form requires) must agree with
+    the server, except the declared FORM_ONLY_REQUIRED fields."""
 
     url = "/api/registrations/"
+    # What the page posts for an empty field. health_consent_status is never
+    # empty on the page (it maps to a status), so its "blank" is the default.
+    BLANK = {"health_consent_status": "not_applicable", "birthdate": None}
 
     def setUp(self):
         self.client = APIClient()
         self.event = _open_event()
         self.spec = build_form_spec(self.event)
+        self._n = 0
 
     def _person_full(self, kind):
         if kind == "parent":
@@ -194,57 +212,95 @@ class FormSpecMatchesSubmitTests(TestCase):
             "health_consent_status": "not_applicable",
         }
 
-    def _payload(self, kind, drop=None):
-        parent = self._person_full("parent")
-        child = self._person_full("child")
-        target = parent if kind == "parent" else child
-        if drop:
-            del target[drop]
+    def _post(self, kind, key=None, mode=None, value=None):
+        """Post an otherwise valid registration with one field blanked
+        (mode "blank"), omitted ("missing") or set to `value`."""
+        persons = {k: self._person_full(k) for k in ("parent", "child")}
+        if mode == "blank":
+            persons[kind][key] = self.BLANK.get(key, "")
+        elif mode == "missing":
+            del persons[kind][key]
+        elif mode == "value":
+            persons[kind][key] = value
         # Unique per call: a repeat email is deduped to a 200 "already pending".
-        self._n = getattr(self, "_n", 0) + 1
-        return {
-            "event": str(self.event.id),
-            "contact_email": f"guardian{self._n}@example.com",
-            "parents": [parent],
-            "children": [child],
-        }
-
-    def test_declared_fields_are_exactly_the_payload_fields(self):
-        for kind, declared in (("parent", PARENT_FIELDS), ("child", CHILD_FIELDS)):
-            self.assertEqual(
-                [f["key"] for f in declared],
-                list(self._person_full(kind)),
-                kind,
+        self._n += 1
+        with patch("registrations.views.send_verification_email", return_value=True):
+            return self.client.post(
+                self.url,
+                {
+                    "event": str(self.event.id),
+                    "contact_email": f"guardian{self._n}@example.com",
+                    "parents": [persons["parent"]],
+                    "children": [persons["child"]],
+                },
+                format="json",
             )
 
-    @patch("registrations.views.send_verification_email", return_value=True)
-    def test_required_flag_matches_server(self, _mock_send):
-        self.assertEqual(
-            self.client.post(
-                self.url, self._payload("parent"), format="json"
-            ).status_code,
-            201,
-        )
+    @staticmethod
+    def _errors(response, kind):
+        group = response.data["parents" if kind == "parent" else "children"]
+        return group[0]
+
+    def test_declared_fields_are_the_serializers_fields(self):
+        extra = {"id", "ticket_type", "extras", "guardian_only"}
+        for kind, declared, serializer in (
+            ("parent", PARENT_FIELDS, RegistrationParentSerializer),
+            ("child", CHILD_FIELDS, RegistrationChildSerializer),
+        ):
+            self.assertEqual(
+                [f["key"] for f in declared],
+                [f for f in serializer.Meta.fields if f not in extra],
+                kind,
+            )
+        for kind in ("parent", "child"):
+            self.assertEqual(
+                list(self._person_full(kind)),
+                [f["key"] for f in self.spec["fields"][kind]],
+            )
+
+    def test_required_flag_matches_server(self):
+        self.assertEqual(self._post("parent").status_code, 201)
         for kind in ("parent", "child"):
             for field in self.spec["fields"][kind]:
-                with self.subTest(kind=kind, field=field["key"]):
-                    # Otherwise-valid payload: only `field` can matter.
-                    response = self.client.post(
-                        self.url,
-                        self._payload(kind, drop=field["key"]),
-                        format="json",
-                    )
-                    expected = 400 if field["required"] else 201
-                    self.assertEqual(response.status_code, expected, response.data)
+                key = field["key"]
+                form_only = (kind, key) in FORM_ONLY_REQUIRED
+                for mode in ("blank", "missing"):
+                    with self.subTest(kind=kind, field=key, mode=mode):
+                        response = self._post(kind, key, mode)
+                        if response.status_code == 400:
+                            self.assertIn(key, self._errors(response, kind))
+                            self.assertTrue(
+                                field["required"] and not form_only,
+                                f"server rejects {kind}.{key} but spec says "
+                                "optional or form-only",
+                            )
+                        else:
+                            self.assertEqual(response.status_code, 201)
+                            self.assertTrue(
+                                not field["required"] or form_only,
+                                f"server accepts {kind}.{key} blank but it is "
+                                "not in FORM_ONLY_REQUIRED",
+                            )
+
+    def test_form_only_fields_are_required_in_spec(self):
+        for kind, key in FORM_ONLY_REQUIRED:
+            field = next(f for f in self.spec["fields"][kind] if f["key"] == key)
+            self.assertTrue(field["required"], (kind, key))
+
+    def test_empty_string_birthdate_is_rejected_by_server(self):
+        # The page currently posts "" for an empty date; the server wants null.
+        response = self._post("child", "birthdate", "value", "")
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("birthdate", self._errors(response, "child"))
 
 
-@skipUnless(
-    FIXTURE_PATH.parent.is_dir() or os.environ.get("UPDATE_FORM_SPEC_FIXTURE"),
-    "frontend/ is not mounted here (backend container); run from the host: "
-    "cd backend && uv run python manage.py test registrations.tests_form_spec",
-)
 class FormSpecFixtureTests(TestCase):
     def test_matches_frontend_fixture(self):
+        self.assertTrue(
+            FIXTURE_PATH.parent.is_dir(),
+            f"{FIXTURE_PATH.parent} missing: recreate the dev stack so the "
+            "web service picks up the docker-compose.yml fixture mount",
+        )
         spec = build_form_spec(make_fixture_event())
         # Round-trip so comparison is on JSON types, as the frontend sees it.
         spec = json.loads(json.dumps(spec))
@@ -260,3 +316,38 @@ class FormSpecFixtureTests(TestCase):
             "form spec changed; regenerate with UPDATE_FORM_SPEC_FIXTURE=1 "
             "(see test docstring) and commit the fixture",
         )
+
+
+class PromoUnlockedSessionsTests(TestCase):
+    def test_unlocked_bundle_type_carries_session_ids_and_sessions(self):
+        event = make_fixture_event()
+        day1 = Session.objects.get(id=_uid(10))
+        vip_day = TicketType.objects.create(
+            event=event,
+            name="VIP day",
+            price=Decimal("0"),
+            kind=TicketType.Kind.SESSION_BUNDLE,
+            is_hidden=True,
+        )
+        vip_day.sessions.add(day1)
+        promo = PromoCode.objects.create(
+            event=event,
+            code="VIPDAY",
+            discount_type=PromoCode.DiscountType.FIXED,
+            discount_value=Decimal("0"),
+        )
+        promo.unlocks_ticket_types.add(vip_day)
+
+        # event, promo lookup, applies_to ids, unlocked types, 2 sold-count
+        # aggregates, bundle session rows, sessions.
+        with self.assertNumQueries(8):
+            response = APIClient().post(
+                "/api/registrations/validate-promo-code/",
+                {"event": str(event.id), "code": "VIPDAY"},
+                format="json",
+            )
+
+        self.assertEqual(response.status_code, 200, response.data)
+        unlocked = response.data["unlocks_ticket_types"][0]
+        self.assertEqual(unlocked["session_ids"], [str(day1.id)])
+        self.assertEqual([s["id"] for s in response.data["sessions"]], [str(day1.id)])

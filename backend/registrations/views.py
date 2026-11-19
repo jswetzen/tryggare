@@ -38,7 +38,12 @@ from .emails import (
     send_payment_instructions_email,
     send_verification_email,
 )
-from .form_spec import _ticket_type_payload, build_form_spec
+from .form_spec import (
+    build_form_spec,
+    bundle_session_ids,
+    sessions_payload,
+    ticket_type_payload,
+)
 from .models import (
     Payment,
     Registration,
@@ -732,10 +737,11 @@ def validate_promo_code(request):
     if promo_code.max_uses is not None and promo_code.uses_count >= promo_code.max_uses:
         return Response({"valid": False})
 
-    # Same bulk-query rationale as registration_event_info above — a
-    # promo code can unlock several hidden ticket types at once (R3, gate
-    # review 2026-09-25).
+    # Bulk queries, as in form_spec.build_form_spec: a code can unlock
+    # several hidden ticket types at once.
     sold_counts = sold_counts_for_event(event)
+    unlocked = list(promo_code.unlocks_ticket_types.filter(is_active=True))
+    bundle_ids = bundle_session_ids(unlocked)
     return Response(
         {
             "valid": True,
@@ -748,13 +754,16 @@ def validate_promo_code(request):
                 )
             ],
             "unlocks_ticket_types": [
-                _ticket_type_payload(
-                    ticket_type, sold_count=sold_counts.get(str(ticket_type.id), 0)
+                ticket_type_payload(
+                    ticket_type,
+                    sold_count=sold_counts.get(str(ticket_type.id), 0),
+                    session_ids=bundle_ids,
                 )
-                for ticket_type in promo_code.unlocks_ticket_types.filter(
-                    is_active=True
-                )
+                for ticket_type in unlocked
             ],
+            "sessions": sessions_payload(
+                {sid for ids in bundle_ids.values() for sid in ids}
+            ),
         }
     )
 

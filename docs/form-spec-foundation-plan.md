@@ -41,6 +41,7 @@ Branch: `feat/form-spec-foundation` (off `main`).
   - `fields`: the person/registration fields that are hardcoded today (parent: first/last name, phone,
     email, relationship, allergies, notes, health consent; child: first/last name, birthdate,
     allergies, notes, health consent), each `{key, visible, required}`. From code constants for now.
+  - `required` means "the form requires it" (today's page behaviour), not "the server requires it". Fields the page requires but the server accepts blank are listed in `FORM_ONLY_REQUIRED` (child last name, birthdate) and Step C must not loosen them. `contact_email` is registration-level and not in the spec yet.
 - Response header `Cache-Control: no-store`.
 - Tests: the spec's `required` flags agree with what submit actually enforces; a JSON fixture
   generated from a fixture event is written to `frontend/src/lib/registration/__fixtures__/form-spec.v1.json`

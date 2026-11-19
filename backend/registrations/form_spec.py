@@ -20,44 +20,50 @@ class FormField(TypedDict):
     required: bool
 
 
-def _field(key: str, *, required: bool = False) -> FormField:
+# `required` means "the form requires it" (what the page enforces today).
+# These are enforced by the page only; the server accepts them blank. Step C
+# must not loosen them. tests_form_spec.py keeps this set honest.
+FORM_ONLY_REQUIRED = {("child", "last_name"), ("child", "birthdate")}
+
+
+def _field(group: str, key: str, *, server_required: bool = False) -> FormField:
+    required = server_required or (group, key) in FORM_ONLY_REQUIRED
     return {"key": key, "visible": True, "required": required}
 
 
-# Single declaration of the person fields the form asks for. `required` is the
-# SERVER rule (families serializers + models); tests_form_spec.py proves it
-# against the submit endpoint. Keys are the submit payload's field names.
+# Single declaration of the person fields the form asks for. Keys are the
+# submit payload's field names; server_required comes from the families
+# serializers/models and is proven against submit by tests_form_spec.py.
 PARENT_FIELDS: tuple[FormField, ...] = (
-    _field("first_name", required=True),
-    _field("last_name"),
-    _field("phone", required=True),
-    _field("email"),
-    _field("relationship_type", required=True),
-    _field("allergies"),
-    _field("notes"),
-    _field("health_consent_status"),
+    _field("parent", "first_name", server_required=True),
+    _field("parent", "last_name"),
+    _field("parent", "phone", server_required=True),
+    _field("parent", "email"),
+    _field("parent", "relationship_type", server_required=True),
+    _field("parent", "allergies"),
+    _field("parent", "notes"),
+    _field("parent", "health_consent_status"),
 )
-# birthdate is only enforced when the child's ticket type has an age band
-# (views._child_ticket_age_error); last_name is blank=True on the model.
 CHILD_FIELDS: tuple[FormField, ...] = (
-    _field("first_name", required=True),
-    _field("last_name"),
-    _field("birthdate"),
-    _field("allergies"),
-    _field("notes"),
-    _field("health_consent_status"),
+    _field("child", "first_name", server_required=True),
+    _field("child", "last_name"),
+    _field("child", "birthdate"),
+    _field("child", "allergies"),
+    _field("child", "notes"),
+    _field("child", "health_consent_status"),
 )
 
 
-def _ticket_type_payload(ticket_type, *, sold_count):
+def ticket_type_payload(ticket_type, *, sold_count, session_ids=None):
     """Public JSON shape of a TicketType, shared with validate_promo_code.
 
     ``available`` is a bool on purpose: sold counts or "3 left" would let
     anyone poll registration velocity on this unauthenticated endpoint.
     ``sold_count`` comes from one bulk query (sold_counts_for_event) to
-    avoid an N+1 per ticket type.
+    avoid an N+1 per ticket type. ``session_ids`` (from
+    bundle_session_ids) is only emitted for session-bundle types.
     """
-    return {
+    payload = {
         "id": str(ticket_type.id),
         "name": ticket_type.name,
         "price": str(ticket_type.price),
@@ -77,40 +83,38 @@ def _ticket_type_payload(ticket_type, *, sold_count):
         "max_per_required": ticket_type.max_per_required,
         "available": ticket_type.capacity is None or sold_count < ticket_type.capacity,
     }
+    if ticket_type.kind == TicketType.Kind.SESSION_BUNDLE:
+        payload["session_ids"] = (session_ids or {}).get(str(ticket_type.id), [])
+    return payload
 
 
-def _sessions_payload(visible_ticket_types, extras):
-    """Sessions the form refers to: extras' session_id and the sessions of
-    visible session-bundle ticket types. Returns (sessions, bundle_map).
-    Queries only when something refers to a session."""
-    bundle_ids = [
-        t.id for t in visible_ticket_types if t.kind == TicketType.Kind.SESSION_BUNDLE
-    ]
-    bundle_map: dict[str, list[str]] = {}
-    if bundle_ids:
-        through = TicketType.sessions.through
-        for row in through.objects.filter(tickettype_id__in=bundle_ids).order_by(
-            "session__start_time", "session_id"
-        ):
-            bundle_map.setdefault(str(row.tickettype_id), []).append(
-                str(row.session_id)
-            )
-    session_ids = {sid for ids in bundle_map.values() for sid in ids}
-    session_ids.update(e["session_id"] for e in extras if e["session_id"])
+def bundle_session_ids(ticket_types) -> dict[str, list[str]]:
+    """Ticket type id -> session ids, for session-bundle types only (one
+    query, none when there are no bundles)."""
+    ids = [t.id for t in ticket_types if t.kind == TicketType.Kind.SESSION_BUNDLE]
+    result: dict[str, list[str]] = {}
+    if ids:
+        rows = TicketType.sessions.through.objects.filter(tickettype_id__in=ids)
+        for row in rows.order_by("session__start_time", "session_id"):
+            result.setdefault(str(row.tickettype_id), []).append(str(row.session_id))
+    return result
+
+
+def sessions_payload(session_ids) -> list[dict]:
+    """Session objects for the given ids; no query when empty."""
     if not session_ids:
-        return [], bundle_map
-    sessions = [
+        return []
+    return [
         {
             "id": str(s.id),
             "name": s.name,
             "start_time": s.start_time.isoformat(),
             "end_time": s.end_time.isoformat(),
         }
-        for s in Session.objects.filter(id__in=session_ids).order_by(
+        for s in Session.objects.filter(id__in=set(session_ids)).order_by(
             "start_time", "name", "id"
         )
     ]
-    return sessions, bundle_map
 
 
 def build_form_spec(event) -> dict:
@@ -119,8 +123,11 @@ def build_form_spec(event) -> dict:
     visible = list(
         active_ticket_types.filter(is_hidden=False).order_by("sort_order", "name")
     )
+    bundle_ids = bundle_session_ids(visible)
     ticket_types = [
-        _ticket_type_payload(t, sold_count=sold_counts.get(str(t.id), 0))
+        ticket_type_payload(
+            t, sold_count=sold_counts.get(str(t.id), 0), session_ids=bundle_ids
+        )
         for t in visible
     ]
     # Lets the form show the promo box when every ticket type is code-only.
@@ -156,10 +163,9 @@ def build_form_spec(event) -> dict:
             )
         )
     ]
-    sessions, bundle_map = _sessions_payload(visible, extras)
-    for payload in ticket_types:
-        if payload["id"] in bundle_map:
-            payload["session_ids"] = bundle_map[payload["id"]]
+    referenced = {sid for ids in bundle_ids.values() for sid in ids}
+    referenced.update(e["session_id"] for e in extras if e["session_id"])
+    sessions = sessions_payload(referenced)
 
     return {
         "spec_version": SPEC_VERSION,

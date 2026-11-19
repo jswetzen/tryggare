@@ -136,12 +136,12 @@
       {
         "key": "last_name",
         "visible": true,
-        "required": false
+        "required": true
       },
       {
         "key": "birthdate",
         "visible": true,
-        "required": false
+        "required": true
       },
       {
         "key": "allergies",
