@@ -4,7 +4,6 @@ from uuid import UUID
 
 from django.core.exceptions import ValidationError
 from django.utils.translation import gettext as _
-from rest_framework import status
 from rest_framework.exceptions import ParseError, UnsupportedMediaType
 from rest_framework.parsers import JSONParser
 from rest_framework.permissions import BasePermission
@@ -12,6 +11,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from . import event_spec
+from .event_spec import issue
 from .models import Event
 from .services import COPY_PERMISSIONS, REPLACE_PERMISSIONS, VIEW_PERMISSIONS
 
@@ -39,14 +39,9 @@ class CanManageEventSpecs(BasePermission):
         )
 
 
-def _issue(path, code, message):
-    return {"path": path, "code": code, "message": str(message)}
-
-
-def _bad_request(path, code, message):
+def _errors(status_code, *issues, warnings=()):
     return Response(
-        {"errors": [_issue(path, code, message)], "warnings": []},
-        status=status.HTTP_400_BAD_REQUEST,
+        {"errors": list(issues), "warnings": list(warnings)}, status=status_code
     )
 
 
@@ -55,12 +50,12 @@ def _body(request):
     try:
         data = request.data
     except (ParseError, UnsupportedMediaType):
-        return None, _bad_request(
-            "", "malformed_body", _("The body is not valid JSON.")
+        return None, _errors(
+            400, issue("", "malformed_body", _("The body is not valid JSON."))
         )
     if not isinstance(data, dict):
-        return None, _bad_request(
-            "", "malformed_body", _("The body must be a JSON object.")
+        return None, _errors(
+            400, issue("", "malformed_body", _("The body must be a JSON object."))
         )
     return data, None
 
@@ -73,21 +68,15 @@ def _spec_body(request):
     if "event_spec_version" in data:
         return data, None
     if not isinstance(data.get("spec"), dict):
-        return None, _bad_request(
-            "spec", "spec_missing", _("The body needs a 'spec' object.")
+        return None, _errors(
+            400, issue("spec", "spec_missing", _("The body needs a 'spec' object."))
         )
     return data["spec"], None
 
 
 def _not_found():
-    return Response(
-        {
-            "errors": [
-                _issue("event", "event_not_found", _("The event does not exist."))
-            ],
-            "warnings": [],
-        },
-        status=status.HTTP_404_NOT_FOUND,
+    return _errors(
+        404, issue("event", "event_not_found", _("The event does not exist."))
     )
 
 
@@ -115,7 +104,7 @@ class SpecAPIView(APIView):
         ):
             code = getattr(detail["detail"], "code", "error")
             response.data = {
-                "errors": [_issue("", code, detail["detail"])],
+                "errors": [issue("", code, detail["detail"])],
                 "warnings": [],
             }
         return response
@@ -145,8 +134,13 @@ class ValidateView(SpecAPIView):
             try:
                 event_id = UUID(str(event_id))
             except ValueError:
-                return _bad_request(
-                    "event_id", "invalid_event_id", _("'event_id' is not a valid id.")
+                return _errors(
+                    400,
+                    issue(
+                        "event_id",
+                        "invalid_event_id",
+                        _("'event_id' is not a valid id."),
+                    ),
                 )
             event, error = _event_or_404(event_id)
             if error:
@@ -162,15 +156,8 @@ def _apply(spec, event, success_status):
         codes = {e["code"] for e in exc.errors}
         if "event_not_found" in codes:
             return _not_found()
-        conflict = (
-            bool(codes & _CONFLICT_CODES) and success_status == status.HTTP_200_OK
-        )
-        return Response(
-            {"errors": exc.errors, "warnings": exc.warnings},
-            status=(
-                status.HTTP_409_CONFLICT if conflict else status.HTTP_400_BAD_REQUEST
-            ),
-        )
+        conflict = bool(codes & _CONFLICT_CODES) and success_status == 200
+        return _errors(409 if conflict else 400, *exc.errors, warnings=exc.warnings)
     return Response(
         {"event_id": str(event.pk), "diff": changes, "warnings": warnings},
         status=success_status,
@@ -184,7 +171,7 @@ class CreateView(SpecAPIView):
         spec, error = _spec_body(request)
         if error:
             return error
-        return _apply(spec, None, status.HTTP_201_CREATED)
+        return _apply(spec, None, 201)
 
 
 class EventSpecView(SpecAPIView):
@@ -201,10 +188,7 @@ class EventSpecView(SpecAPIView):
         try:
             return Response(event_spec.export(event))
         except event_spec.SpecError as exc:
-            return Response(
-                {"errors": exc.errors, "warnings": []},
-                status=status.HTTP_409_CONFLICT,
-            )
+            return _errors(409, *exc.errors)
 
     def put(self, request, event_id):
         spec, error = _spec_body(request)
@@ -213,7 +197,7 @@ class EventSpecView(SpecAPIView):
         event, error = _event_or_404(event_id)
         if error:
             return error
-        return _apply(spec, event, status.HTTP_200_OK)
+        return _apply(spec, event, 200)
 
 
 class EventSpecDiffView(SpecAPIView):

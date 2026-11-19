@@ -29,7 +29,7 @@ def apply(
     """
     if event is not None and (event._state.adding or event.pk is None):
         raise SpecError(
-            [issue("event", "event_not_found", _("The target event does not exist."))]
+            [issue("event", "event_not_found", _("The event does not exist."))]
         )
     errors, warnings = validate(spec, event)
     if errors:
@@ -50,7 +50,7 @@ def apply(
                             issue(
                                 "event",
                                 "event_not_found",
-                                _("The target event does not exist."),
+                                _("The event does not exist."),
                             )
                         ]
                     ) from None

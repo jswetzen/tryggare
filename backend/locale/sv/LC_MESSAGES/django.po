@@ -2029,9 +2029,6 @@ msgstr "Anmälan är öppen för målevenemanget; stäng anmälan först."
 msgid "These rows tie on their ordering fields; give them different sort_order or names."
 msgstr "Raderna har samma sorteringsfält; ge dem olika sort_order eller namn."
 
-msgid "The target event does not exist."
-msgstr "Målevenemanget finns inte."
-
 msgid "The database refused the spec and nothing was changed. A promo code may already be in use on this event."
 msgstr "Databasen avvisade specen och inget ändrades. En kampanjkod kan redan användas på det här evenemanget."
 

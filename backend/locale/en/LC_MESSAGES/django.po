@@ -2005,9 +2005,6 @@ msgstr "Registration is open on the target event; close registration first."
 msgid "These rows tie on their ordering fields; give them different sort_order or names."
 msgstr "These rows tie on their ordering fields; give them different sort_order or names."
 
-msgid "The target event does not exist."
-msgstr "The target event does not exist."
-
 msgid "The database refused the spec and nothing was changed. A promo code may already be in use on this event."
 msgstr "The database refused the spec and nothing was changed. A promo code may already be in use on this event."
 
