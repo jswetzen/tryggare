@@ -4,9 +4,10 @@ import re
 import unicodedata
 
 from django.utils import timezone
+from django.utils.translation import gettext as _
 
 from ..models import Event
-from ..services import _check_references_stay_in_event
+from ._issues import NOUNS, SpecError, issue
 
 _MAX_KEY = 64
 
@@ -49,6 +50,32 @@ def _money(value):
     return None if value is None else str(value)
 
 
+def _key_of(keys: dict, target, holder_kind: str, holder, target_kind: str):
+    """The key of ``target`` (None passes through); a row of another event has none."""
+    if target is None:
+        return None
+    if target.id not in keys:
+        name = getattr(holder, "name", None) or holder.code
+        raise SpecError(
+            [
+                issue(
+                    "event",
+                    "cross_event_reference",
+                    _(
+                        "The %(kind)s '%(name)s' refers to the %(target)s '%(other)s', which belongs to another event."
+                    )
+                    % {
+                        "kind": NOUNS[holder_kind],
+                        "name": name,
+                        "target": NOUNS[target_kind],
+                        "other": getattr(target, "name", ""),
+                    },
+                )
+            ]
+        )
+    return keys[target.id]
+
+
 def keyed_rows(event: Event) -> dict:
     """The event's rows in export order with their derived keys.
 
@@ -56,7 +83,6 @@ def keyed_rows(event: Event) -> dict:
     "choices": [(extra_key, key, obj)], "promo_codes": [...]}``. Ties in the
     ordering break on id so derived keys do not swap between runs.
     """
-    _check_references_stay_in_event(event)
     allocator = KeyAllocator()
     sessions = [
         (allocator.allocate(s.name), s)
@@ -65,13 +91,15 @@ def keyed_rows(event: Event) -> dict:
     allocator = KeyAllocator()
     ticket_types = [
         (allocator.allocate(t.name), t)
-        for t in event.ticket_types.prefetch_related("sessions").order_by(
-            "sort_order", "name", "id"
-        )
+        for t in event.ticket_types.select_related("requires_ticket_type")
+        .prefetch_related("sessions")
+        .order_by("sort_order", "name", "id")
     ]
     allocator = KeyAllocator()
     extras, choices = [], []
-    for e in event.extras.order_by("sort_order", "name", "id"):
+    for e in event.extras.select_related("session").order_by(
+        "sort_order", "name", "id"
+    ):
         extra_key = allocator.allocate(e.name)
         extras.append((extra_key, e))
         choice_alloc = KeyAllocator()
@@ -126,9 +154,14 @@ def export(event: Event) -> dict:
             "available_until": _dt(t.available_until),
             "is_hidden": t.is_hidden,
             "kind": t.kind,
-            "sessions": sorted(session_keys[s.id] for s in t.sessions.all()),
+            "sessions": sorted(
+                _key_of(session_keys, s, "ticket_types", t, "sessions")
+                for s in t.sessions.all()
+            ),
             "capacity": t.capacity,
-            "requires_ticket_type": type_keys.get(t.requires_ticket_type_id),
+            "requires_ticket_type": _key_of(
+                type_keys, t.requires_ticket_type, "ticket_types", t, "ticket_types"
+            ),
             "max_per_required": t.max_per_required,
             "sort_order": t.sort_order,
             "is_active": t.is_active,
@@ -147,7 +180,7 @@ def export(event: Event) -> dict:
                 "requires_choice": e.requires_choice,
                 "required": e.required,
                 "default_selected": e.default_selected,
-                "session": session_keys.get(e.session_id),
+                "session": _key_of(session_keys, e.session, "extras", e, "sessions"),
                 "sort_order": e.sort_order,
                 "is_active": e.is_active,
                 "choices": [
@@ -170,10 +203,12 @@ def export(event: Event) -> dict:
             "discount_type": p.discount_type,
             "discount_value": _money(p.discount_value),
             "applies_to_ticket_types": sorted(
-                type_keys[t.id] for t in p.applies_to_ticket_types.all()
+                _key_of(type_keys, t, "promo_codes", p, "ticket_types")
+                for t in p.applies_to_ticket_types.all()
             ),
             "unlocks_ticket_types": sorted(
-                type_keys[t.id] for t in p.unlocks_ticket_types.all()
+                _key_of(type_keys, t, "promo_codes", p, "ticket_types")
+                for t in p.unlocks_ticket_types.all()
             ),
             "max_uses": p.max_uses,
             "valid_from": _dt(p.valid_from),

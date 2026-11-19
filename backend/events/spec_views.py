@@ -201,12 +201,9 @@ class EventSpecView(SpecAPIView):
             return error
         try:
             return Response(event_spec.export(event))
-        except ValueError as exc:
+        except event_spec.SpecError as exc:
             return Response(
-                {
-                    "errors": [_issue("event", "cross_event_reference", str(exc))],
-                    "warnings": [],
-                },
+                {"errors": exc.errors, "warnings": []},
                 status=status.HTTP_409_CONFLICT,
             )
 
@@ -235,9 +232,9 @@ class EventSpecDiffView(SpecAPIView):
             changes = event_spec.diff(event, spec)
         except PydanticValidationError:
             changes = []  # wrong shape: the errors above say where
-        except ValueError as exc:
+        except event_spec.SpecError as exc:
             changes = []
-            errors.append(_issue("event", "cross_event_reference", str(exc)))
+            errors += exc.errors
         return Response(
             {
                 "valid": not errors,

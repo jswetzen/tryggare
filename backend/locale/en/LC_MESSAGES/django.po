@@ -2047,14 +2047,6 @@ msgstr "warning"
 msgid "Cannot write %(path)s: %(error)s"
 msgstr "Cannot write %(path)s: %(error)s"
 
-msgid "Ticket type '%(name)s' includes session '%(other)s' from another event."
-msgstr "Ticket type '%(name)s' includes session '%(other)s' from another event."
-
-msgid "Ticket type '%(name)s' requires ticket type '%(other)s' from another event."
-msgstr "Ticket type '%(name)s' requires ticket type '%(other)s' from another event."
-
-msgid "Extra '%(name)s' is tied to session '%(other)s' from another event."
-msgstr "Extra '%(name)s' is tied to session '%(other)s' from another event."
-
-msgid "Promo code '%(name)s' refers to ticket type '%(other)s' from another event."
-msgstr "Promo code '%(name)s' refers to ticket type '%(other)s' from another event."
+#, python-format
+msgid "The %(kind)s '%(name)s' refers to the %(target)s '%(other)s', which belongs to another event."
+msgstr "The %(kind)s '%(name)s' refers to the %(target)s '%(other)s', which belongs to another event."

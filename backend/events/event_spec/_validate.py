@@ -29,6 +29,7 @@ from ..models import (
     TicketType,
 )
 from ._export import KeyAllocator
+from ._issues import NOUNS, issue
 from .spec import EventSpec
 
 Issue = dict
@@ -45,17 +46,6 @@ _CLEAN_CODES = {
     ("promo_codes", "valid_until"): "window_order",
     ("promo_codes", "discount_value"): "percent_over_100",
 }
-
-_NOUNS = {
-    "sessions": lambda: _("session"),
-    "ticket_types": lambda: _("ticket type"),
-    "extras": lambda: _("extra"),
-    "promo_codes": lambda: _("promo code"),
-}
-
-
-def _issue(path: str, code: str, message: str) -> Issue:
-    return {"path": path, "code": code, "message": str(message)}
 
 
 def _path(loc) -> str:
@@ -105,7 +95,7 @@ def _target_issues(event: Event | None) -> list[Issue]:
     issues = []
     if event.registration_window_status == RegistrationWindowStatus.OPEN:
         issues.append(
-            _issue(
+            issue(
                 "event",
                 "registration_open_on_target",
                 _(
@@ -117,7 +107,7 @@ def _target_issues(event: Event | None) -> list[Issue]:
         m.objects.filter(**{lookup: event}).exists() for m, lookup in EMPTINESS_CHECKS
     ):
         issues.append(
-            _issue(
+            issue(
                 "event",
                 "event_not_empty",
                 _(
@@ -148,7 +138,7 @@ def _shape_issues(exc: PydanticValidationError) -> list[Issue]:
             )
         else:
             message = _("Invalid value: %(detail)s") % {"detail": err["msg"]}
-        issues.append(_issue(_path(err["loc"]), kind, message))
+        issues.append(issue(_path(err["loc"]), kind, message))
     return issues
 
 
@@ -168,7 +158,7 @@ def _reference_issues(spec: EventSpec) -> list[Issue]:
         for i, row in enumerate(rows):
             if seen[row.key] > 1:
                 issues.append(
-                    _issue(
+                    issue(
                         f"{name}[{i}].key",
                         "duplicate_key",
                         _("Key '%(key)s' is used more than once; keys must be unique.")
@@ -180,7 +170,7 @@ def _reference_issues(spec: EventSpec) -> list[Issue]:
         for j, choice in enumerate(extra.choices):
             if seen[choice.key] > 1:
                 issues.append(
-                    _issue(
+                    issue(
                         f"extras[{i}].choices[{j}].key",
                         "duplicate_key",
                         _("Key '%(key)s' is used more than once; keys must be unique.")
@@ -199,7 +189,7 @@ def _reference_issues(spec: EventSpec) -> list[Issue]:
             return
         if key in owner:
             issues.append(
-                _issue(
+                issue(
                     path,
                     "wrong_kind_key",
                     _(
@@ -207,18 +197,18 @@ def _reference_issues(spec: EventSpec) -> list[Issue]:
                     )
                     % {
                         "key": key,
-                        "found": _NOUNS[owner[key]](),
-                        "expected": _NOUNS[target](),
+                        "found": NOUNS[owner[key]],
+                        "expected": NOUNS[target],
                     },
                 )
             )
         else:
             issues.append(
-                _issue(
+                issue(
                     path,
                     "unknown_key",
                     _("No %(kind)s has the key '%(key)s'.")
-                    % {"kind": _NOUNS[target](), "key": key},
+                    % {"kind": NOUNS[target], "key": key},
                 )
             )
 
@@ -227,7 +217,7 @@ def _reference_issues(spec: EventSpec) -> list[Issue]:
         for j, key in enumerate(keys):
             if key in seen:
                 issues.append(
-                    _issue(
+                    issue(
                         f"{path}[{j}]",
                         "duplicate_reference",
                         _("'%(key)s' is listed more than once.") % {"key": key},
@@ -273,7 +263,7 @@ def _requires_cycles(spec: EventSpec) -> list[Issue]:
     for i, t in enumerate(spec.ticket_types):
         if t.key in in_cycle:
             issues.append(
-                _issue(
+                issue(
                     f"ticket_types[{i}].requires_ticket_type",
                     "requires_cycle",
                     _(
@@ -299,7 +289,7 @@ def _clean(obj, exclude, path: str, section: str, fields: set[str]) -> list[Issu
             for err in errs:
                 code = err.code or _CLEAN_CODES.get((section, field), "invalid")
                 for message in err.messages:
-                    issues.append(_issue(target, code, message))
+                    issues.append(issue(target, code, message))
         return issues
     return []
 
@@ -372,7 +362,7 @@ def _model_issues(spec: EventSpec, target: Event | None) -> list[Issue]:
         )
         if codes[p.code] > 1:
             issues.append(
-                _issue(
+                issue(
                     f"promo_codes[{i}].code",
                     "duplicate_code",
                     _(
@@ -391,7 +381,7 @@ def _going_live_issues(spec: EventSpec) -> list[Issue]:
     ev = Event(**spec.event.model_dump())
     if ev.registration_window_status == RegistrationWindowStatus.OPEN:
         return [
-            _issue(
+            issue(
                 "event.registration_opens_at",
                 "registration_open",
                 _(
@@ -412,7 +402,7 @@ def _warnings(spec: EventSpec) -> list[Issue]:
     status = ev.registration_window_status
     if status == RegistrationWindowStatus.NOT_CONFIGURED:
         out.append(
-            _issue(
+            issue(
                 "event.registration_opens_at",
                 "registration_not_configured",
                 _(
@@ -422,7 +412,7 @@ def _warnings(spec: EventSpec) -> list[Issue]:
         )
     elif status == RegistrationWindowStatus.CLOSED:
         out.append(
-            _issue(
+            issue(
                 "event.registration_closes_at",
                 "registration_closed",
                 _("The registration window has already closed."),
@@ -436,7 +426,7 @@ def _warnings(spec: EventSpec) -> list[Issue]:
             <= spec.event.end_date
         ):
             out.append(
-                _issue(
+                issue(
                     f"sessions[{i}].start_time",
                     "session_outside_event",
                     _("The session starts outside the event's dates."),
@@ -454,7 +444,7 @@ def _warnings(spec: EventSpec) -> list[Issue]:
         p = f"ticket_types[{i}]"
         if t.price == 0 and (t.min_birthdate or t.max_birthdate):
             out.append(
-                _issue(
+                issue(
                     f"{p}.price",
                     "age_tier_no_price",
                     _("This age tier has price 0, so it is free. Intended?"),
@@ -462,7 +452,7 @@ def _warnings(spec: EventSpec) -> list[Issue]:
             )
         if t.is_hidden and t.is_active and t.key not in active_unlocks:
             out.append(
-                _issue(
+                issue(
                     f"{p}.is_hidden",
                     "hidden_not_unlocked",
                     _(
@@ -472,7 +462,7 @@ def _warnings(spec: EventSpec) -> list[Issue]:
             )
         if t.kind == "session_bundle" and not t.sessions:
             out.append(
-                _issue(
+                issue(
                     f"{p}.sessions",
                     "bundle_without_sessions",
                     _("A session bundle lists no sessions."),
@@ -480,7 +470,7 @@ def _warnings(spec: EventSpec) -> list[Issue]:
             )
         if t.kind == "event" and t.sessions:
             out.append(
-                _issue(
+                issue(
                     f"{p}.sessions",
                     "sessions_ignored",
                     _(
@@ -490,7 +480,7 @@ def _warnings(spec: EventSpec) -> list[Issue]:
             )
         if t.is_active and t.requires_ticket_type in inactive:
             out.append(
-                _issue(
+                issue(
                     f"{p}.requires_ticket_type",
                     "requires_inactive_ticket_type",
                     _(
@@ -500,7 +490,7 @@ def _warnings(spec: EventSpec) -> list[Issue]:
             )
         if t.max_per_required is not None and t.requires_ticket_type is None:
             out.append(
-                _issue(
+                issue(
                     f"{p}.max_per_required",
                     "max_per_required_ignored",
                     _("max_per_required is ignored without requires_ticket_type."),
@@ -512,7 +502,7 @@ def _warnings(spec: EventSpec) -> list[Issue]:
         active_choices = [c for c in e.choices if c.is_active]
         if e.requires_choice and not active_choices:
             out.append(
-                _issue(
+                issue(
                     f"{p}.choices",
                     "no_active_choices",
                     _("This extra requires a choice but has no active choices."),
@@ -520,7 +510,7 @@ def _warnings(spec: EventSpec) -> list[Issue]:
             )
         if not e.requires_choice and e.choices:
             out.append(
-                _issue(
+                issue(
                     f"{p}.choices",
                     "choices_ignored",
                     _("Choices are ignored unless requires_choice is true."),
@@ -532,7 +522,7 @@ def _warnings(spec: EventSpec) -> list[Issue]:
         targets = [*c.applies_to_ticket_types, *c.unlocks_ticket_types]
         if targets and all(k in inactive for k in targets):
             out.append(
-                _issue(
+                issue(
                     p,
                     "promo_ticket_types_inactive",
                     _("Every ticket type this code refers to is inactive."),
@@ -569,7 +559,7 @@ def _ties(rows, order, path, field) -> list[Issue]:
         o = order(row)
         if o in seen:
             out.append(
-                _issue(
+                issue(
                     f"{path}[{i}].{field}",
                     "ambiguous_order",
                     _(
@@ -603,7 +593,7 @@ def _derived_key_warnings(spec: EventSpec) -> list[Issue]:
         for i, derived in _derive(rows, order, text).items():
             if rows[i].key != derived:
                 out.append(
-                    _issue(
+                    issue(
                         f"{path}[{i}].key",
                         "key_not_derived",
                         _(

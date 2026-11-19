@@ -12,6 +12,7 @@ from django.urls import reverse
 from django.utils import timezone
 from rest_framework.test import APIClient
 
+from events.event_spec import SpecError
 from events.models import (
     AppliesTo,
     Event,
@@ -1539,7 +1540,7 @@ class CopyEventTest(TestCase):
         foreign = TicketType.objects.create(event=other, name="Foreign", price=1)
         self.promo.applies_to_ticket_types.add(foreign)
 
-        with self.assertRaisesMessage(ValueError, "Foreign"):
+        with self.assertRaisesMessage(SpecError, "Foreign"):
             copy_event(self.source, name="Nope", start_date=date(2027, 5, 1))
         self.assertFalse(Event.objects.filter(name="Nope").exists())
 
@@ -1557,7 +1558,7 @@ class CopyEventTest(TestCase):
         )
         self.day_type.sessions.add(foreign)
 
-        with self.assertRaisesMessage(ValueError, "Elsewhere"):
+        with self.assertRaisesMessage(SpecError, "Elsewhere"):
             copy_event(self.source, name="Nope", start_date=date(2027, 5, 1))
 
     def test_extras_copied_with_choices_and_session_remap(self):

@@ -94,8 +94,9 @@ class Command(BaseCommand):
         event = self._event(options["event"])
         try:
             spec = event_spec.export(event)
-        except ValueError as exc:
-            raise CommandError(str(exc)) from exc
+        except event_spec.SpecError as exc:
+            self._report(exc.errors, [])
+            self._fail(exc.errors)
         if options["output"]:
             try:
                 with open(options["output"], "w", encoding="utf-8") as f:
@@ -128,8 +129,10 @@ class Command(BaseCommand):
             changes = event_spec.diff(event, spec)
         except PydanticValidationError:
             changes = []  # a shape error; the issues above say where
-        except ValueError as exc:
-            raise CommandError(str(exc)) from exc
+        except event_spec.SpecError as exc:
+            errors += exc.errors
+            self._report(exc.errors, [])
+            changes = []
         self._json({"diff": changes, "errors": errors, "warnings": warnings})
         if errors:
             self._fail(errors)
@@ -137,8 +140,9 @@ class Command(BaseCommand):
     def _dry_diff(self, event, spec):
         try:
             return event_spec.diff(event, spec)
-        except ValueError as exc:  # a cross-event reference on the target
-            raise CommandError(str(exc)) from exc
+        except event_spec.SpecError as exc:  # a cross-event reference on the target
+            self._report(exc.errors, [])
+            self._fail(exc.errors)
 
     def _apply(self, options):
         spec = self._spec(options["file"])

@@ -9,19 +9,11 @@ from ..models import Event, Extra, ExtraChoice, PromoCode, Session, TicketType
 from ._diff import diff_normalized, normalize
 from ._export import export, keyed_rows
 from .spec import EventSpec
-from ._validate import _issue, _target_issues, validate
+from ._issues import SpecError, issue
+from ._validate import _target_issues, validate
 
 
 logger = logging.getLogger(__name__)
-
-
-class SpecError(Exception):
-    """The spec was refused; nothing was written. ``errors`` are validate()'s issues."""
-
-    def __init__(self, errors: list[dict], warnings: list[dict] | None = None):
-        super().__init__("; ".join(f"{e['path']}: {e['message']}" for e in errors))
-        self.errors = errors
-        self.warnings = warnings or []
 
 
 def apply(
@@ -37,7 +29,7 @@ def apply(
     """
     if event is not None and (event._state.adding or event.pk is None):
         raise SpecError(
-            [_issue("event", "event_not_found", _("The target event does not exist."))]
+            [issue("event", "event_not_found", _("The target event does not exist."))]
         )
     errors, warnings = validate(spec, event)
     if errors:
@@ -55,7 +47,7 @@ def apply(
                 except Event.DoesNotExist:
                     raise SpecError(
                         [
-                            _issue(
+                            issue(
                                 "event",
                                 "event_not_found",
                                 _("The target event does not exist."),
@@ -73,10 +65,8 @@ def apply(
                     raise SpecError(recheck, warnings)
                 try:
                     current = export(event)
-                except ValueError as exc:
-                    raise SpecError(
-                        [_issue("event", "cross_event_reference", str(exc))], warnings
-                    ) from exc
+                except SpecError as exc:
+                    raise SpecError(exc.errors, warnings) from exc
             changes = diff_normalized(current, normalize(parsed))
             _write(event, parsed)
     except IntegrityError as exc:
@@ -84,7 +74,7 @@ def apply(
         path = "promo_codes" if "unique_promo_code_per_event" in str(exc) else ""
         raise SpecError(
             [
-                _issue(
+                issue(
                     path,
                     "integrity",
                     _(

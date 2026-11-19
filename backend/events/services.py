@@ -9,7 +9,6 @@ from datetime import date, datetime, timedelta
 
 from django.db import transaction
 from django.utils import timezone
-from django.utils.translation import gettext as _
 
 from .models import Event, Extra
 
@@ -112,48 +111,6 @@ def _shift_birthdate_bound(
     return bound + (new_start - source_start)
 
 
-def _check_references_stay_in_event(source: Event) -> None:
-    """Refuse a source whose rows point at another event's rows: there is
-    nothing in the copy to remap them to."""
-    for ticket_type in source.ticket_types.prefetch_related("sessions"):
-        for session in ticket_type.sessions.all():
-            if session.event_id != source.id:
-                raise ValueError(
-                    _(
-                        "Ticket type '%(name)s' includes session '%(other)s' from another event."
-                    )
-                    % {"name": ticket_type.name, "other": session.name}
-                )
-        required = ticket_type.requires_ticket_type
-        if required is not None and required.event_id != source.id:
-            raise ValueError(
-                _(
-                    "Ticket type '%(name)s' requires ticket type '%(other)s' from another event."
-                )
-                % {"name": ticket_type.name, "other": required.name}
-            )
-    for extra in source.extras.select_related("session"):
-        if extra.session is not None and extra.session.event_id != source.id:
-            raise ValueError(
-                _("Extra '%(name)s' is tied to session '%(other)s' from another event.")
-                % {"name": extra.name, "other": extra.session.name}
-            )
-    for promo in source.promo_codes.prefetch_related(
-        "applies_to_ticket_types", "unlocks_ticket_types"
-    ):
-        for ticket_type in [
-            *promo.applies_to_ticket_types.all(),
-            *promo.unlocks_ticket_types.all(),
-        ]:
-            if ticket_type.event_id != source.id:
-                raise ValueError(
-                    _(
-                        "Promo code '%(name)s' refers to ticket type '%(other)s' from another event."
-                    )
-                    % {"name": promo.code, "other": ticket_type.name}
-                )
-
-
 def _shift_iso(value: str | None, delta: timedelta) -> str | None:
     # Export gives fixed offsets; shift on the Stockholm wall clock instead.
     if value is None:
@@ -223,9 +180,9 @@ def copy_event_with_warnings(
     references. Registrations, attendees, tickets and check-ins are never
     copied, `PromoCode.uses_count` starts over and sessions start inactive.
     A registration window that would be open or past after the shift is
-    dropped (self-serve off). Raises ValueError for a source that refers to
-    another event's rows and `event_spec.SpecError` for a setup the spec rules
-    refuse, including one over the spec's row caps (`MAX_ROWS`).
+    dropped (self-serve off). Raises `event_spec.SpecError` for a source that
+    refers to another event's rows and for a setup the spec rules refuse,
+    including one over the spec's row caps (`MAX_ROWS`).
     Returns the new event and the spec warnings.
     """
     # Imported here: event_spec imports this module.

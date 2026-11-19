@@ -161,9 +161,6 @@ class EventAdmin(admin.ModelAdmin):
                         name=form.cleaned_data["name"],
                         start_date=form.cleaned_data["start_date"],
                     )
-                except ValueError as exc:
-                    self.message_user(request, str(exc), messages.ERROR)
-                    return None
                 except SpecError as exc:
                     self.message_user(
                         request,

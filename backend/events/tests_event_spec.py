@@ -5,11 +5,13 @@ from datetime import UTC, date, datetime
 from unittest.mock import patch
 
 from django.core.exceptions import ValidationError
+from django.db import transaction
 from django.test import SimpleTestCase, TestCase
 from django.utils import translation
 
 from events.event_spec import (
     EventSpec,
+    SpecError,
     capabilities,
     example_spec,
     export,
@@ -663,19 +665,38 @@ class ExportTests(TestCase):
         errors, _ = check(spec)
         self.assertIn("ticket_types[0].price", by_path(errors))
 
-    def test_export_refuses_cross_event_references(self):
+    def test_export_refuses_every_kind_of_cross_event_reference(self):
         other = Event.objects.create(
             name="Other", start_date=date(2027, 1, 1), end_date=date(2027, 1, 1)
         )
-        foreign = Session.objects.create(
+        session = Session.objects.create(
             event=other,
             name="Elsewhere",
             start_time=datetime(2027, 1, 1, 8, tzinfo=UTC),
             end_time=datetime(2027, 1, 1, 9, tzinfo=UTC),
         )
-        self.bundle.sessions.add(foreign)
-        with self.assertRaises(ValueError):
-            export(self.event)
+        ticket_type = TicketType.objects.create(event=other, name="Elsewhere", price=1)
+        promo = self.event.promo_codes.get()
+        links = {
+            "bundle session": lambda: self.bundle.sessions.add(session),
+            "required ticket type": lambda: TicketType.objects.filter(
+                pk=self.adult.pk
+            ).update(requires_ticket_type=ticket_type),
+            "extra session": lambda: Extra.objects.filter(pk=self.extra.pk).update(
+                session=session
+            ),
+            "promo applies to": lambda: promo.applies_to_ticket_types.add(ticket_type),
+            "promo unlocks": lambda: promo.unlocks_ticket_types.add(ticket_type),
+        }
+        for name, link in links.items():
+            with self.subTest(name), transaction.atomic():
+                link()
+                with self.assertRaises(SpecError) as raised:
+                    export(self.event)
+                error = raised.exception.errors[0]
+                self.assertEqual(error["code"], "cross_event_reference")
+                self.assertIn("Elsewhere", error["message"])
+                transaction.set_rollback(True)
 
     def test_export_of_empty_event(self):
         event = Event.objects.create(
