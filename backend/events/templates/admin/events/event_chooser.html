@@ -1,0 +1,27 @@
+{% extends "admin/base_site.html" %}
+{% load admin_urls %}
+
+{% block bodyclass %}{{ block.super }} app-{{ opts.app_label }} model-{{ opts.model_name }} event-chooser{% endblock %}
+
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+<a href="{% url 'admin:index' %}">&rsaquo;</a>
+<a href="{% url opts|admin_urlname:'changelist' %}">{{ opts.verbose_name_plural|capfirst }}</a>
+&rsaquo; {{ title }}
+</div>
+{% endblock %}
+
+{% block content %}
+<p>{{ intro }}</p>
+<form method="get" data-testid="event-chooser">
+{% for key, value in carried %}<input type="hidden" name="{{ key }}" value="{{ value }}">{% endfor %}
+<p>
+<label for="id_event">{{ event_label }}:</label>
+<select name="event" id="id_event" required>
+<option value="" selected>---------</option>
+{% for event in events %}<option value="{{ event.pk }}">{{ event.name }}</option>{% endfor %}
+</select>
+</p>
+<input type="submit" class="default" value="{{ button }}">
+</form>
+{% endblock %}

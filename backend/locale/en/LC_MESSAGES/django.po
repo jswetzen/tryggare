@@ -2108,9 +2108,6 @@ msgstr "Leave empty to offer the extra to everyone. Otherwise it is offered only
 msgid "Must belong to the same event: %(names)s."
 msgstr "Must belong to the same event: %(names)s."
 
-msgid "Save with the event chosen first, then pick here."
-msgstr "Save with the event chosen first, then pick here."
-
 msgid "The session must belong to the extra's event."
 msgstr "The session must belong to the extra's event."
 
@@ -2131,3 +2128,13 @@ msgstr "Deactivated because every ticket type in their gate was deleted: %(names
 
 msgid "No active ticket type in this extra's gate can be held by an attendee it applies to, so nobody can take it."
 msgstr "No active ticket type in this extra's gate can be held by an attendee it applies to, so nobody can take it."
+
+msgid "Choose the event first"
+msgstr "Choose the event first"
+
+msgid "Pick the event this belongs to. The next page then offers only that event's sessions and ticket types."
+msgstr "Pick the event this belongs to. The next page then offers only that event's sessions and ticket types."
+
+msgid "Continue"
+msgstr "Continue"
+

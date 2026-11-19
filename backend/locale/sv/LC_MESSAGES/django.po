@@ -2132,9 +2132,6 @@ msgstr "Lämna tomt för att erbjuda tillvalet till alla. Annars erbjuds det bar
 msgid "Must belong to the same event: %(names)s."
 msgstr "Måste tillhöra samma evenemang: %(names)s."
 
-msgid "Save with the event chosen first, then pick here."
-msgstr "Spara först med evenemanget valt och välj sedan här."
-
 msgid "The session must belong to the extra's event."
 msgstr "Sessionen måste tillhöra tillvalets evenemang."
 
@@ -2155,3 +2152,13 @@ msgstr "Inaktiverades eftersom alla biljettyper i deras villkor raderades: %(nam
 
 msgid "No active ticket type in this extra's gate can be held by an attendee it applies to, so nobody can take it."
 msgstr "Ingen aktiv biljettyp i det här tillvalets villkor kan innehas av en deltagare tillvalet gäller, så ingen kan välja det."
+
+msgid "Choose the event first"
+msgstr "Välj evenemang först"
+
+msgid "Pick the event this belongs to. The next page then offers only that event's sessions and ticket types."
+msgstr "Välj evenemanget detta hör till. Nästa sida visar då bara det evenemangets sessioner och biljettyper."
+
+msgid "Continue"
+msgstr "Fortsätt"
+

@@ -4,9 +4,10 @@ from django import forms
 from django.conf import settings
 from django.contrib import admin, messages
 from django.contrib.admin import helpers
-from django.core.exceptions import ObjectDoesNotExist
+from django.core.exceptions import ObjectDoesNotExist, ValidationError
 from django.db import transaction
-from django.http import Http404, HttpResponseRedirect
+from django.db.models import Q
+from django.http import Http404, HttpResponseRedirect, QueryDict
 from django.template.response import TemplateResponse
 from django.urls import path, reverse
 from django.utils.html import format_html, format_html_join
@@ -265,8 +266,19 @@ class EventAdmin(admin.ModelAdmin):
             )
 
 
+class EventLockedMixin:
+    """An existing row's event is read-only: moving it would leave references
+    to the old event's rows. Copy / duplicate are the supported ways."""
+
+    def get_readonly_fields(self, request, obj=None):
+        readonly = list(super().get_readonly_fields(request, obj))
+        if obj is not None and "event" not in readonly:
+            readonly.append("event")
+        return readonly
+
+
 @admin.register(Session)
-class SessionAdmin(admin.ModelAdmin):
+class SessionAdmin(EventLockedMixin, admin.ModelAdmin):
     list_display = (
         # The change-link column stays first. The rule columns used to come
         # right after it and, in Swedish at 1280px, pushed Active / Start time
@@ -1077,16 +1089,16 @@ class EventScopedFormMixin:
 
     ``event_scoped`` maps a field name to the model it picks from (which has an
     ``event`` FK). The event comes from the saved row, else the event chosen on
-    a failed submit, else the add form's initial. With none known (plain add
-    form) the picker is empty and says to save first. FK pickers are refused by
-    the narrowed queryset (the model's clean() is the backstop); M2M pickers
-    can't be checked before save, so clean() does it."""
+    a failed submit, else the add form's initial (EventScopedAdminMixin makes
+    sure one is there). Rows already linked stay listed so a legacy foreign
+    link is refused by name instead of silently dropped on re-save. FK pickers
+    are also covered by the model's clean(); M2M pickers are checked here."""
 
     event_scoped: dict = {}
 
     def _scoped_event_id(self):
         event_id = self.instance.event_id
-        if self.is_bound:
+        if self.is_bound and "event" in self.fields:
             try:
                 posted = self.fields["event"].to_python(
                     self.data.get(self.add_prefix("event"))
@@ -1097,33 +1109,37 @@ class EventScopedFormMixin:
         initial = self.initial.get("event")
         return event_id or getattr(initial, "pk", initial)
 
+    def _linked_pks(self, name):
+        if not self.instance.pk:
+            return []
+        value = getattr(self.instance, name)
+        if hasattr(value, "values_list"):
+            return list(value.values_list("pk", flat=True))
+        return [value.pk] if value is not None else []
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         event_id = self._scoped_event_id()
         for name, model in self.event_scoped.items():
             if name not in self.fields:
                 continue
-            field = self.fields[name]
-            if event_id:
-                field.queryset = model.objects.filter(event_id=event_id)
-            else:
-                field.queryset = model.objects.none()
-                field.help_text = "{} {}".format(
-                    field.help_text,
-                    _("Save with the event chosen first, then pick here."),
-                )
+            scope = Q(event_id=event_id) if event_id else Q(pk__in=[])
+            self.fields[name].queryset = model.objects.filter(
+                scope | Q(pk__in=self._linked_pks(name))
+            )
 
     def clean(self):
         cleaned = super().clean()
         event = cleaned.get("event")
-        if event is None:
+        event_id = event.id if event is not None else self.instance.event_id
+        if event_id is None:
             return cleaned
         errors = {}
         for name, model in self.event_scoped.items():
             value = cleaned.get(name)
             if value is None or isinstance(value, model):
                 continue
-            foreign = [str(o) for o in value if o.event_id != event.id]
+            foreign = [str(o) for o in value if o.event_id != event_id]
             if foreign:
                 errors[name] = _("Must belong to the same event: %(names)s.") % {
                     "names": ", ".join(foreign)
@@ -1131,6 +1147,53 @@ class EventScopedFormMixin:
         if errors:
             raise forms.ValidationError(errors)
         return cleaned
+
+
+class EventScopedAdminMixin(EventLockedMixin):
+    """The add form needs an event before its pickers can be filled, so a bare
+    add URL first shows an event chooser that reloads with ``?event=<id>``. The
+    event may also come from the changelist's event filter."""
+
+    def _chosen_event(self, request):
+        raw = request.GET.get("event") or QueryDict(
+            request.GET.get("_changelist_filters", "")
+        ).get("event__id__exact")
+        if not raw:
+            return None
+        try:
+            return Event.objects.filter(pk=raw).first()
+        except (ValidationError, ValueError):
+            return None
+
+    def get_changeform_initial_data(self, request):
+        initial = super().get_changeform_initial_data(request)
+        event = self._chosen_event(request)
+        if event is not None:
+            initial["event"] = event.pk
+        return initial
+
+    def add_view(self, request, form_url="", extra_context=None):
+        if request.method == "GET" and self._chosen_event(request) is None:
+            return self._event_chooser(request)
+        return super().add_view(request, form_url, extra_context)
+
+    def _event_chooser(self, request):
+        opts = self.model._meta
+        carried = [(k, v) for k, v in request.GET.items() if k != "event"]
+        context = {
+            **self.admin_site.each_context(request),
+            "opts": opts,
+            "title": _("Choose the event first"),
+            "intro": _(
+                "Pick the event this belongs to. The next page then offers "
+                "only that event's sessions and ticket types."
+            ),
+            "events": Event.objects.order_by("-start_date"),
+            "carried": carried,
+            "event_label": _("Event"),
+            "button": _("Continue"),
+        }
+        return TemplateResponse(request, "admin/events/event_chooser.html", context)
 
 
 class TicketTypeAdminForm(EventScopedFormMixin, forms.ModelForm):
@@ -1149,6 +1212,12 @@ class TicketTypeAdminForm(EventScopedFormMixin, forms.ModelForm):
         model = TicketType
         fields = "__all__"
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if self.instance.pk and "requires_ticket_type" in self.fields:
+            field = self.fields["requires_ticket_type"]
+            field.queryset = field.queryset.exclude(pk=self.instance.pk)
+
     def clean(self):
         cleaned_data = super().clean()
         if cleaned_data.get(
@@ -1161,7 +1230,7 @@ class TicketTypeAdminForm(EventScopedFormMixin, forms.ModelForm):
 
 
 @admin.register(TicketType)
-class TicketTypeAdmin(admin.ModelAdmin):
+class TicketTypeAdmin(EventScopedAdminMixin, admin.ModelAdmin):
     form = TicketTypeAdminForm
     list_display = (
         "name",
@@ -1251,7 +1320,7 @@ class PromoCodeAdminForm(EventScopedFormMixin, forms.ModelForm):
 
 
 @admin.register(PromoCode)
-class PromoCodeAdmin(admin.ModelAdmin):
+class PromoCodeAdmin(EventScopedAdminMixin, admin.ModelAdmin):
     list_display = (
         "code",
         "event",
@@ -1291,7 +1360,7 @@ class ExtraAdminForm(EventScopedFormMixin, forms.ModelForm):
 
 
 @admin.register(Extra)
-class ExtraAdmin(admin.ModelAdmin):
+class ExtraAdmin(EventScopedAdminMixin, admin.ModelAdmin):
     form = ExtraAdminForm
     list_display = (
         "name",

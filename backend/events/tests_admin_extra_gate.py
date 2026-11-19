@@ -224,11 +224,11 @@ class EventScopedAdminTests(NonManifestStaticfilesTestCase, TestCase):
         self.assertIn("requires_ticket_type", ctx.exception.error_dict)
 
     def test_ticket_type_change_form_is_narrowed(self):
+        sibling = TicketType.objects.create(event=self.event, name="Sibling", price=1)
         form = self.form_for("tickettype", self.mine_t)
         self.assertEqual(list(form.fields["sessions"].queryset), [self.mine_s])
-        self.assertEqual(
-            list(form.fields["requires_ticket_type"].queryset), [self.mine_t]
-        )
+        # Its own event's other types only: not the row itself, not a foreign one.
+        self.assertEqual(list(form.fields["requires_ticket_type"].queryset), [sibling])
 
     def test_ticket_type_form_refuses_foreign_session_and_requirement(self):
         data = {
@@ -269,15 +269,123 @@ class EventScopedAdminTests(NonManifestStaticfilesTestCase, TestCase):
         self.assertFalse(form.is_valid())
         self.assertIn("Foreign pass", str(form.errors["applies_to_ticket_types"]))
 
-    def test_add_form_without_event_offers_nothing_and_says_so(self):
-        response = self.client.get(reverse("admin:events_extra_add"))
-        field = response.context["adminform"].form.fields["session"]
-        self.assertEqual(list(field.queryset), [])
-        self.assertIn("Save", str(field.help_text))
+    ADD_URLS = ("extra", "tickettype", "promocode")
 
-    def test_add_form_with_event_in_the_url_is_narrowed(self):
+    def test_add_without_event_shows_the_chooser(self):
+        for name in self.ADD_URLS:
+            with self.subTest(name):
+                response = self.client.get(reverse(f"admin:events_{name}_add"))
+                self.assertEqual(response.status_code, 200)
+                self.assertContains(response, 'data-testid="event-chooser"')
+                self.assertContains(response, self.event.name)
+
+    def test_chooser_with_a_bad_event_is_shown_again(self):
         response = self.client.get(
-            reverse("admin:events_extra_add"), {"event": self.event.pk}
+            reverse("admin:events_extra_add"), {"event": "not-a-uuid"}
         )
-        field = response.context["adminform"].form.fields["session"]
-        self.assertEqual(list(field.queryset), [self.mine_s])
+        self.assertContains(response, 'data-testid="event-chooser"')
+
+    def test_chooser_carries_other_query_params(self):
+        response = self.client.get(reverse("admin:events_extra_add"), {"_popup": "1"})
+        self.assertContains(response, 'name="_popup" value="1"')
+
+    def test_add_with_event_is_narrowed_and_preselected(self):
+        for name, fields in (
+            ("extra", ["session", "ticket_types"]),
+            ("tickettype", ["sessions"]),
+            ("promocode", ["applies_to_ticket_types", "unlocks_ticket_types"]),
+        ):
+            response = self.client.get(
+                reverse(f"admin:events_{name}_add"), {"event": self.event.pk}
+            )
+            form = response.context["adminform"].form
+            self.assertEqual(form.initial["event"], self.event.pk)
+            for field in fields:
+                with self.subTest(name=name, field=field):
+                    ids = {o.event_id for o in form.fields[field].queryset}
+                    self.assertEqual(ids, {self.event.pk})
+
+    def test_add_takes_the_event_from_the_changelist_filter(self):
+        url = reverse("admin:events_extra_add")
+        response = self.client.get(
+            url, {"_changelist_filters": f"event__id__exact={self.other.pk}"}
+        )
+        self.assertNotContains(response, 'data-testid="event-chooser"')
+        form = response.context["adminform"].form
+        self.assertEqual(list(form.fields["session"].queryset), [self.foreign_s])
+
+    def test_failed_add_submit_keeps_the_posted_events_pickers(self):
+        response = self.client.post(
+            reverse("admin:events_extra_add"),
+            {"event": self.event.pk, "name": "", "price": "0", "applies_to": "either"},
+        )
+        self.assertEqual(response.status_code, 200)
+        form = response.context["adminform"].form
+        self.assertTrue(form.errors)
+        self.assertEqual(list(form.fields["session"].queryset), [self.mine_s])
+
+    def test_session_bundle_ticket_type_is_created_in_one_submit(self):
+        response = self.client.post(
+            reverse("admin:events_tickettype_add"),
+            {
+                "event": self.event.pk,
+                "name": "Day pass",
+                "price": "10",
+                "applies_to": "either",
+                "kind": TicketType.Kind.SESSION_BUNDLE,
+                "sort_order": 0,
+                "is_active": "on",
+                "sessions": [self.mine_s.pk],
+            },
+        )
+        self.assertEqual(response.status_code, 302, getattr(response, "context", None))
+        made = TicketType.objects.get(name="Day pass")
+        self.assertEqual(list(made.sessions.all()), [self.mine_s])
+
+    def test_event_is_read_only_on_change_forms(self):
+        for name, obj in (
+            ("extra", self.extra),
+            ("tickettype", self.mine_t),
+            ("promocode", self.promo),
+            ("session", self.mine_s),
+        ):
+            with self.subTest(name):
+                form = self.form_for(name, obj)
+                self.assertNotIn("event", form.fields)
+
+    def test_moving_a_row_to_another_event_is_ignored(self):
+        self.client.post(
+            reverse("admin:events_extra_change", args=[self.extra.pk]),
+            {
+                "event": self.other.pk,
+                "name": "Dinner",
+                "price": "0",
+                "applies_to": "either",
+                "sort_order": 0,
+                "choices-TOTAL_FORMS": 0,
+                "choices-INITIAL_FORMS": 0,
+            },
+        )
+        self.extra.refresh_from_db()
+        self.assertEqual(self.extra.event_id, self.event.pk)
+
+    def test_resaving_a_legacy_foreign_link_names_it(self):
+        self.extra.session = self.foreign_s
+        self.extra.save()
+        self.extra.ticket_types.add(self.foreign_t)
+        form = ExtraAdminForm(
+            data={
+                "name": "Dinner",
+                "price": "0",
+                "applies_to": "either",
+                "sort_order": 0,
+                "session": self.foreign_s.pk,
+                "ticket_types": [self.foreign_t.pk],
+            },
+            instance=self.extra,
+        )
+        # Still listed, so the refusal is by name rather than "invalid choice".
+        self.assertIn(self.foreign_t, form.fields["ticket_types"].queryset)
+        self.assertFalse(form.is_valid())
+        self.assertIn("Foreign pass", str(form.errors["ticket_types"]))
+        self.assertIn("session", form.errors)
