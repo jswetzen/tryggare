@@ -289,7 +289,8 @@ export interface RegistrationSpecSession {
 export interface RegistrationFormField {
   key: string;
   visible: boolean;
-  // The server's rule (backend/registrations/form_spec.py), not the page's.
+  // What the form requires (backend/registrations/form_spec.py), which is
+  // not always what the server requires.
   required: boolean;
 }
 
@@ -328,7 +329,8 @@ export interface RegistrationParentPayload {
 export interface RegistrationChildPayload {
   first_name: string;
   last_name?: string;
-  birthdate?: string;
+  // null (never "") when not entered: the server rejects an empty date string.
+  birthdate?: string | null;
   allergies?: string;
   notes?: string;
   health_consent_status?: 'not_applicable' | 'granted' | 'declined';

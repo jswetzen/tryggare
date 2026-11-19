@@ -59,6 +59,8 @@
     declinedNoteKey = 'checkin.healthInfoDeclinedNote',
     noticeLinkHref = undefined,
     noticeLinkLabelKey = 'register.privacyLink',
+    showAllergies = true,
+    showNotes = true,
     canEdit = true,
     hasSafetyInfo = false,
     revealed = false,
@@ -80,6 +82,9 @@
     declinedNoteKey?: string;
     noticeLinkHref?: string;
     noticeLinkLabelKey?: string;
+    /** The public form's spec can hide either free-text field. */
+    showAllergies?: boolean;
+    showNotes?: boolean;
     /** False = read-behind-reveal (see the component docstring). */
     canEdit?: boolean;
     /** The record carries allergy/medical text, whether or not it's shown. */
@@ -208,6 +213,7 @@
       {$_(attestLabelKey)}
     </label>
 
+    {#if showAllergies}
     <div>
       <label for={`${testIdPrefix}-allergies-${idPrefix}`} class="block text-xs text-neutral-600 mb-1">
         {$_('checkin.childAllergies')} <span class="text-neutral-400 text-xs">({$_('checkin.optional')})</span>
@@ -220,7 +226,9 @@
         class="w-full px-2 py-1.5 text-sm border border-neutral-300 rounded focus:outline-none focus:ring-2 focus:ring-primary-500"
       />
     </div>
+    {/if}
 
+    {#if showNotes}
     <div>
       <label for={`${testIdPrefix}-notes-${idPrefix}`} class="block text-xs text-neutral-600 mb-1">
         {$_('checkin.childNotes')} <span class="text-neutral-400 text-xs">({$_('checkin.optional')})</span>
@@ -233,6 +241,7 @@
         class="w-full px-2 py-1.5 text-sm border border-neutral-300 rounded focus:outline-none focus:ring-2 focus:ring-primary-500"
       ></textarea>
     </div>
+    {/if}
   </div>
 {:else if status === 'declined'}
   <p class="text-xs text-neutral-500 italic">{$_(declinedNoteKey)}</p>

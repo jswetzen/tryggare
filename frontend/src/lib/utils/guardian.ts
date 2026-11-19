@@ -113,9 +113,12 @@ export function problemDomRank(id: string): [number, number, number] {
     return [1, -1, 0];
   }
   const parentFields = [
+    // Same order as the card, which follows the form spec's field order.
     'parent-first-name-',
-    'parent-relationship-',
+    'parent-last-name-',
     'parent-phone-',
+    'parent-email-',
+    'parent-relationship-',
     'parent-ticket-type-',
     'parent-extra-',
     'parent-consent-',

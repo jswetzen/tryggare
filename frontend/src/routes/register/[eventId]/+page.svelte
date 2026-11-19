@@ -28,7 +28,7 @@
   } from '$lib/api/client';
   import type {
     PromoCodeValidation,
-    RegistrationEventInfo,
+    RegistrationFormSpec,
     RegistrationExtraInfo,
     RegistrationExtraSelectionPayload,
     RegistrationSubmitPayload,
@@ -39,6 +39,16 @@
   import Button from '$lib/components/ui/Button.svelte';
   import Icon from '$lib/components/ui/Icon.svelte';
   import Alert from '$lib/components/ui/Alert.svelte';
+  import PersonFields from '$lib/components/registrations/PersonFields.svelte';
+  import {
+    applicablePersonExtras,
+    applicableTicketTypes,
+    isFieldRequired,
+    isFieldVisible,
+    reconcileSelections,
+    registrationExtras,
+    type ExtraSelectionState
+  } from '$lib/registration/formSpec';
   import { isValidPhone } from '$lib/utils/phone';
   import {
     GUARDIAN_ONLY_VALUE,
@@ -48,12 +58,6 @@
   } from '$lib/utils/guardian';
 
   type HealthConsentStatus = 'not_applicable' | 'granted' | 'declined';
-
-  interface ExtraSelectionState {
-    selected: boolean;
-    choiceId: string;
-    quantity: number;
-  }
 
   interface ParentRow {
     first_name: string;
@@ -202,7 +206,7 @@
       month: 'long',
       year: 'numeric'
     });
-    const asOfIso = eventInfo?.start_date ?? todayIso;
+    const asOfIso = spec?.start_date ?? todayIso;
     const age = ageAt(birthdateIso, asOfIso);
     return $t('register.birthdateProse', { values: { date: dateStr, age } });
   }
@@ -258,7 +262,7 @@
     };
   }
 
-  let eventInfo = $state<RegistrationEventInfo | null>(null);
+  let spec = $state<RegistrationFormSpec | null>(null);
   let loadingEvent = $state(true);
   let eventNotFound = $state(false);
 
@@ -291,7 +295,7 @@
   // already nulls promoCodeValidation on every keystroke — this exists for
   // clarity at the comparison site, not because the two can drift apart.
   let promoCodeAppliedValue = $state('');
-  // is_hidden ticket types merged into eventInfo.ticket_types by the last
+  // is_hidden ticket types merged into spec.ticket_types by the last
   // successful checkPromoCode (see its own comment) — tracked so
   // retractPromoUnlockedTicketTypes below knows exactly which entries to
   // remove again, and which attendee selections referencing them are now
@@ -493,7 +497,7 @@
   // mutates that state between a successful submit and this screen
   // rendering (handleEditEmail is the only thing that would, and it drops
   // `submitted` back to false first). Ticket name is resolved against
-  // eventInfo.ticket_types rather than stored on the row itself, same
+  // spec.ticket_types rather than stored on the row itself, same
   // lookup the form's own ticket <select>s already do.
   // extraLabels below (R2, increment 7 revision, 2026-09-29): the summary
   // used to list a ticket price per attendee while "Totalt" also folded in
@@ -518,7 +522,7 @@
     isChild: boolean
   ): string[] {
     const labels: string[] = [];
-    for (const extra of applicablePersonExtras(isChild)) {
+    for (const extra of applicablePersonExtras(spec, isChild)) {
       const label = extraSummaryLabel(extra, extraState(selections, extra));
       if (label) labels.push(label);
     }
@@ -530,7 +534,7 @@
   // repeated on every row.
   let registrationExtraLabels = $derived.by(() => {
     const labels: string[] = [];
-    for (const extra of registrationExtras()) {
+    for (const extra of registrationExtras(spec)) {
       const label = extraSummaryLabel(extra, extraState(registrationExtraSelections, extra));
       if (label) labels.push(label);
     }
@@ -542,15 +546,15 @@
   // exists, even one this form cannot show). Only then does event.price apply,
   // once per registration.
   let isFlatEvent = $derived(
-    !!eventInfo && eventInfo.ticket_types.length === 0 && !eventInfo.has_hidden_ticket_types
+    !!spec && spec.ticket_types.length === 0 && !spec.has_hidden_ticket_types
   );
 
   // The one price of a paid flat event, or 0. Decided by the price itself, not
   // is_paid: the backend charges event.price whenever it is positive, and a
   // free flat event must show no total at all.
   let flatPrice = $derived.by(() => {
-    if (!isFlatEvent || !eventInfo?.price) return 0;
-    const value = parseFloat(eventInfo.price);
+    if (!isFlatEvent || !spec?.price) return 0;
+    const value = parseFloat(spec.price);
     return Number.isFinite(value) && value > 0 ? value : 0;
   });
 
@@ -576,7 +580,7 @@
     }[] = [];
     parents.forEach((p, i) => {
       if (!p.first_name.trim()) return;
-      const ticketType = eventInfo?.ticket_types.find((tt) => tt.id === p.ticketTypeId) ?? null;
+      const ticketType = spec?.ticket_types.find((tt) => tt.id === p.ticketTypeId) ?? null;
       rows.push({
         label: parentAttendeeLabel(p, i),
         ticketName: ticketType?.name ?? null,
@@ -591,7 +595,7 @@
       });
     });
     children.forEach((c, i) => {
-      const ticketType = eventInfo?.ticket_types.find((tt) => tt.id === c.ticketTypeId) ?? null;
+      const ticketType = spec?.ticket_types.find((tt) => tt.id === c.ticketTypeId) ?? null;
       rows.push({
         label: childAttendeeLabel(c, i),
         ticketName: ticketType?.name ?? null,
@@ -607,8 +611,8 @@
   // condition below), so the success screen never claims a "Total" for an
   // event that never showed one during the form itself.
   let hasTicketPricing = $derived(
-    !!eventInfo &&
-      (eventInfo.ticket_types.length > 0 || eventInfo.is_paid || eventInfo.has_hidden_ticket_types)
+    !!spec &&
+      (spec.ticket_types.length > 0 || spec.is_paid || spec.has_hidden_ticket_types)
   );
 
   // Clipboard write is feature-detected rather than assumed — jsdom (this
@@ -748,7 +752,7 @@
 
   onMount(async () => {
     try {
-      eventInfo = await registrationApi.getEvent(eventId);
+      spec = await registrationApi.getEvent(eventId);
     } catch (err) {
       console.error('Failed to load event info:', err);
       eventNotFound = true;
@@ -756,6 +760,72 @@
       loadingEvent = false;
     }
   });
+
+  // Preview only: re-fetch the spec and swap it in, keeping what was typed.
+  // Selections that point at things the new spec no longer offers are
+  // cleared and listed in one notice. An applied promo code is re-validated
+  // first (its unlocked hidden types are merged into the new spec), and
+  // dropped with a note when it no longer validates.
+  let reloading = $state(false);
+  let reloadFailed = $state(false);
+  let reloadNotice = $state<string[]>([]);
+
+  async function handleReloadSpec() {
+    if (reloading || !spec) return;
+    reloading = true;
+    reloadFailed = false;
+    reloadNotice = [];
+    try {
+      let next = await registrationApi.getEvent(eventId);
+      const notice: string[] = [];
+
+      if (promoCodeValidation?.valid && promoCodeAppliedValue) {
+        const code = promoCodeAppliedValue;
+        let result: PromoCodeValidation | null = null;
+        try {
+          result = await registrationApi.validatePromoCode(eventId, code);
+        } catch (err) {
+          console.error('Promo code re-validation failed:', err);
+        }
+        if (result?.valid) {
+          const have = new Set(next.ticket_types.map((tt) => tt.id));
+          const unlocked = (result.unlocks_ticket_types ?? []).filter((tt) => !have.has(tt.id));
+          next = { ...next, ticket_types: [...next.ticket_types, ...unlocked] };
+          promoCodeValidation = result;
+          promoCodeUnlockedIds = unlocked.map((tt) => tt.id);
+        } else {
+          promoCode = '';
+          promoCodeValidation = null;
+          promoCodeAppliedValue = '';
+          promoCodeUnlockedIds = [];
+          notice.push($t('register.reloadPromoCleared', { values: { code } }));
+        }
+      }
+
+      const reconciled = reconcileSelections(
+        { spec, parents, children, registrationExtraSelections },
+        next
+      );
+      const kindLabel = {
+        ticketType: 'register.reloadKindTicketType',
+        extra: 'register.reloadKindExtra',
+        extraChoice: 'register.reloadKindExtraChoice'
+      } as const;
+      for (const item of reconciled.cleared) {
+        notice.push(`${$t(kindLabel[item.kind])}: ${item.name}`);
+      }
+      spec = next;
+      parents = reconciled.parents;
+      children = reconciled.children;
+      registrationExtraSelections = reconciled.registrationExtraSelections;
+      reloadNotice = notice;
+    } catch (err) {
+      console.error('Reloading the form config failed:', err);
+      reloadFailed = true;
+    } finally {
+      reloading = false;
+    }
+  }
 
   // True for a parent row that is a responsible adult but NOT attending
   // (owner decision d9245e21): the guardian chose "no ticket, guardian only"
@@ -766,25 +836,7 @@
   // them, so none may be sent, priced, required or even asked for.
   function parentGuardianOnly(p: ParentRow): boolean {
     if (p.guardianOnly) return true;
-    return !!eventInfo && eventInfo.ticket_types.length > 0 && applicableTicketTypes(false).length === 0;
-  }
-
-  function applicableTicketTypes(isChild: boolean) {
-    if (!eventInfo) return [];
-    const kind = isChild ? 'child' : 'parent';
-    return eventInfo.ticket_types.filter((tt) => tt.applies_to === kind || tt.applies_to === 'either');
-  }
-
-  function applicablePersonExtras(isChild: boolean): RegistrationExtraInfo[] {
-    if (!eventInfo) return [];
-    const kind = isChild ? 'child' : 'parent';
-    return eventInfo.extras.filter(
-      (extra) => extra.per_attendee && (extra.applies_to === kind || extra.applies_to === 'either')
-    );
-  }
-
-  function registrationExtras(): RegistrationExtraInfo[] {
-    return eventInfo ? eventInfo.extras.filter((extra) => !extra.per_attendee) : [];
+    return !!spec && spec.ticket_types.length > 0 && applicableTicketTypes(spec, false).length === 0;
   }
 
   function extraState(
@@ -881,8 +933,8 @@
   }
 
   function suggestChildTicketType(child: ChildRow) {
-    if (!eventInfo || child.ticketTypeId || !child.birthdate) return;
-    const candidates = applicableTicketTypes(true).filter(
+    if (!spec || child.ticketTypeId || !child.birthdate) return;
+    const candidates = applicableTicketTypes(spec, true).filter(
       (tt) =>
         (!tt.min_birthdate || child.birthdate >= tt.min_birthdate) &&
         (!tt.max_birthdate || child.birthdate <= tt.max_birthdate) &&
@@ -927,7 +979,7 @@
   // These selects used to be bind:value, which desyncs from state when the
   // option list changes (a promo code unlocking/retracting a hidden ticket
   // type, via checkPromoCode/retractPromoUnlockedTicketTypes reassigning
-  // eventInfo.ticket_types) while the select is focused: svelte 5.43.14's
+  // spec.ticket_types) while the select is focused: svelte 5.43.14's
   // bind_select_value only writes select.__value from its own state→DOM
   // effect, which early-returns when the change came from the select's own
   // focused batch, so __value sticks at the value the select had at mount
@@ -1050,15 +1102,15 @@
     // An invalid birthdate (see birthdateRangeInvalid) was never a real
     // date to check tickets against — don't let it masquerade as a ticket
     // problem.
-    if (!child.ticketTypeId || !child.birthdate || !eventInfo || child.birthdateRangeInvalid) {
+    if (!child.ticketTypeId || !child.birthdate || !spec || child.birthdateRangeInvalid) {
       return null;
     }
-    const ticketType = eventInfo.ticket_types.find((tt) => tt.id === child.ticketTypeId);
+    const ticketType = spec.ticket_types.find((tt) => tt.id === child.ticketTypeId);
     if (!ticketType || childTicketEligible(ticketType, child.birthdate)) return null;
     if (nameStatesAgeRange(ticketType.name)) {
       return $t('register.ticketTypeIneligibleWarningNoRange', { values: { name: ticketType.name } });
     }
-    const asOfIso = eventInfo.start_date ?? todayIso;
+    const asOfIso = spec.start_date ?? todayIso;
     const range = ticketAgeRangeLabel(ticketType, asOfIso);
     return $t('register.ticketTypeIneligibleWarning', { values: { name: ticketType.name, range } });
   }
@@ -1126,10 +1178,10 @@
   });
 
   function ticketCompositionWarning(ticketTypeId: string): string | null {
-    if (!eventInfo || !ticketTypeId) return null;
-    const ticketType = eventInfo.ticket_types.find((tt) => tt.id === ticketTypeId);
+    if (!spec || !ticketTypeId) return null;
+    const ticketType = spec.ticket_types.find((tt) => tt.id === ticketTypeId);
     if (!ticketType?.requires_ticket_type_id) return null;
-    const requiredType = eventInfo.ticket_types.find(
+    const requiredType = spec.ticket_types.find(
       (tt) => tt.id === ticketType.requires_ticket_type_id
     );
     const requiredName = requiredType?.name ?? '';
@@ -1192,8 +1244,8 @@
   // childSelectedTicketWarning's — this has no birthdate/eligibility
   // precondition to check first.
   function ticketSoldOutWarning(ticketTypeId: string): string | null {
-    if (!eventInfo || !ticketTypeId) return null;
-    const ticketType = eventInfo.ticket_types.find((tt) => tt.id === ticketTypeId);
+    if (!spec || !ticketTypeId) return null;
+    const ticketType = spec.ticket_types.find((tt) => tt.id === ticketTypeId);
     if (!ticketType || ticketType.available) return null;
     return $t('register.ticketSoldOutWarning', { values: { name: ticketType.name } });
   }
@@ -1203,8 +1255,8 @@
   // case: the full sentence lives in ticketCompositionWarning below the
   // select, this stays short so the option row doesn't wrap.
   function ticketCompositionOptionMarker(ticketType: RegistrationTicketType): string {
-    if (!eventInfo || !ticketType.requires_ticket_type_id) return '';
-    const requiredType = eventInfo.ticket_types.find(
+    if (!spec || !ticketType.requires_ticket_type_id) return '';
+    const requiredType = spec.ticket_types.find(
       (tt) => tt.id === ticketType.requires_ticket_type_id
     );
     const requiredName = requiredType?.name ?? '';
@@ -1238,7 +1290,7 @@
       return `${base} (${$t('register.ticketSoldOutMarker')})`;
     }
     if (!childTicketEligible(ticketType, birthdate)) {
-      const asOfIso = eventInfo?.start_date ?? todayIso;
+      const asOfIso = spec?.start_date ?? todayIso;
       const range = ticketAgeRangeLabel(ticketType, asOfIso);
       return range ? `${base} (${range})` : base;
     }
@@ -1250,26 +1302,26 @@
   }
 
   let runningTotal = $derived.by(() => {
-    if (!eventInfo) return 0;
+    if (!spec) return 0;
     let total = 0;
     for (const parent of parents) {
       // Guardian-only: no ticket and no extras, so nothing to price (required
       // extras would otherwise still count via extraState's selected default).
       if (parentGuardianOnly(parent)) continue;
-      const ticketType = eventInfo.ticket_types.find((tt) => tt.id === parent.ticketTypeId);
+      const ticketType = spec.ticket_types.find((tt) => tt.id === parent.ticketTypeId);
       if (ticketType) total += parseFloat(ticketType.price);
-      for (const extra of applicablePersonExtras(false)) {
+      for (const extra of applicablePersonExtras(spec, false)) {
         total += priceOf(extra, extraState(parent.extraSelections, extra));
       }
     }
     for (const child of children) {
-      const ticketType = eventInfo.ticket_types.find((tt) => tt.id === child.ticketTypeId);
+      const ticketType = spec.ticket_types.find((tt) => tt.id === child.ticketTypeId);
       if (ticketType) total += parseFloat(ticketType.price);
-      for (const extra of applicablePersonExtras(true)) {
+      for (const extra of applicablePersonExtras(spec, true)) {
         total += priceOf(extra, extraState(child.extraSelections, extra));
       }
     }
-    for (const extra of registrationExtras()) {
+    for (const extra of registrationExtras(spec)) {
       total += priceOf(extra, extraState(registrationExtraSelections, extra));
     }
     return total;
@@ -1310,11 +1362,11 @@
   // the guardian can knowingly keep; a retracted hidden type is not an
   // option at all anymore, so nothing legitimate is being erased.
   function retractPromoUnlockedTicketTypes() {
-    if (promoCodeUnlockedIds.length === 0 || !eventInfo) return;
+    if (promoCodeUnlockedIds.length === 0 || !spec) return;
     const removed = new Set(promoCodeUnlockedIds);
-    eventInfo = {
-      ...eventInfo,
-      ticket_types: eventInfo.ticket_types.filter((tt) => !removed.has(tt.id))
+    spec = {
+      ...spec,
+      ticket_types: spec.ticket_types.filter((tt) => !removed.has(tt.id))
     };
     for (const parent of parents) {
       if (removed.has(parent.ticketTypeId)) parent.ticketTypeId = '';
@@ -1332,7 +1384,7 @@
     promoCodeAppliedValue = '';
     promoRemovalMessage = '';
     retractPromoUnlockedTicketTypes();
-    if (!code || !eventInfo) return;
+    if (!code || !spec) return;
 
     promoCodeChecking = true;
     try {
@@ -1347,10 +1399,10 @@
       // merging them into the local list — applicableTicketTypes/
       // suggestChildTicketType then pick them up with no further changes.
       const unlocked = result.unlocks_ticket_types ?? [];
-      const existingIds = new Set(eventInfo.ticket_types.map((tt) => tt.id));
+      const existingIds = new Set(spec.ticket_types.map((tt) => tt.id));
       const newlyUnlocked = unlocked.filter((tt) => !existingIds.has(tt.id));
       if (newlyUnlocked.length > 0) {
-        eventInfo = { ...eventInfo, ticket_types: [...eventInfo.ticket_types, ...newlyUnlocked] };
+        spec = { ...spec, ticket_types: [...spec.ticket_types, ...newlyUnlocked] };
         promoCodeUnlockedIds = newlyUnlocked.map((tt) => tt.id);
       }
     } catch (err) {
@@ -1401,8 +1453,8 @@
   // ParentRow/ChildRow.promoReset for where this lands in the UI.
   function handleRemovePromoCode() {
     const removedIds = new Set(promoCodeUnlockedIds);
-    const removedNames = eventInfo
-      ? eventInfo.ticket_types.filter((tt) => removedIds.has(tt.id)).map((tt) => tt.name)
+    const removedNames = spec
+      ? spec.ticket_types.filter((tt) => removedIds.has(tt.id)).map((tt) => tt.name)
       : [];
     const affectedParents = parents
       .map((p, i) => (removedIds.has(p.ticketTypeId) ? i : -1))
@@ -1438,7 +1490,7 @@
   // scoping rule — the server recomputes and snapshots the real discount
   // from scratch at submission, this never gets trusted for the charge.
   let discountAmount = $derived.by(() => {
-    if (!promoCodeValidation?.valid || !eventInfo) return 0;
+    if (!promoCodeValidation?.valid || !spec) return 0;
     const scopedIds = promoCodeValidation.applies_to_ticket_type_ids ?? [];
 
     // Flat paid event: the backend's base is event.price (once per
@@ -1450,7 +1502,7 @@
       base = 0;
       for (const row of [...parents, ...children]) {
         if (!scopedSet.has(row.ticketTypeId)) continue;
-        const ticketType = eventInfo.ticket_types.find((tt) => tt.id === row.ticketTypeId);
+        const ticketType = spec.ticket_types.find((tt) => tt.id === row.ticketTypeId);
         if (ticketType) base += parseFloat(ticketType.price);
       }
     }
@@ -1558,7 +1610,13 @@
     }
 
     children.forEach((child, index) => {
-      if (!child.first_name.trim() || !child.last_name.trim() || !child.birthdate.trim()) {
+      const blank = (key: string, value: string) =>
+        isFieldRequired(spec, 'child', key) && !value.trim();
+      if (
+        blank('first_name', child.first_name) ||
+        blank('last_name', child.last_name) ||
+        blank('birthdate', child.birthdate)
+      ) {
         problems.push({
           id: `child-info-${index}`,
           message: $t('register.childInfoIncomplete', {
@@ -1631,19 +1689,35 @@
       // Phone is required for every guardian (owner decision eb5d26f4,
       // child safety), whether or not this person holds a ticket.
       if (!p.phone.trim()) {
-        problems.push({
-          id: `parent-phone-${index}`,
-          message: $t('register.parentPhoneRequired', {
-            values: { name: parentAttendeeLabel(p, index) }
-          }),
-          focusSelector: `#parent-phone-${index}`
-        });
+        if (isFieldRequired(spec, 'parent', 'phone')) {
+          problems.push({
+            id: `parent-phone-${index}`,
+            message: $t('register.parentPhoneRequired', {
+              values: { name: parentAttendeeLabel(p, index) }
+            }),
+            focusSelector: `#parent-phone-${index}`
+          });
+        }
       } else if (!isValidPhone(p.phone)) {
         problems.push({
           id: `parent-phone-${index}`,
           message: $t('checkin.invalidPhone'),
           focusSelector: `#parent-phone-${index}`
         });
+      }
+      for (const [key, value, label] of [
+        ['last_name', p.last_name, 'checkin.parentLastName'],
+        ['email', p.email, 'checkin.parentEmail']
+      ] as const) {
+        if (isFieldRequired(spec, 'parent', key) && !value.trim()) {
+          problems.push({
+            id: `parent-${key === 'last_name' ? 'last-name' : key}-${index}`,
+            message: $t('register.parentFieldRequired', {
+              values: { field: $t(label), name: parentAttendeeLabel(p, index) }
+            }),
+            focusSelector: `#parent-${key === 'last_name' ? 'last-name' : key}-${index}`
+          });
+        }
       }
       if (!parentGuardianOnly(p) && p.healthInfoStatus === 'consented' && !p.consentNoticeShared) {
         problems.push({
@@ -1658,7 +1732,9 @@
     // above) — the parent must actively choose it. relationshipMissingAttempted
     // still drives each affected row's own inline caption/aria-invalid via
     // relationshipMissing; the banner line below is the same problem, named.
-    const parentsMissingRelationship = validParentEntries.filter(({ p }) => !p.relationship_type);
+    const parentsMissingRelationship = validParentEntries.filter(
+      ({ p }) => isFieldRequired(spec, 'parent', 'relationship_type') && !p.relationship_type
+    );
     if (parentsMissingRelationship.length > 0) {
       relationshipMissingAttempted = true;
       for (const { p, index } of parentsMissingRelationship) {
@@ -1672,7 +1748,7 @@
       }
     }
 
-    const requiresTicketType = !!eventInfo && eventInfo.ticket_types.length > 0;
+    const requiresTicketType = !!spec && spec.ticket_types.length > 0;
     if (requiresTicketType) {
       for (const { p, index } of validParentEntries) {
         // A guardian-only row deliberately has no ticket type — and neither
@@ -1704,7 +1780,7 @@
     for (const { p, index } of validParentEntries) {
       // No extras for a guardian-only row (none are offered, none are sent).
       if (parentGuardianOnly(p)) continue;
-      for (const extra of applicablePersonExtras(false)) {
+      for (const extra of applicablePersonExtras(spec, false)) {
         if (extra.required && extra.requires_choice && extraState(p.extraSelections, extra).choiceId === '') {
           problems.push({
             id: `parent-extra-${extra.id}-${index}`,
@@ -1717,7 +1793,7 @@
       }
     }
     children.forEach((child, index) => {
-      for (const extra of applicablePersonExtras(true)) {
+      for (const extra of applicablePersonExtras(spec, true)) {
         if (
           extra.required &&
           extra.requires_choice &&
@@ -1733,7 +1809,7 @@
         }
       }
     });
-    for (const extra of registrationExtras()) {
+    for (const extra of registrationExtras(spec)) {
       if (
         extra.required &&
         extra.requires_choice &&
@@ -1789,19 +1865,20 @@
         ...(parentGuardianOnly(p) ? { guardian_only: true } : {}),
         extras: parentGuardianOnly(p)
           ? []
-          : buildExtraSelections(p.extraSelections, applicablePersonExtras(false))
+          : buildExtraSelections(p.extraSelections, applicablePersonExtras(spec, false))
       })),
       children: children.map((child) => ({
         first_name: child.first_name.trim(),
         last_name: child.last_name.trim(),
-        birthdate: child.birthdate,
+        // The server rejects "" for a date; an unentered one is null.
+        birthdate: child.birthdate || null,
         allergies: child.healthInfoStatus === 'consented' ? child.allergies : '',
         notes: child.healthInfoStatus === 'consented' ? child.notes : '',
         health_consent_status: statusMap[child.healthInfoStatus],
         ticket_type: child.ticketTypeId || null,
-        extras: buildExtraSelections(child.extraSelections, applicablePersonExtras(true))
+        extras: buildExtraSelections(child.extraSelections, applicablePersonExtras(spec, true))
       })),
-      extras: buildExtraSelections(registrationExtraSelections, registrationExtras()),
+      extras: buildExtraSelections(registrationExtraSelections, registrationExtras(spec)),
       promo_code: promoCode.trim(),
       website,
       idempotency_key: idempotencyKey
@@ -2132,7 +2209,7 @@
 </script>
 
 <svelte:head>
-  <title>{eventInfo ? $t('register.pageTitle', { values: { event: eventInfo.name } }) : $t('register.heading', { values: { event: '' } })}</title>
+  <title>{spec ? $t('register.pageTitle', { values: { event: spec.name } }) : $t('register.heading', { values: { event: '' } })}</title>
 </svelte:head>
 
 <main class="container mx-auto p-6 max-w-2xl">
@@ -2140,35 +2217,35 @@
     <div class="bg-white border border-neutral-300 rounded-card p-6 shadow-sm text-center text-neutral-600">
       {$t('register.loadingEvent')}
     </div>
-  {:else if eventNotFound || !eventInfo}
+  {:else if eventNotFound || !spec}
     <div class="bg-white border border-neutral-300 rounded-card p-6 shadow-sm text-center">
       <p class="text-danger-700 font-semibold">{$t('register.eventNotFound')}</p>
     </div>
-  {:else if !isPreview && eventInfo.registration_window_status === 'not_open_yet'}
+  {:else if !isPreview && spec.registration_window_status === 'not_open_yet'}
     <div class="bg-white border border-neutral-300 rounded-card p-6 shadow-sm text-center" data-testid="register-not-open-yet">
       <h1 class="text-xl font-bold text-neutral-900 mb-2">{$t('register.notOpenYetTitle')}</h1>
       <p class="text-neutral-700">
         {$t('register.notOpenYetMessage', {
           values: {
-            event: eventInfo.name,
-            date: eventInfo.registration_opens_at ? formatDateTime(eventInfo.registration_opens_at) : ''
+            event: spec.name,
+            date: spec.registration_opens_at ? formatDateTime(spec.registration_opens_at) : ''
           }
         })}
       </p>
     </div>
-  {:else if !isPreview && eventInfo.registration_window_status === 'closed'}
+  {:else if !isPreview && spec.registration_window_status === 'closed'}
     <div class="bg-white border border-neutral-300 rounded-card p-6 shadow-sm text-center" data-testid="register-closed">
       <h1 class="text-xl font-bold text-neutral-900 mb-2">{$t('register.closedTitle')}</h1>
       <p class="text-neutral-700">
         {$t('register.closedMessage', {
           values: {
-            event: eventInfo.name,
-            date: eventInfo.registration_closes_at ? formatDateTime(eventInfo.registration_closes_at) : ''
+            event: spec.name,
+            date: spec.registration_closes_at ? formatDateTime(spec.registration_closes_at) : ''
           }
         })}
       </p>
     </div>
-  {:else if !isPreview && eventInfo.registration_window_status === 'not_configured'}
+  {:else if !isPreview && spec.registration_window_status === 'not_configured'}
     <div class="bg-white border border-neutral-300 rounded-card p-6 shadow-sm text-center" data-testid="register-not-configured">
       <h1 class="text-xl font-bold text-neutral-900 mb-2">{$t('register.notConfiguredTitle')}</h1>
       <p class="text-neutral-700">{$t('register.notConfiguredMessage')}</p>
@@ -2255,8 +2332,8 @@
       </h1>
       <p class="text-neutral-700 mb-3">
         {emailSent
-          ? $t('register.successIntro', { values: { event: eventInfo?.name ?? '' } })
-          : $t('register.successIntroNotSent', { values: { event: eventInfo?.name ?? '' } })}
+          ? $t('register.successIntro', { values: { event: spec?.name ?? '' } })
+          : $t('register.successIntroNotSent', { values: { event: spec?.name ?? '' } })}
       </p>
 
       <div
@@ -2363,13 +2440,13 @@
               })}
             </div>
           {/if}
-          {#if flatPrice > 0 && eventInfo}
+          {#if flatPrice > 0 && spec}
             <div
               class="flex items-center justify-between gap-3 px-4 py-2 text-sm text-neutral-700"
               data-testid="register-summary-flat-price"
             >
               <span>{$t('register.summaryFlatPrice')}</span>
-              <span>{formatCurrency(flatPrice)} {eventInfo.currency}</span>
+              <span>{formatCurrency(flatPrice)} {spec.currency}</span>
             </div>
           {/if}
           {#if discountAmount > 0}
@@ -2415,9 +2492,9 @@
       {/if}
     </div>
   {:else}
-    {#if eventInfo.header_image_url}
+    {#if spec.header_image_url}
       <img
-        src={eventInfo.header_image_url}
+        src={spec.header_image_url}
         alt=""
         class="w-full h-40 object-cover rounded-card border border-neutral-300 mb-4"
       />
@@ -2428,7 +2505,28 @@
         data-testid="register-preview-banner"
       >
         {$t('register.previewBanner')}
+        <div class="mt-2">
+          <Button size="sm" variant="secondary" onclick={handleReloadSpec} loading={reloading}>
+            {$t('register.reloadConfig')}
+          </Button>
+        </div>
       </div>
+      {#if reloadFailed}
+        <div class="mb-4" data-testid="register-reload-failed">
+          <Alert type="error">{$t('register.reloadFailed')}</Alert>
+        </div>
+      {/if}
+      {#if reloadNotice.length > 0}
+        <div class="mb-4" data-testid="register-reload-notice">
+          <Alert type="warning" title={$t('register.reloadClearedTitle')}>
+            <ul class="list-disc pl-5">
+              {#each reloadNotice as line}
+                <li>{line}</li>
+              {/each}
+            </ul>
+          </Alert>
+        </div>
+      {/if}
     {/if}
     <form
       on:submit={handleSubmit}
@@ -2452,16 +2550,16 @@
         "required"), they just no longer block the browser's default submit
         behavior.
       -->
-      <EyebrowLabel color={eventInfo.accent_color ?? undefined}>
-        {formatDateRange(eventInfo.start_date, eventInfo.end_date)}
+      <EyebrowLabel color={spec.accent_color ?? undefined}>
+        {formatDateRange(spec.start_date, spec.end_date)}
       </EyebrowLabel>
       <h1 class="text-2xl font-bold text-neutral-900 mb-1">
-        {$t('register.heading', { values: { event: eventInfo.name } })}
+        {$t('register.heading', { values: { event: spec.name } })}
       </h1>
       <p class="text-sm text-neutral-600 mb-1">{$t('register.introText')}</p>
-      {#if eventInfo.is_paid && eventInfo.price && eventInfo.ticket_types.length === 0}
+      {#if spec.is_paid && spec.price && spec.ticket_types.length === 0}
         <p class="text-sm font-semibold text-neutral-700 mb-4">
-          {$t('register.eventPriceNotice', { values: { amount: formatCurrency(eventInfo.price), currency: eventInfo.currency } })}
+          {$t('register.eventPriceNotice', { values: { amount: formatCurrency(spec.price), currency: spec.currency } })}
         </p>
       {/if}
 
@@ -2650,415 +2748,258 @@
                   </button>
                 {/if}
               </div>
-              <div class="grid grid-cols-2 gap-2 mb-2">
-                <div>
-                  <label for={`parent-first-name-${index}`} class="block text-xs text-neutral-600 mb-1">
-                    <!--
-                      Förälder 1 carries the star while the registration has a
-                      child: a guardian is required then (owner decision
-                      eb5d26f4, see handleSubmit). It is the *first* row that
-                      is asked for because any adult row counts, and this is
-                      the one every guardian sees first. Further rows are
-                      optional as a whole (a wholly untouched row is
-                      dropped), so no star — but a row with anything typed
-                      in it is asked for its name, see parentRowTouched.
-                    -->
-                    {$t('checkin.parentFirstName')}
-                    {#if index === 0 && children.length > 0}
-                      <span class="text-danger-600" aria-hidden="true">*</span>
-                    {/if}
-                  </label>
-                  <input
-                    id={`parent-first-name-${index}`}
-                    type="text"
-                    bind:value={parent.first_name}
-                    on:input={() => {
-                      clearSubmitProblem(`parent-first-name-${index}`);
-                      if (index === 0) clearSubmitProblem('guardian-required');
-                    }}
-                    placeholder={$t('checkin.parentFirstNamePlaceholder')}
-                    maxlength="255"
-                    required={index === 0 && children.length > 0}
-                    aria-required={index === 0 && children.length > 0 ? 'true' : undefined}
-                    aria-invalid={parentFirstNameProblem(index) ? 'true' : 'false'}
-                    aria-describedby={parentFirstNameProblem(index)
-                      ? `parent-first-name-problem-${index}`
-                      : undefined}
-                    class={`w-full px-2 py-1.5 text-sm border rounded-button focus:outline-none focus:ring-2 ${
-                      parentFirstNameProblem(index)
-                        ? 'border-danger-600 focus:ring-danger-500 focus:border-danger-600'
-                        : 'border-neutral-300 focus:ring-primary-500'
-                    }`}
-                  />
-                  {#if parentFirstNameProblem(index)}
-                    <p
-                      id={`parent-first-name-problem-${index}`}
-                      class="mt-1 text-xs text-danger-700"
-                      data-testid={`parent-first-name-problem-${index}`}
-                    >
-                      {parentFirstNameProblem(index)}
-                    </p>
-                  {/if}
-                </div>
-                <div>
-                  <label for={`parent-last-name-${index}`} class="block text-xs text-neutral-600 mb-1">
-                    {$t('checkin.parentLastName')}
-                  </label>
-                  <input
-                    id={`parent-last-name-${index}`}
-                    type="text"
-                    bind:value={parent.last_name}
-                    placeholder={$t('checkin.parentLastNamePlaceholder')}
-                    maxlength="255"
-                    class="w-full px-2 py-1.5 text-sm border border-neutral-300 rounded-button focus:outline-none focus:ring-2 focus:ring-primary-500"
-                  />
-                </div>
-              </div>
-              <div class="grid grid-cols-2 gap-2 mb-2">
-                <div>
-                  <label for={`parent-relationship-${index}`} class="block text-xs text-neutral-600 mb-1">
-                    {$t('checkin.relationshipType')} <span class="text-danger-600" aria-hidden="true">*</span>
-                  </label>
-                  <select
-                    id={`parent-relationship-${index}`}
-                    bind:value={parent.relationship_type}
-                    required
-                    aria-required="true"
-                    aria-invalid={relationshipMissing(parent) ? 'true' : 'false'}
-                    aria-describedby={relationshipMissing(parent)
-                      ? `parent-relationship-missing-${index}`
-                      : undefined}
-                    class={`w-full px-2 py-1.5 text-sm border rounded-button focus:outline-none focus:ring-2 ${
-                      relationshipMissing(parent)
-                        ? 'border-danger-600 focus:ring-danger-500 focus:border-danger-600'
-                        : 'border-neutral-300 focus:ring-primary-500'
-                    }`}
-                    data-testid={`parent-relationship-${index}`}
-                  >
-                    <option value="">{$t('register.relationshipPlaceholder')}</option>
-                    <option value="MOM">{$t('checkin.relationshipMom')}</option>
-                    <option value="DAD">{$t('checkin.relationshipDad')}</option>
-                    <option value="GUARDIAN">{$t('checkin.relationshipGuardian')}</option>
-                    <option value="OTHER">{$t('checkin.relationshipOther')}</option>
-                  </select>
-                  {#if relationshipMissing(parent)}
-                    <p
-                      id={`parent-relationship-missing-${index}`}
-                      class="mt-1 text-xs text-danger-700"
-                      role="alert"
-                      data-testid={`parent-relationship-missing-${index}`}
-                    >
-                      {$t('register.relationshipRequiredCaption')}
-                    </p>
-                  {/if}
-                </div>
-                <div>
-                  <label for={`parent-phone-${index}`} class="block text-xs text-neutral-600 mb-1">
-                    {$t('checkin.parentPhone')} <span class="text-danger-600" aria-hidden="true">*</span>
-                  </label>
-                  <input
-                    id={`parent-phone-${index}`}
-                    type="tel"
-                    bind:value={parent.phone}
-                    on:input={() => clearSubmitProblem(`parent-phone-${index}`)}
-                    placeholder={$t('register.parentPhonePlaceholder')}
-                    maxlength="50"
-                    required
-                    aria-required="true"
-                    aria-invalid={hasProblem(`parent-phone-${index}`) ? 'true' : 'false'}
-                    class={`w-full px-2 py-1.5 text-sm border rounded-button focus:outline-none focus:ring-2 ${
-                      hasProblem(`parent-phone-${index}`)
-                        ? 'border-danger-600 focus:ring-danger-500 focus:border-danger-600'
-                        : 'border-neutral-300 focus:ring-primary-500'
-                    }`}
-                    aria-describedby={hasProblem(`parent-phone-${index}`)
-                      ? `parent-phone-problem-${index}`
-                      : undefined}
-                  />
-                  {#if problemMessage(`parent-phone-${index}`)}
-                    <p
-                      id={`parent-phone-problem-${index}`}
-                      class="mt-1 text-xs text-danger-700"
-                      data-testid={`parent-phone-problem-${index}`}
-                    >
-                      {problemMessage(`parent-phone-${index}`)}
-                    </p>
-                  {/if}
-                </div>
-              </div>
-              <div class="grid grid-cols-2 gap-2">
-                <div>
-                  <label for={`parent-email-${index}`} class="block text-xs text-neutral-600 mb-1">
-                    {$t('checkin.parentEmail')}
-                  </label>
-                  <input
-                    id={`parent-email-${index}`}
-                    type="email"
-                    bind:value={parent.email}
-                    placeholder={$t('checkin.parentEmailPlaceholder')}
-                    maxlength="254"
-                    class="w-full px-2 py-1.5 text-sm border border-neutral-300 rounded-button focus:outline-none focus:ring-2 focus:ring-primary-500"
-                  />
-                </div>
-              </div>
-
-              {#if applicableTicketTypes(false).length > 0}
-                <div class="mt-2">
-                  <label for={`parent-ticket-type-${index}`} class="block text-xs text-neutral-600 mb-1">
-                    {$t('register.ticketTypeLabel')} <span class="text-danger-600" aria-hidden="true">*</span>
-                  </label>
-                  <select
-                    id={`parent-ticket-type-${index}`}
-                    value={parent.guardianOnly ? GUARDIAN_ONLY_VALUE : parent.ticketTypeId}
-                    on:change={(e) =>
-                      handleParentTicketTypeChange(index, (e.currentTarget as HTMLSelectElement).value)}
-                    required
-                    aria-required="true"
-                    aria-invalid={ticketCompositionWarning(parent.ticketTypeId) !== null ||
-                    ticketSoldOutWarning(parent.ticketTypeId) !== null ||
-                    hasProblem(`parent-ticket-type-${index}`)
-                      ? 'true'
-                      : 'false'}
-                    aria-describedby={[
-                      ticketCompositionWarning(parent.ticketTypeId) !== null
-                        ? `parent-ticket-composition-${index}`
-                        : null,
-                      ticketSoldOutWarning(parent.ticketTypeId) !== null
-                        ? `parent-ticket-sold-out-${index}`
-                        : null,
-                      parent.promoReset ? `parent-ticket-promo-reset-${index}` : null
-                    ]
-                      .filter(Boolean)
-                      .join(' ') || undefined}
-                    class={`w-full px-2 py-1.5 text-sm border rounded-button focus:outline-none focus:ring-2 ${
-                      ticketCompositionWarning(parent.ticketTypeId) !== null ||
-                      ticketSoldOutWarning(parent.ticketTypeId) !== null ||
-                      hasProblem(`parent-ticket-type-${index}`)
-                        ? 'border-danger-600 focus:ring-danger-500 focus:border-danger-600'
-                        : 'border-neutral-300 focus:ring-primary-500'
-                    }`}
-                    data-testid={`parent-ticket-type-${index}`}
-                  >
-                    <option value="" selected={parent.ticketTypeId === '' && !parent.guardianOnly}>
-                      {$t('register.ticketTypePlaceholder')}
-                    </option>
-                    {#each applicableTicketTypes(false) as ticketType (ticketType.id)}
-                      <option
-                        value={ticketType.id}
-                        selected={ticketType.id === parent.ticketTypeId}
-                        disabled={!ticketCompositionEligible(ticketType, ticketType.id === parent.ticketTypeId) ||
-                          !ticketAvailable(ticketType, ticketType.id === parent.ticketTypeId)}
+              <PersonFields
+                {spec}
+                group="parent"
+                {index}
+                bind:row={parents[index]}
+                problems={submitProblems}
+                onClearProblem={clearSubmitProblem}
+                guardianOnly={parentGuardianOnly(parent)}
+                childCount={children.length}
+                firstNameProblem={parentFirstNameProblem(index)}
+                relationshipMissing={relationshipMissing(parent)}
+              >
+                {#snippet middle()}
+                  {#if applicableTicketTypes(spec, false).length > 0}
+                    <div class="mt-2">
+                      <label for={`parent-ticket-type-${index}`} class="block text-xs text-neutral-600 mb-1">
+                        {$t('register.ticketTypeLabel')} <span class="text-danger-600" aria-hidden="true">*</span>
+                      </label>
+                      <select
+                        id={`parent-ticket-type-${index}`}
+                        value={parent.guardianOnly ? GUARDIAN_ONLY_VALUE : parent.ticketTypeId}
+                        on:change={(e) =>
+                          handleParentTicketTypeChange(index, (e.currentTarget as HTMLSelectElement).value)}
+                        required
+                        aria-required="true"
+                        aria-invalid={ticketCompositionWarning(parent.ticketTypeId) !== null ||
+                        ticketSoldOutWarning(parent.ticketTypeId) !== null ||
+                        hasProblem(`parent-ticket-type-${index}`)
+                          ? 'true'
+                          : 'false'}
+                        aria-describedby={[
+                          ticketCompositionWarning(parent.ticketTypeId) !== null
+                            ? `parent-ticket-composition-${index}`
+                            : null,
+                          ticketSoldOutWarning(parent.ticketTypeId) !== null
+                            ? `parent-ticket-sold-out-${index}`
+                            : null,
+                          parent.promoReset ? `parent-ticket-promo-reset-${index}` : null
+                        ]
+                          .filter(Boolean)
+                          .join(' ') || undefined}
+                        class={`w-full px-2 py-1.5 text-sm border rounded-button focus:outline-none focus:ring-2 ${
+                          ticketCompositionWarning(parent.ticketTypeId) !== null ||
+                          ticketSoldOutWarning(parent.ticketTypeId) !== null ||
+                          hasProblem(`parent-ticket-type-${index}`)
+                            ? 'border-danger-600 focus:ring-danger-500 focus:border-danger-600'
+                            : 'border-neutral-300 focus:ring-primary-500'
+                        }`}
+                        data-testid={`parent-ticket-type-${index}`}
                       >
-                        {ticketOptionLabel(ticketType, '', ticketType.id === parent.ticketTypeId)}
-                      </option>
-                    {/each}
-                    <!--
-                      "Guardian only, no ticket" lives in this select rather
-                      than in a checkbox beside it: the select is already the
-                      one required decision about "what is this person here
-                      as", so the answer stays a single choice (a ticket, or
-                      no ticket) instead of two controls that can contradict
-                      each other, and the row's existing required star and
-                      "choose a ticket type" error keep meaning the same
-                      thing. Only offered where the select exists, i.e. on
-                      events with ticket types; flat-price events have no
-                      such choice and are unchanged.
-                    -->
-                    <option value={GUARDIAN_ONLY_VALUE} selected={parent.guardianOnly}>
-                      {$t('register.ticketGuardianOnly')}
-                    </option>
-                  </select>
-                  {#if parent.guardianOnly}
+                        <option value="" selected={parent.ticketTypeId === '' && !parent.guardianOnly}>
+                          {$t('register.ticketTypePlaceholder')}
+                        </option>
+                        {#each applicableTicketTypes(spec, false) as ticketType (ticketType.id)}
+                          <option
+                            value={ticketType.id}
+                            selected={ticketType.id === parent.ticketTypeId}
+                            disabled={!ticketCompositionEligible(ticketType, ticketType.id === parent.ticketTypeId) ||
+                              !ticketAvailable(ticketType, ticketType.id === parent.ticketTypeId)}
+                          >
+                            {ticketOptionLabel(ticketType, '', ticketType.id === parent.ticketTypeId)}
+                          </option>
+                        {/each}
+                        <!--
+                          "Guardian only, no ticket" lives in this select rather
+                          than in a checkbox beside it: the select is already the
+                          one required decision about "what is this person here
+                          as", so the answer stays a single choice (a ticket, or
+                          no ticket) instead of two controls that can contradict
+                          each other, and the row's existing required star and
+                          "choose a ticket type" error keep meaning the same
+                          thing. Only offered where the select exists, i.e. on
+                          events with ticket types; flat-price events have no
+                          such choice and are unchanged.
+                        -->
+                        <option value={GUARDIAN_ONLY_VALUE} selected={parent.guardianOnly}>
+                          {$t('register.ticketGuardianOnly')}
+                        </option>
+                      </select>
+                      {#if parent.guardianOnly}
+                        <p
+                          class="mt-1 text-xs text-neutral-600"
+                          data-testid={`parent-guardian-only-hint-${index}`}
+                        >
+                          {$t('register.guardianOnlyHint')}
+                        </p>
+                      {/if}
+                      {#if ticketCompositionWarning(parent.ticketTypeId)}
+                        <p
+                          id={`parent-ticket-composition-${index}`}
+                          class="mt-1 text-xs text-danger-700"
+                          role="alert"
+                          data-testid={`parent-ticket-composition-${index}`}
+                        >
+                          {ticketCompositionWarning(parent.ticketTypeId)}
+                        </p>
+                      {/if}
+                      {#if ticketSoldOutWarning(parent.ticketTypeId)}
+                        <p
+                          id={`parent-ticket-sold-out-${index}`}
+                          class="mt-1 text-xs text-danger-700"
+                          role="alert"
+                          data-testid={`parent-ticket-sold-out-${index}`}
+                        >
+                          {ticketSoldOutWarning(parent.ticketTypeId)}
+                        </p>
+                      {/if}
+                      {#if parent.promoReset}
+                        <p
+                          id={`parent-ticket-promo-reset-${index}`}
+                          class="mt-1 text-xs text-neutral-600"
+                          data-testid={`parent-ticket-promo-reset-${index}`}
+                        >
+                          {$t('register.promoResetCaption')}
+                        </p>
+                      {/if}
+                    </div>
+                  {/if}
+
+                  <!--
+                    Flat-price event: there is no ticket select, so "I am only
+                    the guardian" is a checkbox on the card instead (the select
+                    option does the same job on an itemized event). A checkbox
+                    rather than a select because it is one yes/no about this
+                    person, not a choice between tickets. Ticketed events whose
+                    ticket types are all child-only get neither control: the
+                    adult is guardian-only by construction, so they only get the
+                    hint, which explains why no health/extras questions follow.
+                  -->
+                  {#if spec && spec.ticket_types.length === 0}
+                    <div class="mt-2">
+                      <label class="flex items-start gap-2 text-sm text-neutral-700">
+                        <input
+                          type="checkbox"
+                          class="mt-0.5"
+                          checked={parent.guardianOnly}
+                          on:change={(e) =>
+                            handleGuardianOnlyToggle(index, (e.currentTarget as HTMLInputElement).checked)}
+                          aria-describedby={parent.guardianOnly ? `parent-guardian-only-hint-${index}` : undefined}
+                          data-testid={`parent-guardian-only-${index}`}
+                        />
+                        {$t('register.guardianOnlyCheckbox')}
+                      </label>
+                      {#if parent.guardianOnly}
+                        <p
+                          id={`parent-guardian-only-hint-${index}`}
+                          class="mt-1 text-xs text-neutral-600"
+                          data-testid={`parent-guardian-only-hint-${index}`}
+                        >
+                          {$t('register.guardianOnlyHintFlat')}
+                        </p>
+                      {/if}
+                    </div>
+                  {:else if applicableTicketTypes(spec, false).length === 0}
                     <p
-                      class="mt-1 text-xs text-neutral-600"
+                      class="mt-2 text-xs text-neutral-600"
                       data-testid={`parent-guardian-only-hint-${index}`}
                     >
                       {$t('register.guardianOnlyHint')}
                     </p>
                   {/if}
-                  {#if ticketCompositionWarning(parent.ticketTypeId)}
-                    <p
-                      id={`parent-ticket-composition-${index}`}
-                      class="mt-1 text-xs text-danger-700"
-                      role="alert"
-                      data-testid={`parent-ticket-composition-${index}`}
-                    >
-                      {ticketCompositionWarning(parent.ticketTypeId)}
-                    </p>
-                  {/if}
-                  {#if ticketSoldOutWarning(parent.ticketTypeId)}
-                    <p
-                      id={`parent-ticket-sold-out-${index}`}
-                      class="mt-1 text-xs text-danger-700"
-                      role="alert"
-                      data-testid={`parent-ticket-sold-out-${index}`}
-                    >
-                      {ticketSoldOutWarning(parent.ticketTypeId)}
-                    </p>
-                  {/if}
-                  {#if parent.promoReset}
-                    <p
-                      id={`parent-ticket-promo-reset-${index}`}
-                      class="mt-1 text-xs text-neutral-600"
-                      data-testid={`parent-ticket-promo-reset-${index}`}
-                    >
-                      {$t('register.promoResetCaption')}
-                    </p>
-                  {/if}
-                </div>
-              {/if}
 
-              <!--
-                Flat-price event: there is no ticket select, so "I am only
-                the guardian" is a checkbox on the card instead (the select
-                option does the same job on an itemized event). A checkbox
-                rather than a select because it is one yes/no about this
-                person, not a choice between tickets. Ticketed events whose
-                ticket types are all child-only get neither control: the
-                adult is guardian-only by construction, so they only get the
-                hint, which explains why no health/extras questions follow.
-              -->
-              {#if eventInfo && eventInfo.ticket_types.length === 0}
-                <div class="mt-2">
-                  <label class="flex items-start gap-2 text-sm text-neutral-700">
-                    <input
-                      type="checkbox"
-                      class="mt-0.5"
-                      checked={parent.guardianOnly}
-                      on:change={(e) =>
-                        handleGuardianOnlyToggle(index, (e.currentTarget as HTMLInputElement).checked)}
-                      aria-describedby={parent.guardianOnly ? `parent-guardian-only-hint-${index}` : undefined}
-                      data-testid={`parent-guardian-only-${index}`}
-                    />
-                    {$t('register.guardianOnlyCheckbox')}
-                  </label>
-                  {#if parent.guardianOnly}
-                    <p
-                      id={`parent-guardian-only-hint-${index}`}
-                      class="mt-1 text-xs text-neutral-600"
-                      data-testid={`parent-guardian-only-hint-${index}`}
-                    >
-                      {$t('register.guardianOnlyHintFlat')}
-                    </p>
-                  {/if}
-                </div>
-              {:else if applicableTicketTypes(false).length === 0}
-                <p
-                  class="mt-2 text-xs text-neutral-600"
-                  data-testid={`parent-guardian-only-hint-${index}`}
-                >
-                  {$t('register.guardianOnlyHint')}
-                </p>
-              {/if}
+                  <!-- A guardian-only row is offered no extras: none are sent (the backend
+                       rejects extras on an adult without a ticket). -->
+                  {#if !parentGuardianOnly(parent)}
+                  {#each applicablePersonExtras(spec, false).filter((extra) => extra.required) as extra (extra.id)}
+                    {@const state = extraState(parent.extraSelections, extra)}
+                    {#if extra.requires_choice}
+                      <fieldset
+                        class={`mt-2 min-w-0 ${
+                          hasProblem(`parent-extra-${extra.id}-${index}`)
+                            ? 'border border-danger-600 rounded-card p-2'
+                            : 'border-0 p-0 m-0'
+                        }`}
+                        data-testid={`parent-extra-required-${extra.id}-${index}`}
+                      >
+                        <legend class="block text-xs text-neutral-600 mb-1 p-0">
+                          {extra.name}
+                          {extra.price !== '0.00' ? `(${formatCurrency(extra.price)} kr)` : ''}
+                          <span class="text-danger-600" aria-hidden="true">*</span>
+                        </legend>
+                        <div class="flex items-center gap-3 flex-wrap">
+                          {#each extra.choices as choice (choice.id)}
+                            <label class="flex items-center gap-1 text-sm text-neutral-700">
+                              <input
+                                type="radio"
+                                name={`extra-${extra.id}-parent-${index}`}
+                                checked={state.choiceId === choice.id}
+                                required
+                                on:change={() => {
+                                  setExtraChoice(parent.extraSelections, extra, choice.id);
+                                  clearSubmitProblem(`parent-extra-${extra.id}-${index}`);
+                                }}
+                              />
+                              {choice.label}{choice.price_delta !== '0.00' ? ` (+${formatCurrency(choice.price_delta)} kr)` : ''}
+                            </label>
+                          {/each}
+                        </div>
+                      </fieldset>
+                    {:else}
+                      <div class="mt-2">
+                        <div class="block text-xs text-neutral-600 mb-1">
+                          {extra.name} {extra.price !== '0.00' ? `(${formatCurrency(extra.price)} kr)` : ''}
+                          <span class="text-danger-600" aria-hidden="true">*</span>
+                        </div>
+                      </div>
+                    {/if}
+                  {/each}
 
-              <!-- A guardian-only row is offered no extras: none are sent (the backend
-                   rejects extras on an adult without a ticket). -->
-              {#if !parentGuardianOnly(parent)}
-              {#each applicablePersonExtras(false).filter((extra) => extra.required) as extra (extra.id)}
-                {@const state = extraState(parent.extraSelections, extra)}
-                {#if extra.requires_choice}
-                  <fieldset
-                    class={`mt-2 min-w-0 ${
-                      hasProblem(`parent-extra-${extra.id}-${index}`)
-                        ? 'border border-danger-600 rounded-card p-2'
-                        : 'border-0 p-0 m-0'
-                    }`}
-                    data-testid={`parent-extra-required-${extra.id}-${index}`}
-                  >
-                    <legend class="block text-xs text-neutral-600 mb-1 p-0">
-                      {extra.name}
-                      {extra.price !== '0.00' ? `(${formatCurrency(extra.price)} kr)` : ''}
-                      <span class="text-danger-600" aria-hidden="true">*</span>
-                    </legend>
-                    <div class="flex items-center gap-3 flex-wrap">
-                      {#each extra.choices as choice (choice.id)}
-                        <label class="flex items-center gap-1 text-sm text-neutral-700">
-                          <input
-                            type="radio"
-                            name={`extra-${extra.id}-parent-${index}`}
-                            checked={state.choiceId === choice.id}
-                            required
-                            on:change={() => {
-                              setExtraChoice(parent.extraSelections, extra, choice.id);
-                              clearSubmitProblem(`parent-extra-${extra.id}-${index}`);
-                            }}
-                          />
-                          {choice.label}{choice.price_delta !== '0.00' ? ` (+${formatCurrency(choice.price_delta)} kr)` : ''}
-                        </label>
+                  {#if applicablePersonExtras(spec, false).filter((extra) => !extra.required).length > 0}
+                    <div class="mt-2 space-y-1.5">
+                      <div class="block text-xs text-neutral-600">{$t('register.extrasLabel')}</div>
+                      {#each applicablePersonExtras(spec, false).filter((extra) => !extra.required) as extra (extra.id)}
+                        {@const state = extraState(parent.extraSelections, extra)}
+                        <div class="flex items-center gap-2 flex-wrap">
+                          <label class="flex items-center gap-1.5 text-sm text-neutral-700">
+                            <input
+                              type="checkbox"
+                              checked={state.selected}
+                              on:change={(e) =>
+                                setExtraSelected(
+                                  parent.extraSelections,
+                                  extra,
+                                  (e.currentTarget as HTMLInputElement).checked
+                                )}
+                            />
+                            {extra.name} ({formatCurrency(extra.price)} kr)
+                          </label>
+                          {#if extra.requires_choice && state.selected}
+                            <select
+                              value={state.choiceId}
+                              on:change={(e) =>
+                                setExtraChoice(
+                                  parent.extraSelections,
+                                  extra,
+                                  (e.currentTarget as HTMLSelectElement).value
+                                )}
+                              class="px-2 py-1 text-sm border border-neutral-300 rounded-button"
+                            >
+                              <option value="">{$t('register.extraChoicePlaceholder')}</option>
+                              {#each extra.choices as choice (choice.id)}
+                                <option value={choice.id}>{choice.label}</option>
+                              {/each}
+                            </select>
+                          {/if}
+                        </div>
                       {/each}
                     </div>
-                  </fieldset>
-                {:else}
-                  <div class="mt-2">
-                    <div class="block text-xs text-neutral-600 mb-1">
-                      {extra.name} {extra.price !== '0.00' ? `(${formatCurrency(extra.price)} kr)` : ''}
-                      <span class="text-danger-600" aria-hidden="true">*</span>
-                    </div>
-                  </div>
-                {/if}
-              {/each}
-
-              {#if applicablePersonExtras(false).filter((extra) => !extra.required).length > 0}
-                <div class="mt-2 space-y-1.5">
-                  <div class="block text-xs text-neutral-600">{$t('register.extrasLabel')}</div>
-                  {#each applicablePersonExtras(false).filter((extra) => !extra.required) as extra (extra.id)}
-                    {@const state = extraState(parent.extraSelections, extra)}
-                    <div class="flex items-center gap-2 flex-wrap">
-                      <label class="flex items-center gap-1.5 text-sm text-neutral-700">
-                        <input
-                          type="checkbox"
-                          checked={state.selected}
-                          on:change={(e) =>
-                            setExtraSelected(
-                              parent.extraSelections,
-                              extra,
-                              (e.currentTarget as HTMLInputElement).checked
-                            )}
-                        />
-                        {extra.name} ({formatCurrency(extra.price)} kr)
-                      </label>
-                      {#if extra.requires_choice && state.selected}
-                        <select
-                          value={state.choiceId}
-                          on:change={(e) =>
-                            setExtraChoice(
-                              parent.extraSelections,
-                              extra,
-                              (e.currentTarget as HTMLSelectElement).value
-                            )}
-                          class="px-2 py-1 text-sm border border-neutral-300 rounded-button"
-                        >
-                          <option value="">{$t('register.extraChoicePlaceholder')}</option>
-                          {#each extra.choices as choice (choice.id)}
-                            <option value={choice.id}>{choice.label}</option>
-                          {/each}
-                        </select>
-                      {/if}
-                    </div>
-                  {/each}
-                </div>
-              {/if}
-              {/if}
-
-              {#if !parentGuardianOnly(parent)}
-              <div class="mt-2">
-                <ConsentCapture
-                  bind:status={parent.healthInfoStatus}
-                  bind:allergies={parent.allergies}
-                  bind:notes={parent.notes}
-                  bind:consentNoticeShared={parent.consentNoticeShared}
-                  idPrefix={`parent-${index}`}
-                  testIdPrefix="parent"
-                  attestLabelKey="register.consentAttest"
-                  questionKey="register.adultHealthInfoQuestion"
-                  consentLabelKey="register.adultHealthInfoConsent"
-                  declineLabelKey="register.adultHealthInfoDecline"
-                  noticeKey="register.adultHealthConsentNotice"
-                  declinedNoteKey="register.adultHealthInfoDeclinedNote"
-                  noticeLinkHref="/privacy"
-                />
-              </div>
-              {/if}
+                  {/if}
+                  {/if}
+                {/snippet}
+              </PersonFields>
 
             </div>
           {/each}
@@ -3104,284 +3045,196 @@
                 {/if}
               </div>
 
-              <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
-                <div>
-                  <label for={`child-first-name-${index}`} class="block text-xs text-neutral-600 mb-1">
-                    {$t('checkin.childFirstName')} <span class="text-danger-600" aria-hidden="true">*</span>
-                  </label>
-                  <input
-                    id={`child-first-name-${index}`}
-                    type="text"
-                    bind:value={child.first_name}
-                    on:input={() => clearSubmitProblem(`child-info-${index}`)}
-                    placeholder={$t('checkin.childFirstNamePlaceholder')}
-                    maxlength="255"
-                    aria-invalid={hasProblem(`child-info-${index}`) ? 'true' : 'false'}
-                    class={`w-full px-2 py-1.5 text-sm border rounded-button focus:outline-none focus:ring-2 ${
-                      hasProblem(`child-info-${index}`)
-                        ? 'border-danger-600 focus:ring-danger-500 focus:border-danger-600'
-                        : 'border-neutral-300 focus:ring-primary-500'
-                    }`}
-                    required
-                  />
-                </div>
-
-                <div>
-                  <label for={`child-last-name-${index}`} class="block text-xs text-neutral-600 mb-1">
-                    {$t('checkin.childLastName')} <span class="text-danger-600" aria-hidden="true">*</span>
-                  </label>
-                  <input
-                    id={`child-last-name-${index}`}
-                    type="text"
-                    bind:value={child.last_name}
-                    on:input={() => clearSubmitProblem(`child-info-${index}`)}
-                    placeholder={$t('checkin.childLastNamePlaceholder')}
-                    maxlength="255"
-                    aria-invalid={hasProblem(`child-info-${index}`) ? 'true' : 'false'}
-                    class={`w-full px-2 py-1.5 text-sm border rounded-button focus:outline-none focus:ring-2 ${
-                      hasProblem(`child-info-${index}`)
-                        ? 'border-danger-600 focus:ring-danger-500 focus:border-danger-600'
-                        : 'border-neutral-300 focus:ring-primary-500'
-                    }`}
-                    required
-                  />
-                </div>
-
-                <div>
-                  <label for={`child-birthdate-${index}`} class="block text-xs text-neutral-600 mb-1">
-                    {$t('checkin.childBirthdate')} <span class="text-danger-600" aria-hidden="true">*</span>
-                  </label>
-                  <input
-                    id={`child-birthdate-${index}`}
-                    type="date"
-                    bind:value={child.birthdate}
-                    on:change={(e) => {
-                      handleChildBirthdateChange(child, e);
-                      clearSubmitProblem(`child-info-${index}`);
-                    }}
-                    lang={$locale === 'sv' ? 'sv-SE' : 'en-US'}
-                    max={todayIso}
-                    min={minBirthdateIso}
-                    aria-invalid={child.birthdateRangeInvalid || hasProblem(`child-info-${index}`)
-                      ? 'true'
-                      : 'false'}
-                    aria-describedby={child.birthdateRangeInvalid
-                      ? `child-birthdate-invalid-${index}`
-                      : undefined}
-                    class={`w-full px-2 py-1.5 text-sm border rounded-button focus:outline-none focus:ring-2 ${
-                      child.birthdateRangeInvalid || hasProblem(`child-info-${index}`)
-                        ? 'border-danger-600 focus:ring-danger-500 focus:border-danger-600'
-                        : 'border-neutral-300 focus:ring-primary-500'
-                    }`}
-                    required
-                  />
-                  <p class="mt-1 text-xs text-neutral-500">{$t('register.birthdateFormatHint')}</p>
-                  {#if child.birthdateRangeInvalid}
-                    <p
-                      id={`child-birthdate-invalid-${index}`}
-                      class="mt-1 text-xs font-medium text-danger-700"
-                      role="alert"
-                      data-testid={`child-birthdate-invalid-${index}`}
-                    >
-                      {$t('register.birthdateInvalid')}
-                    </p>
-                  {:else if birthdateProse(child.birthdate)}
-                    <p
-                      class="mt-1 text-xs font-medium text-neutral-700"
-                      data-testid={`child-birthdate-prose-${index}`}
-                    >
-                      {birthdateProse(child.birthdate)}
-                    </p>
-                  {/if}
-                </div>
-
-                {#if applicableTicketTypes(true).length > 0}
-                  <div>
-                    <label for={`child-ticket-type-${index}`} class="block text-xs text-neutral-600 mb-1">
-                      {$t('register.ticketTypeLabel')} <span class="text-danger-600" aria-hidden="true">*</span>
-                    </label>
-                    <select
-                      id={`child-ticket-type-${index}`}
-                      value={child.ticketTypeId}
-                      on:change={(e) =>
-                        handleChildTicketTypeChange(index, (e.currentTarget as HTMLSelectElement).value)}
-                      required
-                      aria-required="true"
-                      aria-invalid={childSelectedTicketWarning(child) !== null ||
-                      ticketCompositionWarning(child.ticketTypeId) !== null ||
-                      ticketSoldOutWarning(child.ticketTypeId) !== null ||
-                      hasProblem(`child-ticket-type-${index}`)
-                        ? 'true'
-                        : 'false'}
-                      aria-describedby={childTicketDescribedBy(index, child)}
-                      class={`w-full px-2 py-1.5 text-sm border rounded-button focus:outline-none focus:ring-2 ${
-                        childSelectedTicketWarning(child) !== null ||
-                        ticketCompositionWarning(child.ticketTypeId) !== null ||
-                        ticketSoldOutWarning(child.ticketTypeId) !== null ||
-                        hasProblem(`child-ticket-type-${index}`)
-                          ? 'border-danger-600 focus:ring-danger-500 focus:border-danger-600'
-                          : 'border-neutral-300 focus:ring-primary-500'
-                      }`}
-                      data-testid={`child-ticket-type-${index}`}
-                    >
-                      <option value="" selected={child.ticketTypeId === ''}>
-                        {$t('register.ticketTypePlaceholder')}
-                      </option>
-                      {#each applicableTicketTypes(true) as ticketType (ticketType.id)}
-                        <option
-                          value={ticketType.id}
-                          selected={ticketType.id === child.ticketTypeId}
-                          disabled={!childTicketEligible(ticketType, child.birthdate) ||
-                            !ticketCompositionEligible(ticketType, ticketType.id === child.ticketTypeId) ||
-                            !ticketAvailable(ticketType, ticketType.id === child.ticketTypeId)}
-                        >
-                          {ticketOptionLabel(ticketType, child.birthdate, ticketType.id === child.ticketTypeId)}
-                        </option>
-                      {/each}
-                    </select>
-                    {#if childSelectedTicketWarning(child)}
-                      <p
-                        id={`child-ticket-ineligible-${index}`}
-                        class="mt-1 text-xs text-danger-700"
-                        role="alert"
-                        data-testid={`child-ticket-ineligible-${index}`}
-                      >
-                        {childSelectedTicketWarning(child)}
-                      </p>
-                    {/if}
-                    {#if ticketCompositionWarning(child.ticketTypeId)}
-                      <p
-                        id={`child-ticket-composition-${index}`}
-                        class="mt-1 text-xs text-danger-700"
-                        role="alert"
-                        data-testid={`child-ticket-composition-${index}`}
-                      >
-                        {ticketCompositionWarning(child.ticketTypeId)}
-                      </p>
-                    {/if}
-                    {#if ticketSoldOutWarning(child.ticketTypeId)}
-                      <p
-                        id={`child-ticket-sold-out-${index}`}
-                        class="mt-1 text-xs text-danger-700"
-                        role="alert"
-                        data-testid={`child-ticket-sold-out-${index}`}
-                      >
-                        {ticketSoldOutWarning(child.ticketTypeId)}
-                      </p>
-                    {/if}
-                    {#if childAgeError(index)}
-                      <p class="mt-1 text-xs text-danger-700" data-testid={`child-age-error-${index}`}>
-                        {childAgeError(index)}
-                      </p>
-                    {/if}
-                    {#if child.promoReset}
-                      <p
-                        id={`child-ticket-promo-reset-${index}`}
-                        class="mt-1 text-xs text-neutral-600"
-                        data-testid={`child-ticket-promo-reset-${index}`}
-                      >
-                        {$t('register.promoResetCaption')}
-                      </p>
-                    {/if}
-                  </div>
-                {/if}
-
-                {#each applicablePersonExtras(true).filter((extra) => extra.required) as extra (extra.id)}
-                  {@const state = extraState(child.extraSelections, extra)}
-                  {#if extra.requires_choice}
-                    <fieldset
-                      class={`md:col-span-2 min-w-0 ${
-                        hasProblem(`child-extra-${extra.id}-${index}`)
-                          ? 'border border-danger-600 rounded-card p-2'
-                          : 'border-0 p-0 m-0'
-                      }`}
-                      data-testid={`child-extra-required-${extra.id}-${index}`}
-                    >
-                      <legend class="block text-xs text-neutral-600 mb-1 p-0">
-                        {extra.name}
-                        {extra.price !== '0.00' ? `(${formatCurrency(extra.price)} kr)` : ''}
-                        <span class="text-danger-600" aria-hidden="true">*</span>
-                      </legend>
-                      <div class="flex items-center gap-3 flex-wrap">
-                        {#each extra.choices as choice (choice.id)}
-                          <label class="flex items-center gap-1 text-sm text-neutral-700">
-                            <input
-                              type="radio"
-                              name={`extra-${extra.id}-child-${index}`}
-                              checked={state.choiceId === choice.id}
-                              required
-                              on:change={() => {
-                                setExtraChoice(child.extraSelections, extra, choice.id);
-                                clearSubmitProblem(`child-extra-${extra.id}-${index}`);
-                              }}
-                            />
-                            {choice.label}{choice.price_delta !== '0.00' ? ` (+${formatCurrency(choice.price_delta)} kr)` : ''}
-                          </label>
-                        {/each}
-                      </div>
-                    </fieldset>
-                  {:else}
-                    <div class="md:col-span-2">
-                      <div class="block text-xs text-neutral-600 mb-1">
-                        {extra.name} {extra.price !== '0.00' ? `(${formatCurrency(extra.price)} kr)` : ''}
-                        <span class="text-danger-600" aria-hidden="true">*</span>
-                      </div>
-                    </div>
-                  {/if}
-                {/each}
-
-                {#if applicablePersonExtras(true).filter((extra) => !extra.required).length > 0}
-                  <div class="md:col-span-2 space-y-1.5">
-                    <div class="block text-xs text-neutral-600">{$t('register.extrasLabel')}</div>
-                    {#each applicablePersonExtras(true).filter((extra) => !extra.required) as extra (extra.id)}
-                      {@const state = extraState(child.extraSelections, extra)}
-                      <div class="flex items-center gap-2 flex-wrap">
-                        <label class="flex items-center gap-1.5 text-sm text-neutral-700">
-                          <input
-                            type="checkbox"
-                            checked={state.selected}
-                            on:change={(e) =>
-                              setExtraSelected(
-                                child.extraSelections,
-                                extra,
-                                (e.currentTarget as HTMLInputElement).checked
-                              )}
-                          />
-                          {extra.name} ({formatCurrency(extra.price)} kr)
+              <PersonFields
+                {spec}
+                group="child"
+                {index}
+                bind:row={children[index]}
+                problems={submitProblems}
+                onClearProblem={clearSubmitProblem}
+                birthdateProse={birthdateProse(child.birthdate)}
+                onBirthdateChange={(e) => handleChildBirthdateChange(child, e)}
+                minBirthdate={minBirthdateIso}
+                maxBirthdate={todayIso}
+              >
+                {#snippet middle()}
+                    {#if applicableTicketTypes(spec, true).length > 0}
+                      <div>
+                        <label for={`child-ticket-type-${index}`} class="block text-xs text-neutral-600 mb-1">
+                          {$t('register.ticketTypeLabel')} <span class="text-danger-600" aria-hidden="true">*</span>
                         </label>
-                        {#if extra.requires_choice && state.selected}
-                          <select
-                            value={state.choiceId}
-                            on:change={(e) =>
-                              setExtraChoice(
-                                child.extraSelections,
-                                extra,
-                                (e.currentTarget as HTMLSelectElement).value
-                              )}
-                            class="px-2 py-1 text-sm border border-neutral-300 rounded-button"
+                        <select
+                          id={`child-ticket-type-${index}`}
+                          value={child.ticketTypeId}
+                          on:change={(e) =>
+                            handleChildTicketTypeChange(index, (e.currentTarget as HTMLSelectElement).value)}
+                          required
+                          aria-required="true"
+                          aria-invalid={childSelectedTicketWarning(child) !== null ||
+                          ticketCompositionWarning(child.ticketTypeId) !== null ||
+                          ticketSoldOutWarning(child.ticketTypeId) !== null ||
+                          hasProblem(`child-ticket-type-${index}`)
+                            ? 'true'
+                            : 'false'}
+                          aria-describedby={childTicketDescribedBy(index, child)}
+                          class={`w-full px-2 py-1.5 text-sm border rounded-button focus:outline-none focus:ring-2 ${
+                            childSelectedTicketWarning(child) !== null ||
+                            ticketCompositionWarning(child.ticketTypeId) !== null ||
+                            ticketSoldOutWarning(child.ticketTypeId) !== null ||
+                            hasProblem(`child-ticket-type-${index}`)
+                              ? 'border-danger-600 focus:ring-danger-500 focus:border-danger-600'
+                              : 'border-neutral-300 focus:ring-primary-500'
+                          }`}
+                          data-testid={`child-ticket-type-${index}`}
+                        >
+                          <option value="" selected={child.ticketTypeId === ''}>
+                            {$t('register.ticketTypePlaceholder')}
+                          </option>
+                          {#each applicableTicketTypes(spec, true) as ticketType (ticketType.id)}
+                            <option
+                              value={ticketType.id}
+                              selected={ticketType.id === child.ticketTypeId}
+                              disabled={!childTicketEligible(ticketType, child.birthdate) ||
+                                !ticketCompositionEligible(ticketType, ticketType.id === child.ticketTypeId) ||
+                                !ticketAvailable(ticketType, ticketType.id === child.ticketTypeId)}
+                            >
+                              {ticketOptionLabel(ticketType, child.birthdate, ticketType.id === child.ticketTypeId)}
+                            </option>
+                          {/each}
+                        </select>
+                        {#if childSelectedTicketWarning(child)}
+                          <p
+                            id={`child-ticket-ineligible-${index}`}
+                            class="mt-1 text-xs text-danger-700"
+                            role="alert"
+                            data-testid={`child-ticket-ineligible-${index}`}
                           >
-                            <option value="">{$t('register.extraChoicePlaceholder')}</option>
-                            {#each extra.choices as choice (choice.id)}
-                              <option value={choice.id}>{choice.label}</option>
-                            {/each}
-                          </select>
+                            {childSelectedTicketWarning(child)}
+                          </p>
+                        {/if}
+                        {#if ticketCompositionWarning(child.ticketTypeId)}
+                          <p
+                            id={`child-ticket-composition-${index}`}
+                            class="mt-1 text-xs text-danger-700"
+                            role="alert"
+                            data-testid={`child-ticket-composition-${index}`}
+                          >
+                            {ticketCompositionWarning(child.ticketTypeId)}
+                          </p>
+                        {/if}
+                        {#if ticketSoldOutWarning(child.ticketTypeId)}
+                          <p
+                            id={`child-ticket-sold-out-${index}`}
+                            class="mt-1 text-xs text-danger-700"
+                            role="alert"
+                            data-testid={`child-ticket-sold-out-${index}`}
+                          >
+                            {ticketSoldOutWarning(child.ticketTypeId)}
+                          </p>
+                        {/if}
+                        {#if childAgeError(index)}
+                          <p class="mt-1 text-xs text-danger-700" data-testid={`child-age-error-${index}`}>
+                            {childAgeError(index)}
+                          </p>
+                        {/if}
+                        {#if child.promoReset}
+                          <p
+                            id={`child-ticket-promo-reset-${index}`}
+                            class="mt-1 text-xs text-neutral-600"
+                            data-testid={`child-ticket-promo-reset-${index}`}
+                          >
+                            {$t('register.promoResetCaption')}
+                          </p>
                         {/if}
                       </div>
-                    {/each}
-                  </div>
-                {/if}
+                    {/if}
 
-                <div class="md:col-span-2">
-                  <ConsentCapture
-                    bind:status={child.healthInfoStatus}
-                    bind:allergies={child.allergies}
-                    bind:notes={child.notes}
-                    bind:consentNoticeShared={child.consentNoticeShared}
-                    idPrefix={String(index)}
-                    attestLabelKey="register.consentAttest"
-                  />
-                </div>
-              </div>
+                    {#each applicablePersonExtras(spec, true).filter((extra) => extra.required) as extra (extra.id)}
+                      {@const state = extraState(child.extraSelections, extra)}
+                      {#if extra.requires_choice}
+                        <fieldset
+                          class={`md:col-span-2 min-w-0 ${
+                            hasProblem(`child-extra-${extra.id}-${index}`)
+                              ? 'border border-danger-600 rounded-card p-2'
+                              : 'border-0 p-0 m-0'
+                          }`}
+                          data-testid={`child-extra-required-${extra.id}-${index}`}
+                        >
+                          <legend class="block text-xs text-neutral-600 mb-1 p-0">
+                            {extra.name}
+                            {extra.price !== '0.00' ? `(${formatCurrency(extra.price)} kr)` : ''}
+                            <span class="text-danger-600" aria-hidden="true">*</span>
+                          </legend>
+                          <div class="flex items-center gap-3 flex-wrap">
+                            {#each extra.choices as choice (choice.id)}
+                              <label class="flex items-center gap-1 text-sm text-neutral-700">
+                                <input
+                                  type="radio"
+                                  name={`extra-${extra.id}-child-${index}`}
+                                  checked={state.choiceId === choice.id}
+                                  required
+                                  on:change={() => {
+                                    setExtraChoice(child.extraSelections, extra, choice.id);
+                                    clearSubmitProblem(`child-extra-${extra.id}-${index}`);
+                                  }}
+                                />
+                                {choice.label}{choice.price_delta !== '0.00' ? ` (+${formatCurrency(choice.price_delta)} kr)` : ''}
+                              </label>
+                            {/each}
+                          </div>
+                        </fieldset>
+                      {:else}
+                        <div class="md:col-span-2">
+                          <div class="block text-xs text-neutral-600 mb-1">
+                            {extra.name} {extra.price !== '0.00' ? `(${formatCurrency(extra.price)} kr)` : ''}
+                            <span class="text-danger-600" aria-hidden="true">*</span>
+                          </div>
+                        </div>
+                      {/if}
+                    {/each}
+
+                    {#if applicablePersonExtras(spec, true).filter((extra) => !extra.required).length > 0}
+                      <div class="md:col-span-2 space-y-1.5">
+                        <div class="block text-xs text-neutral-600">{$t('register.extrasLabel')}</div>
+                        {#each applicablePersonExtras(spec, true).filter((extra) => !extra.required) as extra (extra.id)}
+                          {@const state = extraState(child.extraSelections, extra)}
+                          <div class="flex items-center gap-2 flex-wrap">
+                            <label class="flex items-center gap-1.5 text-sm text-neutral-700">
+                              <input
+                                type="checkbox"
+                                checked={state.selected}
+                                on:change={(e) =>
+                                  setExtraSelected(
+                                    child.extraSelections,
+                                    extra,
+                                    (e.currentTarget as HTMLInputElement).checked
+                                  )}
+                              />
+                              {extra.name} ({formatCurrency(extra.price)} kr)
+                            </label>
+                            {#if extra.requires_choice && state.selected}
+                              <select
+                                value={state.choiceId}
+                                on:change={(e) =>
+                                  setExtraChoice(
+                                    child.extraSelections,
+                                    extra,
+                                    (e.currentTarget as HTMLSelectElement).value
+                                  )}
+                                class="px-2 py-1 text-sm border border-neutral-300 rounded-button"
+                              >
+                                <option value="">{$t('register.extraChoicePlaceholder')}</option>
+                                {#each extra.choices as choice (choice.id)}
+                                  <option value={choice.id}>{choice.label}</option>
+                                {/each}
+                              </select>
+                            {/if}
+                          </div>
+                        {/each}
+                      </div>
+                    {/if}
+                {/snippet}
+              </PersonFields>
             </div>
           {/each}
         </div>
@@ -3394,7 +3247,7 @@
         </button>
       </div>
 
-      {#each registrationExtras().filter((extra) => extra.required) as extra (extra.id)}
+      {#each registrationExtras(spec).filter((extra) => extra.required) as extra (extra.id)}
         {@const state = extraState(registrationExtraSelections, extra)}
         {#if extra.requires_choice}
           <fieldset
@@ -3438,13 +3291,13 @@
         {/if}
       {/each}
 
-      {#if registrationExtras().filter((extra) => !extra.required).length > 0}
+      {#if registrationExtras(spec).filter((extra) => !extra.required).length > 0}
         <div class="mb-4">
           <h2 class="text-sm font-semibold text-neutral-700 mb-2">
             {$t('register.registrationExtrasHeading')}:
           </h2>
           <div class="space-y-2">
-            {#each registrationExtras().filter((extra) => !extra.required) as extra (extra.id)}
+            {#each registrationExtras(spec).filter((extra) => !extra.required) as extra (extra.id)}
               {@const state = extraState(registrationExtraSelections, extra)}
               <div class="flex items-center gap-2 flex-wrap border border-neutral-200 rounded-card p-2 bg-neutral-50">
                 <label class="flex items-center gap-1.5 text-sm text-neutral-700">
@@ -3500,7 +3353,7 @@
         </div>
       {/if}
 
-      {#if eventInfo.ticket_types.length > 0 || eventInfo.is_paid || eventInfo.has_hidden_ticket_types}
+      {#if spec.ticket_types.length > 0 || spec.is_paid || spec.has_hidden_ticket_types}
         <div class="mb-4">
           <label for="promo-code-input" class="block text-sm font-semibold text-neutral-700 mb-1">
             {$t('register.promoCodeLabel')}
@@ -3611,7 +3464,7 @@
         </div>
       {/if}
 
-      {#if eventInfo.ticket_types.length > 0}
+      {#if spec.ticket_types.length > 0}
         <div class="mb-4 text-right text-sm text-neutral-700" data-testid="register-running-total">
           {#if discountAmount > 0}
             <div class="text-xs font-normal text-neutral-500">
