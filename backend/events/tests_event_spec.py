@@ -2,7 +2,6 @@
 
 import copy
 from datetime import UTC, date, datetime
-from unittest.mock import patch
 
 from django.core.exceptions import ValidationError
 from django.db import transaction
@@ -16,34 +15,22 @@ from events.event_spec import (
     example_spec,
     export,
     json_schema,
-    validate,
 )
 from events.event_spec._export import KeyAllocator, slugify_key
+from events.event_spec.testkit import (
+    add_ticket,
+    by_path,
+    check,
+    empty_event,
+    foreign_session,
+)
 from events.models import (
     Event,
-    EventTicket,
     Extra,
     PromoCode,
     Session,
     TicketType,
 )
-from families.models import Child, Family
-
-# The example's registration window is in 2027; pin "now" before it opens.
-NOW = datetime(2026, 11, 19, 12, 0, tzinfo=UTC)
-
-
-def at_now(now=NOW):
-    return patch("events.models.timezone.now", return_value=now)
-
-
-def by_path(issues):
-    return {i["path"]: i for i in issues}
-
-
-def check(spec, event=None, now=NOW):
-    with at_now(now):
-        return validate(spec, event)
 
 
 class SchemaTests(SimpleTestCase):
@@ -309,18 +296,10 @@ class ModelRuleTests(SimpleTestCase):
 
 class TargetEventTests(TestCase):
     def test_non_empty_target_is_an_error(self):
-        event = Event.objects.create(
-            name="Used", start_date=date(2027, 6, 18), end_date=date(2027, 6, 20)
-        )
+        event = empty_event("Used")
         errors, _ = check(example_spec(), event)
         self.assertEqual(errors, [])
-        child = Child.objects.create(
-            family=Family.objects.create(),
-            first_name="Test",
-            last_name="Child",
-            birthdate=date(2020, 1, 1),
-        )
-        EventTicket.objects.create(attendee=child, event=event)
+        add_ticket(event)
         errors, _ = check(example_spec(), event)
         self.assertEqual(by_path(errors)["event"]["code"], "event_not_empty")
 
@@ -643,9 +622,7 @@ class ExportTests(TestCase):
         self.assertEqual(export(self.event), export(self.event))
 
     def test_ties_break_on_id(self):
-        event = Event.objects.create(
-            name="Ties", start_date=date(2027, 1, 1), end_date=date(2027, 1, 1)
-        )
+        event = empty_event("Ties")
         a = TicketType.objects.create(event=event, name="Same", price=1)
         b = TicketType.objects.create(event=event, name="Same", price=2)
         first, second = sorted([a, b], key=lambda t: t.id)
@@ -656,9 +633,7 @@ class ExportTests(TestCase):
         )
 
     def test_export_survives_data_validation_rejects(self):
-        event = Event.objects.create(
-            name="Odd", start_date=date(2027, 1, 1), end_date=date(2027, 1, 1)
-        )
+        event = empty_event("Odd")
         TicketType.objects.create(event=event, name="Refund", price=-5)
         spec = export(event)
         self.assertEqual(spec["ticket_types"][0]["price"], "-5.00")
@@ -666,16 +641,10 @@ class ExportTests(TestCase):
         self.assertIn("ticket_types[0].price", by_path(errors))
 
     def test_export_refuses_every_kind_of_cross_event_reference(self):
-        other = Event.objects.create(
-            name="Other", start_date=date(2027, 1, 1), end_date=date(2027, 1, 1)
+        session = foreign_session("Elsewhere")
+        ticket_type = TicketType.objects.create(
+            event=session.event, name="Elsewhere", price=1
         )
-        session = Session.objects.create(
-            event=other,
-            name="Elsewhere",
-            start_time=datetime(2027, 1, 1, 8, tzinfo=UTC),
-            end_time=datetime(2027, 1, 1, 9, tzinfo=UTC),
-        )
-        ticket_type = TicketType.objects.create(event=other, name="Elsewhere", price=1)
         promo = self.event.promo_codes.get()
         links = {
             "bundle session": lambda: self.bundle.sessions.add(session),
@@ -699,9 +668,7 @@ class ExportTests(TestCase):
                 transaction.set_rollback(True)
 
     def test_export_of_empty_event(self):
-        event = Event.objects.create(
-            name="Empty", start_date=date(2027, 1, 1), end_date=date(2027, 1, 1)
-        )
+        event = empty_event("Empty")
         spec = export(event)
         self.assertEqual(spec["ticket_types"], [])
         errors, warnings = check(spec)

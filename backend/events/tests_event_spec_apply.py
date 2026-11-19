@@ -6,37 +6,31 @@ from unittest.mock import patch
 
 from django.test import TestCase
 
-from events.event_spec import SpecError, apply, diff, example_spec, export, validate
+from events.event_spec import SpecError, apply, diff, example_spec, export
 
 from events.event_spec import _apply as apply_module
+from events.event_spec.testkit import (
+    NOW,
+    add_ticket,
+    at_now,
+    check,
+    empty_event,
+    make_child,
+)
 from events.event_spec._diff import normalize
 from events.models import (
     Event,
-    EventTicket,
     Extra,
     ExtraChoice,
     PromoCode,
     Session,
     TicketType,
 )
-from families.models import Child, Family
-
-
-NOW = datetime(2026, 11, 19, 12, 0, tzinfo=UTC)
-
-
-def at_now(now=NOW):
-    return patch("events.models.timezone.now", return_value=now)
 
 
 def do_apply(spec, event=None, now=NOW):
     with at_now(now):
         return apply(spec, event)
-
-
-def check(spec, event=None):
-    with at_now():
-        return validate(spec, event)
 
 
 def row_counts():
@@ -83,9 +77,7 @@ class ApplyNewEventTests(TestCase):
 
     def test_export_applied_to_another_empty_event(self):
         first, _, _ = do_apply(example_spec())
-        other = Event.objects.create(
-            name="Other", start_date=date(2030, 1, 1), end_date=date(2030, 1, 1)
-        )
+        other = empty_event("Other")
         target, changes, _ = do_apply(export(first), other)
         self.assertEqual(target.pk, other.pk)
         self.assertEqual(export(target), export(first))
@@ -210,13 +202,7 @@ class ApplyExistingEventTests(TestCase):
 class RefusalTests(TestCase):
     def test_non_empty_event_is_refused_without_writes(self):
         event, _, _ = do_apply(example_spec())
-        child = Child.objects.create(
-            family=Family.objects.create(),
-            first_name="T",
-            last_name="C",
-            birthdate=date(2020, 1, 1),
-        )
-        EventTicket.objects.create(attendee=child, event=event)
+        add_ticket(event)
         before, snapshot = row_counts(), export(event)
         spec = example_spec()
         spec["ticket_types"][0]["price"] = 1
@@ -228,17 +214,12 @@ class RefusalTests(TestCase):
 
     def test_emptiness_is_rechecked_inside_the_transaction(self):
         event, _, _ = do_apply(example_spec())
-        child = Child.objects.create(
-            family=Family.objects.create(),
-            first_name="T",
-            last_name="C",
-            birthdate=date(2020, 1, 1),
-        )
+        child = make_child()
         original = apply_module.validate
 
         def validate_then_ticket(spec, target):
             result = original(spec, target)
-            EventTicket.objects.create(attendee=child, event=event)
+            add_ticket(event, child)
             return result
 
         before = row_counts()
@@ -336,12 +317,7 @@ class EmptinessCoverageTests(TestCase):
         from events.models import Ticket
 
         event, _, _ = do_apply(example_spec())
-        child = Child.objects.create(
-            family=Family.objects.create(),
-            first_name="T",
-            last_name="C",
-            birthdate=date(2020, 1, 1),
-        )
+        child = make_child()
         Ticket.objects.create(attendee=child, session=event.sessions.get())
         with self.assertRaises(SpecError) as ctx:
             do_apply(example_spec(), event)
@@ -351,11 +327,8 @@ class EmptinessCoverageTests(TestCase):
 
 class TargetGuardTests(TestCase):
     def test_open_registration_on_target_is_refused(self):
-        event = Event.objects.create(
-            name="Live",
-            start_date=date(2027, 6, 18),
-            end_date=date(2027, 6, 20),
-            registration_opens_at=datetime(2026, 1, 1, tzinfo=UTC),
+        event = empty_event(
+            "Live", registration_opens_at=datetime(2026, 1, 1, tzinfo=UTC)
         )
         with self.assertRaises(SpecError) as ctx:
             do_apply(example_spec(), event)
@@ -448,9 +421,7 @@ class SameNameRowsTests(TestCase):
     def test_tie_on_ordering_is_an_error_at_the_second_row_for_a_target(self):
         spec = self.spec()
         spec["ticket_types"][2]["sort_order"] = spec["ticket_types"][1]["sort_order"]
-        target = Event.objects.create(
-            name="T", start_date=date(2027, 1, 1), end_date=date(2027, 1, 1)
-        )
+        target = empty_event("T")
         errors, _ = check(spec, target)
         issues = {e["path"]: e["code"] for e in errors}
         self.assertEqual(issues, {"ticket_types[2].sort_order": "ambiguous_order"})
@@ -474,9 +445,7 @@ class PreservedFieldsTests(TestCase):
         self.assertIsNone(event.cloned_from)
         self.assertIsNone(event.extras.get().cloned_from)
 
-        source = Event.objects.create(
-            name="Src", start_date=date(2027, 1, 1), end_date=date(2027, 1, 1)
-        )
+        source = empty_event("Src")
         source_extra = Extra.objects.create(event=source, name="Src extra")
         Session.objects.filter(pk=event.sessions.get().pk).update(is_active=True)
         PromoCode.objects.filter(pk=event.promo_codes.get().pk).update(uses_count=7)

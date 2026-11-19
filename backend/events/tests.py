@@ -13,6 +13,7 @@ from django.utils import timezone
 from rest_framework.test import APIClient
 
 from events.event_spec import SpecError
+from events.event_spec.testkit import foreign_session
 from events.models import (
     AppliesTo,
     Event,
@@ -1419,7 +1420,6 @@ class CopyEventTest(TestCase):
     def test_age_bound_off_the_anniversary_is_refused_with_its_path(self):
         # The old copier shifted such a bound and produced a row that failed
         # clean(); apply's validation now refuses it.
-        from events.event_spec import SpecError
         from events.services import copy_event
 
         TicketType.objects.create(
@@ -1434,7 +1434,6 @@ class CopyEventTest(TestCase):
         self.assertFalse(Event.objects.filter(name="X").exists())
 
     def test_negative_price_is_refused_and_nothing_is_created(self):
-        from events.event_spec import SpecError
         from events.services import copy_event
 
         TicketType.objects.filter(pk=self.family_type.pk).update(price=-5)
@@ -1547,16 +1546,7 @@ class CopyEventTest(TestCase):
     def test_cross_event_session_in_bundle_is_refused(self):
         from events.services import copy_event
 
-        other = Event.objects.create(
-            name="Other", start_date=date(2027, 1, 1), end_date=date(2027, 1, 1)
-        )
-        foreign = Session.objects.create(
-            event=other,
-            name="Elsewhere",
-            start_time=timezone.now(),
-            end_time=timezone.now(),
-        )
-        self.day_type.sessions.add(foreign)
+        self.day_type.sessions.add(foreign_session("Elsewhere"))
 
         with self.assertRaisesMessage(SpecError, "Elsewhere"):
             copy_event(self.source, name="Nope", start_date=date(2027, 5, 1))

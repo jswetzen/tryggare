@@ -6,7 +6,6 @@ import os
 import tempfile
 from datetime import UTC, date, datetime
 from io import StringIO
-from unittest.mock import patch
 
 from django.contrib.auth.models import Permission
 from django.core.management import call_command
@@ -17,47 +16,20 @@ from rest_framework.test import APIClient
 
 from accounts.models import AdminUser
 from events.event_spec import example_spec, export
+from events.event_spec.testkit import add_ticket, at_now, empty_event, foreign_session
 from events.management.commands.event_spec import Command
-from events.models import Event, EventTicket, Session, TicketType
+from events.models import Event, TicketType
 from accounts.roles import COORDINATOR, grant
 from events.services import COPY_PERMISSIONS, VIEW_PERMISSIONS
-from families.models import Child, Family
-
-NOW = datetime(2026, 11, 19, 12, 0, tzinfo=UTC)
-
-
-def at_now():
-    return patch("events.models.timezone.now", return_value=NOW)
-
-
-def add_ticket(event):
-    child = Child.objects.create(
-        family=Family.objects.create(),
-        first_name="T",
-        last_name="C",
-        birthdate=date(2020, 1, 1),
-    )
-    EventTicket.objects.create(attendee=child, event=event)
 
 
 def foreign_session_event():
     """An otherwise empty event whose ticket type includes another event's session."""
-    target = Event.objects.create(
-        name="Target", start_date=date(2027, 5, 1), end_date=date(2027, 5, 2)
-    )
-    other = Event.objects.create(
-        name="Other", start_date=date(2027, 1, 1), end_date=date(2027, 1, 2)
-    )
-    foreign = Session.objects.create(
-        event=other,
-        name="Foreign",
-        start_time=datetime(2027, 1, 1, 9, tzinfo=UTC),
-        end_time=datetime(2027, 1, 1, 10, tzinfo=UTC),
-    )
+    target = empty_event("Target")
     ticket_type = TicketType.objects.create(
         event=target, name="T", price=0, kind="session_bundle"
     )
-    ticket_type.sessions.add(foreign)
+    ticket_type.sessions.add(foreign_session())
     return target
 
 
@@ -130,9 +102,7 @@ class PermissionTests(ApiTestCase):
             self.assertNotIn(response.status_code, (401, 403), (method, name))
 
     def test_create_only_user_cannot_put(self):
-        target = Event.objects.create(
-            name="Empty", start_date=date(2027, 5, 1), end_date=date(2027, 5, 2)
-        )
+        target = empty_event("Empty")
         client = self.client_for(self.user_with("creator", COPY_PERMISSIONS))
         created = self.post(
             client, reverse("event-spec-create"), {"spec": example_spec()}
@@ -161,9 +131,7 @@ class PermissionTests(ApiTestCase):
             self.assertEqual(response.status_code, 403, name)
 
     def test_put_needs_csrf_with_session_auth(self):
-        target = Event.objects.create(
-            name="Empty", start_date=date(2027, 5, 1), end_date=date(2027, 5, 2)
-        )
+        target = empty_event("Empty")
         client = APIClient(enforce_csrf_checks=True)
         client.force_login(self.staff)
         response = client.put(
@@ -338,16 +306,7 @@ class EventSpecTests(ApiTestCase):
 
     def test_export_cross_event_reference_is_409(self):
         a = make_event()
-        other = Event.objects.create(
-            name="Other", start_date=date(2027, 1, 1), end_date=date(2027, 1, 2)
-        )
-        foreign = Session.objects.create(
-            event=other,
-            name="Foreign",
-            start_time=datetime(2027, 1, 1, 9, tzinfo=UTC),
-            end_time=datetime(2027, 1, 1, 10, tzinfo=UTC),
-        )
-        a.ticket_types.first().sessions.add(foreign)
+        a.ticket_types.first().sessions.add(foreign_session())
         response = self.as_staff().get(reverse("event-spec", args=[a.pk]))
         self.assertEqual(response.status_code, 409)
         error = response.json()["errors"][0]
@@ -402,9 +361,7 @@ class EventSpecTests(ApiTestCase):
         self.assertEqual(response.status_code, 404)
 
     def test_put_onto_empty_event(self):
-        target = Event.objects.create(
-            name="Empty", start_date=date(2027, 5, 1), end_date=date(2027, 5, 2)
-        )
+        target = empty_event("Empty")
         client = self.as_staff()
         with at_now():
             response = client.put(
@@ -432,9 +389,7 @@ class EventSpecTests(ApiTestCase):
         self.assertEqual(response.json()["errors"][0]["code"], "event_not_empty")
 
     def test_put_invalid_spec_is_400(self):
-        target = Event.objects.create(
-            name="Empty", start_date=date(2027, 5, 1), end_date=date(2027, 5, 2)
-        )
+        target = empty_event("Empty")
         spec = example_spec()
         spec["event"]["end_date"] = "2000-01-01"
         client = self.as_staff()
@@ -460,9 +415,7 @@ class EventSpecTests(ApiTestCase):
         client = self.as_staff()
         created = self.post(client, reverse("event-spec-create"), example_spec())
         self.assertEqual(created.status_code, 201)
-        target = Event.objects.create(
-            name="Empty", start_date=date(2027, 5, 1), end_date=date(2027, 5, 2)
-        )
+        target = empty_event("Empty")
         with at_now():
             response = client.put(
                 reverse("event-spec", args=[target.pk]), example_spec(), format="json"
@@ -622,9 +575,7 @@ class CommandTests(TestCase):
         self.assertEqual(Event.objects.count(), 0)
 
     def test_apply_onto_empty_event(self):
-        target = Event.objects.create(
-            name="Empty", start_date=date(2027, 5, 1), end_date=date(2027, 5, 2)
-        )
+        target = empty_event("Empty")
         out, _ = self.run_cmd(
             "apply", self.spec_file(example_spec()), "--event", str(target.pk)
         )
