@@ -5,7 +5,7 @@ from datetime import timedelta
 from decimal import Decimal
 
 from django.db import IntegrityError, OperationalError, connection, transaction
-from django.db.models import F, Prefetch, Q
+from django.db.models import F, Q
 from django.http import Http404
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
@@ -25,7 +25,6 @@ from events.models import (
     Event,
     EventTicket,
     Extra,
-    ExtraChoice,
     PromoCode,
     RegistrationWindowStatus,
     SessionTicket,
@@ -38,6 +37,12 @@ from .emails import (
     send_confirmation_email,
     send_payment_instructions_email,
     send_verification_email,
+)
+from .form_spec import (
+    build_form_spec,
+    bundle_session_ids,
+    sessions_payload,
+    ticket_type_payload,
 )
 from .models import (
     Payment,
@@ -123,54 +128,6 @@ def _split_selections(items):
         )
         model_data.append(item)
     return model_data, selections
-
-
-def _ticket_type_payload(ticket_type, *, sold_count):
-    """Shared public JSON shape for a TicketType — used both by
-    registration_event_info's normal listing and validate_promo_code's
-    unlocked-types payload, so the two never drift apart.
-
-    ``sold_count`` is passed in rather than computed here (R3, gate review
-    2026-09-25): both call sites list several ticket types at once, and
-    this used to call the single-type count function once per type — an
-    N+1 on a public, unauthenticated endpoint. Callers compute the whole
-    event's counts in one shot with
-    registrations.services.sold_counts_for_event and pass each type's
-    share in.
-
-    ``available`` (added 2026-09-24, capacity enforcement increment): a
-    plain bool, not a remaining count — see
-    registrations.services.ticket_type_sold_count's docstring for what
-    "sold" means here. Deliberately not exposing the raw sold count or a
-    remaining-seats number: nothing else on this public, unauthenticated
-    endpoint reveals how many of anything have sold (prices and age
-    windows are configuration, not activity), and "3 left!" is exactly the
-    kind of number a competitor or a nosy guardian could poll for over
-    time to infer registration velocity. A bool is the minimum a
-    guardian's form needs to grey out a full option — matches
-    registration_event_info's own "minimal ... without exposing" framing
-    for the rest of this payload.
-    """
-    return {
-        "id": str(ticket_type.id),
-        "name": ticket_type.name,
-        "price": str(ticket_type.price),
-        "applies_to": ticket_type.applies_to,
-        "min_birthdate": (
-            str(ticket_type.min_birthdate) if ticket_type.min_birthdate else None
-        ),
-        "max_birthdate": (
-            str(ticket_type.max_birthdate) if ticket_type.max_birthdate else None
-        ),
-        "kind": ticket_type.kind,
-        "requires_ticket_type_id": (
-            str(ticket_type.requires_ticket_type_id)
-            if ticket_type.requires_ticket_type_id
-            else None
-        ),
-        "max_per_required": ticket_type.max_per_required,
-        "available": ticket_type.capacity is None or sold_count < ticket_type.capacity,
-    }
 
 
 def _resolve_promo_code(*, event, code_str):
@@ -734,92 +691,12 @@ def _resend_verification(registration):
 @api_view(["GET"])
 @permission_classes([AllowAny])
 def registration_event_info(request, event_id):
-    """
-    Public, minimal event lookup for the /register/[eventId] form — just
-    enough to render "Register for {name}" without exposing the full
-    (staff-authenticated) EventViewSet to anonymous requests. Also carries
-    the event's active ticket types/extras (Phase 3) so the form can render
-    real choices instead of just a flat price.
-    """
+    """Public form spec for /register/[eventId] (see form_spec.py). Never
+    cached: organizers edit prices and the preview page reloads them."""
     event = get_object_or_404(Event, pk=event_id)
-
-    # One bulk query pair for the whole event (R3, gate review
-    # 2026-09-25), not one _ticket_type_payload-internal query per ticket
-    # type rendered below — see sold_counts_for_event's own docstring.
-    sold_counts = sold_counts_for_event(event)
-    active_ticket_types = event.ticket_types.filter(is_active=True)
-    ticket_types = [
-        _ticket_type_payload(
-            ticket_type, sold_count=sold_counts.get(str(ticket_type.id), 0)
-        )
-        for ticket_type in active_ticket_types.filter(is_hidden=False).order_by(
-            "sort_order", "name"
-        )
-    ]
-    # A code-only, invite-only event (every active TicketType hidden) would
-    # otherwise leave the form with an empty ticket_types list and no visible
-    # promo-code box to unlock any — this tells the frontend to show the box
-    # anyway so there's a way in.
-    has_hidden_ticket_types = active_ticket_types.filter(is_hidden=True).exists()
-    extras = [
-        {
-            "id": str(extra.id),
-            "name": extra.name,
-            "price": str(extra.price),
-            "session_id": str(extra.session_id) if extra.session_id else None,
-            "per_attendee": extra.per_attendee,
-            "applies_to": extra.applies_to,
-            "requires_choice": extra.requires_choice,
-            "required": extra.required,
-            "default_selected": extra.default_selected,
-            "choices": [
-                {
-                    "id": str(choice.id),
-                    "label": choice.label,
-                    "price_delta": str(choice.price_delta),
-                }
-                for choice in extra.choice_rows.all()
-            ],
-        }
-        for extra in event.extras.filter(is_active=True)
-        .order_by("sort_order", "name")
-        .prefetch_related(
-            Prefetch(
-                "choice_rows",
-                queryset=ExtraChoice.objects.filter(is_active=True).order_by(
-                    "sort_order", "label"
-                ),
-            )
-        )
-    ]
-
-    return Response(
-        {
-            "id": str(event.id),
-            "name": event.name,
-            "start_date": str(event.start_date),
-            "end_date": str(event.end_date),
-            "is_paid": event.is_paid,
-            "price": str(event.price) if event.price is not None else None,
-            "currency": "SEK",
-            "header_image_url": event.header_image_url or None,
-            "accent_color": event.accent_color or None,
-            "ticket_types": ticket_types,
-            "has_hidden_ticket_types": has_hidden_ticket_types,
-            "extras": extras,
-            "registration_window_status": event.registration_window_status,
-            "registration_opens_at": (
-                event.registration_opens_at.isoformat()
-                if event.registration_opens_at
-                else None
-            ),
-            "registration_closes_at": (
-                event.registration_closes_at.isoformat()
-                if event.registration_closes_at
-                else None
-            ),
-        }
-    )
+    response = Response(build_form_spec(event))
+    response["Cache-Control"] = "no-store"
+    return response
 
 
 @api_view(["POST"])
@@ -860,10 +737,11 @@ def validate_promo_code(request):
     if promo_code.max_uses is not None and promo_code.uses_count >= promo_code.max_uses:
         return Response({"valid": False})
 
-    # Same bulk-query rationale as registration_event_info above — a
-    # promo code can unlock several hidden ticket types at once (R3, gate
-    # review 2026-09-25).
+    # Bulk queries, as in form_spec.build_form_spec: a code can unlock
+    # several hidden ticket types at once.
     sold_counts = sold_counts_for_event(event)
+    unlocked = list(promo_code.unlocks_ticket_types.filter(is_active=True))
+    bundle_ids = bundle_session_ids(unlocked)
     return Response(
         {
             "valid": True,
@@ -876,13 +754,16 @@ def validate_promo_code(request):
                 )
             ],
             "unlocks_ticket_types": [
-                _ticket_type_payload(
-                    ticket_type, sold_count=sold_counts.get(str(ticket_type.id), 0)
+                ticket_type_payload(
+                    ticket_type,
+                    sold_count=sold_counts.get(str(ticket_type.id), 0),
+                    session_ids=bundle_ids,
                 )
-                for ticket_type in promo_code.unlocks_ticket_types.filter(
-                    is_active=True
-                )
+                for ticket_type in unlocked
             ],
+            "sessions": sessions_payload(
+                {sid for ids in bundle_ids.values() for sid in ids}
+            ),
         }
     )
 

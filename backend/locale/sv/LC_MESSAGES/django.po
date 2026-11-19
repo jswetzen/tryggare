@@ -1873,3 +1873,36 @@ msgstr "Personen har redan en biljett här"
 
 msgid "This person's registration was cancelled, so they cannot be given a ticket here. Send the family to a Koordinator."
 msgstr "Personens anmälan är avbruten, så hen kan inte få en biljett här. Skicka familjen till en koordinator."
+
+msgid "Copied From"
+msgstr "Kopierad från"
+
+msgid "Informational only: the event this one was copied from, if any. No live link: editing either never affects the other."
+msgstr "Endast information: evenemanget som det här kopierades från, om något. Ingen levande koppling: att ändra det ena påverkar aldrig det andra."
+
+msgid "New event name"
+msgstr "Nytt evenemangsnamn"
+
+msgid "New start date"
+msgstr "Nytt startdatum"
+
+msgid "Every date and time in the copy moves by the same number of days as the start date."
+msgstr "Alla datum och tider i kopian flyttas lika många dagar som startdatumet."
+
+msgid "Copy event…"
+msgstr "Kopiera evenemang…"
+
+msgid "Select exactly one event to copy."
+msgstr "Markera exakt ett evenemang att kopiera."
+
+msgid "Copied '%(source)s' to '%(event)s'."
+msgstr "Kopierade ”%(source)s” till ”%(event)s”."
+
+msgid "Copy event"
+msgstr "Kopiera evenemang"
+
+msgid "Copy \"%(name)s\" with its sessions, ticket types, extras and promo codes. Registrations, tickets and check-ins are not copied."
+msgstr "Kopiera ”%(name)s” med pass, biljettyper, tillval och kampanjkoder. Anmälningar, biljetter och incheckningar kopieras inte."
+
+msgid "Copy"
+msgstr "Kopiera"

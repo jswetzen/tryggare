@@ -5,6 +5,7 @@ from django.conf import settings
 from django.contrib import admin, messages
 from django.contrib.admin import helpers
 from django.core.exceptions import ObjectDoesNotExist
+from django.http import HttpResponseRedirect
 from django.template.response import TemplateResponse
 from django.urls import reverse
 from django.utils.html import format_html, format_html_join
@@ -58,7 +59,19 @@ from registrations.services import (
     ticket_type_sold_count,
 )
 
-from .services import duplicate_extra_to_event
+from .services import copy_event, duplicate_extra_to_event
+
+
+class CopyEventForm(forms.Form):
+    name = forms.CharField(max_length=255, label=_("New event name"))
+    start_date = forms.DateField(
+        label=_("New start date"),
+        widget=forms.DateInput(attrs={"type": "date"}),
+        help_text=_(
+            "Every date and time in the copy moves by the same number of "
+            "days as the start date."
+        ),
+    )
 
 
 @admin.register(Event)
@@ -74,7 +87,8 @@ class EventAdmin(admin.ModelAdmin):
     )
     list_filter = ("ticket_rule_default",)
     search_fields = ("name",)
-    actions = ("generate_report",)
+    actions = ("generate_report", "copy_event_action")
+    readonly_fields = ("cloned_from",)
     # Explicit fieldsets so the check-in rule gets a block of its own, away
     # from the registration/branding fields. Every editable field must be
     # listed here: unlike ``exclude``, ``fieldsets`` is an allow-list, so a
@@ -92,6 +106,7 @@ class EventAdmin(admin.ModelAdmin):
                     "registration_closes_at",
                     "header_image_url",
                     "accent_color",
+                    "cloned_from",
                 )
             },
         ),
@@ -117,6 +132,62 @@ class EventAdmin(admin.ModelAdmin):
 
     def view_on_site(self, obj):
         return f"{settings.FRONTEND_BASE_URL}/register/{obj.id}/"
+
+    def has_copy_permission(self, request):
+        # The copy creates rows in all five models, not just events.
+        return all(
+            request.user.has_perm(f"events.add_{m}")
+            for m in ("event", "session", "tickettype", "extra", "promocode")
+        )
+
+    @admin.action(description=_("Copy event…"), permissions=["copy"])
+    def copy_event_action(self, request, queryset):
+        if queryset.count() != 1:
+            self.message_user(
+                request,
+                _("Select exactly one event to copy."),
+                messages.ERROR,
+            )
+            return None
+        source = queryset.get()
+
+        if "apply" in request.POST:
+            form = CopyEventForm(request.POST)
+            if form.is_valid():
+                try:
+                    new_event = copy_event(
+                        source,
+                        name=form.cleaned_data["name"],
+                        start_date=form.cleaned_data["start_date"],
+                    )
+                except ValueError as exc:
+                    self.message_user(request, str(exc), messages.ERROR)
+                    return None
+                self.message_user(
+                    request,
+                    _("Copied '%(source)s' to '%(event)s'.")
+                    % {"source": source.name, "event": new_event.name},
+                    messages.SUCCESS,
+                )
+                return HttpResponseRedirect(
+                    reverse("admin:events_event_change", args=[new_event.pk])
+                )
+        else:
+            form = CopyEventForm(
+                initial={"name": source.name, "start_date": source.start_date}
+            )
+
+        context = {
+            **self.admin_site.each_context(request),
+            "title": _("Copy event"),
+            "source": source,
+            "form": form,
+            "opts": self.model._meta,
+            "action_checkbox_name": helpers.ACTION_CHECKBOX_NAME,
+        }
+        return TemplateResponse(
+            request, "admin/events/event/copy_confirmation.html", context
+        )
 
     @admin.action(description=_("Generate / refresh report snapshot"))
     def generate_report(self, request, queryset):

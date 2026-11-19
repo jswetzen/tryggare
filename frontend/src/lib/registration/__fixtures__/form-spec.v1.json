@@ -1,0 +1,166 @@
+{
+  "spec_version": 1,
+  "id": "00000000-0000-0000-0000-000000000001",
+  "name": "Fixture Camp",
+  "start_date": "2030-07-01",
+  "end_date": "2030-07-03",
+  "is_paid": false,
+  "price": null,
+  "currency": "SEK",
+  "header_image_url": null,
+  "accent_color": "#336699",
+  "ticket_types": [
+    {
+      "id": "00000000-0000-0000-0000-000000000014",
+      "name": "Adult",
+      "price": "200.00",
+      "applies_to": "parent",
+      "min_birthdate": null,
+      "max_birthdate": null,
+      "kind": "event",
+      "requires_ticket_type_id": null,
+      "max_per_required": null,
+      "available": true
+    },
+    {
+      "id": "00000000-0000-0000-0000-000000000015",
+      "name": "Child 0-12",
+      "price": "100.00",
+      "applies_to": "child",
+      "min_birthdate": "2018-07-01",
+      "max_birthdate": "2030-07-01",
+      "kind": "event",
+      "requires_ticket_type_id": "00000000-0000-0000-0000-000000000014",
+      "max_per_required": 3,
+      "available": true
+    },
+    {
+      "id": "00000000-0000-0000-0000-000000000016",
+      "name": "Day 1 only",
+      "price": "80.00",
+      "applies_to": "either",
+      "min_birthdate": null,
+      "max_birthdate": null,
+      "kind": "session_bundle",
+      "requires_ticket_type_id": null,
+      "max_per_required": null,
+      "available": true,
+      "session_ids": [
+        "00000000-0000-0000-0000-00000000000a"
+      ]
+    }
+  ],
+  "has_hidden_ticket_types": true,
+  "extras": [
+    {
+      "id": "00000000-0000-0000-0000-00000000001e",
+      "name": "Lunch",
+      "price": "50.00",
+      "session_id": "00000000-0000-0000-0000-00000000000a",
+      "per_attendee": true,
+      "applies_to": "either",
+      "requires_choice": true,
+      "required": true,
+      "default_selected": false,
+      "choices": [
+        {
+          "id": "00000000-0000-0000-0000-00000000001f",
+          "label": "Meat",
+          "price_delta": "0.00"
+        },
+        {
+          "id": "00000000-0000-0000-0000-000000000020",
+          "label": "Veg",
+          "price_delta": "5.00"
+        }
+      ]
+    }
+  ],
+  "sessions": [
+    {
+      "id": "00000000-0000-0000-0000-00000000000a",
+      "name": "Day 1",
+      "start_time": "2030-07-01T09:00:00+00:00",
+      "end_time": "2030-07-01T16:00:00+00:00"
+    }
+  ],
+  "fields": {
+    "parent": [
+      {
+        "key": "first_name",
+        "visible": true,
+        "required": true
+      },
+      {
+        "key": "last_name",
+        "visible": true,
+        "required": false
+      },
+      {
+        "key": "relationship_type",
+        "visible": true,
+        "required": true
+      },
+      {
+        "key": "phone",
+        "visible": true,
+        "required": true
+      },
+      {
+        "key": "email",
+        "visible": true,
+        "required": false
+      },
+      {
+        "key": "allergies",
+        "visible": true,
+        "required": false
+      },
+      {
+        "key": "notes",
+        "visible": true,
+        "required": false
+      },
+      {
+        "key": "health_consent_status",
+        "visible": true,
+        "required": false
+      }
+    ],
+    "child": [
+      {
+        "key": "first_name",
+        "visible": true,
+        "required": true
+      },
+      {
+        "key": "last_name",
+        "visible": true,
+        "required": true
+      },
+      {
+        "key": "birthdate",
+        "visible": true,
+        "required": true
+      },
+      {
+        "key": "allergies",
+        "visible": true,
+        "required": false
+      },
+      {
+        "key": "notes",
+        "visible": true,
+        "required": false
+      },
+      {
+        "key": "health_consent_status",
+        "visible": true,
+        "required": false
+      }
+    ]
+  },
+  "registration_window_status": "open",
+  "registration_opens_at": "2020-01-01T00:00:00+00:00",
+  "registration_closes_at": "2099-01-01T00:00:00+00:00"
+}

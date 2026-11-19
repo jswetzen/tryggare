@@ -126,6 +126,19 @@ class Event(models.Model):
         ),
     )
 
+    cloned_from = models.ForeignKey(
+        "self",
+        null=True,
+        blank=True,
+        related_name="copies",
+        on_delete=models.SET_NULL,
+        verbose_name=_("Copied From"),
+        help_text=_(
+            "Informational only: the event this one was copied from, if "
+            "any. No live link: editing either never affects the other."
+        ),
+    )
+
     class Meta:
         db_table = "events"
         verbose_name = _("Event")
