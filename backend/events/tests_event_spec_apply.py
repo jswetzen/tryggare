@@ -34,9 +34,9 @@ def do_apply(spec, event=None, now=NOW):
         return apply(spec, event)
 
 
-def check(spec):
+def check(spec, event=None):
     with at_now():
-        return validate(spec)
+        return validate(spec, event)
 
 
 def row_counts():
@@ -435,10 +435,23 @@ class SameNameRowsTests(TestCase):
             ["ticket_types[1].key", "ticket_types[2].key"],
         )
 
-    def test_tie_on_ordering_is_an_error_at_the_second_row(self):
+    def test_tie_on_ordering_is_a_warning_for_a_new_event(self):
         spec = self.spec()
         spec["ticket_types"][2]["sort_order"] = spec["ticket_types"][1]["sort_order"]
-        errors, _ = check(spec)
+        errors, warnings = check(spec)
+        self.assertEqual(errors, [])
+        self.assertIn(
+            ("ticket_types[2].sort_order", "ambiguous_order"),
+            {(w["path"], w["code"]) for w in warnings},
+        )
+
+    def test_tie_on_ordering_is_an_error_at_the_second_row_for_a_target(self):
+        spec = self.spec()
+        spec["ticket_types"][2]["sort_order"] = spec["ticket_types"][1]["sort_order"]
+        target = Event.objects.create(
+            name="T", start_date=date(2027, 1, 1), end_date=date(2027, 1, 1)
+        )
+        errors, _ = check(spec, target)
         issues = {e["path"]: e["code"] for e in errors}
         self.assertEqual(issues, {"ticket_types[2].sort_order": "ambiguous_order"})
 
@@ -449,7 +462,7 @@ class SameNameRowsTests(TestCase):
         spec["extras"][0]["choices"][1]["label"] = spec["extras"][0]["choices"][0][
             "label"
         ]
-        errors, _ = check(spec)
+        errors, _ = check(spec, target)
         self.assertIn("extras[0].choices[1].sort_order", {e["path"] for e in errors})
 
 

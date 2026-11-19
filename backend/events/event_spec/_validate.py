@@ -76,9 +76,16 @@ def validate(spec, event: Event | None = None) -> tuple[list[Issue], list[Issue]
     errors = _target_issues(event)
     errors += _reference_issues(parsed)
     errors += _model_issues(parsed, event)
-    errors += _ordering_issues(parsed)
+    ties = _ordering_issues(parsed)
     errors += _going_live_issues(parsed)
-    return errors, _warnings(parsed)
+    warnings = _warnings(parsed)
+    # Ties only matter when rows are matched against existing ones; a new event
+    # has nothing to match, so they are a warning there.
+    if event is None or event._state.adding:
+        warnings += ties
+    else:
+        errors += ties
+    return errors, warnings
 
 
 # (model, lookup to the event) for every row that makes an event "in use". A test walks
@@ -575,7 +582,7 @@ def _ties(rows, order, path, field) -> list[Issue]:
 
 
 def _ordering_issues(spec: EventSpec) -> list[Issue]:
-    """Rows that tie on export's ordering get keys by database id, so they are an error."""
+    """Rows that tie on export's ordering get keys by database id: an error against an existing event, a warning for a new one."""
     out = []
     for name, (rows, order, field) in _ordering(spec).items():
         out += _ties(rows, order, name, field)

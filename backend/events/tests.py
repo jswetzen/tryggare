@@ -1205,6 +1205,13 @@ class CopyEventTest(TestCase):
     """events/services.py::copy_event."""
 
     def setUp(self):
+        # The source window (March 2027) must stay in the future of the test clock.
+        patcher = patch(
+            "django.utils.timezone.now",
+            return_value=datetime(2026, 11, 19, 12, 0, tzinfo=UTC),
+        )
+        patcher.start()
+        self.addCleanup(patcher.stop)
         self.tz = timezone.get_default_timezone()
         self.source = Event.objects.create(
             name="Spring Camp",
@@ -1482,6 +1489,16 @@ class CopyEventTest(TestCase):
         self.assertEqual((start.date(), start.hour), (date(2027, 11, 6), 9))
         self.assertEqual(start.utcoffset(), timedelta(hours=1))
 
+    def test_tied_choice_ordering_still_copies(self):
+        ExtraChoice.objects.filter(extra=self.dinner).update(
+            label="Same", price_delta=0
+        )
+        ExtraChoice.objects.filter(extra=self.dinner).update(sort_order=0)
+
+        new = self._copy()
+
+        self.assertEqual(new.extras.get(name="Dinner").choice_rows.count(), 2)
+
     def test_clones_are_recorded_for_event_and_extras(self):
         new = self._copy()
 
@@ -1700,6 +1717,13 @@ class CopyEventAdminActionTest(NonManifestStaticfilesTestCase, TestCase):
         )
 
     def setUp(self):
+        # The source window (March 2027) must stay in the future of the test clock.
+        patcher = patch(
+            "django.utils.timezone.now",
+            return_value=datetime(2026, 11, 19, 12, 0, tzinfo=UTC),
+        )
+        patcher.start()
+        self.addCleanup(patcher.stop)
         self.client.force_login(self.user)
         self.url = reverse("admin:events_event_changelist")
 
@@ -1784,6 +1808,18 @@ class CopyEventAdminActionTest(NonManifestStaticfilesTestCase, TestCase):
         self.assertContains(response, "Could not copy")
         self.assertContains(response, "ticket_types[0].price")
         self.assertFalse(Event.objects.filter(name="Alpha 3").exists())
+
+    def test_spec_warnings_from_a_copy_are_shown(self):
+        # An event with no registration window gets the "self-serve is off" warning.
+        response = self._post(
+            [self.a.pk],
+            apply="yes",
+            name="Alpha 5",
+            start_date="2028-06-01",
+            follow=True,
+        )
+        messages_ = list(response.context["messages"])
+        self.assertTrue(any(m.level_tag == "warning" for m in messages_))
 
     def test_dropped_registration_window_is_reported(self):
         now = timezone.now()

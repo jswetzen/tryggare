@@ -60,7 +60,11 @@ from registrations.services import (
 )
 
 from .event_spec import SpecError
-from .services import can_copy_events, copy_event, duplicate_extra_to_event
+from .services import (
+    can_copy_events,
+    copy_event_with_warnings,
+    duplicate_extra_to_event,
+)
 
 
 class CopyEventForm(forms.Form):
@@ -152,7 +156,7 @@ class EventAdmin(admin.ModelAdmin):
             form = CopyEventForm(request.POST)
             if form.is_valid():
                 try:
-                    new_event = copy_event(
+                    new_event, warnings = copy_event_with_warnings(
                         source,
                         name=form.cleaned_data["name"],
                         start_date=form.cleaned_data["start_date"],
@@ -168,6 +172,12 @@ class EventAdmin(admin.ModelAdmin):
                         messages.ERROR,
                     )
                     return None
+                for warning in warnings:
+                    self.message_user(
+                        request,
+                        f"{warning['path']}: {warning['message']}",
+                        messages.WARNING,
+                    )
                 had_window = (
                     source.registration_opens_at or source.registration_closes_at
                 )

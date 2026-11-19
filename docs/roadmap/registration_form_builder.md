@@ -24,9 +24,10 @@ We do not know yet that setup effort is a bottleneck. The maintainer wants form-
 - `Registration.promo_code` is a single FK, so a registration takes at most one promo code.
 - `duplicate_extra_to_event` (`backend/events/services.py`) already clones extras between events.
 - An **event spec** exists (`backend/events/event_spec/`; design in `docs/event-spec-plan.md`): a typed JSON description of an event's setup (event, sessions, ticket types, extras with choices, promo codes), with rows referring to each other by key. The package offers `export`, `validate`, `diff` and `apply`. It is the authoring format for options B and D, and `copy_event` is built on it.
-  - Endpoints (staff only): `GET /api/event-specs/schema/` (JSON Schema, capabilities, example), `POST /api/event-specs/validate/`, `POST /api/event-specs/`, and `GET`/`PUT /api/events/<id>/spec/` plus `POST .../spec/diff/`. CLI: `manage.py event_spec export|validate|diff|apply`.
+  - Endpoints (permission per method: create needs the add permissions, `PUT` needs add/change/delete, reads need view, including `view_promocode`; Koordinator and up have them): `GET /api/event-specs/schema/` (JSON Schema, capabilities, example), `POST /api/event-specs/validate/`, `POST /api/event-specs/`, and `GET`/`PUT /api/events/<id>/spec/` plus `POST .../spec/diff/`. CLI: `manage.py event_spec export|validate|diff|apply`.
   - Validation layers: shape (pydantic), references, the model `clean()` rules, a going-live check, then warnings (setup checks, the start of option C).
   - Guards: apply is one transaction; it refuses a target that has registrations, tickets or check-ins, or whose registration is open; it never opens registration (an open window in a spec is an error); rows keep their ids when matched by key.
+  - `copy_event` goes through the spec, so it refuses a source that breaks the validation rules (model `clean()` rules, negative prices, cross-event references) and drops a registration window that the move would leave open or already past (self-serve off; the admin says so). Ordering ties are a warning for a new event.
 - Still missing: line items, `RegistrationGroup`, and waitlists (see `event_registration_ux_case_catalog.md` §1.4, §5.2, §4.3).
 - Staff edit live rows in Django admin while sales are open (catalog §9.4). There is no draft or published state.
 

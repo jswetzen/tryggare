@@ -61,6 +61,7 @@ CAPABILITIES = {
     "notes": [
         "The example's dates are illustrative. A registration window that is open when a spec is validated is an error, so move the dates into the future.",
         "Row keys are derived from names on export; a rename is a removal plus an addition.",
+        "Rows that tie on their ordering fields (sort_order, then name) are a warning for a new event and an error when applying onto an existing one.",
     ],
 }
 

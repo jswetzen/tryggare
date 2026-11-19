@@ -1,7 +1,8 @@
 """Typed event spec (``event_spec_version: 1``).
 
-Field set = what ``events.services.copy_event`` copies. Derived fields,
-counters, timestamps, live check-in state and form-field config are not in it.
+Field set = the concrete model fields, minus an explicit exclusion list (see
+``SpecParityTests``). Derived fields, counters, timestamps, live check-in state
+and form-field config are not in it.
 Rows refer to each other by ``key``, never by UUID. Descriptions are for the
 LLM reading the JSON Schema, so they are plain English and not translated.
 """
@@ -14,6 +15,7 @@ from django.utils import timezone
 from pydantic import AfterValidator, BaseModel, ConfigDict, Field, StringConstraints
 
 # Bounds on what one spec may carry, so a request cannot be made arbitrarily large.
+# Copying an event goes through a spec, so these also cap what can be copied.
 MAX_ROWS = 300
 MAX_CHOICES = 100
 

@@ -214,8 +214,15 @@ def _shift_spec(spec: dict, delta: timedelta, name: str, start_date: date) -> di
     return spec
 
 
-@transaction.atomic
 def copy_event(source: Event, *, name: str, start_date: date) -> Event:
+    """Copy `source` to a new event; see `copy_event_with_warnings`."""
+    return copy_event_with_warnings(source, name=name, start_date=start_date)[0]
+
+
+@transaction.atomic
+def copy_event_with_warnings(
+    source: Event, *, name: str, start_date: date
+) -> tuple[Event, list[dict]]:
     """Copy `source` with its configuration to a new event starting on
     `start_date`; every date and time moves by the same number of days.
 
@@ -226,7 +233,9 @@ def copy_event(source: Event, *, name: str, start_date: date) -> Event:
     copied, `PromoCode.uses_count` starts over and sessions start inactive.
     A registration window that would be open or past after the shift is
     dropped (self-serve off). Raises ValueError for a source that refers to
-    another event's rows and `event_spec.SpecError` for a setup the spec rules refuse.
+    another event's rows and `event_spec.SpecError` for a setup the spec rules
+    refuse, including one over the spec's row caps (`MAX_ROWS`).
+    Returns the new event and the spec warnings.
     """
     # Imported here: event_spec imports this module.
     from .event_spec import apply, export
@@ -234,7 +243,7 @@ def copy_event(source: Event, *, name: str, start_date: date) -> Event:
 
     delta = start_date - source.start_date
     spec = _shift_spec(export(source), delta, name, start_date)
-    new_event, _diff, _warnings = apply(spec)
+    new_event, _diff, warnings = apply(spec)
 
     # Copy history is not part of the spec; both rows are matched by key.
     Event.objects.filter(pk=new_event.pk).update(cloned_from=source)
@@ -242,4 +251,4 @@ def copy_event(source: Event, *, name: str, start_date: date) -> Event:
     new_extras = dict(keyed_rows(new_event)["extras"])
     for key, old_extra in keyed_rows(source)["extras"]:
         Extra.objects.filter(pk=new_extras[key].pk).update(cloned_from=old_extra)
-    return new_event
+    return new_event, warnings
