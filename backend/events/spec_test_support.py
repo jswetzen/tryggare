@@ -22,7 +22,7 @@ def validate_at_now(spec, event=None, now=NOW):
 
 
 # Part B of docs/setup-checker-plan.md fixes the example; then this and its users go.
-EXAMPLE_WARNINGS = {"bundle_replaces_pass", "ticket_rule_open_with_tickets"}
+EXAMPLE_WARNINGS = {"bundle_replaces_pass"}
 
 
 def without_example_warnings(warnings):

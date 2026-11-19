@@ -2052,8 +2052,8 @@ msgstr "Cannot write %(path)s: %(error)s"
 msgid "The %(kind)s '%(name)s' refers to the %(target)s '%(other)s', which belongs to another event."
 msgstr "The %(kind)s '%(name)s' refers to the %(target)s '%(other)s', which belongs to another event."
 
-msgid "This session bundle covers the same attendees as an event ticket (or requires one), so it can never be bought alongside it; it replaces the pass."
-msgstr "This session bundle covers the same attendees as an event ticket (or requires one), so it can never be bought alongside it; it replaces the pass."
+msgid "This session bundle covers the same attendees as an event ticket. An attendee picks either this or the pass, not both. Intended?"
+msgstr "This session bundle covers the same attendees as an event ticket. An attendee picks either this or the pass, not both. Intended?"
 
 msgid "Check-in is open to everyone by default but the event sells tickets, so nobody needs a ticket at the door. Intended?"
 msgstr "Check-in is open to everyone by default but the event sells tickets, so nobody needs a ticket at the door. Intended?"
@@ -2062,8 +2062,8 @@ msgid "The flat event price is ignored while an active ticket type exists, and a
 msgstr "The flat event price is ignored while an active ticket type exists, and applies again if all of them are made inactive."
 
 #, python-format
-msgid "No active ticket covers %(audience)s aged %(start)s to %(end)s."
-msgstr "No active ticket covers %(audience)s aged %(start)s to %(end)s."
+msgid "No active ticket covers children aged %(start)s to %(end)s."
+msgstr "No active ticket covers children aged %(start)s to %(end)s."
 
 #, python-format
 msgid "This age tier covers the same ages as '%(other)s'; an attendee in both gets two options. Intended?"

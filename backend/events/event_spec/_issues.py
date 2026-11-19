@@ -80,7 +80,7 @@ MESSAGES = {
         "Every ticket type this code refers to is inactive."
     ),
     "bundle_replaces_pass": _(
-        "This session bundle covers the same attendees as an event ticket (or requires one), so it can never be bought alongside it; it replaces the pass."
+        "This session bundle covers the same attendees as an event ticket. An attendee picks either this or the pass, not both. Intended?"
     ),
     "ticket_rule_open_with_tickets": _(
         "Check-in is open to everyone by default but the event sells tickets, so nobody needs a ticket at the door. Intended?"
@@ -88,9 +88,7 @@ MESSAGES = {
     "event_price_ignored": _(
         "The flat event price is ignored while an active ticket type exists, and applies again if all of them are made inactive."
     ),
-    "age_band_gap": _(
-        "No active ticket covers %(audience)s aged %(start)s to %(end)s."
-    ),
+    "age_band_gap": _("No active ticket covers children aged %(start)s to %(end)s."),
     "age_band_overlap": _(
         "This age tier covers the same ages as '%(other)s'; an attendee in both gets two options. Intended?"
     ),

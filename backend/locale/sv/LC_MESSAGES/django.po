@@ -2076,8 +2076,8 @@ msgstr "Kan inte skriva %(path)s: %(error)s"
 msgid "The %(kind)s '%(name)s' refers to the %(target)s '%(other)s', which belongs to another event."
 msgstr "”%(name)s” (%(kind)s) refererar till %(target)s ”%(other)s”, som hör till ett annat evenemang."
 
-msgid "This session bundle covers the same attendees as an event ticket (or requires one), so it can never be bought alongside it; it replaces the pass."
-msgstr "Den här sessionsbiljetten gäller samma deltagare som en eventbiljett (eller kräver en), så den kan aldrig köpas tillsammans med den; den ersätter passet."
+msgid "This session bundle covers the same attendees as an event ticket. An attendee picks either this or the pass, not both. Intended?"
+msgstr "Det här sessionspaketet gäller samma deltagare som en evenemangsbiljett. En deltagare väljer antingen det eller passet, inte båda. Avsiktligt?"
 
 msgid "Check-in is open to everyone by default but the event sells tickets, so nobody needs a ticket at the door. Intended?"
 msgstr "Incheckning är öppen för alla som standard, men evenemanget säljer biljetter, så ingen behöver biljett vid dörren. Avsiktligt?"
@@ -2086,12 +2086,12 @@ msgid "The flat event price is ignored while an active ticket type exists, and a
 msgstr "Evenemangets fasta pris ignoreras så länge det finns en aktiv biljettyp, och gäller igen om alla görs inaktiva."
 
 #, python-format
-msgid "No active ticket covers %(audience)s aged %(start)s to %(end)s."
-msgstr "Ingen aktiv biljett gäller %(audience)s i åldern %(start)s till %(end)s."
+msgid "No active ticket covers children aged %(start)s to %(end)s."
+msgstr "Ingen aktiv biljett gäller barn i åldern %(start)s till %(end)s."
 
 #, python-format
 msgid "This age tier covers the same ages as '%(other)s'; an attendee in both gets two options. Intended?"
-msgstr "Den här åldersnivån gäller samma åldrar som '%(other)s'; en deltagare i båda får två val. Avsiktligt?"
+msgstr "Den här åldersnivån gäller samma åldrar som ”%(other)s”; en deltagare i båda får två val. Avsiktligt?"
 
 msgid "This row is inactive and nothing refers to it, but it is still copied with the event. Delete it if it is not needed."
 msgstr "Raden är inaktiv och ingenting hänvisar till den, men den kopieras ändå med evenemanget. Ta bort den om den inte behövs."

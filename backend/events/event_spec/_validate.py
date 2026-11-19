@@ -17,7 +17,6 @@ from checkins.models import CheckInRecord
 from registrations.models import Registration
 
 from ..models import (
-    AppliesTo,
     EventTicket,
     SessionTicket,
     Ticket,
@@ -365,12 +364,16 @@ def _pricing_warnings(spec: EventSpec) -> list[Issue]:
     active = any(t.is_active for t in spec.ticket_types)
     if ev.price and active:
         out.append(issue("event.price", "event_price_ignored"))
-    if ev.ticket_rule_default == "open" and active:
+    # Session.ticket_rule overrides the event default, so the default only matters
+    # for a session that leaves it empty (or when there are no sessions).
+    follows_default = not spec.sessions or any(not s.ticket_rule for s in spec.sessions)
+    if ev.ticket_rule_default == "open" and active and follows_default:
         out.append(issue("event.ticket_rule_default", "ticket_rule_open_with_tickets"))
     return out
 
 
 _NO_AGE_LIMIT = 10**6
+_UNBOUNDED = (0, _NO_AGE_LIMIT)
 
 
 def _age_on_start(spec: EventSpec, born: date) -> int:
@@ -390,70 +393,88 @@ def _audience(t) -> set[str]:
     return {"parent", "child"} if t.applies_to == "either" else {t.applies_to}
 
 
+def _same_attendees(a, a_range, b, b_range) -> bool:
+    # Age is only enforced for children (registrations/views.py), so parents always overlap.
+    common = _audience(a) & _audience(b)
+    return "parent" in common or (
+        "child" in common and a_range[0] <= b_range[1] and b_range[0] <= a_range[1]
+    )
+
+
+def _sold_together(a, b) -> bool:
+    """Whether the two sale windows intersect; an open end is unbounded."""
+    return (
+        a.available_from is None
+        or b.available_until is None
+        or a.available_from <= b.available_until
+    ) and (
+        b.available_from is None
+        or a.available_until is None
+        or b.available_from <= a.available_until
+    )
+
+
 def _age_band_warnings(spec: EventSpec) -> list[Issue]:
     ranges = {i: _age_range(spec, t) for i, t in enumerate(spec.ticket_types)}
-    unbounded = (0, _NO_AGE_LIMIT)
     out: dict[tuple[str, str], Issue] = {}
     active = [(i, t) for i, t in enumerate(spec.ticket_types) if t.is_active]
 
-    # A bundle matching an event ticket in audience and age is never bought
-    # alongside it: attendees pick one ticket, or the bundle requires the pass.
-    passes = [(i, t) for i, t in active if t.kind == "event" and not t.is_hidden]
-    by_key = {t.key: t for t in spec.ticket_types}
+    # An attendee picks one ticket, so a bundle for the same attendees as an event
+    # pass is an alternative to it. A bundle that only requires a pass of other
+    # attendees (a child bundle behind a parent pass) is a normal family setup.
+    index = {t.key: i for i, t in enumerate(spec.ticket_types)}
+    passes = {i for i, t in active if t.kind == "event" and not t.is_hidden}
     for i, t in active:
         if t.kind != "session_bundle":
             continue
-        required = by_key.get(t.requires_ticket_type)
-        clash = (required is not None and required.kind == "event") or any(
-            _audience(t) & _audience(p)
-            and ranges[i][0] <= ranges[j][1]
-            and ranges[j][0] <= ranges[i][1]
-            for j, p in passes
-        )
-        if clash:
+        required = index.get(t.requires_ticket_type)
+        if required is not None and spec.ticket_types[required].kind != "event":
+            required = None
+        if any(
+            _same_attendees(t, ranges[i], spec.ticket_types[j], ranges[j])
+            for j in passes | ({required} - {None})
+        ):
             path = f"ticket_types[{i}].kind"
             out[(path, "bundle_replaces_pass")] = issue(path, "bundle_replaces_pass")
 
-    for kind in ("event", "session_bundle"):
-        for audience in ("parent", "child"):
-            tiers = sorted(
-                (
-                    (i, t)
-                    for i, t in active
-                    if t.kind == kind and not t.is_hidden and audience in _audience(t)
-                ),
-                key=lambda it: ranges[it[0]],
-            )
-            covered = None
-            for n, (i, t) in enumerate(tiers):
-                low, high = ranges[i]
-                path = f"ticket_types[{i}].min_birthdate"
-                if covered is not None and low > covered + 1:
-                    out[(path, "age_band_gap")] = issue(
-                        path,
-                        "age_band_gap",
-                        audience=AppliesTo(audience).label,
-                        start=covered + 1,
-                        end=low - 1,
+    # Age is only enforced for children, so only their tiers can leave a gap or overlap.
+    groups: dict[tuple, list[tuple[int, object]]] = {}
+    for i, t in active:
+        if t.is_hidden or "child" not in _audience(t):
+            continue
+        scope = frozenset(t.sessions) if t.kind == "session_bundle" else None
+        groups.setdefault((t.kind, scope), []).append((i, t))
+    for tiers in groups.values():
+        tiers.sort(key=lambda it: ranges[it[0]])
+        covered = None
+        for n, (i, t) in enumerate(tiers):
+            low, high = ranges[i]
+            path = f"ticket_types[{i}].min_birthdate"
+            if covered is not None and low > covered + 1:
+                out[(path, "age_band_gap")] = issue(
+                    path, "age_band_gap", start=covered + 1, end=low - 1
+                )
+            for j, other in tiers[:n]:
+                if (
+                    ranges[i] != _UNBOUNDED
+                    and ranges[j] != _UNBOUNDED
+                    and low <= ranges[j][1]
+                    and _sold_together(t, other)
+                ):
+                    out[(path, "age_band_overlap")] = issue(
+                        path, "age_band_overlap", other=other.name
                     )
-                for j, other in tiers[:n]:
-                    if (
-                        ranges[i] != unbounded
-                        and ranges[j] != unbounded
-                        and low <= ranges[j][1]
-                    ):
-                        out[(path, "age_band_overlap")] = issue(
-                            path, "age_band_overlap", other=other.name
-                        )
-                covered = high if covered is None else max(covered, high)
+            covered = high if covered is None else max(covered, high)
     return sorted(out.values(), key=lambda w: (w["path"], w["code"]))
 
 
 def _inactive_unreferenced_warnings(spec: EventSpec) -> list[Issue]:
-    # Rows nothing points at that are switched off still travel with an event copy.
+    # Rows nothing active points at that are switched off still travel with an event copy.
     referenced: dict[str, set[str]] = {}
     for kind in TOP_KINDS:
         for row in getattr(spec, kind.name):
+            if not getattr(row, "is_active", True):
+                continue
             for name, target in kind.refs.items():
                 value = getattr(row, name)
                 keys = value if kind.is_list_ref(name) else [value]
