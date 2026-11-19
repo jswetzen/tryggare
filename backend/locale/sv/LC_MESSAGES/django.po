@@ -1906,3 +1906,86 @@ msgstr "Kopiera ”%(name)s” med pass, biljettyper, tillval och kampanjkoder. 
 
 msgid "Copy"
 msgstr "Kopiera"
+
+# Event spec validation messages
+
+msgid "This field is required."
+msgstr "Fältet är obligatoriskt."
+
+msgid "Unknown field. Remove it or check the schema for the right name."
+msgstr "Okänt fält. Ta bort det eller kontrollera schemat för rätt namn."
+
+msgid "Must be one of: %(expected)s."
+msgstr "Måste vara ett av: %(expected)s."
+
+msgid "Must be lowercase letters and digits separated by single hyphens."
+msgstr "Måste vara gemener och siffror åtskilda av enstaka bindestreck."
+
+msgid "Invalid value: %(detail)s"
+msgstr "Ogiltigt värde: %(detail)s"
+
+msgid "Key '%(key)s' is used more than once; keys must be unique."
+msgstr "Nyckeln ”%(key)s” används fler än en gång; nycklar måste vara unika."
+
+msgid "'%(key)s' is a %(found)s, but a %(expected)s key is needed here."
+msgstr "”%(key)s” är en nyckel för %(found)s, men här behövs en nyckel för %(expected)s."
+
+msgid "No %(kind)s has the key '%(key)s'."
+msgstr "Ingen post i %(kind)s har nyckeln ”%(key)s”."
+
+msgid "Ticket types require each other in a loop, so none can be bought."
+msgstr "Biljettyperna kräver varandra i en ring, så ingen kan köpas."
+
+msgid "Code '%(code)s' appears more than once; codes are matched case-insensitively and must be unique."
+msgstr "Koden ”%(code)s” förekommer mer än en gång; koder matchas utan hänsyn till versaler och måste vara unika."
+
+msgid "The end date is before the start date."
+msgstr "Slutdatumet ligger före startdatumet."
+
+msgid "The session must end after it starts."
+msgstr "Passet måste sluta efter att det börjar."
+
+msgid "'Available until' is before 'available from'."
+msgstr "”Tillgänglig till” ligger före ”tillgänglig från”."
+
+msgid "A percent discount cannot be more than 100."
+msgstr "En procentrabatt kan inte vara över 100."
+
+msgid "'Valid until' is before 'valid from'."
+msgstr "”Giltig till” ligger före ”giltig från”."
+
+msgid "Registration would already be open. Set registration_opens_at to a future moment; a person opens registration, not the spec."
+msgstr "Anmälan skulle redan vara öppen. Sätt registration_opens_at till en framtida tidpunkt; en person öppnar anmälan, inte specen."
+
+msgid "No registration window is set, so public self-serve registration is off."
+msgstr "Inget anmälningsfönster är satt, så den öppna självanmälan är avstängd."
+
+msgid "The registration window has already closed."
+msgstr "Anmälningsfönstret har redan stängt."
+
+msgid "The session starts outside the event's dates."
+msgstr "Passet börjar utanför evenemangets datum."
+
+msgid "This age tier has price 0, so it is free. Intended?"
+msgstr "Den här åldersgruppen har priset 0 och är alltså gratis. Är det meningen?"
+
+msgid "This ticket type is hidden and no active promo code unlocks it, so nobody can buy it."
+msgstr "Biljettypen är dold och ingen aktiv kampanjkod låser upp den, så ingen kan köpa den."
+
+msgid "A session bundle lists no sessions."
+msgstr "Passpaketet anger inga pass."
+
+msgid "Sessions are only used by session bundles; they are ignored here."
+msgstr "Pass används bara av passpaket; de ignoreras här."
+
+msgid "max_per_required is ignored without requires_ticket_type."
+msgstr "max_per_required ignoreras utan requires_ticket_type."
+
+msgid "This extra requires a choice but has no active choices."
+msgstr "Tillvalet kräver ett val men har inga aktiva val."
+
+msgid "Choices are ignored unless requires_choice is true."
+msgstr "Val ignoreras om inte requires_choice är sant."
+
+msgid "Every ticket type this code refers to is inactive."
+msgstr "Alla biljettyper som koden hänvisar till är inaktiva."

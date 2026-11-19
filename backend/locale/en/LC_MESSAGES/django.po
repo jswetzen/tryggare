@@ -1882,3 +1882,86 @@ msgstr "Copy \"%(name)s\" with its sessions, ticket types, extras and promo code
 
 msgid "Copy"
 msgstr "Copy"
+
+# Event spec validation messages
+
+msgid "This field is required."
+msgstr "This field is required."
+
+msgid "Unknown field. Remove it or check the schema for the right name."
+msgstr "Unknown field. Remove it or check the schema for the right name."
+
+msgid "Must be one of: %(expected)s."
+msgstr "Must be one of: %(expected)s."
+
+msgid "Must be lowercase letters and digits separated by single hyphens."
+msgstr "Must be lowercase letters and digits separated by single hyphens."
+
+msgid "Invalid value: %(detail)s"
+msgstr "Invalid value: %(detail)s"
+
+msgid "Key '%(key)s' is used more than once; keys must be unique."
+msgstr "Key '%(key)s' is used more than once; keys must be unique."
+
+msgid "'%(key)s' is a %(found)s, but a %(expected)s key is needed here."
+msgstr "'%(key)s' is a %(found)s, but a %(expected)s key is needed here."
+
+msgid "No %(kind)s has the key '%(key)s'."
+msgstr "No %(kind)s has the key '%(key)s'."
+
+msgid "Ticket types require each other in a loop, so none can be bought."
+msgstr "Ticket types require each other in a loop, so none can be bought."
+
+msgid "Code '%(code)s' appears more than once; codes are matched case-insensitively and must be unique."
+msgstr "Code '%(code)s' appears more than once; codes are matched case-insensitively and must be unique."
+
+msgid "The end date is before the start date."
+msgstr "The end date is before the start date."
+
+msgid "The session must end after it starts."
+msgstr "The session must end after it starts."
+
+msgid "'Available until' is before 'available from'."
+msgstr "'Available until' is before 'available from'."
+
+msgid "A percent discount cannot be more than 100."
+msgstr "A percent discount cannot be more than 100."
+
+msgid "'Valid until' is before 'valid from'."
+msgstr "'Valid until' is before 'valid from'."
+
+msgid "Registration would already be open. Set registration_opens_at to a future moment; a person opens registration, not the spec."
+msgstr "Registration would already be open. Set registration_opens_at to a future moment; a person opens registration, not the spec."
+
+msgid "No registration window is set, so public self-serve registration is off."
+msgstr "No registration window is set, so public self-serve registration is off."
+
+msgid "The registration window has already closed."
+msgstr "The registration window has already closed."
+
+msgid "The session starts outside the event's dates."
+msgstr "The session starts outside the event's dates."
+
+msgid "This age tier has price 0, so it is free. Intended?"
+msgstr "This age tier has price 0, so it is free. Intended?"
+
+msgid "This ticket type is hidden and no active promo code unlocks it, so nobody can buy it."
+msgstr "This ticket type is hidden and no active promo code unlocks it, so nobody can buy it."
+
+msgid "A session bundle lists no sessions."
+msgstr "A session bundle lists no sessions."
+
+msgid "Sessions are only used by session bundles; they are ignored here."
+msgstr "Sessions are only used by session bundles; they are ignored here."
+
+msgid "max_per_required is ignored without requires_ticket_type."
+msgstr "max_per_required is ignored without requires_ticket_type."
+
+msgid "This extra requires a choice but has no active choices."
+msgstr "This extra requires a choice but has no active choices."
+
+msgid "Choices are ignored unless requires_choice is true."
+msgstr "Choices are ignored unless requires_choice is true."
+
+msgid "Every ticket type this code refers to is inactive."
+msgstr "Every ticket type this code refers to is inactive."
