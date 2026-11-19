@@ -1849,3 +1849,36 @@ msgstr "This person already has a ticket here"
 
 msgid "This person's registration was cancelled, so they cannot be given a ticket here. Send the family to a Koordinator."
 msgstr "This person's registration was cancelled, so they cannot be given a ticket here. Send the family to a Koordinator."
+
+msgid "Copied From"
+msgstr "Copied From"
+
+msgid "Informational only: the event this one was copied from, if any. No live link: editing either never affects the other."
+msgstr "Informational only: the event this one was copied from, if any. No live link: editing either never affects the other."
+
+msgid "New event name"
+msgstr "New event name"
+
+msgid "New start date"
+msgstr "New start date"
+
+msgid "Every date and time in the copy moves by the same number of days as the start date."
+msgstr "Every date and time in the copy moves by the same number of days as the start date."
+
+msgid "Copy event…"
+msgstr "Copy event…"
+
+msgid "Select exactly one event to copy."
+msgstr "Select exactly one event to copy."
+
+msgid "Copied '%(source)s' to '%(event)s'."
+msgstr "Copied '%(source)s' to '%(event)s'."
+
+msgid "Copy event"
+msgstr "Copy event"
+
+msgid "Copy \"%(name)s\" with its sessions, ticket types, extras and promo codes. Registrations, tickets and check-ins are not copied."
+msgstr "Copy \"%(name)s\" with its sessions, ticket types, extras and promo codes. Registrations, tickets and check-ins are not copied."
+
+msgid "Copy"
+msgstr "Copy"
