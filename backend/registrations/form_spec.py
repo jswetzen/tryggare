@@ -37,9 +37,9 @@ def _field(group: str, key: str, *, server_required: bool = False) -> FormField:
 PARENT_FIELDS: tuple[FormField, ...] = (
     _field("parent", "first_name", server_required=True),
     _field("parent", "last_name"),
+    _field("parent", "relationship_type", server_required=True),
     _field("parent", "phone", server_required=True),
     _field("parent", "email"),
-    _field("parent", "relationship_type", server_required=True),
     _field("parent", "allergies"),
     _field("parent", "notes"),
     _field("parent", "health_consent_status"),

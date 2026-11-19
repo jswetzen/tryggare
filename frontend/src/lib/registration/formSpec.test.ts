@@ -7,6 +7,7 @@ import {
   fieldFor,
   isFieldRequired,
   isFieldVisible,
+  omitHiddenFields,
   reconcileSelections,
   registrationExtras,
   type ExtraSelectionState,
@@ -181,5 +182,49 @@ describe('reconcileSelections', () => {
       next
     );
     expect(parents[0].ticketTypeId).toBe(ADULT);
+  });
+});
+
+describe('reconcileSelections and required extras', () => {
+  const unticked: ExtraSelectionState = { selected: false, choiceId: '', quantity: 1 };
+
+  it('selects an extra that is now required and lists it', () => {
+    const next = spec();
+    next.extras[0].required = true;
+    const old = spec();
+    old.extras[0].required = false;
+    const result = reconcileSelections(
+      {
+        spec: old,
+        parents: [],
+        children: [{ ticketTypeId: '', extraSelections: { [LUNCH]: unticked } }],
+        registrationExtraSelections: {}
+      },
+      next
+    );
+    expect(result.children[0].extraSelections[LUNCH].selected).toBe(true);
+    expect(result.nowRequired).toEqual([{ kind: 'extra', name: 'Lunch' }]);
+  });
+
+  it('lists a newly added required extra, not one that was already required', () => {
+    const old = spec();
+    const next = spec();
+    next.extras.push({ ...next.extras[0], id: 'new-extra', name: 'Bus', required: true });
+    const result = reconcileSelections(
+      { spec: old, parents: [], children: [], registrationExtraSelections: {} },
+      next
+    );
+    expect(result.nowRequired).toEqual([{ kind: 'extra', name: 'Bus' }]);
+  });
+});
+
+describe('omitHiddenFields', () => {
+  it('drops hidden keys only', () => {
+    const s = spec();
+    s.fields.parent.find((f) => f.key === 'email')!.visible = false;
+    expect(omitHiddenFields(s, 'parent', { first_name: 'A', email: 'x', ticket_type: null })).toEqual({
+      first_name: 'A',
+      ticket_type: null
+    });
   });
 });

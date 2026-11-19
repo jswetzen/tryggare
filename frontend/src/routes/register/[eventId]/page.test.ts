@@ -127,6 +127,11 @@ vi.mock('svelte-i18n', () => {
     // Closed screen — mapped so the test can read the formatted instant.
     'register.closedMessage': 'Registration for {event} closed on {date}.',
     'register.reloadConfig': 'Reload form config',
+    'register.reloadFailed': 'Could not reload the form config.',
+    'register.reloadChangedTitle': 'The form changed',
+    'register.reloadNowRequiredTitle': 'These are now required:',
+    'register.parentLastNameRequired': 'Enter a last name for {name}.',
+    'register.childInfoIncompleteFields': 'Fill in {fields} for {name}.',
     'register.reloadClearedTitle': 'The form changed. These selections were cleared:',
     'register.reloadPromoCleared': 'Promo code {code} no longer applies and was removed',
     'register.reloadKindTicketType': 'Ticket type',
@@ -3500,5 +3505,211 @@ describe('Register page — reload form config (preview)', () => {
     const notice = await screen.findByTestId('register-reload-notice');
     expect(notice.textContent).toContain('Promo code SAVE10 no longer applies');
     expect(screen.queryByTestId('register-promo-code-chip')).toBeNull();
+  });
+});
+
+describe('Register page — reload edge cases (preview)', () => {
+  const choiceExtra = (overrides: Record<string, unknown> = {}) => ({
+    id: 'extra-meals',
+    name: 'Meals',
+    price: '50.00',
+    session_id: null,
+    per_attendee: true,
+    applies_to: 'child',
+    requires_choice: true,
+    required: false,
+    default_selected: false,
+    choices: [
+      { id: 'c-meat', label: 'Meat', price_delta: '0.00' },
+      { id: 'c-veg', label: 'Veg', price_delta: '0.00' }
+    ],
+    ...overrides
+  });
+  const reloadButton = () => screen.getByRole('button', { name: 'Reload form config' });
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    getEvent.mockReset();
+    validatePromoCode.mockReset();
+    pageStateHelper.setUrl('http://localhost/register/event-1?preview=1');
+  });
+
+  async function applyCode(user: ReturnType<typeof userEvent.setup>) {
+    await user.type(screen.getByTestId('register-promo-code-input'), 'VIP');
+    await user.click(screen.getByTestId('register-promo-code-apply'));
+    await screen.findByTestId('register-promo-code-chip');
+  }
+
+  it('keeps a hidden type an applied promo code unlocks, and the selection of it', async () => {
+    const user = userEvent.setup();
+    getEvent.mockImplementation(async () => baseEventInfo());
+    validatePromoCode.mockResolvedValue({
+      valid: true,
+      discount_type: 'fixed',
+      discount_value: '0',
+      unlocks_ticket_types: [vipTicketType]
+    });
+    render(RegisterPage);
+    await screen.findByTestId('register-preview-banner');
+    await applyCode(user);
+    const select = screen.getByTestId('child-ticket-type-0') as HTMLSelectElement;
+    await user.selectOptions(select, 'tt-vip');
+
+    await user.click(reloadButton());
+
+    await waitFor(() => expect(validatePromoCode).toHaveBeenCalledTimes(2));
+    expect(screen.queryByTestId('register-reload-notice')).toBeNull();
+    expect(select.value).toBe('tt-vip');
+    expect(screen.getByTestId('register-promo-code-chip')).toBeInTheDocument();
+  });
+
+  it('shows the failure and changes nothing when the spec cannot be fetched', async () => {
+    const user = userEvent.setup();
+    getEvent.mockResolvedValueOnce(baseEventInfo()).mockRejectedValueOnce(new Error('offline'));
+    render(RegisterPage);
+    await screen.findByTestId('register-preview-banner');
+    const select = screen.getByTestId('child-ticket-type-0') as HTMLSelectElement;
+    await user.selectOptions(select, 'tt-child');
+
+    await user.click(reloadButton());
+
+    await screen.findByTestId('register-reload-failed');
+    expect(select.value).toBe('tt-child');
+  });
+
+  it('keeps the code and its types, and reports failure, when re-validation throws', async () => {
+    const user = userEvent.setup();
+    getEvent.mockImplementation(async () => baseEventInfo());
+    validatePromoCode
+      .mockResolvedValueOnce({ valid: true, discount_type: 'fixed', discount_value: '0', unlocks_ticket_types: [vipTicketType] })
+      .mockRejectedValueOnce(new Error('offline'));
+    render(RegisterPage);
+    await screen.findByTestId('register-preview-banner');
+    await applyCode(user);
+    const select = screen.getByTestId('child-ticket-type-0') as HTMLSelectElement;
+    await user.selectOptions(select, 'tt-vip');
+
+    await user.click(reloadButton());
+
+    await screen.findByTestId('register-reload-failed');
+    expect(screen.queryByTestId('register-reload-notice')).toBeNull();
+    expect(screen.getByTestId('register-promo-code-chip')).toBeInTheDocument();
+    expect(select.value).toBe('tt-vip');
+  });
+
+  it('skips the promo part when the code is removed while re-validating', async () => {
+    const user = userEvent.setup();
+    getEvent.mockImplementation(async () => baseEventInfo());
+    let release: (v: unknown) => void = () => {};
+    validatePromoCode
+      .mockResolvedValueOnce({ valid: true, discount_type: 'fixed', discount_value: '0' })
+      .mockReturnValueOnce(new Promise((resolve) => (release = resolve)));
+    render(RegisterPage);
+    await screen.findByTestId('register-preview-banner');
+    await applyCode(user);
+
+    await user.click(reloadButton());
+    await waitFor(() => expect(validatePromoCode).toHaveBeenCalledTimes(2));
+    await user.click(screen.getByTestId('register-promo-code-remove'));
+    release({ valid: false });
+
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Reload form config' })).toBeEnabled());
+    expect(screen.queryByTestId('register-reload-notice')).toBeNull();
+    expect(screen.queryByTestId('register-promo-code-chip')).toBeNull();
+  });
+
+  it('clears a ticked extra that was deleted and a choice that was removed', async () => {
+    const user = userEvent.setup();
+    const after = baseEventInfo({
+      extras: [
+        choiceExtra({ id: 'extra-b', name: 'Bus', choices: [{ id: 'c1', label: 'Seat', price_delta: '0.00' }] })
+      ]
+    });
+    const before = baseEventInfo({
+      extras: [
+        choiceExtra(),
+        choiceExtra({ id: 'extra-b', name: 'Bus', choices: [{ id: 'c1', label: 'Seat', price_delta: '0.00' }, { id: 'c2', label: 'Aisle', price_delta: '0.00' }] })
+      ]
+    });
+    getEvent.mockResolvedValueOnce(before).mockResolvedValueOnce(after);
+    render(RegisterPage);
+    await screen.findByTestId('register-preview-banner');
+    await user.click(screen.getByRole('checkbox', { name: /Meals/ }));
+    await user.click(screen.getByRole('checkbox', { name: /Bus/ }));
+    const busSelect = document.querySelector('option[value="c2"]')!.parentElement as HTMLSelectElement;
+    await user.selectOptions(busSelect, 'c2');
+
+    await user.click(reloadButton());
+
+    const notice = await screen.findByTestId('register-reload-notice');
+    expect(notice.textContent).toContain('Extra: Meals');
+    expect(notice.textContent).toContain('Extra choice: Bus – Aisle');
+  });
+
+  it('lists extras that became required', async () => {
+    const user = userEvent.setup();
+    getEvent
+      .mockResolvedValueOnce(baseEventInfo({ extras: [choiceExtra({ requires_choice: false, choices: [] })] }))
+      .mockResolvedValueOnce(
+        baseEventInfo({ extras: [choiceExtra({ requires_choice: false, choices: [], required: true })] })
+      );
+    render(RegisterPage);
+    await screen.findByTestId('register-preview-banner');
+    await user.click(screen.getByRole('checkbox', { name: /Meals/ }));
+    await user.click(screen.getByRole('checkbox', { name: /Meals/ }));
+
+    await user.click(reloadButton());
+
+    const list = await screen.findByTestId('register-reload-now-required');
+    expect(list.textContent).toContain('Meals');
+  });
+});
+
+describe('Register page — spec drives the payload and messages', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    getEvent.mockReset();
+  });
+
+  it('leaves fields the spec hides out of the payload', async () => {
+    const user = userEvent.setup();
+    const fields = specWithField('parent', 'email', { visible: false });
+    fields.child.find((f) => f.key === 'birthdate')!.visible = false;
+    getEvent.mockResolvedValue(ticketlessEventInfo({ fields }));
+    submit.mockResolvedValue({ reference_code: 'REF1', message: 'ok', email_sent: true });
+    render(RegisterPage);
+    await screen.findByTestId('register-form');
+    await user.type(screen.getByTestId('register-contact-email'), 'guardian@example.com');
+    await fillGuardian(user);
+    await user.type(document.getElementById('child-first-name-0') as HTMLInputElement, 'Alex');
+    await user.type(document.getElementById('child-last-name-0') as HTMLInputElement, 'Karlsson');
+    await user.click(screen.getByTestId('register-submit-button'));
+
+    await waitFor(() => expect(submit).toHaveBeenCalledTimes(1));
+    const payload = submit.mock.calls[0][0] as {
+      parents: Record<string, unknown>[];
+      children: Record<string, unknown>[];
+    };
+    expect(payload.parents[0]).not.toHaveProperty('email');
+    expect(payload.parents[0]).toHaveProperty('phone');
+    expect(payload.children[0]).not.toHaveProperty('birthdate');
+  });
+
+  it('names only the required child fields in the message and focuses the first missing one', async () => {
+    const user = userEvent.setup();
+    getEvent.mockResolvedValue(
+      ticketlessEventInfo({ fields: specWithField('child', 'last_name', { required: false }) })
+    );
+    render(RegisterPage);
+    await screen.findByTestId('register-form');
+    await user.type(screen.getByTestId('register-contact-email'), 'guardian@example.com');
+    await fillGuardian(user);
+    await user.type(document.getElementById('child-first-name-0') as HTMLInputElement, 'Alex');
+    await user.click(screen.getByTestId('register-submit-button'));
+
+    const item = await screen.findByTestId('register-error-item-child-info-0');
+    expect(item.textContent).toBe('Fill in first name, birthdate for Alex.');
+    await user.click(item);
+    expect(document.activeElement).toBe(document.getElementById('child-birthdate-0'));
   });
 });

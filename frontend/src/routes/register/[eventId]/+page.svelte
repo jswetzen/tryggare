@@ -45,6 +45,7 @@
     applicableTicketTypes,
     isFieldRequired,
     isFieldVisible,
+    omitHiddenFields,
     reconcileSelections,
     registrationExtras,
     type ExtraSelectionState
@@ -769,39 +770,46 @@
   let reloading = $state(false);
   let reloadFailed = $state(false);
   let reloadNotice = $state<string[]>([]);
+  let reloadNowRequired = $state<string[]>([]);
 
   async function handleReloadSpec() {
     if (reloading || !spec) return;
     reloading = true;
     reloadFailed = false;
     reloadNotice = [];
+    reloadNowRequired = [];
     try {
       let next = await registrationApi.getEvent(eventId);
       const notice: string[] = [];
 
-      if (promoCodeValidation?.valid && promoCodeAppliedValue) {
-        const code = promoCodeAppliedValue;
-        let result: PromoCodeValidation | null = null;
-        try {
-          result = await registrationApi.validatePromoCode(eventId, code);
-        } catch (err) {
-          console.error('Promo code re-validation failed:', err);
-        }
-        if (result?.valid) {
-          const have = new Set(next.ticket_types.map((tt) => tt.id));
-          const unlocked = (result.unlocks_ticket_types ?? []).filter((tt) => !have.has(tt.id));
-          next = { ...next, ticket_types: [...next.ticket_types, ...unlocked] };
-          promoCodeValidation = result;
-          promoCodeUnlockedIds = unlocked.map((tt) => tt.id);
-        } else {
-          promoCode = '';
-          promoCodeValidation = null;
-          promoCodeAppliedValue = '';
-          promoCodeUnlockedIds = [];
-          notice.push($t('register.reloadPromoCleared', { values: { code } }));
-        }
+      // A network error here throws to the outer catch: the reload is
+      // abandoned whole, so the code and its unlocked types stay as they were.
+      const code = promoCodeValidation?.valid ? promoCodeAppliedValue : '';
+      const result = code ? await registrationApi.validatePromoCode(eventId, code) : null;
+
+      // The guardian may have removed or replaced the code during the awaits.
+      const unchanged = !!code && promoCodeAppliedValue === code && !!promoCodeValidation?.valid;
+      const carry = (ids: string[]) =>
+        (spec?.ticket_types ?? []).filter(
+          (tt) => ids.includes(tt.id) && !next.ticket_types.some((n) => n.id === tt.id)
+        );
+      if (unchanged && result?.valid) {
+        const have = new Set(next.ticket_types.map((tt) => tt.id));
+        const unlocked = (result.unlocks_ticket_types ?? []).filter((tt) => !have.has(tt.id));
+        next = { ...next, ticket_types: [...next.ticket_types, ...unlocked] };
+        promoCodeValidation = result;
+        promoCodeUnlockedIds = unlocked.map((tt) => tt.id);
+      } else if (unchanged) {
+        promoCode = '';
+        promoCodeValidation = null;
+        promoCodeAppliedValue = '';
+        promoCodeUnlockedIds = [];
+        notice.push($t('register.reloadPromoCleared', { values: { code } }));
+      } else {
+        next = { ...next, ticket_types: [...next.ticket_types, ...carry(promoCodeUnlockedIds)] };
       }
 
+      const hadTicket = children.map((c) => !!c.ticketTypeId);
       const reconciled = reconcileSelections(
         { spec, parents, children, registrationExtraSelections },
         next
@@ -818,7 +826,12 @@
       parents = reconciled.parents;
       children = reconciled.children;
       registrationExtraSelections = reconciled.registrationExtraSelections;
+      // A child whose ticket was cleared gets the age-based suggestion again.
+      children.forEach((c, i) => {
+        if (hadTicket[i] && !c.ticketTypeId) suggestChildTicketType(c);
+      });
       reloadNotice = notice;
+      reloadNowRequired = reconciled.nowRequired.map((i) => i.name);
     } catch (err) {
       console.error('Reloading the form config failed:', err);
       reloadFailed = true;
@@ -1610,19 +1623,32 @@
     }
 
     children.forEach((child, index) => {
-      const blank = (key: string, value: string) =>
-        isFieldRequired(spec, 'child', key) && !value.trim();
-      if (
-        blank('first_name', child.first_name) ||
-        blank('last_name', child.last_name) ||
-        blank('birthdate', child.birthdate)
-      ) {
+      const childFields = [
+        ['first_name', child.first_name, 'first-name', 'checkin.childFirstName'],
+        ['last_name', child.last_name, 'last-name', 'checkin.childLastName'],
+        ['birthdate', child.birthdate, 'birthdate', 'checkin.childBirthdate']
+      ] as const;
+      const requiredFields = childFields.filter(([key]) => isFieldRequired(spec, 'child', key));
+      const missing = requiredFields.filter(([, value]) => !value.trim());
+      if (missing.length > 0) {
+        const name = childAttendeeLabel(child, index);
+        // The fixed sentence names all three; any other combination lists
+        // just the fields the spec requires.
+        const message =
+          requiredFields.length === 3
+            ? $t('register.childInfoIncomplete', { values: { name } })
+            : $t('register.childInfoIncompleteFields', {
+                values: {
+                  name,
+                  fields: requiredFields
+                    .map(([, , , label]) => $t(label).toLocaleLowerCase($locale ?? 'en'))
+                    .join(', ')
+                }
+              });
         problems.push({
           id: `child-info-${index}`,
-          message: $t('register.childInfoIncomplete', {
-            values: { name: childAttendeeLabel(child, index) }
-          }),
-          focusSelector: `#child-first-name-${index}`
+          message,
+          focusSelector: `#child-${missing[0][2]}-${index}`
         });
       }
       if (child.healthInfoStatus === 'consented' && !child.consentNoticeShared) {
@@ -1706,15 +1732,13 @@
         });
       }
       for (const [key, value, label] of [
-        ['last_name', p.last_name, 'checkin.parentLastName'],
-        ['email', p.email, 'checkin.parentEmail']
+        ['last_name', p.last_name, 'register.parentLastNameRequired'],
+        ['email', p.email, 'register.parentEmailRequired']
       ] as const) {
         if (isFieldRequired(spec, 'parent', key) && !value.trim()) {
           problems.push({
             id: `parent-${key === 'last_name' ? 'last-name' : key}-${index}`,
-            message: $t('register.parentFieldRequired', {
-              values: { field: $t(label), name: parentAttendeeLabel(p, index) }
-            }),
+            message: $t(label, { values: { name: parentAttendeeLabel(p, index) } }),
             focusSelector: `#parent-${key === 'last_name' ? 'last-name' : key}-${index}`
           });
         }
@@ -1842,7 +1866,7 @@
       event: eventId,
       last_name: familyName.trim(),
       contact_email: contactEmail.trim(),
-      parents: validParents.map((p) => ({
+      parents: validParents.map((p) => omitHiddenFields(spec, 'parent', {
         first_name: p.first_name.trim(),
         last_name: p.last_name.trim(),
         phone: p.phone.trim(),
@@ -1867,7 +1891,7 @@
           ? []
           : buildExtraSelections(p.extraSelections, applicablePersonExtras(spec, false))
       })),
-      children: children.map((child) => ({
+      children: children.map((child) => omitHiddenFields(spec, 'child', {
         first_name: child.first_name.trim(),
         last_name: child.last_name.trim(),
         // The server rejects "" for a date; an unentered one is null.
@@ -2516,14 +2540,25 @@
           <Alert type="error">{$t('register.reloadFailed')}</Alert>
         </div>
       {/if}
-      {#if reloadNotice.length > 0}
+      {#if reloadNotice.length > 0 || reloadNowRequired.length > 0}
         <div class="mb-4" data-testid="register-reload-notice">
-          <Alert type="warning" title={$t('register.reloadClearedTitle')}>
-            <ul class="list-disc pl-5">
-              {#each reloadNotice as line}
-                <li>{line}</li>
-              {/each}
-            </ul>
+          <Alert type="warning" title={$t('register.reloadChangedTitle')}>
+            {#if reloadNotice.length > 0}
+              <p class="font-semibold">{$t('register.reloadClearedTitle')}</p>
+              <ul class="list-disc pl-5">
+                {#each reloadNotice as line}
+                  <li>{line}</li>
+                {/each}
+              </ul>
+            {/if}
+            {#if reloadNowRequired.length > 0}
+              <p class="mt-2 font-semibold">{$t('register.reloadNowRequiredTitle')}</p>
+              <ul class="list-disc pl-5" data-testid="register-reload-now-required">
+                {#each reloadNowRequired as line}
+                  <li>{line}</li>
+                {/each}
+              </ul>
+            {/if}
           </Alert>
         </div>
       {/if}

@@ -196,9 +196,9 @@ class FormSpecMatchesSubmitTests(TestCase):
             return {
                 "first_name": "Anna",
                 "last_name": "Andersson",
+                "relationship_type": "Mother",
                 "phone": "070-123 45 67",
                 "email": "anna@example.com",
-                "relationship_type": "Mother",
                 "allergies": "",
                 "notes": "",
                 "health_consent_status": "not_applicable",
@@ -247,9 +247,11 @@ class FormSpecMatchesSubmitTests(TestCase):
             ("parent", PARENT_FIELDS, RegistrationParentSerializer),
             ("child", CHILD_FIELDS, RegistrationChildSerializer),
         ):
+            # Sets: the form's order is its own; the serializer is shared
+            # with staff intake and keeps its order.
             self.assertEqual(
-                [f["key"] for f in declared],
-                [f for f in serializer.Meta.fields if f not in extra],
+                {f["key"] for f in declared},
+                {f for f in serializer.Meta.fields if f not in extra},
                 kind,
             )
         for kind in ("parent", "child"):

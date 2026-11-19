@@ -97,6 +97,11 @@
         "required": false
       },
       {
+        "key": "relationship_type",
+        "visible": true,
+        "required": true
+      },
+      {
         "key": "phone",
         "visible": true,
         "required": true
@@ -105,11 +110,6 @@
         "key": "email",
         "visible": true,
         "required": false
-      },
-      {
-        "key": "relationship_type",
-        "visible": true,
-        "required": true
       },
       {
         "key": "allergies",

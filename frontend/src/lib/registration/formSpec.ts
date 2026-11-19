@@ -77,6 +77,20 @@ export interface ReconcileResult<P extends PersonSelection, C extends PersonSele
   children: C[];
   registrationExtraSelections: Record<string, ExtraSelectionState>;
   cleared: ClearedItem[];
+  // Extras (and extras that now need a choice) that are required in the new
+  // spec but were not before, by name.
+  nowRequired: ClearedItem[];
+}
+
+// Leaves out the keys of fields the spec marks visible:false, so a field
+// hidden by a reload is not sent. Keys the spec does not list are kept.
+export function omitHiddenFields<T extends object>(
+  spec: MaybeSpec,
+  group: FieldGroup,
+  payload: T
+): T {
+  const hidden = new Set(spec?.fields[group].filter((f) => !f.visible).map((f) => f.key));
+  return Object.fromEntries(Object.entries(payload).filter(([k]) => !hidden.has(k))) as T;
 }
 
 // Drops selections that point at ticket types, extras or extra choices the
@@ -87,6 +101,7 @@ export function reconcileSelections<P extends PersonSelection, C extends PersonS
   newSpec: RegistrationFormSpec
 ): ReconcileResult<P, C> {
   const cleared: ClearedItem[] = [];
+  const nowRequired: ClearedItem[] = [];
   const note = (item: ClearedItem) => {
     if (!cleared.some((c) => c.kind === item.kind && c.name === item.name)) cleared.push(item);
   };
@@ -113,7 +128,8 @@ export function reconcileSelections<P extends PersonSelection, C extends PersonS
         result[extraId] = { ...sel, choiceId: '' };
         continue;
       }
-      result[extraId] = sel;
+      // A required extra has no checkbox, so it cannot stay unselected.
+      result[extraId] = extra.required && !sel.selected ? { ...sel, selected: true } : sel;
     }
     return result;
   }
@@ -135,7 +151,17 @@ export function reconcileSelections<P extends PersonSelection, C extends PersonS
     };
   }
 
+  for (const extra of newSpec.extras) {
+    const old = oldExtras.get(extra.id);
+    if (extra.required && !old?.required) {
+      nowRequired.push({ kind: 'extra', name: extra.name });
+    } else if (extra.requires_choice && old && !old.requires_choice && extra.required) {
+      nowRequired.push({ kind: 'extraChoice', name: extra.name });
+    }
+  }
+
   return {
+    nowRequired,
     parents: state.parents.map((p) => reconcilePerson(p, false)),
     children: state.children.map((c) => reconcilePerson(c, true)),
     registrationExtraSelections: reconcileExtras(

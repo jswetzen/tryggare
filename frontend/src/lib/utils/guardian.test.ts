@@ -146,8 +146,8 @@ describe('sortProblemsByDomOrder', () => {
     ];
     expect(ids(sortProblemsByDomOrder(list))).toEqual([
       'parent-first-name-0',
-      'parent-phone-0',
       'parent-relationship-0',
+      'parent-phone-0',
       'parent-ticket-type-0',
       'parent-extra-ab-cd-0',
       'parent-consent-0',
