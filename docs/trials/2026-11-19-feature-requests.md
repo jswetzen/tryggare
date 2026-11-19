@@ -64,7 +64,7 @@ evidence:
   - {kind: spec_path, ref: "ticket_types[].kind"}
   - {kind: doc, ref: "docs/roadmap/event_registration_ux_case_catalog.md#34-extras-gated-by-ticket-type"}
 dedupe_key: new:extra_eligibility#age-window
-status: confirmed
+status: confirmed   # decided 2026-11-19: Extra requires one or more ticket types; see docs/setup-checker-plan.md Part B
 ```
 
 ### FR-2: The spec example teaches a bundle as an add-on
