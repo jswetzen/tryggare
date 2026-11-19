@@ -811,6 +811,17 @@ class Extra(models.Model):
     def __str__(self) -> str:
         return f"{self.event.name} - {self.name}"
 
+    def clean(self):
+        super().clean()
+        if (
+            self.session_id is not None
+            and self.event_id is not None
+            and self.session.event_id != self.event_id
+        ):
+            raise ValidationError(
+                {"session": _("The session must belong to the extra's event.")}
+            )
+
     @property
     def origin(self) -> "Extra":
         """Walk cloned_from up to the root of this extra's clone chain."""

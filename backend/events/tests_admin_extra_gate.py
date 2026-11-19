@@ -1,5 +1,6 @@
 """ExtraAdmin's ticket-type picker is limited to the extra's own event."""
 
+from django.core.exceptions import ValidationError
 from django.test import TestCase
 from django.urls import reverse
 from django.utils import timezone
@@ -7,8 +8,8 @@ from django.utils import timezone
 from accounts.models import AdminUser
 from tests.support import NonManifestStaticfilesTestCase
 
-from .admin import ExtraAdminForm
-from .models import Event, Extra, TicketType
+from .admin import ExtraAdminForm, PromoCodeAdminForm, TicketTypeAdminForm
+from .models import Event, Extra, PromoCode, Session, TicketType
 
 
 def _event(name):
@@ -58,7 +59,7 @@ class ExtraAdminGateTests(NonManifestStaticfilesTestCase, TestCase):
         self.assertIn("ticket_types", form.errors)
 
     def test_clean_refuses_when_the_picker_could_not_be_narrowed(self):
-        # An add form with no event yet shows every type; clean() is the real guard.
+        # clean() is the real guard when a picker could not be narrowed.
         form = ExtraAdminForm(data=self.data(ticket_types=[self.foreign.pk]))
         form.fields["ticket_types"].queryset = TicketType.objects.all()
         self.assertFalse(form.is_valid())
@@ -141,3 +142,142 @@ class ExtraAdminGateTests(NonManifestStaticfilesTestCase, TestCase):
         self.assertFalse(shared.ticket_types.exists())
         texts = [str(m) for m in response.context["messages"]]
         self.assertTrue(any("Shared" in m for m in texts), texts)
+
+
+class EventScopedAdminTests(NonManifestStaticfilesTestCase, TestCase):
+    """Extra.session, TicketType.sessions/requires_ticket_type and PromoCode's
+    two ticket-type pickers stay inside their own event."""
+
+    @classmethod
+    def setUpTestData(cls):
+        cls.user = AdminUser.objects.create_superuser("scopeadmin", "pw12345")
+        cls.event = _event("Mine")
+        cls.other = _event("Other")
+        cls.mine_s = Session.objects.create(
+            event=cls.event,
+            name="Mine session",
+            start_time=timezone.now(),
+            end_time=timezone.now(),
+        )
+        cls.foreign_s = Session.objects.create(
+            event=cls.other,
+            name="Foreign session",
+            start_time=timezone.now(),
+            end_time=timezone.now(),
+        )
+        cls.mine_t = TicketType.objects.create(
+            event=cls.event, name="Mine pass", price=1
+        )
+        cls.foreign_t = TicketType.objects.create(
+            event=cls.other, name="Foreign pass", price=1
+        )
+        cls.extra = Extra.objects.create(event=cls.event, name="Dinner")
+        cls.promo = PromoCode.objects.create(
+            event=cls.event, code="X", discount_type="percent", discount_value=10
+        )
+
+    def setUp(self):
+        self.client.force_login(self.user)
+
+    def form_for(self, name, obj):
+        response = self.client.get(
+            reverse(f"admin:events_{name}_change", args=[obj.pk])
+        )
+        return response.context["adminform"].form
+
+    def test_extra_model_refuses_another_events_session(self):
+        extra = Extra(event=self.event, name="E", session=self.foreign_s)
+        with self.assertRaises(ValidationError) as ctx:
+            extra.full_clean(exclude=["cloned_from"])
+        self.assertIn("session", ctx.exception.error_dict)
+        extra.session = self.mine_s
+        extra.full_clean(exclude=["cloned_from"])
+
+    def test_extra_change_form_lists_only_its_events_sessions(self):
+        form = self.form_for("extra", self.extra)
+        self.assertEqual(list(form.fields["session"].queryset), [self.mine_s])
+
+    def test_extra_form_refuses_a_foreign_session(self):
+        form = ExtraAdminForm(
+            data={
+                "event": self.event.pk,
+                "name": "Dinner",
+                "price": "0",
+                "applies_to": "either",
+                "sort_order": 0,
+                "session": self.foreign_s.pk,
+            },
+            instance=self.extra,
+        )
+        self.assertFalse(form.is_valid())
+        self.assertIn("session", form.errors)
+
+    def test_ticket_type_model_refuses_another_events_requirement(self):
+        tt = TicketType(
+            event=self.event,
+            name="T",
+            price=1,
+            requires_ticket_type=self.foreign_t,
+        )
+        with self.assertRaises(ValidationError) as ctx:
+            tt.full_clean(exclude=["event", "cloned_from"])
+        self.assertIn("requires_ticket_type", ctx.exception.error_dict)
+
+    def test_ticket_type_change_form_is_narrowed(self):
+        form = self.form_for("tickettype", self.mine_t)
+        self.assertEqual(list(form.fields["sessions"].queryset), [self.mine_s])
+        self.assertEqual(
+            list(form.fields["requires_ticket_type"].queryset), [self.mine_t]
+        )
+
+    def test_ticket_type_form_refuses_foreign_session_and_requirement(self):
+        data = {
+            "event": self.event.pk,
+            "name": "Mine pass",
+            "price": "1",
+            "applies_to": "either",
+            "kind": TicketType.Kind.SESSION_BUNDLE,
+            "sort_order": 0,
+            "sessions": [self.foreign_s.pk],
+            "requires_ticket_type": self.foreign_t.pk,
+        }
+        form = TicketTypeAdminForm(data=data, instance=self.mine_t)
+        self.assertFalse(form.is_valid())
+        self.assertIn("sessions", form.errors)
+        self.assertIn("requires_ticket_type", form.errors)
+
+    def test_promo_change_form_is_narrowed(self):
+        form = self.form_for("promocode", self.promo)
+        for name in ("applies_to_ticket_types", "unlocks_ticket_types"):
+            self.assertEqual(list(form.fields[name].queryset), [self.mine_t])
+
+    def test_promo_form_refuses_foreign_ticket_types(self):
+        # Simulate a picker that could not be narrowed: clean() still refuses.
+        form = PromoCodeAdminForm(
+            data={
+                "event": self.event.pk,
+                "code": "X",
+                "discount_type": "percent",
+                "discount_value": "10",
+                "is_active": "on",
+                "applies_to_ticket_types": [self.foreign_t.pk],
+            },
+            instance=self.promo,
+        )
+        for name in ("applies_to_ticket_types", "unlocks_ticket_types"):
+            form.fields[name].queryset = TicketType.objects.all()
+        self.assertFalse(form.is_valid())
+        self.assertIn("Foreign pass", str(form.errors["applies_to_ticket_types"]))
+
+    def test_add_form_without_event_offers_nothing_and_says_so(self):
+        response = self.client.get(reverse("admin:events_extra_add"))
+        field = response.context["adminform"].form.fields["session"]
+        self.assertEqual(list(field.queryset), [])
+        self.assertIn("Save", str(field.help_text))
+
+    def test_add_form_with_event_in_the_url_is_narrowed(self):
+        response = self.client.get(
+            reverse("admin:events_extra_add"), {"event": self.event.pk}
+        )
+        field = response.context["adminform"].form.fields["session"]
+        self.assertEqual(list(field.queryset), [self.mine_s])

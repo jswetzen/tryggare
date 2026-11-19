@@ -2129,8 +2129,14 @@ msgid "Leave empty to offer the extra to everyone. Otherwise it is offered only 
 msgstr "Lämna tomt för att erbjuda tillvalet till alla. Annars erbjuds det bara en deltagare som har någon av dessa biljettyper (för ett tillval per bokning: när någon i bokningen har en). Endast biljettyper från tillvalets eget evenemang."
 
 #, python-format
-msgid "Ticket types must belong to the extra's event: %(names)s."
-msgstr "Biljettyperna måste höra till tillvalets evenemang: %(names)s."
+msgid "Must belong to the same event: %(names)s."
+msgstr "Måste tillhöra samma evenemang: %(names)s."
+
+msgid "Save with the event chosen first, then pick here."
+msgstr "Spara först med evenemanget valt och välj sedan här."
+
+msgid "The session must belong to the extra's event."
+msgstr "Sessionen måste tillhöra tillvalets evenemang."
 
 #, python-format
 msgid "This extra requires one of these ticket types: %(types)s."

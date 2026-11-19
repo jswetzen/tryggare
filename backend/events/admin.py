@@ -1072,7 +1072,68 @@ class SessionTicketAdmin(TicketTriageMixin, TicketTypeGuardMixin, admin.ModelAdm
         return obj.session.event
 
 
-class TicketTypeAdminForm(forms.ModelForm):
+class EventScopedFormMixin:
+    """Pickers offer only the row's own event; clean() refuses the rest.
+
+    ``event_scoped`` maps a field name to the model it picks from (which has an
+    ``event`` FK). The event comes from the saved row, else the event chosen on
+    a failed submit, else the add form's initial. With none known (plain add
+    form) the picker is empty and says to save first. FK pickers are refused by
+    the narrowed queryset (the model's clean() is the backstop); M2M pickers
+    can't be checked before save, so clean() does it."""
+
+    event_scoped: dict = {}
+
+    def _scoped_event_id(self):
+        event_id = self.instance.event_id
+        if self.is_bound:
+            try:
+                posted = self.fields["event"].to_python(
+                    self.data.get(self.add_prefix("event"))
+                )
+            except forms.ValidationError:
+                posted = None
+            return posted.pk if posted else event_id
+        initial = self.initial.get("event")
+        return event_id or getattr(initial, "pk", initial)
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        event_id = self._scoped_event_id()
+        for name, model in self.event_scoped.items():
+            if name not in self.fields:
+                continue
+            field = self.fields[name]
+            if event_id:
+                field.queryset = model.objects.filter(event_id=event_id)
+            else:
+                field.queryset = model.objects.none()
+                field.help_text = "{} {}".format(
+                    field.help_text,
+                    _("Save with the event chosen first, then pick here."),
+                )
+
+    def clean(self):
+        cleaned = super().clean()
+        event = cleaned.get("event")
+        if event is None:
+            return cleaned
+        errors = {}
+        for name, model in self.event_scoped.items():
+            value = cleaned.get(name)
+            if value is None or isinstance(value, model):
+                continue
+            foreign = [str(o) for o in value if o.event_id != event.id]
+            if foreign:
+                errors[name] = _("Must belong to the same event: %(names)s.") % {
+                    "names": ", ".join(foreign)
+                }
+        if errors:
+            raise forms.ValidationError(errors)
+        return cleaned
+
+
+class TicketTypeAdminForm(EventScopedFormMixin, forms.ModelForm):
     """A2: catch a session_bundle TicketType with no sessions attached at
     save time. Must live on the form's clean(), not TicketType.clean() —
     the sessions M2M isn't written to the instance until after save() (via
@@ -1081,6 +1142,8 @@ class TicketTypeAdminForm(forms.ModelForm):
     cleaned_data, by contrast, reflects the submitted selection immediately.
     See registrations/views.py::_materialize_ticket for the runtime
     backstop this doesn't replace."""
+
+    event_scoped = {"sessions": Session, "requires_ticket_type": TicketType}
 
     class Meta:
         model = TicketType
@@ -1094,17 +1157,6 @@ class TicketTypeAdminForm(forms.ModelForm):
             raise forms.ValidationError(
                 _("A session-bundle ticket type must cover at least one session.")
             )
-        requires_ticket_type = cleaned_data.get("requires_ticket_type")
-        if requires_ticket_type is not None:
-            event = cleaned_data.get("event")
-            if event is not None and requires_ticket_type.event_id != event.id:
-                raise forms.ValidationError(
-                    {
-                        "requires_ticket_type": _(
-                            "The required ticket type must belong to the same event."
-                        )
-                    }
-                )
         return cleaned_data
 
 
@@ -1125,7 +1177,7 @@ class TicketTypeAdmin(admin.ModelAdmin):
     )
     list_filter = ("event", "applies_to", "kind", "is_hidden", "is_active")
     search_fields = ("name", "event__name")
-    autocomplete_fields = ["event", "requires_ticket_type"]
+    autocomplete_fields = ["event"]
     filter_horizontal = ["sessions"]
 
     def _deactivate_emptied_extras(self, request, ticket_types):
@@ -1187,6 +1239,17 @@ class TicketTypeAdmin(admin.ModelAdmin):
             )
 
 
+class PromoCodeAdminForm(EventScopedFormMixin, forms.ModelForm):
+    event_scoped = {
+        "applies_to_ticket_types": TicketType,
+        "unlocks_ticket_types": TicketType,
+    }
+
+    class Meta:
+        model = PromoCode
+        fields = "__all__"
+
+
 @admin.register(PromoCode)
 class PromoCodeAdmin(admin.ModelAdmin):
     list_display = (
@@ -1200,6 +1263,7 @@ class PromoCodeAdmin(admin.ModelAdmin):
     )
     list_filter = ("event", "discount_type", "is_active")
     search_fields = ("code", "event__name")
+    form = PromoCodeAdminForm
     autocomplete_fields = ["event"]
     filter_horizontal = ["applies_to_ticket_types", "unlocks_ticket_types"]
     readonly_fields = ("uses_count",)
@@ -1218,50 +1282,12 @@ class DuplicateExtraToEventForm(forms.Form):
     )
 
 
-class ExtraAdminForm(forms.ModelForm):
-    """Offers only the extra's own event's ticket types, and refuses others.
-
-    The queryset can only be narrowed once the event is known (saved extra, or
-    the event chosen on a failed submit); the clean() is the real guard."""
+class ExtraAdminForm(EventScopedFormMixin, forms.ModelForm):
+    event_scoped = {"ticket_types": TicketType, "session": Session}
 
     class Meta:
         model = Extra
         fields = "__all__"
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        event_id = self.instance.event_id
-        if self.is_bound:
-            try:
-                posted = self.fields["event"].to_python(
-                    self.data.get(self.add_prefix("event"))
-                )
-            except forms.ValidationError:
-                posted = None
-            event_id = posted.pk if posted else event_id
-        if event_id:
-            self.fields["ticket_types"].queryset = TicketType.objects.filter(
-                event_id=event_id
-            )
-
-    def clean(self):
-        cleaned = super().clean()
-        event = cleaned.get("event")
-        foreign = [
-            t.name
-            for t in cleaned.get("ticket_types") or ()
-            if event is not None and t.event_id != event.id
-        ]
-        if foreign:
-            raise forms.ValidationError(
-                {
-                    "ticket_types": _(
-                        "Ticket types must belong to the extra's event: %(names)s."
-                    )
-                    % {"names": ", ".join(foreign)}
-                }
-            )
-        return cleaned
 
 
 @admin.register(Extra)
@@ -1280,7 +1306,7 @@ class ExtraAdmin(admin.ModelAdmin):
     )
     list_filter = ("event", "applies_to", "per_attendee", "is_active")
     search_fields = ("name", "event__name")
-    autocomplete_fields = ["event", "session"]
+    autocomplete_fields = ["event"]
     filter_horizontal = ["ticket_types"]
     inlines = [ExtraChoiceInline]
     actions = ["duplicate_to_event"]
