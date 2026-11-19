@@ -3,7 +3,6 @@
 import logging
 
 from django.db import IntegrityError, transaction
-from django.utils.translation import gettext as _
 
 from ..models import Event, Extra, ExtraChoice, PromoCode, Session, TicketType
 from ._diff import diff_normalized, normalize
@@ -29,9 +28,7 @@ def apply(
     registrations, tickets or check-ins.
     """
     if event is not None and (event._state.adding or event.pk is None):
-        raise SpecError(
-            [issue("event", "event_not_found", _("The event does not exist."))]
-        )
+        raise SpecError([issue("event", "event_not_found")])
     errors, warnings = validate(spec, event)
     if errors:
         raise SpecError(errors, warnings)
@@ -46,15 +43,7 @@ def apply(
                 try:
                     event = Event.objects.select_for_update().get(pk=event.pk)
                 except Event.DoesNotExist:
-                    raise SpecError(
-                        [
-                            issue(
-                                "event",
-                                "event_not_found",
-                                _("The event does not exist."),
-                            )
-                        ]
-                    ) from None
+                    raise SpecError([issue("event", "event_not_found")]) from None
                 # Same order as registrations.services, so a racing registration cannot deadlock.
                 list(
                     TicketType.objects.select_for_update()
@@ -74,15 +63,7 @@ def apply(
         logger.warning("event spec apply refused by the database: %s", exc)
         path = "promo_codes" if "unique_promo_code_per_event" in str(exc) else ""
         raise SpecError(
-            [
-                issue(
-                    path,
-                    "integrity",
-                    _(
-                        "The database refused the spec and nothing was changed. A promo code may already be in use on this event."
-                    ),
-                )
-            ],
+            [issue(path, "integrity")],
             warnings,
         ) from exc
     return event, changes, warnings

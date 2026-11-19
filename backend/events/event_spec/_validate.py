@@ -10,7 +10,6 @@ from collections import Counter
 
 from django.core.exceptions import ValidationError
 from django.utils import timezone
-from django.utils.translation import gettext as _
 from pydantic import ValidationError as PydanticValidationError
 
 from checkins.models import CheckInRecord
@@ -24,7 +23,7 @@ from ..models import (
     RegistrationWindowStatus,
 )
 from ._export import KeyAllocator
-from ._issues import issue
+from ._issues import MESSAGES, issue
 from ._kinds import KINDS, TOP_KINDS, nested, row_groups
 from .spec import EventSection, EventSpec
 
@@ -93,27 +92,11 @@ def _target_issues(event: Event | None) -> list[Issue]:
         return []
     issues = []
     if event.registration_window_status == RegistrationWindowStatus.OPEN:
-        issues.append(
-            issue(
-                "event",
-                "registration_open_on_target",
-                _(
-                    "Registration is open on the target event; close registration first."
-                ),
-            )
-        )
+        issues.append(issue("event", "registration_open_on_target"))
     if any(
         m.objects.filter(**{lookup: event}).exists() for m, lookup in EMPTINESS_CHECKS
     ):
-        issues.append(
-            issue(
-                "event",
-                "event_not_empty",
-                _(
-                    "The target event already has registrations, tickets or check-ins, so its setup cannot be replaced."
-                ),
-            )
-        )
+        issues.append(issue("event", "event_not_empty"))
     return issues
 
 
@@ -121,22 +104,12 @@ def _shape_issues(exc: PydanticValidationError) -> list[Issue]:
     issues = []
     for err in exc.errors():
         kind = err["type"]
-        if kind == "missing":
-            message = _("This field is required.")
-        elif kind == "extra_forbidden":
-            message = _(
-                "Unknown field. Remove it or check the schema for the right name."
-            )
-        elif kind == "literal_error":
-            message = _("Must be one of: %(expected)s.") % {
-                "expected": err.get("ctx", {}).get("expected", "")
-            }
-        elif kind == "string_pattern_mismatch":
-            message = _(
-                "Must be lowercase letters and digits separated by single hyphens."
-            )
-        else:
-            message = _("Invalid value: %(detail)s") % {"detail": err["msg"]}
+        params = {
+            "expected": err.get("ctx", {}).get("expected", ""),
+            "detail": err["msg"],
+        }
+        known = kind in MESSAGES
+        message = str(MESSAGES[kind if known else "invalid_value"]) % params
         issues.append(issue(_path(err["loc"]), kind, message))
     return issues
 
@@ -147,12 +120,7 @@ def _shape_issues(exc: PydanticValidationError) -> list[Issue]:
 def _duplicate_keys(rows, path: str) -> list[Issue]:
     seen = Counter(r.key for r in rows)
     return [
-        issue(
-            f"{path}[{i}].key",
-            "duplicate_key",
-            _("Key '%(key)s' is used more than once; keys must be unique.")
-            % {"key": row.key},
-        )
+        issue(f"{path}[{i}].key", "duplicate_key", key=row.key)
         for i, row in enumerate(rows)
         if seen[row.key] > 1
     ]
@@ -179,37 +147,19 @@ def _reference_issues(spec: EventSpec) -> list[Issue]:
                 issue(
                     path,
                     "wrong_kind_key",
-                    _(
-                        "'%(key)s' is the key of another kind of row (%(found)s); a key for %(expected)s is needed here."
-                    )
-                    % {
-                        "key": key,
-                        "found": KINDS[owner[key]].noun,
-                        "expected": KINDS[target].noun,
-                    },
+                    key=key,
+                    found=KINDS[owner[key]].noun,
+                    expected=KINDS[target].noun,
                 )
             )
         else:
-            issues.append(
-                issue(
-                    path,
-                    "unknown_key",
-                    _("No %(kind)s has the key '%(key)s'.")
-                    % {"kind": KINDS[target].noun, "key": key},
-                )
-            )
+            issues.append(issue(path, "unknown_key", kind=KINDS[target].noun, key=key))
 
     def check_list(path: str, keys: list[str], target: str):
         seen: set[str] = set()
         for j, key in enumerate(keys):
             if key in seen:
-                issues.append(
-                    issue(
-                        f"{path}[{j}]",
-                        "duplicate_reference",
-                        _("'%(key)s' is listed more than once.") % {"key": key},
-                    )
-                )
+                issues.append(issue(f"{path}[{j}]", "duplicate_reference", key=key))
             seen.add(key)
             check(f"{path}[{j}]", key, target)
 
@@ -244,13 +194,7 @@ def _requires_cycles(spec: EventSpec) -> list[Issue]:
     for i, t in enumerate(spec.ticket_types):
         if t.key in in_cycle:
             issues.append(
-                issue(
-                    f"ticket_types[{i}].requires_ticket_type",
-                    "requires_cycle",
-                    _(
-                        "These ticket types require each other in a loop. Buying one of each satisfies it, so this is likely a mistake."
-                    ),
-                )
+                issue(f"ticket_types[{i}].requires_ticket_type", "requires_cycle")
             )
     return issues
 
@@ -315,14 +259,7 @@ def _model_issues(spec: EventSpec, ev: Event) -> list[Issue]:
                     )
             if kind.name == "promo_codes" and codes[row.code] > 1:
                 issues.append(
-                    issue(
-                        f"promo_codes[{i}].code",
-                        "duplicate_code",
-                        _(
-                            "Code '%(code)s' appears more than once; codes are matched case-insensitively and must be unique."
-                        )
-                        % {"code": row.code},
-                    )
+                    issue(f"promo_codes[{i}].code", "duplicate_code", code=row.code)
                 )
     return issues
 
@@ -332,16 +269,7 @@ def _model_issues(spec: EventSpec, ev: Event) -> list[Issue]:
 
 def _going_live_issues(ev: Event) -> list[Issue]:
     if ev.registration_window_status == RegistrationWindowStatus.OPEN:
-        return [
-            issue(
-                "event.registration_opens_at",
-                "registration_open",
-                _(
-                    "Registration would already be open. Set registration_opens_at to a "
-                    "future moment; a person opens registration, not the spec."
-                ),
-            )
-        ]
+        return [issue("event.registration_opens_at", "registration_open")]
     return []
 
 
@@ -349,136 +277,99 @@ def _going_live_issues(ev: Event) -> list[Issue]:
 
 
 def _warnings(spec: EventSpec, ev: Event) -> list[Issue]:
-    out: list[Issue] = []
+    return [
+        *_event_warnings(ev),
+        *_session_warnings(spec),
+        *_requires_cycles(spec),
+        *_derived_key_warnings(spec),
+        *_ticket_type_warnings(spec),
+        *_extra_warnings(spec),
+        *_promo_warnings(spec),
+    ]
+
+
+def _event_warnings(ev: Event) -> list[Issue]:
     status = ev.registration_window_status
     if status == RegistrationWindowStatus.NOT_CONFIGURED:
-        out.append(
-            issue(
-                "event.registration_opens_at",
-                "registration_not_configured",
-                _(
-                    "No registration window is set, so public self-serve registration is off."
-                ),
-            )
-        )
-    elif status == RegistrationWindowStatus.CLOSED:
-        out.append(
-            issue(
-                "event.registration_closes_at",
-                "registration_closed",
-                _("The registration window has already closed."),
-            )
-        )
+        return [issue("event.registration_opens_at", "registration_not_configured")]
+    if status == RegistrationWindowStatus.CLOSED:
+        return [issue("event.registration_closes_at", "registration_closed")]
+    return []
 
-    for i, s in enumerate(spec.sessions):
-        if (
-            not spec.event.start_date
-            <= timezone.localtime(s.start_time).date()
-            <= spec.event.end_date
-        ):
-            out.append(
-                issue(
-                    f"sessions[{i}].start_time",
-                    "session_outside_event",
-                    _("The session starts outside the event's dates."),
-                )
-            )
 
-    out += _requires_cycles(spec)
-    out += _derived_key_warnings(spec)
+def _session_warnings(spec: EventSpec) -> list[Issue]:
+    first, last = spec.event.start_date, spec.event.end_date
+    return [
+        issue(f"sessions[{i}].start_time", "session_outside_event")
+        for i, s in enumerate(spec.sessions)
+        if not first <= timezone.localtime(s.start_time).date() <= last
+    ]
 
-    active_unlocks = {
+
+def _inactive_ticket_types(spec: EventSpec) -> set[str]:
+    return {t.key for t in spec.ticket_types if not t.is_active}
+
+
+def _ticket_type_warnings(spec: EventSpec) -> list[Issue]:
+    unlocked = {
         k for p in spec.promo_codes if p.is_active for k in p.unlocks_ticket_types
     }
-    inactive = {t.key for t in spec.ticket_types if not t.is_active}
+    inactive = _inactive_ticket_types(spec)
+    out = []
     for i, t in enumerate(spec.ticket_types):
-        p = f"ticket_types[{i}]"
-        if t.price == 0 and (t.min_birthdate or t.max_birthdate):
-            out.append(
-                issue(
-                    f"{p}.price",
-                    "age_tier_no_price",
-                    _("This age tier has price 0, so it is free. Intended?"),
-                )
-            )
-        if t.is_hidden and t.is_active and t.key not in active_unlocks:
-            out.append(
-                issue(
-                    f"{p}.is_hidden",
-                    "hidden_not_unlocked",
-                    _(
-                        "This ticket type is hidden and no active promo code unlocks it, so nobody can buy it."
-                    ),
-                )
-            )
-        if t.kind == "session_bundle" and not t.sessions:
-            out.append(
-                issue(
-                    f"{p}.sessions",
-                    "bundle_without_sessions",
-                    _("A session bundle lists no sessions."),
-                )
-            )
-        if t.kind == "event" and t.sessions:
-            out.append(
-                issue(
-                    f"{p}.sessions",
-                    "sessions_ignored",
-                    _(
-                        "Sessions are only used by session bundles; they are ignored here."
-                    ),
-                )
-            )
-        if t.is_active and t.requires_ticket_type in inactive:
-            out.append(
-                issue(
-                    f"{p}.requires_ticket_type",
-                    "requires_inactive_ticket_type",
-                    _(
-                        "The ticket type this one requires is inactive, so it cannot be bought."
-                    ),
-                )
-            )
-        if t.max_per_required is not None and t.requires_ticket_type is None:
-            out.append(
-                issue(
-                    f"{p}.max_per_required",
-                    "max_per_required_ignored",
-                    _("max_per_required is ignored without requires_ticket_type."),
-                )
-            )
+        checks = (
+            (
+                "price",
+                "age_tier_no_price",
+                t.price == 0 and (t.min_birthdate or t.max_birthdate),
+            ),
+            (
+                "is_hidden",
+                "hidden_not_unlocked",
+                t.is_hidden and t.is_active and t.key not in unlocked,
+            ),
+            (
+                "sessions",
+                "bundle_without_sessions",
+                t.kind == "session_bundle" and not t.sessions,
+            ),
+            ("sessions", "sessions_ignored", t.kind == "event" and t.sessions),
+            (
+                "requires_ticket_type",
+                "requires_inactive_ticket_type",
+                t.is_active and t.requires_ticket_type in inactive,
+            ),
+            (
+                "max_per_required",
+                "max_per_required_ignored",
+                t.max_per_required is not None and t.requires_ticket_type is None,
+            ),
+        )
+        out += [
+            issue(f"ticket_types[{i}].{field}", code)
+            for field, code, hit in checks
+            if hit
+        ]
+    return out
 
+
+def _extra_warnings(spec: EventSpec) -> list[Issue]:
+    out = []
     for i, e in enumerate(spec.extras):
-        p = f"extras[{i}]"
-        active_choices = [c for c in e.choices if c.is_active]
-        if e.requires_choice and not active_choices:
-            out.append(
-                issue(
-                    f"{p}.choices",
-                    "no_active_choices",
-                    _("This extra requires a choice but has no active choices."),
-                )
-            )
+        if e.requires_choice and not any(c.is_active for c in e.choices):
+            out.append(issue(f"extras[{i}].choices", "no_active_choices"))
         if not e.requires_choice and e.choices:
-            out.append(
-                issue(
-                    f"{p}.choices",
-                    "choices_ignored",
-                    _("Choices are ignored unless requires_choice is true."),
-                )
-            )
+            out.append(issue(f"extras[{i}].choices", "choices_ignored"))
+    return out
 
+
+def _promo_warnings(spec: EventSpec) -> list[Issue]:
+    inactive = _inactive_ticket_types(spec)
+    out = []
     for i, c in enumerate(spec.promo_codes):
-        p = f"promo_codes[{i}]"
         targets = [*c.applies_to_ticket_types, *c.unlocks_ticket_types]
         if targets and all(k in inactive for k in targets):
-            out.append(
-                issue(
-                    p,
-                    "promo_ticket_types_inactive",
-                    _("Every ticket type this code refers to is inactive."),
-                )
-            )
+            out.append(issue(f"promo_codes[{i}]", "promo_ticket_types_inactive"))
     return out
 
 
@@ -496,15 +387,7 @@ def _ties(rows, kind, path) -> list[Issue]:
     for i, row in enumerate(rows):
         order = kind.sort_key(row)
         if order in seen:
-            out.append(
-                issue(
-                    f"{path}[{i}].{kind.order[0]}",
-                    "ambiguous_order",
-                    _(
-                        "These rows tie on their ordering fields; give them different sort_order or names."
-                    ),
-                )
-            )
+            out.append(issue(f"{path}[{i}].{kind.order[0]}", "ambiguous_order"))
         seen.add(order)
     return out
 
@@ -529,10 +412,8 @@ def _derived_key_warnings(spec: EventSpec) -> list[Issue]:
                         issue(
                             f"{path}[{i}].key",
                             "key_not_derived",
-                            _(
-                                "The key '%(key)s' is not the one export derives ('%(derived)s'), so a later export will show this row as removed and added."
-                            )
-                            % {"key": rows[i].key, "derived": derived},
+                            key=rows[i].key,
+                            derived=derived,
                         )
                     )
     return sorted(out, key=lambda w: w["path"])

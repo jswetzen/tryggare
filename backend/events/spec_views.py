@@ -75,9 +75,7 @@ def _spec_body(request):
 
 
 def _not_found():
-    return _errors(
-        404, issue("event", "event_not_found", _("The event does not exist."))
-    )
+    return _errors(404, issue("event", "event_not_found"))
 
 
 def _event_or_404(event_id):

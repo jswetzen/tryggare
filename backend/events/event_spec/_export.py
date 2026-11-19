@@ -3,7 +3,6 @@
 import re
 import unicodedata
 
-from django.utils.translation import gettext as _
 
 from ..models import Event
 from ._issues import SpecError, issue
@@ -42,20 +41,16 @@ def _key_of(keys: dict, target, holder_kind: str, holder, target_kind: str):
     if target is None:
         return None
     if target.id not in keys:
+        holder_kind, target_kind = KINDS[holder_kind], KINDS[target_kind]
         raise SpecError(
             [
                 issue(
                     "event",
                     "cross_event_reference",
-                    _(
-                        "The %(kind)s '%(name)s' refers to the %(target)s '%(other)s', which belongs to another event."
-                    )
-                    % {
-                        "kind": KINDS[holder_kind].noun,
-                        "name": getattr(holder, KINDS[holder_kind].key_from),
-                        "target": KINDS[target_kind].noun,
-                        "other": getattr(target, KINDS[target_kind].key_from),
-                    },
+                    kind=holder_kind.noun,
+                    name=getattr(holder, holder_kind.key_from),
+                    target=target_kind.noun,
+                    other=getattr(target, target_kind.key_from),
                 )
             ]
         )
