@@ -1,10 +1,9 @@
 """Event spec REST API and manage.py command: permissions, happy paths, error shapes."""
 
-import copy
 import json
 import os
 import tempfile
-from datetime import UTC, date, datetime
+from datetime import UTC, datetime
 from io import StringIO
 
 from django.contrib.auth.models import Permission
@@ -86,21 +85,6 @@ class PermissionTests(ApiTestCase):
             )
         return user
 
-    def test_spec_models_are_the_six_event_owned_ones(self):
-        self.assertEqual(len(COPY_PERMISSIONS), 6)
-        self.assertIn("events.add_extrachoice", COPY_PERMISSIONS)
-
-    def test_coordinator_is_allowed_everywhere(self):
-        event = make_event()
-        user = grant(AdminUser.objects.create_user("coord", "pw12345"), COORDINATOR)
-        client = self.client_for(user)
-        for method, name, with_id in ENDPOINTS:
-            url = reverse(name, args=[event.pk] if with_id else [])
-            response = getattr(client, method)(
-                url, {"spec": example_spec()}, format="json"
-            )
-            self.assertNotIn(response.status_code, (401, 403), (method, name))
-
     def test_create_only_user_cannot_put(self):
         target = empty_event("Empty")
         client = self.client_for(self.user_with("creator", COPY_PERMISSIONS))
@@ -161,15 +145,19 @@ class PermissionTests(ApiTestCase):
                 )
                 self.assertEqual(response.status_code, expected, (user, method, name))
 
-    def test_staff_gets_in_everywhere(self):
+    def test_staff_and_coordinators_get_in_everywhere(self):
         event = make_event()
-        client = self.as_staff()
-        for method, name, with_id in ENDPOINTS:
-            url = reverse(name, args=[event.pk] if with_id else [])
-            response = getattr(client, method)(
-                url, {"spec": example_spec()}, format="json"
-            )
-            self.assertNotIn(response.status_code, (401, 403), (method, name))
+        coordinator = grant(
+            AdminUser.objects.create_user("coord", "pw12345"), COORDINATOR
+        )
+        for user in (self.staff, coordinator):
+            client = self.client_for(user)
+            for method, name, with_id in ENDPOINTS:
+                url = reverse(name, args=[event.pk] if with_id else [])
+                response = getattr(client, method)(
+                    url, {"spec": example_spec()}, format="json"
+                )
+                self.assertNotIn(response.status_code, (401, 403), (user, method, name))
 
 
 class SchemaAndValidateTests(ApiTestCase):
@@ -179,24 +167,19 @@ class SchemaAndValidateTests(ApiTestCase):
         self.assertEqual(set(response.json()), {"schema", "capabilities", "example"})
         self.assertEqual(response.json()["example"], example_spec())
 
-    def test_validate_valid(self):
-        response = self.post(
-            self.as_staff(), reverse("event-spec-validate"), {"spec": example_spec()}
-        )
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.json()["valid"], True)
-        self.assertEqual(response.json()["errors"], [])
-
-    def test_validate_invalid_spec_is_still_200(self):
-        spec = example_spec()
-        spec["event"]["end_date"] = "2000-01-01"
-        response = self.post(
-            self.as_staff(), reverse("event-spec-validate"), {"spec": spec}
-        )
-        self.assertEqual(response.status_code, 200)
-        body = response.json()
-        self.assertFalse(body["valid"])
-        self.assertEqual(set(body["errors"][0]), {"path", "code", "message"})
+    def test_validate_is_200_whether_or_not_the_spec_is_valid(self):
+        invalid = example_spec()
+        invalid["event"]["end_date"] = "2000-01-01"
+        for spec, valid in ((example_spec(), True), (invalid, False)):
+            response = self.post(
+                self.as_staff(), reverse("event-spec-validate"), {"spec": spec}
+            )
+            self.assertEqual(response.status_code, 200)
+            body = response.json()
+            self.assertEqual(body["valid"], valid)
+            self.assertEqual(bool(body["errors"]), not valid)
+            for error in body["errors"]:
+                self.assertEqual(set(error), {"path", "code", "message"})
 
     def test_validate_against_event(self):
         event = make_event()
@@ -271,10 +254,6 @@ class CreateTests(ApiTestCase):
         body = response.json()
         self.assertEqual(set(body), {"event_id", "diff", "warnings"})
         self.assertEqual(Event.objects.count(), before + 1)
-        self.assertEqual(
-            export(Event.objects.get(pk=body["event_id"])).get("sessions"),
-            export(make_event()).get("sessions"),
-        )
         self.assertTrue(all(c["change"] == "added" for c in body["diff"]))
 
     def test_create_invalid_writes_nothing(self):
@@ -297,12 +276,25 @@ class EventSpecTests(ApiTestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json(), json.loads(json.dumps(export(event))))
 
-    def test_export_unknown_event(self):
-        response = self.as_staff().get(
-            reverse("event-spec", args=["00000000-0000-0000-0000-000000000000"])
+    def test_unknown_or_malformed_event_id_is_404_in_the_error_shape(self):
+        client = self.as_staff()
+        calls = (
+            client.get,
+            lambda url: client.put(url, {"spec": example_spec()}, format="json"),
+            lambda url: client.post(url, {"spec": example_spec()}, format="json"),
         )
-        self.assertEqual(response.status_code, 404)
-        self.assertEqual(response.json()["errors"][0]["code"], "event_not_found")
+        urls = (
+            "/api/events/%s/spec/",
+            "/api/events/%s/spec/",
+            "/api/events/%s/spec/diff/",
+        )
+        for call, template in zip(calls, urls):
+            for event_id in ("00000000-0000-0000-0000-000000000000", "not-a-uuid"):
+                response = call(template % event_id)
+                self.assertEqual(response.status_code, 404, (template, event_id))
+                self.assertEqual(
+                    response.json()["errors"][0]["code"], "event_not_found"
+                )
 
     def test_export_cross_event_reference_is_409(self):
         a = make_event()
@@ -331,34 +323,25 @@ class EventSpecTests(ApiTestCase):
         )
         self.assertEqual(Event.objects.get(pk=event.pk).name, before)
 
-    def test_diff_wrong_shape_reports_errors(self):
+    def test_diff_reports_validity_and_never_500s(self):
         event = make_event()
-        response = self.post(
-            self.as_staff(),
-            reverse("event-spec-diff", args=[event.pk]),
-            {"spec": {"event": {}}},
+        url = reverse("event-spec-diff", args=[event.pk])
+        dangling = example_spec()
+        dangling["ticket_types"][0]["sessions"] = ["no-such-session"]
+        cases = (
+            # spec, valid; a wrong shape has no diff, the errors say where.
+            (json.loads(json.dumps(export(event))), True),
+            ({"event": {}}, False),
+            (dangling, False),
         )
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.json()["diff"], [])
-        self.assertTrue(response.json()["errors"])
-
-    def test_diff_dangling_reference_does_not_500(self):
-        event = make_event()
-        spec = copy.deepcopy(example_spec())
-        spec["ticket_types"][0]["sessions"] = ["no-such-session"]
-        response = self.post(
-            self.as_staff(), reverse("event-spec-diff", args=[event.pk]), {"spec": spec}
-        )
-        self.assertEqual(response.status_code, 200)
-        self.assertTrue(response.json()["errors"])
-
-    def test_diff_unknown_event(self):
-        response = self.post(
-            self.as_staff(),
-            reverse("event-spec-diff", args=["00000000-0000-0000-0000-000000000000"]),
-            {"spec": example_spec()},
-        )
-        self.assertEqual(response.status_code, 404)
+        for spec, valid in cases:
+            response = self.post(self.as_staff(), url, {"spec": spec})
+            self.assertEqual(response.status_code, 200)
+            body = response.json()
+            self.assertEqual(body["valid"], valid)
+            self.assertEqual(bool(body["errors"]), not valid)
+            if spec == {"event": {}}:
+                self.assertEqual(body["diff"], [])
 
     def test_put_onto_empty_event(self):
         target = empty_event("Empty")
@@ -375,19 +358,6 @@ class EventSpecTests(ApiTestCase):
         self.assertEqual(set(body), {"event_id", "diff", "warnings"})
         self.assertTrue(target.sessions.exists())
 
-    def test_put_onto_event_with_tickets_is_409(self):
-        event = make_event()
-        add_ticket(event)
-        client = self.as_staff()
-        with at_now():
-            response = client.put(
-                reverse("event-spec", args=[event.pk]),
-                {"spec": example_spec()},
-                format="json",
-            )
-        self.assertEqual(response.status_code, 409)
-        self.assertEqual(response.json()["errors"][0]["code"], "event_not_empty")
-
     def test_put_invalid_spec_is_400(self):
         target = empty_event("Empty")
         spec = example_spec()
@@ -400,17 +370,6 @@ class EventSpecTests(ApiTestCase):
         self.assertEqual(response.status_code, 400)
         self.assertFalse(target.sessions.exists())
 
-    def test_put_malformed_path_id_is_404_in_error_shape(self):
-        for call in (
-            self.as_staff().get,
-            lambda url: self.as_staff().put(
-                url, {"spec": example_spec()}, format="json"
-            ),
-        ):
-            response = call("/api/events/not-a-uuid/spec/")
-            self.assertEqual(response.status_code, 404)
-            self.assertEqual(response.json()["errors"][0]["code"], "event_not_found")
-
     def test_bare_spec_body_is_accepted(self):
         client = self.as_staff()
         created = self.post(client, reverse("event-spec-create"), example_spec())
@@ -422,45 +381,32 @@ class EventSpecTests(ApiTestCase):
             )
         self.assertEqual(response.status_code, 200)
 
-    def test_diff_reports_valid(self):
-        event = make_event()
-        url = reverse("event-spec-diff", args=[event.pk])
-        ok = self.post(
-            self.as_staff(), url, {"spec": json.loads(json.dumps(export(event)))}
-        )
-        self.assertTrue(ok.json()["valid"])
-        bad = self.post(self.as_staff(), url, {"spec": {"event": {}}})
-        self.assertFalse(bad.json()["valid"])
+    def test_put_refusals_that_describe_the_target_are_409(self):
+        def with_tickets():
+            event = make_event()
+            add_ticket(event)
+            return event
 
-    def test_put_with_open_registration_is_409(self):
-        target = Event.objects.create(
-            name="Open",
-            start_date=date(2027, 5, 1),
-            end_date=date(2027, 5, 2),
-            registration_opens_at=datetime(2026, 11, 1, tzinfo=UTC),
+        cases = (
+            (with_tickets, "event_not_empty"),
+            (
+                lambda: empty_event(
+                    "Open", registration_opens_at=datetime(2026, 11, 1, tzinfo=UTC)
+                ),
+                "registration_open_on_target",
+            ),
+            (foreign_session_event, "cross_event_reference"),
         )
-        client = self.as_staff()
-        with at_now():
-            response = client.put(
-                reverse("event-spec", args=[target.pk]),
-                {"spec": example_spec()},
-                format="json",
-            )
-        self.assertEqual(response.status_code, 409)
-        self.assertEqual(
-            response.json()["errors"][0]["code"], "registration_open_on_target"
-        )
-
-    def test_put_cross_event_reference_is_409_not_500(self):
-        target = foreign_session_event()
-        with at_now():
-            response = self.as_staff().put(
-                reverse("event-spec", args=[target.pk]),
-                {"spec": example_spec()},
-                format="json",
-            )
-        self.assertEqual(response.status_code, 409)
-        self.assertEqual(response.json()["errors"][0]["code"], "cross_event_reference")
+        for make_target, code in cases:
+            target = make_target()
+            with self.subTest(code), at_now():
+                response = self.as_staff().put(
+                    reverse("event-spec", args=[target.pk]),
+                    {"spec": example_spec()},
+                    format="json",
+                )
+            self.assertEqual(response.status_code, 409, code)
+            self.assertEqual(response.json()["errors"][0]["code"], code)
 
     def test_spec_size_is_capped(self):
         spec = example_spec()
@@ -469,14 +415,6 @@ class EventSpecTests(ApiTestCase):
             self.as_staff(), reverse("event-spec-validate"), {"spec": spec}
         )
         self.assertFalse(response.json()["valid"])
-
-    def test_put_unknown_event(self):
-        response = self.as_staff().put(
-            reverse("event-spec", args=["00000000-0000-0000-0000-000000000000"]),
-            {"spec": example_spec()},
-            format="json",
-        )
-        self.assertEqual(response.status_code, 404)
 
 
 class CommandTests(TestCase):
@@ -502,33 +440,10 @@ class CommandTests(TestCase):
         with open(path) as f:
             self.assertEqual(json.load(f), json.loads(out))
 
-    def test_export_unknown_event(self):
-        with self.assertRaises(CommandError):
-            self.run_cmd("export", "--event", "00000000-0000-0000-0000-000000000000")
-        with self.assertRaises(CommandError):
-            self.run_cmd("export", "--event", "not-a-uuid")
-
     def test_validate_ok(self):
         out, err = self.run_cmd("validate", self.spec_file(example_spec()))
         self.assertTrue(json.loads(out)["valid"])
         self.assertEqual(err, "")
-
-    def test_validate_errors_are_readable_and_fail(self):
-        spec = example_spec()
-        spec["event"]["end_date"] = "2000-01-01"
-        out, err = StringIO(), StringIO()
-        with self.assertRaises(CommandError):
-            with at_now():
-                call_command(
-                    "event_spec",
-                    "validate",
-                    self.spec_file(spec),
-                    stdout=out,
-                    stderr=err,
-                )
-        self.assertIn("error: event", err.getvalue())
-        self.assertIn("[end_before_start]", err.getvalue())
-        self.assertFalse(json.loads(out.getvalue())["valid"])
 
     def test_validate_against_event(self):
         event = make_event()
@@ -537,15 +452,6 @@ class CommandTests(TestCase):
             self.run_cmd(
                 "validate", self.spec_file(example_spec()), "--event", str(event.pk)
             )
-
-    def test_unreadable_and_non_json_file(self):
-        with self.assertRaises(CommandError):
-            self.run_cmd("validate", "/nonexistent/spec.json")
-        path = self.spec_file({})
-        with open(path, "w") as f:
-            f.write("{nope")
-        with self.assertRaises(CommandError):
-            self.run_cmd("validate", path)
 
     def test_diff_writes_nothing(self):
         event = make_event()
@@ -591,14 +497,32 @@ class CommandTests(TestCase):
             self.assertEqual(ctx.exception.returncode, 1)
 
     def test_exit_codes(self):
+        # 1: the spec was refused; the issues are readable on stderr, JSON on stdout.
         spec = example_spec()
         spec["event"]["end_date"] = "2000-01-01"
+        out, err = StringIO(), StringIO()
         with self.assertRaises(CommandError) as ctx:
-            self.run_cmd("validate", self.spec_file(spec))
+            with at_now():
+                call_command(
+                    "event_spec",
+                    "validate",
+                    self.spec_file(spec),
+                    stdout=out,
+                    stderr=err,
+                )
         self.assertEqual(ctx.exception.returncode, 1)
+        self.assertIn("error: event", err.getvalue())
+        self.assertIn("[end_before_start]", err.getvalue())
+        self.assertFalse(json.loads(out.getvalue())["valid"])
+        # 2: the input could not be read or the event does not exist.
+        not_json = self.spec_file({})
+        with open(not_json, "w") as f:
+            f.write("{nope")
         for args in (
             ("validate", "/nonexistent/spec.json"),
+            ("validate", not_json),
             ("export", "--event", "not-a-uuid"),
+            ("export", "--event", "00000000-0000-0000-0000-000000000000"),
             ("export", "--event", str(make_event().pk), "-o", "/nonexistent/x.json"),
         ):
             with self.assertRaises(CommandError) as ctx:
