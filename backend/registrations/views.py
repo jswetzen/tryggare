@@ -134,6 +134,20 @@ def _split_selections(items):
     return model_data, selections
 
 
+def _promo_applies_to_nothing(promo_code, event) -> bool:
+    """A discounting code whose ticket-type scope has no active type in this
+    event, and which unlocks nothing either: accepting it would say "applied"
+    and discount nothing. pricing.py is untouched; this only refuses the code."""
+    if (
+        promo_code.discount_value <= 0
+        or not promo_code.applies_to_ticket_types.exists()
+    ):
+        return False
+    live = promo_code.applies_to_ticket_types.filter(event=event, is_active=True)
+    unlocks = promo_code.unlocks_ticket_types.filter(event=event, is_active=True)
+    return not live.exists() and not unlocks.exists()
+
+
 def _resolve_promo_code(*, event, code_str):
     """Resolve and count a submitted promo code string, or return None if
     none was submitted. Must be called inside the same transaction.atomic()
@@ -182,6 +196,17 @@ def _resolve_promo_code(*, event, code_str):
         raise invalid
     if promo_code.valid_until and now > promo_code.valid_until:
         raise invalid
+
+    if _promo_applies_to_nothing(promo_code, event):
+        raise ValidationError(
+            {
+                "promo_code": [
+                    _("This promo code does not apply to any tickets in this event.")
+                ],
+                "code": "promo_code_not_applicable",
+            },
+            code="promo_code_not_applicable",
+        )
 
     if promo_code.max_uses is not None:
         updated = PromoCode.objects.filter(
@@ -760,8 +785,9 @@ def validate_promo_code(request):
     if promo_code.max_uses is not None and promo_code.uses_count >= promo_code.max_uses:
         return Response({"valid": False})
 
-    # applies_to ids are sent unfiltered: pricing scopes to them even when a
-    # type is inactive, and an empty list would read as "whole order".
+    if _promo_applies_to_nothing(promo_code, event):
+        return Response({"valid": False, "reason": "not_applicable"})
+
     # Bulk queries, as in form_spec.build_form_spec: a code can unlock
     # several hidden ticket types at once.
     sold_counts = sold_counts_for_event(event)
@@ -772,6 +798,8 @@ def validate_promo_code(request):
             "valid": True,
             "discount_type": promo_code.discount_type,
             "discount_value": str(promo_code.discount_value),
+            # Sent unfiltered: pricing scopes to these even when a type is
+            # inactive, and an empty list would read as "whole order".
             "applies_to_ticket_type_ids": [
                 str(pk)
                 for pk in promo_code.applies_to_ticket_types.values_list(

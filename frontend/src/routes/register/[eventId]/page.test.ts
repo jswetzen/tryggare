@@ -64,13 +64,14 @@ vi.mock('svelte-i18n', () => {
     'register.idempotencyConflictButton': 'Send the confirmation again',
     'register.promoCodeLabel': 'Promo code',
     'register.promoCodeInvalid': "This code isn't valid. Check the spelling, or contact the organiser.",
+    'register.promoCodeNotApplicable': "This code doesn't apply to any tickets in this event.",
     'register.promoCodeNotApplied': 'Apply this code, or clear the field, before submitting.',
     'register.promoCodeRemoveButton': 'Remove',
     'register.promoCodeAppliedPrefix': 'Code applied',
     'register.promoEffectPercent': '{percent}% discount on the total.',
-    'register.promoEffectFixed': '{amount} kr discount on the total.',
+    'register.promoEffectFixed': '{amount} kr off the total, once per registration.',
     'register.promoEffectPercentOn': '{percent}% discount on {names}.',
-    'register.promoEffectFixedOn': '{amount} kr off the total for {names}.',
+    'register.promoEffectFixedOn': '{amount} kr off the total for {names}, once per registration.',
     'register.promoScopeOne': 'the ticket type {name}',
     'register.promoScopeTwo': 'the ticket types {first} and {second}',
     'register.promoTicketTypesCount': '{count} ticket types',
@@ -1755,7 +1756,7 @@ describe('Register page — promo code', () => {
       await user.click(screen.getByTestId('register-promo-code-apply'));
 
       const applied = await screen.findByTestId('register-promo-code-applied');
-      expect(applied.textContent).toContain('10.00 kr discount on the total.');
+      expect(applied.textContent).toContain('10 kr off the total, once per registration.');
     });
 
     async function applyPromo(
@@ -1776,6 +1777,18 @@ describe('Register page — promo code', () => {
       return (await screen.findByTestId('register-promo-code-applied')).textContent ?? '';
     }
 
+    it('says so when the code exists but applies to no ticket in the event', async () => {
+      const user = userEvent.setup();
+      getEvent.mockResolvedValue(hiddenTicketEventInfo());
+      validatePromoCode.mockResolvedValue({ valid: false, reason: 'not_applicable' });
+      render(RegisterPage);
+      await screen.findByTestId('register-form');
+      await user.type(screen.getByTestId('register-promo-code-input'), 'INACT');
+      await user.click(screen.getByTestId('register-promo-code-apply'));
+      expect(await screen.findByText("This code doesn't apply to any tickets in this event.")).toBeInTheDocument();
+      expect(screen.queryByTestId('register-promo-code-applied')).toBeNull();
+    });
+
     it('names the ticket type a restricted percent code discounts, not the total', async () => {
       const text = await applyPromo({
         discount_type: 'percent',
@@ -1792,7 +1805,7 @@ describe('Register page — promo code', () => {
         discount_value: '25',
         applies_to_ticket_type_ids: ['tt-child']
       });
-      expect(text).toContain('25.00 kr off the total for the ticket type Barn (0-12 år).');
+      expect(text).toContain('25 kr off the total for the ticket type Barn (0-12 år), once per registration.');
     });
 
     it('joins two ticket types with "and"', async () => {

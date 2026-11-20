@@ -2162,3 +2162,11 @@ msgstr "Välj evenemanget detta hör till. Nästa sida visar då bara det evenem
 msgid "Continue"
 msgstr "Fortsätt"
 
+msgid "This promo code does not apply to any tickets in this event."
+msgstr "Koden gäller inga biljetter i det här evenemanget."
+
+msgid "A session cannot be moved to another event."
+msgstr "En session kan inte flyttas till ett annat evenemang."
+
+msgid "change"
+msgstr "ändra"

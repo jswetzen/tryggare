@@ -171,6 +171,14 @@
     return `${start} – ${end}`;
   }
 
+  function formatAmount(amount: number): string {
+    const localeTag = $locale === 'sv' ? 'sv-SE' : 'en-GB';
+    return amount.toLocaleString(localeTag, {
+      minimumFractionDigits: Number.isInteger(amount) ? 0 : 2,
+      maximumFractionDigits: 2
+    });
+  }
+
   function formatCurrency(amount: number | string): string {
     // Follow the page's own sv/en toggle (see formatDateTime above) rather
     // than the browser's OS locale, so the decimal separator matches the
@@ -1418,7 +1426,11 @@
     try {
       const result = await registrationApi.validatePromoCode(eventId, code);
       if (!result.valid) {
-        promoCodeError = $t('register.promoCodeInvalid');
+        promoCodeError = $t(
+          result.reason === 'not_applicable'
+            ? 'register.promoCodeNotApplicable'
+            : 'register.promoCodeInvalid'
+        );
         return;
       }
       promoCodeValidation = result;
@@ -1455,7 +1467,8 @@
     if (value > 0) {
       const isPercent = promoCodeValidation.discount_type === 'percent';
       const scopeIds = promoCodeValidation.applies_to_ticket_type_ids ?? [];
-      const amount = isPercent ? value : formatCurrency(value);
+      // Whole amounts read as "25 kr", not "25,00 kr".
+      const amount = isPercent ? value : formatAmount(value);
       if (scopeIds.length === 0) {
         parts.push(
           $t(isPercent ? 'register.promoEffectPercent' : 'register.promoEffectFixed', {

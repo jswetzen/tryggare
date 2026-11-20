@@ -2138,3 +2138,11 @@ msgstr "Pick the event this belongs to. The next page then offers only that even
 msgid "Continue"
 msgstr "Continue"
 
+msgid "This promo code does not apply to any tickets in this event."
+msgstr "This promo code does not apply to any tickets in this event."
+
+msgid "A session cannot be moved to another event."
+msgstr "A session cannot be moved to another event."
+
+msgid "change"
+msgstr "change"

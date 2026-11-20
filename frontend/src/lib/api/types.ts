@@ -390,6 +390,8 @@ export interface RegistrationSubmitResponse {
 
 export interface PromoCodeValidation {
   valid: boolean;
+  /** Set with valid:false when the code exists but discounts nothing here. */
+  reason?: 'not_applicable';
   discount_type?: 'percent' | 'fixed';
   discount_value?: string;
   applies_to_ticket_type_ids?: string[];

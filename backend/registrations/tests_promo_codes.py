@@ -261,6 +261,51 @@ class PromoCodeSubmissionTests(TestCase):
         self.assertEqual(response.status_code, 400, response.data)
         self.assertIn("promo_code", response.data)
 
+    def _dead_scope_code(self, code, *, inactive=False, foreign=False):
+        event = _make_event("Elsewhere") if foreign else self.event
+        dead = TicketType.objects.create(
+            event=event, name="Dead", price=10, is_active=not inactive
+        )
+        promo = _make_promo_code(
+            self.event,
+            code=code,
+            discount_type=PromoCode.DiscountType.PERCENT,
+            discount_value=Decimal("10"),
+        )
+        promo.applies_to_ticket_types.add(dead)
+        return promo
+
+    def test_code_scoped_only_to_inactive_types_is_refused_on_submit(self):
+        self._dead_scope_code("INACT", inactive=True)
+        payload = self._payload(self.adult_type, promo_code="INACT")
+
+        with patch("registrations.views.send_verification_email", return_value=True):
+            response = self.client.post(self.url, payload, format="json")
+
+        self.assertEqual(response.status_code, 400, response.data)
+        self.assertEqual(response.data["code"], "promo_code_not_applicable")
+        self.assertEqual(PromoCode.objects.get(code="INACT").uses_count, 0)
+
+    def test_code_scoped_only_to_other_events_types_is_refused_on_submit(self):
+        self._dead_scope_code("ELSE", foreign=True)
+        payload = self._payload(self.adult_type, promo_code="ELSE")
+
+        with patch("registrations.views.send_verification_email", return_value=True):
+            response = self.client.post(self.url, payload, format="json")
+
+        self.assertEqual(response.status_code, 400, response.data)
+        self.assertEqual(response.data["code"], "promo_code_not_applicable")
+
+    def test_code_with_one_live_scoped_type_is_accepted(self):
+        promo = self._dead_scope_code("MIXED", inactive=True)
+        promo.applies_to_ticket_types.add(self.adult_type)
+        payload = self._payload(self.adult_type, promo_code="MIXED")
+
+        with patch("registrations.views.send_verification_email", return_value=True):
+            response = self.client.post(self.url, payload, format="json")
+
+        self.assertEqual(response.status_code, 201, response.data)
+
     def test_inactive_code_rejected(self):
         _make_promo_code(
             self.event, code="OFF", is_active=False, discount_value=Decimal("10")
@@ -509,6 +554,35 @@ class ValidatePromoCodeEndpointTests(TestCase):
 
         unlocked_ids = [t["id"] for t in response.data["unlocks_ticket_types"]]
         self.assertEqual(unlocked_ids, [str(self.vip_type.id)])
+
+    def test_code_scoped_only_to_inactive_types_says_not_applicable(self):
+        dead = TicketType.objects.create(
+            event=self.event, name="Dead", price=10, is_active=False
+        )
+        promo = _make_promo_code(
+            self.event,
+            code="INACT",
+            discount_type=PromoCode.DiscountType.PERCENT,
+            discount_value=Decimal("10"),
+        )
+        promo.applies_to_ticket_types.add(dead)
+
+        response = self.client.post(
+            self.url, {"event": str(self.event.id), "code": "INACT"}, format="json"
+        )
+
+        self.assertFalse(response.data["valid"])
+        self.assertEqual(response.data["reason"], "not_applicable")
+
+    def test_pure_unlock_code_is_not_refused(self):
+        promo = _make_promo_code(self.event, code="UNLOCK")
+        promo.unlocks_ticket_types.add(self.vip_type)
+
+        response = self.client.post(
+            self.url, {"event": str(self.event.id), "code": "UNLOCK"}, format="json"
+        )
+
+        self.assertTrue(response.data["valid"])
 
     def test_invalid_code_returns_valid_false(self):
         response = self.client.post(
