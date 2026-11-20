@@ -393,6 +393,8 @@ class ProviderAdminTests(PublicDNSMixin, NonManifestStaticfilesTestCase, TestCas
         self.assertEqual(response.status_code, 200)
         self.assertNotContains(response, "sk-secret")
         self.assertContains(response, "llm-load-models")
+        self.assertContains(response, "<select")
+        self.assertContains(response, 'name="model"')
 
     def test_save_sets_key_and_blank_keeps_it(self):
         url = reverse("admin:assistant_llmprovider_change", args=[1])
@@ -426,6 +428,14 @@ class ProviderAdminTests(PublicDNSMixin, NonManifestStaticfilesTestCase, TestCas
                 {"base_url": "http://ollama:11434/v1"},
             )
         self.assertEqual(response.status_code, 502)
+        self.assertIn("error", response.json())
+        with mock.patch(GET, return_value=_response(404)):
+            response = self.client.post(
+                reverse("admin:assistant_llmprovider_models"),
+                {"base_url": "http://ollama:11434/v1"},
+            )
+        self.assertEqual(response.status_code, 502)
+        self.assertEqual(response.json()["code"], "models_not_supported")
         self.assertIn("error", response.json())
 
     def _change_data(self, **over):

@@ -2256,3 +2256,10 @@ msgstr "Either enter a new key or remove the stored one, not both."
 
 msgid "The stored key will be removed when you save."
 msgstr "The stored key will be removed when you save."
+
+#, python-format
+msgid "Found %%(count)s models."
+msgstr "Found %%(count)s models."
+
+msgid "Load models to choose one"
+msgstr "Load models to choose one"

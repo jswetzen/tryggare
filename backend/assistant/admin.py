@@ -14,8 +14,9 @@ from .services import fetch_models
 
 
 class ModelPickerWidget(forms.TextInput):
-    """A free-text model name plus a "Load models" button that fills a list
-    from the provider. Free text stays, for providers that do not list."""
+    """The model name field, enhanced by JS into a "Load models" button plus a
+    dropdown. The text input stays as the submitted value and as the fallback
+    for providers that cannot list models."""
 
     template_name = "assistant/widgets/model_picker.html"
 
@@ -139,5 +140,5 @@ class LLMProviderAdmin(admin.ModelAdmin):
         except ValidationError as exc:
             return JsonResponse({"error": " ".join(exc.messages)}, status=400)
         except ProviderError as exc:
-            return JsonResponse({"error": exc.message}, status=502)
+            return JsonResponse({"error": exc.message, "code": exc.code}, status=502)
         return JsonResponse({"models": models})

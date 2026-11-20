@@ -1,13 +1,13 @@
 // Loads the provider's models from the unsaved Base URL and API key fields, so
 // an admin can pick a model before saving. The key never comes back from the server.
+// Without JS the plain text input stays; this script swaps it for the select.
 (function () {
   "use strict";
 
   function init(picker) {
     var input = picker.querySelector("input");
     var button = picker.querySelector(".llm-load-models");
-    var choice = picker.querySelector(".llm-model-choice");
-    var select = choice.querySelector("select");
+    var select = picker.querySelector("select");
     var status = picker.querySelector(".llm-model-status");
     var form = picker.closest("form");
     var label = button.textContent;
@@ -17,29 +17,38 @@
       return el ? el.value : "";
     }
 
-    function show(models) {
+    function option(value, text, disabled) {
+      var o = document.createElement("option");
+      o.value = value;
+      o.textContent = text;
+      o.disabled = !!disabled;
+      return o;
+    }
+
+    function fill(models) {
+      var current = input.value;
+      var ids = models.slice();
+      // A saved choice the provider no longer lists must not vanish silently.
+      if (current && ids.indexOf(current) === -1) {
+        ids.unshift(current);
+      }
       select.textContent = "";
-      models.forEach(function (id) {
-        var option = document.createElement("option");
-        option.value = id;
-        option.textContent = id;
-        option.selected = id === input.value;
-        select.appendChild(option);
+      if (!ids.length) {
+        var ph = option("", select.dataset.placeholder, true);
+        ph.selected = true;
+        select.appendChild(ph);
+        return;
+      }
+      ids.forEach(function (id) {
+        select.appendChild(option(id, id));
       });
-      choice.hidden = models.length === 0;
-      status.textContent = models.length
-        ? status.dataset.foundTemplate.replace("%(count)s", models.length)
-        : status.dataset.empty;
-      if (models.length && !input.value) {
+      select.value = current || ids[0];
+      if (!current) {
         input.value = select.value;
       }
     }
 
-    select.addEventListener("change", function () {
-      input.value = select.value;
-    });
-
-    button.addEventListener("click", function () {
+    function load() {
       var body = new FormData();
       body.append("csrfmiddlewaretoken", field("csrfmiddlewaretoken"));
       body.append("base_url", field("base_url"));
@@ -59,9 +68,14 @@
         })
         .then(function (data) {
           if (data.models) {
-            show(data.models);
+            picker.classList.remove("is-manual");
+            fill(data.models);
+            status.textContent = data.models.length
+              ? status.dataset.foundTemplate.replace("%(count)s", data.models.length)
+              : status.dataset.empty;
           } else {
-            choice.hidden = true;
+            // Only a provider that cannot list needs the free-text field.
+            picker.classList.toggle("is-manual", data.code === "models_not_supported");
             status.textContent = data.error || status.dataset.failed;
           }
         })
@@ -72,7 +86,17 @@
           button.disabled = false;
           button.textContent = label;
         });
+    }
+
+    fill([]);
+    picker.classList.add("is-enhanced");
+    select.addEventListener("change", function () {
+      input.value = select.value;
     });
+    button.addEventListener("click", load);
+    if (field("base_url").trim()) {
+      load();
+    }
   }
 
   document.addEventListener("DOMContentLoaded", function () {

@@ -2280,3 +2280,10 @@ msgstr "Ange antingen en ny nyckel eller ta bort den sparade, inte båda."
 
 msgid "The stored key will be removed when you save."
 msgstr "Den sparade nyckeln tas bort när du sparar."
+
+#, python-format
+msgid "Found %%(count)s models."
+msgstr "Hittade %%(count)s modeller."
+
+msgid "Load models to choose one"
+msgstr "Hämta modellerna för att välja en"
