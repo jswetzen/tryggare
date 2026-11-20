@@ -758,6 +758,8 @@ class SetupCheckTests(TestCase):
             self.assertContains(
                 response, "Ticket type &#x27;Saturday workshop 13-17&#x27;"
             )
+            # Organizers see the row name, not the spec path.
+            self.assertNotContains(response, "ticket_types[")
         self.assertContains(
             change, reverse("admin:events_event_check_setup", args=[self.event.pk])
         )

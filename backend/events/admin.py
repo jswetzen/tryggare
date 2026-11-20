@@ -1,10 +1,16 @@
-from urllib.parse import urlencode
+from urllib.parse import urlencode, urlsplit, urlunsplit
 
 from django import forms
 from django.conf import settings
 from django.contrib import admin, messages
 from django.contrib.admin import helpers
-from django.core.exceptions import ObjectDoesNotExist, ValidationError
+from django.contrib.admin.views.main import IS_POPUP_VAR
+from django.contrib.admin.widgets import RelatedFieldWidgetWrapper
+from django.core.exceptions import (
+    ObjectDoesNotExist,
+    PermissionDenied,
+    ValidationError,
+)
 from django.db import transaction
 from django.db.models import Q
 from django.http import Http404, HttpResponseRedirect, QueryDict
@@ -1088,26 +1094,14 @@ class EventScopedFormMixin:
     """Pickers offer only the row's own event; clean() refuses the rest.
 
     ``event_scoped`` maps a field name to the model it picks from (which has an
-    ``event`` FK). The event comes from the saved row, else the event chosen on
-    a failed submit, else the add form's initial (EventScopedAdminMixin makes
-    sure one is there). Rows already linked stay listed so a legacy foreign
+    ``event`` FK). The event is the saved row's, or on the add form the one
+    EventScopedAdminMixin locked in (``locked_event``). Rows already linked stay listed so a legacy foreign
     link is refused by name instead of silently dropped on re-save. FK pickers
     are also covered by the model's clean(); M2M pickers are checked here."""
 
     event_scoped: dict = {}
-
-    def _scoped_event_id(self):
-        event_id = self.instance.event_id
-        if self.is_bound and "event" in self.fields:
-            try:
-                posted = self.fields["event"].to_python(
-                    self.data.get(self.add_prefix("event"))
-                )
-            except forms.ValidationError:
-                posted = None
-            return posted.pk if posted else event_id
-        initial = self.initial.get("event")
-        return event_id or getattr(initial, "pk", initial)
+    locked_event = None  # set by the admin's get_form on the add form
+    chooser_url = None
 
     def _linked_pks(self, name):
         if not self.instance.pk:
@@ -1119,7 +1113,10 @@ class EventScopedFormMixin:
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        event_id = self._scoped_event_id()
+        if self.locked_event is not None and self.instance.event_id is None:
+            self.instance.event = self.locked_event
+        self.instance._chooser_url = self.chooser_url
+        event_id = self.instance.event_id
         for name, model in self.event_scoped.items():
             if name not in self.fields:
                 continue
@@ -1149,10 +1146,25 @@ class EventScopedFormMixin:
         return cleaned
 
 
+class _EventParamWrapper(RelatedFieldWidgetWrapper):
+    """The "+" popup link also carries ``event=`` so the new row's event is
+    preselected (Session) or the chooser is skipped (TicketType)."""
+
+    popup_event = None
+
+    def get_context(self, name, value, attrs):
+        context = super().get_context(name, value, attrs)
+        if self.popup_event:
+            context["url_params"] += f"&event={self.popup_event}"
+        return context
+
+
 class EventScopedAdminMixin(EventLockedMixin):
     """The add form needs an event before its pickers can be filled, so a bare
     add URL first shows an event chooser that reloads with ``?event=<id>``. The
-    event may also come from the changelist's event filter."""
+    event may also come from the changelist's event filter. On the add form the
+    chosen event is then fixed (shown read-only, with a link back to the
+    chooser), the same as an existing row's."""
 
     def _chosen_event(self, request):
         raw = request.GET.get("event") or QueryDict(
@@ -1165,6 +1177,64 @@ class EventScopedAdminMixin(EventLockedMixin):
         except (ValidationError, ValueError):
             return None
 
+    def _chooser_url(self, request):
+        params = [
+            (k, v)
+            for k, v in request.GET.items()
+            if k not in ("event", "_changelist_filters")
+        ]
+        url = reverse(
+            f"admin:{self.model._meta.app_label}_{self.model._meta.model_name}_add"
+        )
+        return f"{url}?{urlencode(params)}" if params else url
+
+    def get_readonly_fields(self, request, obj=None):
+        readonly = super().get_readonly_fields(request, obj)
+        if obj is None and self._chosen_event(request) is not None:
+            readonly = [*readonly, "event_locked"]
+        return readonly
+
+    def get_exclude(self, request, obj=None):
+        exclude = list(super().get_exclude(request, obj) or ())
+        if obj is None and self._chosen_event(request) is not None:
+            exclude.append("event")
+        return exclude
+
+    def get_fields(self, request, obj=None):
+        fields = list(super().get_fields(request, obj))
+        if "event_locked" in fields:
+            fields.remove("event_locked")
+            fields.insert(0, "event_locked")
+        return fields
+
+    @admin.display(description=_("Event"))
+    def event_locked(self, obj):
+        url = getattr(obj, "_chooser_url", None)
+        if not url:
+            return obj.event
+        return format_html('{} (<a href="{}">{}</a>)', obj.event, url, _("change"))
+
+    def get_form(self, request, obj=None, **kwargs):
+        event = obj.event if obj is not None else self._chosen_event(request)
+        request._scoped_event = event
+        form = super().get_form(request, obj, **kwargs)
+        if obj is None and event is not None:
+            form.locked_event = event
+            form.chooser_url = self._chooser_url(request)
+        return form
+
+    def formfield_for_dbfield(self, db_field, request, **kwargs):
+        field = super().formfield_for_dbfield(db_field, request, **kwargs)
+        event = getattr(request, "_scoped_event", None)
+        if (
+            event is not None
+            and isinstance(field.widget, RelatedFieldWidgetWrapper)
+            and db_field.related_model in (Session, TicketType)
+        ):
+            field.widget.__class__ = _EventParamWrapper
+            field.widget.popup_event = event.pk
+        return field
+
     def get_changeform_initial_data(self, request):
         initial = super().get_changeform_initial_data(request)
         event = self._chosen_event(request)
@@ -1173,9 +1243,22 @@ class EventScopedAdminMixin(EventLockedMixin):
         return initial
 
     def add_view(self, request, form_url="", extra_context=None):
+        if not self.has_add_permission(request):
+            raise PermissionDenied
         if request.method == "GET" and self._chosen_event(request) is None:
             return self._event_chooser(request)
         return super().add_view(request, form_url, extra_context)
+
+    def response_add(self, request, obj, post_url_continue=None):
+        response = super().response_add(request, obj, post_url_continue)
+        if "_addanother" in request.POST and isinstance(response, HttpResponseRedirect):
+            parts = urlsplit(response.url)
+            query = QueryDict(parts.query, mutable=True)
+            query["event"] = str(obj.event_id)
+            response = HttpResponseRedirect(
+                urlunsplit(parts._replace(query=query.urlencode()))
+            )
+        return response
 
     def _event_chooser(self, request):
         opts = self.model._meta
@@ -1183,6 +1266,8 @@ class EventScopedAdminMixin(EventLockedMixin):
         context = {
             **self.admin_site.each_context(request),
             "opts": opts,
+            "is_popup": IS_POPUP_VAR in request.GET,
+            "is_popup_var": IS_POPUP_VAR,
             "title": _("Choose the event first"),
             "intro": _(
                 "Pick the event this belongs to. The next page then offers "
@@ -1214,7 +1299,12 @@ class TicketTypeAdminForm(EventScopedFormMixin, forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        if self.instance.pk and "requires_ticket_type" in self.fields:
+        # A legacy self-link stays listed so clean() can say it is not allowed.
+        if (
+            self.instance.pk
+            and self.instance.requires_ticket_type_id != self.instance.pk
+            and "requires_ticket_type" in self.fields
+        ):
             field = self.fields["requires_ticket_type"]
             field.queryset = field.queryset.exclude(pk=self.instance.pk)
 

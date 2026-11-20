@@ -21,13 +21,13 @@
 {% if result.errors %}
 <h3>{% translate "Errors" %}</h3>
 <ul class="messagelist">
-{% for i in result.errors %}<li class="error"><strong>{{ i.row }}</strong> ({{ i.path }}): {{ i.message }}</li>{% endfor %}
+{% for i in result.errors %}<li class="error">{% if i.row %}<strong>{{ i.row }}</strong>{% else %}{{ i.path }}{% endif %}: {{ i.message }}</li>{% endfor %}
 </ul>
 {% endif %}
 {% if result.warnings %}
 <h3>{% translate "Warnings" %}</h3>
 <ul class="messagelist">
-{% for i in result.warnings %}<li class="warning"><strong>{{ i.row }}</strong> ({{ i.path }}): {{ i.message }}</li>{% endfor %}
+{% for i in result.warnings %}<li class="warning">{% if i.row %}<strong>{{ i.row }}</strong>{% else %}{{ i.path }}{% endif %}: {{ i.message }}</li>{% endfor %}
 </ul>
 {% endif %}
 {% endfor %}

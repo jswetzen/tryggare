@@ -515,7 +515,10 @@ class TicketTypeExtraModelTest(TestCase):
         zero-SessionTicket ticket type."""
         from events.admin import TicketTypeAdminForm
 
-        form = TicketTypeAdminForm(
+        form_class = type(
+            "LockedForm", (TicketTypeAdminForm,), {"locked_event": self.event}
+        )
+        form = form_class(
             data={
                 "event": str(self.event.id),
                 "name": "Saturday only",
@@ -536,7 +539,10 @@ class TicketTypeExtraModelTest(TestCase):
     def test_admin_form_accepts_session_bundle_with_a_session(self):
         from events.admin import TicketTypeAdminForm
 
-        form = TicketTypeAdminForm(
+        form_class = type(
+            "LockedForm", (TicketTypeAdminForm,), {"locked_event": self.event}
+        )
+        form = form_class(
             data={
                 "event": str(self.event.id),
                 "name": "Saturday only",
