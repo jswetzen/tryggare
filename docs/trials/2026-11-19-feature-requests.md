@@ -484,3 +484,30 @@ evidence:
 dedupe_key: field:TicketType.sessions#old-widget
 status: confirmed
 ```
+
+### FR-17: The door can't check that a session add-on was bought
+
+```yaml
+source: maintainer
+problem: >
+  A session add-on (such as a workshop for one age band) is an extra gated on a
+  ticket type. Check-in only asks whether the attendee holds an event ticket for
+  the event or a session ticket for the session, so any child with an event pass
+  is admitted to the session whether or not they bought the add-on.
+tried: []
+workaround:
+  used: The add-on is enforced at registration only; the door rule stays on the event default.
+  cost: wrong_result
+desired: >
+  An optional per-session setting that makes check-in require the session's
+  extra, so the door matches what was bought.
+touches: [field:Extra.session, field:Session.ticket_rule, new:session_extra_checkin]
+severity: risk
+reach: some_events
+layers: [model, admin_ui]
+validator: no
+evidence:
+  - {kind: doc, ref: "docs/setup-checker-plan.md#decisions-2026-11-20"}
+dedupe_key: new:session_extra_checkin
+status: confirmed
+```

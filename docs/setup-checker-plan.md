@@ -64,6 +64,16 @@ trial is that case. Not an age window on Extra, and not "pass plus bundle" on th
 - **Capabilities:** add "an add-on limited to holders of given ticket types" to supported.
 - Update FR-1 and FR-2 in the trial file to `status: accepted`, pointing at the commit.
 
+## Decisions (2026-11-20)
+
+- **Door rule in the example:** event default `all`, the workshop session `children`. Guardians who
+  only drop off children never need a ticket under any rule, so `all` does not block them. `children`
+  at event level would leave the adult pass unenforced at the door.
+- **Bundle holders:** an attendee holding a session-bundle ticket type counts as holding that type
+  for an extra's gate. The alternative makes a bundle ungateable and has no case in its favour.
+- **Known limit:** the door checks tickets, not extras. Admission to a session with an add-on extra
+  is not checked against the extra: see FR-17 in `docs/trials/2026-11-19-feature-requests.md`.
+
 ## Out of scope
 
 The `FeatureRequest` model and views (design phase 3), the assistant, FR-4 (a warning on the
