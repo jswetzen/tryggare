@@ -2277,3 +2277,6 @@ msgstr "Ange API-nyckeln igen för den nya adressen, eller ta bort den sparade n
 
 msgid "Either enter a new key or remove the stored one, not both."
 msgstr "Ange antingen en ny nyckel eller ta bort den sparade, inte båda."
+
+msgid "The stored key will be removed when you save."
+msgstr "Den sparade nyckeln tas bort när du sparar."

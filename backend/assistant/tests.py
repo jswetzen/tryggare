@@ -486,6 +486,19 @@ class ProviderAdminTests(PublicDNSMixin, NonManifestStaticfilesTestCase, TestCas
         self.assertEqual(response.status_code, 200)
         self.assertIn("api_key", response.context["adminform"].form.errors)
 
+    def test_key_help_follows_the_ticked_remove_box(self):
+        provider = LLMProvider.load()
+        provider.set_api_key("sk-1")
+        provider.save()
+        url = reverse("admin:assistant_llmprovider_change", args=[1])
+        response = self.client.post(
+            url, self._change_data(api_key="sk-2", clear_api_key="on")
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "The stored key will be removed when you save.")
+        self.assertNotContains(response, "A key is stored.")
+        self.assertContains(self.client.get(url), "A key is stored.")
+
     def test_models_view_unreadable_key_is_502(self):
         provider = LLMProvider.load()
         provider.base_url = "http://ollama:11434/v1"

@@ -11,6 +11,7 @@ from django.views.decorators.debug import sensitive_variables
 
 from .base import ProviderError
 
+CONNECT_TIMEOUT_SECONDS = 3  # a closed port should fail fast
 TIMEOUT_SECONDS = 10
 MAX_RESPONSE_BYTES = 4 * 1024 * 1024  # OpenRouter's list is ~1 MB
 TOTAL_DEADLINE_SECONDS = 30
@@ -70,7 +71,7 @@ def list_models(base_url: str, api_key: str = "") -> list[str]:
         response = requests.get(
             url,
             headers=_headers(api_key),
-            timeout=TIMEOUT_SECONDS,
+            timeout=(CONNECT_TIMEOUT_SECONDS, TIMEOUT_SECONDS),
             allow_redirects=False,
             stream=True,
         )

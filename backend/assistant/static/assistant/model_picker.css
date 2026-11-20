@@ -1,0 +1,42 @@
+.llm-model-picker {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 8px;
+}
+
+.llm-model-picker .llm-load-models {
+  margin: 0;
+  padding: 7px 12px;
+  line-height: 1.15;
+  font-size: 0.8125rem;
+}
+
+.form-row .llm-model-picker .llm-model-choice,
+.form-row .llm-model-picker .llm-model-status {
+  flex-basis: 100%;
+  margin: 0;
+  padding: 0;
+  text-align: left;
+}
+
+.llm-model-picker .llm-model-choice select {
+  min-width: 20em;
+  max-width: 100%;
+  margin: 0;
+  font-size: 0.8125rem;
+  color: var(--body-fg);
+  background: var(--body-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  padding: 5px 6px;
+}
+
+.form-row .llm-model-picker input[type="text"] {
+  box-sizing: border-box;
+  width: 20em;
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: calc(100% - 8em);
+  margin: 0;
+}

@@ -2253,3 +2253,6 @@ msgstr "Enter the API key again for the new address, or remove the stored key."
 
 msgid "Either enter a new key or remove the stored one, not both."
 msgstr "Either enter a new key or remove the stored one, not both."
+
+msgid "The stored key will be removed when you save."
+msgstr "The stored key will be removed when you save."

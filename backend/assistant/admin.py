@@ -20,6 +20,7 @@ class ModelPickerWidget(forms.TextInput):
     template_name = "assistant/widgets/model_picker.html"
 
     class Media:
+        css = {"all": ["assistant/model_picker.css"]}
         js = ["assistant/model_picker.js"]
 
 
@@ -46,11 +47,18 @@ class LLMProviderAdminForm(forms.ModelForm):
         self.fields["model"].widget.attrs["data-models-url"] = reverse(
             "admin:assistant_llmprovider_models"
         )
-        self.fields["api_key"].help_text = (
-            _("A key is stored. Leave empty to keep it.")
-            if self.instance.has_api_key
-            else _("No key is stored. A local Ollama needs none.")
-        )
+        self.fields["api_key"].help_text = self._api_key_help()
+
+    def _api_key_help(self):
+        # A bound, failed form must not contradict the ticked box beside it.
+        clear = self.fields["clear_api_key"]
+        if self.is_bound and clear.widget.value_from_datadict(
+            self.data, self.files, self.add_prefix("clear_api_key")
+        ):
+            return _("The stored key will be removed when you save.")
+        if self.instance.has_api_key:
+            return _("A key is stored. Leave empty to keep it.")
+        return _("No key is stored. A local Ollama needs none.")
 
     def clean(self):
         data = super().clean()
