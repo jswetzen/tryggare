@@ -6,10 +6,11 @@ import { browser } from '$app/environment';
 register('en', () => import('./locales/en.json'));
 register('sv', () => import('./locales/sv.json'));
 
-// Initialize with Swedish as default (will be updated on client-side)
+// The saved choice must be the initialLocale: init() starts loading every
+// locale, so a locale.set() after it resolves first and loses to init's own.
 init({
   fallbackLocale: 'en',
-  initialLocale: 'sv',
+  initialLocale: getSavedLocale(),
 });
 
 // Export a derived store that indicates when translations are ready
@@ -51,12 +52,7 @@ function getSavedLocale(): string {
   return 'sv';
 }
 
-// On client-side, load saved locale and set it
 if (browser) {
-  const savedLocale = getSavedLocale();
-  console.log('[i18n] Setting initial locale:', savedLocale);
-  locale.set(savedLocale);
-
   // Subscribe to locale changes and save to localStorage
   locale.subscribe((value) => {
     if (value) {
