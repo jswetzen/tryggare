@@ -7,6 +7,11 @@ vi.mock('./client', () => ({
   apiClient: { get: (...a: unknown[]) => get(...a), put: (...a: unknown[]) => put(...a), delete: (...a: unknown[]) => del(...a) }
 }));
 
+const lang = vi.hoisted(() => ({ value: 'en' }));
+vi.mock('svelte-i18n', () => ({
+  locale: { subscribe: (run: (v: string) => void) => (run(lang.value), () => {}) }
+}));
+
 import { assistantApi } from './assistantService';
 
 describe('assistantApi', () => {
@@ -21,7 +26,14 @@ describe('assistantApi', () => {
 
   it('reads the preview from the assistant endpoint', async () => {
     await assistantApi.getPreview('e1');
-    expect(get).toHaveBeenCalledWith('/assistant/events/e1/preview/');
+    expect(get).toHaveBeenCalledWith('/assistant/events/e1/preview/?lang=en');
+  });
+
+  it('asks for draft texts in the UI language', async () => {
+    lang.value = 'sv';
+    await assistantApi.getDraft('e1');
+    expect(get).toHaveBeenCalledWith('/assistant/events/e1/draft/?lang=sv');
+    lang.value = 'en';
   });
 
   it('applies a draft through the existing spec endpoint', async () => {

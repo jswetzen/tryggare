@@ -315,6 +315,40 @@ class DraftTests(ApiCase):
         event_spec.apply(changed, self.event)
         self.assertTrue(self.client.get(self.url("assistant-draft")).json()["stale"])
 
+    def test_warnings_follow_the_requested_language_not_the_proposal_time(self):
+        conv = self.store_draft()
+        # Stored the way propose_spec does: code and params, text from the language then.
+        conv.draft["warnings"] = _plain(
+            [
+                event_spec.issue("event", "registration_closed"),
+                event_spec.issue("ticket_types[0]", "age_band_gap", start=0, end=3),
+            ]
+        )
+        conv.save()
+        url = self.url("assistant-draft")
+        en = self.client.get(url).json()["warnings"]
+        sv = self.client.get(url + "?lang=sv").json()["warnings"]
+        self.assertEqual(
+            en[1]["message"], "No active ticket covers children aged 0 to 3."
+        )
+        self.assertEqual(
+            sv[1]["message"], "Ingen aktiv biljett gäller barn i åldern 0 till 3."
+        )
+        self.assertEqual(sv[0]["message"], "Anmälningsfönstret har redan stängt.")
+        self.assertEqual([w["code"] for w in sv], [w["code"] for w in en])
+        # An unknown language falls back to the default; the language does not stick.
+        self.assertEqual(self.client.get(url + "?lang=xx").json()["warnings"], en)
+        self.assertEqual(self.client.get(url).json()["warnings"], en)
+
+    def test_a_warning_without_params_keeps_its_stored_text(self):
+        conv = self.store_draft()
+        conv.draft["warnings"] = [
+            {"path": "", "code": "registration_closed", "message": "Stored text"}
+        ]
+        conv.save()
+        got = self.client.get(self.url("assistant-draft") + "?lang=sv").json()
+        self.assertEqual(got["warnings"][0]["message"], "Stored text")
+
     def test_another_users_draft_is_invisible(self):
         self.store_draft(user=self.other_staff)
         self.assertEqual(self.client.get(self.url("assistant-draft")).status_code, 404)

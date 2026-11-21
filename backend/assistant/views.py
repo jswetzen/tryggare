@@ -4,9 +4,10 @@ import logging
 
 from asgiref.sync import async_to_sync
 from channels.layers import get_channel_layer
+from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import transaction
-from django.utils import timezone
+from django.utils import timezone, translation
 from django.utils.translation import gettext as _
 from rest_framework import serializers, status
 from rest_framework.parsers import JSONParser
@@ -234,7 +235,12 @@ class AssistantAPIView(APIView):
         self.user, self.event, self.refusal = gate(request, kwargs["event_id"])
 
     def dispatch(self, request, *args, **kwargs):
-        response = super().dispatch(request, *args, **kwargs)
+        # The SPA sends no Accept-Language, so it names the UI language (?lang=).
+        lang = request.GET.get("lang")
+        if lang not in dict(settings.LANGUAGES):
+            lang = translation.get_language()
+        with translation.override(lang):
+            response = super().dispatch(request, *args, **kwargs)
         response["Cache-Control"] = "no-store"
         return response
 
@@ -346,7 +352,7 @@ class DraftView(AssistantAPIView):
             {
                 "spec": draft["spec"],
                 "diff": draft.get("diff", []),
-                "warnings": draft.get("warnings", []),
+                "warnings": event_spec.localize(draft.get("warnings", [])),
                 "stale": is_stale(self.event, draft),
                 "token": draft.get("token"),
                 "version": draft.get("version"),

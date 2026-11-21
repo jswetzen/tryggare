@@ -1,3 +1,5 @@
+import { get } from 'svelte/store';
+import { locale } from 'svelte-i18n';
 import { apiClient } from './client';
 import type {
   AssistantPreview,
@@ -12,6 +14,9 @@ import type {
  */
 const base = (eventId: string) => `/assistant/events/${eventId}`;
 
+// The client sends no Accept-Language, so the draft's warning texts follow the UI language.
+const lang = () => `?lang=${get(locale) === 'sv' ? 'sv' : 'en'}`;
+
 export const assistantApi = {
   getConversation: (eventId: string): Promise<ConversationState> =>
     apiClient.get(`${base(eventId)}/conversation/`),
@@ -22,7 +27,7 @@ export const assistantApi = {
   acceptNotice: (eventId: string): Promise<{ notice_accepted: true }> =>
     apiClient.post(`${base(eventId)}/conversation/notice/`),
 
-  getDraft: (eventId: string): Promise<DraftPayload> => apiClient.get(`${base(eventId)}/draft/`),
+  getDraft: (eventId: string): Promise<DraftPayload> => apiClient.get(`${base(eventId)}/draft/${lang()}`),
 
   // `version` is required by the server: a discard names the draft it saw.
   discardDraft: (eventId: string, version: number, token?: string): Promise<unknown> =>
@@ -36,5 +41,5 @@ export const assistantApi = {
     apiClient.put(`/events/${eventId}/spec/`, spec),
 
   getPreview: (eventId: string): Promise<AssistantPreview> =>
-    apiClient.get(`${base(eventId)}/preview/`)
+    apiClient.get(`${base(eventId)}/preview/${lang()}`)
 };

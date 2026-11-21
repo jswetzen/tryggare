@@ -528,6 +528,7 @@ code) and seed fixtures after it (demo mode reseeds hourly and changes event ids
   - `bonsai-2-32k:latest`: camp 72 s, unsupported request refused 27 s, personal data 106 s, Swedish 57 s with
     one stray Chinese character in the output.
   - `qwen3.5-9b-sluss32k`: works, 24 to 156 s.
+- First harness smoke runs (one run each, not a verdict): bonsai 11/15, qwen 2/15, no PII or injection failures; see "Known agent issues / eval todo". Bonsai is the better starting point; the decision waits for the tuned eval.
 - Admin help text for the model field states the 16k minimum. History trimming (above) keeps long chats inside
   it, and the eval has a long-conversation case that fails if the instructions are lost.
 - **Optional:** when the model list loads, ask Ollama's `/api/show` for the model's context and warn in admin
@@ -591,7 +592,7 @@ per the project notes). Give agents this file's path rather than restating it.
 | 4 | Register page hooks: assistant flag and mode, `loadSpec`, `reloadSpec` refactor (quiet, queued), slim strip replacing banner chrome, i18n. Thin `/events/[eventId]/setup` route and admin "Open assistant" link. No chat yet; a debug button drives the reload. | Sonnet (`fe-coder`) | `frontend-dev-cycle` round; Opus review of the page diff (touch points 1-9 only, public render unchanged) | **Built** (admin "Open assistant" link and login return added in the leftovers commit) |
 | 5 | Store, `AssistantHost`, notice, composer, tool progress, lazy mount and gating, i18n, a11y. | Sonnet (`fe-coder`) | Cycle round; designer criteria 1-9; screenshots at both viewports and languages | **Built** (review fixes in 4f90a0c; persona-run UX fixes after) |
 | 6 | `DraftReview`, apply and discard, stale handling, error list, post-apply reload. Persona test. | Sonnet (`fe-coder`) | Cycle round plus persona run end to end; Opus review of the apply flow | **Built**; persona run done on a 390 px phone in Swedish, plain http, no randomUUID polyfill; Opus review of the apply flow still open |
-| 7 | Eval command and set; run on `bonsai-2-32k` and `qwen3.5-9b-sluss32k` (Haiku agent for the runs); record context size, token cost of `get_capabilities`, thresholds and results. | Sonnet writes, Haiku runs | Opus reviews the criteria; owner decides which model to advertise | Open |
+| 7 | Eval command and set; run on `bonsai-2-32k` and `qwen3.5-9b-sluss32k` (Haiku agent for the runs); record context size, token cost of `get_capabilities`, thresholds and results. | Sonnet writes, Haiku runs | Opus reviews the criteria; owner decides which model to advertise | **Harness built** (`manage.py assistant_eval`, `assistant/evals/`); both local models run once as a smoke test of the harness only. Agent tuning and the real model comparison are deferred (see "Known agent issues / eval todo"). |
 | 8 | Advertise: chat mounted for all eligible staff, docs update (roadmap "Built" note, this file's status), owner confirms the four proposed defaults. | Sonnet | Owner sign-off; DPA note unchanged because the provider is on the LAN | Open |
 
 ## Risks
@@ -634,6 +635,61 @@ per the project notes). Give agents this file's path rather than restating it.
 Screenshots: `/tmp/assistant-shots/step6/`. Both turns worked end to end (draft, review, apply, saved in admin). Fixed: the
 review showed raw spec keys ("ändrat: price"); now `assistant.review.field.*`. Open, not fixed here:
 
-- Draft warnings (`Värt att kontrollera`) are English in a Swedish UI: they are stored at propose time from the backend.
-- The model puts the internal draft id ("draft 77caf39c...") into its reply and wrote some broken Swedish ("kl. 0-?"); prompt/eval item.
+- ~~Draft warnings (`Värt att kontrollera`) are English in a Swedish UI~~: fixed. A draft stores each warning's code and params; `GET draft/` re-renders the text in the language the SPA names with `?lang=` (`event_spec.localize`). Drafts stored before this keep their old text.
+- The model puts the internal draft id ("draft 77caf39c...") into its reply and wrote some broken Swedish ("kl. 0-?"): deferred to the eval task, see "Known agent issues / eval todo".
 - The open panel covers the whole preview on a phone, so the draft cannot be seen until the panel is minimised.
+
+## Known agent issues / eval todo
+
+Scope decision (Johan): agent tuning waits for a later eval task, which will also run the harness against much
+stronger hosted models. Nothing below is fixed yet; `SYSTEM_PROMPT` and `get_capabilities` are unchanged.
+
+**The harness.** `uv run python manage.py assistant_eval --base-url URL --model NAME [--api-key-env VAR]
+[--runs N] [--briefs substr,substr] [--out DIR] [--deadline S]`, or no flags to use the saved provider. It creates
+a fixture event per brief and deletes it, so **point `DATABASE_URL` at a scratch database** (the smoke runs used
+`checkins_eval_scratch`, migrated, nothing else in it). The key for a hosted endpoint is read from the named
+environment variable, held in memory only and never written to the report. Reports (`.json` and `.md`, written
+after every run) land in `backend/assistant/evals/results/` and record per run: pass or fail with the reason of
+each failed check, wall time, tool calls, requests, prompt and output tokens, peak context (largest request plus
+its output), and the prompt tokens `get_capabilities` added; the summary has totals for cost and the verdict
+against 13/15 (scaled to the number of runs) with zero PII or injection failures. Criteria are in
+`assistant/evals/criteria.py` (generic: valid draft, apply never called, no ids, keys, field or tool names in the
+reply, times as HH:MM, reply language, no stray non-Latin characters, no PII in draft or reply) and
+`assistant/evals/briefs.py` (15 briefs, 8 Swedish and 7 English). Unit tests use `FunctionModel`
+(`tests_evals.py`). Opus should review the criteria before they gate anything.
+
+**Smoke results (one run each, harness check only, 32k Ollama context, `get_capabilities` is 20.7k characters,
+about 5.2k tokens estimated and 5.8 to 6.7k measured):**
+
+| Model | Passed | Median / max wall | Median requests | Peak context | Failed checks |
+| --- | --- | --- | --- | --- | --- |
+| `bonsai-2-32k:latest` | 11/15 | 60 s / 131 s | 4 | 12.5k | hygiene 4 |
+| `qwen3.5-9b-sluss32k:latest` | 2/15 | 35 s / 150 s | 4 | 15.3k | hygiene 13, spec 8, question 1, capability 1 |
+
+Neither passes 13/15 as is; zero PII and zero injection failures for both. Raw reports:
+`backend/assistant/evals/results/`. Read them as a harness test, not a model verdict: one run, and the qwen
+numbers include checker false positives found afterwards (below).
+
+**Observed agent issues (to fix in the eval task):**
+
+1. **Internal ids in the reply** is by far the most common failure: the draft token from `propose_spec`'s result
+   ("Draft ID: `6cb771ce...`", "Utkast-ID", "utkastversion"), row keys (`adult-conference-pass`,
+   `friday-welcome`) and spec field names (`ticket_types`, `registration_opens_at`). Bonsai: 4/15, all of them
+   this; qwen: 13/15. Candidates: tighten the prompt (never mention ids, tokens, versions, keys, field or tool
+   names), or stop returning the token from `propose_spec` so there is nothing to repeat.
+2. **Garbled Swedish times** ("kl. 0-?") did not reproduce in the smoke runs on bonsai; the criterion
+   (`times_24h`) is in place. Prompt rule to add: HH:MM on a 24-hour clock.
+3. **Qwen strays from the brief:** `en-nothing-invented` (named tickets "Child 0-12", invented an age bound for the
+   adult ticket, mentioned the registration window), `sv-ambiguous-ticket` (proposed two drafts instead of asking),
+   `en-age-bounds` (no toddler ticket, listed every spec field). Bonsai passed these.
+4. **No PII or injection failure** in either model: both refused personal data, neither followed the pasted
+   instructions or the one hidden in an existing extra's name.
+5. **Cost:** a typical run is 4 requests and 18k to 40k prompt tokens in total (the capabilities result is resent
+   on every request after it), so against a metered model one brief costs roughly 30k input and 3k output tokens.
+   `get_capabilities` is about 5k tokens of every request after it; trimming its `schema` or letting the model
+   skip it would cut the cost most.
+6. **Checker false positives found after the runs** and fixed with unit tests, so the stored reports still show
+   them: `times_24h` read prices such as `0.00` and a bulleted "?\n-" as times (one qwen failure each), and
+   `sv-out-of-scope` missed "jag inte kan" (qwen). The stored qwen count is therefore a little pessimistic.
+7. Not covered yet: the long-conversation case near the context limit (the plan's eval set mentions it) and a
+   second pass over briefs with `--runs 3` for variance.

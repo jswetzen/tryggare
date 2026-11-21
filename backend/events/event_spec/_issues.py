@@ -120,9 +120,26 @@ MESSAGES = {
 def issue(path: str, code: str, message=None, /, **params) -> dict:
     """``{"path", "code", "message"}``; the message is the table's text filled with
     ``params``, unless one is given (Django's own validation errors, view messages)."""
-    if message is None:
-        message = str(MESSAGES[code]) % params
-    return {"path": path, "code": code, "message": str(message)}
+    if message is not None:
+        return {"path": path, "code": code, "message": str(message)}
+    return {
+        "path": path,
+        "code": code,
+        "message": str(MESSAGES[code]) % params,
+        # Kept (as strings) so a stored issue can be re-rendered by localize().
+        "params": {k: str(v) for k, v in params.items()},
+    }
+
+
+def localize(issues: list[dict]) -> list[dict]:
+    """Issues with ``message`` re-rendered in the active language. Only table-made
+    issues (they carry ``params``) change; a draft stored in one language reads in another."""
+    out = []
+    for item in issues:
+        if "params" in item and item.get("code") in MESSAGES:
+            item = {**item, "message": str(MESSAGES[item["code"]]) % item["params"]}
+        out.append(item)
+    return out
 
 
 class SpecError(Exception):
