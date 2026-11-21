@@ -246,7 +246,10 @@ class DraftTests(RunnerTestCase):
                 )
             return ModelResponse(parts=[TextPart("done")])
 
-        ask(self.event, self.staff, "x", FunctionModel(fn))
+        # The tool guard sees the lock gone and ends the run before propose_spec runs.
+        with self.assertRaises(RunFailed) as cm:
+            ask(self.event, self.staff, "x", FunctionModel(fn))
+        self.assertEqual(cm.exception.code, "cancelled")
         return AssistantConversation.objects.get()
 
     def test_clear_during_run_is_not_undone_by_the_run(self):

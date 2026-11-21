@@ -42,7 +42,7 @@ from events.models import Event
 from .models import AssistantConversation, AssistantRun, LLMProvider
 from .permissions import can_use_assistant, fresh_user
 from .providers import ProviderError
-from .tools import _pii_kind, build_toolset
+from .tools import TOOL_NAMES, _pii_kind, build_toolset
 
 logger = logging.getLogger(__name__)
 
@@ -219,7 +219,13 @@ def _store_draft(conv: AssistantConversation, token: str, item: dict) -> None:
         row.save(update_fields=["draft", "draft_version", "updated_at"])
 
 
+class _LockLost(Exception):
+    """The run's row was cleared, or a newer run took it over."""
+
+
 def _failure_code(exc: Exception) -> str:
+    if isinstance(exc, _LockLost):
+        return "cancelled"
     if isinstance(exc, PermissionDenied):
         return "blocked"
     if isinstance(exc, TimeoutError):
@@ -237,10 +243,13 @@ def _failure_code(exc: Exception) -> str:
     return "model_error"
 
 
-def _permission_guard(event_pk, user):
-    """Sync check run before every tool call: permissions can be revoked mid-run."""
+def _permission_guard(event_pk, user, conv=None):
+    """Sync check run before every tool call: permissions can be revoked mid-run,
+    and a clear (from any process) ends the run here rather than at its end."""
 
     def check():
+        if conv is not None and not _owned(conv).exists():
+            raise _LockLost()
         fresh = fresh_user(user)
         event = Event.objects.filter(pk=event_pk).first()
         if fresh is None or event is None or not can_use_assistant(fresh, event)[0]:
@@ -262,6 +271,14 @@ def _stream_forwarder(conv_pk, emit, last_version: int):
     """Event-stream handler turning agent events into protocol payloads. Tool
     arguments and results (they hold the spec) and thinking parts are never forwarded."""
     state = {"version": last_version}
+    # The model picks tool names and call ids; only ours go over the wire.
+    call_ids: dict[str, str] = {}
+
+    def call_id(raw) -> str:
+        return call_ids.setdefault(raw, f"t-{len(call_ids) + 1}")
+
+    def tool(name) -> str:
+        return name if name in TOOL_NAMES else "unknown"
 
     async def handler(_ctx, stream):
         async for ev in stream:
@@ -275,8 +292,8 @@ def _stream_forwarder(conv_pk, emit, last_version: int):
                 await emit(
                     {
                         "type": "tool_started",
-                        "call_id": ev.part.tool_call_id,
-                        "tool": ev.part.tool_name,
+                        "call_id": call_id(ev.part.tool_call_id),
+                        "tool": tool(ev.part.tool_name),
                     }
                 )
             elif isinstance(ev, FunctionToolResultEvent):
@@ -284,8 +301,8 @@ def _stream_forwarder(conv_pk, emit, last_version: int):
                 await emit(
                     {
                         "type": "tool_finished",
-                        "call_id": ev.tool_call_id,
-                        "tool": ev.part.tool_name,
+                        "call_id": call_id(ev.tool_call_id),
+                        "tool": tool(ev.part.tool_name),
                         "ok": ok,
                     }
                 )
@@ -319,7 +336,7 @@ async def run_conversation(
                 event,
                 user,
                 lambda token, item: _store_draft(conv, token, item),
-                guard=_permission_guard(event.pk, user),
+                guard=_permission_guard(event.pk, user, conv),
             )
             return conv, toolset, trim_history(load_messages(conv.messages))
         except BaseException as exc:
@@ -383,6 +400,7 @@ class _Handle:
 
 # Per process, like the task itself: a run outlives the connection that started it.
 _RUNS: dict[tuple, _Handle] = {}
+_TASKS: set[asyncio.Task] = set()
 
 
 def start_run(event, user, text, *, reply_to, publish, refuse, model=None) -> None:
@@ -426,12 +444,18 @@ def start_run(event, user, text, *, reply_to, publish, refuse, model=None) -> No
                 await publish(_failed(run_id, reply_to, "cancelled"))
         except Exception as exc:
             logger.warning("assistant run crashed: %s", type(exc).__name__)
-            await refuse(_failed(None, reply_to, "model_error"))
+            sink = publish if handle.started else refuse
+            await sink(
+                _failed(run_id if handle.started else None, reply_to, "model_error")
+            )
         finally:
             if handle.task is asyncio.current_task():
                 _RUNS.pop(key, None)
 
     task = asyncio.ensure_future(drive())
+    # The loop holds tasks weakly; the busy refusal has no handle to keep it alive.
+    _TASKS.add(task)
+    task.add_done_callback(_TASKS.discard)
     if handle is not None:
         handle.task = task
 
@@ -475,9 +499,8 @@ def reset_if_dead(conv: AssistantConversation) -> bool:
     if conv.status != conv.STATUS_RUNNING:
         return False
     if _is_dead(conv, timezone.now()):
+        # Only the dead run's lock: a run that took over since conv was read keeps its own.
+        _owned(conv).update(status=conv.STATUS_IDLE, run_started_at=None)
         conv.status, conv.run_started_at = conv.STATUS_IDLE, None
-        AssistantConversation.objects.filter(pk=conv.pk).update(
-            status=conv.STATUS_IDLE, run_started_at=None
-        )
         return False
     return True

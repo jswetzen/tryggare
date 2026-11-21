@@ -19,6 +19,7 @@ from .permissions import (
 
 MAX_TEXT_CHARS = 4000
 MAX_ID_CHARS = 64
+MAX_FRAME_CHARS = 16_000
 
 CLOSE_UNAUTHENTICATED = 4401
 CLOSE_FORBIDDEN = 4403
@@ -111,10 +112,13 @@ class AssistantConsumer(AsyncWebsocketConsumer):
         await self._send(message["payload"])
 
     async def receive(self, text_data=None, bytes_data=None):
-        try:
-            data = json.loads(text_data or "")
-        except ValueError:
-            data = None
+        data = None
+        # Daphne sets no message size limit; refuse before parsing.
+        if text_data and len(text_data) <= MAX_FRAME_CHARS:
+            try:
+                data = json.loads(text_data)
+            except ValueError:
+                pass
         kind = data.get("type") if isinstance(data, dict) else None
         if kind == "cancel":
             runner.request_cancel(self.event_pk, self.user.pk)

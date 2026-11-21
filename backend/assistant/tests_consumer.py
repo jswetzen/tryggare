@@ -374,6 +374,60 @@ class RunTests(AssistantWSBase):
         )
         await self.close_all()
 
+    async def test_model_chosen_tool_names_and_ids_are_not_forwarded(self):
+        async def stream(messages, info):
+            if len(messages) == 1:
+                yield {
+                    0: DeltaToolCall(
+                        name="Anna Svensson 19800101-1234",
+                        json_args="{}",
+                        tool_call_id="call-Anna",
+                    )
+                }
+            else:
+                yield "ok"
+
+        c = await self.connect()
+        await c.receive_json_from()
+        with mock.patch.object(
+            AssistantConsumer, "model", FunctionModel(stream_function=stream)
+        ):
+            await self.say(c)
+            events = await self.until_done(c)
+        self.assertNotIn("Anna", json.dumps(events))
+        tools = [e for e in events if e["type"].startswith("tool_")]
+        self.assertTrue(tools)
+        for e in tools:
+            self.assertEqual((e["tool"], e["call_id"]), ("unknown", "t-1"))
+        await self.close_all()
+
+    async def test_clear_mid_run_ends_it_at_the_next_tool_call(self):
+        gate = asyncio.Event()
+
+        async def stream(messages, info):
+            if len(messages) == 1:
+                await gate.wait()
+                yield {0: DeltaToolCall(name="get_current_spec", json_args="{}")}
+            else:
+                yield "should not get here"
+
+        c = await self.connect()
+        await c.receive_json_from()
+        with mock.patch.object(
+            AssistantConsumer, "model", FunctionModel(stream_function=stream)
+        ):
+            await self.say(c)
+            self.assertEqual((await c.receive_json_from())["type"], "run_started")
+            conv = await sync_to_async(AssistantConversation.objects.get)()
+            await sync_to_async(runner.clear_conversation)(conv)
+            gate.set()
+            events = await self.until_done(c)
+        self.assertEqual(events[-1]["code"], "cancelled")
+        self.assertNotIn("should not get here", json.dumps(events))
+        conv = await sync_to_async(AssistantConversation.objects.get)()
+        self.assertEqual((conv.status, conv.messages), ("idle", []))
+        await self.close_all()
+
     async def test_revoked_mid_run_is_blocked(self):
         async def stream(messages, info):
             if len(messages) == 1:
@@ -462,6 +516,7 @@ class RunTests(AssistantWSBase):
             json.dumps({"type": "user_message", "text": "hi"}),
             json.dumps({"type": "user_message", "id": "x", "text": "a" * 5000}),
             json.dumps({"type": "user_message", "id": 5, "text": "hi"}),
+            json.dumps({"type": "user_message", "id": "x", "text": "hi" + " " * 20000}),
         ]:
             await c.send_to(text_data=frame)
             self.assertEqual(
@@ -550,3 +605,14 @@ class StorageRuleTests(AssistantWSBase):
             ([], None, "idle", None),
         )
         self.assertIsNotNone(conv.notice_accepted_at)
+
+    def test_reset_if_dead_leaves_a_newer_run_alone(self):
+        stale = AssistantConversation.objects.get()
+        stale.status = "running"
+        stale.run_started_at = timezone.now() - timezone.timedelta(hours=1)
+        stale.save()
+        newer = timezone.now()
+        AssistantConversation.objects.update(run_started_at=newer)
+        self.assertFalse(runner.reset_if_dead(stale))
+        row = AssistantConversation.objects.get()
+        self.assertEqual((row.status, row.run_started_at), ("running", newer))

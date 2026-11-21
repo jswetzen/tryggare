@@ -208,7 +208,10 @@ Server to client:
   `id`, empty or over 4000 character `text`) and is not tied to a run.
 - `cancel` is honoured once `run_started` was sent; sent earlier it is remembered and applied at that point, so
   a run in setup never leaves its lock behind. The run is a task in the worker process and outlives the
-  connection; `cancel` finds it in the same process only (one Daphne process, see Risks).
+  connection; `cancel` finds it in the same process only (one Daphne process, see Risks). A clear (or a newer
+  run taking over a dead lock) ends a run at its next tool call with `cancelled`, from any process.
+- `tool` is one of our tool names or `unknown`, and `call_id` is ours (`t-1`, ...): both are model-chosen
+  otherwise.
 - Permission is re-checked before every tool call, not only between messages; a revocation ends the run with
   `blocked`. Notice acceptance is the HTTP endpoint (step 3); the consumer only refuses with `notice_required`.
 - Tool events carry the tool name and `ok` only, never arguments or results (they contain the spec).
