@@ -141,6 +141,21 @@ class HistoryTests(RunnerTestCase):
         self.assertEqual(len(out), 8)
         self.assertEqual(out[0].parts[0].content, "q3")
 
+    def test_trim_never_cuts_at_a_request_that_answers_a_tool_call(self):
+        msgs = [
+            ModelRequest(parts=[UserPromptPart("q0")]),
+            ModelResponse(parts=[ToolCallPart("validate_spec", {}, "c0")]),
+            ModelRequest(
+                parts=[
+                    ToolReturnPart("validate_spec", {}, "c0"),
+                    UserPromptPart("q1"),
+                ]
+            ),
+            ModelResponse(parts=[TextPart("a")]),
+        ]
+        out = runner.trim_history(msgs, max_turns=1)
+        self.assertEqual(len(out), 4)
+
     def test_stored_history_is_trimmed_on_next_run(self):
         self.conv()
         calls_model = TestModel(call_tools=["get_capabilities", "get_current_spec"])
@@ -213,6 +228,43 @@ class DraftTests(RunnerTestCase):
         self.assertEqual(conv.draft["version"], 1)
         self.assertEqual(conv.messages, [])
         self.assertEqual(conv.status, "idle")
+
+    def _run_with_mid_run_change(self, change):
+        """Proposes, then lets ``change(conv_qs)`` touch the row before the run ends."""
+        from asgiref.sync import sync_to_async
+
+        self.conv()
+        spec = event_spec.export(self.event)
+        spec["ticket_types"][0]["price"] = 7
+        qs = AssistantConversation.objects.all()
+
+        async def fn(messages, info):
+            if len(messages) == 1:
+                await sync_to_async(change)(qs)
+                return ModelResponse(
+                    parts=[ToolCallPart("propose_spec", {"spec": spec}, "p1")]
+                )
+            return ModelResponse(parts=[TextPart("done")])
+
+        ask(self.event, self.staff, "x", FunctionModel(fn))
+        return AssistantConversation.objects.get()
+
+    def test_clear_during_run_is_not_undone_by_the_run(self):
+        conv = self._run_with_mid_run_change(
+            lambda qs: qs.update(
+                messages=[], draft=None, status="idle", run_started_at=None
+            )
+        )
+        self.assertEqual(conv.messages, [])
+        self.assertIsNone(conv.draft)
+
+    def test_stale_run_does_not_release_a_newer_runs_lock(self):
+        newer = timezone.now() + timedelta(seconds=1)
+        conv = self._run_with_mid_run_change(lambda qs: qs.update(run_started_at=newer))
+        self.assertEqual(conv.status, "running")
+        self.assertEqual(conv.run_started_at, newer)
+        self.assertEqual(conv.messages, [])
+        self.assertIsNone(conv.draft)
 
 
 class FailureCodeTests(RunnerTestCase):

@@ -10,6 +10,7 @@ from datetime import timedelta
 
 from asgiref.sync import sync_to_async
 from django.conf import settings
+from django.contrib.auth import get_user_model
 from django.core.exceptions import PermissionDenied
 from django.db import transaction
 from django.utils import timezone
@@ -17,6 +18,7 @@ from pydantic_ai.exceptions import UnexpectedModelBehavior, UsageLimitExceeded
 from pydantic_ai.messages import (
     ModelMessagesTypeAdapter,
     ModelRequest,
+    RetryPromptPart,
     SystemPromptPart,
     ToolReturnPart,
     UserPromptPart,
@@ -65,8 +67,11 @@ def load_messages(stored: list) -> list:
 
 
 def _starts_turn(msg) -> bool:
-    return isinstance(msg, ModelRequest) and any(
-        isinstance(p, UserPromptPart) for p in msg.parts
+    # A request that also answers a tool call is not a safe cut: its call would be dropped.
+    return (
+        isinstance(msg, ModelRequest)
+        and any(isinstance(p, UserPromptPart) for p in msg.parts)
+        and not any(isinstance(p, (ToolReturnPart, RetryPromptPart)) for p in msg.parts)
     )
 
 
@@ -121,6 +126,9 @@ def _begin(event, user) -> AssistantConversation:
     """Take the run lock and the rate-limit slot, or raise RunFailed."""
     now = timezone.now()
     with transaction.atomic():
+        # Serialise per user: the cross-event busy check and the rate-limit count
+        # below are check-then-act and would race between two events otherwise.
+        get_user_model().objects.select_for_update().filter(pk=user.pk).first()
         conv, _ = AssistantConversation.objects.select_for_update().get_or_create(
             event=event, user=user
         )
@@ -146,20 +154,31 @@ def _begin(event, user) -> AssistantConversation:
         return conv
 
 
-def _release(conv_id, messages=None) -> None:
-    fields = {"status": AssistantConversation.STATUS_IDLE, "run_started_at": None}
-    if messages is not None:
-        fields["messages"] = messages
-    AssistantConversation.objects.filter(pk=conv_id).update(
-        updated_at=timezone.now(), **fields
+def _owned(conv: AssistantConversation):
+    """This run's row, only while it still holds the lock. A clear, or a newer run
+    that declared this one dead, must not be overwritten by it."""
+    return AssistantConversation.objects.filter(
+        pk=conv.pk,
+        status=AssistantConversation.STATUS_RUNNING,
+        run_started_at=conv.run_started_at,
     )
 
 
-def _store_draft(conv_id, token: str, item: dict) -> None:
-    conv = AssistantConversation.objects.get(pk=conv_id)
-    version = (conv.draft or {}).get("version", 0) + 1
-    conv.draft = {**item, "token": token, "version": version}
-    conv.save(update_fields=["draft", "updated_at"])
+def _release(conv: AssistantConversation, messages=None) -> None:
+    fields = {"status": AssistantConversation.STATUS_IDLE, "run_started_at": None}
+    if messages is not None:
+        fields["messages"] = messages
+    _owned(conv).update(updated_at=timezone.now(), **fields)
+
+
+def _store_draft(conv: AssistantConversation, token: str, item: dict) -> None:
+    with transaction.atomic():
+        row = _owned(conv).select_for_update().first()
+        if row is None:
+            return
+        version = (row.draft or {}).get("version", 0) + 1
+        row.draft = {**item, "token": token, "version": version}
+        row.save(update_fields=["draft", "updated_at"])
 
 
 def _failure_code(exc: Exception) -> str:
@@ -192,11 +211,11 @@ async def run_conversation(event, user, text: str, *, model=None) -> dict:
         conv = _begin(event, user)
         try:
             toolset, _drafts = build_toolset(
-                event, user, lambda token, item: _store_draft(conv.pk, token, item)
+                event, user, lambda token, item: _store_draft(conv, token, item)
             )
             return conv, toolset, trim_history(load_messages(conv.messages))
         except BaseException as exc:
-            _release(conv.pk)
+            _release(conv)
             if isinstance(exc, PermissionDenied):
                 raise RunFailed("blocked") from None
             raise
@@ -211,8 +230,10 @@ async def run_conversation(event, user, text: str, *, model=None) -> dict:
         raise RunFailed(_failure_code(exc)) from None
     finally:
         # Also on cancellation, so a cancelled run does not hold the lock until it is declared dead.
-        await sync_to_async(_release)(conv.pk, stored)
+        await sync_to_async(_release)(conv, stored)
     draft = await sync_to_async(
-        lambda: AssistantConversation.objects.get(pk=conv.pk).draft
+        lambda: AssistantConversation.objects.filter(pk=conv.pk)
+        .values_list("draft", flat=True)
+        .first()
     )()
     return {"text": result.output, "draft_version": (draft or {}).get("version")}
