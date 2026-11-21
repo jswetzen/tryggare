@@ -1,17 +1,37 @@
 """Staff REST API for the language-model provider. The key is write-only."""
 
+import logging
+
+from asgiref.sync import async_to_sync
+from channels.layers import get_channel_layer
 from django.core.exceptions import ValidationError
 from django.db import transaction
+from django.utils import timezone
 from django.utils.translation import gettext as _
 from rest_framework import serializers, status
 from rest_framework.parsers import JSONParser
-from rest_framework.permissions import BasePermission
+from rest_framework.permissions import AllowAny, BasePermission
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from .models import LLMProvider
+from events import event_spec
+from events.event_spec import issue
+from events.models import Event
+from registrations.form_spec import build_form_spec, build_form_spec_from_draft
+
+from . import runner
+from .models import AssistantConversation, LLMProvider
+from .permissions import (
+    NOT_AUTHENTICATED,
+    can_use_assistant,
+    fresh_user,
+    lacks_permission,
+)
 from .providers import ProviderError
 from .services import fetch_models
+from .tools import Drafts
+
+logger = logging.getLogger(__name__)
 
 VIEW_PERM = "assistant.view_llmprovider"
 CHANGE_PERM = "assistant.change_llmprovider"
@@ -151,3 +171,241 @@ class ProviderModelsView(APIView):
                 {"errors": [exc.as_dict()]}, status=status.HTTP_502_BAD_GATEWAY
             )
         return Response({"models": models})
+
+
+# --- the chat on the preview page; plan: "Backend modules and endpoints"
+
+
+def _refusal(http_status, code, message, extra=()):
+    return Response(
+        {"errors": [issue("", code, message), *extra], "warnings": []},
+        status=http_status,
+    )
+
+
+def gate(request, event_id):
+    """``(user, event, None)`` or ``(None, None, refusal)``. Runs on every request,
+    with a user reloaded now, in the WebSocket's order: permission is decided before
+    the event is looked up, so a non-staff user cannot probe event ids."""
+    user = fresh_user(request.user) if request.user.is_authenticated else None
+    reason = lacks_permission(user)
+    if reason == NOT_AUTHENTICATED:
+        return None, None, _refusal(401, reason, _("Sign in to use the assistant."))
+    if reason:
+        return (
+            None,
+            None,
+            _refusal(403, reason, _("You are not allowed to use the assistant.")),
+        )
+    event = Event.objects.filter(pk=event_id).first()
+    if event is None:
+        return None, None, _refusal(404, "event_not_found", _("No such event."))
+    ok, issues = can_use_assistant(user, event)
+    if not ok:
+        first, *rest = issues
+        return (
+            None,
+            None,
+            _refusal(409, first["code"], first["message"], rest),
+        )
+    if not LLMProvider.load().enabled:
+        return (
+            None,
+            None,
+            _refusal(503, "not_enabled", _("The assistant is not switched on.")),
+        )
+    return user, event, None
+
+
+class AssistantAPIView(APIView):
+    # Authentication is the gate's job, so it can answer 401 vs 403 as the WebSocket does.
+    permission_classes = [AllowAny]
+    parser_classes = [JSONParser]
+
+    def initial(self, request, *args, **kwargs):
+        super().initial(request, *args, **kwargs)
+        self.user, self.event, self.refusal = gate(request, kwargs["event_id"])
+
+    def dispatch(self, request, *args, **kwargs):
+        response = super().dispatch(request, *args, **kwargs)
+        response["Cache-Control"] = "no-store"
+        return response
+
+    def conversation(self, create=False):
+        rows = AssistantConversation.objects.filter(event=self.event, user=self.user)
+        if create:
+            return (
+                rows.first()
+                or AssistantConversation.objects.get_or_create(
+                    event=self.event, user=self.user
+                )[0]
+            )
+        return rows.first()
+
+
+def is_stale(event, draft) -> bool:
+    """The event's setup changed since the draft was proposed (``Drafts.is_stale``)."""
+    drafts = Drafts(event)
+    drafts.items[draft["token"]] = draft
+    try:
+        return drafts.is_stale(draft["token"])
+    except event_spec.SpecError:
+        return True  # the event cannot even be exported now: certainly not what the draft saw
+
+
+def _no_draft():
+    return _refusal(404, "no_draft", _("There is no draft."))
+
+
+class ConversationView(AssistantAPIView):
+    http_method_names = ["get", "head", "options", "delete"]
+
+    def get(self, request, event_id):
+        if self.refusal:
+            return self.refusal
+        conv = self.conversation()
+        if conv is None:
+            return Response(
+                {
+                    "available": True,
+                    "conversation_id": None,
+                    "transcript": [],
+                    "running": False,
+                    "notice_accepted": False,
+                    "draft_version": 0,
+                }
+            )
+        running = runner.reset_if_dead(conv)
+        return Response(
+            {
+                "available": True,
+                "conversation_id": str(conv.id),
+                "transcript": runner.transcript(conv),
+                "running": running,
+                "notice_accepted": conv.notice_accepted_at is not None,
+                "draft_version": conv.draft_version,
+            }
+        )
+
+    def delete(self, request, event_id):
+        if self.refusal:
+            return self.refusal
+        conv = self.conversation()
+        if conv is not None:
+            runner.clear_conversation(conv)
+            _tell_consumers_to_cancel(conv)
+        return Response(status=204)
+
+
+def _tell_consumers_to_cancel(conv) -> None:
+    """A run is a task in a consumer's process and cannot be cancelled from this
+    thread; the group message makes that consumer do it. Without a connected consumer
+    the cleared row ends the run at its next tool call instead."""
+    try:
+        async_to_sync(get_channel_layer().group_send)(
+            runner.group_name(conv.id), {"type": "assistant.cancel"}
+        )
+    except Exception as exc:
+        logger.warning("assistant cancel not delivered: %s", type(exc).__name__)
+
+
+class NoticeView(AssistantAPIView):
+    http_method_names = ["post", "options"]
+
+    def post(self, request, event_id):
+        if self.refusal:
+            return self.refusal
+        conv = self.conversation(create=True)
+        AssistantConversation.objects.filter(
+            pk=conv.pk, notice_accepted_at__isnull=True
+        ).update(notice_accepted_at=timezone.now())
+        return Response({"notice_accepted": True})
+
+
+class DraftView(AssistantAPIView):
+    http_method_names = ["get", "head", "options", "delete"]
+
+    def get(self, request, event_id):
+        if self.refusal:
+            return self.refusal
+        conv = self.conversation()
+        draft = conv.draft if conv else None
+        if not draft:
+            return _no_draft()
+        return Response(
+            {
+                "spec": draft["spec"],
+                "diff": draft.get("diff", []),
+                "warnings": draft.get("warnings", []),
+                "stale": is_stale(self.event, draft),
+                "token": draft.get("token"),
+                "version": draft.get("version"),
+            }
+        )
+
+    def delete(self, request, event_id):
+        """``?version=`` and/or ``?token=`` (what ``GET`` returned) discard only that
+        draft: after an apply, a newer proposal must not go with it."""
+        if self.refusal:
+            return self.refusal
+        conv = self.conversation()
+        if conv is None or not conv.draft:
+            return _no_draft()
+        try:
+            raw = request.query_params.get("version")
+            version = int(raw) if raw is not None else None
+        except ValueError:
+            return _refusal(400, "invalid_version", _("The draft version is invalid."))
+        token = request.query_params.get("token")
+        if not runner.discard_draft(conv, version=version, token=token):
+            conv.refresh_from_db()
+            if conv.draft:
+                return _refusal(
+                    409,
+                    "draft_changed",
+                    _("The draft changed since you last saw it."),
+                )
+            return _no_draft()
+        return Response(status=204)
+
+
+class PreviewView(AssistantAPIView):
+    """The register page's spec source in assistant mode: the form spec of the
+    saved event, or of the event as the stored draft would leave it."""
+
+    http_method_names = ["get", "head", "options"]
+
+    def get(self, request, event_id):
+        if self.refusal:
+            return self.refusal
+        conv = self.conversation()
+        draft = conv.draft if conv else None
+        if draft:
+            try:
+                form_spec, diff, warnings = build_form_spec_from_draft(
+                    draft["spec"], self.event
+                )
+            except event_spec.SpecError:
+                # The event moved on and the draft no longer applies: show what is saved.
+                return Response(self._saved(stale=True, unusable=True))
+            return Response(
+                {
+                    "source": "draft",
+                    "stale": is_stale(self.event, draft),
+                    "draft_unusable": False,
+                    "form_spec": form_spec,
+                    "diff": diff,
+                    "warnings": warnings,
+                }
+            )
+        return Response(self._saved(stale=False, unusable=False))
+
+    def _saved(self, *, stale, unusable):
+        return {
+            "source": "saved",
+            "stale": stale,
+            "draft_unusable": unusable,
+            "form_spec": build_form_spec(self.event),
+            "diff": [],
+            "warnings": [],
+        }

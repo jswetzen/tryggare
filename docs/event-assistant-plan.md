@@ -181,6 +181,7 @@ Client to server (JSON, `type` discriminator, unknown types rejected):
 
 ```json
 {"type": "user_message", "id": "c-17", "text": "Two-day youth camp, 12 to 17 year olds, 450 kr, lunch extra"}
+{"type": "user_message", "id": "c-18", "text": "…", "confirm_personal_data": true}
 {"type": "cancel"}
 ```
 
@@ -195,6 +196,7 @@ Server to client:
 {"type": "draft_updated", "run_id": "r-9", "draft_version": 4}
 {"type": "run_finished", "run_id": "r-9"}
 {"type": "run_failed", "run_id": "r-9", "reply_to": "c-17", "code": "timeout"}
+{"type": "warning", "code": "personal_data", "reply_to": "c-17"}
 {"type": "error", "code": "bad_request"}
 ```
 
@@ -210,6 +212,11 @@ Server to client:
   a run in setup never leaves its lock behind. The run is a task in the worker process and outlives the
   connection; `cancel` finds it in the same process only (one Daphne process, see Risks). A clear (or a newer
   run taking over a dead lock) ends a run at its next tool call with `cancelled`, from any process.
+- **Personal-data warning (warn, not block).** If `chat_text_warning(text)` finds something and the frame lacks
+  `"confirm_personal_data": true` (only the JSON `true` counts), the sender alone gets `warning` with
+  `code: "personal_data"` and `reply_to`; no run starts, nothing is stored and no rate-limit slot is used. The
+  frame never echoes the match. The client shows `assistant.piiWarning` with "Send anyway", which resends the
+  same text with the flag. Permission and eligibility are checked first, so a blocked user gets `blocked`.
 - `tool` is one of our tool names or `unknown`, and `call_id` is ours (`t-1`, ...): both are model-chosen
   otherwise.
 - Permission is re-checked before every tool call, not only between messages; a revocation ends the run with
@@ -239,13 +246,18 @@ Server to client:
 Endpoints (DRF, session auth like `events/spec_views.py`, same error shape; every one calls
 `can_use_assistant` per request and answers 401/403/409/503 as the WS codes do):
 
-- `GET    /api/assistant/events/<id>/conversation/` transcript, `running`, `notice_accepted`, `draft_version`,
-  and the availability verdict the `/setup` route reads.
+- `GET    /api/assistant/events/<id>/conversation/` `{available, conversation_id, transcript, running,
+  notice_accepted, draft_version}` (read-only: creates no row; `running` goes through `reset_if_dead`). The 200
+  itself is the availability verdict the `/setup` route reads.
 - `POST   /api/assistant/events/<id>/conversation/notice/` accept the personal-data notice.
-- `DELETE /api/assistant/events/<id>/conversation/` clear.
-- `GET    /api/assistant/events/<id>/draft/` `{spec, diff, warnings, stale}` or 404; `stale` = event setup changed
-  since the draft (`Drafts.is_stale`, `base_hash`).
-- `DELETE /api/assistant/events/<id>/draft/` discard.
+- `DELETE /api/assistant/events/<id>/conversation/` clear (204). Same-process cancel is a channel-layer
+  `group_send` of `assistant.cancel`, which each connected consumer turns into `request_cancel`; with no
+  consumer connected the cleared row ends the run at its next tool call.
+- `GET    /api/assistant/events/<id>/draft/` `{spec, diff, warnings, stale, token, version}` or 404;
+  `stale` = event setup changed since the draft (`Drafts.is_stale`, `base_hash`).
+- `DELETE /api/assistant/events/<id>/draft/?version=N&token=T` discard. After an apply the client passes the
+  `version` and `token` it showed; if a newer draft landed meanwhile that is 409 `draft_changed` and the newer
+  draft stays. Without the parameters it discards whatever is there. 404 when there is no draft.
 - `GET    /api/assistant/events/<id>/preview/` **the page's spec source**, see below.
 - Apply is the existing `PUT /api/events/<id>/spec/` with the draft's spec; on 200 the client calls
   `DELETE …/draft/` and reloads. 409 or 400 is shown as the error list.
@@ -253,7 +265,8 @@ Endpoints (DRF, session auth like `events/spec_views.py`, same error shape; ever
 ### Draft-aware spec endpoint
 
 `GET /api/assistant/events/<id>/preview/` is staff-only and returns
-`{source: "draft" | "saved", stale, form_spec, diff, warnings}`. `form_spec` is **exactly** the
+`{source: "draft" | "saved", stale, draft_unusable, form_spec, diff, warnings}`. If the stored draft no longer
+applies (the event moved on), the answer is `source: "saved"`, `stale: true`, `draft_unusable: true`. `form_spec` is **exactly** the
 `RegistrationFormSpec` shape of `GET /registrations/events/<id>/` (`Cache-Control: no-store`), so the page's
 types, `formSpec.ts` helpers and `reconcileSelections` work unchanged. With no draft, `source` is `"saved"` and
 `form_spec` is `build_form_spec(event)`.
@@ -575,7 +588,7 @@ per the project notes). Give agents this file's path rather than restating it.
 | 0 | Provider, plain-function tools with optional MCP wrapper, validators, prompt, guards, first model findings | Sonnet | Opus review | **Done** (on `feat/llm-provider`; outstanding: confirm the history-processor API on pydantic-ai 2.71) |
 | 1 | `AssistantConversation`, history store/load (strip, trim), `runner.py` with `TestModel`, retention setting and job hook, admin, cascade tests, `.po` entries. A management command can drive a run. | Sonnet | Opus review: history/prompt rules, retention and deletion, PII in stored data | **Built, awaiting review** (`runner.py`; history trimmed on load with a turn cap, no `ProcessHistory` needed; added `AssistantRun` for the rate limit and codes `rate_limited`, `not_enabled`) |
 | 2 | `AssistantConsumer`, routing, `permissions.py`, protocol, tool-progress and text events, draft persistence on propose. | Sonnet | Opus review: auth, per-request re-check, one-run lock, no data leaks over WS. WS tests green | **Built, awaiting review** (`consumers.py`, `permissions.py`; runner gained streaming events, `start_run` and a per-tool permission guard; `draft_version` counter on the conversation; `clear_conversation` and `discard_draft` helpers for step 3) |
-| 3 | HTTP endpoints: conversation, notice, clear, draft, and `/preview/` with apply, id stabilisation and rollback. | Sonnet | Opus review: rollback safety, per-user scoping, id stability. Parity and stability tests green | Open |
+| 3 | HTTP endpoints: conversation, notice, clear, draft, and `/preview/` with apply, id stabilisation and rollback. | Sonnet | Opus review: rollback safety, per-user scoping, id stability. Parity and stability tests green | **Built, awaiting review** (`views.py`, `build_form_spec_from_draft` in `registrations/form_spec.py`, `tests_api.py`; WS personal-data warning; `discard_draft` takes version/token) |
 | 4 | Register page hooks: assistant flag and mode, `loadSpec`, `reloadSpec` refactor (quiet, queued), slim strip replacing banner chrome, i18n. Thin `/events/[eventId]/setup` route and admin "Open assistant" link. No chat yet; a debug button drives the reload. | Sonnet (`fe-coder`) | `frontend-dev-cycle` round; Opus review of the page diff (touch points 1-9 only, public render unchanged) | Open |
 | 5 | Store, `AssistantHost`, notice, composer, tool progress, lazy mount and gating, i18n, a11y. | Sonnet (`fe-coder`) | Cycle round; designer criteria 1-9; screenshots at both viewports and languages | Open |
 | 6 | `DraftReview`, apply and discard, stale handling, error list, post-apply reload. Persona test. | Sonnet (`fe-coder`) | Cycle round plus persona run end to end; Opus review of the apply flow | Open |

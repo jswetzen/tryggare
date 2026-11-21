@@ -2301,3 +2301,24 @@ msgstr "Assistant conversation"
 
 msgid "Assistant conversations"
 msgstr "Assistant conversations"
+
+msgid "Sign in to use the assistant."
+msgstr "Sign in to use the assistant."
+
+msgid "You are not allowed to use the assistant."
+msgstr "You are not allowed to use the assistant."
+
+msgid "No such event."
+msgstr "No such event."
+
+msgid "The assistant is not switched on."
+msgstr "The assistant is not switched on."
+
+msgid "There is no draft."
+msgstr "There is no draft."
+
+msgid "The draft version is invalid."
+msgstr "The draft version is invalid."
+
+msgid "The draft changed since you last saw it."
+msgstr "The draft changed since you last saw it."

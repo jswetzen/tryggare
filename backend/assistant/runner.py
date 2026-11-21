@@ -71,6 +71,11 @@ class RunFailed(Exception):
             )
 
 
+def group_name(conversation_id) -> str:
+    """The channel group of a conversation's connections."""
+    return f"assistant_{conversation_id.hex}"
+
+
 def dump_messages(messages) -> list:
     """Storable form. The prompt is passed as ``instructions=`` and must reach the
     model fresh every run, so no system prompt or instructions copy is kept."""
@@ -488,10 +493,15 @@ def clear_conversation(conv: AssistantConversation) -> None:
     )
 
 
-def discard_draft(conv: AssistantConversation) -> None:
-    AssistantConversation.objects.filter(pk=conv.pk).update(
-        draft=None, updated_at=timezone.now()
-    )
+def discard_draft(conv: AssistantConversation, *, version=None, token=None) -> bool:
+    """Drop the draft; True if one was dropped. With ``version``/``token`` only that
+    draft goes, so a newer proposal that landed meanwhile (after an apply) survives."""
+    rows = AssistantConversation.objects.filter(pk=conv.pk, draft__isnull=False)
+    if version is not None:
+        rows = rows.filter(draft__version=version)
+    if token is not None:
+        rows = rows.filter(draft__token=token)
+    return bool(rows.update(draft=None, updated_at=timezone.now()))
 
 
 def reset_if_dead(conv: AssistantConversation) -> bool:

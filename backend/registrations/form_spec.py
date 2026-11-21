@@ -3,10 +3,14 @@ register page. Models stay the source of truth; nothing here is stored and
 nothing is priced (registrations/pricing.py owns that).
 """
 
+import uuid
 from typing import TypedDict
 
+from django.db import transaction
 from django.db.models import Prefetch
 
+from events import event_spec
+from events.event_spec._export import keyed_rows
 from events.models import ExtraChoice, Session, TicketType
 
 from .services import sold_counts_for_event
@@ -205,3 +209,45 @@ def build_form_spec(event) -> dict:
             else None
         ),
     }
+
+
+def stable_id(event_id, kind: str, parent: str | None, key: str) -> str:
+    """The id a spec row gets in a draft preview: derived from its key, so the same
+    draft renders with the same ids every time."""
+    return str(uuid.uuid5(event_id, f"{kind}:{parent or ''}/{key}"))
+
+
+def _remap(value, ids: dict[str, str]):
+    if isinstance(value, str):
+        return ids.get(value, value)
+    if isinstance(value, list):
+        return [_remap(v, ids) for v in value]
+    if isinstance(value, dict):
+        return {k: _remap(v, ids) for k, v in value.items()}
+    return value
+
+
+def _stabilise_ids(spec: dict, event, before: set) -> dict:
+    """Swap the random ids of rows the draft added (not in ``before``) for stable ones.
+    UUID strings are unique, so matching on the value cannot hit anything else."""
+    ids = {}
+    for kind, rows in keyed_rows(event).items():
+        for row in rows:
+            if row.obj.pk not in before:
+                ids[str(row.obj.pk)] = stable_id(event.id, kind, row.parent, row.key)
+    return _remap(spec, ids)
+
+
+def build_form_spec_from_draft(draft_spec: dict, event) -> tuple[dict, list, list]:
+    """``(form_spec, diff, warnings)`` as the public form would show ``event`` after
+    applying ``draft_spec``. Raises ``event_spec.SpecError``; nothing is ever saved."""
+    with transaction.atomic():
+        before = {row.obj.pk for rows in keyed_rows(event).values() for row in rows}
+        applied, diff, warnings = event_spec.apply(draft_spec, event)
+        # Reread: apply leaves the spec's values (local-time datetimes) on the instance,
+        # and the public page serialises what the database returns (UTC).
+        applied = type(applied).objects.get(pk=applied.pk)
+        form_spec = _stabilise_ids(build_form_spec(applied), applied, before)
+        # Rolled back even on success: the preview must leave no row, lock or id behind.
+        transaction.set_rollback(True)
+    return form_spec, diff, warnings

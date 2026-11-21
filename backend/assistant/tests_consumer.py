@@ -9,7 +9,7 @@ from channels.routing import URLRouter
 from channels.security.websocket import AllowedHostsOriginValidator
 from channels.testing import WebsocketCommunicator
 from django.contrib.auth import get_user_model
-from django.test import TransactionTestCase, override_settings
+from django.test import TestCase, TransactionTestCase, override_settings
 from django.utils import timezone
 from pydantic_ai.messages import ModelResponse, TextPart, ThinkingPart
 from pydantic_ai.models.function import DeltaToolCall, FunctionModel
@@ -50,7 +50,9 @@ def streaming(script):
     return FunctionModel(stream_function=stream)
 
 
-class AssistantWSBase(TransactionTestCase):
+class AssistantFixture:
+    """Event, staff user, enabled provider and an accepted-notice conversation."""
+
     def setUp(self):
         self.staff = AdminUser.objects.create_superuser("wsstaff", "pw12345")
         with at_now():
@@ -99,6 +101,13 @@ class AssistantWSBase(TransactionTestCase):
     async def close_all(self):
         for c in self.open:
             await c.disconnect()
+
+
+class AssistantWSBase(AssistantFixture, TransactionTestCase):
+    # Real transactions: channels' database_sync_to_async closes its connection after
+    # each call, which a TestCase transaction cannot survive. The flush per test is the
+    # cost; tests that need no consumer use TestCase (see below).
+    pass
 
 
 class ConnectTests(AssistantWSBase):
@@ -550,7 +559,94 @@ class RunTests(AssistantWSBase):
         await self.close_all()
 
 
-class CancelBeforeStartTests(AssistantWSBase):
+class PersonalDataWarningTests(AssistantWSBase):
+    TEXT = "mail the list to anna.svensson@example.com please"
+
+    async def send(self, c, **extra):
+        await c.send_json_to(
+            {"type": "user_message", "id": "c-9", "text": self.TEXT, **extra}
+        )
+
+    async def test_warns_the_sender_only_and_starts_no_run(self):
+        a, b = await self.connect(), await self.connect()
+        await a.receive_json_from()
+        await b.receive_json_from()
+        await self.send(a)
+        warning = await a.receive_json_from()
+        self.assertEqual(
+            warning, {"type": "warning", "code": "personal_data", "reply_to": "c-9"}
+        )
+        self.assertNotIn("example.com", json.dumps(warning))
+        self.assertTrue(await b.receive_nothing())
+        self.assertEqual(await sync_to_async(AssistantRun.objects.count)(), 0)
+        conv = await sync_to_async(AssistantConversation.objects.get)()
+        self.assertEqual((conv.status, conv.messages), ("idle", []))
+        await self.close_all()
+
+    async def test_confirm_flag_sends_it_anyway(self):
+        c = await self.connect()
+        await c.receive_json_from()
+        with mock.patch.object(AssistantConsumer, "model", streaming(["Fine "])):
+            await self.send(c, confirm_personal_data=True)
+            events = await self.until_done(c)
+        self.assertEqual(events[0]["type"], "run_started")
+        self.assertEqual(events[-1]["type"], "run_finished")
+        await self.close_all()
+
+    async def test_only_true_confirms(self):
+        c = await self.connect()
+        await c.receive_json_from()
+        await self.send(c, confirm_personal_data="yes")
+        self.assertEqual((await c.receive_json_from())["type"], "warning")
+        await self.close_all()
+
+    async def test_clean_text_needs_no_confirmation(self):
+        c = await self.connect()
+        await c.receive_json_from()
+        with mock.patch.object(AssistantConsumer, "model", streaming(["ok "])):
+            await self.say(c, "a two day camp for ages 12 to 17")
+            events = await self.until_done(c)
+        self.assertEqual(events[0]["type"], "run_started")
+        await self.close_all()
+
+    async def test_permission_is_checked_before_the_warning(self):
+        c = await self.connect()
+        await c.receive_json_from()
+        await sync_to_async(AdminUser.objects.filter(pk=self.staff.pk).update)(
+            is_superuser=False
+        )
+        await self.send(c)
+        self.assertEqual((await c.receive_json_from())["code"], "blocked")
+        await self.close_all()
+
+
+class GroupCancelTests(AssistantWSBase):
+    async def test_clear_endpoint_message_cancels_the_run_in_this_process(self):
+        from channels.layers import get_channel_layer
+
+        gate = asyncio.Event()
+
+        async def stream(messages, info):
+            await gate.wait()
+            yield "never"
+
+        c = await self.connect()
+        await c.receive_json_from()
+        with mock.patch.object(
+            AssistantConsumer, "model", FunctionModel(stream_function=stream)
+        ):
+            await self.say(c)
+            self.assertEqual((await c.receive_json_from())["type"], "run_started")
+            conv = await sync_to_async(AssistantConversation.objects.get)()
+            await get_channel_layer().group_send(
+                runner.group_name(conv.id), {"type": "assistant.cancel"}
+            )
+            events = await self.until_done(c)
+        self.assertEqual(events[-1]["code"], "cancelled")
+        await self.close_all()
+
+
+class CancelBeforeStartTests(AssistantFixture, TestCase):
     def test_cancel_before_the_lock_is_held_is_only_noted(self):
         task = mock.Mock()
         handle = runner._Handle(task=task, started=False)
@@ -563,7 +659,7 @@ class CancelBeforeStartTests(AssistantWSBase):
         task.cancel.assert_called_once()
 
 
-class StorageRuleTests(AssistantWSBase):
+class StorageRuleTests(AssistantFixture, TestCase):
     def test_thinking_parts_are_not_stored(self):
         msgs = [
             ModelResponse(parts=[ThinkingPart("secret reasoning"), TextPart("hi")]),

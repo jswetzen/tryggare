@@ -2325,3 +2325,24 @@ msgstr "Assistentkonversation"
 
 msgid "Assistant conversations"
 msgstr "Assistentkonversationer"
+
+msgid "Sign in to use the assistant."
+msgstr "Logga in för att använda assistenten."
+
+msgid "You are not allowed to use the assistant."
+msgstr "Du har inte behörighet att använda assistenten."
+
+msgid "No such event."
+msgstr "Evenemanget finns inte."
+
+msgid "The assistant is not switched on."
+msgstr "Assistenten är inte påslagen."
+
+msgid "There is no draft."
+msgstr "Det finns inget utkast."
+
+msgid "The draft version is invalid."
+msgstr "Utkastets version är ogiltig."
+
+msgid "The draft changed since you last saw it."
+msgstr "Utkastet har ändrats sedan du senast såg det."

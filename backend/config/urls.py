@@ -25,7 +25,14 @@ from events.spec_views import (
 )
 from checkins.views import AuditLogViewSet, CheckInRecordViewSet, PrintQueueViewSet
 from reports.views import EventReportViewSet
-from assistant.views import ProviderModelsView, ProviderView
+from assistant.views import (
+    ConversationView,
+    DraftView,
+    NoticeView,
+    PreviewView,
+    ProviderModelsView,
+    ProviderView,
+)
 from accounts.views import csrf_token, check_auth, login_view, logout_view
 from imports.views import (
     discover_prefixes_view,
@@ -99,6 +106,26 @@ urlpatterns = [
         "api/assistant/provider/models/",
         ProviderModelsView.as_view(),
         name="llm-provider-models",
+    ),
+    path(
+        "api/assistant/events/<uuid:event_id>/conversation/",
+        ConversationView.as_view(),
+        name="assistant-conversation",
+    ),
+    path(
+        "api/assistant/events/<uuid:event_id>/conversation/notice/",
+        NoticeView.as_view(),
+        name="assistant-notice",
+    ),
+    path(
+        "api/assistant/events/<uuid:event_id>/draft/",
+        DraftView.as_view(),
+        name="assistant-draft",
+    ),
+    path(
+        "api/assistant/events/<uuid:event_id>/preview/",
+        PreviewView.as_view(),
+        name="assistant-preview",
     ),
     path("api/", include(router.urls)),
     # Session-based authentication endpoints

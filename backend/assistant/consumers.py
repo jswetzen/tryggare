@@ -90,7 +90,7 @@ class AssistantConsumer(AsyncWebsocketConsumer):
             await self.close(code=code)
             return
         self.event_pk = event.pk
-        self.group = f"assistant_{conv.id.hex}"
+        self.group = runner.group_name(conv.id)
         await self.channel_layer.group_add(self.group, self.channel_name)
         await self.accept()
         await self._send(ready)
@@ -110,6 +110,10 @@ class AssistantConsumer(AsyncWebsocketConsumer):
 
     async def assistant_event(self, message):
         await self._send(message["payload"])
+
+    async def assistant_cancel(self, message):
+        # Sent by the clear endpoint; the run's task lives in this process.
+        runner.request_cancel(self.event_pk, self.user.pk)
 
     async def receive(self, text_data=None, bytes_data=None):
         data = None
@@ -140,6 +144,16 @@ class AssistantConsumer(AsyncWebsocketConsumer):
         user, event, reason = await _recheck(self.user, self.event_id)
         if reason:
             await self._send(_failed(msg_id, reason))
+            return
+        # Warn, do not block: the organizer may confirm. Nothing of the match is sent
+        # back, so the warning cannot itself carry personal data.
+        if (
+            runner.chat_text_warning(text)
+            and data.get("confirm_personal_data") is not True
+        ):
+            await self._send(
+                {"type": "warning", "code": "personal_data", "reply_to": msg_id}
+            )
             return
         runner.start_run(
             event,
