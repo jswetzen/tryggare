@@ -12,6 +12,7 @@
     draftUnusable = false,
     pageStale = false,
     running = false,
+    cleared = 0,
     reload
   }: {
     eventId: string;
@@ -21,6 +22,8 @@
     pageStale?: boolean;
     // A new run makes "saved" yesterday's news.
     running?: boolean;
+    // Bumped by the host after a clear, which drops the draft without a new version.
+    cleared?: number;
     // Re-reads the page's spec after the draft is applied or discarded.
     reload: () => Promise<void> | void;
   } = $props();
@@ -47,7 +50,7 @@
       const next = await assistantApi.getDraft(eventId);
       if (mine !== seq) return;
       draft = next;
-      applied = false;
+      if (failure?.key === 'assistant.review.loadFailed') failure = null;
     } catch (err) {
       if (mine !== seq) return;
       draft = null;
@@ -61,6 +64,7 @@
 
   $effect(() => {
     version;
+    cleared;
     void load();
   });
 
@@ -94,8 +98,10 @@
         note = 'draftChanged';
         await load();
       } else {
-        draft = null;
+        // The setup is saved; show whatever draft the server still holds, so a
+        // leftover is visible and can be discarded rather than reappearing later.
         applied = true;
+        await load();
       }
     }
     busy = null;
@@ -134,7 +140,7 @@
 
 {#if draft || applied || failure || note}
   <section class="review" aria-labelledby="assistant-review-title" data-testid="assistant-review">
-    {#if applied && !draft}
+    {#if applied}
       <p class="applied" role="status" data-testid="assistant-applied">
         <span aria-hidden="true">✓</span>
         {$t('assistant.review.applied')}
@@ -147,8 +153,8 @@
 
     {#if draft}
       <header class="head">
-        <h3 id="assistant-review-title" class="title">{$t('assistant.review.title')}</h3>
         <Badge color="primary" variant="soft" size="sm">{$t('assistant.preview.draft')}</Badge>
+        <h3 id="assistant-review-title" class="title">{$t('assistant.review.title')}</h3>
       </header>
 
       {#if lines.length === 0}
@@ -227,7 +233,6 @@
   .head {
     display: flex;
     align-items: center;
-    justify-content: space-between;
     gap: var(--space-2);
   }
   .title {

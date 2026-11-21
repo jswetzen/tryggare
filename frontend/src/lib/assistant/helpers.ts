@@ -153,3 +153,14 @@ export const ERROR_CODES = [
   'rate_limited', 'not_enabled', 'busy', 'notice_required', 'blocked', 'timeout', 'limit',
   'model_error', 'auth_failed', 'provider_unreachable', 'cancelled', 'bad_request'
 ] as const;
+
+/** Plain text from a model's Markdown: paired emphasis and code marks, and
+ *  heading marks at line start. Output is still rendered as text, never HTML. */
+export function stripMarkdown(text: string): string {
+  return text
+    .replace(/^```[\w-]*[ \t]*$\n?/gm, '')
+    .replace(/\*\*(?=\S)([^*\n]+?)\*\*/g, '$1')
+    .replace(/(^|[^\w])__(?=\S)([^_\n]+?)__(?!\w)/g, '$1$2')
+    .replace(/`([^`\n]+)`/g, '$1')
+    .replace(/^#{1,6}\s+/gm, '');
+}

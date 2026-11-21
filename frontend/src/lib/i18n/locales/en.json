@@ -863,6 +863,7 @@
     "input": {
       "label": "Describe what you want",
       "placeholder": "For example: a two-day camp for ages 12 to 17",
+      "placeholderFollowUp": "Ask for a change",
       "hint": "Enter sends, Shift+Enter adds a line."
     },
     "send": "Send",

@@ -8,6 +8,7 @@ import {
   isRetryable,
   refusalReason,
   setupRedirectUrl,
+  stripMarkdown,
   summariseDiff
 } from './helpers';
 
@@ -193,5 +194,18 @@ describe('refusalReason and isRetryable', () => {
   it('retries transient failures only', () => {
     expect(['timeout', 'model_error', 'provider_unreachable'].every(isRetryable)).toBe(true);
     expect(['blocked', 'not_enabled', 'auth_failed', 'cancelled', 'notice_required'].some(isRetryable)).toBe(false);
+  });
+});
+
+describe('stripMarkdown', () => {
+  it('drops paired emphasis, inline code, fences and heading marks', () => {
+    expect(stripMarkdown('## Plan\n**Youth** pass, `450 kr`, __bold__\n```json\n{}\n```')).toBe(
+      'Plan\nYouth pass, 450 kr, bold\n{}\n'
+    );
+  });
+
+  it('leaves unpaired marks and identifiers alone', () => {
+    expect(stripMarkdown('a * b, my__var__x, 5 ** 2 is 25')).toBe('a * b, my__var__x, 5 ** 2 is 25');
+    expect(stripMarkdown('<img src=x onerror=alert(1)>')).toBe('<img src=x onerror=alert(1)>');
   });
 });

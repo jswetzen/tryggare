@@ -373,6 +373,23 @@ describe('errors and refusals', () => {
   });
 });
 
+describe('composer after the first message', () => {
+  it('asks for a change instead of showing the first-run example, and drops the key hint', async () => {
+    await mount({ open: true, conv: conversation({ transcript: [{ role: 'user', text: 'hi' }] }) });
+    const input = await screen.findByLabelText('Describe what you want');
+    await waitFor(() => expect(input).toHaveAttribute('placeholder', en.assistant.input.placeholderFollowUp));
+    expect(screen.queryByText(en.assistant.input.hint)).toBeNull();
+  });
+
+  it('a refused chat still gets focus inside the panel on open', async () => {
+    const user = userEvent.setup();
+    await mount();
+    FakeSocket.last.onclose?.({ code: 4409 });
+    await user.click(screen.getByTestId('assistant-launcher'));
+    expect(screen.getByTestId('assistant-minimize')).toHaveFocus();
+  });
+});
+
 describe('personal data warning', () => {
   async function warned() {
     const user = userEvent.setup();
@@ -428,6 +445,19 @@ describe('clearing the conversation', () => {
     await waitFor(() => expect(api.clearConversation).toHaveBeenCalledWith('e1'));
     await waitFor(() => expect(reload).toHaveBeenCalled());
     await waitFor(() => expect(screen.getByTestId('assistant-empty')).toBeInTheDocument());
+  });
+
+  it('a clear drops the review card too: the draft goes without a new version', async () => {
+    const user = userEvent.setup();
+    api.getDraft.mockResolvedValue(draft());
+    await mount({ open: true, conv: withHistory(), ready: ready({ draft_version: 4 }) });
+    expect(await screen.findByTestId('assistant-review')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Clear conversation' }));
+    api.getConversation.mockResolvedValue(conversation({ draft_version: 4 }));
+    api.getDraft.mockRejectedValue({ status: 404 });
+    await user.click(screen.getByRole('button', { name: 'Delete' }));
+    await waitFor(() => expect(screen.queryByTestId('assistant-review')).toBeNull());
+    await waitFor(() => expect(screen.getByLabelText('Describe what you want')).toHaveFocus());
   });
 });
 

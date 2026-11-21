@@ -454,7 +454,11 @@ class ProviderModelTests(RunnerTestCase):
         from .models import LLMProvider
 
         provider = LLMProvider.load()
-        provider.base_url, provider.model, provider.enabled = "http://localhost:11434/v1", "m", True
+        provider.base_url, provider.model, provider.enabled = (
+            "http://localhost:11434/v1",
+            "m",
+            True,
+        )
         provider.save()
         self.conv()
         # TestModel run, but the model argument is None so build_model runs for real.

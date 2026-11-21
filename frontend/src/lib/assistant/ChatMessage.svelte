@@ -1,13 +1,12 @@
 <script lang="ts">
   import { t } from 'svelte-i18n';
+  import { stripMarkdown } from './helpers';
 
   let { role, text }: { role: 'user' | 'assistant'; text: string } = $props();
 
-  // Local models answer in Markdown; the chat shows plain text, so drop the
-  // emphasis and heading marks instead of showing stray asterisks.
-  const plain = $derived(
-    role === 'assistant' ? text.replace(/\*\*|__|`/g, '').replace(/^#{1,6}\s+/gm, '') : text
-  );
+  // Local models answer in Markdown; the chat shows plain text. Only paired
+  // marks are dropped, so names like `__init__` or a lone `*` survive.
+  const plain = $derived(role === 'assistant' ? stripMarkdown(text) : text);
 </script>
 
 <div class="row" data-role={role}>

@@ -66,8 +66,10 @@
   let noticeBusy = $state(false);
   let noticeFailed = $state(false);
   let wide = $state(false);
+  let cleared = $state(0);
 
   let launcherEl = $state<HTMLButtonElement | null>(null);
+  let minimizeEl = $state<HTMLButtonElement | null>(null);
   let inputEl = $state<HTMLTextAreaElement | null>(null);
   let acceptEl = $state<HTMLButtonElement | null>(null);
   let bodyEl = $state<HTMLDivElement | null>(null);
@@ -113,7 +115,8 @@
     open = true;
     unread = false;
     await tick();
-    (s.noticeRequired ? acceptEl : inputEl)?.focus();
+    // A refused chat has neither control; the minimize button keeps focus in the panel.
+    ((s.noticeRequired ? acceptEl : inputEl) ?? minimizeEl)?.focus();
     scrollDown(true);
   }
   async function minimize() {
@@ -130,10 +133,20 @@
   }
 
   // Stay at the bottom while text streams, unless the reader scrolled up.
+  // `pinned` is read from scroll events, not at render time: the review card
+  // appearing shrinks the body and would otherwise strand a long reply's end.
+  let pinned = true;
+  function onBodyScroll() {
+    const el = bodyEl;
+    if (el) pinned = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
+  }
   function scrollDown(force = false) {
     const el = bodyEl;
     if (!el) return;
-    if (force || el.scrollHeight - el.scrollTop - el.clientHeight < 80) el.scrollTop = el.scrollHeight;
+    if (force || pinned) {
+      el.scrollTop = el.scrollHeight;
+      pinned = true;
+    }
   }
   $effect(() => {
     s.transcript;
@@ -141,6 +154,13 @@
     s.error;
     s.warnings;
     void tick().then(() => scrollDown());
+  });
+  $effect(() => {
+    const el = bodyEl;
+    if (!el || typeof ResizeObserver === 'undefined') return;
+    const ro = new ResizeObserver(() => scrollDown());
+    ro.observe(el);
+    return () => ro.disconnect();
   });
 
   function send(text: string) {
@@ -188,8 +208,11 @@
       await assistantApi.clearConversation(eventId);
       confirmingClear = false;
       lastSent = '';
+      cleared += 1;
       await store.refresh();
       await reload();
+      await tick();
+      inputEl?.focus();
     } catch {
       clearFailed = true;
     } finally {
@@ -262,6 +285,7 @@
         class="icon-btn"
         aria-label={$t('assistant.minimize')}
         title={$t('assistant.minimize')}
+        bind:this={minimizeEl}
         onclick={minimize}
         data-testid="assistant-minimize"
       >
@@ -290,7 +314,7 @@
       </p>
     {/if}
 
-    <div class="body" bind:this={bodyEl}>
+    <div class="body" bind:this={bodyEl} onscroll={onBodyScroll}>
       {#if refused}
         <div class="unavailable" data-testid="assistant-unavailable">
           <h3>{$t('assistant.unavailable.title')}</h3>
@@ -362,6 +386,7 @@
         draftUnusable={previewDraftUnusable}
         pageStale={previewStale}
         running={s.running}
+        {cleared}
         {reload}
       />
       <div class="footer">
@@ -371,6 +396,7 @@
           running={s.running}
           disabled={s.noticeRequired}
           sendDisabled={s.connection !== 'open'}
+          followUp={s.transcript.length > 0}
           onsend={send}
           oncancel={() => store.cancel()}
         />
@@ -627,9 +653,12 @@
     text-align: left;
     transition: background var(--motion-base), border-color var(--motion-base);
   }
-  .examples button:hover {
-    background: var(--brand-primary-tint);
-    border-color: var(--brand-primary);
+  /* Touch keeps :hover after a tap, which read as a selected example. */
+  @media (hover: hover) {
+    .examples button:hover {
+      background: var(--surface-2);
+      border-color: var(--ink-faint);
+    }
   }
 
   .working {

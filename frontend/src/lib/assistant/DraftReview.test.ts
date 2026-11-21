@@ -109,6 +109,26 @@ describe('DraftReview', () => {
     expect(reload).toHaveBeenCalled();
   });
 
+  it('the setup is saved but the discard fails: says saved and shows what the server still holds', async () => {
+    const user = userEvent.setup();
+    api.discardDraft.mockRejectedValue(apiError(500));
+    api.getDraft.mockResolvedValueOnce(draft()).mockResolvedValue(draft({ diff: [] }));
+    mount();
+    await user.click(await screen.findByRole('button', { name: 'Apply draft' }));
+    expect(await screen.findByTestId('assistant-applied')).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByText(en.assistant.review.none)).toBeInTheDocument());
+    expect(screen.getByRole('button', { name: 'Discard' })).toBeInTheDocument();
+  });
+
+  it('a later successful load clears an earlier load failure', async () => {
+    api.getDraft.mockRejectedValueOnce(apiError(500));
+    const view = mount();
+    expect(await screen.findByText(en.assistant.review.loadFailed)).toBeInTheDocument();
+    await view.rerender({ eventId: 'e1', version: 5, reload });
+    await waitFor(() => expect(screen.queryByText(en.assistant.review.loadFailed)).toBeNull());
+    expect(screen.getByRole('button', { name: 'Apply draft' })).toBeInTheDocument();
+  });
+
   it('Discard names the version and token it showed, then reloads', async () => {
     const user = userEvent.setup();
     mount();

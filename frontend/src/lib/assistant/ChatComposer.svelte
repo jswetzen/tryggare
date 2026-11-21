@@ -7,6 +7,7 @@
     running = false,
     disabled = false,
     sendDisabled = false,
+    followUp = false,
     onsend,
     oncancel,
     inputEl = $bindable<HTMLTextAreaElement | null>(null)
@@ -16,11 +17,14 @@
     disabled?: boolean;
     // Typing stays possible (offline); only sending is held back.
     sendDisabled?: boolean;
+    // After the first message the example placeholder and key hint are noise.
+    followUp?: boolean;
     onsend: (text: string) => void;
     oncancel: () => void;
     inputEl?: HTMLTextAreaElement | null;
   } = $props();
 
+  const showHint = $derived(!disabled && !followUp);
   const canSend = $derived(!disabled && !sendDisabled && !running && value.trim().length > 0);
 
   function submit() {
@@ -64,8 +68,8 @@
     rows="1"
     maxlength="4000"
     {disabled}
-    placeholder={$t('assistant.input.placeholder')}
-    aria-describedby="assistant-input-hint"
+    placeholder={disabled ? '' : $t(followUp ? 'assistant.input.placeholderFollowUp' : 'assistant.input.placeholder')}
+    aria-describedby={showHint ? 'assistant-input-hint' : undefined}
   ></textarea>
   {#if running}
     <button type="button" class="action stop" onclick={oncancel}>
@@ -78,7 +82,7 @@
     </button>
   {/if}
 </form>
-<p id="assistant-input-hint" class="hint">{$t('assistant.input.hint')}</p>
+{#if showHint}<p id="assistant-input-hint" class="hint">{$t('assistant.input.hint')}</p>{/if}
 
 <style>
   .composer {
@@ -104,10 +108,10 @@
   textarea::placeholder {
     color: var(--ink-faint);
   }
+  /* One 2px ring over the border, not a ring plus a coloured border. */
   textarea:focus-visible {
     outline: 2px solid var(--brand-primary);
-    outline-offset: 0;
-    border-color: var(--brand-primary);
+    outline-offset: -1px;
   }
   textarea:disabled {
     background: var(--surface-2);
@@ -134,7 +138,8 @@
     background: var(--brand-primary-mid);
   }
   .send:disabled {
-    opacity: 0.45;
+    background: var(--surface-2);
+    color: var(--ink-faint);
     cursor: not-allowed;
   }
   .stop {

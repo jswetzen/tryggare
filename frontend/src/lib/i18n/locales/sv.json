@@ -863,6 +863,7 @@
     "input": {
       "label": "Beskriv vad du vill ha",
       "placeholder": "Till exempel: ett tvådagarsläger för 12 till 17 år",
+      "placeholderFollowUp": "Be om en ändring",
       "hint": "Enter skickar, Skift+Enter ger ny rad."
     },
     "send": "Skicka",
