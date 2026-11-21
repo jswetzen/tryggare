@@ -63,6 +63,19 @@ describe('DraftReview', () => {
     expect(review).toHaveTextContent('Lunch has no price.');
   });
 
+  it('names changed fields through the field labels', async () => {
+    api.getDraft.mockResolvedValue(
+      draft({
+        diff: [
+          { kind: 'ticket_types', key: 'child', change: 'changed', new: { name: 'Child', price: '100.00' }, fields: { price: { old: '400', new: '100' } } }
+        ]
+      })
+    );
+    mount();
+    const review = await screen.findByTestId('assistant-review');
+    expect(review).toHaveTextContent('changed: price');
+  });
+
   it('renders nothing when there is no draft', async () => {
     api.getDraft.mockRejectedValue(apiError(404));
     mount();

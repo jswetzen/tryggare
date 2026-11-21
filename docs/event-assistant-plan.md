@@ -132,8 +132,7 @@ see Auth).
 
 The route's `+page.ts` calls `GET /api/assistant/events/<id>/conversation/`: 200 redirects; 401 goes to login;
 403, 409 (with the blocker list) and 503 render the reason list. The page itself re-verifies, so the route is
-convenience, never the gate. Unknown: whether `/login` returns the user to the original URL (check in step 4;
-if not, the route passes nothing and the user clicks the link again).
+convenience, never the gate. `/login` honours a safe same-origin `?next=` (single leading slash only); the setup route and the root layout send a signed-out user there.
 
 ## Data model (`assistant/models.py`)
 
@@ -589,9 +588,9 @@ per the project notes). Give agents this file's path rather than restating it.
 | 1 | `AssistantConversation`, history store/load (strip, trim), `runner.py` with `TestModel`, retention setting and job hook, admin, cascade tests, `.po` entries. A management command can drive a run. | Sonnet | Opus review: history/prompt rules, retention and deletion, PII in stored data | **Built, awaiting review** (`runner.py`; history trimmed on load with a turn cap, no `ProcessHistory` needed; added `AssistantRun` for the rate limit and codes `rate_limited`, `not_enabled`) |
 | 2 | `AssistantConsumer`, routing, `permissions.py`, protocol, tool-progress and text events, draft persistence on propose. | Sonnet | Opus review: auth, per-request re-check, one-run lock, no data leaks over WS. WS tests green | **Built, awaiting review** (`consumers.py`, `permissions.py`; runner gained streaming events, `start_run` and a per-tool permission guard; `draft_version` counter on the conversation; `clear_conversation` and `discard_draft` helpers for step 3) |
 | 3 | HTTP endpoints: conversation, notice, clear, draft, and `/preview/` with apply, id stabilisation and rollback. | Sonnet | Opus review: rollback safety, per-user scoping, id stability. Parity and stability tests green | **Built, awaiting review** (`views.py`, `build_form_spec_from_draft` in `registrations/form_spec.py`, `tests_api.py`; WS personal-data warning; `discard_draft` takes version/token) |
-| 4 | Register page hooks: assistant flag and mode, `loadSpec`, `reloadSpec` refactor (quiet, queued), slim strip replacing banner chrome, i18n. Thin `/events/[eventId]/setup` route and admin "Open assistant" link. No chat yet; a debug button drives the reload. | Sonnet (`fe-coder`) | `frontend-dev-cycle` round; Opus review of the page diff (touch points 1-9 only, public render unchanged) | Open |
-| 5 | Store, `AssistantHost`, notice, composer, tool progress, lazy mount and gating, i18n, a11y. | Sonnet (`fe-coder`) | Cycle round; designer criteria 1-9; screenshots at both viewports and languages | Open |
-| 6 | `DraftReview`, apply and discard, stale handling, error list, post-apply reload. Persona test. | Sonnet (`fe-coder`) | Cycle round plus persona run end to end; Opus review of the apply flow | Open |
+| 4 | Register page hooks: assistant flag and mode, `loadSpec`, `reloadSpec` refactor (quiet, queued), slim strip replacing banner chrome, i18n. Thin `/events/[eventId]/setup` route and admin "Open assistant" link. No chat yet; a debug button drives the reload. | Sonnet (`fe-coder`) | `frontend-dev-cycle` round; Opus review of the page diff (touch points 1-9 only, public render unchanged) | **Built** (admin "Open assistant" link and login return added in the leftovers commit) |
+| 5 | Store, `AssistantHost`, notice, composer, tool progress, lazy mount and gating, i18n, a11y. | Sonnet (`fe-coder`) | Cycle round; designer criteria 1-9; screenshots at both viewports and languages | **Built** (review fixes in 4f90a0c; persona-run UX fixes after) |
+| 6 | `DraftReview`, apply and discard, stale handling, error list, post-apply reload. Persona test. | Sonnet (`fe-coder`) | Cycle round plus persona run end to end; Opus review of the apply flow | **Built**; persona run done on a 390 px phone in Swedish, plain http, no randomUUID polyfill; Opus review of the apply flow still open |
 | 7 | Eval command and set; run on `bonsai-2-32k` and `qwen3.5-9b-sluss32k` (Haiku agent for the runs); record context size, token cost of `get_capabilities`, thresholds and results. | Sonnet writes, Haiku runs | Opus reviews the criteria; owner decides which model to advertise | Open |
 | 8 | Advertise: chat mounted for all eligible staff, docs update (roadmap "Built" note, this file's status), owner confirms the four proposed defaults. | Sonnet | Owner sign-off; DPA note unchanged because the provider is on the LAN | Open |
 
@@ -623,10 +622,18 @@ per the project notes). Give agents this file's path rather than restating it.
    `get_capabilities` is unmeasured; drives how hard history is trimmed.
 3. **pydantic-ai 2.71 history-trimming API** (`Agent` has `capabilities=`, no `history_processors=`): confirm in
    step 1.
-4. **Does `/login` return the user to `/events/<id>/setup`** after sign-in, or only to `/`? Check in step 4; if
-   not, a small return-to parameter is needed.
+4. **Answered:** `/login` did not return the user (always `/checkin`); it now takes `?next=` (`lib/auth/returnTo.ts`), and `/setup` and the layout pass it.
 5. **Is the automatic reload acceptable to testers mid-typing?** Only a persona round can say.
 6. **The four proposed defaults** (retention days, warn-not-block PII text check, run rate limit and N,
    13/15 threshold) await the owner.
 7. **Can Ollama's `/api/show` context be read through the configured provider URL** (optional model-list
    warning)? Unverified.
+
+## Persona run findings (step 6, Swedish, 390 px, plain http)
+
+Screenshots: `/tmp/assistant-shots/step6/`. Both turns worked end to end (draft, review, apply, saved in admin). Fixed: the
+review showed raw spec keys ("ändrat: price"); now `assistant.review.field.*`. Open, not fixed here:
+
+- Draft warnings (`Värt att kontrollera`) are English in a Swedish UI: they are stored at propose time from the backend.
+- The model puts the internal draft id ("draft 77caf39c...") into its reply and wrote some broken Swedish ("kl. 0-?"); prompt/eval item.
+- The open panel covers the whole preview on a phone, so the draft cannot be seen until the panel is minimised.

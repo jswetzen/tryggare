@@ -167,7 +167,7 @@
               <span class="name">{line.name}</span>
               <span class="what">{$t(`assistant.review.change.${line.change}`)}{line.price ? `, ${money(line.price)} kr` : ''}</span>
               {#if line.fields.length}
-                <span class="fields">{$t('assistant.review.changedFields', { values: { fields: line.fields.join(', ') } })}</span>
+                <span class="fields">{$t('assistant.review.changedFields', { values: { fields: line.fields.map((f) => $t(`assistant.review.field.${f}`, { default: f })).join(', ') } })}</span>
               {/if}
             </li>
           {/each}
