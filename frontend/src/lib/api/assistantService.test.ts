@@ -2,8 +2,9 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 const del = vi.fn();
 const get = vi.fn();
+const put = vi.fn();
 vi.mock('./client', () => ({
-  apiClient: { get: (...a: unknown[]) => get(...a), delete: (...a: unknown[]) => del(...a) }
+  apiClient: { get: (...a: unknown[]) => get(...a), put: (...a: unknown[]) => put(...a), delete: (...a: unknown[]) => del(...a) }
 }));
 
 import { assistantApi } from './assistantService';
@@ -21,5 +22,10 @@ describe('assistantApi', () => {
   it('reads the preview from the assistant endpoint', async () => {
     await assistantApi.getPreview('e1');
     expect(get).toHaveBeenCalledWith('/assistant/events/e1/preview/');
+  });
+
+  it('applies a draft through the existing spec endpoint', async () => {
+    await assistantApi.applySpec('e1', { a: 1 });
+    expect(put).toHaveBeenCalledWith('/events/e1/spec/', { a: 1 });
   });
 });

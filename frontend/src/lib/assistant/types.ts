@@ -76,8 +76,16 @@ export interface ConversationState {
   draft_version: number;
 }
 
+// One change from event_spec's diff: `new` for added, `old` for removed and
+// `fields` ({name: {old, new}}) for changed. Choices carry a `parent` extra key.
 export interface DraftDiffEntry {
-  [key: string]: unknown;
+  kind: string;
+  key: string | null;
+  change: 'added' | 'removed' | 'changed';
+  parent?: string;
+  new?: Record<string, unknown>;
+  old?: Record<string, unknown>;
+  fields?: Record<string, { old: unknown; new: unknown }>;
 }
 
 export interface DraftPayload {

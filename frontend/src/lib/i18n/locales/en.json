@@ -791,7 +791,34 @@
       "draftUnusable": "The draft no longer fits this event, so this shows the saved setup."
     },
     "review": {
-      "stale": "The setup changed after this draft was made."
+      "stale": "The setup changed after this draft was made.",
+      "title": "What will change",
+      "apply": "Apply draft",
+      "applying": "Saving…",
+      "discard": "Discard",
+      "discarding": "Discarding…",
+      "applied": "Setup saved. Registration is still closed.",
+      "none": "No differences from the saved setup.",
+      "warnings": "Worth checking",
+      "draftChanged": "A newer draft arrived while saving. The setup was saved from the one you reviewed; review the new one.",
+      "applyFailed": "The setup could not be saved.",
+      "discardFailed": "The draft could not be discarded.",
+      "loadFailed": "The draft could not be loaded.",
+      "kind": {
+        "event": "Event",
+        "sessions": "Session",
+        "ticket_types": "Ticket type",
+        "extras": "Extra",
+        "choices": "Choice",
+        "promo_codes": "Promo code"
+      },
+      "change": {
+        "added": "added",
+        "changed": "changed",
+        "removed": "removed"
+      },
+      "more": "and {count} more",
+      "changedFields": "changed: {fields}"
     },
     "setup": {
       "checking": "Checking whether the assistant can run…"
@@ -806,7 +833,79 @@
       "blocker": {
         "registration_open_on_target": "Registration is open. Close it before changing the setup.",
         "event_not_empty": "Registrations already exist for this event."
+      },
+      "unauthenticated": "Sign in to use the assistant."
+    },
+    "open": "Open assistant",
+    "minimize": "Minimize assistant",
+    "title": "Setup assistant",
+    "subtitle": "Drafts the form; you decide what is saved.",
+    "clear": "Clear conversation",
+    "clearConfirm": "Delete this conversation? The draft is removed too.",
+    "clearYes": "Delete",
+    "clearNo": "Keep",
+    "clearFailed": "The conversation could not be deleted.",
+    "unread": "New reply",
+    "empty": {
+      "1": "A two-day camp for ages 12 to 17, 450 kr, lunch as an extra",
+      "2": "Add a Saturday workshop ticket type at 200 kr",
+      "3": "Adults free, children 100 kr",
+      "title": "Describe the event",
+      "body": "The ticket types, extras and sessions are drafted for you. Check the draft on the page, then apply it or throw it away.",
+      "examples": "Try one of these"
+    },
+    "notice": {
+      "title": "Before you start",
+      "body": "Describe the form, not the people. Do not enter names, personnummer, contact details, or health information.",
+      "accept": "I understand",
+      "failed": "The notice could not be saved. Try again."
+    },
+    "input": {
+      "label": "Describe what you want",
+      "placeholder": "For example: a two-day camp for ages 12 to 17",
+      "hint": "Enter sends, Shift+Enter adds a line."
+    },
+    "send": "Send",
+    "cancel": "Stop",
+    "working": "Working on it…",
+    "retry": "Try again",
+    "you": "You",
+    "assistant": "Assistant",
+    "tool": {
+      "get_capabilities": "Checking what the form can do",
+      "get_current_spec": "Reading the current setup",
+      "validate_spec": "Checking the draft",
+      "diff_spec": "Comparing with the saved setup",
+      "propose_spec": "Saving the draft",
+      "unknown": "Working",
+      "state": {
+        "running": "in progress",
+        "done": "done",
+        "failed": "needs another go"
       }
-    }
+    },
+    "piiWarning": "This looks like personal data. Remove it or describe the rule instead.",
+    "piiSend": "Send anyway",
+    "piiEdit": "Edit message",
+    "connection": {
+      "reconnecting": "Connection lost. Reconnecting…",
+      "connecting": "Connecting…"
+    },
+    "error": {
+      "rate_limited": "Too many requests this hour. Wait a while and try again.",
+      "not_enabled": "The assistant has been switched off.",
+      "busy": "A reply is already being written. Wait for it to finish.",
+      "notice_required": "Read and accept the notice first.",
+      "blocked": "The assistant can no longer change this event.",
+      "timeout": "The reply took too long and was stopped.",
+      "limit": "The task needed more steps than allowed. Try a smaller request.",
+      "model_error": "The model could not answer. Try again.",
+      "auth_failed": "The model server refused the connection. Ask an administrator.",
+      "provider_unreachable": "The model server cannot be reached. Try again in a moment.",
+      "cancelled": "Stopped.",
+      "bad_request": "That message could not be sent.",
+      "unknown": "Something went wrong. Try again."
+    },
+    "draftUpdated": "Draft updated"
   }
 }

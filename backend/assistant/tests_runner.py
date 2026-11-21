@@ -447,3 +447,18 @@ class RetentionAndDeletionTests(RunnerTestCase):
             reverse("admin:assistant_assistantconversation_change", args=[pk]),
         ):
             self.assertNotContains(self.client.get(url), "SECRET-CHAT-TEXT")
+
+
+class ProviderModelTests(RunnerTestCase):
+    def test_default_model_is_built_without_touching_the_db_in_the_loop(self):
+        from .models import LLMProvider
+
+        provider = LLMProvider.load()
+        provider.base_url, provider.model, provider.enabled = "http://localhost:11434/v1", "m", True
+        provider.save()
+        self.conv()
+        # TestModel run, but the model argument is None so build_model runs for real.
+        with mock.patch.object(runner, "run_assistant", side_effect=TimeoutError()):
+            with self.assertRaises(RunFailed) as ctx:
+                async_to_sync(run_conversation)(self.event, self.staff, "hi")
+        self.assertEqual(ctx.exception.code, "timeout")

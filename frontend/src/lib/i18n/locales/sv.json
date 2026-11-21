@@ -791,7 +791,34 @@
       "draftUnusable": "Utkastet passar inte längre det här evenemanget, så det här visar den sparade uppsättningen."
     },
     "review": {
-      "stale": "Uppsättningen har ändrats sedan utkastet gjordes."
+      "stale": "Uppsättningen har ändrats sedan utkastet gjordes.",
+      "title": "Det här ändras",
+      "apply": "Använd utkastet",
+      "applying": "Sparar…",
+      "discard": "Släng",
+      "discarding": "Slänger…",
+      "applied": "Uppsättningen är sparad. Anmälan är fortfarande stängd.",
+      "none": "Inga skillnader mot den sparade uppsättningen.",
+      "warnings": "Värt att kontrollera",
+      "draftChanged": "Ett nyare utkast kom medan det sparades. Uppsättningen sparades från utkastet du granskade; granska det nya.",
+      "applyFailed": "Uppsättningen kunde inte sparas.",
+      "discardFailed": "Utkastet kunde inte slängas.",
+      "loadFailed": "Utkastet kunde inte hämtas.",
+      "kind": {
+        "event": "Evenemang",
+        "sessions": "Pass",
+        "ticket_types": "Biljettyp",
+        "extras": "Tillval",
+        "choices": "Alternativ",
+        "promo_codes": "Kampanjkod"
+      },
+      "change": {
+        "added": "tillagd",
+        "changed": "ändrad",
+        "removed": "borttagen"
+      },
+      "more": "och {count} till",
+      "changedFields": "ändrat: {fields}"
     },
     "setup": {
       "checking": "Kontrollerar om assistenten kan användas…"
@@ -806,7 +833,79 @@
       "blocker": {
         "registration_open_on_target": "Anmälan är öppen. Stäng den innan uppsättningen ändras.",
         "event_not_empty": "Det finns redan anmälningar till det här evenemanget."
+      },
+      "unauthenticated": "Logga in för att använda assistenten."
+    },
+    "open": "Öppna assistenten",
+    "minimize": "Minimera assistenten",
+    "title": "Hjälp med uppsättningen",
+    "subtitle": "Skriver ett utkast; du bestämmer vad som sparas.",
+    "clear": "Rensa konversationen",
+    "clearConfirm": "Ta bort konversationen? Utkastet tas också bort.",
+    "clearYes": "Ta bort",
+    "clearNo": "Behåll",
+    "clearFailed": "Konversationen kunde inte tas bort.",
+    "unread": "Nytt svar",
+    "empty": {
+      "1": "Ett tvådagarsläger för 12 till 17 år, 450 kr, lunch som tillval",
+      "2": "Lägg till en biljettyp för lördagens workshop, 200 kr",
+      "3": "Vuxna gratis, barn 100 kr",
+      "title": "Beskriv evenemanget",
+      "body": "Biljettyper, tillval och pass skrivs som ett utkast. Granska utkastet på sidan och använd eller släng det.",
+      "examples": "Prova något av det här"
+    },
+    "notice": {
+      "title": "Innan du börjar",
+      "body": "Beskriv formuläret, inte personerna. Skriv inte in namn, personnummer, kontaktuppgifter eller hälsouppgifter.",
+      "accept": "Jag förstår",
+      "failed": "Det gick inte att spara bekräftelsen. Försök igen."
+    },
+    "input": {
+      "label": "Beskriv vad du vill ha",
+      "placeholder": "Till exempel: ett tvådagarsläger för 12 till 17 år",
+      "hint": "Enter skickar, Skift+Enter ger ny rad."
+    },
+    "send": "Skicka",
+    "cancel": "Avbryt",
+    "working": "Jobbar på det…",
+    "retry": "Försök igen",
+    "you": "Du",
+    "assistant": "Assistenten",
+    "tool": {
+      "get_capabilities": "Kollar vad formuläret kan",
+      "get_current_spec": "Läser den nuvarande uppsättningen",
+      "validate_spec": "Kontrollerar utkastet",
+      "diff_spec": "Jämför med den sparade uppsättningen",
+      "propose_spec": "Sparar utkastet",
+      "unknown": "Jobbar",
+      "state": {
+        "running": "pågår",
+        "done": "klart",
+        "failed": "behöver ett nytt försök"
       }
-    }
+    },
+    "piiWarning": "Det här ser ut som personuppgifter. Ta bort dem eller beskriv regeln i stället.",
+    "piiSend": "Skicka ändå",
+    "piiEdit": "Ändra meddelandet",
+    "connection": {
+      "reconnecting": "Anslutningen bröts. Ansluter igen…",
+      "connecting": "Ansluter…"
+    },
+    "error": {
+      "rate_limited": "För många förfrågningar den här timmen. Vänta en stund och försök igen.",
+      "not_enabled": "Assistenten har stängts av.",
+      "busy": "Ett svar skrivs redan. Vänta tills det är klart.",
+      "notice_required": "Läs och bekräfta informationen först.",
+      "blocked": "Assistenten kan inte längre ändra det här evenemanget.",
+      "timeout": "Svaret tog för lång tid och avbröts.",
+      "limit": "Uppgiften krävde fler steg än tillåtet. Prova en mindre begäran.",
+      "model_error": "Modellen kunde inte svara. Försök igen.",
+      "auth_failed": "Modellservern nekade anslutningen. Kontakta en administratör.",
+      "provider_unreachable": "Modellservern går inte att nå. Försök igen om en stund.",
+      "cancelled": "Avbrutet.",
+      "bad_request": "Meddelandet kunde inte skickas.",
+      "unknown": "Något gick fel. Försök igen."
+    },
+    "draftUpdated": "Utkastet har uppdaterats"
   }
 }

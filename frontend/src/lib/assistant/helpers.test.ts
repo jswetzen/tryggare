@@ -5,7 +5,10 @@ import {
   isAssistantRequested,
   isFallbackStatus,
   isPreviewRequested,
-  setupRedirectUrl
+  isRetryable,
+  refusalReason,
+  setupRedirectUrl,
+  summariseDiff
 } from './helpers';
 
 const err = (status: number, errors: unknown[] = []) => ({
@@ -145,5 +148,50 @@ describe('coalesce', () => {
     await expect(first).rejects.toThrow('x');
     await run(3);
     expect(job.mock.calls.map((c) => c[0])).toEqual([1, 3]);
+  });
+});
+
+describe('summariseDiff', () => {
+  it('names the row and its price for an added row', () => {
+    expect(
+      summariseDiff([{ kind: 'ticket_types', key: 'y', change: 'added', new: { name: 'Youth', price: '450.00' } }])
+    ).toEqual([{ kind: 'ticket_types', name: 'Youth', change: 'added', price: '450.00', fields: [] }]);
+  });
+
+  it('uses the old row for a removal, the key when there is no name', () => {
+    const lines = summariseDiff([
+      { kind: 'extras', key: 'lunch', change: 'removed', old: { name: 'Lunch' } },
+      { kind: 'sessions', key: 'sat', change: 'added', new: {} }
+    ]);
+    expect(lines.map((l) => l.name)).toEqual(['Lunch', 'sat']);
+  });
+
+  it('lists only the names of changed fields, and the new price', () => {
+    const [line] = summariseDiff([
+      {
+        kind: 'ticket_types',
+        key: 'y',
+        change: 'changed',
+        fields: { price: { old: '1', new: '2' }, name: { old: 'A', new: 'B' } }
+      }
+    ]);
+    expect(line).toMatchObject({ name: 'B', price: '2', fields: ['price', 'name'] });
+  });
+
+  it('skips entries it does not understand', () => {
+    expect(summariseDiff([{ kind: 'x', key: 'k', change: 'moved' } as never])).toEqual([]);
+  });
+});
+
+describe('refusalReason and isRetryable', () => {
+  it('maps close codes to a reason', () => {
+    expect([4401, 4403, 4404, 4409, 4503, null].map(refusalReason)).toEqual([
+      'unauthenticated', 'forbidden', 'notFound', 'blocked', 'notEnabled', 'forbidden'
+    ]);
+  });
+
+  it('retries transient failures only', () => {
+    expect(['timeout', 'model_error', 'provider_unreachable'].every(isRetryable)).toBe(true);
+    expect(['blocked', 'not_enabled', 'auth_failed', 'cancelled', 'notice_required'].some(isRetryable)).toBe(false);
   });
 });

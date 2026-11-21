@@ -30,6 +30,11 @@ export const assistantApi = {
       `${base(eventId)}/draft/?version=${version}${token ? `&token=${encodeURIComponent(token)}` : ''}`
     ),
 
+  // Apply is the existing spec endpoint (same guards, last write wins); the
+  // caller discards the draft afterwards.
+  applySpec: (eventId: string, spec: unknown): Promise<unknown> =>
+    apiClient.put(`/events/${eventId}/spec/`, spec),
+
   getPreview: (eventId: string): Promise<AssistantPreview> =>
     apiClient.get(`${base(eventId)}/preview/`)
 };

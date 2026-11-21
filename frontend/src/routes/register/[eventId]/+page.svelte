@@ -13,7 +13,7 @@
    * no TicketTypes configured keep the original flat-price behavior
    * unchanged (see backend registrations/pricing.py::calculate_total).
    */
-  import { onMount, tick } from 'svelte';
+  import { onMount, tick, untrack, type Component } from 'svelte';
   import { t, locale } from 'svelte-i18n';
   import { page } from '$app/stores';
   import { pushState } from '$app/navigation';
@@ -50,6 +50,7 @@
     isPreviewRequested,
     type UnavailableKind
   } from '$lib/assistant/helpers';
+  import type { AssistantStore } from '$lib/assistant/assistantStore';
   import PersonFields from '$lib/components/registrations/PersonFields.svelte';
   import {
     applicablePersonExtras,
@@ -931,6 +932,44 @@
   function reloadSpec(opts: { quiet?: boolean } = {}): Promise<void> {
     return runReload(opts);
   }
+
+  // The chat is a lazy chunk, loaded only when assistant mode is confirmed and
+  // a spec is on screen. The store lives here so the page wires draft_updated
+  // to the quiet reload and tears the socket down. `chatWanted` is a boolean
+  // derived, so the effect does not re-run on every spec swap.
+  const chatWanted = $derived(assistantMode && !!spec);
+  let chat = $state<{ Host: Component<any>; store: AssistantStore } | null>(null);
+
+  $effect(() => {
+    if (!chatWanted) return;
+    const id = untrack(() => eventId);
+    let cancelled = false;
+    let teardown = () => {};
+    Promise.all([
+      import('$lib/assistant/AssistantHost.svelte'),
+      import('$lib/assistant/assistantStore')
+    ])
+      .then(([host, mod]) => {
+        if (cancelled) return;
+        const store = mod.createAssistantStore({
+          eventId: id,
+          fetchConversation: () => assistantApi.getConversation(id)
+        });
+        const off = store.onDraftUpdated(() => void reloadSpec({ quiet: true }));
+        store.connect();
+        teardown = () => {
+          off();
+          store.disconnect();
+        };
+        chat = { Host: host.default as Component<any>, store };
+      })
+      .catch((err) => console.error('Could not load the assistant:', err));
+    return () => {
+      cancelled = true;
+      teardown();
+      chat = null;
+    };
+  });
 
   // True for a parent row that is a responsible adult but NOT attending
   // (owner decision d9245e21): the guardian chose "no ticket, guardian only"
@@ -2675,14 +2714,6 @@
               {$t('register.reloadFailed')}
             </p>
           {/if}
-          {#if import.meta.env.DEV}
-            <!-- DEV ONLY (step 4): stands in for the chat's draft_updated until step 5. -->
-            <div class="mt-2">
-              <Button size="sm" variant="secondary" onclick={() => reloadSpec({ quiet: true })}>
-                Reload draft preview (dev)
-              </Button>
-            </div>
-          {/if}
           <p class="sr-only" role="status" data-testid="assistant-updated">
             {previewUpdated ? $t('assistant.preview.updated') : ''}
           </p>
@@ -3745,3 +3776,14 @@
     </div>
   {/if}
 </main>
+
+{#if chat}
+  <chat.Host
+    {eventId}
+    store={chat.store}
+    {previewSource}
+    {previewStale}
+    {previewDraftUnusable}
+    reload={() => reloadSpec({ quiet: true })}
+  />
+{/if}

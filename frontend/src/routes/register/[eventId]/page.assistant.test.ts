@@ -3,7 +3,7 @@
  * quiet reload, banner chrome, guards. Plan: docs/event-assistant-plan.md,
  * "Register page touch points". Kept apart from page.test.ts (3.8k lines).
  */
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeAll, beforeEach } from 'vitest';
 import { render, screen, waitFor, fireEvent } from '@testing-library/svelte';
 import userEvent from '@testing-library/user-event';
 import RegisterPage from './+page.svelte';
@@ -69,6 +69,36 @@ vi.mock('$app/navigation', () => ({
   afterNavigate: vi.fn()
 }));
 
+const fakeStore = vi.hoisted(() => {
+  const listeners = new Set<(v: number) => void>();
+  const unsubscribe = vi.fn();
+  const connect = vi.fn();
+  const disconnect = vi.fn();
+  const created = vi.fn();
+  const store = {
+    subscribe: (cb: (v: unknown) => void) => (cb({}), () => {}),
+    connect,
+    disconnect,
+    onDraftUpdated(fn: (v: number) => void) {
+      listeners.add(fn);
+      return () => {
+        unsubscribe();
+        listeners.delete(fn);
+      };
+    }
+  };
+  return { listeners, unsubscribe, connect, disconnect, created, store };
+});
+vi.mock('$lib/assistant/assistantStore', () => ({
+  createAssistantStore: (opts: unknown) => {
+    fakeStore.created(opts);
+    return fakeStore.store;
+  }
+}));
+vi.mock('$lib/assistant/AssistantHost.svelte', async () => ({
+  default: (await import('$lib/assistant/testing/HostStub.svelte')).default
+}));
+
 const getEvent = vi.fn();
 const submit = vi.fn();
 const validatePromoCode = vi.fn();
@@ -81,8 +111,12 @@ vi.mock('$lib/api/registrationService', () => ({
 }));
 
 const getPreview = vi.fn();
+const getConversation = vi.fn();
 vi.mock('$lib/api/assistantService', () => ({
-  assistantApi: { getPreview: (...a: unknown[]) => getPreview(...a) }
+  assistantApi: {
+    getPreview: (...a: unknown[]) => getPreview(...a),
+    getConversation: (...a: unknown[]) => getConversation(...a)
+  }
 }));
 
 const authGet = vi.fn();
@@ -138,9 +172,20 @@ const previewOf = (formSpec: unknown, over: Record<string, unknown> = {}) => ({
 });
 const apiError = (status: number) => ({ status, message: '', details: { errors: [] } });
 const ASSISTANT = 'http://localhost/register/event-1?preview=1&assistant=1';
-const devReload = () => screen.getByRole('button', { name: /Reload draft preview/ });
+// Fires what the socket's draft_updated does, once the lazy chat has mounted.
+async function emitDraftUpdated() {
+  await waitFor(() => expect(fakeStore.listeners.size).toBe(1));
+  fakeStore.listeners.forEach((fn) => fn(1));
+}
+
+// The chat chunk is loaded lazily; a cold first import must not eat a test's timeout.
+beforeAll(async () => {
+  await import('$lib/assistant/AssistantHost.svelte');
+  await import('$lib/assistant/assistantStore');
+});
 
 beforeEach(() => {
+  fakeStore.listeners.clear();
   vi.clearAllMocks();
   pageState.setUrl('http://localhost/register/event-1');
   authGet.mockResolvedValue({ authenticated: true });
@@ -271,7 +316,7 @@ describe('falling back to the saved spec', () => {
     getEvent.mockResolvedValue(eventInfo());
     render(RegisterPage);
     await screen.findByTestId('assistant-strip');
-    await user.click(devReload());
+    await emitDraftUpdated();
     await screen.findByTestId('assistant-fallback');
   });
 });
@@ -295,7 +340,7 @@ describe('quiet reload (what draft_updated triggers)', () => {
     const status = screen.getByTestId('assistant-updated');
     expect(status.textContent?.trim()).toBe('');
 
-    await user.click(devReload());
+    await emitDraftUpdated();
 
     await waitFor(() => expect(select.textContent).toContain('125.00'));
     expect((document.getElementById('parent-first-name-0') as HTMLInputElement).value).toBe('Sam');
@@ -321,7 +366,7 @@ describe('quiet reload (what draft_updated triggers)', () => {
     const select = screen.getByTestId('child-ticket-type-0') as HTMLSelectElement;
     await user.selectOptions(select, 'tt-b');
 
-    await user.click(devReload());
+    await emitDraftUpdated();
 
     await waitFor(() =>
       expect(Array.from(select.options).some((o) => o.value === 'tt-b')).toBe(false)
@@ -343,11 +388,10 @@ describe('quiet reload (what draft_updated triggers)', () => {
     await screen.findByTestId('assistant-strip');
     expect(getPreview).toHaveBeenCalledTimes(1);
 
-    const button = devReload();
-    await fireEvent.click(button);
-    await fireEvent.click(button);
-    await fireEvent.click(button);
-    await fireEvent.click(button);
+    await emitDraftUpdated();
+    await emitDraftUpdated();
+    await emitDraftUpdated();
+    await emitDraftUpdated();
     expect(getPreview).toHaveBeenCalledTimes(2);
 
     release();
@@ -364,8 +408,77 @@ describe('quiet reload (what draft_updated triggers)', () => {
     render(RegisterPage);
     await screen.findByTestId('assistant-strip');
     await user.type(document.getElementById('parent-first-name-0') as HTMLInputElement, 'Sam');
-    await user.click(devReload());
+    await emitDraftUpdated();
     expect(await screen.findByTestId('register-reload-failed')).toBeInTheDocument();
     expect((document.getElementById('parent-first-name-0') as HTMLInputElement).value).toBe('Sam');
+  });
+});
+
+describe('chat mounting', () => {
+  beforeEach(() => {
+    fakeStore.listeners.clear();
+    pageState.setUrl(ASSISTANT);
+  });
+
+  it('is a lazy chunk mounted only in assistant mode, with the page state as props', async () => {
+    getPreview.mockResolvedValue(previewOf(eventInfo(), { stale: true, draft_unusable: true, source: 'saved' }));
+    render(RegisterPage);
+    const host = await screen.findByTestId('host-stub');
+    expect(host.dataset.event).toBe('event-1');
+    expect(host.dataset.source).toBe('saved');
+    expect(host.dataset.stale).toBe('true');
+    expect(host.dataset.unusable).toBe('true');
+    expect(fakeStore.connect).toHaveBeenCalledTimes(1);
+    // The store re-reads the conversation through the HTTP service.
+    getConversation.mockResolvedValue({});
+    (fakeStore.created.mock.calls[0][0] as { fetchConversation: () => unknown }).fetchConversation();
+    expect(getConversation).toHaveBeenCalledWith('event-1');
+  });
+
+  it.each([
+    ['http://localhost/register/event-1'],
+    ['http://localhost/register/event-1?preview=1']
+  ])('is not created on the public render %s', async (url) => {
+    pageState.setUrl(url);
+    getEvent.mockResolvedValue(eventInfo());
+    render(RegisterPage);
+    await screen.findByTestId('register-form');
+    await new Promise((r) => setTimeout(r, 20));
+    expect(fakeStore.created).not.toHaveBeenCalled();
+    expect(screen.queryByTestId('host-stub')).toBeNull();
+  });
+
+  it('is not created when the preview falls back to the saved spec', async () => {
+    getPreview.mockRejectedValue(apiError(403));
+    getEvent.mockResolvedValue(eventInfo());
+    render(RegisterPage);
+    await screen.findByTestId('register-form');
+    await new Promise((r) => setTimeout(r, 20));
+    expect(fakeStore.created).not.toHaveBeenCalled();
+  });
+
+  it('survives spec reloads without reconnecting, and unsubscribes and disconnects on destroy', async () => {
+    getPreview.mockResolvedValue(previewOf(eventInfo()));
+    const { unmount } = render(RegisterPage);
+    await screen.findByTestId('host-stub');
+    await emitDraftUpdated();
+    await waitFor(() => expect(getPreview).toHaveBeenCalledTimes(2));
+    expect(fakeStore.created).toHaveBeenCalledTimes(1);
+    expect(fakeStore.disconnect).not.toHaveBeenCalled();
+
+    unmount();
+    expect(fakeStore.unsubscribe).toHaveBeenCalledTimes(1);
+    expect(fakeStore.disconnect).toHaveBeenCalledTimes(1);
+    expect(fakeStore.listeners.size).toBe(0);
+  });
+
+  it('the host reload prop runs a quiet reload', async () => {
+    const user = userEvent.setup();
+    getPreview.mockResolvedValue(previewOf(eventInfo()));
+    render(RegisterPage);
+    await screen.findByTestId('host-stub');
+    await user.click(screen.getByRole('button', { name: 'stub reload' }));
+    await waitFor(() => expect(getPreview).toHaveBeenCalledTimes(2));
+    expect(screen.queryByTestId('register-reload-notice')).toBeNull();
   });
 });

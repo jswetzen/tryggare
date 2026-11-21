@@ -37,7 +37,7 @@ from pydantic_ai.messages import (
     UserPromptPart,
 )
 
-from .agent import RUN_DEADLINE_SECONDS, build_agent, run_assistant
+from .agent import RUN_DEADLINE_SECONDS, build_agent, build_model, run_assistant
 from events.models import Event
 
 from .models import AssistantConversation, AssistantRun, LLMProvider
@@ -372,7 +372,10 @@ async def run_conversation(
     try:
         if on_started:
             await on_started()
-        agent = build_agent(provider, toolset, model=model)
+        # build_model must not re-read the singleton: this is an async context.
+        agent = build_agent(
+            provider, toolset, model=model or build_model(provider, saved=provider)
+        )
         handler = (
             _stream_forwarder(conv.pk, on_event, conv.draft_version)
             if on_event
