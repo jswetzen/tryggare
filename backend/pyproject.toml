@@ -19,6 +19,7 @@ dependencies = [
     "reportlab>=4.4.5",
     "requests>=2.31,<3.0",
     "apscheduler>=3.10,<4.0",
+    "pydantic>=2.9,<3.0",
 ]
 
 package = false

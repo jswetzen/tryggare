@@ -1874,6 +1874,12 @@ msgstr "Select exactly one event to copy."
 msgid "Copied '%(source)s' to '%(event)s'."
 msgstr "Copied '%(source)s' to '%(event)s'."
 
+msgid "Could not copy '%(source)s': %(problems)s"
+msgstr "Could not copy '%(source)s': %(problems)s"
+
+msgid "Copied '%(source)s' to '%(event)s'. Self-serve registration is off on the copy because the moved registration window would already be open or in the past; set a new window when you are ready."
+msgstr "Copied '%(source)s' to '%(event)s'. Self-serve registration is off on the copy because the moved registration window would already be open or in the past; set a new window when you are ready."
+
 msgid "Copy event"
 msgstr "Copy event"
 
@@ -1882,3 +1888,166 @@ msgstr "Copy \"%(name)s\" with its sessions, ticket types, extras and promo code
 
 msgid "Copy"
 msgstr "Copy"
+
+# Event spec validation messages
+
+msgid "This field is required."
+msgstr "This field is required."
+
+msgid "Unknown field. Remove it or check the schema for the right name."
+msgstr "Unknown field. Remove it or check the schema for the right name."
+
+msgid "Must be one of: %(expected)s."
+msgstr "Must be one of: %(expected)s."
+
+msgid "Must be lowercase letters and digits separated by single hyphens."
+msgstr "Must be lowercase letters and digits separated by single hyphens."
+
+msgid "Invalid value: %(detail)s"
+msgstr "Invalid value: %(detail)s"
+
+msgid "Key '%(key)s' is used more than once; keys must be unique."
+msgstr "Key '%(key)s' is used more than once; keys must be unique."
+
+
+msgid "No %(kind)s has the key '%(key)s'."
+msgstr "No %(kind)s has the key '%(key)s'."
+
+
+msgid "Code '%(code)s' appears more than once; codes are matched case-insensitively and must be unique."
+msgstr "Code '%(code)s' appears more than once; codes are matched case-insensitively and must be unique."
+
+msgid "The end date is before the start date."
+msgstr "The end date is before the start date."
+
+
+msgid "'Available until' is before 'available from'."
+msgstr "'Available until' is before 'available from'."
+
+msgid "A percent discount cannot be more than 100."
+msgstr "A percent discount cannot be more than 100."
+
+msgid "'Valid until' is before 'valid from'."
+msgstr "'Valid until' is before 'valid from'."
+
+msgid "Registration would already be open. Set registration_opens_at to a future moment; a person opens registration, not the spec."
+msgstr "Registration would already be open. Set registration_opens_at to a future moment; a person opens registration, not the spec."
+
+msgid "No registration window is set, so public self-serve registration is off."
+msgstr "No registration window is set, so public self-serve registration is off."
+
+msgid "The registration window has already closed."
+msgstr "The registration window has already closed."
+
+msgid "The session starts outside the event's dates."
+msgstr "The session starts outside the event's dates."
+
+msgid "This age tier has price 0, so it is free. Intended?"
+msgstr "This age tier has price 0, so it is free. Intended?"
+
+msgid "This ticket type is hidden and no active promo code unlocks it, so nobody can buy it."
+msgstr "This ticket type is hidden and no active promo code unlocks it, so nobody can buy it."
+
+msgid "A session bundle lists no sessions."
+msgstr "A session bundle lists no sessions."
+
+msgid "Sessions are only used by session bundles; they are ignored here."
+msgstr "Sessions are only used by session bundles; they are ignored here."
+
+msgid "max_per_required is ignored without requires_ticket_type."
+msgstr "max_per_required is ignored without requires_ticket_type."
+
+msgid "This extra requires a choice but has no active choices."
+msgstr "This extra requires a choice but has no active choices."
+
+msgid "Choices are ignored unless requires_choice is true."
+msgstr "Choices are ignored unless requires_choice is true."
+
+msgid "Every ticket type this code refers to is inactive."
+msgstr "Every ticket type this code refers to is inactive."
+
+msgid "session"
+msgstr "session"
+
+msgid "ticket type"
+msgstr "ticket type"
+
+msgid "extra"
+msgstr "extra"
+
+msgid "promo code"
+msgstr "promo code"
+
+msgid "The session must not end before it starts."
+msgstr "The session must not end before it starts."
+
+msgid "'%(key)s' is the key of another kind of row (%(found)s); a key for %(expected)s is needed here."
+msgstr "'%(key)s' is the key of another kind of row (%(found)s); a key for %(expected)s is needed here."
+
+msgid "'%(key)s' is listed more than once."
+msgstr "'%(key)s' is listed more than once."
+
+msgid "The target event already has registrations, tickets or check-ins, so its setup cannot be replaced."
+msgstr "The target event already has registrations, tickets or check-ins, so its setup cannot be replaced."
+
+msgid "These ticket types require each other in a loop. Buying one of each satisfies it, so this is likely a mistake."
+msgstr "These ticket types require each other in a loop. Buying one of each satisfies it, so this is likely a mistake."
+
+msgid "The ticket type this one requires is inactive, so it cannot be bought."
+msgstr "The ticket type this one requires is inactive, so it cannot be bought."
+
+msgid "The key '%(key)s' is not the one export derives ('%(derived)s'), so a later export will show this row as removed and added."
+msgstr "The key '%(key)s' is not the one export derives ('%(derived)s'), so a later export will show this row as removed and added."
+
+msgid "Registration is open on the target event; close registration first."
+msgstr "Registration is open on the target event; close registration first."
+
+msgid "These rows tie on their ordering fields; give them different sort_order or names."
+msgstr "These rows tie on their ordering fields; give them different sort_order or names."
+
+msgid "The database refused the spec and nothing was changed. A promo code may already be in use on this event."
+msgstr "The database refused the spec and nothing was changed. A promo code may already be in use on this event."
+
+msgid "The body is not valid JSON."
+msgstr "The body is not valid JSON."
+
+msgid "The body must be a JSON object."
+msgstr "The body must be a JSON object."
+
+msgid "The body needs a 'spec' object."
+msgstr "The body needs a 'spec' object."
+
+msgid "The event does not exist."
+msgstr "The event does not exist."
+
+msgid "'event_id' is not a valid id."
+msgstr "'event_id' is not a valid id."
+
+msgid "Event %(id)s does not exist."
+msgstr "Event %(id)s does not exist."
+
+msgid "Cannot read %(path)s: %(error)s"
+msgstr "Cannot read %(path)s: %(error)s"
+
+msgid "%(path)s is not valid JSON: %(error)s"
+msgstr "%(path)s is not valid JSON: %(error)s"
+
+msgid "The spec was refused: %(count)d error(s); nothing was written."
+msgstr "The spec was refused: %(count)d error(s); nothing was written."
+
+#, python-format
+msgid "The event cannot be exported: %(count)d error(s)."
+msgstr "The event cannot be exported: %(count)d error(s)."
+
+msgid "error"
+msgstr "error"
+
+msgid "warning"
+msgstr "warning"
+
+msgid "Cannot write %(path)s: %(error)s"
+msgstr "Cannot write %(path)s: %(error)s"
+
+#, python-format
+msgid "The %(kind)s '%(name)s' refers to the %(target)s '%(other)s', which belongs to another event."
+msgstr "The %(kind)s '%(name)s' refers to the %(target)s '%(other)s', which belongs to another event."

@@ -1898,6 +1898,12 @@ msgstr "Markera exakt ett evenemang att kopiera."
 msgid "Copied '%(source)s' to '%(event)s'."
 msgstr "Kopierade ”%(source)s” till ”%(event)s”."
 
+msgid "Could not copy '%(source)s': %(problems)s"
+msgstr "Kunde inte kopiera ”%(source)s”: %(problems)s"
+
+msgid "Copied '%(source)s' to '%(event)s'. Self-serve registration is off on the copy because the moved registration window would already be open or in the past; set a new window when you are ready."
+msgstr "Kopierade ”%(source)s” till ”%(event)s”. Självbetjäning för anmälan är avstängd på kopian eftersom det flyttade anmälningsfönstret redan skulle vara öppet eller ligga i det förflutna; ange ett nytt fönster när du är redo."
+
 msgid "Copy event"
 msgstr "Kopiera evenemang"
 
@@ -1906,3 +1912,166 @@ msgstr "Kopiera ”%(name)s” med pass, biljettyper, tillval och kampanjkoder. 
 
 msgid "Copy"
 msgstr "Kopiera"
+
+# Event spec validation messages
+
+msgid "This field is required."
+msgstr "Fältet är obligatoriskt."
+
+msgid "Unknown field. Remove it or check the schema for the right name."
+msgstr "Okänt fält. Ta bort det eller kontrollera schemat för rätt namn."
+
+msgid "Must be one of: %(expected)s."
+msgstr "Måste vara ett av: %(expected)s."
+
+msgid "Must be lowercase letters and digits separated by single hyphens."
+msgstr "Måste vara gemener och siffror åtskilda av enstaka bindestreck."
+
+msgid "Invalid value: %(detail)s"
+msgstr "Ogiltigt värde: %(detail)s"
+
+msgid "Key '%(key)s' is used more than once; keys must be unique."
+msgstr "Nyckeln ”%(key)s” används fler än en gång; nycklar måste vara unika."
+
+
+msgid "No %(kind)s has the key '%(key)s'."
+msgstr "Ingen post i %(kind)s har nyckeln ”%(key)s”."
+
+
+msgid "Code '%(code)s' appears more than once; codes are matched case-insensitively and must be unique."
+msgstr "Koden ”%(code)s” förekommer mer än en gång; koder matchas utan hänsyn till versaler och måste vara unika."
+
+msgid "The end date is before the start date."
+msgstr "Slutdatumet ligger före startdatumet."
+
+
+msgid "'Available until' is before 'available from'."
+msgstr "”Tillgänglig till” ligger före ”tillgänglig från”."
+
+msgid "A percent discount cannot be more than 100."
+msgstr "En procentrabatt kan inte vara över 100."
+
+msgid "'Valid until' is before 'valid from'."
+msgstr "”Giltig till” ligger före ”giltig från”."
+
+msgid "Registration would already be open. Set registration_opens_at to a future moment; a person opens registration, not the spec."
+msgstr "Anmälan skulle redan vara öppen. Sätt registration_opens_at till en framtida tidpunkt; en person öppnar anmälan, inte specen."
+
+msgid "No registration window is set, so public self-serve registration is off."
+msgstr "Inget anmälningsfönster är satt, så den öppna självanmälan är avstängd."
+
+msgid "The registration window has already closed."
+msgstr "Anmälningsfönstret har redan stängt."
+
+msgid "The session starts outside the event's dates."
+msgstr "Passet börjar utanför evenemangets datum."
+
+msgid "This age tier has price 0, so it is free. Intended?"
+msgstr "Den här åldersgruppen har priset 0 och är alltså gratis. Är det meningen?"
+
+msgid "This ticket type is hidden and no active promo code unlocks it, so nobody can buy it."
+msgstr "Biljettypen är dold och ingen aktiv kampanjkod låser upp den, så ingen kan köpa den."
+
+msgid "A session bundle lists no sessions."
+msgstr "Passpaketet anger inga pass."
+
+msgid "Sessions are only used by session bundles; they are ignored here."
+msgstr "Pass används bara av passpaket; de ignoreras här."
+
+msgid "max_per_required is ignored without requires_ticket_type."
+msgstr "max_per_required ignoreras utan requires_ticket_type."
+
+msgid "This extra requires a choice but has no active choices."
+msgstr "Tillvalet kräver ett val men har inga aktiva val."
+
+msgid "Choices are ignored unless requires_choice is true."
+msgstr "Val ignoreras om inte requires_choice är sant."
+
+msgid "Every ticket type this code refers to is inactive."
+msgstr "Alla biljettyper som koden hänvisar till är inaktiva."
+
+msgid "session"
+msgstr "pass"
+
+msgid "ticket type"
+msgstr "biljettyp"
+
+msgid "extra"
+msgstr "tillval"
+
+msgid "promo code"
+msgstr "kampanjkod"
+
+msgid "The session must not end before it starts."
+msgstr "Passet får inte sluta före start."
+
+msgid "'%(key)s' is the key of another kind of row (%(found)s); a key for %(expected)s is needed here."
+msgstr "”%(key)s” är nyckeln för en annan sorts rad (%(found)s); här behövs en nyckel för %(expected)s."
+
+msgid "'%(key)s' is listed more than once."
+msgstr "”%(key)s” anges mer än en gång."
+
+msgid "The target event already has registrations, tickets or check-ins, so its setup cannot be replaced."
+msgstr "Målevenemanget har redan anmälningar, biljetter eller incheckningar, så dess upplägg kan inte ersättas."
+
+msgid "These ticket types require each other in a loop. Buying one of each satisfies it, so this is likely a mistake."
+msgstr "Biljettyperna kräver varandra i en ring. Att köpa en av varje uppfyller kravet, så det är troligen ett misstag."
+
+msgid "The ticket type this one requires is inactive, so it cannot be bought."
+msgstr "Biljettypen som den här kräver är inaktiv, så den kan inte köpas."
+
+msgid "The key '%(key)s' is not the one export derives ('%(derived)s'), so a later export will show this row as removed and added."
+msgstr "Nyckeln ”%(key)s” är inte den som export härleder (”%(derived)s”), så en senare export visar raden som borttagen och tillagd."
+
+msgid "Registration is open on the target event; close registration first."
+msgstr "Anmälan är öppen för målevenemanget; stäng anmälan först."
+
+msgid "These rows tie on their ordering fields; give them different sort_order or names."
+msgstr "Raderna har samma sorteringsfält; ge dem olika sort_order eller namn."
+
+msgid "The database refused the spec and nothing was changed. A promo code may already be in use on this event."
+msgstr "Databasen avvisade specen och inget ändrades. En kampanjkod kan redan användas på det här evenemanget."
+
+msgid "The body is not valid JSON."
+msgstr "Bodyn är inte giltig JSON."
+
+msgid "The body must be a JSON object."
+msgstr "Bodyn måste vara ett JSON-objekt."
+
+msgid "The body needs a 'spec' object."
+msgstr "Bodyn måste innehålla ett ”spec”-objekt."
+
+msgid "The event does not exist."
+msgstr "Evenemanget finns inte."
+
+msgid "'event_id' is not a valid id."
+msgstr "”event_id” är inget giltigt id."
+
+msgid "Event %(id)s does not exist."
+msgstr "Evenemang %(id)s finns inte."
+
+msgid "Cannot read %(path)s: %(error)s"
+msgstr "Kan inte läsa %(path)s: %(error)s"
+
+msgid "%(path)s is not valid JSON: %(error)s"
+msgstr "%(path)s är inte giltig JSON: %(error)s"
+
+msgid "The spec was refused: %(count)d error(s); nothing was written."
+msgstr "Specen avvisades: %(count)d fel; inget skrevs."
+
+#, python-format
+msgid "The event cannot be exported: %(count)d error(s)."
+msgstr "Evenemanget kan inte exporteras: %(count)d fel."
+
+msgid "error"
+msgstr "fel"
+
+msgid "warning"
+msgstr "varning"
+
+msgid "Cannot write %(path)s: %(error)s"
+msgstr "Kan inte skriva %(path)s: %(error)s"
+
+#, python-format
+msgid "The %(kind)s '%(name)s' refers to the %(target)s '%(other)s', which belongs to another event."
+msgstr "”%(name)s” (%(kind)s) refererar till %(target)s ”%(other)s”, som hör till ett annat evenemang."

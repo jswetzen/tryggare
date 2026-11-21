@@ -16,6 +16,34 @@
     healthInfoStatus: HealthInfoStatus;
     consentNoticeShared: boolean;
   }
+
+  // The parent text inputs that differ only in these attributes; the ids,
+  // test ids and aria attributes derive from the slug.
+  const PARENT_TEXT_FIELDS = {
+    last_name: {
+      slug: 'last-name',
+      type: 'text',
+      label: 'checkin.parentLastName',
+      placeholder: 'checkin.parentLastNamePlaceholder',
+      maxlength: 255
+    },
+    phone: {
+      slug: 'phone',
+      type: 'tel',
+      label: 'checkin.parentPhone',
+      placeholder: 'register.parentPhonePlaceholder',
+      maxlength: 50
+    },
+    email: {
+      slug: 'email',
+      type: 'email',
+      label: 'checkin.parentEmail',
+      placeholder: 'checkin.parentEmailPlaceholder',
+      maxlength: 254
+    }
+  } as const;
+  type ParentTextKey = keyof typeof PARENT_TEXT_FIELDS;
+  const isParentTextKey = (key: string): key is ParentTextKey => key in PARENT_TEXT_FIELDS;
 </script>
 
 <script lang="ts">
@@ -86,16 +114,8 @@
       : required('first_name') && index === 0 && childCount > 0
   );
 
-  const keys = $derived(
-    spec.fields[group]
-      .filter((f) => f.visible)
-      .map((f) => f.key)
-      .filter((k) =>
-        group === 'parent'
-          ? ['first_name', 'last_name', 'phone', 'email', 'relationship_type'].includes(k)
-          : ['first_name', 'last_name', 'birthdate'].includes(k)
-      )
-  );
+  // Keys the markup below has no branch for (the health fields) render nothing here.
+  const keys = $derived(spec.fields[group].filter((f) => f.visible).map((f) => f.key));
 
   const showConsent = $derived(
     isFieldVisible(spec, group, 'health_consent_status') && !(group === 'parent' && guardianOnly)
@@ -124,6 +144,39 @@
     showAllergies={isFieldVisible(spec, group, 'allergies')}
     showNotes={isFieldVisible(spec, group, 'notes')}
   />
+{/snippet}
+
+{#snippet parentTextField(key: ParentTextKey)}
+  {@const f = PARENT_TEXT_FIELDS[key]}
+  {@const id = `parent-${f.slug}-${index}`}
+  <div>
+    <label for={id} class="block text-xs text-neutral-600 mb-1">
+      {$t(f.label)}
+      {#if required(key)}{@render star()}{/if}
+    </label>
+    <input
+      {id}
+      type={f.type}
+      bind:value={row[key]}
+      oninput={() => onClearProblem(id)}
+      placeholder={$t(f.placeholder)}
+      maxlength={f.maxlength}
+      required={required(key)}
+      aria-required={required(key) ? 'true' : undefined}
+      aria-invalid={hasProblem(id) ? 'true' : 'false'}
+      aria-describedby={hasProblem(id) ? `parent-${f.slug}-problem-${index}` : undefined}
+      class={`${inputBase} ${hasProblem(id) ? badBorder : okBorder}`}
+    />
+    {#if problemMessage(id)}
+      <p
+        id={`parent-${f.slug}-problem-${index}`}
+        class="mt-1 text-xs text-danger-700"
+        data-testid={`parent-${f.slug}-problem-${index}`}
+      >
+        {problemMessage(id)}
+      </p>
+    {/if}
+  </div>
 {/snippet}
 
 {#snippet personFields()}
@@ -161,99 +214,8 @@
             </p>
           {/if}
         </div>
-      {:else if key === 'last_name'}
-        <div>
-          <label for={`parent-last-name-${index}`} class="block text-xs text-neutral-600 mb-1">
-            {$t('checkin.parentLastName')}
-            {#if required('last_name')}{@render star()}{/if}
-          </label>
-          <input
-            id={`parent-last-name-${index}`}
-            type="text"
-            bind:value={row.last_name}
-            oninput={() => onClearProblem(`parent-last-name-${index}`)}
-            placeholder={$t('checkin.parentLastNamePlaceholder')}
-            maxlength="255"
-            required={required('last_name')}
-            aria-required={required('last_name') ? 'true' : undefined}
-            aria-invalid={hasProblem(`parent-last-name-${index}`) ? 'true' : 'false'}
-            aria-describedby={hasProblem(`parent-last-name-${index}`)
-              ? `parent-last-name-problem-${index}`
-              : undefined}
-            class={`${inputBase} ${hasProblem(`parent-last-name-${index}`) ? badBorder : okBorder}`}
-          />
-          {#if problemMessage(`parent-last-name-${index}`)}
-            <p
-              id={`parent-last-name-problem-${index}`}
-              class="mt-1 text-xs text-danger-700"
-              data-testid={`parent-last-name-problem-${index}`}
-            >
-              {problemMessage(`parent-last-name-${index}`)}
-            </p>
-          {/if}
-        </div>
-      {:else if key === 'phone'}
-        <div>
-          <label for={`parent-phone-${index}`} class="block text-xs text-neutral-600 mb-1">
-            {$t('checkin.parentPhone')}
-            {#if required('phone')}{@render star()}{/if}
-          </label>
-          <input
-            id={`parent-phone-${index}`}
-            type="tel"
-            bind:value={row.phone}
-            oninput={() => onClearProblem(`parent-phone-${index}`)}
-            placeholder={$t('register.parentPhonePlaceholder')}
-            maxlength="50"
-            required={required('phone')}
-            aria-required={required('phone') ? 'true' : undefined}
-            aria-invalid={hasProblem(`parent-phone-${index}`) ? 'true' : 'false'}
-            class={`${inputBase} ${hasProblem(`parent-phone-${index}`) ? badBorder : okBorder}`}
-            aria-describedby={hasProblem(`parent-phone-${index}`)
-              ? `parent-phone-problem-${index}`
-              : undefined}
-          />
-          {#if problemMessage(`parent-phone-${index}`)}
-            <p
-              id={`parent-phone-problem-${index}`}
-              class="mt-1 text-xs text-danger-700"
-              data-testid={`parent-phone-problem-${index}`}
-            >
-              {problemMessage(`parent-phone-${index}`)}
-            </p>
-          {/if}
-        </div>
-      {:else if key === 'email'}
-        <div>
-          <label for={`parent-email-${index}`} class="block text-xs text-neutral-600 mb-1">
-            {$t('checkin.parentEmail')}
-            {#if required('email')}{@render star()}{/if}
-          </label>
-          <input
-            id={`parent-email-${index}`}
-            type="email"
-            bind:value={row.email}
-            oninput={() => onClearProblem(`parent-email-${index}`)}
-            placeholder={$t('checkin.parentEmailPlaceholder')}
-            maxlength="254"
-            required={required('email')}
-            aria-required={required('email') ? 'true' : undefined}
-            aria-invalid={hasProblem(`parent-email-${index}`) ? 'true' : 'false'}
-            aria-describedby={hasProblem(`parent-email-${index}`)
-              ? `parent-email-problem-${index}`
-              : undefined}
-            class={`${inputBase} ${hasProblem(`parent-email-${index}`) ? badBorder : okBorder}`}
-          />
-          {#if problemMessage(`parent-email-${index}`)}
-            <p
-              id={`parent-email-problem-${index}`}
-              class="mt-1 text-xs text-danger-700"
-              data-testid={`parent-email-problem-${index}`}
-            >
-              {problemMessage(`parent-email-${index}`)}
-            </p>
-          {/if}
-        </div>
+      {:else if isParentTextKey(key)}
+        {@render parentTextField(key)}
       {:else if key === 'relationship_type'}
         <div>
           <label for={`parent-relationship-${index}`} class="block text-xs text-neutral-600 mb-1">

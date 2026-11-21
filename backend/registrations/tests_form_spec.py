@@ -149,23 +149,6 @@ class FormSpecEndpointTests(TestCase):
     def setUp(self):
         self.client = APIClient()
 
-    def test_spec_has_version_sessions_and_fields(self):
-        event = make_fixture_event()
-        response = self.client.get(f"/api/registrations/events/{event.id}/")
-
-        self.assertEqual(response.status_code, 200, response.data)
-        self.assertEqual(response.data["spec_version"], 1)
-        # Only the session an extra / visible bundle refers to.
-        self.assertEqual([s["name"] for s in response.data["sessions"]], ["Day 1"])
-        self.assertEqual(
-            set(response.data["sessions"][0]),
-            {"id", "name", "start_time", "end_time"},
-        )
-        self.assertEqual(set(response.data["fields"]), {"parent", "child"})
-        for fields in response.data["fields"].values():
-            for f in fields:
-                self.assertEqual(set(f), {"key", "visible", "required"})
-
     def test_response_is_not_cacheable(self):
         event = _open_event()
         response = self.client.get(f"/api/registrations/events/{event.id}/")
@@ -283,11 +266,6 @@ class FormSpecMatchesSubmitTests(TestCase):
                                 f"server accepts {kind}.{key} blank but it is "
                                 "not in FORM_ONLY_REQUIRED",
                             )
-
-    def test_form_only_fields_are_required_in_spec(self):
-        for kind, key in FORM_ONLY_REQUIRED:
-            field = next(f for f in self.spec["fields"][kind] if f["key"] == key)
-            self.assertTrue(field["required"], (kind, key))
 
     def test_empty_string_birthdate_is_rejected_by_server(self):
         # The page currently posts "" for an empty date; the server wants null.

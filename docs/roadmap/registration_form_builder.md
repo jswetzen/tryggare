@@ -1,6 +1,6 @@
 # Registration Form Builder (with optional AI assistant)
 
-**Status:** Idea, nothing built. Revised after an Opus review of the first draft.
+**Status:** Foundations built (form spec, event copy, event spec with export/validate/diff/apply). The setup checker beyond the spec's warnings, the editor and the assistant are not. Revised after an Opus review of the first draft.
 **Priority:** Medium. Demand is unproven, so the first steps are cheap and use the existing models. First trial: one organization with an annual conference (see "Scope and first trial").
 
 ## Problem
@@ -17,12 +17,17 @@ We do not know yet that setup effort is a bottleneck. The maintainer wants form-
 
 ## What exists today
 
-- The parent registration form is a hand-written page (`frontend/src/routes/register/[eventId]/+page.svelte`). Health and consent fields are hardcoded. There is no form spec.
+- The parent registration form is a hand-written page (`frontend/src/routes/register/[eventId]/+page.svelte`). It renders from a read-only form spec (`backend/registrations/form_spec.py`, see `docs/form-spec-foundation-plan.md`); which person fields appear and are required still comes from code constants, not stored configuration.
 - Pricing lives in `backend/registrations/pricing.py` (`calculate_total`, `calculate_discount`). It works on saved registrations and price snapshots. It is the single source of truth and must not be duplicated.
 - `TicketType.capacity` is enforced for guest self-registration (`backend/events/models.py`).
 - `Extra.session` gives session-scoped extras. Extras are deliberately never free text.
 - `Registration.promo_code` is a single FK, so a registration takes at most one promo code.
 - `duplicate_extra_to_event` (`backend/events/services.py`) already clones extras between events.
+- An **event spec** exists (`backend/events/event_spec/`; design in `docs/event-spec-plan.md`): a typed JSON description of an event's setup (event, sessions, ticket types, extras with choices, promo codes), with rows referring to each other by key. The package offers `export`, `validate`, `diff` and `apply`. It is the authoring format for options B and D, and `copy_event` is built on it.
+  - Interfaces (staff REST API and `manage.py event_spec`) and who may use them: see `docs/event-spec-plan.md`.
+  - Validation layers: shape (pydantic), references, the model `clean()` rules, a going-live check, then warnings (setup checks, the start of option C).
+  - Guards: apply is one transaction; it refuses a target that has registrations, tickets or check-ins, or whose registration is open; it never opens registration (an open window in a spec is an error); rows keep their ids when matched by key.
+  - `copy_event` goes through the spec, so it refuses a source that breaks the validation rules (model `clean()` rules, negative prices, cross-event references) and drops a registration window that the move would leave open or already past (self-serve off; the admin says so). Ordering ties are a warning for a new event.
 - Still missing: line items, `RegistrationGroup`, and waitlists (see `event_registration_ux_case_catalog.md` §1.4, §5.2, §4.3).
 - Staff edit live rows in Django admin while sales are open (catalog §9.4). There is no draft or published state.
 
@@ -90,11 +95,7 @@ The prompt and notice are not a guarantee, since a model can miss something. The
 
 #### Feature request content
 
-A `submit_feature_request` tool produces a draft with: use case, current workaround, desired behavior, and who is affected. Stored in a DB table with a status once confirmed. Optional email to the maintainer after maintainer review.
-
-- Fixed fields with length caps, rate limited.
-- Plain-text email only.
-- Nothing is posted to GitHub automatically.
+See `feature_requests.md`: the record structure, the personal-data rules, the local record with manual GitHub export (replacing the earlier email-to-maintainer idea), and the assistant's `file_feature_request` tool.
 
 ### Providers (D only)
 

@@ -59,7 +59,12 @@ from registrations.services import (
     ticket_type_sold_count,
 )
 
-from .services import copy_event, duplicate_extra_to_event
+from .event_spec import SpecError
+from .services import (
+    can_copy_events,
+    copy_event_with_warnings,
+    duplicate_extra_to_event,
+)
 
 
 class CopyEventForm(forms.Form):
@@ -134,11 +139,7 @@ class EventAdmin(admin.ModelAdmin):
         return f"{settings.FRONTEND_BASE_URL}/register/{obj.id}/"
 
     def has_copy_permission(self, request):
-        # The copy creates rows in all five models, not just events.
-        return all(
-            request.user.has_perm(f"events.add_{m}")
-            for m in ("event", "session", "tickettype", "extra", "promocode")
-        )
+        return can_copy_events(request.user)
 
     @admin.action(description=_("Copy event…"), permissions=["copy"])
     def copy_event_action(self, request, queryset):
@@ -155,18 +156,40 @@ class EventAdmin(admin.ModelAdmin):
             form = CopyEventForm(request.POST)
             if form.is_valid():
                 try:
-                    new_event = copy_event(
+                    new_event, warnings = copy_event_with_warnings(
                         source,
                         name=form.cleaned_data["name"],
                         start_date=form.cleaned_data["start_date"],
                     )
-                except ValueError as exc:
-                    self.message_user(request, str(exc), messages.ERROR)
+                except SpecError as exc:
+                    self.message_user(
+                        request,
+                        _("Could not copy '%(source)s': %(problems)s")
+                        % {"source": source.name, "problems": str(exc)},
+                        messages.ERROR,
+                    )
                     return None
+                for warning in warnings:
+                    self.message_user(
+                        request,
+                        f"{warning['path']}: {warning['message']}",
+                        messages.WARNING,
+                    )
+                had_window = (
+                    source.registration_opens_at or source.registration_closes_at
+                )
+                if had_window and not new_event.registration_opens_at:
+                    text = _(
+                        "Copied '%(source)s' to '%(event)s'. Self-serve registration "
+                        "is off on the copy because the moved registration window "
+                        "would already be open or in the past; set a new window "
+                        "when you are ready."
+                    )
+                else:
+                    text = _("Copied '%(source)s' to '%(event)s'.")
                 self.message_user(
                     request,
-                    _("Copied '%(source)s' to '%(event)s'.")
-                    % {"source": source.name, "event": new_event.name},
+                    text % {"source": source.name, "event": new_event.name},
                     messages.SUCCESS,
                 )
                 return HttpResponseRedirect(

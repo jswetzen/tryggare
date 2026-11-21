@@ -3423,6 +3423,23 @@ describe('Register page — fields come from the form spec', () => {
   });
 });
 
+const choiceExtra = (overrides: Record<string, unknown> = {}) => ({
+  id: 'extra-meals',
+  name: 'Meals',
+  price: '50.00',
+  session_id: null,
+  per_attendee: true,
+  applies_to: 'child',
+  requires_choice: true,
+  required: false,
+  default_selected: false,
+  choices: [
+    { id: 'c-meat', label: 'Meat', price_delta: '0.00' },
+    { id: 'c-veg', label: 'Veg', price_delta: '0.00' }
+  ],
+  ...overrides
+});
+
 describe('Register page — reload form config (preview)', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -3462,13 +3479,21 @@ describe('Register page — reload form config (preview)', () => {
     expect(screen.queryByTestId('register-reload-notice')).toBeNull();
   });
 
-  it('clears a selection whose ticket type is gone and lists it in one notice', async () => {
+  it('clears what is gone, lists it in one notice and flags extras that became required', async () => {
     const user = userEvent.setup();
-    pageStateHelper.setUrl('http://localhost/register/event-1?preview=1');
-    const before = baseEventInfo();
-    const after = baseEventInfo();
+    const bus = (choices: string[]) =>
+      choiceExtra({
+        id: 'extra-b',
+        name: 'Bus',
+        choices: choices.map((id) => ({ id, label: id === 'c1' ? 'Seat' : 'Aisle', price_delta: '0.00' }))
+      });
+    const snack = (required: boolean) =>
+      choiceExtra({ id: 'extra-s', name: 'Snack', requires_choice: false, choices: [], required });
+    const before = baseEventInfo({ extras: [choiceExtra(), bus(['c1', 'c2']), snack(false)] });
+    const after = baseEventInfo({ extras: [bus(['c1']), snack(true)] });
     after.ticket_types = after.ticket_types.filter((tt) => tt.id !== 'tt-child');
     getEvent.mockResolvedValueOnce(before).mockResolvedValueOnce(after);
+    pageStateHelper.setUrl('http://localhost/register/event-1?preview=1');
     render(RegisterPage);
 
     await screen.findByTestId('register-preview-banner');
@@ -3476,14 +3501,23 @@ describe('Register page — reload form config (preview)', () => {
     const select = screen.getByTestId('child-ticket-type-0') as HTMLSelectElement;
     await user.selectOptions(select, 'tt-child');
     expect(select.value).toBe('tt-child');
+    await user.click(screen.getByRole('checkbox', { name: /Meals/ }));
+    await user.click(screen.getByRole('checkbox', { name: /Bus/ }));
+    const busSelect = document.querySelector('option[value="c2"]')!.parentElement as HTMLSelectElement;
+    await user.selectOptions(busSelect, 'c2');
+    await user.click(screen.getByRole('checkbox', { name: /Snack/ }));
+    await user.click(screen.getByRole('checkbox', { name: /Snack/ }));
 
     await user.click(screen.getByRole('button', { name: 'Reload form config' }));
 
     const notice = await screen.findByTestId('register-reload-notice');
     expect(notice.textContent).toContain('Ticket type: Barn (0-12 år)');
+    expect(notice.textContent).toContain('Extra: Meals');
+    expect(notice.textContent).toContain('Extra choice: Bus – Aisle');
     expect(select.value).toBe('');
     expect(Array.from(select.options).some((o) => o.value === 'tt-child')).toBe(false);
     expect((document.getElementById('child-first-name-0') as HTMLInputElement).value).toBe('Alex');
+    expect((await screen.findByTestId('register-reload-now-required')).textContent).toContain('Snack');
   });
 
   it('removes an applied promo code that no longer validates, with a note', async () => {
@@ -3509,22 +3543,6 @@ describe('Register page — reload form config (preview)', () => {
 });
 
 describe('Register page — reload edge cases (preview)', () => {
-  const choiceExtra = (overrides: Record<string, unknown> = {}) => ({
-    id: 'extra-meals',
-    name: 'Meals',
-    price: '50.00',
-    session_id: null,
-    per_attendee: true,
-    applies_to: 'child',
-    requires_choice: true,
-    required: false,
-    default_selected: false,
-    choices: [
-      { id: 'c-meat', label: 'Meat', price_delta: '0.00' },
-      { id: 'c-veg', label: 'Veg', price_delta: '0.00' }
-    ],
-    ...overrides
-  });
   const reloadButton = () => screen.getByRole('button', { name: 'Reload form config' });
 
   beforeEach(() => {
@@ -3618,51 +3636,6 @@ describe('Register page — reload edge cases (preview)', () => {
     expect(screen.queryByTestId('register-promo-code-chip')).toBeNull();
   });
 
-  it('clears a ticked extra that was deleted and a choice that was removed', async () => {
-    const user = userEvent.setup();
-    const after = baseEventInfo({
-      extras: [
-        choiceExtra({ id: 'extra-b', name: 'Bus', choices: [{ id: 'c1', label: 'Seat', price_delta: '0.00' }] })
-      ]
-    });
-    const before = baseEventInfo({
-      extras: [
-        choiceExtra(),
-        choiceExtra({ id: 'extra-b', name: 'Bus', choices: [{ id: 'c1', label: 'Seat', price_delta: '0.00' }, { id: 'c2', label: 'Aisle', price_delta: '0.00' }] })
-      ]
-    });
-    getEvent.mockResolvedValueOnce(before).mockResolvedValueOnce(after);
-    render(RegisterPage);
-    await screen.findByTestId('register-preview-banner');
-    await user.click(screen.getByRole('checkbox', { name: /Meals/ }));
-    await user.click(screen.getByRole('checkbox', { name: /Bus/ }));
-    const busSelect = document.querySelector('option[value="c2"]')!.parentElement as HTMLSelectElement;
-    await user.selectOptions(busSelect, 'c2');
-
-    await user.click(reloadButton());
-
-    const notice = await screen.findByTestId('register-reload-notice');
-    expect(notice.textContent).toContain('Extra: Meals');
-    expect(notice.textContent).toContain('Extra choice: Bus – Aisle');
-  });
-
-  it('lists extras that became required', async () => {
-    const user = userEvent.setup();
-    getEvent
-      .mockResolvedValueOnce(baseEventInfo({ extras: [choiceExtra({ requires_choice: false, choices: [] })] }))
-      .mockResolvedValueOnce(
-        baseEventInfo({ extras: [choiceExtra({ requires_choice: false, choices: [], required: true })] })
-      );
-    render(RegisterPage);
-    await screen.findByTestId('register-preview-banner');
-    await user.click(screen.getByRole('checkbox', { name: /Meals/ }));
-    await user.click(screen.getByRole('checkbox', { name: /Meals/ }));
-
-    await user.click(reloadButton());
-
-    const list = await screen.findByTestId('register-reload-now-required');
-    expect(list.textContent).toContain('Meals');
-  });
 });
 
 describe('Register page — spec drives the payload and messages', () => {
