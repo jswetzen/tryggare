@@ -5,7 +5,11 @@ both call ``run_conversation``. Failures surface as ``RunFailed`` with a code fr
 the protocol, never provider text.
 """
 
+import asyncio
 import copy
+import logging
+import uuid
+from dataclasses import dataclass
 from datetime import timedelta
 
 from asgiref.sync import sync_to_async
@@ -16,18 +20,31 @@ from django.db import transaction
 from django.utils import timezone
 from pydantic_ai.exceptions import UnexpectedModelBehavior, UsageLimitExceeded
 from pydantic_ai.messages import (
+    FunctionToolCallEvent,
+    FunctionToolResultEvent,
     ModelMessagesTypeAdapter,
     ModelRequest,
+    ModelResponse,
+    PartDeltaEvent,
+    PartStartEvent,
     RetryPromptPart,
     SystemPromptPart,
+    TextPart,
+    TextPartDelta,
+    ThinkingPart,
     ToolReturnPart,
     UserPromptPart,
 )
 
 from .agent import RUN_DEADLINE_SECONDS, build_agent, run_assistant
+from events.models import Event
+
 from .models import AssistantConversation, AssistantRun, LLMProvider
+from .permissions import can_use_assistant, fresh_user
 from .providers import ProviderError
 from .tools import _pii_kind, build_toolset
+
+logger = logging.getLogger(__name__)
 
 # A run older than the deadline plus this is dead (worker killed), not running.
 DEAD_RUN_SLACK_SECONDS = 60
@@ -42,9 +59,16 @@ MAX_HISTORY_TURNS = 12
 class RunFailed(Exception):
     """``code`` is one of the protocol's run_failed codes."""
 
-    def __init__(self, code: str):
+    def __init__(self, code: str, cause: BaseException | None = None):
         self.code = code
         super().__init__(code)
+        if code not in ("busy", "notice_required"):
+            # Type only: the message may hold chat text or a provider body.
+            logger.warning(
+                "assistant run refused or failed: %s (%s)",
+                code,
+                type(cause).__name__ if cause else "-",
+            )
 
 
 def dump_messages(messages) -> list:
@@ -56,6 +80,12 @@ def dump_messages(messages) -> list:
             msg = copy.copy(msg)
             msg.instructions = None
             msg.parts = [p for p in msg.parts if not isinstance(p, SystemPromptPart)]
+            if not msg.parts:
+                continue
+        elif isinstance(msg, ModelResponse):
+            # Reasoning is the provider's, can be long, and is never replayed to it.
+            msg = copy.copy(msg)
+            msg.parts = [p for p in msg.parts if not isinstance(p, ThinkingPart)]
             if not msg.parts:
                 continue
         clean.append(msg)
@@ -128,7 +158,15 @@ def _begin(event, user) -> AssistantConversation:
     with transaction.atomic():
         # Serialise per user: the cross-event busy check and the rate-limit count
         # below are check-then-act and would race between two events otherwise.
-        get_user_model().objects.select_for_update().filter(pk=user.pk).first()
+        locked = (
+            get_user_model()
+            .objects.select_for_update()
+            .filter(pk=user.pk, is_active=True)
+            .first()
+        )
+        # Before the conversation row and the rate-limit slot: a blocked run costs nothing.
+        if locked is None or not can_use_assistant(locked, event)[0]:
+            raise RunFailed("blocked")
         conv, _ = AssistantConversation.objects.select_for_update().get_or_create(
             event=event, user=user
         )
@@ -176,12 +214,14 @@ def _store_draft(conv: AssistantConversation, token: str, item: dict) -> None:
         row = _owned(conv).select_for_update().first()
         if row is None:
             return
-        version = (row.draft or {}).get("version", 0) + 1
-        row.draft = {**item, "token": token, "version": version}
-        row.save(update_fields=["draft", "updated_at"])
+        row.draft_version += 1
+        row.draft = {**item, "token": token, "version": row.draft_version}
+        row.save(update_fields=["draft", "draft_version", "updated_at"])
 
 
 def _failure_code(exc: Exception) -> str:
+    if isinstance(exc, PermissionDenied):
+        return "blocked"
     if isinstance(exc, TimeoutError):
         return "timeout"
     if isinstance(exc, UsageLimitExceeded):
@@ -197,11 +237,76 @@ def _failure_code(exc: Exception) -> str:
     return "model_error"
 
 
-async def run_conversation(event, user, text: str, *, model=None) -> dict:
+def _permission_guard(event_pk, user):
+    """Sync check run before every tool call: permissions can be revoked mid-run."""
+
+    def check():
+        fresh = fresh_user(user)
+        event = Event.objects.filter(pk=event_pk).first()
+        if fresh is None or event is None or not can_use_assistant(fresh, event)[0]:
+            raise PermissionDenied("No longer allowed to use the assistant.")
+
+    return check
+
+
+def _draft_version(conv_pk) -> int:
+    return (
+        AssistantConversation.objects.filter(pk=conv_pk)
+        .values_list("draft_version", flat=True)
+        .first()
+        or 0
+    )
+
+
+def _stream_forwarder(conv_pk, emit, last_version: int):
+    """Event-stream handler turning agent events into protocol payloads. Tool
+    arguments and results (they hold the spec) and thinking parts are never forwarded."""
+    state = {"version": last_version}
+
+    async def handler(_ctx, stream):
+        async for ev in stream:
+            if isinstance(ev, PartStartEvent) and isinstance(ev.part, TextPart):
+                if ev.part.content:
+                    await emit({"type": "text_delta", "text": ev.part.content})
+            elif isinstance(ev, PartDeltaEvent) and isinstance(ev.delta, TextPartDelta):
+                if ev.delta.content_delta:
+                    await emit({"type": "text_delta", "text": ev.delta.content_delta})
+            elif isinstance(ev, FunctionToolCallEvent):
+                await emit(
+                    {
+                        "type": "tool_started",
+                        "call_id": ev.part.tool_call_id,
+                        "tool": ev.part.tool_name,
+                    }
+                )
+            elif isinstance(ev, FunctionToolResultEvent):
+                ok = ev.part.outcome == "success"
+                await emit(
+                    {
+                        "type": "tool_finished",
+                        "call_id": ev.tool_call_id,
+                        "tool": ev.part.tool_name,
+                        "ok": ok,
+                    }
+                )
+                if ok and ev.part.tool_name == "propose_spec":
+                    version = await sync_to_async(_draft_version)(conv_pk)
+                    if version != state["version"]:
+                        state["version"] = version
+                        await emit({"type": "draft_updated", "draft_version": version})
+
+    return handler
+
+
+async def run_conversation(
+    event, user, text: str, *, model=None, on_started=None, on_event=None
+) -> dict:
     """Run one turn. Returns ``{"text", "draft_version"}``; raises RunFailed.
 
     A failed run stores no messages (a half-finished tool exchange must not become
     history) but keeps any draft already proposed. ``model`` is for tests.
+    ``on_started()`` is awaited once the lock is held; ``on_event(payload)`` gets
+    tool, text and draft events (the agent then streams its model requests).
     """
     provider = await sync_to_async(LLMProvider.load)()
     if not provider.enabled and model is None:
@@ -211,29 +316,168 @@ async def run_conversation(event, user, text: str, *, model=None) -> dict:
         conv = _begin(event, user)
         try:
             toolset, _drafts = build_toolset(
-                event, user, lambda token, item: _store_draft(conv, token, item)
+                event,
+                user,
+                lambda token, item: _store_draft(conv, token, item),
+                guard=_permission_guard(event.pk, user),
             )
             return conv, toolset, trim_history(load_messages(conv.messages))
         except BaseException as exc:
             _release(conv)
             if isinstance(exc, PermissionDenied):
-                raise RunFailed("blocked") from None
+                raise RunFailed("blocked", exc) from None
             raise
 
-    conv, toolset, history = await sync_to_async(prepare)()
+    # The thread keeps running if we are cancelled; wait it out so its lock is released.
+    prep = asyncio.ensure_future(sync_to_async(prepare)())
+    try:
+        conv, toolset, history = await asyncio.shield(prep)
+    except asyncio.CancelledError:
+        try:
+            await _release_after(prep)
+        finally:
+            raise
+
     stored = None
     try:
+        if on_started:
+            await on_started()
         agent = build_agent(provider, toolset, model=model)
-        result = await run_assistant(agent, text, message_history=history)
+        handler = (
+            _stream_forwarder(conv.pk, on_event, conv.draft_version)
+            if on_event
+            else None
+        )
+        result = await run_assistant(
+            agent, text, message_history=history, event_stream_handler=handler
+        )
         stored = dump_messages(result.all_messages())
     except Exception as exc:
-        raise RunFailed(_failure_code(exc)) from None
+        raise RunFailed(_failure_code(exc), exc) from None
     finally:
         # Also on cancellation, so a cancelled run does not hold the lock until it is declared dead.
         await sync_to_async(_release)(conv, stored)
-    draft = await sync_to_async(
-        lambda: AssistantConversation.objects.filter(pk=conv.pk)
-        .values_list("draft", flat=True)
-        .first()
-    )()
-    return {"text": result.output, "draft_version": (draft or {}).get("version")}
+    return {
+        "text": result.output,
+        "draft_version": await sync_to_async(_draft_version)(conv.pk) or None,
+    }
+
+
+async def _release_after(prep) -> None:
+    try:
+        conv, _toolset, _history = await prep
+    except Exception:
+        return  # prepare released its own lock
+    await sync_to_async(_release)(conv)
+
+
+# --- running in the background, for a transport
+
+
+@dataclass
+class _Handle:
+    task: asyncio.Task | None = None
+    started: bool = False
+    cancel_requested: bool = False
+
+
+# Per process, like the task itself: a run outlives the connection that started it.
+_RUNS: dict[tuple, _Handle] = {}
+
+
+def start_run(event, user, text, *, reply_to, publish, refuse, model=None) -> None:
+    """Run in a task that outlives the caller. ``publish(payload)`` reaches every
+    connection of the conversation; ``refuse(payload)`` only the sender (used for
+    refusals before a run exists). Payloads are protocol messages."""
+    key = (event.pk, user.pk)
+    handle = _Handle()
+    if key in _RUNS:
+        handle = None
+    else:
+        _RUNS[key] = handle
+    run_id = f"r-{uuid.uuid4().hex[:8]}"
+
+    async def drive():
+        if handle is None:
+            await refuse(_failed(None, reply_to, "busy"))
+            return
+
+        async def on_started():
+            handle.started = True
+            await publish(
+                {"type": "run_started", "run_id": run_id, "reply_to": reply_to}
+            )
+            if handle.cancel_requested:
+                handle.task.cancel()
+
+        async def on_event(payload):
+            await publish({**payload, "run_id": run_id})
+
+        try:
+            await run_conversation(
+                event, user, text, model=model, on_started=on_started, on_event=on_event
+            )
+            await publish({"type": "run_finished", "run_id": run_id})
+        except RunFailed as exc:
+            sink = publish if handle.started else refuse
+            await sink(_failed(run_id if handle.started else None, reply_to, exc.code))
+        except asyncio.CancelledError:
+            if handle.started:
+                await publish(_failed(run_id, reply_to, "cancelled"))
+        except Exception as exc:
+            logger.warning("assistant run crashed: %s", type(exc).__name__)
+            await refuse(_failed(None, reply_to, "model_error"))
+        finally:
+            if handle.task is asyncio.current_task():
+                _RUNS.pop(key, None)
+
+    task = asyncio.ensure_future(drive())
+    if handle is not None:
+        handle.task = task
+
+
+def _failed(run_id, reply_to, code: str) -> dict:
+    return {"type": "run_failed", "run_id": run_id, "reply_to": reply_to, "code": code}
+
+
+def request_cancel(event_pk, user_pk) -> None:
+    """Cancel this user's run on the event, if it is in this process. Before the
+    lock is held it is only noted: cancelling mid-setup would orphan the lock."""
+    handle = _RUNS.get((event_pk, user_pk))
+    if handle is None or handle.task is None:
+        return
+    if handle.started:
+        handle.task.cancel()
+    else:
+        handle.cancel_requested = True
+
+
+def clear_conversation(conv: AssistantConversation) -> None:
+    """Messages, draft and run state together; the notice and the version counter stay.
+    A run still in flight finds the row no longer its own (``_owned``) and writes nothing."""
+    AssistantConversation.objects.filter(pk=conv.pk).update(
+        messages=[],
+        draft=None,
+        status=AssistantConversation.STATUS_IDLE,
+        run_started_at=None,
+        updated_at=timezone.now(),
+    )
+
+
+def discard_draft(conv: AssistantConversation) -> None:
+    AssistantConversation.objects.filter(pk=conv.pk).update(
+        draft=None, updated_at=timezone.now()
+    )
+
+
+def reset_if_dead(conv: AssistantConversation) -> bool:
+    """Free the lock of a run whose worker died. Returns whether a run is live."""
+    if conv.status != conv.STATUS_RUNNING:
+        return False
+    if _is_dead(conv, timezone.now()):
+        conv.status, conv.run_started_at = conv.STATUS_IDLE, None
+        AssistantConversation.objects.filter(pk=conv.pk).update(
+            status=conv.STATUS_IDLE, run_started_at=None
+        )
+        return False
+    return True

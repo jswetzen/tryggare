@@ -79,7 +79,7 @@ decisions; the owner confirms or changes each before step 8.
 1. **Retention:** delete conversations idle for 30 days (`ASSISTANT_RETENTION_DAYS`, in the existing
    `run_scheduled_retention` job).
 2. **PII check on chat text:** warn, do not block (inline warning with "Send anyway"), using `_pii_kind`.
-3. **Per-user run rate limit:** one running conversation per user and N runs per hour (setting).
+3. **Per-user run rate limit:** one running conversation per user and 20 runs per hour (`ASSISTANT_RUNS_PER_HOUR`).
 4. **Eval threshold to advertise a model:** 13 of 15 briefs and zero PII or injection failures.
 
 ## Architecture
@@ -194,12 +194,23 @@ Server to client:
 {"type": "text_delta", "run_id": "r-9", "text": "I have set up two age bands"}
 {"type": "draft_updated", "run_id": "r-9", "draft_version": 4}
 {"type": "run_finished", "run_id": "r-9"}
-{"type": "run_failed", "run_id": "r-9", "code": "timeout"}
+{"type": "run_failed", "run_id": "r-9", "reply_to": "c-17", "code": "timeout"}
+{"type": "error", "code": "bad_request"}
 ```
 
 - `run_failed.code` is one of `timeout`, `limit`, `model_error`, `provider_unreachable`, `auth_failed`,
-  `cancelled`, `busy`, `notice_required`, `blocked`. The client maps codes to i18n strings; no provider body,
-  key or exception text goes over the wire.
+  `cancelled`, `busy`, `notice_required`, `blocked`, `rate_limited` (runs per hour exceeded), `not_enabled`
+  (provider switched off since connect). The client maps codes to i18n strings; no provider body, key or
+  exception text goes over the wire (the server logs the code and exception type only).
+- A refusal before a run exists (`busy`, `notice_required`, `blocked`, `rate_limited`, `not_enabled`) goes only to
+  the sending connection, with `run_id: null` and `reply_to` set. Everything after `run_started` is published to
+  every connection of the conversation. `error` answers a malformed frame (bad JSON, unknown `type`, missing
+  `id`, empty or over 4000 character `text`) and is not tied to a run.
+- `cancel` is honoured once `run_started` was sent; sent earlier it is remembered and applied at that point, so
+  a run in setup never leaves its lock behind. The run is a task in the worker process and outlives the
+  connection; `cancel` finds it in the same process only (one Daphne process, see Risks).
+- Permission is re-checked before every tool call, not only between messages; a revocation ends the run with
+  `blocked`. Notice acceptance is the HTTP endpoint (step 3); the consumer only refuses with `notice_required`.
 - Tool events carry the tool name and `ok` only, never arguments or results (they contain the spec).
 - `draft_updated` fires when `propose_spec` returns without a retry, after the draft is committed to the row.
   **The chat component calls the page's reload function directly** (a prop, see Frontend); the page then
@@ -560,7 +571,7 @@ per the project notes). Give agents this file's path rather than restating it.
 |---|---|---|---|---|
 | 0 | Provider, plain-function tools with optional MCP wrapper, validators, prompt, guards, first model findings | Sonnet | Opus review | **Done** (on `feat/llm-provider`; outstanding: confirm the history-processor API on pydantic-ai 2.71) |
 | 1 | `AssistantConversation`, history store/load (strip, trim), `runner.py` with `TestModel`, retention setting and job hook, admin, cascade tests, `.po` entries. A management command can drive a run. | Sonnet | Opus review: history/prompt rules, retention and deletion, PII in stored data | **Built, awaiting review** (`runner.py`; history trimmed on load with a turn cap, no `ProcessHistory` needed; added `AssistantRun` for the rate limit and codes `rate_limited`, `not_enabled`) |
-| 2 | `AssistantConsumer`, routing, `permissions.py`, protocol, tool-progress and text events, draft persistence on propose. | Sonnet | Opus review: auth, per-request re-check, one-run lock, no data leaks over WS. WS tests green | Open |
+| 2 | `AssistantConsumer`, routing, `permissions.py`, protocol, tool-progress and text events, draft persistence on propose. | Sonnet | Opus review: auth, per-request re-check, one-run lock, no data leaks over WS. WS tests green | **Built, awaiting review** (`consumers.py`, `permissions.py`; runner gained streaming events, `start_run` and a per-tool permission guard; `draft_version` counter on the conversation; `clear_conversation` and `discard_draft` helpers for step 3) |
 | 3 | HTTP endpoints: conversation, notice, clear, draft, and `/preview/` with apply, id stabilisation and rollback. | Sonnet | Opus review: rollback safety, per-user scoping, id stability. Parity and stability tests green | Open |
 | 4 | Register page hooks: assistant flag and mode, `loadSpec`, `reloadSpec` refactor (quiet, queued), slim strip replacing banner chrome, i18n. Thin `/events/[eventId]/setup` route and admin "Open assistant" link. No chat yet; a debug button drives the reload. | Sonnet (`fe-coder`) | `frontend-dev-cycle` round; Opus review of the page diff (touch points 1-9 only, public render unchanged) | Open |
 | 5 | Store, `AssistantHost`, notice, composer, tool progress, lazy mount and gating, i18n, a11y. | Sonnet (`fe-coder`) | Cycle round; designer criteria 1-9; screenshots at both viewports and languages | Open |
@@ -585,6 +596,7 @@ per the project notes). Give agents this file's path rather than restating it.
   input warning (proposed), no chat text in logs or admin list views.
 - **Staleness and last-write-wins** can overwrite a colleague's admin edit; the review says so, and apply
   refuses open or non-empty events regardless.
+- **Cancel and the one-run registry are per process:** a run is an asyncio task in the Daphne worker that started it. With several workers, `cancel` sent on a connection served elsewhere is ignored (the DB lock still prevents a second run). Revisit if the deployment ever runs more than one.
 - **Dev only:** daphne does not hot-reload, so consumer changes need `podman restart tryggare_web_1`.
 - DNS-rebinding window on the provider connection: accepted (Safety).
 

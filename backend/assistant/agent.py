@@ -163,6 +163,7 @@ async def run_assistant(
     prompt: str,
     *,
     message_history=None,
+    event_stream_handler=None,
     deadline: float = RUN_DEADLINE_SECONDS,
     request_limit: int = 25,
     tool_calls_limit: int = 40,
@@ -178,7 +179,10 @@ async def run_assistant(
         try:
             async with asyncio.timeout(deadline):
                 return await agent.run(
-                    prompt, message_history=message_history, usage_limits=limits
+                    prompt,
+                    message_history=message_history,
+                    usage_limits=limits,
+                    event_stream_handler=event_stream_handler,
                 )
         except (UnexpectedModelBehavior, UsageLimitExceeded, TimeoutError) as exc:
             exc.transcript = list(messages)

@@ -23,7 +23,8 @@ from pydantic_ai.toolsets import FunctionToolset
 from events import event_spec
 from events.event_spec._diff import normalize
 from events.models import Event
-from events.services import REPLACE_PERMISSIONS, VIEW_PERMISSIONS
+
+from .permissions import can_use_assistant
 
 TOOL_RETRIES = 5
 
@@ -182,18 +183,9 @@ class EventTools:
     """The tools, as plain sync methods. Their docstrings are the model-facing descriptions."""
 
     def __init__(self, event: Event, user, on_propose=None):
-        # Same bar as the staff API: view for reading, add/change/delete for replacing,
-        # since a proposal exists to be applied.
-        if not all(user.has_perm(p) for p in VIEW_PERMISSIONS + REPLACE_PERMISSIONS):
-            raise PermissionDenied(
-                "The assistant needs permission to edit event setups."
-            )
-        blockers = event_spec.apply_blockers(event)
-        if blockers:
-            raise PermissionDenied(
-                "A setup cannot be proposed for this event: "
-                + _issues_message(blockers)
-            )
+        ok, issues = can_use_assistant(user, event)
+        if not ok:
+            raise PermissionDenied("; ".join(i["message"] for i in issues))
         self.event = event
         self.drafts = Drafts(event, on_propose)
 
@@ -306,12 +298,25 @@ def asyncify(fn, error_type: type[Exception]):
     return wrapper
 
 
+def _guarded(fn, guard):
+    @functools.wraps(fn)
+    def wrapper(*args, **kwargs):
+        guard()  # raises PermissionDenied: not a ToolFailure, so it ends the run
+        return fn(*args, **kwargs)
+
+    return wrapper
+
+
 def build_toolset(
-    event: Event, user, on_propose=None
+    event: Event, user, on_propose=None, guard=None
 ) -> tuple[FunctionToolset, Drafts]:
-    """Function tools for a Pydantic AI agent; errors become ``ModelRetry``."""
+    """Function tools for a Pydantic AI agent; errors become ``ModelRetry``.
+    ``guard`` (sync) runs before every tool call, to re-check permission mid-run."""
     tools = EventTools(event, user, on_propose)
     toolset = FunctionToolset(max_retries=TOOL_RETRIES)
     for name in TOOL_NAMES:
-        toolset.add_function(asyncify(getattr(tools, name), ModelRetry), name=name)
+        fn = getattr(tools, name)
+        if guard:
+            fn = _guarded(fn, guard)
+        toolset.add_function(asyncify(fn, ModelRetry), name=name)
     return toolset, tools.drafts

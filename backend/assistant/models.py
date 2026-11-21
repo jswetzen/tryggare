@@ -187,6 +187,8 @@ class AssistantConversation(models.Model):
     messages = models.JSONField(default=list, blank=True, verbose_name=_("Messages"))
     # {"spec", "diff", "warnings", "base", "token", "version"}; last propose_spec wins.
     draft = models.JSONField(null=True, blank=True, verbose_name=_("Draft"))
+    # Never reset by clear or discard, so a client can order draft_updated across them.
+    draft_version = models.PositiveIntegerField(default=0, editable=False)
     status = models.CharField(
         max_length=16,
         choices=STATUS_CHOICES,
