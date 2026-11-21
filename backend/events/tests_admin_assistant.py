@@ -5,7 +5,6 @@ from accounts.models import AdminUser
 from assistant.models import LLMProvider
 from events.event_spec import apply, example_spec
 from events.spec_test_support import at_now
-from events.models import Event
 from registrations.models import Registration
 from families.models import Family
 
