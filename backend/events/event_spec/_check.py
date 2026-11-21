@@ -11,7 +11,7 @@ from ._diff import diff
 from ._export import export, keyed_rows
 from ._issues import SpecError
 from ._kinds import KINDS
-from ._validate import validate
+from ._validate import _target_issues, validate
 
 
 def check(spec: dict, event: Event | None = None) -> dict:
@@ -37,6 +37,12 @@ def check(spec: dict, event: Event | None = None) -> dict:
 
 # Apply preconditions, not problems with the setup of an event that is already live.
 APPLY_GUARDS = {"registration_open_on_target", "event_not_empty", "registration_open"}
+
+
+def apply_blockers(event: Event) -> list[dict]:
+    """Issues that would stop any spec being applied to ``event`` (open registration, in use)."""
+    return _target_issues(event)
+
 
 _PATH_ROW = re.compile(r"^(\w+)\[(\d+)\](?:\.(\w+)\[(\d+)\])?")
 _NAME_FIELD = {"promo_codes": "code", "choices": "label"}

@@ -45,6 +45,11 @@ MESSAGES = {
         "Registration would already be open. Set registration_opens_at to a "
         "future moment; a person opens registration, not the spec."
     ),
+    "age_bounds_inverted": _(
+        "min_birthdate (%(min)s) is later than max_birthdate (%(max)s). min_birthdate is the earliest birth date "
+        "allowed (the oldest attendee) and max_birthdate the latest (the youngest), so min_birthdate must be the "
+        "earlier date. Swap them."
+    ),
     # Warnings
     "registration_not_configured": _(
         "No registration window is set, so public self-serve registration is off."
@@ -97,6 +102,14 @@ MESSAGES = {
     "age_band_gap": _("No active ticket covers children aged %(start)s to %(end)s."),
     "age_band_overlap": _(
         "This age tier covers the same ages as '%(other)s'; an attendee in both gets two options. Intended?"
+    ),
+    "age_label_mismatch": _(
+        "The name says ages %(label)s, but the age bounds admit ages %(actual)s on the event start date. "
+        "For 'N and under', min_birthdate is the start date minus N+1 years plus one day; for 'at least M', "
+        "max_birthdate is the start date minus M years."
+    ),
+    "discount_as_extra": _(
+        "A free extra named like a discount does not discount anything; an extra only adds to the price. Use a promo code."
     ),
     "inactive_unreferenced": _(
         "This row is inactive and nothing refers to it, but it is still copied with the event. Delete it if it is not needed."
