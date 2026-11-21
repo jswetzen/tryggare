@@ -13,7 +13,7 @@
    * no TicketTypes configured keep the original flat-price behavior
    * unchanged (see backend registrations/pricing.py::calculate_total).
    */
-  import { onMount } from 'svelte';
+  import { onMount, tick } from 'svelte';
   import { t, locale } from 'svelte-i18n';
   import { page } from '$app/stores';
   import { pushState } from '$app/navigation';
@@ -169,7 +169,15 @@
   let previewStale = $state(false);
   let previewDraftUnusable = $state(false);
   let assistantFallback = $state<UnavailableKind | null>(null);
-  let previewUpdates = $state(0);
+  let previewUpdated = $state(false);
+
+  // The status region stays mounted; emptying it for a tick makes a repeat of
+  // the same text count as a change (a freshly inserted region is often not read).
+  async function announcePreviewUpdated() {
+    previewUpdated = false;
+    await tick();
+    previewUpdated = true;
+  }
 
   function formatDateTime(iso: string): string {
     // Follow the page's own sv/en toggle rather than the browser's OS
@@ -909,7 +917,7 @@
         reloadNotice = notice;
         reloadNowRequired = reconciled.nowRequired.map((i) => i.name);
       } else {
-        previewUpdates += 1;
+        void announcePreviewUpdated();
       }
     } catch (err) {
       console.error('Reloading the form config failed:', err);
@@ -2652,7 +2660,11 @@
             </Badge>
             <span>{$t('register.previewBanner')}</span>
           </div>
-          {#if previewStale || previewDraftUnusable}
+          {#if previewDraftUnusable}
+            <p class="mt-1 text-xs font-normal" data-testid="assistant-stale">
+              {$t('assistant.preview.draftUnusable')}
+            </p>
+          {:else if previewStale}
             <p class="mt-1 text-xs font-normal" data-testid="assistant-stale">
               {$t('assistant.review.stale')}
             </p>
@@ -2671,11 +2683,9 @@
               </Button>
             </div>
           {/if}
-          {#key previewUpdates}
-            <p class="sr-only" role="status" data-testid="assistant-updated">
-              {previewUpdates > 0 ? $t('assistant.preview.updated') : ''}
-            </p>
-          {/key}
+          <p class="sr-only" role="status" data-testid="assistant-updated">
+            {previewUpdated ? $t('assistant.preview.updated') : ''}
+          </p>
         {:else}
           {$t('register.previewBanner')}
           {#if assistantFallback}

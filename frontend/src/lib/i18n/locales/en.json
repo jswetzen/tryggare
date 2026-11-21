@@ -787,7 +787,8 @@
       "saved": "Saved",
       "promoNote": "Promo codes are checked against the saved setup.",
       "updated": "Preview updated",
-      "fallback": "The assistant is not available here, so this shows the saved setup."
+      "fallback": "The assistant is not available here, so this shows the saved setup.",
+      "draftUnusable": "The draft no longer fits this event, so this shows the saved setup."
     },
     "review": {
       "stale": "The setup changed after this draft was made."

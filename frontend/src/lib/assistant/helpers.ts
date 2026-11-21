@@ -72,12 +72,19 @@ export function coalesce<A>(job: (arg: A) => Promise<void>): (arg: A) => Promise
   let running: Promise<void> | null = null;
   let queued: { arg: A } | null = null;
 
+  // `running` is cleared in the same tick that finds the queue empty; a later
+  // `.finally` would let a call in between join a chain that already stopped.
   async function drain(first: A): Promise<void> {
     let arg = first;
-    for (;;) {
-      await job(arg);
-      if (!queued) return;
-      arg = queued.arg;
+    try {
+      for (;;) {
+        await job(arg);
+        if (!queued) return;
+        arg = queued.arg;
+        queued = null;
+      }
+    } finally {
+      running = null;
       queued = null;
     }
   }
@@ -87,10 +94,7 @@ export function coalesce<A>(job: (arg: A) => Promise<void>): (arg: A) => Promise
       queued = { arg };
       return running;
     }
-    running = drain(arg).finally(() => {
-      running = null;
-      queued = null;
-    });
+    running = drain(arg);
     return running;
   };
 }

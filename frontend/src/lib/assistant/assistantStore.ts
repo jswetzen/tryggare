@@ -121,6 +121,8 @@ export function reduce(
         ...state,
         conversationId: c.conversation_id ?? state.conversationId,
         running: c.running,
+        runId: c.running ? state.runId : null,
+        tools: c.running ? state.tools : [],
         noticeRequired: !c.notice_accepted,
         draftVersion: Math.max(state.draftVersion, c.draft_version),
         transcript: live ? state.transcript : c.transcript.map((e) => ({ ...e }))
@@ -138,6 +140,9 @@ export function reduce(
         connection: 'open',
         conversationId: e.conversation_id,
         running: e.running,
+        // A run that ended while disconnected leaves no run_finished behind.
+        runId: e.running ? state.runId : null,
+        tools: e.running ? state.tools : [],
         noticeRequired: e.notice_required,
         draftVersion: e.draft_version,
         error: null
@@ -145,6 +150,7 @@ export function reduce(
     case 'run_started':
       return { ...state, running: true, runId: e.run_id, tools: [], error: null };
     case 'tool_started':
+      if (state.tools.some((t) => t.callId === e.call_id)) return state;
       return {
         ...state,
         tools: [...state.tools, { callId: e.call_id, tool: e.tool, state: 'running' }]
@@ -202,6 +208,15 @@ export interface SocketLike {
 }
 
 const OPEN = 1;
+
+// HTTP status of the conversation endpoint -> the close code the consumer uses.
+const REFUSAL_BY_STATUS: Record<number, number> = {
+  401: 4401,
+  403: 4403,
+  404: 4404,
+  409: 4409,
+  503: 4503
+};
 export const BACKOFF_START_MS = 1000;
 export const BACKOFF_MAX_MS = 15000;
 
@@ -248,16 +263,37 @@ export function createAssistantStore(opts: AssistantStoreOptions): AssistantStor
   let attempt = 0;
   let wanted = false;
   let counter = 0;
+  // Bumped on connect/disconnect, so a probe answering late is ignored.
+  let generation = 0;
+  // A re-read is applied only if it is the newest one and no run started or
+  // ended after it was asked for: an older answer would undo the newer state
+  // (e.g. `running: false` landing after `run_started`).
+  let refreshSeq = 0;
+  let runEpoch = 0;
 
   const dispatch = (a: Action) => store.update((s) => reduce(s, a, sent));
 
   async function refresh() {
     if (!opts.fetchConversation) return;
+    const seq = ++refreshSeq;
+    const epoch = runEpoch;
     try {
-      dispatch({ kind: 'hydrate', conversation: await opts.fetchConversation() });
+      const conversation = await opts.fetchConversation();
+      if (seq === refreshSeq && epoch === runEpoch) dispatch({ kind: 'hydrate', conversation });
     } catch {
       // The socket state stays; the next run end or reconnect tries again.
     }
+  }
+
+  function retry() {
+    dispatch({ kind: 'connection', connection: 'reconnecting' });
+    timer = setTimeout(open, backoffDelay(attempt));
+    attempt += 1;
+  }
+
+  function refuse(code: number) {
+    wanted = false;
+    dispatch({ kind: 'connection', connection: 'refused', refusedCode: code });
   }
 
   function open() {
@@ -267,8 +303,10 @@ export function createAssistantStore(opts: AssistantStoreOptions): AssistantStor
       opts.url ?? wsUrl(opts.eventId)
     );
     socket = ws;
+    let opened = false;
     ws.onopen = () => {
       if (socket !== ws) return;
+      opened = true;
       attempt = 0;
       dispatch({ kind: 'connection', connection: 'open' });
     };
@@ -281,6 +319,14 @@ export function createAssistantStore(opts: AssistantStoreOptions): AssistantStor
         return;
       }
       if (!event || typeof event.type !== 'string') return;
+      if (
+        event.type === 'ready' ||
+        event.type === 'run_started' ||
+        event.type === 'run_finished' ||
+        (event.type === 'run_failed' && event.run_id !== null)
+      ) {
+        runEpoch += 1;
+      }
       dispatch({ kind: 'server', event });
       if (event.type === 'ready' || event.type === 'run_finished' || event.type === 'run_failed') {
         void refresh();
@@ -299,13 +345,26 @@ export function createAssistantStore(opts: AssistantStoreOptions): AssistantStor
         return;
       }
       if (REFUSED_CLOSE_CODES.includes(ev.code)) {
-        wanted = false;
-        dispatch({ kind: 'connection', connection: 'refused', refusedCode: ev.code });
+        refuse(ev.code);
         return;
       }
-      dispatch({ kind: 'connection', connection: 'reconnecting' });
-      timer = setTimeout(open, backoffDelay(attempt));
-      attempt += 1;
+      // Daphne turns a close before accept into an HTTP 403, so browsers see
+      // 1006, not 44xx: a socket that never opened asks the HTTP endpoint why.
+      if (!opened && opts.fetchConversation) {
+        const gen = generation;
+        dispatch({ kind: 'connection', connection: 'reconnecting' });
+        opts.fetchConversation().then(
+          () => gen === generation && retry(),
+          (err) => {
+            if (gen !== generation) return;
+            const code = REFUSAL_BY_STATUS[(err as { status?: number } | null)?.status ?? -1];
+            if (code) refuse(code);
+            else retry();
+          }
+        );
+        return;
+      }
+      retry();
     };
   }
 
@@ -319,11 +378,13 @@ export function createAssistantStore(opts: AssistantStoreOptions): AssistantStor
     subscribe: store.subscribe,
     connect() {
       if (wanted) return;
+      generation += 1;
       wanted = true;
       attempt = 0;
       open();
     },
     disconnect() {
+      generation += 1;
       wanted = false;
       if (timer) clearTimeout(timer);
       timer = null;

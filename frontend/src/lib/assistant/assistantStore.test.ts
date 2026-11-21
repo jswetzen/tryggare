@@ -181,6 +181,25 @@ describe('reduce', () => {
     expect(s.noticeRequired).toBe(true);
   });
 
+  it('ready or hydrate saying no run clears a run that ended while away', () => {
+    const live = apply([
+      { type: 'run_started', run_id: 'r-1', reply_to: 'c-1' },
+      { type: 'tool_started', run_id: 'r-1', call_id: 't-1', tool: 'validate_spec' }
+    ]);
+    expect(apply([ready()], live)).toMatchObject({ running: false, runId: null, tools: [] });
+    expect(reduce(live, { kind: 'hydrate', conversation: conversation() })).toMatchObject({
+      running: false,
+      runId: null,
+      tools: []
+    });
+  });
+
+  it('a duplicate tool_started is ignored', () => {
+    const tool = { type: 'tool_started', run_id: 'r-1', call_id: 't-1', tool: 'x' } as const;
+    const s = apply([{ type: 'run_started', run_id: 'r-1', reply_to: 'c-1' }, tool, tool]);
+    expect(s.tools).toHaveLength(1);
+  });
+
   it('hydrate keeps text streamed here while the run is still live', () => {
     const live = apply([
       { type: 'run_started', run_id: 'r-1', reply_to: 'c-1' },
@@ -297,30 +316,105 @@ describe('createAssistantStore', () => {
     expect(JSON.parse(sock().sent[0])).toEqual({ type: 'cancel' });
   });
 
-  it('reconnects with 1 s, 2 s, 4 s backoff and resets after an open', () => {
-    const { store } = setup();
+  it('reconnects with 1 s, 2 s, 4 s backoff and resets after an open', async () => {
+    // A socket that never opened asks over HTTP first; this one answers 200.
+    const { store, fetchConversation } = setup();
     store.connect();
     sock().open();
     sock().drop();
     expect(get(store).connection).toBe('reconnecting');
-    vi.advanceTimersByTime(999);
+    await vi.advanceTimersByTimeAsync(999);
     expect(FakeSocket.all).toHaveLength(1);
-    vi.advanceTimersByTime(1);
+    await vi.advanceTimersByTimeAsync(1);
     expect(FakeSocket.all).toHaveLength(2);
     sock().drop();
-    vi.advanceTimersByTime(1999);
+    await vi.advanceTimersByTimeAsync(1999);
     expect(FakeSocket.all).toHaveLength(2);
-    vi.advanceTimersByTime(1);
+    await vi.advanceTimersByTimeAsync(1);
     expect(FakeSocket.all).toHaveLength(3);
     sock().drop();
-    vi.advanceTimersByTime(3999);
+    await vi.advanceTimersByTimeAsync(3999);
     expect(FakeSocket.all).toHaveLength(3);
-    vi.advanceTimersByTime(1);
+    await vi.advanceTimersByTimeAsync(1);
     expect(FakeSocket.all).toHaveLength(4);
+    expect(fetchConversation).toHaveBeenCalledTimes(2);
     sock().open();
     sock().drop();
-    vi.advanceTimersByTime(1000);
+    await vi.advanceTimersByTimeAsync(1000);
     expect(FakeSocket.all).toHaveLength(5);
+    expect(fetchConversation).toHaveBeenCalledTimes(2);
+  });
+
+  it.each([
+    [401, 4401],
+    [403, 4403],
+    [404, 4404],
+    [409, 4409],
+    [503, 4503]
+  ])('a handshake rejected as 1006 is a refusal when HTTP says %i', async (status, code) => {
+    const { store } = setup(vi.fn(async () => Promise.reject({ status, message: '' })));
+    store.connect();
+    sock().drop(1006);
+    await vi.advanceTimersByTimeAsync(60000);
+    expect(FakeSocket.all).toHaveLength(1);
+    expect(get(store)).toMatchObject({ connection: 'refused', refusedCode: code });
+  });
+
+  it('a handshake rejected while the server is down keeps retrying', async () => {
+    const { store } = setup(vi.fn(async () => Promise.reject({ status: 0, message: '' })));
+    store.connect();
+    sock().drop(1006);
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(FakeSocket.all).toHaveLength(2);
+    expect(get(store).connection).toBe('reconnecting');
+  });
+
+  it('a probe answering after disconnect does nothing', async () => {
+    let answer!: (v: unknown) => void;
+    const { store } = setup(vi.fn(() => new Promise<ConversationState>((_, rej) => (answer = rej))));
+    store.connect();
+    sock().drop(1006);
+    store.disconnect();
+    answer({ status: 403 });
+    await vi.advanceTimersByTimeAsync(60000);
+    expect(FakeSocket.all).toHaveLength(1);
+    expect(get(store).connection).toBe('closed');
+  });
+
+  it('an older re-read answering last does not undo newer state', async () => {
+    const answers: ((c: ConversationState) => void)[] = [];
+    const fetchConversation = vi.fn(
+      () => new Promise<ConversationState>((res) => answers.push(res))
+    );
+    const { store } = setup(fetchConversation);
+    store.connect();
+    sock().open();
+    sock().receive(ready({ running: true }));
+    sock().receive({ type: 'run_finished', run_id: 'r' });
+    answers[1](conversation({ running: false, transcript: [{ role: 'assistant', text: 'new' }] }));
+    await vi.advanceTimersByTimeAsync(0);
+    answers[0](conversation({ running: true, transcript: [{ role: 'assistant', text: 'old' }] }));
+    await vi.advanceTimersByTimeAsync(0);
+    expect(get(store)).toMatchObject({
+      running: false,
+      transcript: [{ role: 'assistant', text: 'new' }]
+    });
+  });
+
+  it('a re-read asked for before a run started is not applied over the live run', async () => {
+    let answer!: (c: ConversationState) => void;
+    const { store } = setup(vi.fn(() => new Promise<ConversationState>((res) => (answer = res))));
+    store.connect();
+    sock().open();
+    sock().receive(ready());
+    sock().readyState = 1;
+    const id = store.send('hello');
+    sock().receive({ type: 'run_started', run_id: 'r', reply_to: id! });
+    sock().receive({ type: 'text_delta', run_id: 'r', text: 'working' });
+    answer(conversation({ running: false, transcript: [] }));
+    await vi.advanceTimersByTimeAsync(0);
+    expect(get(store).running).toBe(true);
+    expect(get(store).transcript.map((e) => e.text)).toEqual(['hello', 'working']);
   });
 
   it('after reconnecting it re-reads the conversation on ready', async () => {

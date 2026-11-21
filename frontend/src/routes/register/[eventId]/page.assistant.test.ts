@@ -178,13 +178,23 @@ describe('assistant mode', () => {
     expect(document.body.textContent).toContain('Draft pass');
   });
 
-  it('says Saved, and flags a stale or unusable draft', async () => {
+  it('says Saved, and says why when the draft no longer fits', async () => {
     getPreview.mockResolvedValue(
       previewOf(eventInfo(), { source: 'saved', stale: true, draft_unusable: true })
     );
     render(RegisterPage);
     expect((await screen.findByTestId('assistant-strip')).textContent).toContain('Saved');
-    expect(screen.getByTestId('assistant-stale')).toBeInTheDocument();
+    expect(screen.getByTestId('assistant-stale').textContent).toContain(
+      'assistant.preview.draftUnusable'
+    );
+  });
+
+  it('flags a stale draft that still renders', async () => {
+    getPreview.mockResolvedValue(previewOf(eventInfo(), { source: 'draft', stale: true }));
+    render(RegisterPage);
+    expect((await screen.findByTestId('assistant-stale')).textContent).toContain(
+      'The setup changed after this draft was made.'
+    );
   });
 
   it('replaces the reload button and notices with the slim strip', async () => {
@@ -281,6 +291,9 @@ describe('quiet reload (what draft_updated triggers)', () => {
     await user.type(document.getElementById('parent-first-name-0') as HTMLInputElement, 'Sam');
     const select = screen.getByTestId('child-ticket-type-0') as HTMLSelectElement;
     await user.selectOptions(select, 'tt-b');
+    // The live region is there before the update, so the change is announced.
+    const status = screen.getByTestId('assistant-updated');
+    expect(status.textContent?.trim()).toBe('');
 
     await user.click(devReload());
 
@@ -288,7 +301,12 @@ describe('quiet reload (what draft_updated triggers)', () => {
     expect((document.getElementById('parent-first-name-0') as HTMLInputElement).value).toBe('Sam');
     expect(select.value).toBe('tt-b');
     expect(screen.queryByTestId('register-reload-notice')).toBeNull();
-    expect(screen.getByTestId('assistant-updated').textContent).toBe('assistant.preview.updated');
+    await waitFor(() =>
+      expect(screen.getByTestId('assistant-updated').textContent?.trim()).toBe(
+        'assistant.preview.updated'
+      )
+    );
+    expect(screen.getByTestId('assistant-updated')).toBe(status);
   });
 
   it('still clears a selection that is gone, silently', async () => {

@@ -787,7 +787,8 @@
       "saved": "Sparat",
       "promoNote": "Kampanjkoder kontrolleras mot den sparade uppsättningen.",
       "updated": "Förhandsvisningen har uppdaterats",
-      "fallback": "Assistenten kan inte användas här, så det här visar den sparade uppsättningen."
+      "fallback": "Assistenten kan inte användas här, så det här visar den sparade uppsättningen.",
+      "draftUnusable": "Utkastet passar inte längre det här evenemanget, så det här visar den sparade uppsättningen."
     },
     "review": {
       "stale": "Uppsättningen har ändrats sedan utkastet gjordes."

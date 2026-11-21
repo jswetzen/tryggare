@@ -115,6 +115,20 @@ describe('coalesce', () => {
     expect(job).toHaveBeenCalledTimes(2);
   });
 
+  it.each([0, 1, 2, 3, 4, 5, 6])(
+    'never drops a call that lands %i microtasks after a run ends',
+    async (depth) => {
+      const job = vi.fn(async (_: number) => {});
+      const run = coalesce(job);
+      let tick = Promise.resolve();
+      for (let i = 0; i < depth; i++) tick = tick.then(() => {});
+      const late = tick.then(() => run(2));
+      await run(1);
+      await late;
+      await vi.waitFor(() => expect(job).toHaveBeenLastCalledWith(2));
+    }
+  );
+
   it('a rejected job does not leave a stale queued run behind', async () => {
     const gate = deferred();
     const job = vi
