@@ -9,6 +9,9 @@ DATABASE_URL=postgres://.../checkins_eval uv run python manage.py assistant_eval
 For a hosted endpoint, name the environment variable holding the key (it is never
 stored or written to the report): --base-url https://openrouter.ai/api/v1
 --model vendor/name --api-key-env OPENROUTER_API_KEY
+
+Refuses a database whose name does not contain eval, test or scratch unless
+--any-database is given, and a key over plain http.
 """
 
 import json
@@ -18,7 +21,9 @@ import urllib.request
 from datetime import datetime
 from pathlib import Path
 
+from django.core.exceptions import ValidationError
 from django.core.management.base import BaseCommand, CommandError
+from django.db import connection
 
 from assistant.agent import RUN_DEADLINE_SECONDS, build_model
 from assistant.evals.briefs import BRIEFS
@@ -28,7 +33,7 @@ from assistant.evals.harness import (
     summarize,
 )
 from assistant.evals.report import build_report, render_markdown
-from assistant.models import LLMProvider
+from assistant.models import LLMProvider, validate_base_url
 
 RESULTS = Path(__file__).resolve().parents[2] / "evals" / "results"
 
@@ -63,6 +68,11 @@ class Command(BaseCommand):
         )
         parser.add_argument("--out", default=str(RESULTS), help="directory for reports")
         parser.add_argument("--deadline", type=float, default=RUN_DEADLINE_SECONDS)
+        parser.add_argument(
+            "--any-database",
+            action="store_true",
+            help="run even if the database name does not look like a scratch one",
+        )
 
     def handle(
         self,
@@ -74,8 +84,21 @@ class Command(BaseCommand):
         out,
         deadline,
         api_key_env="",
+        any_database=False,
         **opts,
     ):
+        # Each brief creates and deletes a fixture event and the eval keeps a superuser.
+        db = str(connection.settings_dict.get("NAME") or "")
+        if not any_database and not re.search(r"eval|test|scratch", db, re.I):
+            raise CommandError(
+                f"database {db!r} does not look like a scratch database; point "
+                "DATABASE_URL at one (name containing eval, test or scratch) or pass --any-database"
+            )
+        if base_url:
+            try:
+                validate_base_url(base_url)
+            except ValidationError as exc:
+                raise CommandError(f"--base-url: {exc.messages[0]}") from None
         saved = LLMProvider.load()
         provider = (
             LLMProvider(base_url=base_url, model=model or saved.model)
@@ -89,6 +112,8 @@ class Command(BaseCommand):
         if not chosen:
             raise CommandError("no brief matches --briefs")
         if api_key_env:
+            if not provider.base_url.strip().lower().startswith("https://"):
+                raise CommandError("an API key is only sent over https")
             key = os.environ.get(api_key_env, "")
             if not key:
                 raise CommandError(f"{api_key_env} is not set")

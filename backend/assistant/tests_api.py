@@ -349,6 +349,16 @@ class DraftTests(ApiCase):
         got = self.client.get(self.url("assistant-draft") + "?lang=sv").json()
         self.assertEqual(got["warnings"][0]["message"], "Stored text")
 
+    def test_a_warning_whose_params_no_longer_fit_keeps_its_stored_text(self):
+        conv = self.store_draft()
+        conv.draft["warnings"] = [
+            {"path": "", "code": "age_band_gap", "message": "Old", "params": {"x": "1"}}
+        ]
+        conv.save()
+        got = self.client.get(self.url("assistant-draft") + "?lang=sv")
+        self.assertEqual(got.status_code, 200)
+        self.assertEqual(got.json()["warnings"][0]["message"], "Old")
+
     def test_another_users_draft_is_invisible(self):
         self.store_draft(user=self.other_staff)
         self.assertEqual(self.client.get(self.url("assistant-draft")).status_code, 404)

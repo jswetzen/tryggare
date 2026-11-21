@@ -19,16 +19,25 @@ from assistant.tools import EventTools, build_toolset
 from events import event_spec
 
 from .briefs import Brief
+from . import criteria as c
 from .criteria import Check, Outcome, judge
 
 EVAL_USER = "assistant-eval"
 
 
 def eval_user():
-    """A superuser for the eval's scratch database (the assistant needs spec permissions)."""
+    """A superuser for the eval's scratch database (the assistant needs spec permissions).
+    No usable password: the eval never logs in, and a known one would be a backdoor."""
     model = get_user_model()
     user = model.objects.filter(username=EVAL_USER).first()
-    return user or model.objects.create_superuser(EVAL_USER, "eval-" + "x" * 16)
+    if user is None:
+        user = model.objects.create_user(
+            EVAL_USER, None, is_staff=True, is_superuser=True
+        )
+    elif user.has_usable_password():
+        user.set_unusable_password()
+        user.save(update_fields=["password"])
+    return user
 
 
 @dataclass
@@ -76,15 +85,16 @@ def static_capabilities_size() -> dict:
     return {"chars": len(text), "approx_tokens": len(text) // 4}
 
 
-async def _converse(agent, turns, deadline):
-    history, replies = [], []
+async def _converse(agent, turns, deadline, replies):
+    """``replies`` is filled in place, so a later turn failing keeps the earlier ones."""
+    history = []
     for prompt in turns:
         result = await run_assistant(
             agent, prompt, message_history=trim_history(history), deadline=deadline
         )
         history = result.all_messages()
         replies.append(str(result.output))
-    return history, replies
+    return history
 
 
 def run_brief(
@@ -106,7 +116,7 @@ def run_brief(
     error, history, replies = None, [], []
     started = time.monotonic()
     try:
-        history, replies = async_to_sync(_converse)(agent, brief.turns, deadline)
+        history = async_to_sync(_converse)(agent, brief.turns, deadline, replies)
     except Exception as exc:  # a model failing is a result, not a crash of the eval
         # Type and status only: provider text could hold a key echo or chat content.
         status = getattr(exc, "status", None) or getattr(exc, "status_code", None)
@@ -129,8 +139,14 @@ def run_brief(
             base=base,
             errors=errors,
         )
+        # A failed run is still checked for the gate: a draft or a reply from before
+        # the failure can hold PII or an apply call.
         checks = (
-            [Check("run_completed", False, error, "run")]
+            [
+                Check("run_completed", False, error, "run"),
+                c.apply_never_called(outcome),
+                *c.no_pii(outcome, brief.pii_tokens),
+            ]
             if error
             else brief.check(outcome)
         )

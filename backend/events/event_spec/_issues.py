@@ -137,7 +137,10 @@ def localize(issues: list[dict]) -> list[dict]:
     out = []
     for item in issues:
         if "params" in item and item.get("code") in MESSAGES:
-            item = {**item, "message": str(MESSAGES[item["code"]]) % item["params"]}
+            try:
+                item = {**item, "message": str(MESSAGES[item["code"]]) % item["params"]}
+            except (KeyError, TypeError, ValueError):
+                pass  # the table's text changed since this was stored: keep the old text
         out.append(item)
     return out
 

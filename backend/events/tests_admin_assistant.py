@@ -47,6 +47,10 @@ class OpenAssistantLinkTests(TestCase):
         self.assertContains(r, f'href="{self.url}"')
         self.assertContains(r, "Open assistant")
 
+    def test_a_trailing_slash_on_the_frontend_url_is_not_doubled(self):
+        with self.settings(FRONTEND_BASE_URL="http://fe.test/"):
+            self.assertContains(self.page(), f'href="{self.url}"')
+
     def test_hidden_when_provider_disabled(self):
         LLMProvider.objects.update(enabled=False)
         self.assertNotContains(self.page(), "/setup")

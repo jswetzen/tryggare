@@ -157,7 +157,7 @@ class EventAdmin(admin.ModelAdmin):
             return None
         if not can_use_assistant(request.user, obj)[0]:
             return None
-        return f"{settings.FRONTEND_BASE_URL}/events/{obj.pk}/setup"
+        return f"{settings.FRONTEND_BASE_URL.rstrip('/')}/events/{obj.pk}/setup"
 
     def render_change_form(
         self, request, context, add=False, change=False, form_url="", obj=None

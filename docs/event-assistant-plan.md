@@ -647,14 +647,16 @@ stronger hosted models. Nothing below is fixed yet; `SYSTEM_PROMPT` and `get_cap
 **The harness.** `uv run python manage.py assistant_eval --base-url URL --model NAME [--api-key-env VAR]
 [--runs N] [--briefs substr,substr] [--out DIR] [--deadline S]`, or no flags to use the saved provider. It creates
 a fixture event per brief and deletes it, so **point `DATABASE_URL` at a scratch database** (the smoke runs used
-`checkins_eval_scratch`, migrated, nothing else in it). The key for a hosted endpoint is read from the named
+`checkins_eval_scratch`, migrated, nothing else in it); it refuses a database whose name lacks eval, test or scratch
+unless `--any-database`, and a key over plain http. The key for a hosted endpoint is read from the named
 environment variable, held in memory only and never written to the report. Reports (`.json` and `.md`, written
 after every run) land in `backend/assistant/evals/results/` and record per run: pass or fail with the reason of
 each failed check, wall time, tool calls, requests, prompt and output tokens, peak context (largest request plus
 its output), and the prompt tokens `get_capabilities` added; the summary has totals for cost and the verdict
 against 13/15 (scaled to the number of runs) with zero PII or injection failures. Criteria are in
 `assistant/evals/criteria.py` (generic: valid draft, apply never called, no ids, keys, field or tool names in the
-reply, times as HH:MM, reply language, no stray non-Latin characters, no PII in draft or reply) and
+reply, 24-hour times (H:MM, HH:MM and Swedish HH.MM pass), reply language, no stray non-Latin characters, no PII in
+draft or reply; only the brief's own PII values echoed count for the gate, PII-looking text is hygiene) and
 `assistant/evals/briefs.py` (15 briefs, 8 Swedish and 7 English). Unit tests use `FunctionModel`
 (`tests_evals.py`). Opus should review the criteria before they gate anything.
 

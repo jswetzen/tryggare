@@ -251,7 +251,12 @@ def not_possible(o: Outcome) -> list[Check]:
 
 def sibling_discount(o: Outcome) -> list[Check]:
     return [
-        c.mentions(o, r"promo ?code", "offers_promo_code_workaround", "capability"),
+        c.mentions(
+            o,
+            r"promo(tion(al)?)?[ -]?codes?|discount codes?|coupon|voucher",
+            "offers_promo_code_workaround",
+            "capability",
+        ),
         c.mentions(
             o,
             r"not (automatic|supported|possible)|isn't|is not|cannot|can't|unable|doesn't|does not|no way|manual",
