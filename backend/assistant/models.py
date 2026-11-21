@@ -20,7 +20,13 @@ def _origin(url: str) -> tuple:
         port = parts.port or _DEFAULT_PORTS.get(parts.scheme)
     except ValueError:
         return (None, None, None)
-    return (parts.scheme, (parts.hostname or "").lower(), port)
+    host = (parts.hostname or "").lower()
+    try:
+        # Unicode and punycode spellings of one host must compare equal.
+        host = host.encode("idna").decode("ascii")
+    except UnicodeError:
+        pass
+    return (parts.scheme, host, port)
 
 
 def validate_base_url(value: str) -> None:

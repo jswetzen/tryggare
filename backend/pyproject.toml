@@ -20,11 +20,17 @@ dependencies = [
     "requests>=2.31,<3.0",
     "apscheduler>=3.10,<4.0",
     "pydantic>=2.9,<3.0",
+    "pydantic-ai-slim[openai]>=2.71.0,<3",
 ]
 
 package = false
 
 [dependency-groups]
+# Only for assistant/mcp_server.py (serving the tools over MCP); not needed to run the assistant.
+mcp = [
+    "fastmcp-slim[server]>=4.2.4,<5",
+    "pydantic-ai-slim[mcp]>=2.71.0,<3",
+]
 dev = [
     "django-stubs>=5.0.4",
     "djangorestframework-stubs>=3.15",
