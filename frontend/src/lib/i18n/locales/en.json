@@ -780,5 +780,32 @@
     "supervised": "Supervised",
     "staffedCheckouts": "Staffed checkouts",
     "sessionNoShows": "Session no-shows"
+  },
+  "assistant": {
+    "preview": {
+      "draft": "Draft",
+      "saved": "Saved",
+      "promoNote": "Promo codes are checked against the saved setup.",
+      "updated": "Preview updated",
+      "fallback": "The assistant is not available here, so this shows the saved setup."
+    },
+    "review": {
+      "stale": "The setup changed after this draft was made."
+    },
+    "setup": {
+      "checking": "Checking whether the assistant can run…"
+    },
+    "unavailable": {
+      "title": "The assistant cannot run here",
+      "forbidden": "You do not have permission to use the assistant.",
+      "notFound": "This event does not exist.",
+      "notEnabled": "The assistant is not switched on.",
+      "blocked": "The assistant cannot change this event right now.",
+      "unknown": "Something went wrong while checking. Try again in a moment.",
+      "blocker": {
+        "registration_open_on_target": "Registration is open. Close it before changing the setup.",
+        "event_not_empty": "Registrations already exist for this event."
+      }
+    }
   }
 }

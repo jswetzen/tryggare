@@ -18,7 +18,9 @@
   import { page } from '$app/stores';
   import { pushState } from '$app/navigation';
   import { registrationApi } from '$lib/api/registrationService';
+  import { assistantApi } from '$lib/api/assistantService';
   import {
+    apiClient,
     extractErrorMessage,
     extractFieldError,
     extractGroupError,
@@ -39,6 +41,15 @@
   import Button from '$lib/components/ui/Button.svelte';
   import Icon from '$lib/components/ui/Icon.svelte';
   import Alert from '$lib/components/ui/Alert.svelte';
+  import Badge from '$lib/components/ui/Badge.svelte';
+  import {
+    coalesce,
+    describeUnavailable,
+    isAssistantRequested,
+    isFallbackStatus,
+    isPreviewRequested,
+    type UnavailableKind
+  } from '$lib/assistant/helpers';
   import PersonFields from '$lib/components/registrations/PersonFields.svelte';
   import {
     applicablePersonExtras,
@@ -147,7 +158,18 @@
   // staff can walk through the real form before announcing it, but never
   // bypasses the server-side window check — see submit_registration's
   // registration_window_status gate, the actual enforcement point.
-  const isPreview = $derived($page.url.searchParams.get('preview') === '1');
+  // assistant=1 implies preview (one code path for the window gates and the
+  // disabled submit); see docs/event-assistant-plan.md, "Entry point".
+  const assistantRequested = $derived(isAssistantRequested($page.url.searchParams));
+  const isPreview = $derived(isPreviewRequested($page.url.searchParams));
+  // True only once the auth check and the preview endpoint both succeeded; a
+  // public visitor never gets here, and nothing assistant-shaped is fetched.
+  let assistantMode = $state(false);
+  let previewSource = $state<'draft' | 'saved'>('saved');
+  let previewStale = $state(false);
+  let previewDraftUnusable = $state(false);
+  let assistantFallback = $state<UnavailableKind | null>(null);
+  let previewUpdates = $state(0);
 
   function formatDateTime(iso: string): string {
     // Follow the page's own sv/en toggle rather than the browser's OS
@@ -774,9 +796,35 @@
     return Array.isArray(entry) && entry.length > 0;
   }
 
+  // The spec source. Public and plain-preview pages call getEvent exactly as
+  // before. In assistant mode the staff-only preview endpoint answers (draft or
+  // saved); on 401/403/404/409/503, or a failed auth check, the page falls back
+  // to the saved spec. The auth call is a UX check only: the endpoint is the gate.
+  async function loadSpec(): Promise<RegistrationFormSpec> {
+    if (!assistantRequested) return registrationApi.getEvent(eventId);
+    try {
+      if (!assistantMode) {
+        const auth = await apiClient.get<{ authenticated?: boolean }>('/auth/check/');
+        if (!auth.authenticated) throw { status: 401 };
+      }
+      const preview = await assistantApi.getPreview(eventId);
+      assistantMode = true;
+      assistantFallback = null;
+      previewSource = preview.source;
+      previewStale = preview.stale;
+      previewDraftUnusable = preview.draft_unusable;
+      return preview.form_spec;
+    } catch (err) {
+      if (!isFallbackStatus(err)) throw err;
+      assistantMode = false;
+      assistantFallback = describeUnavailable(err).kind;
+      return registrationApi.getEvent(eventId);
+    }
+  }
+
   onMount(async () => {
     try {
-      spec = await registrationApi.getEvent(eventId);
+      spec = await loadSpec();
     } catch (err) {
       console.error('Failed to load event info:', err);
       eventNotFound = true;
@@ -786,6 +834,9 @@
   });
 
   // Preview only: re-fetch the spec and swap it in, keeping what was typed.
+  // `quiet` (the assistant's automatic reload) shows no spinner and no notices
+  // but still reconciles selections; calls that arrive mid-reload collapse
+  // into one more reload afterwards.
   // Selections that point at things the new spec no longer offers are
   // cleared and listed in one notice. An applied promo code is re-validated
   // first (its unlocked hidden types are merged into the new spec), and
@@ -795,14 +846,15 @@
   let reloadNotice = $state<string[]>([]);
   let reloadNowRequired = $state<string[]>([]);
 
-  async function handleReloadSpec() {
-    if (reloading || !spec) return;
-    reloading = true;
+  const runReload = coalesce(async (opts: { quiet?: boolean }) => {
+    if (!spec) return;
+    const quiet = !!opts.quiet;
+    if (!quiet) reloading = true;
     reloadFailed = false;
     reloadNotice = [];
     reloadNowRequired = [];
     try {
-      let next = await registrationApi.getEvent(eventId);
+      let next = await loadSpec();
       const notice: string[] = [];
 
       // A network error here throws to the outer catch: the reload is
@@ -853,14 +905,23 @@
       children.forEach((c, i) => {
         if (hadTicket[i] && !c.ticketTypeId) suggestChildTicketType(c);
       });
-      reloadNotice = notice;
-      reloadNowRequired = reconciled.nowRequired.map((i) => i.name);
+      if (!quiet) {
+        reloadNotice = notice;
+        reloadNowRequired = reconciled.nowRequired.map((i) => i.name);
+      } else {
+        previewUpdates += 1;
+      }
     } catch (err) {
       console.error('Reloading the form config failed:', err);
       reloadFailed = true;
     } finally {
       reloading = false;
     }
+  });
+
+  // Called by the assistant's `onDraftUpdated` hook once the chat is mounted.
+  function reloadSpec(opts: { quiet?: boolean } = {}): Promise<void> {
+    return runReload(opts);
   }
 
   // True for a parent row that is a responsible adult but NOT attending
@@ -2583,19 +2644,58 @@
         class="mb-4 p-3 bg-warning-50 border border-warning-200 rounded-card text-warning-800 text-sm font-semibold text-center"
         data-testid="register-preview-banner"
       >
-        {$t('register.previewBanner')}
-        <div class="mt-2">
-          <Button size="sm" variant="secondary" onclick={handleReloadSpec} loading={reloading}>
-            {$t('register.reloadConfig')}
-          </Button>
-        </div>
+        {#if assistantMode}
+          <!-- Slim strip: state as text, not colour alone. -->
+          <div class="flex flex-wrap items-center justify-center gap-2" data-testid="assistant-strip">
+            <Badge color={previewSource === 'draft' ? 'primary' : 'secondary'} variant="soft" size="sm">
+              {previewSource === 'draft' ? $t('assistant.preview.draft') : $t('assistant.preview.saved')}
+            </Badge>
+            <span>{$t('register.previewBanner')}</span>
+          </div>
+          {#if previewStale || previewDraftUnusable}
+            <p class="mt-1 text-xs font-normal" data-testid="assistant-stale">
+              {$t('assistant.review.stale')}
+            </p>
+          {/if}
+          <p class="mt-1 text-xs font-normal">{$t('assistant.preview.promoNote')}</p>
+          {#if reloadFailed}
+            <p class="mt-1 text-xs text-danger-800" data-testid="register-reload-failed">
+              {$t('register.reloadFailed')}
+            </p>
+          {/if}
+          {#if import.meta.env.DEV}
+            <!-- DEV ONLY (step 4): stands in for the chat's draft_updated until step 5. -->
+            <div class="mt-2">
+              <Button size="sm" variant="secondary" onclick={() => reloadSpec({ quiet: true })}>
+                Reload draft preview (dev)
+              </Button>
+            </div>
+          {/if}
+          {#key previewUpdates}
+            <p class="sr-only" role="status" data-testid="assistant-updated">
+              {previewUpdates > 0 ? $t('assistant.preview.updated') : ''}
+            </p>
+          {/key}
+        {:else}
+          {$t('register.previewBanner')}
+          {#if assistantFallback}
+            <p class="mt-1 text-xs font-normal" data-testid="assistant-fallback">
+              {$t('assistant.preview.fallback')}
+            </p>
+          {/if}
+          <div class="mt-2">
+            <Button size="sm" variant="secondary" onclick={() => reloadSpec()} loading={reloading}>
+              {$t('register.reloadConfig')}
+            </Button>
+          </div>
+        {/if}
       </div>
-      {#if reloadFailed}
+      {#if reloadFailed && !assistantMode}
         <div class="mb-4" data-testid="register-reload-failed">
           <Alert type="error">{$t('register.reloadFailed')}</Alert>
         </div>
       {/if}
-      {#if reloadNotice.length > 0 || reloadNowRequired.length > 0}
+      {#if !assistantMode && (reloadNotice.length > 0 || reloadNowRequired.length > 0)}
         <div class="mb-4" data-testid="register-reload-notice">
           <Alert type="warning" title={$t('register.reloadChangedTitle')}>
             {#if reloadNotice.length > 0}

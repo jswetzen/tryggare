@@ -780,5 +780,32 @@
     "supervised": "Övervakade",
     "staffedCheckouts": "Personalutcheckningar",
     "sessionNoShows": "Sessioner utan incheckning"
+  },
+  "assistant": {
+    "preview": {
+      "draft": "Utkast",
+      "saved": "Sparat",
+      "promoNote": "Kampanjkoder kontrolleras mot den sparade uppsättningen.",
+      "updated": "Förhandsvisningen har uppdaterats",
+      "fallback": "Assistenten kan inte användas här, så det här visar den sparade uppsättningen."
+    },
+    "review": {
+      "stale": "Uppsättningen har ändrats sedan utkastet gjordes."
+    },
+    "setup": {
+      "checking": "Kontrollerar om assistenten kan användas…"
+    },
+    "unavailable": {
+      "title": "Assistenten kan inte användas här",
+      "forbidden": "Du har inte behörighet att använda assistenten.",
+      "notFound": "Det här evenemanget finns inte.",
+      "notEnabled": "Assistenten är inte påslagen.",
+      "blocked": "Assistenten kan inte ändra det här evenemanget just nu.",
+      "unknown": "Något gick fel vid kontrollen. Försök igen om en stund.",
+      "blocker": {
+        "registration_open_on_target": "Anmälan är öppen. Stäng den innan uppsättningen ändras.",
+        "event_not_empty": "Det finns redan anmälningar till det här evenemanget."
+      }
+    }
   }
 }
