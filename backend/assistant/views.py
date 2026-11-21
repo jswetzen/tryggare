@@ -354,18 +354,20 @@ class DraftView(AssistantAPIView):
         )
 
     def delete(self, request, event_id):
-        """``?version=`` and/or ``?token=`` (what ``GET`` returned) discard only that
-        draft: after an apply, a newer proposal must not go with it."""
+        """``?version=`` is required (what ``GET`` returned; ``token`` optional): a
+        discard names the draft it saw, so a newer proposal never goes with it."""
         if self.refusal:
             return self.refusal
+        raw = request.query_params.get("version")
+        if raw is None:
+            return _refusal(400, "version_required", _("The draft version is invalid."))
+        try:
+            version = int(raw)
+        except ValueError:
+            return _refusal(400, "invalid_version", _("The draft version is invalid."))
         conv = self.conversation()
         if conv is None or not conv.draft:
             return _no_draft()
-        try:
-            raw = request.query_params.get("version")
-            version = int(raw) if raw is not None else None
-        except ValueError:
-            return _refusal(400, "invalid_version", _("The draft version is invalid."))
         token = request.query_params.get("token")
         if not runner.discard_draft(conv, version=version, token=token):
             conv.refresh_from_db()

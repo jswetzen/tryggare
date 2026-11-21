@@ -255,9 +255,9 @@ Endpoints (DRF, session auth like `events/spec_views.py`, same error shape; ever
   consumer connected the cleared row ends the run at its next tool call.
 - `GET    /api/assistant/events/<id>/draft/` `{spec, diff, warnings, stale, token, version}` or 404;
   `stale` = event setup changed since the draft (`Drafts.is_stale`, `base_hash`).
-- `DELETE /api/assistant/events/<id>/draft/?version=N&token=T` discard. After an apply the client passes the
+- `DELETE /api/assistant/events/<id>/draft/?version=N[&token=T]` discard. After an apply the client passes the
   `version` and `token` it showed; if a newer draft landed meanwhile that is 409 `draft_changed` and the newer
-  draft stays. Without the parameters it discards whatever is there. 404 when there is no draft.
+  draft stays. `version` is required (400 `version_required` without it; `token` is optional). 404 when there is no draft.
 - `GET    /api/assistant/events/<id>/preview/` **the page's spec source**, see below.
 - Apply is the existing `PUT /api/events/<id>/spec/` with the draft's spec; on 200 the client calls
   `DELETE …/draft/` and reloads. 409 or 400 is shown as the error list.

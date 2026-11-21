@@ -319,7 +319,8 @@ class DraftTests(ApiCase):
         self.store_draft(user=self.other_staff)
         self.assertEqual(self.client.get(self.url("assistant-draft")).status_code, 404)
         self.assertEqual(
-            self.client.delete(self.url("assistant-draft")).status_code, 404
+            self.client.delete(self.url("assistant-draft") + "?version=1").status_code,
+            404,
         )
         self.assertIsNotNone(
             AssistantConversation.objects.get(user=self.other_staff).draft
@@ -327,13 +328,10 @@ class DraftTests(ApiCase):
 
     def test_discard(self):
         self.store_draft()
-        self.assertEqual(
-            self.client.delete(self.url("assistant-draft")).status_code, 204
-        )
+        url = self.url("assistant-draft") + "?version=1"
+        self.assertEqual(self.client.delete(url).status_code, 204)
         self.assertIsNone(AssistantConversation.objects.get().draft)
-        self.assertEqual(
-            self.client.delete(self.url("assistant-draft")).status_code, 404
-        )
+        self.assertEqual(self.client.delete(url).status_code, 404)
 
     def test_discard_after_apply_leaves_a_newer_draft(self):
         conv = self.store_draft()
@@ -361,6 +359,13 @@ class DraftTests(ApiCase):
             + f"?version={shown['version']}&token={shown['token']}"
         )
         self.assertEqual(r.status_code, 204)
+
+    def test_missing_version_400(self):
+        self.store_draft()
+        r = self.client.delete(self.url("assistant-draft"))
+        self.assertEqual(r.status_code, 400)
+        self.assertEqual(r.json()["errors"][0]["code"], "version_required")
+        self.assertIsNotNone(AssistantConversation.objects.get().draft)
 
     def test_invalid_version_400(self):
         self.store_draft()
