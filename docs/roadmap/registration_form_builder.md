@@ -77,6 +77,8 @@ Do not describe the system as "can't do anything wrong".
 
 ### The assistant (D)
 
+Implementation plan (floating chat on the existing public preview page `/register/<id>?preview=1&assistant=1`, entered via `/events/<id>/setup`; WebSocket, persistence, build order): `docs/event-assistant-plan.md`.
+
 - Its only output is tool calls against the spec. Each call is validated, and errors go back to the model as tool results so it retries.
 - It runs with the organizer's permissions, scoped to one event.
 - Its context contains event, ticket, and form configuration only.
@@ -104,6 +106,8 @@ Two adapters cover the list:
 2. OpenAI-compatible chat completions with tool use. Covers OpenAI, OpenRouter, and Ollama.
 
 Provider, base URL, model, and key are set per deployment by an admin, never in source. **Built (adapter 2, configuration only):** the `assistant` app holds one `LLMProvider` row, edited in Django admin (Language model provider) or through `GET/PUT/PATCH /api/assistant/provider/`. The admin enters the base URL and key, presses "Load models" (`GET {base_url}/models`, also `POST /api/assistant/provider/models/`) and picks a model, or types one for a provider that does not list. The key is Fernet-encrypted at rest with a key derived from `SECRET_KEY` (as import credentials are), write-only in the API, never rendered in admin, and only ever sent to the origin it was saved with: moving the base URL to another host (by trying it or by saving it) needs the key typed again or removed. Rotating `SECRET_KEY` makes the stored key unreadable; re-enter it. Loading models is server-side and reaches any address the admin enters (Ollama needs private ones), so it is limited to users with change permission on the provider; link-local addresses (cloud metadata) are refused, and the reply never echoes the provider's status or body. No chat call, tool use or Anthropic adapter yet.
+
+Accepted risk: the chat client checks the resolved address on every request but does not pin the connection to it, so a DNS rebinding between check and connect could still reach a link-local address; the key is only ever sent to the saved origin regardless. Tools are plain functions served as Pydantic AI function tools (`assistant/tools.py`); the FastMCP wrapper (`assistant/mcp_server.py`) lives in the optional `mcp` dependency group because it adds about 43 packages (`fastmcp-slim[server]`, `pydantic-ai-slim[mcp]`) for no runtime benefit until an external MCP client is needed.
 
 `docs/legal/DPA_NOTE.md` does not mention AI or LLM providers. It covers self-hosting, SaaS, and imports. A cloud provider needs its own check: what it receives, whether it retains or trains on it, and what happens to text organizers paste. This must be done before a cloud provider is enabled for real events.
 
