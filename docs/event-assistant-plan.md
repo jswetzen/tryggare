@@ -1,5 +1,9 @@
 # Event assistant: a chat on the preview page that drafts an event setup
 
+**Status (2026-11-21):** steps 1 to 7 are built and Opus-reviewed on `feat/assistant-agent` (stacked PR #35 on
+`feat/llm-provider`, #33). Step 8 (this docs pass) is done; advertising the assistant waits for a model that passes
+a tuned eval and for the owner to confirm four defaults. See "Operating the assistant" and "Build order".
+
 Implementation plan. Builds on `docs/event-spec-plan.md` (spec, validation, apply),
 `docs/setup-checker-plan.md` (warnings), `docs/form-spec-foundation-plan.md` (the spec-driven register page and
 its `?preview=1` reload) and the `assistant` app on `feat/llm-provider` (provider config, `agent.py`, `tools.py`).
@@ -36,7 +40,7 @@ Roadmap context: `docs/roadmap/registration_form_builder.md`, "The assistant (D)
   trigger on admin save. Nothing in this plan needs framing today.
 - Optional FastMCP server entry point (`mcp_server.py` exists), separate plan.
 
-## Built so far (on `feat/llm-provider`)
+## Built before the assistant branch (on `feat/llm-provider`)
 
 - `LLMProvider` row, admin and `/api/assistant/provider/` endpoints, guarded httpx client, key-origin check,
   Fernet-encrypted key, model picker.
@@ -53,9 +57,9 @@ Roadmap context: `docs/roadmap/registration_form_builder.md`, "The assistant (D)
 - Model eval findings so far: qwen invented capacity and registration dates before the "never invent values"
   prompt line, and put age bounds off by one; the validators and the prompt line address both. See Models for
   the context-size finding.
-- `manage.py assistant_spike` (one-off runner, to be superseded by the eval command, step 7).
+- `manage.py assistant_spike` (one-off runner; kept, the eval command did not replace it).
 
-Not built: conversation storage, runner, WebSocket, new endpoints, any frontend, the eval set.
+What came after is listed in Build order (conversation storage, runner, WebSocket, endpoints, frontend, eval harness).
 
 ## Decided (by the owner)
 
@@ -73,8 +77,8 @@ Not built: conversation storage, runner, WebSocket, new endpoints, any frontend,
 
 ### Proposed defaults, not yet decided by the user
 
-These four were proposed in the previous revision of this plan. They are defaults to build against, not
-decisions; the owner confirms or changes each before step 8.
+These four are built as defaults (in code and settings) but are not decisions. **Still awaiting owner
+confirmation as of 2026-11-21**; the assistant is not advertised until they are confirmed or changed.
 
 1. **Retention:** delete conversations idle for 30 days (`ASSISTANT_RETENTION_DAYS`, in the existing
    `run_scheduled_retention` job).
@@ -585,15 +589,106 @@ per the project notes). Give agents this file's path rather than restating it.
 
 | # | Step | Owner model | Gate | Status |
 |---|---|---|---|---|
-| 0 | Provider, plain-function tools with optional MCP wrapper, validators, prompt, guards, first model findings | Sonnet | Opus review | **Done** (on `feat/llm-provider`; outstanding: confirm the history-processor API on pydantic-ai 2.71) |
-| 1 | `AssistantConversation`, history store/load (strip, trim), `runner.py` with `TestModel`, retention setting and job hook, admin, cascade tests, `.po` entries. A management command can drive a run. | Sonnet | Opus review: history/prompt rules, retention and deletion, PII in stored data | **Built, awaiting review** (`runner.py`; history trimmed on load with a turn cap, no `ProcessHistory` needed; added `AssistantRun` for the rate limit and codes `rate_limited`, `not_enabled`) |
-| 2 | `AssistantConsumer`, routing, `permissions.py`, protocol, tool-progress and text events, draft persistence on propose. | Sonnet | Opus review: auth, per-request re-check, one-run lock, no data leaks over WS. WS tests green | **Built, awaiting review** (`consumers.py`, `permissions.py`; runner gained streaming events, `start_run` and a per-tool permission guard; `draft_version` counter on the conversation; `clear_conversation` and `discard_draft` helpers for step 3) |
-| 3 | HTTP endpoints: conversation, notice, clear, draft, and `/preview/` with apply, id stabilisation and rollback. | Sonnet | Opus review: rollback safety, per-user scoping, id stability. Parity and stability tests green | **Built, awaiting review** (`views.py`, `build_form_spec_from_draft` in `registrations/form_spec.py`, `tests_api.py`; WS personal-data warning; `discard_draft` takes version/token) |
-| 4 | Register page hooks: assistant flag and mode, `loadSpec`, `reloadSpec` refactor (quiet, queued), slim strip replacing banner chrome, i18n. Thin `/events/[eventId]/setup` route and admin "Open assistant" link. No chat yet; a debug button drives the reload. | Sonnet (`fe-coder`) | `frontend-dev-cycle` round; Opus review of the page diff (touch points 1-9 only, public render unchanged) | **Built** (admin "Open assistant" link and login return added in the leftovers commit) |
-| 5 | Store, `AssistantHost`, notice, composer, tool progress, lazy mount and gating, i18n, a11y. | Sonnet (`fe-coder`) | Cycle round; designer criteria 1-9; screenshots at both viewports and languages | **Built** (review fixes in 4f90a0c; persona-run UX fixes after) |
-| 6 | `DraftReview`, apply and discard, stale handling, error list, post-apply reload. Persona test. | Sonnet (`fe-coder`) | Cycle round plus persona run end to end; Opus review of the apply flow | **Built**; persona run done on a 390 px phone in Swedish, plain http, no randomUUID polyfill; Opus review of the apply flow still open |
-| 7 | Eval command and set; run on `bonsai-2-32k` and `qwen3.5-9b-sluss32k` (Haiku agent for the runs); record context size, token cost of `get_capabilities`, thresholds and results. | Sonnet writes, Haiku runs | Opus reviews the criteria; owner decides which model to advertise | **Harness built** (`manage.py assistant_eval`, `assistant/evals/`); both local models run once as a smoke test of the harness only. Agent tuning and the real model comparison are deferred (see "Known agent issues / eval todo"). |
-| 8 | Advertise: chat mounted for all eligible staff, docs update (roadmap "Built" note, this file's status), owner confirms the four proposed defaults. | Sonnet | Owner sign-off; DPA note unchanged because the provider is on the LAN | Open |
+| 0 | Provider, plain-function tools with optional MCP wrapper, validators, prompt, guards, first model findings | Sonnet | Opus review | **Done** (on `feat/llm-provider`) |
+| 1 | `AssistantConversation`, history store/load (strip, trim), `runner.py` with `TestModel`, retention setting and job hook, admin, cascade tests, `.po` entries. A management command can drive a run. | Sonnet | Opus review: history/prompt rules, retention and deletion, PII in stored data | **Built, Opus-reviewed** (review fixes f1220d3: run lock ownership, per-user serialisation, safe trim cut; history trimmed on load with a turn cap; `AssistantRun` for the rate limit) |
+| 2 | `AssistantConsumer`, routing, `permissions.py`, protocol, tool-progress and text events, draft persistence on propose. | Sonnet | Opus review: auth, per-request re-check, one-run lock, no data leaks over WS. WS tests green | **Built, Opus-reviewed** (review fixes c10ef8c) |
+| 3 | HTTP endpoints: conversation, notice, clear, draft, and `/preview/` with apply, id stabilisation and rollback. | Sonnet | Opus review: rollback safety, per-user scoping, id stability. Parity and stability tests green | **Built, Opus-reviewed** (review fixes 936f130; `DELETE draft/` requires `version`, 8b16436) |
+| 4 | Register page hooks: assistant flag and mode, `loadSpec`, `reloadSpec` refactor (quiet, queued), slim strip replacing banner chrome, i18n. Thin `/events/[eventId]/setup` route and admin "Open assistant" link. No chat yet; a debug button drives the reload. | Sonnet (`fe-coder`) | `frontend-dev-cycle` round; Opus review of the page diff (touch points 1-9 only, public render unchanged) | **Built, Opus-reviewed** (review fixes 763b2b8; admin "Open assistant" link and login `?next=` in 6ef6959) |
+| 5 | Store, `AssistantHost`, notice, composer, tool progress, lazy mount and gating, i18n, a11y. | Sonnet (`fe-coder`) | Cycle round; designer criteria 1-9; screenshots at both viewports and languages | **Built, Opus-reviewed** (review fixes 4f90a0c; persona-run UX fixes after). The Opus review covered the apply flow of step 6 as well. |
+| 6 | `DraftReview`, apply and discard, stale handling, error list, post-apply reload. Persona test. | Sonnet (`fe-coder`) | Cycle round plus persona run end to end; Opus review of the apply flow | **Built, Opus-reviewed** (apply flow reviewed together with step 5, 4f90a0c; review names changed fields in words, f52fc70). Persona run done on a 390 px phone in Swedish over plain http. |
+| 7 | Eval command and set; run on `bonsai-2-32k` and `qwen3.5-9b-sluss32k` (Haiku agent for the runs); record context size, token cost of `get_capabilities`, thresholds and results. | Sonnet writes, Haiku runs | Opus reviews the criteria; owner decides which model to advertise | **Built, Opus-reviewed** (`manage.py assistant_eval`, `assistant/evals/`; review fixes 5c04f9c). Both local models ran once as a harness smoke test only. Agent tuning and the real model comparison are deferred (see "Known agent issues / eval todo"). |
+| 8 | Docs and rollout notes: this file's status, "Operating the assistant", roadmap "Built" note, PR description. Advertising (chat for all eligible staff) is **not** done: it waits for the owner's four defaults and a model that passes a tuned eval. | Sonnet | Owner sign-off | **Docs done** (2026-11-21); advertising open, gated on the rollout rule in "Operating the assistant" |
+
+## Operating the assistant
+
+### Enabling the provider
+
+1. Django admin, "Language model provider" (or `PUT /api/assistant/provider/`; needs change permission on the
+   provider). Enter the base URL, press "Load models", pick a model (or type one if the server cannot list), save.
+   The row is a singleton; `enabled` off hides the assistant everywhere (WS 4503, endpoints 503, no chat).
+2. The API key is Fernet-encrypted with a key derived from `SECRET_KEY`, write-only, and **bound to the origin it was
+   saved with**: changing the base URL to another origin needs the key typed again or removed. Rotating `SECRET_KEY`
+   makes it unreadable; re-enter it.
+3. Local Ollama, no key: base URL `http://192.168.1.60:11434/v1`. **Serve the model with `num_ctx` of at least 16k, 32k
+   preferred.** Ollama's default is 4096 and a run needs about 7k tokens; the symptom is HTTP 500 "no user query
+   found". No OpenAI-compatible parameter sets it: use a Modelfile `PARAMETER num_ctx 32768` or the server's
+   `OLLAMA_CONTEXT_LENGTH`.
+4. Hosted OpenAI-compatible endpoint, for example OpenRouter: base URL `https://openrouter.ai/api/v1`, the key from
+   the provider, and a model that supports tool calling (the model list does not say which do). A key is never sent
+   over plain http. Before using a cloud provider on real events do the DPA check in "Providers (D only)" in the
+   roadmap; `docs/legal/DPA_NOTE.md` does not cover it.
+
+### Who can use it, and when
+
+- A user needs all of `VIEW_PERMISSIONS + REPLACE_PERMISSIONS` (`events/services.py`): view, add, change and delete on
+  every spec model. This is Django permissions, not `is_staff`, and the check runs on every WS message and HTTP
+  request (`assistant/permissions.py`), so revoking a permission ends a running chat with `blocked`.
+- The event must pass `event_spec.apply_blockers`: no open registration window, no registrations, tickets or
+  check-ins. Otherwise the `/events/<id>/setup` route lists the reasons.
+- One conversation per (event, user); two organizers on one event have separate chats and drafts, and the last apply
+  wins. Apply never opens registration.
+- Entry points: `/events/<id>/setup` and the admin change form's "Open assistant" link. Both land on
+  `/register/<id>?preview=1&assistant=1`; the page is public, so a signed-out visitor gets only the plain preview.
+  `/login` returns the user to `?next=`.
+
+### Commands (run from `backend/`; `uv run python manage.py ...`)
+
+| Command | Use |
+| --- | --- |
+| `assistant_chat --event ID --user NAME [--accept-notice] "text"` | One message in a stored conversation, through the same runner as the WebSocket. |
+| `assistant_spike --event ID --user NAME "text"` | One-off run against the saved or `--base-url` provider, prints tool calls; stores nothing. |
+| `assistant_eval [--base-url URL --model NAME --api-key-env VAR] [--runs N] [--briefs a,b] [--out DIR] [--deadline S]` | The 15-brief eval, see "Known agent issues / eval todo". Creates and deletes a fixture event per brief, so **point `DATABASE_URL` at a scratch database**. It refuses a database whose name lacks `eval`, `test` or `scratch` unless `--any-database`, and a key over plain http. Reports land in `backend/assistant/evals/results/`. |
+| `purge_assistant_conversations` | Deletes conversations idle past the retention period and old run-log rows. Also runs inside the daily `run_scheduled_retention` job (`families/tasks.py`). |
+
+### Settings (environment)
+
+| Variable | Default | Meaning |
+| --- | --- | --- |
+| `ASSISTANT_RETENTION_DAYS` | 30 | Delete a conversation (messages and draft) after this many idle days. |
+| `ASSISTANT_RUNS_PER_HOUR` | 20 | Runs per user per hour; beyond it the sender gets `rate_limited`. One running conversation per user besides. |
+
+### Deployment constraint: one Daphne process
+
+A run is an asyncio task in the process that received the message, and the cancel registry is process-local. With
+more than one Daphne process or worker, a Stop (cancel) sent on a connection served elsewhere is ignored. The DB lock
+still prevents a second run; Clear conversation also ends a run at its next tool call from any process. Run one
+process, or accept that Stop can fail. Daphne does not hot-reload: restart the web container after consumer changes.
+
+### Privacy
+
+- Stored: per (event, user) the model message history (organizer text, tool calls and results, replies), the current
+  draft (spec, diff, warnings), the notice acceptance time, and a run log used for the rate limit. No system prompt is
+  stored. Nothing is stored in localStorage except whether the panel is open.
+- Retention: 30 idle days by default, deleted with the event or the account, and on demand by "Clear conversation"
+  (messages, draft and status reset). Admin shows no message text in list views; no chat text goes to logs.
+- Notice: the organizer must accept "Describe the form, not the people" before the first message; the server refuses
+  `user_message` without it (`notice_required`).
+- Personal data: **warn, not block**. Chat text that looks like an email, phone number or personnummer gets an inline
+  warning with "Send anyway"; nothing is stored and no run starts until the sender confirms. The spec tools reject
+  personal data in spec arguments outright. These are backstops; the notice and the human review of the draft are the
+  real control. The provider (LAN Ollama, or a hosted one after the DPA check) receives the chat text and the
+  event's setup, never registrations.
+
+### Testing from a phone, and plain http over the LAN
+
+The dev stack is often reached over `http://<LAN-IP>` where the browser is not a secure context: `crypto.randomUUID`
+is missing, so message ids use a `getRandomValues`/`Math.random` fallback (`lib/utils/uuid.ts`). Cookies and the
+WebSocket are same-origin with the page, so the session works without TLS; with a reverse proxy, forward the
+`/ws/` upgrade and keep the Host and Origin allowed (`AllowedHostsOriginValidator`). On a phone the open panel is a
+full-height sheet and covers the whole preview; minimise it to see the draft (known, see follow-ups).
+
+### Rollout gating
+
+Keep the assistant behind `LLMProvider.enabled` and used by the owner only until:
+
+1. a model passes a tuned eval with `--runs 3`: at least 13/15 (scaled to the number of runs) and **zero** PII or
+   injection failures (the verdict line in the report); the tuning and hosted-model comparison are the deferred eval
+   task (see "Known agent issues / eval todo");
+2. the owner has confirmed or changed the four defaults: 30-day retention, warn-not-block PII check, per-user run
+   rate limit (one running, 20 per hour), and the 13/15 threshold;
+3. for a hosted provider, the DPA check is done.
+
+Then turn `enabled` on; there is no other switch, and the admin link and chat appear for every eligible user.
 
 ## Risks
 
@@ -618,17 +713,27 @@ per the project notes). Give agents this file's path rather than restating it.
 
 ## Open questions (real unknowns)
 
-1. **Which model wins**, `bonsai-2-32k` or `qwen3.5-9b-sluss32k`? One run each, tied. The eval (step 7) answers it.
-2. **Token cost of `get_capabilities`** and of a typical run against 16k/32k: a whole run is about 7k, the share of
-   `get_capabilities` is unmeasured; drives how hard history is trimmed.
-3. **pydantic-ai 2.71 history-trimming API** (`Agent` has `capabilities=`, no `history_processors=`): confirm in
-   step 1.
+State as of 2026-11-21.
+
+1. **Which model wins**, `bonsai-2-32k` or `qwen3.5-9b-sluss32k`? Open. One smoke run each (bonsai 11/15, qwen 2/15,
+   harness check only). Needs the tuned eval with `--runs 3`, and hosted models alongside (see "Known agent issues").
+2. **Token cost of `get_capabilities`:** answered. 20.7k characters, about 5.2k tokens estimated and 5.8 to 6.7k
+   measured; a typical run is 4 requests and 18k to 40k prompt tokens in total, peak context 12.5k (bonsai) and 15.3k
+   (qwen). It is the biggest single cost lever (see "Known agent issues").
+3. **pydantic-ai 2.71 history-trimming API:** answered. No `ProcessHistory` is needed; history is trimmed on load
+   with a turn cap and stubbed tool returns in `runner.py`.
 4. **Answered:** `/login` did not return the user (always `/checkin`); it now takes `?next=` (`lib/auth/returnTo.ts`), and `/setup` and the layout pass it.
-5. **Is the automatic reload acceptable to testers mid-typing?** Only a persona round can say.
-6. **The four proposed defaults** (retention days, warn-not-block PII text check, run rate limit and N,
-   13/15 threshold) await the owner.
-7. **Can Ollama's `/api/show` context be read through the configured provider URL** (optional model-list
-   warning)? Unverified.
+5. **Is the automatic reload acceptable to testers mid-typing?** Partly answered: the persona runs (phone, Swedish)
+   hit no loss of typed data; the draft panel covering the whole preview on a phone is the real friction (follow-up).
+   Re-check with a real organizer.
+6. **The four proposed defaults** (30-day retention, warn-not-block PII text check, 20 runs per hour per user and one
+   running conversation, 13/15 threshold with zero PII or injection failures): all four are built as defaults and
+   **still await the owner's confirmation**. Re-ask before advertising.
+7. **Can Ollama's `/api/show` context be read through the configured provider URL?** Answered for the eval only:
+   `assistant_eval` reads the Modelfile `num_ctx` from `/api/show` (via a plain `urllib` call, not the guarded client)
+   and records it, `unknown` on other servers. The optional admin warning on a small context is not built.
+8. **Not built from this plan:** the admin hint for the 16k minimum next to the model field (help text only, see
+   Models); the long-conversation eval brief.
 
 ## Persona run findings (step 6, Swedish, 390 px, plain http)
 
