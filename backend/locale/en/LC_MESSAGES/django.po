@@ -2146,3 +2146,120 @@ msgstr "A session cannot be moved to another event."
 
 msgid "change"
 msgstr "change"
+
+msgid "AI assistant"
+msgstr "AI assistant"
+
+msgid "API key"
+msgstr "API key"
+
+msgid "Remove the stored API key"
+msgstr "Remove the stored API key"
+
+msgid "A key is stored. Leave empty to keep it."
+msgstr "A key is stored. Leave empty to keep it."
+
+msgid "No key is stored. A local Ollama needs none."
+msgstr "No key is stored. A local Ollama needs none."
+
+msgid "Permission denied."
+msgstr "Permission denied."
+
+msgid "Must be a string."
+msgstr "Must be a string."
+
+#, python-format
+msgid "Enter an http:// or https:// address, for example %(example)s."
+msgstr "Enter an http:// or https:// address, for example %(example)s."
+
+msgid "OpenAI-compatible API"
+msgstr "OpenAI-compatible API"
+
+msgid "Provider type"
+msgstr "Provider type"
+
+msgid "Base URL"
+msgstr "Base URL"
+
+msgid "The API address including /v1, for example https://api.openai.com/v1, https://openrouter.ai/api/v1, or http://localhost:11434/v1 for Ollama."
+msgstr "The API address including /v1, for example https://api.openai.com/v1, https://openrouter.ai/api/v1, or http://localhost:11434/v1 for Ollama."
+
+msgid "Model"
+msgstr "Model"
+
+msgid "The model the assistant uses."
+msgstr "The model the assistant uses."
+
+msgid "Enabled"
+msgstr "Enabled"
+
+msgid "The assistant may only call the provider while this is on."
+msgstr "The assistant may only call the provider while this is on."
+
+msgid "Updated at"
+msgstr "Updated at"
+
+msgid "Updated by"
+msgstr "Updated by"
+
+msgid "Language model provider"
+msgstr "Language model provider"
+
+msgid "Needed while the provider is enabled."
+msgstr "Needed while the provider is enabled."
+
+msgid "Could not reach the provider. Check the base URL."
+msgstr "Could not reach the provider. Check the base URL."
+
+msgid "The provider rejected the API key."
+msgstr "The provider rejected the API key."
+
+msgid "The provider does not list its models. Type the model name instead."
+msgstr "The provider does not list its models. Type the model name instead."
+
+msgid "The provider answered with an error."
+msgstr "The provider answered with an error."
+
+msgid "The provider's answer was not a model list."
+msgstr "The provider's answer was not a model list."
+
+msgid "Loading…"
+msgstr "Loading…"
+
+msgid "Load models"
+msgstr "Load models"
+
+msgid "Models from the provider"
+msgstr "Models from the provider"
+
+#, python-format
+msgid "Found %%(count)s models. Pick one, or type a name above."
+msgstr "Found %%(count)s models. Pick one, or type a name above."
+
+msgid "The provider lists no models."
+msgstr "The provider lists no models."
+
+msgid "Loading failed."
+msgstr "Loading failed."
+
+msgid "That address is not allowed."
+msgstr "That address is not allowed."
+
+msgid "The stored API key can no longer be read. Enter it again."
+msgstr "The stored API key can no longer be read. Enter it again."
+
+msgid "Enter the API key again for the new address, or remove the stored key."
+msgstr "Enter the API key again for the new address, or remove the stored key."
+
+msgid "Either enter a new key or remove the stored one, not both."
+msgstr "Either enter a new key or remove the stored one, not both."
+
+msgid "The stored key will be removed when you save."
+msgstr "The stored key will be removed when you save."
+
+#, python-format
+msgid "Found %%(count)s models."
+msgstr "Found %%(count)s models."
+
+msgid "Load models to choose one"
+msgstr "Load models to choose one"

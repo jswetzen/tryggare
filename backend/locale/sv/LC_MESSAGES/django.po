@@ -2170,3 +2170,120 @@ msgstr "En session kan inte flyttas till ett annat evenemang."
 
 msgid "change"
 msgstr "ändra"
+
+msgid "AI assistant"
+msgstr "AI-assistent"
+
+msgid "API key"
+msgstr "API-nyckel"
+
+msgid "Remove the stored API key"
+msgstr "Ta bort den sparade API-nyckeln"
+
+msgid "A key is stored. Leave empty to keep it."
+msgstr "En nyckel är sparad. Lämna tomt för att behålla den."
+
+msgid "No key is stored. A local Ollama needs none."
+msgstr "Ingen nyckel är sparad. En lokal Ollama behöver ingen."
+
+msgid "Permission denied."
+msgstr "Behörighet saknas."
+
+msgid "Must be a string."
+msgstr "Måste vara en textsträng."
+
+#, python-format
+msgid "Enter an http:// or https:// address, for example %(example)s."
+msgstr "Ange en http://- eller https://-adress, till exempel %(example)s."
+
+msgid "OpenAI-compatible API"
+msgstr "OpenAI-kompatibelt API"
+
+msgid "Provider type"
+msgstr "Typ av leverantör"
+
+msgid "Base URL"
+msgstr "Bas-URL"
+
+msgid "The API address including /v1, for example https://api.openai.com/v1, https://openrouter.ai/api/v1, or http://localhost:11434/v1 for Ollama."
+msgstr "API-adressen inklusive /v1, till exempel https://api.openai.com/v1, https://openrouter.ai/api/v1 eller http://localhost:11434/v1 för Ollama."
+
+msgid "Model"
+msgstr "Modell"
+
+msgid "The model the assistant uses."
+msgstr "Modellen som assistenten använder."
+
+msgid "Enabled"
+msgstr "Aktiverad"
+
+msgid "The assistant may only call the provider while this is on."
+msgstr "Assistenten får bara anropa leverantören när detta är på."
+
+msgid "Updated at"
+msgstr "Uppdaterad"
+
+msgid "Updated by"
+msgstr "Uppdaterad av"
+
+msgid "Language model provider"
+msgstr "Leverantör av språkmodell"
+
+msgid "Needed while the provider is enabled."
+msgstr "Krävs så länge leverantören är aktiverad."
+
+msgid "Could not reach the provider. Check the base URL."
+msgstr "Det gick inte att nå leverantören. Kontrollera bas-URL:en."
+
+msgid "The provider rejected the API key."
+msgstr "Leverantören avvisade API-nyckeln."
+
+msgid "The provider does not list its models. Type the model name instead."
+msgstr "Leverantören listar inte sina modeller. Skriv in modellens namn i stället."
+
+msgid "The provider answered with an error."
+msgstr "Leverantören svarade med ett fel."
+
+msgid "The provider's answer was not a model list."
+msgstr "Leverantörens svar var ingen modelllista."
+
+msgid "Loading…"
+msgstr "Laddar…"
+
+msgid "Load models"
+msgstr "Hämta modeller"
+
+msgid "Models from the provider"
+msgstr "Modeller från leverantören"
+
+#, python-format
+msgid "Found %%(count)s models. Pick one, or type a name above."
+msgstr "Hittade %%(count)s modeller. Välj en eller skriv ett namn ovan."
+
+msgid "The provider lists no models."
+msgstr "Leverantören listar inga modeller."
+
+msgid "Loading failed."
+msgstr "Det gick inte att hämta."
+
+msgid "That address is not allowed."
+msgstr "Den adressen är inte tillåten."
+
+msgid "The stored API key can no longer be read. Enter it again."
+msgstr "Den sparade API-nyckeln går inte längre att läsa. Ange den igen."
+
+msgid "Enter the API key again for the new address, or remove the stored key."
+msgstr "Ange API-nyckeln igen för den nya adressen, eller ta bort den sparade nyckeln."
+
+msgid "Either enter a new key or remove the stored one, not both."
+msgstr "Ange antingen en ny nyckel eller ta bort den sparade, inte båda."
+
+msgid "The stored key will be removed when you save."
+msgstr "Den sparade nyckeln tas bort när du sparar."
+
+#, python-format
+msgid "Found %%(count)s models."
+msgstr "Hittade %%(count)s modeller."
+
+msgid "Load models to choose one"
+msgstr "Hämta modellerna för att välja en"

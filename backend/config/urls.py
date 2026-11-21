@@ -25,6 +25,7 @@ from events.spec_views import (
 )
 from checkins.views import AuditLogViewSet, CheckInRecordViewSet, PrintQueueViewSet
 from reports.views import EventReportViewSet
+from assistant.views import ProviderModelsView, ProviderView
 from accounts.views import csrf_token, check_auth, login_view, logout_view
 from imports.views import (
     discover_prefixes_view,
@@ -92,6 +93,12 @@ urlpatterns = [
         "api/events/<str:event_id>/spec/diff/",
         EventSpecDiffView.as_view(),
         name="event-spec-diff",
+    ),
+    path("api/assistant/provider/", ProviderView.as_view(), name="llm-provider"),
+    path(
+        "api/assistant/provider/models/",
+        ProviderModelsView.as_view(),
+        name="llm-provider-models",
     ),
     path("api/", include(router.urls)),
     # Session-based authentication endpoints
