@@ -4,7 +4,7 @@ import copy
 from unittest import mock
 
 from django.core.cache import cache
-from django.test import TestCase
+from django.test import TestCase, TransactionTestCase
 from django.urls import reverse
 from django.utils import timezone
 from pydantic_ai.messages import (
@@ -127,7 +127,8 @@ class GateTests(ApiCase):
                 r = getattr(client, method)(self.url(name, event), **kw)
                 self.assertEqual(r.status_code, expected, r.content)
                 self.assertEqual(r["Cache-Control"], "no-store")
-                self.assertNotIn("spec", r.json().get("form_spec", {}))
+                # A refusal carries the reasons and nothing of the conversation or draft.
+                self.assertEqual(set(r.json()), {"errors", "warnings"})
 
     def test_unauthenticated_401(self):
         self.each(APIClient(), 401)
@@ -152,7 +153,10 @@ class GateTests(ApiCase):
         add_ticket(self.event)
         self.each(self.client, 409)
         r = self.client.get(self.url("assistant-conversation"))
-        self.assertEqual(r.json()["errors"][0]["code"], "event_not_eligible")
+        self.assertEqual(
+            [e["code"] for e in r.json()["errors"]],
+            ["event_not_eligible", "event_not_empty"],
+        )
 
     def test_provider_off_503(self):
         LLMProvider.objects.update(enabled=False)
@@ -268,11 +272,24 @@ class ConversationTests(ApiCase):
         self.assertIsNotNone(conv.notice_accepted_at)
 
     def test_clear_still_succeeds_when_the_channel_layer_fails(self):
-        self.conversation()
+        conv = self.conversation()
+        conv.status, conv.run_started_at = "running", timezone.now()
+        conv.save()
         layer = mock.Mock(group_send=mock.AsyncMock(side_effect=OSError("down")))
         with mock.patch("assistant.views.get_channel_layer", return_value=layer):
             r = self.client.delete(self.url("assistant-conversation"))
         self.assertEqual(r.status_code, 204)
+        layer.group_send.assert_awaited_once()
+
+    def test_clear_of_an_idle_conversation_sends_no_cancel(self):
+        # A late cancel would end the run the user starts right after the clear.
+        self.store_draft()
+        layer = mock.Mock(group_send=mock.AsyncMock())
+        with mock.patch("assistant.views.get_channel_layer", return_value=layer):
+            r = self.client.delete(self.url("assistant-conversation"))
+        self.assertEqual(r.status_code, 204)
+        layer.group_send.assert_not_awaited()
+        self.assertIsNone(AssistantConversation.objects.get().draft)
 
     def test_clear_without_a_conversation_is_fine(self):
         self.assertEqual(
@@ -453,3 +470,41 @@ class PreviewTests(ApiCase):
     def test_preview_is_per_user(self):
         self.store_draft(user=self.other_staff)
         self.assertEqual(self.preview()["source"], "saved")
+
+
+class PreviewRollbackTests(TransactionTestCase):
+    """Real transactions: in a TestCase the preview's block is only a savepoint, so the
+    autocommit path (production, no ATOMIC_REQUESTS) is checked here."""
+
+    url = ApiCase.url
+    conversation = ApiCase.conversation
+    store_draft = ApiCase.store_draft
+
+    def setUp(self):
+        self.staff = AdminUser.objects.create_superuser("rbstaff", "pw12345")
+        with at_now():
+            self.event = event_spec.apply(event_spec.example_spec())[0]
+        provider = LLMProvider.load()
+        provider.enabled = True
+        provider.save()
+        self.client = APIClient()
+        self.client.force_authenticate(self.staff)
+        self.store_draft()
+        self.before = (counts(), event_spec.export(self.event))
+
+    def assertUnchanged(self):
+        after = (counts(), event_spec.export(Event.objects.get(pk=self.event.pk)))
+        self.assertEqual(after, self.before)
+
+    def test_preview_outside_a_transaction_writes_nothing(self):
+        r = self.client.get(self.url("assistant-preview"))
+        self.assertEqual(r.json()["source"], "draft")
+        self.assertUnchanged()
+
+    def test_a_failure_after_the_writes_leaves_nothing(self):
+        with mock.patch(
+            "registrations.form_spec.build_form_spec", side_effect=RuntimeError
+        ):
+            with self.assertRaises(RuntimeError):
+                self.client.get(self.url("assistant-preview"))
+        self.assertUnchanged()

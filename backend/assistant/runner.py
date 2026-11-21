@@ -8,6 +8,7 @@ the protocol, never provider text.
 import asyncio
 import copy
 import logging
+import re
 import uuid
 from dataclasses import dataclass
 from datetime import timedelta
@@ -138,9 +139,16 @@ def transcript(conversation: AssistantConversation) -> list[dict]:
     return out
 
 
+# Dates and clock times, which a brief is full of: "2027-06-20 10:00" otherwise
+# reads as a phone number. ";" is outside the phone pattern, so neighbours do not join.
+_DATE_OR_TIME = re.compile(
+    r"\d{4}-\d{2}-\d{2}(?:[T ]\d{1,2}[:.]\d{2})?|\b\d{1,2}:\d{2}\b"
+)
+
+
 def chat_text_warning(text: str) -> str | None:
     """Warn-not-block check on what the organizer typed; None when it looks fine."""
-    return _pii_kind(text)
+    return _pii_kind(_DATE_OR_TIME.sub(" ; ", text))
 
 
 def purge_idle(now=None) -> int:

@@ -379,6 +379,17 @@ class RuleTests(RunnerTestCase):
         self.assertTrue(runner.chat_text_warning("mail anna@example.com"))
         self.assertTrue(runner.chat_text_warning("190101011234"))
 
+    def test_dates_and_times_are_not_a_phone_number(self):
+        for text in (
+            "Camp 2027-06-20 10:00 to 2027-06-21 16:00, 450 kr",
+            "opens 2027-03-01 08:00, closes 2027-05-31 23:59",
+            "workshop 10:00 to 12:30 on 2027-06-20",
+        ):
+            with self.subTest(text=text):
+                self.assertIsNone(runner.chat_text_warning(text))
+        self.assertTrue(runner.chat_text_warning("call 070-123 45 67 at 10:00"))
+        self.assertTrue(runner.chat_text_warning("on 2027-06-20, pnr 20120620-1234"))
+
 
 def PermissionDeniedStub():
     from django.core.exceptions import PermissionDenied

@@ -22,6 +22,7 @@ from registrations.form_spec import build_form_spec, build_form_spec_from_draft
 from . import runner
 from .models import AssistantConversation, LLMProvider
 from .permissions import (
+    EVENT_NOT_ELIGIBLE,
     NOT_AUTHENTICATED,
     can_use_assistant,
     fresh_user,
@@ -200,13 +201,19 @@ def gate(request, event_id):
     event = Event.objects.filter(pk=event_id).first()
     if event is None:
         return None, None, _refusal(404, "event_not_found", _("No such event."))
-    ok, issues = can_use_assistant(user, event)
+    ok, _issues = can_use_assistant(user, event)
     if not ok:
-        first, *rest = issues
+        # The blockers keep their own codes (registration_open_on_target, event_not_empty)
+        # so the page can name the reason; can_use_assistant folds them into one code.
         return (
             None,
             None,
-            _refusal(409, first["code"], first["message"], rest),
+            _refusal(
+                409,
+                EVENT_NOT_ELIGIBLE,
+                _("The assistant cannot change this event now."),
+                event_spec.apply_blockers(event),
+            ),
         )
     if not LLMProvider.load().enabled:
         return (
@@ -293,7 +300,10 @@ class ConversationView(AssistantAPIView):
         conv = self.conversation()
         if conv is not None:
             runner.clear_conversation(conv)
-            _tell_consumers_to_cancel(conv)
+            # Only for a live run: a late cancel would hit the run the user starts
+            # right after clearing (request_cancel is keyed by event and user).
+            if conv.status == conv.STATUS_RUNNING:
+                _tell_consumers_to_cancel(conv)
         return Response(status=204)
 
 

@@ -2322,3 +2322,6 @@ msgstr "The draft version is invalid."
 
 msgid "The draft changed since you last saw it."
 msgstr "The draft changed since you last saw it."
+
+msgid "The assistant cannot change this event now."
+msgstr "The assistant cannot change this event now."

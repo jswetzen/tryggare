@@ -2346,3 +2346,6 @@ msgstr "Utkastets version är ogiltig."
 
 msgid "The draft changed since you last saw it."
 msgstr "Utkastet har ändrats sedan du senast såg det."
+
+msgid "The assistant cannot change this event now."
+msgstr "Assistenten kan inte ändra det här evenemanget just nu."
