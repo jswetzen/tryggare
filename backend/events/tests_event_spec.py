@@ -640,6 +640,79 @@ class WarningTests(SimpleTestCase):
         self.assertIn(("sessions[0].start_time", "session_outside_event"), codes)
 
 
+class AgeBoundTests(SimpleTestCase):
+    def issues(self, spec):
+        errors, warnings = validate_at_now(spec)
+        return errors, {(w["path"], w["code"]) for w in warnings}
+
+    def test_inverted_bounds_are_an_error_with_a_fixable_message(self):
+        spec = example_spec()
+        # Swapped 13-17: min is the younger date, max the older.
+        spec["ticket_types"][2]["min_birthdate"] = "2014-06-18"
+        spec["ticket_types"][2]["max_birthdate"] = "2009-06-19"
+        errors, _ = self.issues(spec)
+        err = by_path(errors)["ticket_types[2]"]
+        self.assertEqual(err["code"], "age_bounds_inverted")
+        self.assertIn("earliest birth date", err["message"])
+        self.assertIn("2014-06-18", err["message"])
+        with translation.override("sv"):
+            sv = by_path(validate_at_now(spec)[0])["ticket_types[2]"]
+        self.assertNotEqual(sv["message"], err["message"])
+
+    def test_example_has_no_age_issues(self):
+        errors, warnings = self.issues(example_spec())
+        self.assertEqual(errors, [])
+        self.assertFalse({c for _, c in warnings} & {"age_label_mismatch"})
+
+    def test_label_mismatch_when_zero_to_twelve_admits_thirteen(self):
+        spec = example_spec()
+        # Child pass 0-12 with max_birthdate = start - 13 years: nobody under 13.
+        spec["ticket_types"][1]["max_birthdate"] = "2014-06-18"
+        spec["ticket_types"][1]["min_birthdate"] = "2009-06-19"
+        _, warnings = self.issues(spec)
+        self.assertIn(("ticket_types[1].name", "age_label_mismatch"), warnings)
+
+    def test_label_mismatch_on_wrong_upper_bound(self):
+        spec = example_spec()
+        spec["ticket_types"][1]["min_birthdate"] = "2013-06-19"
+        _, warnings = self.issues(spec)
+        self.assertIn(("ticket_types[1].name", "age_label_mismatch"), warnings)
+
+    def test_up_to_label_and_unlabelled_names(self):
+        spec = example_spec()
+        spec["ticket_types"][1]["name"] = "Up to 12 years"
+        self.assertNotIn(
+            ("ticket_types[1].name", "age_label_mismatch"), self.issues(spec)[1]
+        )
+        spec["ticket_types"][1]["min_birthdate"] = "2013-06-19"
+        self.assertIn(
+            ("ticket_types[1].name", "age_label_mismatch"), self.issues(spec)[1]
+        )
+        spec["ticket_types"][1]["name"] = "Pass 2027-2028"
+        self.assertNotIn(
+            ("ticket_types[1].name", "age_label_mismatch"), self.issues(spec)[1]
+        )
+
+
+class MessageTranslationTests(SimpleTestCase):
+    def test_new_messages_have_swedish(self):
+        from events.event_spec._issues import MESSAGES
+
+        with translation.override("sv"):
+            for code in (
+                "age_bounds_inverted",
+                "age_label_mismatch",
+                "discount_as_extra",
+            ):
+                with translation.override("en"):
+                    en = str(MESSAGES[code])
+                self.assertNotEqual(str(MESSAGES[code]), en, code)
+            self.assertEqual(
+                translation.gettext("Allowed here: %(allowed)s."),
+                "Tillåtna här: %(allowed)s.",
+            )
+
+
 class KeyTests(SimpleTestCase):
     def test_example_keys_are_the_ones_export_derives(self):
         spec = example_spec()

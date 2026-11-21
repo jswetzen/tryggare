@@ -1933,17 +1933,14 @@ msgstr "Ogiltigt värde: %(detail)s"
 msgid "Key '%(key)s' is used more than once; keys must be unique."
 msgstr "Nyckeln ”%(key)s” används fler än en gång; nycklar måste vara unika."
 
-
 msgid "No %(kind)s has the key '%(key)s'."
 msgstr "Ingen post i %(kind)s har nyckeln ”%(key)s”."
-
 
 msgid "Code '%(code)s' appears more than once; codes are matched case-insensitively and must be unique."
 msgstr "Koden ”%(code)s” förekommer mer än en gång; koder matchas utan hänsyn till versaler och måste vara unika."
 
 msgid "The end date is before the start date."
 msgstr "Slutdatumet ligger före startdatumet."
-
 
 msgid "'Available until' is before 'available from'."
 msgstr "”Tillgänglig till” ligger före ”tillgänglig från”."
@@ -2287,3 +2284,20 @@ msgstr "Hittade %%(count)s modeller."
 
 msgid "Load models to choose one"
 msgstr "Hämta modellerna för att välja en"
+
+#, python-format
+msgid "min_birthdate (%(min)s) is later than max_birthdate (%(max)s). min_birthdate is the earliest birth date allowed (the oldest attendee) and max_birthdate the latest (the youngest), so min_birthdate must be the earlier date. Swap them."
+msgstr "min_birthdate (%(min)s) ligger senare än max_birthdate (%(max)s). min_birthdate är det tidigaste tillåtna födelsedatumet (den äldsta deltagaren) och max_birthdate det senaste (den yngsta), så min_birthdate måste vara det tidigare datumet. Byt plats på dem."
+
+#, python-format
+msgid "The name says ages %(label)s, but the age bounds admit ages %(actual)s on the event start date. For 'N and under', min_birthdate is the start date minus N+1 years plus one day; for 'at least M', max_birthdate is the start date minus M years."
+msgstr "Namnet anger åldrarna %(label)s, men åldersgränserna släpper in åldrarna %(actual)s på evenemangets startdatum. För ”N år och yngre” är min_birthdate startdatumet minus N+1 år plus en dag; för ”minst M år” är max_birthdate startdatumet minus M år."
+
+#, python-format
+msgid "Allowed here: %(allowed)s."
+msgstr "Tillåtna här: %(allowed)s."
+
+#, python-format
+msgid "A free extra named like a discount does not discount anything; an extra only adds to the price. Use a promo code."
+msgstr "Ett gratis tillval som heter som en rabatt ger ingen rabatt; ett tillval läggs bara till priset. Använd en rabattkod."
+

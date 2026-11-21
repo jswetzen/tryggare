@@ -41,6 +41,7 @@ CAPABILITIES = {
         {
             "id": "sibling_discount",
             "description": "Discounts that depend on how many children or siblings register.",
+            "closest": "Not automatic. With the organizer's agreement: a promo code (applies_to_ticket_types = the child ticket keys) that the organizer hands to families, one code per registration, never an extra.",
         },
         {
             "id": "multiple_promo_codes",
@@ -65,6 +66,7 @@ CAPABILITIES = {
         },
     ],
     "notes": [
+        "Ticket age rule, judged on event.start_date: ages N-M means min_birthdate = start minus M+1 years plus one day, max_birthdate = start minus N years (null when N is 0). Start 2027-06-18, ages 0-12: min 2014-06-19, max null; ages 13-17: min 2009-06-19, max 2014-06-18. min_birthdate is never later than max_birthdate.",
         "The example's dates are illustrative. A registration window that is open when a spec is validated is an error, so move the dates into the future.",
         "Row keys are derived from names on export; a rename is a removal plus an addition.",
         "Rows that tie on their ordering fields (sort_order, then name) are a warning for a new event and an error when applying onto an existing one.",

@@ -156,8 +156,9 @@ class TicketTypeSpec(_Row):
         description=(
             "Earliest allowed birth date (the attendee must be born on or after "
             "it), i.e. the oldest permitted. Must be exactly one day after an "
-            "anniversary of event.start_date, e.g. for start 2027-06-18 and "
-            "'12 and under', 2014-06-19. Null for no limit."
+            "anniversary of event.start_date. Ages 'at most M' (e.g. a '0-12' "
+            "label) on start 2027-06-18: start minus M+1 years plus one day, "
+            "2014-06-19. Must not be later than max_birthdate. Null for no limit."
         ),
     )
     max_birthdate: date | None = Field(
@@ -165,8 +166,9 @@ class TicketTypeSpec(_Row):
         description=(
             "Latest allowed birth date (the attendee must be born on or before "
             "it), i.e. the youngest permitted. Must fall on the month and day of "
-            "event.start_date, e.g. for start 2027-06-18 and 'at least 13', "
-            "2014-06-18. Null for no limit."
+            "event.start_date. Ages 'at least N' on start 2027-06-18: start "
+            "minus N years, e.g. 13 gives 2014-06-18. Null for no limit, which "
+            "is right for a '0-12' label."
         ),
     )
     available_from: LocalDateTime | None = Field(
@@ -241,7 +243,7 @@ class ExtraSpec(_Row):
     key: Key = Field(description=_KEY)
     name: str = Field(
         max_length=255,
-        description="Extra name, e.g. 'T-shirt'. Never free text from the guardian.",
+        description="Extra name, e.g. 'T-shirt'. Never free text from the guardian. An extra adds to the price; never use one as a discount or a flag.",
     )
     price: Money = Field(
         default=Decimal("0"),
@@ -352,10 +354,10 @@ class EventSpec(_Row):
     extras: list[ExtraSpec] = Field(
         default_factory=list,
         max_length=MAX_ROWS,
-        description="Paid or free add-ons, with their choices.",
+        description="Paid or free add-ons, with their choices. An extra adds to the price; never a discount or a flag.",
     )
     promo_codes: list[PromoCodeSpec] = Field(
         default_factory=list,
         max_length=MAX_ROWS,
-        description="Promo codes: discounts and/or unlocks for hidden ticket types. One code per registration.",
+        description="Promo codes: the only way to express a discount, and/or unlocks for hidden ticket types. One code per registration.",
     )

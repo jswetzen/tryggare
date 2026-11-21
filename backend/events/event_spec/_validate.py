@@ -6,12 +6,14 @@ are advice. Each issue is ``{"path", "code", "message"}`` with a path such as
 ``ticket_types[2].min_birthdate``.
 """
 
+import re
 from collections import Counter
 from datetime import date
 
 from django.core.exceptions import ValidationError
 from django.utils import timezone
-from pydantic import ValidationError as PydanticValidationError
+from django.utils.translation import gettext as _
+from pydantic import BaseModel, ValidationError as PydanticValidationError
 
 from checkins.models import CheckInRecord
 from registrations.models import Registration
@@ -64,6 +66,7 @@ def validate(spec, event: Event | None = None) -> tuple[list[Issue], list[Issue]
         ev.pk = event.pk
     errors = _target_issues(event)
     errors += _reference_issues(parsed)
+    errors += _age_bound_errors(parsed)
     errors += _model_issues(parsed, ev)
     ties = _ordering_issues(parsed)
     errors += _going_live_issues(ev)
@@ -101,6 +104,24 @@ def _target_issues(event: Event | None) -> list[Issue]:
     return issues
 
 
+def _allowed_fields(loc) -> list[str]:
+    """Field names of the model that holds the unknown field at ``loc``."""
+    model = EventSpec
+    for part in loc[:-1]:
+        if isinstance(part, int):
+            continue
+        field = model.model_fields.get(part)
+        if field is None:
+            return []
+        args = [field.annotation, *getattr(field.annotation, "__args__", ())]
+        model = next(
+            (a for a in args if isinstance(a, type) and issubclass(a, BaseModel)), None
+        )
+        if model is None:
+            return []
+    return list(model.model_fields)
+
+
 def _shape_issues(exc: PydanticValidationError) -> list[Issue]:
     issues = []
     for err in exc.errors():
@@ -111,6 +132,12 @@ def _shape_issues(exc: PydanticValidationError) -> list[Issue]:
         }
         known = kind in MESSAGES
         message = str(MESSAGES[kind if known else "invalid_value"]) % params
+        if kind == "extra_forbidden":
+            allowed = _allowed_fields(err["loc"])
+            if allowed:
+                message += " " + _("Allowed here: %(allowed)s.") % {
+                    "allowed": ", ".join(allowed)
+                }
         issues.append(issue(_path(err["loc"]), kind, message))
     return issues
 
@@ -282,6 +309,7 @@ def _warnings(spec: EventSpec, ev: Event) -> list[Issue]:
         *_event_warnings(ev),
         *_pricing_warnings(spec),
         *_age_band_warnings(spec),
+        *_age_label_warnings(spec),
         *_inactive_unreferenced_warnings(spec),
         *_session_warnings(spec),
         *_requires_cycles(spec),
@@ -387,6 +415,55 @@ def _age_range(spec: EventSpec, t) -> tuple[int, int]:
     youngest = _age_on_start(spec, t.max_birthdate) if t.max_birthdate else 0
     oldest = _age_on_start(spec, t.min_birthdate) if t.min_birthdate else _NO_AGE_LIMIT
     return youngest, oldest
+
+
+def _inverted(t) -> bool:
+    return bool(
+        t.min_birthdate and t.max_birthdate and t.min_birthdate > t.max_birthdate
+    )
+
+
+def _age_bound_errors(spec: EventSpec) -> list[Issue]:
+    return [
+        issue(
+            f"ticket_types[{i}]",
+            "age_bounds_inverted",
+            min=t.min_birthdate,
+            max=t.max_birthdate,
+        )
+        for i, t in enumerate(spec.ticket_types)
+        if _inverted(t)
+    ]
+
+
+# "0-12" or "up to 12"; digits glued to other digits ("2027-2028") are not ages.
+_AGE_LABEL = re.compile(
+    r"(?<![\d-])(\d{1,2})\s*[-–]\s*(\d{1,2})(?![\d-])"
+    r"|(?:up to|upp till)\s+(\d{1,2})(?!\d)",
+    re.IGNORECASE,
+)
+
+
+def _age_label_warnings(spec: EventSpec) -> list[Issue]:
+    out = []
+    for i, t in enumerate(spec.ticket_types):
+        match = _AGE_LABEL.search(t.name)
+        if not match or _inverted(t) or not (t.min_birthdate or t.max_birthdate):
+            continue
+        low, high = (int(match[1]), int(match[2])) if match[1] else (0, int(match[3]))
+        youngest, oldest = _age_range(spec, t)
+        if low > high or (youngest, oldest) == (low, high):
+            continue
+        actual = f"{youngest}+" if oldest == _NO_AGE_LIMIT else f"{youngest}-{oldest}"
+        out.append(
+            issue(
+                f"ticket_types[{i}].name",
+                "age_label_mismatch",
+                label=f"{low}-{high}",
+                actual=actual,
+            )
+        )
+    return out
 
 
 def _audience(t) -> set[str]:
@@ -529,9 +606,21 @@ def _fits(extra_applies_to: str, t) -> bool:
     return extra_applies_to == "either" or extra_applies_to in _audience(t)
 
 
+_DISCOUNT_NAME = re.compile(r"rabatt|discount|syskon|sibling", re.IGNORECASE)
+
+
+def _extra_discount_warnings(spec: EventSpec) -> list[Issue]:
+    # An extra only adds to the price; a model faking a discount with one is a known slip.
+    return [
+        issue(f"extras[{i}]", "discount_as_extra")
+        for i, e in enumerate(spec.extras)
+        if e.price == 0 and not e.choices and _DISCOUNT_NAME.search(e.name)
+    ]
+
+
 def _promo_warnings(spec: EventSpec) -> list[Issue]:
     inactive = _inactive_ticket_types(spec)
-    out = []
+    out = _extra_discount_warnings(spec)
     for i, c in enumerate(spec.promo_codes):
         targets = [*c.applies_to_ticket_types, *c.unlocks_ticket_types]
         if targets and all(k in inactive for k in targets):
