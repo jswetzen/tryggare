@@ -2277,3 +2277,27 @@ msgstr "Allowed here: %(allowed)s."
 msgid "A free extra named like a discount does not discount anything; an extra only adds to the price. Use a promo code."
 msgstr "A free extra named like a discount does not discount anything; an extra only adds to the price. Use a promo code."
 
+
+msgid "Idle"
+msgstr "Idle"
+
+msgid "Messages"
+msgstr "Messages"
+
+msgid "Draft"
+msgstr "Draft"
+
+msgid "Run started at"
+msgstr "Run started at"
+
+msgid "Notice accepted at"
+msgstr "Notice accepted at"
+
+msgid "Created at"
+msgstr "Created at"
+
+msgid "Assistant conversation"
+msgstr "Assistant conversation"
+
+msgid "Assistant conversations"
+msgstr "Assistant conversations"

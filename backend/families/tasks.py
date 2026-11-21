@@ -22,3 +22,7 @@ def run_scheduled_retention():
         logger.info("GDPR retention: scheduled run complete")
     except Exception:
         logger.exception("GDPR retention: scheduled run failed")
+    try:
+        call_command("purge_assistant_conversations")
+    except Exception:
+        logger.exception("Assistant retention: purge failed")

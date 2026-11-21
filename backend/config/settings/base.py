@@ -253,6 +253,10 @@ REST_FRAMEWORK = {
 DATA_RETENTION_DAYS = int(os.getenv("DATA_RETENTION_DAYS", "1095"))  # 3 years
 AUDIT_LOG_RETENTION_DAYS = int(os.getenv("AUDIT_LOG_RETENTION_DAYS", "1095"))
 
+# Event assistant chats can hold personal data: short retention, pruned by the same daily job.
+ASSISTANT_RETENTION_DAYS = int(os.getenv("ASSISTANT_RETENTION_DAYS", "30"))
+ASSISTANT_RUNS_PER_HOUR = int(os.getenv("ASSISTANT_RUNS_PER_HOUR", "10"))
+
 DATA_CONTROLLER_NAME = os.getenv("DATA_CONTROLLER_NAME", "")
 DATA_CONTROLLER_CONTACT_EMAIL = os.getenv("DATA_CONTROLLER_CONTACT_EMAIL", "")
 DATA_CONTROLLER_URL = os.getenv("DATA_CONTROLLER_URL", "")

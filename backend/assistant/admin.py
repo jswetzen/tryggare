@@ -8,7 +8,7 @@ from django.utils.decorators import method_decorator
 from django.utils.translation import gettext_lazy as _
 from django.views.decorators.debug import sensitive_post_parameters
 
-from .models import LLMProvider
+from .models import AssistantConversation, LLMProvider
 from .providers import ProviderError
 from .services import fetch_models
 
@@ -142,3 +142,26 @@ class LLMProviderAdmin(admin.ModelAdmin):
         except ProviderError as exc:
             return JsonResponse({"error": exc.message, "code": exc.code}, status=502)
         return JsonResponse({"models": models})
+
+
+@admin.register(AssistantConversation)
+class AssistantConversationAdmin(admin.ModelAdmin):
+    """Read-only; message text is deliberately not shown (it may hold personal data)."""
+
+    list_display = ("event", "user", "status", "updated_at")
+    exclude = ("messages", "draft")
+    readonly_fields = (
+        "event",
+        "user",
+        "status",
+        "run_started_at",
+        "notice_accepted_at",
+        "created_at",
+        "updated_at",
+    )
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False

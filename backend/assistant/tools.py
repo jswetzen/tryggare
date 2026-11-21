@@ -164,9 +164,11 @@ class Drafts:
     """Proposals of one assistant session: ``items[token] = {"spec", "diff", "warnings", "base"}``.
     Nothing is written to the DB; applying goes through the REST API, which revalidates."""
 
-    def __init__(self, event: Event):
+    def __init__(self, event: Event, on_propose=None):
         self.event = event
         self.items: dict[str, dict] = {}
+        # Called with (token, item) in the tool thread, so a draft survives a run that fails later.
+        self.on_propose = on_propose
 
     def is_stale(self, token: str) -> bool:
         """True when the event changed since the draft was proposed (sync, hits the DB)."""
@@ -179,7 +181,7 @@ class Drafts:
 class EventTools:
     """The tools, as plain sync methods. Their docstrings are the model-facing descriptions."""
 
-    def __init__(self, event: Event, user):
+    def __init__(self, event: Event, user, on_propose=None):
         # Same bar as the staff API: view for reading, add/change/delete for replacing,
         # since a proposal exists to be applied.
         if not all(user.has_perm(p) for p in VIEW_PERMISSIONS + REPLACE_PERMISSIONS):
@@ -193,7 +195,7 @@ class EventTools:
                 + _issues_message(blockers)
             )
         self.event = event
-        self.drafts = Drafts(event)
+        self.drafts = Drafts(event, on_propose)
 
     def _current(self) -> Event:
         row = Event.objects.filter(pk=self.event.pk).first()
@@ -275,6 +277,8 @@ class EventTools:
         token = draft_token(target.pk, base, spec)
         draft = _plain({"diff": result["diff"], "warnings": result["warnings"]})
         self.drafts.items[token] = {"spec": _plain(spec), "base": base, **draft}
+        if self.drafts.on_propose:
+            self.drafts.on_propose(token, self.drafts.items[token])
         return {"draft": token, "applied": False, **draft}
 
 
@@ -302,9 +306,11 @@ def asyncify(fn, error_type: type[Exception]):
     return wrapper
 
 
-def build_toolset(event: Event, user) -> tuple[FunctionToolset, Drafts]:
+def build_toolset(
+    event: Event, user, on_propose=None
+) -> tuple[FunctionToolset, Drafts]:
     """Function tools for a Pydantic AI agent; errors become ``ModelRetry``."""
-    tools = EventTools(event, user)
+    tools = EventTools(event, user, on_propose)
     toolset = FunctionToolset(max_retries=TOOL_RETRIES)
     for name in TOOL_NAMES:
         toolset.add_function(asyncify(getattr(tools, name), ModelRetry), name=name)

@@ -2301,3 +2301,27 @@ msgstr "Tillåtna här: %(allowed)s."
 msgid "A free extra named like a discount does not discount anything; an extra only adds to the price. Use a promo code."
 msgstr "Ett gratis tillval som heter som en rabatt ger ingen rabatt; ett tillval läggs bara till priset. Använd en rabattkod."
 
+
+msgid "Idle"
+msgstr "Inaktiv"
+
+msgid "Messages"
+msgstr "Meddelanden"
+
+msgid "Draft"
+msgstr "Utkast"
+
+msgid "Run started at"
+msgstr "Körningen startade"
+
+msgid "Notice accepted at"
+msgstr "Notisen godkänd"
+
+msgid "Created at"
+msgstr "Skapad"
+
+msgid "Assistant conversation"
+msgstr "Assistentkonversation"
+
+msgid "Assistant conversations"
+msgstr "Assistentkonversationer"

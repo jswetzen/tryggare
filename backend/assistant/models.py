@@ -1,8 +1,10 @@
+import uuid
 from urllib.parse import urlsplit
 
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import models
+from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
 from django.views.decorators.debug import sensitive_variables
@@ -152,3 +154,71 @@ class LLMProvider(models.Model):
         if _origin(base_url) != _origin(self.base_url):
             return ""
         return self.get_api_key()
+
+
+class AssistantConversation(models.Model):
+    """One organizer's chat about one event, with its current draft.
+
+    pydantic-ai keeps no state between runs, so history lives here. Chat text can
+    hold personal data despite the notice: it is short-lived (see runner.purge_idle).
+    """
+
+    STATUS_IDLE = "idle"
+    STATUS_RUNNING = "running"
+    STATUS_CHOICES = [
+        (STATUS_IDLE, _("Idle")),
+        (STATUS_RUNNING, _("Running")),
+    ]
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    event = models.ForeignKey(
+        "events.Event",
+        on_delete=models.CASCADE,
+        related_name="assistant_conversations",
+        verbose_name=_("Event"),
+    )
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="assistant_conversations",
+        verbose_name=_("User"),
+    )
+    # ModelMessagesTypeAdapter JSON; never holds a system prompt (see runner.dump_messages).
+    messages = models.JSONField(default=list, blank=True, verbose_name=_("Messages"))
+    # {"spec", "diff", "warnings", "base", "token", "version"}; last propose_spec wins.
+    draft = models.JSONField(null=True, blank=True, verbose_name=_("Draft"))
+    status = models.CharField(
+        max_length=16,
+        choices=STATUS_CHOICES,
+        default=STATUS_IDLE,
+        verbose_name=_("Status"),
+    )
+    run_started_at = models.DateTimeField(
+        null=True, blank=True, verbose_name=_("Run started at")
+    )
+    notice_accepted_at = models.DateTimeField(
+        null=True, blank=True, verbose_name=_("Notice accepted at")
+    )
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name=_("Created at"))
+    updated_at = models.DateTimeField(auto_now=True, verbose_name=_("Updated at"))
+
+    class Meta:
+        verbose_name = _("Assistant conversation")
+        verbose_name_plural = _("Assistant conversations")
+        constraints = [
+            models.UniqueConstraint(
+                fields=["event", "user"], name="assistant_one_conversation_per_user"
+            )
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.event_id}/{self.user_id}"
+
+
+class AssistantRun(models.Model):
+    """One started run, kept only to rate-limit a user across events."""
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="+"
+    )
+    started_at = models.DateTimeField(default=timezone.now, db_index=True)
