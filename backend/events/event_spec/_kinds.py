@@ -186,7 +186,7 @@ KINDS: dict[str, Kind] = {
             order=("sort_order", "name"),
             key_from="name",
             noun=_("extra"),
-            refs={"session": "sessions"},
+            refs={"session": "sessions", "ticket_types": "ticket_types"},
         ),
         Kind(
             name="choices",

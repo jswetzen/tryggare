@@ -121,6 +121,14 @@ def make_fixture_event() -> Event:
         required=True,
         sort_order=1,
     )
+    workshop = Extra.objects.create(
+        id=_uid(34),
+        event=event,
+        name="Child workshop",
+        price=Decimal("20.00"),
+        sort_order=2,
+    )
+    workshop.ticket_types.add(TicketType.objects.get(id=_uid(21)))
     ExtraChoice.objects.create(id=_uid(31), extra=lunch, label="Meat", sort_order=1)
     ExtraChoice.objects.create(
         id=_uid(32),

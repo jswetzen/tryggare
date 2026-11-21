@@ -1,4 +1,4 @@
-"""``manage.py event_spec export|validate|diff|apply``: JSON in, JSON on stdout.
+"""``manage.py event_spec export|check|validate|diff|apply``: JSON in, JSON on stdout.
 
 Issues print as ``path: [code] message`` on stderr and the exit code is non-zero
 on errors. There is deliberately no confirmation prompt (see docs/event-spec-plan.md).
@@ -24,6 +24,9 @@ class Command(BaseCommand):
         p = sub.add_parser("export", help="Print an event's spec.")
         p.add_argument("--event", required=True, help="Event id.")
         p.add_argument("-o", "--output", help="Write to this file instead of stdout.")
+
+        p = sub.add_parser("check", help="Check a live event's setup for problems.")
+        p.add_argument("--event", required=True, help="Event id.")
 
         p = sub.add_parser("validate", help="Validate a spec file.")
         p.add_argument("file", help="Spec JSON file, or - for stdin.")
@@ -112,6 +115,23 @@ class Command(BaseCommand):
                 ) from exc
         else:
             self._json(spec)
+
+    def _check(self, options):
+        try:
+            result = event_spec.check_setup(self._event(options["event"]))
+        except event_spec.SpecError as exc:
+            self._report(exc.errors, [])
+            raise CommandError(
+                _("The event cannot be checked: %(count)d error(s).")
+                % {"count": len(exc.errors)}
+            ) from exc
+        self._report(result["errors"], result["warnings"])
+        self._json(result)
+        if result["errors"]:
+            raise CommandError(
+                _("The setup has %(count)d error(s).")
+                % {"count": len(result["errors"])}
+            )
 
     def _validate(self, options):
         spec = self._spec(options["file"])

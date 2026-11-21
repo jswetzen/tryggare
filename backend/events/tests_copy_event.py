@@ -199,6 +199,14 @@ class CopyEventTest(TestCase):
             set(bundle.sessions.all()), {new.sessions.get(name="Saturday")}
         )
 
+    def test_extra_gate_follows_the_copied_ticket_types(self):
+        self.dinner.ticket_types.add(self.child_type)
+        new = self._copy()
+        gate = new.extras.get(name="Dinner").ticket_types.get()
+        self.assertEqual(gate.event, new)
+        self.assertNotEqual(gate.pk, self.child_type.pk)
+        self.assertEqual(gate.name, "Child")
+
     def test_ticket_type_dates_and_birthdate_bounds_shift(self):
         new = self._copy()  # +14 days
 

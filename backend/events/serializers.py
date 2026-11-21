@@ -1,3 +1,4 @@
+from django.utils.translation import gettext_lazy as _
 from rest_framework import serializers
 
 from .models import Event, EventTicket, Session, SessionTicket, Ticket
@@ -29,6 +30,14 @@ class SessionSerializer(serializers.ModelSerializer):
             "event_name",
         ]
         read_only_fields = ["id"]
+
+    def validate_event(self, value):
+        # Moving a session would strand its extras and ticket-type bundles.
+        if self.instance is not None and value != self.instance.event:
+            raise serializers.ValidationError(
+                _("A session cannot be moved to another event.")
+            )
+        return value
 
 
 class DoorGrantSerializer(serializers.Serializer):

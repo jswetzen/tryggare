@@ -554,11 +554,10 @@ is naturally "event-wide extra" whose absurdity for day visitors is
 mostly theoretical (a day visitor buying a bed is odd but not harmful —
 they paid for a bed).
 
-**Recommendation.** Explicitly **defer**. Do not add
-`Extra.ticket_types` M2M in Phase 3. Session scoping and `applies_to`
-land first; if a pilot congregation hits a real (not aesthetic) case that
-those can't express, the M2M is a small additive migration. Recording the
-deferral here so it's a decision, not an oversight.
+**Recommendation.** Built 2026-11-19 (FR-1, `Extra.ticket_types`): the
+small additive M2M, empty meaning no gate. Originally deferred in favour
+of session scoping and `applies_to`; a pilot trial hit a case those
+couldn't express (a 13-17 workshop).
 
 ## 4. People & relationships
 
@@ -1849,7 +1848,7 @@ that were made; the second is blind spots that still need one.
 | Case | Why excluded | Assessment |
 |---|---|---|
 | Seat holds while the form is open (1.3) | Avoids hold/expiry machinery for a phone-glance page view | Right call — sold-out→waitlist carryover covers the actual pain cheaper |
-| `Extra` gated by ticket type, `Extra.ticket_types` M2M (3.4) | Session-scope + `applies_to` cover most real cases; deferred as a small additive migration otherwise | Right call, but watch for the lodging-on-day-pass edge actually surfacing in a pilot |
+| `Extra` gated by ticket type, `Extra.ticket_types` M2M (3.4) | Session-scope + `applies_to` cover most real cases; built 2026-11-19 (FR-1, `Extra.ticket_types`) after a trial hit a case they couldn't express | Deferral was reasonable; the trial supplied the real case |
 | Split payment between two households (4.5) | Swedish norm is "one pays, other Swishes them back" — off-system | Right call, matches the manual-rail reality; a split ledger would be pure reconciliation cost for zero real need |
 | Legal custody modeling (4.6) | "Don't model custody"; consent text states what's being attested instead | Right call — modeling vårdnadshavare relationships correctly is its own project; the honest-attestation-text fallback is the right weight |
 | Personnummer collection (4.7) | Permanent refusal, framed as a selling point | Right call, worth keeping — every identifier added widens breach/export blast radius for zero function gain |

@@ -1,13 +1,21 @@
-from urllib.parse import urlencode
+from urllib.parse import urlencode, urlsplit, urlunsplit
 
 from django import forms
 from django.conf import settings
 from django.contrib import admin, messages
 from django.contrib.admin import helpers
-from django.core.exceptions import ObjectDoesNotExist
-from django.http import HttpResponseRedirect
+from django.contrib.admin.views.main import IS_POPUP_VAR
+from django.contrib.admin.widgets import RelatedFieldWidgetWrapper
+from django.core.exceptions import (
+    ObjectDoesNotExist,
+    PermissionDenied,
+    ValidationError,
+)
+from django.db import transaction
+from django.db.models import Q
+from django.http import Http404, HttpResponseRedirect, QueryDict
 from django.template.response import TemplateResponse
-from django.urls import reverse
+from django.urls import path, reverse
 from django.utils.html import format_html, format_html_join
 from django.utils.safestring import mark_safe
 from django.utils.translation import gettext_lazy as _
@@ -59,10 +67,11 @@ from registrations.services import (
     ticket_type_sold_count,
 )
 
-from .event_spec import SpecError
+from .event_spec import SpecError, check_setup
 from .services import (
     can_copy_events,
     copy_event_with_warnings,
+    deactivate_extras_emptied_by_deleting,
     duplicate_extra_to_event,
 )
 
@@ -92,8 +101,9 @@ class EventAdmin(admin.ModelAdmin):
     )
     list_filter = ("ticket_rule_default",)
     search_fields = ("name",)
-    actions = ("generate_report", "copy_event_action")
+    actions = ("generate_report", "copy_event_action", "check_setup_action")
     readonly_fields = ("cloned_from",)
+    change_form_template = "admin/events/event/change_form.html"
     # Explicit fieldsets so the check-in rule gets a block of its own, away
     # from the registration/branding fields. Every editable field must be
     # listed here: unlike ``exclude``, ``fieldsets`` is an allow-list, so a
@@ -140,6 +150,41 @@ class EventAdmin(admin.ModelAdmin):
 
     def has_copy_permission(self, request):
         return can_copy_events(request.user)
+
+    def get_urls(self):
+        return [
+            path(
+                "<path:object_id>/check-setup/",
+                self.admin_site.admin_view(self.check_setup_view),
+                name="events_event_check_setup",
+            ),
+            *super().get_urls(),
+        ]
+
+    def _check_setup_response(self, request, events):
+        results = []
+        for event in events:
+            try:
+                results.append({"event": event, **check_setup(event)})
+            except SpecError as exc:
+                results.append({"event": event, "errors": exc.errors, "warnings": []})
+        context = {
+            **self.admin_site.each_context(request),
+            "title": _("Check setup"),
+            "results": results,
+            "opts": self.model._meta,
+        }
+        return TemplateResponse(request, "admin/events/event/check_setup.html", context)
+
+    def check_setup_view(self, request, object_id):
+        event = self.get_object(request, object_id)
+        if event is None or not self.has_view_permission(request, event):
+            raise Http404
+        return self._check_setup_response(request, [event])
+
+    @admin.action(description=_("Check setup"), permissions=["view"])
+    def check_setup_action(self, request, queryset):
+        return self._check_setup_response(request, list(queryset.order_by("name")))
 
     @admin.action(description=_("Copy event…"), permissions=["copy"])
     def copy_event_action(self, request, queryset):
@@ -227,8 +272,19 @@ class EventAdmin(admin.ModelAdmin):
             )
 
 
+class EventLockedMixin:
+    """An existing row's event is read-only: moving it would leave references
+    to the old event's rows. Copy / duplicate are the supported ways."""
+
+    def get_readonly_fields(self, request, obj=None):
+        readonly = list(super().get_readonly_fields(request, obj))
+        if obj is not None and "event" not in readonly:
+            readonly.append("event")
+        return readonly
+
+
 @admin.register(Session)
-class SessionAdmin(admin.ModelAdmin):
+class SessionAdmin(EventLockedMixin, admin.ModelAdmin):
     list_display = (
         # The change-link column stays first. The rule columns used to come
         # right after it and, in Swedish at 1280px, pushed Active / Start time
@@ -1034,7 +1090,198 @@ class SessionTicketAdmin(TicketTriageMixin, TicketTypeGuardMixin, admin.ModelAdm
         return obj.session.event
 
 
-class TicketTypeAdminForm(forms.ModelForm):
+class EventScopedFormMixin:
+    """Pickers offer only the row's own event; clean() refuses the rest.
+
+    ``event_scoped`` maps a field name to the model it picks from (which has an
+    ``event`` FK). The event is the saved row's, or on the add form the one
+    EventScopedAdminMixin locked in (``locked_event``). Rows already linked stay listed so a legacy foreign
+    link is refused by name instead of silently dropped on re-save. FK pickers
+    are also covered by the model's clean(); M2M pickers are checked here."""
+
+    event_scoped: dict = {}
+    locked_event = None  # set by the admin's get_form on the add form
+    chooser_url = None
+
+    def _linked_pks(self, name):
+        if not self.instance.pk:
+            return []
+        value = getattr(self.instance, name)
+        if hasattr(value, "values_list"):
+            return list(value.values_list("pk", flat=True))
+        return [value.pk] if value is not None else []
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if self.locked_event is not None and self.instance.event_id is None:
+            self.instance.event = self.locked_event
+        self.instance._chooser_url = self.chooser_url
+        event_id = self.instance.event_id
+        for name, model in self.event_scoped.items():
+            if name not in self.fields:
+                continue
+            scope = Q(event_id=event_id) if event_id else Q(pk__in=[])
+            self.fields[name].queryset = model.objects.filter(
+                scope | Q(pk__in=self._linked_pks(name))
+            )
+
+    def clean(self):
+        cleaned = super().clean()
+        event = cleaned.get("event")
+        event_id = event.id if event is not None else self.instance.event_id
+        if event_id is None:
+            return cleaned
+        errors = {}
+        for name, model in self.event_scoped.items():
+            value = cleaned.get(name)
+            if value is None or isinstance(value, model):
+                continue
+            foreign = [str(o) for o in value if o.event_id != event_id]
+            if foreign:
+                errors[name] = _("Must belong to the same event: %(names)s.") % {
+                    "names": ", ".join(foreign)
+                }
+        if errors:
+            raise forms.ValidationError(errors)
+        return cleaned
+
+
+class _EventParamWrapper(RelatedFieldWidgetWrapper):
+    """The "+" popup link also carries ``event=`` so the new row's event is
+    preselected (Session) or the chooser is skipped (TicketType)."""
+
+    popup_event = None
+
+    def get_context(self, name, value, attrs):
+        context = super().get_context(name, value, attrs)
+        if self.popup_event:
+            context["url_params"] += f"&event={self.popup_event}"
+        return context
+
+
+class EventScopedAdminMixin(EventLockedMixin):
+    """The add form needs an event before its pickers can be filled, so a bare
+    add URL first shows an event chooser that reloads with ``?event=<id>``. The
+    event may also come from the changelist's event filter. On the add form the
+    chosen event is then fixed (shown read-only, with a link back to the
+    chooser), the same as an existing row's."""
+
+    def _chosen_event(self, request):
+        raw = request.GET.get("event") or QueryDict(
+            request.GET.get("_changelist_filters", "")
+        ).get("event__id__exact")
+        if not raw:
+            return None
+        try:
+            return Event.objects.filter(pk=raw).first()
+        except (ValidationError, ValueError):
+            return None
+
+    def _chooser_url(self, request):
+        params = [
+            (k, v)
+            for k, v in request.GET.items()
+            if k not in ("event", "_changelist_filters")
+        ]
+        url = reverse(
+            f"admin:{self.model._meta.app_label}_{self.model._meta.model_name}_add"
+        )
+        return f"{url}?{urlencode(params)}" if params else url
+
+    def get_readonly_fields(self, request, obj=None):
+        readonly = super().get_readonly_fields(request, obj)
+        if obj is None and self._chosen_event(request) is not None:
+            readonly = [*readonly, "event_locked"]
+        return readonly
+
+    def get_exclude(self, request, obj=None):
+        exclude = list(super().get_exclude(request, obj) or ())
+        if obj is None and self._chosen_event(request) is not None:
+            exclude.append("event")
+        return exclude
+
+    def get_fields(self, request, obj=None):
+        fields = list(super().get_fields(request, obj))
+        if "event_locked" in fields:
+            fields.remove("event_locked")
+            fields.insert(0, "event_locked")
+        return fields
+
+    @admin.display(description=_("Event"))
+    def event_locked(self, obj):
+        url = getattr(obj, "_chooser_url", None)
+        if not url:
+            return obj.event
+        return format_html('{} (<a href="{}">{}</a>)', obj.event, url, _("change"))
+
+    def get_form(self, request, obj=None, **kwargs):
+        event = obj.event if obj is not None else self._chosen_event(request)
+        request._scoped_event = event
+        form = super().get_form(request, obj, **kwargs)
+        if obj is None and event is not None:
+            form.locked_event = event
+            form.chooser_url = self._chooser_url(request)
+        return form
+
+    def formfield_for_dbfield(self, db_field, request, **kwargs):
+        field = super().formfield_for_dbfield(db_field, request, **kwargs)
+        event = getattr(request, "_scoped_event", None)
+        if (
+            event is not None
+            and isinstance(field.widget, RelatedFieldWidgetWrapper)
+            and db_field.related_model in (Session, TicketType)
+        ):
+            field.widget.__class__ = _EventParamWrapper
+            field.widget.popup_event = event.pk
+        return field
+
+    def get_changeform_initial_data(self, request):
+        initial = super().get_changeform_initial_data(request)
+        event = self._chosen_event(request)
+        if event is not None:
+            initial["event"] = event.pk
+        return initial
+
+    def add_view(self, request, form_url="", extra_context=None):
+        if not self.has_add_permission(request):
+            raise PermissionDenied
+        if request.method == "GET" and self._chosen_event(request) is None:
+            return self._event_chooser(request)
+        return super().add_view(request, form_url, extra_context)
+
+    def response_add(self, request, obj, post_url_continue=None):
+        response = super().response_add(request, obj, post_url_continue)
+        if "_addanother" in request.POST and isinstance(response, HttpResponseRedirect):
+            parts = urlsplit(response.url)
+            query = QueryDict(parts.query, mutable=True)
+            query["event"] = str(obj.event_id)
+            response = HttpResponseRedirect(
+                urlunsplit(parts._replace(query=query.urlencode()))
+            )
+        return response
+
+    def _event_chooser(self, request):
+        opts = self.model._meta
+        carried = [(k, v) for k, v in request.GET.items() if k != "event"]
+        context = {
+            **self.admin_site.each_context(request),
+            "opts": opts,
+            "is_popup": IS_POPUP_VAR in request.GET,
+            "is_popup_var": IS_POPUP_VAR,
+            "title": _("Choose the event first"),
+            "intro": _(
+                "Pick the event this belongs to. The next page then offers "
+                "only that event's sessions and ticket types."
+            ),
+            "events": Event.objects.order_by("-start_date"),
+            "carried": carried,
+            "event_label": _("Event"),
+            "button": _("Continue"),
+        }
+        return TemplateResponse(request, "admin/events/event_chooser.html", context)
+
+
+class TicketTypeAdminForm(EventScopedFormMixin, forms.ModelForm):
     """A2: catch a session_bundle TicketType with no sessions attached at
     save time. Must live on the form's clean(), not TicketType.clean() —
     the sessions M2M isn't written to the instance until after save() (via
@@ -1044,9 +1291,22 @@ class TicketTypeAdminForm(forms.ModelForm):
     See registrations/views.py::_materialize_ticket for the runtime
     backstop this doesn't replace."""
 
+    event_scoped = {"sessions": Session, "requires_ticket_type": TicketType}
+
     class Meta:
         model = TicketType
         fields = "__all__"
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # A legacy self-link stays listed so clean() can say it is not allowed.
+        if (
+            self.instance.pk
+            and self.instance.requires_ticket_type_id != self.instance.pk
+            and "requires_ticket_type" in self.fields
+        ):
+            field = self.fields["requires_ticket_type"]
+            field.queryset = field.queryset.exclude(pk=self.instance.pk)
 
     def clean(self):
         cleaned_data = super().clean()
@@ -1056,22 +1316,11 @@ class TicketTypeAdminForm(forms.ModelForm):
             raise forms.ValidationError(
                 _("A session-bundle ticket type must cover at least one session.")
             )
-        requires_ticket_type = cleaned_data.get("requires_ticket_type")
-        if requires_ticket_type is not None:
-            event = cleaned_data.get("event")
-            if event is not None and requires_ticket_type.event_id != event.id:
-                raise forms.ValidationError(
-                    {
-                        "requires_ticket_type": _(
-                            "The required ticket type must belong to the same event."
-                        )
-                    }
-                )
         return cleaned_data
 
 
 @admin.register(TicketType)
-class TicketTypeAdmin(admin.ModelAdmin):
+class TicketTypeAdmin(EventScopedAdminMixin, admin.ModelAdmin):
     form = TicketTypeAdminForm
     list_display = (
         "name",
@@ -1087,8 +1336,30 @@ class TicketTypeAdmin(admin.ModelAdmin):
     )
     list_filter = ("event", "applies_to", "kind", "is_hidden", "is_active")
     search_fields = ("name", "event__name")
-    autocomplete_fields = ["event", "requires_ticket_type"]
+    autocomplete_fields = ["event"]
     filter_horizontal = ["sessions"]
+
+    def _deactivate_emptied_extras(self, request, ticket_types):
+        emptied = deactivate_extras_emptied_by_deleting(ticket_types)
+        if emptied:
+            self.message_user(
+                request,
+                _(
+                    "Deactivated because every ticket type in their gate was "
+                    "deleted: %(names)s."
+                )
+                % {"names": ", ".join(e.name for e in emptied)},
+                messages.WARNING,
+            )
+
+    def delete_model(self, request, obj):
+        self._deactivate_emptied_extras(request, [obj])
+        super().delete_model(request, obj)
+
+    def delete_queryset(self, request, queryset):
+        with transaction.atomic():
+            self._deactivate_emptied_extras(request, list(queryset))
+            super().delete_queryset(request, queryset)
 
     def save_model(self, request, obj, form, change):
         super().save_model(request, obj, form, change)
@@ -1127,8 +1398,19 @@ class TicketTypeAdmin(admin.ModelAdmin):
             )
 
 
+class PromoCodeAdminForm(EventScopedFormMixin, forms.ModelForm):
+    event_scoped = {
+        "applies_to_ticket_types": TicketType,
+        "unlocks_ticket_types": TicketType,
+    }
+
+    class Meta:
+        model = PromoCode
+        fields = "__all__"
+
+
 @admin.register(PromoCode)
-class PromoCodeAdmin(admin.ModelAdmin):
+class PromoCodeAdmin(EventScopedAdminMixin, admin.ModelAdmin):
     list_display = (
         "code",
         "event",
@@ -1140,6 +1422,7 @@ class PromoCodeAdmin(admin.ModelAdmin):
     )
     list_filter = ("event", "discount_type", "is_active")
     search_fields = ("code", "event__name")
+    form = PromoCodeAdminForm
     autocomplete_fields = ["event"]
     filter_horizontal = ["applies_to_ticket_types", "unlocks_ticket_types"]
     readonly_fields = ("uses_count",)
@@ -1158,8 +1441,17 @@ class DuplicateExtraToEventForm(forms.Form):
     )
 
 
+class ExtraAdminForm(EventScopedFormMixin, forms.ModelForm):
+    event_scoped = {"ticket_types": TicketType, "session": Session}
+
+    class Meta:
+        model = Extra
+        fields = "__all__"
+
+
 @admin.register(Extra)
-class ExtraAdmin(admin.ModelAdmin):
+class ExtraAdmin(EventScopedAdminMixin, admin.ModelAdmin):
+    form = ExtraAdminForm
     list_display = (
         "name",
         "event",
@@ -1173,7 +1465,8 @@ class ExtraAdmin(admin.ModelAdmin):
     )
     list_filter = ("event", "applies_to", "per_attendee", "is_active")
     search_fields = ("name", "event__name")
-    autocomplete_fields = ["event", "session"]
+    autocomplete_fields = ["event"]
+    filter_horizontal = ["ticket_types"]
     inlines = [ExtraChoiceInline]
     actions = ["duplicate_to_event"]
     exclude = ("cloned_from",)
@@ -1224,14 +1517,28 @@ class ExtraAdmin(admin.ModelAdmin):
             if form.is_valid():
                 target_event = form.cleaned_data["target_event"]
                 count = queryset.count()
+                gated = []
                 for extra in queryset:
-                    duplicate_extra_to_event(extra, target_event)
+                    if duplicate_extra_to_event(extra, target_event).gate_incomplete:
+                        gated.append(extra.name)
                 self.message_user(
                     request,
                     _("Duplicated %(count)d extra(s) to '%(event)s'.")
                     % {"count": count, "event": target_event.name},
                     messages.SUCCESS,
                 )
+                if gated:
+                    self.message_user(
+                        request,
+                        _(
+                            "Created inactive because a ticket type it requires has no single "
+                            "active same-named type on '%(event)s' (a name that stays ambiguous "
+                            "counts as no match). Re-pick its ticket types before "
+                            "activating: %(names)s."
+                        )
+                        % {"event": target_event.name, "names": ", ".join(gated)},
+                        messages.WARNING,
+                    )
                 return None
         else:
             form = DuplicateExtraToEventForm()

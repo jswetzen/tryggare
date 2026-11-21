@@ -24,6 +24,7 @@ from events.spec_test_support import (
     at_now,
     by_path,
     validate_at_now,
+    example_with_bundle,
     empty_event,
     foreign_session,
 )
@@ -67,7 +68,8 @@ class SchemaTests(SimpleTestCase):
 class ExampleTests(SimpleTestCase):
     def test_example_validates_cleanly(self):
         errors, warnings = validate_at_now(example_spec())
-        self.assertEqual((errors, warnings), ([], []))
+        self.assertEqual(errors, [])
+        self.assertEqual(warnings, [])
 
 
 class ShapeTests(SimpleTestCase):
@@ -138,7 +140,7 @@ class ReferenceTests(SimpleTestCase):
         self.assertEqual(errors, [])
 
     def test_unknown_references(self):
-        spec = example_spec()
+        spec = example_with_bundle()
         spec["ticket_types"][3]["sessions"] = ["nope"]
         spec["ticket_types"][1]["requires_ticket_type"] = "nope"
         spec["extras"][0]["session"] = "nope"
@@ -153,6 +155,28 @@ class ReferenceTests(SimpleTestCase):
         ):
             self.assertEqual(issues[path]["code"], "unknown_key", path)
 
+    def test_extra_ticket_type_references(self):
+        spec = example_spec()
+        gated = spec["extras"][1]
+        self.assertEqual(gated["ticket_types"], ["child-pass-13-17"])
+        gated["ticket_types"] = [
+            "nope",
+            "t-shirt",
+            "child-pass-13-17",
+            "child-pass-13-17",
+        ]
+        errors, _ = validate_at_now(spec)
+        issues = by_path(errors)
+        self.assertEqual(issues["extras[1].ticket_types[0]"]["code"], "unknown_key")
+        self.assertEqual(issues["extras[1].ticket_types[1]"]["code"], "wrong_kind_key")
+        self.assertEqual(
+            issues["extras[1].ticket_types[3]"]["code"], "duplicate_reference"
+        )
+
+    def test_capabilities_offer_the_extra_gate(self):
+        described = [c["description"] for c in CAPABILITIES["supported"]]
+        self.assertIn("An add-on limited to holders of given ticket types.", described)
+
     def test_reference_to_the_wrong_kind(self):
         spec = example_spec()
         spec["promo_codes"][0]["applies_to_ticket_types"] = ["t-shirt"]
@@ -163,7 +187,7 @@ class ReferenceTests(SimpleTestCase):
         )
 
     def test_duplicate_reference(self):
-        spec = example_spec()
+        spec = example_with_bundle()
         spec["ticket_types"][3]["sessions"] = ["saturday-workshop", "saturday-workshop"]
         errors, _ = validate_at_now(spec)
         self.assertEqual(
@@ -375,18 +399,236 @@ class WarningTests(SimpleTestCase):
         )
 
     def test_bundle_without_sessions_and_ignored_sessions(self):
-        spec = example_spec()
+        spec = example_with_bundle()
         spec["ticket_types"][3]["sessions"] = []
         spec["ticket_types"][0]["sessions"] = ["saturday-workshop"]
         codes = self.codes(spec)
         self.assertIn(("ticket_types[3].sessions", "bundle_without_sessions"), codes)
         self.assertIn(("ticket_types[0].sessions", "sessions_ignored"), codes)
 
+    def test_bundle_replaces_pass(self):
+        spec = example_with_bundle()
+        key = ("ticket_types[3].kind", "bundle_replaces_pass")
+        self.assertIn(key, self.codes(spec))
+        # A different age window no longer overlaps any child pass.
+        spec["ticket_types"][3]["min_birthdate"] = "2004-06-19"
+        spec["ticket_types"][3]["max_birthdate"] = "2009-06-18"
+        self.assertNotIn(key, self.codes(spec))
+
+    def test_bundle_requiring_a_pass_of_other_attendees_is_fine(self):
+        spec = example_with_bundle()
+        key = ("ticket_types[3].kind", "bundle_replaces_pass")
+        spec["ticket_types"][3]["min_birthdate"] = "2004-06-19"
+        spec["ticket_types"][3]["max_birthdate"] = "2009-06-18"
+        spec["ticket_types"][3]["requires_ticket_type"] = "adult-conference-pass"
+        self.assertNotIn(key, self.codes(spec))
+        # Requiring a pass for the same attendees is a clash, whatever its visibility.
+        spec["ticket_types"][3]["requires_ticket_type"] = "child-pass-0-12"
+        spec["ticket_types"][3]["min_birthdate"] = "2014-06-19"
+        spec["ticket_types"][3]["max_birthdate"] = None
+        spec["ticket_types"][1]["is_hidden"] = True
+        self.assertNotIn(key, self.codes(spec))
+        self.assertIn(
+            ("ticket_types[3].kind", "bundle_requires_own_pass"), self.codes(spec)
+        )
+
+    def test_hidden_tiers_are_ignored_by_age_checks(self):
+        spec = example_with_bundle()
+        key = ("ticket_types[3].kind", "bundle_replaces_pass")
+        spec["ticket_types"][2]["is_hidden"] = True
+        self.assertNotIn(key, self.codes(spec))
+        # 0-12 and 15-17 would leave a gap, but a hidden tier cannot be bought.
+        spec["ticket_types"][2]["max_birthdate"] = "2012-06-18"
+        gap = ("ticket_types[2].min_birthdate", "age_band_gap")
+        self.assertNotIn(gap, self.codes(spec))
+        spec["ticket_types"][2]["is_hidden"] = False
+        self.assertIn(gap, self.codes(spec))
+
+    def test_either_audience_counts_as_parent_and_child(self):
+        spec = example_with_bundle()
+        key = ("ticket_types[3].kind", "bundle_replaces_pass")
+        spec["ticket_types"][3]["min_birthdate"] = "2004-06-19"
+        spec["ticket_types"][3]["max_birthdate"] = "2009-06-18"
+        spec["ticket_types"][3]["applies_to"] = "either"
+        # Its parents buy the adult pass too, whatever the ages.
+        self.assertIn(key, self.codes(spec))
+        # As a child tier it joins the child gap check: 0-12 and 15-17 leave 13-14.
+        spec["ticket_types"][3]["applies_to"] = "child"
+        spec["ticket_types"][2]["applies_to"] = "either"
+        spec["ticket_types"][2]["max_birthdate"] = "2012-06-18"
+        gap = ("ticket_types[2].min_birthdate", "age_band_gap")
+        self.assertIn(gap, self.codes(spec))
+
+    def test_parent_tiers_are_not_checked_for_age_bands(self):
+        spec = example_spec()
+        for i in (1, 2):
+            spec["ticket_types"][i]["applies_to"] = "parent"
+        spec["ticket_types"][2]["max_birthdate"] = "2012-06-18"
+        codes = {c for _, c in self.codes(spec)}
+        self.assertFalse(codes & {"age_band_gap", "age_band_overlap"})
+
+    def _second_bundle(self, spec, **fields):
+        spec["sessions"].append(
+            {
+                "key": "sunday-workshop",
+                "name": "Sunday workshop",
+                "start_time": "2027-06-20T10:00:00",
+                "end_time": "2027-06-20T12:00:00",
+            }
+        )
+        spec["ticket_types"].append(
+            {
+                **spec["ticket_types"][3],
+                "key": "sunday-workshop-0-12",
+                "name": "Sunday workshop 0-12",
+                "sessions": ["sunday-workshop"],
+                "sort_order": 50,
+                **fields,
+            }
+        )
+
+    def test_bundles_for_different_sessions_do_not_gap_or_overlap(self):
+        spec = example_with_bundle()
+        # 0-12 beside the Saturday 13-17 bundle: a gap and an overlap if they were one family.
+        self._second_bundle(
+            spec, min_birthdate="2014-06-19", max_birthdate="2015-06-18"
+        )
+        spec["ticket_types"][3]["min_birthdate"] = "2009-06-19"
+        spec["ticket_types"][3]["max_birthdate"] = "2012-06-18"
+        codes = {c for p, c in self.codes(spec) if p.startswith("ticket_types[")}
+        self.assertFalse(codes & {"age_band_gap", "age_band_overlap"})
+        # The same sessions form one family again.
+        spec["ticket_types"][4]["sessions"] = ["saturday-workshop"]
+        self.assertIn(
+            ("ticket_types[3].min_birthdate", "age_band_gap"), self.codes(spec)
+        )
+
+    def test_overlapping_tiers_need_overlapping_sale_windows(self):
+        spec = example_spec()
+        key = ("ticket_types[2].min_birthdate", "age_band_overlap")
+        spec["ticket_types"][2]["max_birthdate"] = "2015-06-18"
+        self.assertIn(key, self.codes(spec))
+        # Early-bird and regular price for the same ages: never on sale together.
+        spec["ticket_types"][1]["available_until"] = "2027-03-31T23:59:00"
+        spec["ticket_types"][2]["available_from"] = "2027-04-01T00:00:00"
+        self.assertNotIn(key, self.codes(spec))
+        spec["ticket_types"][2]["available_from"] = "2027-03-15T00:00:00"
+        self.assertIn(key, self.codes(spec))
+
+    def test_open_door_rule_with_tickets(self):
+        spec = example_with_bundle()
+        spec["event"]["ticket_rule_default"] = "open"
+        key = ("event.ticket_rule_default", "ticket_rule_open_with_tickets")
+        # The example's only session sets its own rule, so the default is never used.
+        self.assertNotIn(key, self.codes(spec))
+        spec["sessions"][0]["ticket_rule"] = ""
+        self.assertIn(key, self.codes(spec))
+        spec["sessions"] = []
+        spec["extras"] = spec["extras"][:1]
+        spec["ticket_types"] = spec["ticket_types"][:3]
+        self.assertIn(key, self.codes(spec))
+        spec["event"]["ticket_rule_default"] = "all"
+        self.assertNotIn(key, self.codes(spec))
+        spec["event"]["ticket_rule_default"] = "open"
+        for t in spec["ticket_types"]:
+            t["is_active"] = False
+        self.assertNotIn(key, self.codes(spec))
+
+    def test_event_price_ignored_while_ticket_types_exist(self):
+        spec = example_with_bundle()
+        key = ("event.price", "event_price_ignored")
+        self.assertNotIn(key, self.codes(spec))
+        spec["event"]["price"] = 100
+        self.assertIn(key, self.codes(spec))
+        spec["ticket_types"] = []
+        spec["promo_codes"] = []
+        spec["extras"] = []
+        self.assertNotIn(key, self.codes(spec))
+
+    def test_age_band_gap(self):
+        spec = example_with_bundle()
+        key = ("ticket_types[2].min_birthdate", "age_band_gap")
+        self.assertNotIn(key, self.codes(spec))
+        # 0-12 and 15-17: ages 13 and 14 have no child ticket.
+        spec["ticket_types"][2]["max_birthdate"] = "2012-06-18"
+        spec["ticket_types"][3]["max_birthdate"] = "2012-06-18"
+        self.assertIn(key, self.codes(spec))
+        errors, warnings = validate_at_now(spec)
+        gap = by_path(warnings)["ticket_types[2].min_birthdate"]
+        self.assertIn("13 to 14", gap["message"])
+
+    def test_age_band_overlap(self):
+        spec = example_spec()
+        key = ("ticket_types[2].min_birthdate", "age_band_overlap")
+        self.assertNotIn(key, self.codes(spec))
+        spec["ticket_types"][2]["max_birthdate"] = "2015-06-18"
+        self.assertIn(key, self.codes(spec))
+
+    def test_inactive_row_nothing_refers_to(self):
+        spec = example_spec()
+        key = ("ticket_types[1].is_active", "inactive_unreferenced")
+        spec["ticket_types"][1]["is_active"] = False
+        self.assertIn(key, self.codes(spec))
+        spec["promo_codes"][0]["applies_to_ticket_types"].append("child-pass-0-12")
+        self.assertNotIn(key, self.codes(spec))
+        # A reference from a row that is itself inactive does not count.
+        spec["promo_codes"][0]["is_active"] = False
+        self.assertIn(key, self.codes(spec))
+        spec["extras"][0]["choices"][0]["is_active"] = False
+        self.assertIn(
+            ("extras[0].choices[0].is_active", "inactive_unreferenced"),
+            self.codes(spec),
+        )
+
     def test_required_choice_without_active_choices(self):
         spec = example_spec()
         for c in spec["extras"][0]["choices"]:
             c["is_active"] = False
         self.assertIn(("extras[0].choices", "no_active_choices"), self.codes(spec))
+
+    def test_extra_gate_unreachable(self):
+        key = ("extras[1].ticket_types", "extra_gate_unreachable")
+        spec = example_spec()
+        gated = spec["extras"][1]
+        self.assertEqual(gated["ticket_types"], ["child-pass-13-17"])
+        self.assertNotIn(key, self.codes(spec))
+        # Gated on a parent-only pass, a child extra can never be taken.
+        gated["ticket_types"] = ["adult-conference-pass"]
+        self.assertIn(key, self.codes(spec))
+        # An "either" extra is reachable through the parent pass.
+        gated["applies_to"] = "either"
+        self.assertNotIn(key, self.codes(spec))
+        spec["ticket_types"][2]["is_active"] = False
+        gated["ticket_types"] = ["child-pass-13-17"]
+        self.assertIn(key, self.codes(spec))
+
+    def test_extra_gate_unreachable_for_a_session_scoped_extra(self):
+        key = ("extras[1].ticket_types", "extra_gate_unreachable")
+        spec = example_spec()
+        gated = spec["extras"][1]
+        self.assertEqual(gated["session"], "saturday-workshop")
+        pass_ = spec["ticket_types"][2]
+        # A bundle that does not cover the extra's session cannot reach it.
+        spec["sessions"].append(
+            {**spec["sessions"][0], "key": "sunday", "name": "Sunday"}
+        )
+        pass_["kind"] = "session_bundle"
+        pass_["sessions"] = ["sunday"]
+        self.assertIn(key, self.codes(spec))
+        pass_["sessions"] = ["saturday-workshop"]
+        self.assertNotIn(key, self.codes(spec))
+        pass_["kind"] = "event"
+        pass_["sessions"] = []
+        self.assertNotIn(key, self.codes(spec))
+
+    def test_inactive_extra_is_not_flagged_unreachable(self):
+        spec = example_spec()
+        gated = spec["extras"][1]
+        gated["ticket_types"] = ["adult-conference-pass"]
+        gated["is_active"] = False
+        self.assertNotIn(
+            ("extras[1].ticket_types", "extra_gate_unreachable"), self.codes(spec)
+        )
 
     def test_choices_ignored_and_session_outside_event(self):
         spec = example_spec()
@@ -535,6 +777,13 @@ class ExportTests(TestCase):
         self.assertEqual(spec["promo_codes"][0]["key"], "vip-2027")
         self.assertEqual(spec["promo_codes"][0]["code"], "VIP 2027")
 
+    def test_export_writes_the_extra_gate_as_keys(self):
+        extra = self.event.extras.first()
+        extra.ticket_types.set(self.event.ticket_types.all())
+        gate = export(self.event)["extras"][0]["ticket_types"]
+        self.assertEqual(gate, sorted(gate))
+        self.assertEqual(len(gate), 3)
+
     def test_export_resolves_references_to_keys(self):
         spec = export(self.event)
         first, second, bundle = spec["ticket_types"]
@@ -552,7 +801,11 @@ class ExportTests(TestCase):
         self.assertEqual(parsed.model_dump(mode="json"), spec)
         errors, warnings = validate_at_now(spec)
         self.assertEqual(errors, [])
-        self.assertEqual(warnings, [])
+        # The fixture has a bundle beside a pass, and one retired choice.
+        self.assertEqual(
+            [w["code"] for w in warnings],
+            ["bundle_replaces_pass", "inactive_unreferenced"],
+        )
 
     def test_ties_break_on_id(self):
         event = empty_event("Ties")

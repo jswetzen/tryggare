@@ -53,7 +53,11 @@ from .models import (
 )
 from .pricing import calculate_discount, calculate_total
 from .serializers import RegistrationSubmitSerializer
-from .ticket_rules import validate_ticket_composition
+from .ticket_rules import (
+    extra_gate_open,
+    held_ticket_type_ids,
+    validate_ticket_composition,
+)
 from .services import (
     InvalidPaymentTransition,
     TicketTypeSoldOut,
@@ -130,6 +134,20 @@ def _split_selections(items):
     return model_data, selections
 
 
+def _promo_applies_to_nothing(promo_code, event) -> bool:
+    """A discounting code whose ticket-type scope has no active type in this
+    event, and which unlocks nothing either: accepting it would say "applied"
+    and discount nothing. pricing.py is untouched; this only refuses the code."""
+    if (
+        promo_code.discount_value <= 0
+        or not promo_code.applies_to_ticket_types.exists()
+    ):
+        return False
+    live = promo_code.applies_to_ticket_types.filter(event=event, is_active=True)
+    unlocks = promo_code.unlocks_ticket_types.filter(event=event, is_active=True)
+    return not live.exists() and not unlocks.exists()
+
+
 def _resolve_promo_code(*, event, code_str):
     """Resolve and count a submitted promo code string, or return None if
     none was submitted. Must be called inside the same transaction.atomic()
@@ -178,6 +196,17 @@ def _resolve_promo_code(*, event, code_str):
         raise invalid
     if promo_code.valid_until and now > promo_code.valid_until:
         raise invalid
+
+    if _promo_applies_to_nothing(promo_code, event):
+        raise ValidationError(
+            {
+                "promo_code": [
+                    _("This promo code does not apply to any tickets in this event.")
+                ],
+                "code": "promo_code_not_applicable",
+            },
+            code="promo_code_not_applicable",
+        )
 
     if promo_code.max_uses is not None:
         updated = PromoCode.objects.filter(
@@ -320,6 +349,7 @@ def _missing_required_extras(
         event=event, is_active=True, required=True, per_attendee=True
     ).filter(Q(applies_to=attendee_kind) | Q(applies_to="either"))
     missing = []
+    held = held_ticket_type_ids(registration, attendee)
     for extra in candidates:
         if extra.id in submitted_extra_ids:
             continue
@@ -327,17 +357,24 @@ def _missing_required_extras(
             attendee=attendee, registration=registration, session_id=extra.session_id
         ):
             continue
+        if not extra_gate_open(extra, held):
+            continue
         missing.append(extra)
     return missing
 
 
-def _missing_required_registration_extras(*, event, submitted_extra_ids):
+def _missing_required_registration_extras(*, event, registration, submitted_extra_ids):
     """Same as _missing_required_extras, for per-registration (attendee=None)
     required extras, checked once for the whole booking."""
     candidates = Extra.objects.filter(
         event=event, is_active=True, required=True, per_attendee=False
     )
-    return [extra for extra in candidates if extra.id not in submitted_extra_ids]
+    held = held_ticket_type_ids(registration)
+    return [
+        extra
+        for extra in candidates
+        if extra.id not in submitted_extra_ids and extra_gate_open(extra, held)
+    ]
 
 
 def _attach_extra(*, registration, attendee, selection, is_child):
@@ -382,6 +419,16 @@ def _attach_extra(*, registration, attendee, selection, is_child):
             attendee=attendee, registration=registration, session_id=extra.session_id
         ):
             raise ValidationError(_("This attendee isn't registered for that session."))
+    if not extra_gate_open(extra, held_ticket_type_ids(registration, attendee)):
+        names = [
+            t.name for t in extra.ticket_types.all() if t.is_active and not t.is_hidden
+        ]
+        if not names:
+            raise ValidationError(_("This extra requires a different ticket."))
+        raise ValidationError(
+            _("This extra requires one of these ticket types: %(types)s.")
+            % {"types": ", ".join(names)}
+        )
     if (
         extra.per_attendee
         and RegistrationExtra.objects.filter(
@@ -635,6 +682,7 @@ def _create_registration(
 
     missing_required_registration = _missing_required_registration_extras(
         event=event,
+        registration=registration,
         submitted_extra_ids={sel["extra"].id for sel in extras_data},
     )
     if missing_required_registration:
@@ -737,16 +785,21 @@ def validate_promo_code(request):
     if promo_code.max_uses is not None and promo_code.uses_count >= promo_code.max_uses:
         return Response({"valid": False})
 
+    if _promo_applies_to_nothing(promo_code, event):
+        return Response({"valid": False, "reason": "not_applicable"})
+
     # Bulk queries, as in form_spec.build_form_spec: a code can unlock
     # several hidden ticket types at once.
     sold_counts = sold_counts_for_event(event)
-    unlocked = list(promo_code.unlocks_ticket_types.filter(is_active=True))
+    unlocked = list(promo_code.unlocks_ticket_types.filter(event=event, is_active=True))
     bundle_ids = bundle_session_ids(unlocked)
     return Response(
         {
             "valid": True,
             "discount_type": promo_code.discount_type,
             "discount_value": str(promo_code.discount_value),
+            # Sent unfiltered: pricing scopes to these even when a type is
+            # inactive, and an empty list would read as "whole order".
             "applies_to_ticket_type_ids": [
                 str(pk)
                 for pk in promo_code.applies_to_ticket_types.values_list(

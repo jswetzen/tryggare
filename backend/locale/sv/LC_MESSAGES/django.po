@@ -2075,3 +2075,98 @@ msgstr "Kan inte skriva %(path)s: %(error)s"
 #, python-format
 msgid "The %(kind)s '%(name)s' refers to the %(target)s '%(other)s', which belongs to another event."
 msgstr "”%(name)s” (%(kind)s) refererar till %(target)s ”%(other)s”, som hör till ett annat evenemang."
+
+msgid "This session bundle covers the same attendees as an event ticket. An attendee picks either this or the pass, not both. Intended?"
+msgstr "Det här sessionspaketet gäller samma deltagare som en evenemangsbiljett. En deltagare väljer antingen det eller passet, inte båda. Avsiktligt?"
+
+msgid "This session bundle requires an event ticket for the same attendees, but an attendee holds only one ticket, so it can never be bought."
+msgstr "Det här sessionspaketet kräver en evenemangsbiljett för samma deltagare, men en deltagare har bara en biljett, så det går aldrig att köpa."
+
+msgid "Check-in is open to everyone by default but the event sells tickets, so nobody needs a ticket at the door. Intended?"
+msgstr "Incheckning är öppen för alla som standard, men evenemanget säljer biljetter, så ingen behöver biljett vid dörren. Avsiktligt?"
+
+msgid "The flat event price is ignored while an active ticket type exists, and applies again if all of them are made inactive."
+msgstr "Evenemangets fasta pris ignoreras så länge det finns en aktiv biljettyp, och gäller igen om alla görs inaktiva."
+
+#, python-format
+msgid "No active ticket covers children aged %(start)s to %(end)s."
+msgstr "Ingen aktiv biljett gäller barn i åldern %(start)s till %(end)s."
+
+#, python-format
+msgid "This age tier covers the same ages as '%(other)s'; an attendee in both gets two options. Intended?"
+msgstr "Den här åldersnivån gäller samma åldrar som ”%(other)s”; en deltagare i båda får två val. Avsiktligt?"
+
+msgid "This row is inactive and nothing refers to it, but it is still copied with the event. Delete it if it is not needed."
+msgstr "Raden är inaktiv och ingenting hänvisar till den, men den kopieras ändå med evenemanget. Ta bort den om den inte behövs."
+
+msgid "choice"
+msgstr "val"
+
+msgid "Check setup"
+msgstr "Kontrollera upplägg"
+
+msgid "No problems found."
+msgstr "Inga problem hittades."
+
+msgid "Errors"
+msgstr "Fel"
+
+msgid "Warnings"
+msgstr "Varningar"
+
+#, python-format
+msgid "The event cannot be checked: %(count)d error(s)."
+msgstr "Evenemanget kan inte kontrolleras: %(count)d fel."
+
+#, python-format
+msgid "The setup has %(count)d error(s)."
+msgstr "Upplägget har %(count)d fel."
+
+msgid "Required ticket types"
+msgstr "Biljettyper som krävs"
+
+msgid "Leave empty to offer the extra to everyone. Otherwise it is offered only to an attendee holding any of these ticket types (for a per-booking extra: when anyone in the booking holds one). Ticket types of the extra's own event only."
+msgstr "Lämna tomt för att erbjuda tillvalet till alla. Annars erbjuds det bara en deltagare som har någon av dessa biljettyper (för ett tillval per bokning: när någon i bokningen har en). Endast biljettyper från tillvalets eget evenemang."
+
+#, python-format
+msgid "Must belong to the same event: %(names)s."
+msgstr "Måste tillhöra samma evenemang: %(names)s."
+
+msgid "The session must belong to the extra's event."
+msgstr "Sessionen måste tillhöra tillvalets evenemang."
+
+#, python-format
+msgid "This extra requires one of these ticket types: %(types)s."
+msgstr "Det här tillvalet kräver någon av dessa biljettyper: %(types)s."
+
+msgid "This extra requires a different ticket."
+msgstr "Det här tillvalet kräver en annan biljett."
+
+#, python-format
+msgid "Created inactive because a ticket type it requires has no single active same-named type on '%(event)s' (a name that stays ambiguous counts as no match). Re-pick its ticket types before activating: %(names)s."
+msgstr "Skapades inaktivt eftersom en biljettyp det krÃ¤ver saknar en enda aktiv biljettyp med samma namn pÃ¥ â%(event)sâ (ett namn som fÃ¶rblir tvetydigt rÃ¤knas som ingen trÃ¤ff). VÃ¤lj om biljettyper innan det aktiveras: %(names)s."
+
+#, python-format
+msgid "Deactivated because every ticket type in their gate was deleted: %(names)s."
+msgstr "Inaktiverades eftersom alla biljettyper i deras villkor raderades: %(names)s."
+
+msgid "No active ticket type in this extra's gate can be held by an attendee it applies to, so nobody can take it."
+msgstr "Ingen aktiv biljettyp i det här tillvalets villkor kan innehas av en deltagare tillvalet gäller, så ingen kan välja det."
+
+msgid "Choose the event first"
+msgstr "Välj evenemang först"
+
+msgid "Pick the event this belongs to. The next page then offers only that event's sessions and ticket types."
+msgstr "Välj evenemanget detta hör till. Nästa sida visar då bara det evenemangets sessioner och biljettyper."
+
+msgid "Continue"
+msgstr "Fortsätt"
+
+msgid "This promo code does not apply to any tickets in this event."
+msgstr "Koden gäller inga biljetter i det här evenemanget."
+
+msgid "A session cannot be moved to another event."
+msgstr "En session kan inte flyttas till ett annat evenemang."
+
+msgid "change"
+msgstr "ändra"

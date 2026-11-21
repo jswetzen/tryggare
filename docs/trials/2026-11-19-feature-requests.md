@@ -64,7 +64,7 @@ evidence:
   - {kind: spec_path, ref: "ticket_types[].kind"}
   - {kind: doc, ref: "docs/roadmap/event_registration_ux_case_catalog.md#34-extras-gated-by-ticket-type"}
 dedupe_key: new:extra_eligibility#age-window
-status: confirmed
+status: accepted   # decided 2026-11-19; built in "feat(events): extras gated by ticket type" (Extra.ticket_types)
 ```
 
 ### FR-2: The spec example teaches a bundle as an add-on
@@ -95,7 +95,7 @@ evidence:
   - {kind: trial, ref: "2026-11-19-agent-ui-trial.md#stuck-point-table"}
 dedupe_key: spec:ticket_types[].kind#example
 duplicate_of: null   # related to FR-1, fixed separately and sooner
-status: confirmed
+status: accepted   # example fixed in "feat(events): extras gated by ticket type"
 ```
 
 ### FR-3: Event defaults contradict a ticketed setup
@@ -482,5 +482,32 @@ validator: no
 evidence:
   - {kind: trial, ref: "2026-11-19-agent-ui-trial.md#labels-help-text-and-errors-that-misled"}
 dedupe_key: field:TicketType.sessions#old-widget
+status: confirmed
+```
+
+### FR-17: The door can't check that a session add-on was bought
+
+```yaml
+source: maintainer
+problem: >
+  A session add-on (such as a workshop for one age band) is an extra gated on a
+  ticket type. Check-in only asks whether the attendee holds an event ticket for
+  the event or a session ticket for the session, so any child with an event pass
+  is admitted to the session whether or not they bought the add-on.
+tried: []
+workaround:
+  used: The add-on is enforced at registration only; the door rule stays on the event default.
+  cost: wrong_result
+desired: >
+  An optional per-session setting that makes check-in require the session's
+  extra, so the door matches what was bought.
+touches: [field:Extra.session, field:Session.ticket_rule, new:session_extra_checkin]
+severity: risk
+reach: some_events
+layers: [model, admin_ui]
+validator: no
+evidence:
+  - {kind: doc, ref: "docs/setup-checker-plan.md#decisions-2026-11-20"}
+dedupe_key: new:session_extra_checkin
 status: confirmed
 ```

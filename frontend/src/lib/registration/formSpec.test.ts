@@ -4,6 +4,8 @@ import type { RegistrationFormSpec } from '$lib/api/types';
 import {
   applicablePersonExtras,
   applicableTicketTypes,
+  blockedPersonExtras,
+  blockedRegistrationExtras,
   fieldFor,
   isFieldRequired,
   isFieldVisible,
@@ -21,6 +23,7 @@ const CHILD = '00000000-0000-0000-0000-000000000015';
 const DAY1 = '00000000-0000-0000-0000-000000000016';
 const LUNCH = '00000000-0000-0000-0000-00000000001e';
 const MEAT = '00000000-0000-0000-0000-00000000001f';
+const WORKSHOP = '00000000-0000-0000-0000-000000000022';
 
 describe('selection helpers', () => {
   it('offers parents their own and "either" ticket types, children theirs', () => {
@@ -31,12 +34,39 @@ describe('selection helpers', () => {
 
   it('splits extras into per-attendee (by applies_to) and per-registration', () => {
     const s = spec();
-    expect(applicablePersonExtras(s, true).map((e) => e.id)).toEqual([LUNCH]);
-    expect(registrationExtras(s)).toEqual([]);
+    expect(applicablePersonExtras(s, true, CHILD).map((e) => e.id)).toEqual([LUNCH, WORKSHOP]);
+    expect(registrationExtras(s, [])).toEqual([]);
     s.extras[0].per_attendee = false;
-    expect(applicablePersonExtras(s, false)).toEqual([]);
-    expect(registrationExtras(s).map((e) => e.id)).toEqual([LUNCH]);
-    expect(registrationExtras(null)).toEqual([]);
+    expect(applicablePersonExtras(s, false, ADULT)).toEqual([]);
+    expect(registrationExtras(s, []).map((e) => e.id)).toEqual([LUNCH]);
+    expect(registrationExtras(null, [])).toEqual([]);
+  });
+
+  it('offers a gated extra only to a holder of a listed ticket type', () => {
+    const s = spec();
+    // The fixture's workshop is gated on the child pass.
+    expect(s.extras.find((e) => e.id === WORKSHOP)?.ticket_type_ids).toEqual([CHILD]);
+    expect(applicablePersonExtras(s, true, CHILD).map((e) => e.id)).toContain(WORKSHOP);
+    expect(applicablePersonExtras(s, true, DAY1).map((e) => e.id)).not.toContain(WORKSHOP);
+    expect(applicablePersonExtras(s, true, '').map((e) => e.id)).not.toContain(WORKSHOP);
+    expect(blockedPersonExtras(s, true, DAY1).map((e) => e.id)).toEqual([WORKSHOP]);
+    expect(blockedPersonExtras(s, true, CHILD)).toEqual([]);
+  });
+
+  it('offers a gated per-registration extra when anyone in the booking holds a type', () => {
+    const s = spec();
+    s.extras.find((e) => e.id === WORKSHOP)!.per_attendee = false;
+    expect(registrationExtras(s, [ADULT]).map((e) => e.id)).toEqual([]);
+    expect(blockedRegistrationExtras(s, [ADULT]).map((e) => e.id)).toEqual([WORKSHOP]);
+    expect(registrationExtras(s, [ADULT, CHILD]).map((e) => e.id)).toEqual([WORKSHOP]);
+  });
+
+  it('does not ask for a required gated extra the person cannot take', () => {
+    const s = spec();
+    const workshop = s.extras.find((e) => e.id === WORKSHOP)!;
+    workshop.required = true;
+    expect(applicablePersonExtras(s, true, DAY1).map((e) => e.id)).not.toContain(WORKSHOP);
+    expect(blockedPersonExtras(s, true, DAY1)).toEqual([]);
   });
 });
 
@@ -105,6 +135,25 @@ describe('reconcileSelections', () => {
     );
     expect(result.children.map((c) => c.ticketTypeId)).toEqual(['', '']);
     expect(result.cleared).toEqual([{ kind: 'ticketType', name: 'Child 0-12' }]);
+  });
+
+  it('drops a gated extra selection when the person no longer holds a listed type', () => {
+    const picked2: ExtraSelectionState = { selected: true, choiceId: '', quantity: 1 };
+    const result = reconcileSelections(
+      {
+        spec: spec(),
+        parents: [],
+        children: [person(CHILD, { [WORKSHOP]: picked2 })],
+        registrationExtraSelections: {}
+      },
+      (() => {
+        const next = spec();
+        next.ticket_types = next.ticket_types.filter((t) => t.id !== CHILD);
+        return next;
+      })()
+    );
+    expect(result.children[0].extraSelections[WORKSHOP]).toBeUndefined();
+    expect(result.cleared).toContainEqual({ kind: 'extra', name: 'Child workshop' });
   });
 
   it('clears a ticket type that no longer applies to that kind of attendee', () => {

@@ -67,3 +67,22 @@ def validate_ticket_composition(registration) -> None:
                     "max": ticket_type.max_per_required,
                 }
             )
+
+
+def held_ticket_type_ids(registration, attendee=None) -> set:
+    """Ticket types held in ``registration``, by ``attendee`` or (None) by anyone.
+
+    A bundle fans out into session tickets, so both kinds are read."""
+    held = set()
+    for tickets in (registration.event_tickets, registration.session_tickets):
+        rows = tickets.exclude(ticket_type=None)
+        if attendee is not None:
+            rows = rows.filter(attendee=attendee)
+        held.update(rows.values_list("ticket_type_id", flat=True))
+    return held
+
+
+def extra_gate_open(extra, held_ids) -> bool:
+    """Empty gate = open to all; otherwise any held type in the gate opens it."""
+    gate = {t.id for t in extra.ticket_types.all()}
+    return not gate or bool(gate & set(held_ids))

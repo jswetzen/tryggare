@@ -2051,3 +2051,98 @@ msgstr "Cannot write %(path)s: %(error)s"
 #, python-format
 msgid "The %(kind)s '%(name)s' refers to the %(target)s '%(other)s', which belongs to another event."
 msgstr "The %(kind)s '%(name)s' refers to the %(target)s '%(other)s', which belongs to another event."
+
+msgid "This session bundle covers the same attendees as an event ticket. An attendee picks either this or the pass, not both. Intended?"
+msgstr "This session bundle covers the same attendees as an event ticket. An attendee picks either this or the pass, not both. Intended?"
+
+msgid "This session bundle requires an event ticket for the same attendees, but an attendee holds only one ticket, so it can never be bought."
+msgstr "This session bundle requires an event ticket for the same attendees, but an attendee holds only one ticket, so it can never be bought."
+
+msgid "Check-in is open to everyone by default but the event sells tickets, so nobody needs a ticket at the door. Intended?"
+msgstr "Check-in is open to everyone by default but the event sells tickets, so nobody needs a ticket at the door. Intended?"
+
+msgid "The flat event price is ignored while an active ticket type exists, and applies again if all of them are made inactive."
+msgstr "The flat event price is ignored while an active ticket type exists, and applies again if all of them are made inactive."
+
+#, python-format
+msgid "No active ticket covers children aged %(start)s to %(end)s."
+msgstr "No active ticket covers children aged %(start)s to %(end)s."
+
+#, python-format
+msgid "This age tier covers the same ages as '%(other)s'; an attendee in both gets two options. Intended?"
+msgstr "This age tier covers the same ages as '%(other)s'; an attendee in both gets two options. Intended?"
+
+msgid "This row is inactive and nothing refers to it, but it is still copied with the event. Delete it if it is not needed."
+msgstr "This row is inactive and nothing refers to it, but it is still copied with the event. Delete it if it is not needed."
+
+msgid "choice"
+msgstr "choice"
+
+msgid "Check setup"
+msgstr "Check setup"
+
+msgid "No problems found."
+msgstr "No problems found."
+
+msgid "Errors"
+msgstr "Errors"
+
+msgid "Warnings"
+msgstr "Warnings"
+
+#, python-format
+msgid "The event cannot be checked: %(count)d error(s)."
+msgstr "The event cannot be checked: %(count)d error(s)."
+
+#, python-format
+msgid "The setup has %(count)d error(s)."
+msgstr "The setup has %(count)d error(s)."
+
+msgid "Required ticket types"
+msgstr "Required ticket types"
+
+msgid "Leave empty to offer the extra to everyone. Otherwise it is offered only to an attendee holding any of these ticket types (for a per-booking extra: when anyone in the booking holds one). Ticket types of the extra's own event only."
+msgstr "Leave empty to offer the extra to everyone. Otherwise it is offered only to an attendee holding any of these ticket types (for a per-booking extra: when anyone in the booking holds one). Ticket types of the extra's own event only."
+
+#, python-format
+msgid "Must belong to the same event: %(names)s."
+msgstr "Must belong to the same event: %(names)s."
+
+msgid "The session must belong to the extra's event."
+msgstr "The session must belong to the extra's event."
+
+#, python-format
+msgid "This extra requires one of these ticket types: %(types)s."
+msgstr "This extra requires one of these ticket types: %(types)s."
+
+msgid "This extra requires a different ticket."
+msgstr "This extra requires a different ticket."
+
+#, python-format
+msgid "Created inactive because a ticket type it requires has no single active same-named type on '%(event)s' (a name that stays ambiguous counts as no match). Re-pick its ticket types before activating: %(names)s."
+msgstr "Created inactive because a ticket type it requires has no single active same-named type on '%(event)s' (a name that stays ambiguous counts as no match). Re-pick its ticket types before activating: %(names)s."
+
+#, python-format
+msgid "Deactivated because every ticket type in their gate was deleted: %(names)s."
+msgstr "Deactivated because every ticket type in their gate was deleted: %(names)s."
+
+msgid "No active ticket type in this extra's gate can be held by an attendee it applies to, so nobody can take it."
+msgstr "No active ticket type in this extra's gate can be held by an attendee it applies to, so nobody can take it."
+
+msgid "Choose the event first"
+msgstr "Choose the event first"
+
+msgid "Pick the event this belongs to. The next page then offers only that event's sessions and ticket types."
+msgstr "Pick the event this belongs to. The next page then offers only that event's sessions and ticket types."
+
+msgid "Continue"
+msgstr "Continue"
+
+msgid "This promo code does not apply to any tickets in this event."
+msgstr "This promo code does not apply to any tickets in this event."
+
+msgid "A session cannot be moved to another event."
+msgstr "A session cannot be moved to another event."
+
+msgid "change"
+msgstr "change"

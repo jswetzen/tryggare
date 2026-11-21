@@ -515,7 +515,10 @@ class TicketTypeExtraModelTest(TestCase):
         zero-SessionTicket ticket type."""
         from events.admin import TicketTypeAdminForm
 
-        form = TicketTypeAdminForm(
+        form_class = type(
+            "LockedForm", (TicketTypeAdminForm,), {"locked_event": self.event}
+        )
+        form = form_class(
             data={
                 "event": str(self.event.id),
                 "name": "Saturday only",
@@ -536,7 +539,10 @@ class TicketTypeExtraModelTest(TestCase):
     def test_admin_form_accepts_session_bundle_with_a_session(self):
         from events.admin import TicketTypeAdminForm
 
-        form = TicketTypeAdminForm(
+        form_class = type(
+            "LockedForm", (TicketTypeAdminForm,), {"locked_event": self.event}
+        )
+        form = form_class(
             data={
                 "event": str(self.event.id),
                 "name": "Saturday only",
@@ -793,6 +799,144 @@ class ExtraDuplicationTest(TestCase):
         clone = duplicate_extra_to_event(extra, self.event)
 
         self.assertEqual(clone.session, self.session)
+
+    def test_duplicate_keeps_ticket_type_gate_only_within_the_same_event(self):
+        from events.services import duplicate_extra_to_event
+
+        teen = TicketType.objects.create(event=self.event, name="Teen", price=1)
+        extra = Extra.objects.create(event=self.event, name="Workshop")
+        extra.ticket_types.add(teen)
+
+        self.assertEqual(
+            list(duplicate_extra_to_event(extra, self.event).ticket_types.all()),
+            [teen],
+        )
+
+    def test_duplicate_maps_the_gate_onto_the_target_by_name(self):
+        from events.services import duplicate_extra_to_event
+
+        teen = TicketType.objects.create(event=self.event, name="Teen", price=1)
+        theirs = TicketType.objects.create(event=self.other_event, name="Teen", price=2)
+        extra = Extra.objects.create(event=self.event, name="Workshop")
+        extra.ticket_types.add(teen)
+
+        clone = duplicate_extra_to_event(extra, self.other_event)
+
+        self.assertEqual(list(clone.ticket_types.all()), [theirs])
+        self.assertTrue(clone.is_active)
+        self.assertFalse(clone.gate_incomplete)
+
+    def test_duplicate_with_an_unmatched_gate_type_is_inactive(self):
+        from events.services import duplicate_extra_to_event
+
+        teen = TicketType.objects.create(event=self.event, name="Teen", price=1)
+        TicketType.objects.create(event=self.other_event, name="Adult", price=1)
+        extra = Extra.objects.create(event=self.event, name="Workshop")
+        extra.ticket_types.add(teen)
+
+        clone = duplicate_extra_to_event(extra, self.other_event)
+        clone.refresh_from_db()
+
+        self.assertFalse(clone.is_active)
+        self.assertFalse(clone.ticket_types.exists())
+        self.assertTrue(extra.is_active)
+
+    def _gated_extra(self, *types, **kwargs):
+        extra = Extra.objects.create(event=self.event, name="Workshop", **kwargs)
+        extra.ticket_types.add(*types)
+        return extra
+
+    def test_duplicate_ignores_an_inactive_only_target_match(self):
+        from events.services import duplicate_extra_to_event
+
+        teen = TicketType.objects.create(event=self.event, name="Teen", price=1)
+        TicketType.objects.create(
+            event=self.other_event, name="Teen", price=1, is_active=False
+        )
+        clone = duplicate_extra_to_event(self._gated_extra(teen), self.other_event)
+        clone.refresh_from_db()
+
+        self.assertFalse(clone.is_active)
+        self.assertTrue(clone.gate_incomplete)
+        self.assertFalse(clone.ticket_types.exists())
+
+    def test_duplicate_prefers_the_exact_match_among_same_named_targets(self):
+        from events.services import duplicate_extra_to_event
+
+        teen = TicketType.objects.create(event=self.event, name="Teen", price=1)
+        TicketType.objects.create(event=self.other_event, name="Teen", price=9)
+        same = TicketType.objects.create(event=self.other_event, name="Teen", price=1)
+        clone = duplicate_extra_to_event(self._gated_extra(teen), self.other_event)
+
+        self.assertEqual(list(clone.ticket_types.all()), [same])
+        self.assertTrue(clone.is_active)
+
+    def test_duplicate_with_ambiguous_target_names_is_unmatched(self):
+        from events.services import duplicate_extra_to_event
+
+        teen = TicketType.objects.create(event=self.event, name="Teen", price=1)
+        TicketType.objects.create(event=self.other_event, name="Teen", price=1)
+        TicketType.objects.create(event=self.other_event, name="Teen", price=1)
+        clone = duplicate_extra_to_event(self._gated_extra(teen), self.other_event)
+        clone.refresh_from_db()
+
+        self.assertFalse(clone.is_active)
+        self.assertTrue(clone.gate_incomplete)
+        self.assertFalse(clone.ticket_types.exists())
+
+    def test_duplicate_drops_inactive_source_types_without_deactivating(self):
+        from events.services import duplicate_extra_to_event
+
+        teen = TicketType.objects.create(event=self.event, name="Teen", price=1)
+        old = TicketType.objects.create(
+            event=self.event, name="Old", price=1, is_active=False
+        )
+        theirs = TicketType.objects.create(event=self.other_event, name="Teen", price=1)
+        clone = duplicate_extra_to_event(self._gated_extra(teen, old), self.other_event)
+
+        self.assertEqual(list(clone.ticket_types.all()), [theirs])
+        self.assertTrue(clone.is_active)
+        self.assertFalse(clone.gate_incomplete)
+
+    def test_duplicate_partial_match_keeps_the_subset_and_goes_inactive(self):
+        from events.services import duplicate_extra_to_event
+
+        teen = TicketType.objects.create(event=self.event, name="Teen", price=1)
+        adult = TicketType.objects.create(event=self.event, name="Adult", price=1)
+        theirs = TicketType.objects.create(event=self.other_event, name="Teen", price=1)
+        clone = duplicate_extra_to_event(
+            self._gated_extra(teen, adult), self.other_event
+        )
+        clone.refresh_from_db()
+
+        self.assertEqual(list(clone.ticket_types.all()), [theirs])
+        self.assertFalse(clone.is_active)
+        self.assertTrue(clone.gate_incomplete)
+
+    def test_duplicate_of_an_inactive_gated_extra_is_flagged_when_unmapped(self):
+        from events.services import duplicate_extra_to_event
+
+        teen = TicketType.objects.create(event=self.event, name="Teen", price=1)
+        clone = duplicate_extra_to_event(
+            self._gated_extra(teen, is_active=False), self.other_event
+        )
+
+        self.assertFalse(clone.is_active)
+        self.assertTrue(clone.gate_incomplete)
+        self.assertFalse(clone.ticket_types.exists())
+
+    def test_duplicate_of_an_inactive_gated_extra_with_full_match_is_not_flagged(self):
+        from events.services import duplicate_extra_to_event
+
+        teen = TicketType.objects.create(event=self.event, name="Teen", price=1)
+        theirs = TicketType.objects.create(event=self.other_event, name="Teen", price=1)
+        clone = duplicate_extra_to_event(
+            self._gated_extra(teen, is_active=False), self.other_event
+        )
+
+        self.assertFalse(clone.is_active)
+        self.assertFalse(clone.gate_incomplete)
+        self.assertEqual(list(clone.ticket_types.all()), [theirs])
 
     def test_duplicate_leaves_source_untouched(self):
         from events.services import duplicate_extra_to_event

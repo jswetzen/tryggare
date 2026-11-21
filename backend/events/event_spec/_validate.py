@@ -7,6 +7,7 @@ are advice. Each issue is ``{"path", "code", "message"}`` with a path such as
 """
 
 from collections import Counter
+from datetime import date
 
 from django.core.exceptions import ValidationError
 from django.utils import timezone
@@ -279,6 +280,9 @@ def _going_live_issues(ev: Event) -> list[Issue]:
 def _warnings(spec: EventSpec, ev: Event) -> list[Issue]:
     return [
         *_event_warnings(ev),
+        *_pricing_warnings(spec),
+        *_age_band_warnings(spec),
+        *_inactive_unreferenced_warnings(spec),
         *_session_warnings(spec),
         *_requires_cycles(spec),
         *_derived_key_warnings(spec),
@@ -353,14 +357,176 @@ def _ticket_type_warnings(spec: EventSpec) -> list[Issue]:
     return out
 
 
+def _pricing_warnings(spec: EventSpec) -> list[Issue]:
+    # Event.price is ignored only while an active ticket type exists (pricing.calculate_total).
+    out = []
+    ev = spec.event
+    active = any(t.is_active for t in spec.ticket_types)
+    if ev.price and active:
+        out.append(issue("event.price", "event_price_ignored"))
+    # Session.ticket_rule overrides the event default, so the default only matters
+    # for a session that leaves it empty (or when there are no sessions).
+    follows_default = not spec.sessions or any(not s.ticket_rule for s in spec.sessions)
+    if ev.ticket_rule_default == "open" and active and follows_default:
+        out.append(issue("event.ticket_rule_default", "ticket_rule_open_with_tickets"))
+    return out
+
+
+_NO_AGE_LIMIT = 10**6
+_UNBOUNDED = (0, _NO_AGE_LIMIT)
+
+
+def _age_on_start(spec: EventSpec, born: date) -> int:
+    start = spec.event.start_date
+    return start.year - born.year - ((start.month, start.day) < (born.month, born.day))
+
+
+def _age_range(spec: EventSpec, t) -> tuple[int, int]:
+    """Whole ages on the event start the ticket admits. The bounds are birthdates:
+    ``min_birthdate`` limits the oldest, ``max_birthdate`` the youngest."""
+    youngest = _age_on_start(spec, t.max_birthdate) if t.max_birthdate else 0
+    oldest = _age_on_start(spec, t.min_birthdate) if t.min_birthdate else _NO_AGE_LIMIT
+    return youngest, oldest
+
+
+def _audience(t) -> set[str]:
+    return {"parent", "child"} if t.applies_to == "either" else {t.applies_to}
+
+
+def _same_attendees(a, a_range, b, b_range) -> bool:
+    # Age is only enforced for children (registrations/views.py), so parents always overlap.
+    common = _audience(a) & _audience(b)
+    return "parent" in common or (
+        "child" in common and a_range[0] <= b_range[1] and b_range[0] <= a_range[1]
+    )
+
+
+def _sold_together(a, b) -> bool:
+    """Whether the two sale windows intersect; an open end is unbounded."""
+    return (
+        a.available_from is None
+        or b.available_until is None
+        or a.available_from <= b.available_until
+    ) and (
+        b.available_from is None
+        or a.available_until is None
+        or b.available_from <= a.available_until
+    )
+
+
+def _age_band_warnings(spec: EventSpec) -> list[Issue]:
+    ranges = {i: _age_range(spec, t) for i, t in enumerate(spec.ticket_types)}
+    out: dict[tuple[str, str], Issue] = {}
+    active = [(i, t) for i, t in enumerate(spec.ticket_types) if t.is_active]
+
+    # An attendee picks one ticket, so a bundle for the same attendees as an event
+    # pass is an alternative to it. A bundle that only requires a pass of other
+    # attendees (a child bundle behind a parent pass) is a normal family setup.
+    index = {t.key: i for i, t in enumerate(spec.ticket_types)}
+    passes = {i for i, t in active if t.kind == "event" and not t.is_hidden}
+    for i, t in active:
+        if t.kind != "session_bundle":
+            continue
+        required = index.get(t.requires_ticket_type)
+        if required is not None and spec.ticket_types[required].kind != "event":
+            required = None
+        path = f"ticket_types[{i}].kind"
+        # Requiring a pass for the same attendees can never be satisfied: they hold one ticket.
+        if required is not None and _same_attendees(
+            t, ranges[i], spec.ticket_types[required], ranges[required]
+        ):
+            out[(path, "bundle_requires_own_pass")] = issue(
+                path, "bundle_requires_own_pass"
+            )
+        elif any(
+            _same_attendees(t, ranges[i], spec.ticket_types[j], ranges[j])
+            for j in passes
+        ):
+            out[(path, "bundle_replaces_pass")] = issue(path, "bundle_replaces_pass")
+
+    # Age is only enforced for children, so only their tiers can leave a gap or overlap.
+    groups: dict[tuple, list[tuple[int, object]]] = {}
+    for i, t in active:
+        if t.is_hidden or "child" not in _audience(t):
+            continue
+        scope = frozenset(t.sessions) if t.kind == "session_bundle" else None
+        groups.setdefault((t.kind, scope), []).append((i, t))
+    for tiers in groups.values():
+        tiers.sort(key=lambda it: ranges[it[0]])
+        covered = None
+        for n, (i, t) in enumerate(tiers):
+            low, high = ranges[i]
+            path = f"ticket_types[{i}].min_birthdate"
+            if covered is not None and low > covered + 1:
+                out[(path, "age_band_gap")] = issue(
+                    path, "age_band_gap", start=covered + 1, end=low - 1
+                )
+            for j, other in tiers[:n]:
+                if (
+                    ranges[i] != _UNBOUNDED
+                    and ranges[j] != _UNBOUNDED
+                    and low <= ranges[j][1]
+                    and _sold_together(t, other)
+                ):
+                    out[(path, "age_band_overlap")] = issue(
+                        path, "age_band_overlap", other=other.name
+                    )
+            covered = high if covered is None else max(covered, high)
+    return sorted(out.values(), key=lambda w: (w["path"], w["code"]))
+
+
+def _inactive_unreferenced_warnings(spec: EventSpec) -> list[Issue]:
+    # Rows nothing active points at that are switched off still travel with an event copy.
+    referenced: dict[str, set[str]] = {}
+    for kind in TOP_KINDS:
+        for row in getattr(spec, kind.name):
+            if not getattr(row, "is_active", True):
+                continue
+            for name, target in kind.refs.items():
+                value = getattr(row, name)
+                keys = value if kind.is_list_ref(name) else [value]
+                referenced.setdefault(target, set()).update(k for k in keys if k)
+    out = []
+    for kind in KINDS.values():
+        if "is_active" not in kind.spec.model_fields:
+            continue
+        for path, rows in row_groups(spec, kind):
+            out += [
+                issue(f"{path}[{i}].is_active", "inactive_unreferenced")
+                for i, row in enumerate(rows)
+                if not row.is_active and row.key not in referenced.get(kind.name, ())
+            ]
+    return out
+
+
 def _extra_warnings(spec: EventSpec) -> list[Issue]:
     out = []
+    types = {t.key: t for t in spec.ticket_types}
     for i, e in enumerate(spec.extras):
         if e.requires_choice and not any(c.is_active for c in e.choices):
             out.append(issue(f"extras[{i}].choices", "no_active_choices"))
         if not e.requires_choice and e.choices:
             out.append(issue(f"extras[{i}].choices", "choices_ignored"))
+        gate = [types[k] for k in e.ticket_types if k in types]
+        if e.is_active and gate and not any(_gate_reaches(e, t) for t in gate):
+            out.append(issue(f"extras[{i}].ticket_types", "extra_gate_unreachable"))
     return out
+
+
+def _gate_reaches(e, t) -> bool:
+    """Whether a holder of ticket type `t` can take extra `e`; a session-scoped
+    per-attendee extra needs a pass that covers its session."""
+    if not t.is_active:
+        return False
+    if not e.per_attendee:
+        return True
+    if not _fits(e.applies_to, t):
+        return False
+    return e.session is None or t.kind == "event" or e.session in t.sessions
+
+
+def _fits(extra_applies_to: str, t) -> bool:
+    return extra_applies_to == "either" or extra_applies_to in _audience(t)
 
 
 def _promo_warnings(spec: EventSpec) -> list[Issue]:

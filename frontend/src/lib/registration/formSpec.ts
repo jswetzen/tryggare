@@ -24,7 +24,14 @@ export function applicableTicketTypes(spec: MaybeSpec, isChild: boolean): Regist
   return spec.ticket_types.filter((tt) => tt.applies_to === kind || tt.applies_to === 'either');
 }
 
-export function applicablePersonExtras(spec: MaybeSpec, isChild: boolean): RegistrationExtraInfo[] {
+// An extra with ticket_type_ids is offered only to holders of one of them; the
+// server enforces the same rule.
+export function extraGateOpen(extra: RegistrationExtraInfo, heldTicketTypeIds: string[]): boolean {
+  const gate = extra.ticket_type_ids ?? [];
+  return gate.length === 0 || gate.some((id) => heldTicketTypeIds.includes(id));
+}
+
+function personExtras(spec: MaybeSpec, isChild: boolean): RegistrationExtraInfo[] {
   if (!spec) return [];
   const kind = isChild ? 'child' : 'parent';
   return spec.extras.filter(
@@ -32,8 +39,46 @@ export function applicablePersonExtras(spec: MaybeSpec, isChild: boolean): Regis
   );
 }
 
-export function registrationExtras(spec: MaybeSpec): RegistrationExtraInfo[] {
-  return spec ? spec.extras.filter((extra) => !extra.per_attendee) : [];
+// The extras offered to a person holding `ticketTypeId` ('' = no ticket yet).
+export function applicablePersonExtras(
+  spec: MaybeSpec,
+  isChild: boolean,
+  ticketTypeId: string
+): RegistrationExtraInfo[] {
+  return personExtras(spec, isChild).filter((extra) => extraGateOpen(extra, [ticketTypeId]));
+}
+
+// Optional extras this person is shown but cannot take, for lack of a ticket.
+// A required extra they cannot take is simply not asked.
+export function blockedPersonExtras(
+  spec: MaybeSpec,
+  isChild: boolean,
+  ticketTypeId: string
+): RegistrationExtraInfo[] {
+  return personExtras(spec, isChild).filter(
+    (extra) => !extra.required && !extraGateOpen(extra, [ticketTypeId])
+  );
+}
+
+export function registrationExtras(
+  spec: MaybeSpec,
+  heldTicketTypeIds: string[]
+): RegistrationExtraInfo[] {
+  return spec
+    ? spec.extras.filter((extra) => !extra.per_attendee && extraGateOpen(extra, heldTicketTypeIds))
+    : [];
+}
+
+export function blockedRegistrationExtras(
+  spec: MaybeSpec,
+  heldTicketTypeIds: string[]
+): RegistrationExtraInfo[] {
+  return spec
+    ? spec.extras.filter(
+        (extra) =>
+          !extra.per_attendee && !extra.required && !extraGateOpen(extra, heldTicketTypeIds)
+      )
+    : [];
 }
 
 export function fieldFor(
@@ -146,7 +191,7 @@ export function reconcileSelections<P extends PersonSelection, C extends PersonS
       ticketTypeId,
       extraSelections: reconcileExtras(
         person.extraSelections,
-        applicablePersonExtras(newSpec, isChild)
+        applicablePersonExtras(newSpec, isChild, ticketTypeId)
       )
     };
   }
@@ -160,13 +205,17 @@ export function reconcileSelections<P extends PersonSelection, C extends PersonS
     }
   }
 
+  const parents = state.parents.map((p) => reconcilePerson(p, false));
+  const children = state.children.map((c) => reconcilePerson(c, true));
+  const heldAfter = [...parents, ...children].map((p) => p.ticketTypeId).filter(Boolean);
+
   return {
     nowRequired,
-    parents: state.parents.map((p) => reconcilePerson(p, false)),
-    children: state.children.map((c) => reconcilePerson(c, true)),
+    parents,
+    children,
     registrationExtraSelections: reconcileExtras(
       state.registrationExtraSelections,
-      registrationExtras(newSpec)
+      registrationExtras(newSpec, heldAfter)
     ),
     cleared
   };

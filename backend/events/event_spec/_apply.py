@@ -117,6 +117,7 @@ def _write(event: Event, spec: EventSpec) -> None:
         extra = extras[x.key] = _save(
             old["extras"].get(x.key), Extra, {**fields, "session": session}, event=event
         )
+        extra.ticket_types.set(types[k] for k in x.ticket_types)
         kept = set()
         for c in x.choices:
             kept.add(c.key)

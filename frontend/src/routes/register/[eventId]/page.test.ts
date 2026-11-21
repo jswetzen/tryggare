@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/svelte';
+import { render, screen, waitFor, cleanup } from '@testing-library/svelte';
 import userEvent from '@testing-library/user-event';
 // The mocked pushState below (see the $app/navigation vi.mock further down)
 // — imported here so the "Back button from confirmation" tests can assert
@@ -64,11 +64,17 @@ vi.mock('svelte-i18n', () => {
     'register.idempotencyConflictButton': 'Send the confirmation again',
     'register.promoCodeLabel': 'Promo code',
     'register.promoCodeInvalid': "This code isn't valid. Check the spelling, or contact the organiser.",
+    'register.promoCodeNotApplicable': "This code doesn't apply to any tickets in this event.",
     'register.promoCodeNotApplied': 'Apply this code, or clear the field, before submitting.',
     'register.promoCodeRemoveButton': 'Remove',
     'register.promoCodeAppliedPrefix': 'Code applied',
     'register.promoEffectPercent': '{percent}% discount on the total.',
-    'register.promoEffectFixed': '{amount} kr discount on the total.',
+    'register.promoEffectFixed': '{amount} kr off the total, once per registration.',
+    'register.promoEffectPercentOn': '{percent}% discount on {names}.',
+    'register.promoEffectFixedOn': '{amount} kr off the total for {names}, once per registration.',
+    'register.promoScopeOne': 'the ticket type {name}',
+    'register.promoScopeTwo': 'the ticket types {first} and {second}',
+    'register.promoTicketTypesCount': '{count} ticket types',
     'register.promoEffectUnlocks': '{names} — now available under Ticket type.',
     'register.promoRemoved': 'The code was removed.',
     'register.promoRemovedWithReset':
@@ -118,6 +124,7 @@ vi.mock('svelte-i18n', () => {
     'register.summaryWholeRegistrationLine': 'Whole registration: {extras}',
     // Summary row states and the flat price line (guardian-only increment 2) —
     // mapped for real so tests assert the sentence a guardian reads.
+    'register.extraNeedsTicket': 'Requires ticket: {types}',
     'register.summaryNoTicket': 'No ticket',
     'register.summaryAttending': 'Attending',
     'register.summaryGuardianOnly': 'Guardian – not attending',
@@ -1749,7 +1756,118 @@ describe('Register page — promo code', () => {
       await user.click(screen.getByTestId('register-promo-code-apply'));
 
       const applied = await screen.findByTestId('register-promo-code-applied');
-      expect(applied.textContent).toContain('10.00 kr discount on the total.');
+      expect(applied.textContent).toContain('10 kr off the total, once per registration.');
+    });
+
+    async function applyPromo(
+      validation: Record<string, unknown>,
+      eventInfo: unknown = hiddenTicketEventInfo()
+    ) {
+      const user = userEvent.setup();
+      getEvent.mockResolvedValue(eventInfo);
+      validatePromoCode.mockResolvedValue({
+        valid: true,
+        unlocks_ticket_types: [],
+        ...validation
+      });
+      render(RegisterPage);
+      await screen.findByTestId('register-form');
+      await user.type(screen.getByTestId('register-promo-code-input'), 'CODE');
+      await user.click(screen.getByTestId('register-promo-code-apply'));
+      return (await screen.findByTestId('register-promo-code-applied')).textContent ?? '';
+    }
+
+    it('says so when the code exists but applies to no ticket in the event', async () => {
+      const user = userEvent.setup();
+      getEvent.mockResolvedValue(hiddenTicketEventInfo());
+      validatePromoCode.mockResolvedValue({ valid: false, reason: 'not_applicable' });
+      render(RegisterPage);
+      await screen.findByTestId('register-form');
+      await user.type(screen.getByTestId('register-promo-code-input'), 'INACT');
+      await user.click(screen.getByTestId('register-promo-code-apply'));
+      expect(await screen.findByText("This code doesn't apply to any tickets in this event.")).toBeInTheDocument();
+      expect(screen.queryByTestId('register-promo-code-applied')).toBeNull();
+    });
+
+    it('names the ticket type a restricted percent code discounts, not the total', async () => {
+      const text = await applyPromo({
+        discount_type: 'percent',
+        discount_value: '10',
+        applies_to_ticket_type_ids: ['tt-child']
+      });
+      expect(text).toContain('10% discount on the ticket type Barn (0-12 år).');
+      expect(text).not.toContain('on the total');
+    });
+
+    it('says a restricted fixed code comes off the total once, for the named type', async () => {
+      const text = await applyPromo({
+        discount_type: 'fixed',
+        discount_value: '25',
+        applies_to_ticket_type_ids: ['tt-child']
+      });
+      expect(text).toContain('25 kr off the total for the ticket type Barn (0-12 år), once per registration.');
+    });
+
+    it('joins two ticket types with "and"', async () => {
+      const text = await applyPromo(
+        {
+          discount_type: 'percent',
+          discount_value: '10',
+          applies_to_ticket_type_ids: ['tt-family', 'tt-solo']
+        },
+        familyEventInfo()
+      );
+      expect(text).toContain('10% discount on the ticket types Familjebiljett and Solo.');
+    });
+
+    it('counts ticket types when more than two are known', async () => {
+      const text = await applyPromo(
+        {
+          discount_type: 'percent',
+          discount_value: '10',
+          applies_to_ticket_type_ids: ['tt-family', 'tt-member', 'tt-solo']
+        },
+        familyEventInfo()
+      );
+      expect(text).toContain('10% discount on 3 ticket types.');
+    });
+
+    it('drops scope ids the form does not know, and the clause when none remain', async () => {
+      let text = await applyPromo({
+        discount_type: 'percent',
+        discount_value: '10',
+        applies_to_ticket_type_ids: ['tt-child', 'tt-hidden']
+      });
+      expect(text).toContain('10% discount on the ticket type Barn (0-12 år).');
+      cleanup();
+      text = await applyPromo({
+        discount_type: 'percent',
+        discount_value: '10',
+        applies_to_ticket_type_ids: ['tt-hidden']
+      });
+      expect(text).not.toContain('discount');
+      expect(text).toBe('Code applied.');
+    });
+
+    it('does not announce unlocking a ticket type that was already visible', async () => {
+      const text = await applyPromo({
+        discount_type: 'fixed',
+        discount_value: '0',
+        applies_to_ticket_type_ids: [],
+        unlocks_ticket_types: [hiddenTicketEventInfo().ticket_types[0]]
+      });
+      expect(text).not.toContain('now available');
+    });
+
+    it('names a type the same code unlocks and discounts', async () => {
+      const text = await applyPromo({
+        discount_type: 'percent',
+        discount_value: '20',
+        applies_to_ticket_type_ids: ['tt-vip'],
+        unlocks_ticket_types: [vipTicketType]
+      });
+      expect(text).toContain('20% discount on the ticket type VIP.');
+      expect(text).toContain('VIP — now available under Ticket type.');
     });
 
     it('states the unlocked ticket type in the applied confirmation', async () => {
@@ -2112,6 +2230,40 @@ describe('Register page — extras default state', () => {
 
     const total = await screen.findByTestId('register-running-total');
     expect(total.textContent).toContain('500.00');
+  });
+});
+
+describe('Register page — extras gated by ticket type', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('shows a gated extra disabled with the reason when the child holds no listed ticket', async () => {
+    getEvent.mockResolvedValue(
+      extrasEventInfo({
+        extras: [
+          {
+            id: 'extra-workshop',
+            name: 'Lördagsverkstad',
+            price: '150.00',
+            session_id: null,
+            per_attendee: true,
+            applies_to: 'child',
+            requires_choice: false,
+            required: false,
+            default_selected: false,
+            ticket_type_ids: ['tt-youth'],
+            ticket_type_names: ['Ungdom (13-17 år)'],
+            choices: []
+          }
+        ]
+      })
+    );
+    render(RegisterPage);
+
+    const blocked = await screen.findByTestId('extra-blocked-extra-workshop');
+    expect(blocked.textContent).toContain('Requires ticket: Ungdom (13-17 år)');
+    expect(blocked.querySelector('input')).toBeDisabled();
   });
 });
 

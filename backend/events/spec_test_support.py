@@ -53,3 +53,24 @@ def foreign_session(name="Foreign"):
         start_time=datetime(2027, 1, 1, 9, tzinfo=UTC),
         end_time=datetime(2027, 1, 1, 10, tzinfo=UTC),
     )
+
+
+def example_with_bundle():
+    """The example plus a session bundle beside the 13-17 pass: a setup that warns."""
+    from .event_spec import example_spec
+
+    spec = example_spec()
+    spec["ticket_types"].append(
+        {
+            "key": "saturday-workshop-13-17",
+            "name": "Saturday workshop 13-17",
+            "price": 150,
+            "applies_to": "child",
+            "min_birthdate": "2009-06-19",
+            "max_birthdate": "2014-06-18",
+            "kind": "session_bundle",
+            "sessions": ["saturday-workshop"],
+            "sort_order": 40,
+        }
+    )
+    return spec

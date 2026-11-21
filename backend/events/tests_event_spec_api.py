@@ -3,7 +3,7 @@
 import json
 import os
 import tempfile
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from io import StringIO
 
 from django.contrib.auth.models import Permission
@@ -14,10 +14,19 @@ from django.urls import reverse
 from rest_framework.test import APIClient
 
 from accounts.models import AdminUser
-from events.event_spec import example_spec, export
-from events.spec_test_support import add_ticket, at_now, empty_event, foreign_session
+from families.models import Family
+from registrations.models import Registration, RegistrationExtra
+from events.event_spec import apply, check_setup, example_spec, export
+from events.spec_test_support import (
+    add_ticket,
+    example_with_bundle,
+    at_now,
+    empty_event,
+    foreign_session,
+    make_child,
+)
 from events.management.commands.event_spec import Command
-from events.models import Event, TicketType
+from events.models import Event, EventTicket, Extra, PromoCode, TicketType
 from accounts.roles import COORDINATOR, grant
 from events.services import COPY_PERMISSIONS, VIEW_PERMISSIONS
 
@@ -449,7 +458,7 @@ class CommandTests(TestCase):
     def test_validate_ok(self):
         out, err = self.run_cmd("validate", self.spec_file(example_spec()))
         self.assertTrue(json.loads(out)["valid"])
-        self.assertEqual(err, "")
+        self.assertEqual(json.loads(out)["warnings"], [])
 
     def test_validate_against_event(self):
         event = make_event()
@@ -582,3 +591,191 @@ class CommandTests(TestCase):
                 self.run_cmd("apply", path, *extra)
         self.assertEqual(Event.objects.count(), 0)
         self.assertEqual(TicketType.objects.count(), 0)
+
+
+class SetupCheckTests(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        with at_now():
+            cls.event, _, _ = apply(example_with_bundle())
+        cls.user = AdminUser.objects.create_superuser("checker", "pw12345")
+        cls.plain = AdminUser.objects.create_user("plain", "pw12345", is_staff=True)
+
+    def check(self, event=None):
+        with at_now():
+            return check_setup(event or self.event)
+
+    def run_check(self):
+        out, err = StringIO(), StringIO()
+        with at_now():
+            call_command(
+                "event_spec",
+                "check",
+                "--event",
+                str(self.event.pk),
+                stdout=out,
+                stderr=err,
+            )
+        return out.getvalue(), err.getvalue()
+
+    def test_command_labels_rows_and_skips_guards(self):
+        add_ticket(self.event)  # event_not_empty is an apply guard, not a setup problem
+        with at_now(), self.assertRaises(CommandError) as ctx:
+            call_command("event_spec", "check", "--event", "nope", stdout=StringIO())
+        self.assertEqual(ctx.exception.returncode, 2)
+        out, err = self.run_check()
+        result = json.loads(out)
+        self.assertEqual(result["errors"], [])
+        rows = {w["code"]: w["row"] for w in result["warnings"]}
+        self.assertEqual(
+            rows["bundle_replaces_pass"], "Ticket type 'Saturday workshop 13-17'"
+        )
+        self.assertIn("[bundle_replaces_pass]", err)
+
+    def test_open_registration_is_not_an_error(self):
+        # registration_open and registration_open_on_target are apply guards.
+        self.event.registration_opens_at = datetime(2026, 1, 1, tzinfo=UTC)
+        self.event.save()
+        result = self.check()
+        self.assertEqual(result["errors"], [])
+        codes = {w["code"] for w in result["warnings"]}
+        self.assertFalse(codes & {"registration_open", "registration_open_on_target"})
+
+    def test_tied_ordering_is_a_warning(self):
+        TicketType.objects.filter(event=self.event).update(sort_order=0, name="Same")
+        result = self.check()
+        self.assertEqual(result["errors"], [])
+        self.assertIn("ambiguous_order", {w["code"] for w in result["warnings"]})
+
+    def test_command_exits_non_zero_on_errors(self):
+        TicketType.objects.filter(event=self.event).update(
+            requires_ticket_type=None, min_birthdate=date(2014, 6, 1)
+        )
+        err = StringIO()
+        with at_now(), self.assertRaises(CommandError):
+            call_command(
+                "event_spec",
+                "check",
+                "--event",
+                str(self.event.pk),
+                stdout=StringIO(),
+                stderr=err,
+            )
+        self.assertIn("[age_window]", err.getvalue())
+
+    def test_rows_with_history_are_not_called_deletable(self):
+        retired = TicketType.objects.get(event=self.event, name="Child pass 0-12")
+        unused = TicketType.objects.get(
+            event=self.event, name="Saturday workshop 13-17"
+        )
+        TicketType.objects.filter(pk__in=[retired.pk, unused.pk]).update(
+            is_active=False
+        )
+        flagged = lambda: {  # noqa: E731
+            w["row"]
+            for w in self.check()["warnings"]
+            if w["code"] == "inactive_unreferenced"
+        }
+        self.assertEqual(
+            flagged(),
+            {"Ticket type 'Child pass 0-12'", "Ticket type 'Saturday workshop 13-17'"},
+        )
+        EventTicket.objects.create(
+            attendee=make_child(), event=self.event, ticket_type=retired
+        )
+        self.assertEqual(flagged(), {"Ticket type 'Saturday workshop 13-17'"})
+
+    def test_extras_and_choices_with_history_are_not_called_deletable(self):
+        extra = Extra.objects.get(event=self.event, name="T-shirt")
+        extra.choice_rows.update(is_active=False)
+        extra.is_active = False
+        extra.save()
+        flagged = lambda: {  # noqa: E731
+            w["row"]
+            for w in self.check()["warnings"]
+            if w["code"] == "inactive_unreferenced"
+        }
+        self.assertIn("Extra 'T-shirt'", flagged())
+        self.assertIn("Choice 'XL'", flagged())
+        family = Family.objects.create(last_name="T")
+        registration = Registration.objects.create(
+            event=self.event,
+            family=family,
+            contact_email="a@example.com",
+            verification_token_hash="x",
+        )
+        RegistrationExtra.objects.create(
+            registration=registration,
+            extra=extra,
+            choice=extra.choice_rows.get(label="XL"),
+            price_at_registration=0,
+        )
+        rows = flagged()
+        self.assertNotIn("Extra 'T-shirt'", rows)
+        self.assertNotIn("Choice 'XL'", rows)
+        self.assertIn("Choice 'S'", rows)
+
+    def test_redeemed_promo_codes_are_not_called_deletable(self):
+        promo = PromoCode.objects.create(
+            event=self.event,
+            code="SPENT",
+            discount_type="percent",
+            discount_value=10,
+            is_active=False,
+        )
+        flagged = lambda: {  # noqa: E731
+            w["row"]
+            for w in self.check()["warnings"]
+            if w["code"] == "inactive_unreferenced"
+        }
+        self.assertIn("Promo code 'SPENT'", flagged())
+        Registration.objects.create(
+            event=self.event,
+            family=Family.objects.create(last_name="P"),
+            contact_email="p@example.com",
+            verification_token_hash="x",
+            promo_code=promo,
+        )
+        self.assertNotIn("Promo code 'SPENT'", flagged())
+
+    def test_admin_page_and_action(self):
+        self.client.force_login(self.user)
+        with at_now():
+            page = self.client.get(
+                reverse("admin:events_event_check_setup", args=[self.event.pk])
+            )
+            action = self.client.post(
+                reverse("admin:events_event_changelist"),
+                {
+                    "action": "check_setup_action",
+                    "_selected_action": [str(self.event.pk)],
+                },
+            )
+            change = self.client.get(
+                reverse("admin:events_event_change", args=[self.event.pk])
+            )
+        for response in (page, action):
+            self.assertContains(
+                response, "Ticket type &#x27;Saturday workshop 13-17&#x27;"
+            )
+            # Organizers see the row name, not the spec path.
+            self.assertNotContains(response, "ticket_types[")
+        self.assertContains(
+            change, reverse("admin:events_event_check_setup", args=[self.event.pk])
+        )
+
+    def test_admin_page_and_action_need_view_permission(self):
+        self.client.force_login(self.plain)
+        with at_now():
+            page = self.client.get(
+                reverse("admin:events_event_check_setup", args=[self.event.pk])
+            )
+            action = self.client.post(
+                reverse("admin:events_event_changelist"),
+                {
+                    "action": "check_setup_action",
+                    "_selected_action": [str(self.event.pk)],
+                },
+            )
+        self.assertEqual(page.status_code, 404)
+        self.assertNotContains(action, "Saturday workshop", status_code=403)
