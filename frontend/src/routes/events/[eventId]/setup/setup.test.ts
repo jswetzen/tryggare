@@ -7,7 +7,7 @@ vi.mock('$lib/api/assistantService', () => ({
 
 import { load } from './+page';
 
-const run = () => load({ params: { eventId: 'e1' } } as never) as Promise<{ unavailable: unknown }>;
+const run = () => load({ params: { eventId: 'e1' }, url: new URL('http://x/events/e1/setup') } as never) as Promise<{ unavailable: unknown }>;
 const apiError = (status: number, errors: unknown[] = []) => ({ status, message: '', details: { errors } });
 
 async function redirectOf(p: Promise<unknown>) {
@@ -31,7 +31,7 @@ describe('/events/[eventId]/setup', () => {
 
   it('sends a signed-out visitor to login', async () => {
     getConversation.mockRejectedValue(apiError(401));
-    expect(await redirectOf(run())).toMatchObject({ status: 302, location: '/login' });
+    expect(await redirectOf(run())).toMatchObject({ status: 302, location: '/login?next=%2Fevents%2Fe1%2Fsetup' });
   });
 
   it.each([

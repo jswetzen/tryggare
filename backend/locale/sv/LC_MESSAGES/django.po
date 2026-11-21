@@ -2102,6 +2102,9 @@ msgstr "val"
 msgid "Check setup"
 msgstr "Kontrollera upplägg"
 
+msgid "Open assistant"
+msgstr "Öppna assistenten"
+
 msgid "No problems found."
 msgstr "Inga problem hittades."
 

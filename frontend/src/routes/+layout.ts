@@ -7,6 +7,7 @@
 import { apiClient } from '$lib/api/client';
 import { goto } from '$app/navigation';
 import { browser } from '$app/environment';
+import { loginUrl } from '$lib/auth/returnTo';
 import type { SessionUser } from '$lib/auth/permissions';
 
 export const ssr = false;
@@ -58,13 +59,13 @@ export async function load({ url }) {
       return { user: data.user };
     } else {
       // Not authenticated, redirect to login
-      goto('/login');
+      goto(loginUrl(url.pathname === '/' ? null : url.pathname + url.search));
       return { user: null };
     }
   } catch (error) {
     console.error('Auth check failed:', error);
     // Redirect to login on error
-    goto('/login');
+    goto(loginUrl(url.pathname === '/' ? null : url.pathname + url.search));
     return { user: null };
   }
 }

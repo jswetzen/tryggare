@@ -2078,6 +2078,9 @@ msgstr "choice"
 msgid "Check setup"
 msgstr "Check setup"
 
+msgid "Open assistant"
+msgstr "Open assistant"
+
 msgid "No problems found."
 msgstr "No problems found."
 

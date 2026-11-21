@@ -16,6 +16,7 @@
   import { onMount, tick, untrack, type Component } from 'svelte';
   import { t, locale } from 'svelte-i18n';
   import { page } from '$app/stores';
+  import { uuid } from '$lib/utils/uuid';
   import { pushState } from '$app/navigation';
   import { registrationApi } from '$lib/api/registrationService';
   import { assistantApi } from '$lib/api/assistantService';
@@ -452,7 +453,7 @@
   // one that just happened — reusing the old key there would make the
   // corrected payload look like a same-key conflict to the backend instead
   // of a new attempt.
-  let idempotencyKey = $state(crypto.randomUUID());
+  let idempotencyKey = $state(uuid());
 
   // Set only on a submit that the backend rejected with `code:
   // "idempotency_conflict"` — same idempotency_key, different payload (see
@@ -2319,7 +2320,7 @@
   // just the same one reached from a different button.
   async function handleResubmitAfterConflict() {
     if (!idempotencyConflictPayload || submitting) return;
-    idempotencyKey = crypto.randomUUID();
+    idempotencyKey = uuid();
     const payload = { ...idempotencyConflictPayload, idempotency_key: idempotencyKey };
     await submitPayload(payload);
   }
@@ -2391,7 +2392,7 @@
     // reject the correction as a conflict instead of accepting it (see
     // idempotencyKey's own comment above for why this is the one reset
     // point in this flow).
-    idempotencyKey = crypto.randomUUID();
+    idempotencyKey = uuid();
   }
 </script>
 

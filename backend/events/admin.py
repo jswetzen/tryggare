@@ -148,6 +148,23 @@ class EventAdmin(admin.ModelAdmin):
     def view_on_site(self, obj):
         return f"{settings.FRONTEND_BASE_URL}/register/{obj.id}/"
 
+    def _assistant_setup_url(self, request, obj):
+        # Imported here: assistant.permissions imports events.
+        from assistant.models import LLMProvider
+        from assistant.permissions import can_use_assistant
+
+        if obj is None or not LLMProvider.load().enabled:
+            return None
+        if not can_use_assistant(request.user, obj)[0]:
+            return None
+        return f"{settings.FRONTEND_BASE_URL}/events/{obj.pk}/setup"
+
+    def render_change_form(
+        self, request, context, add=False, change=False, form_url="", obj=None
+    ):
+        context["assistant_setup_url"] = self._assistant_setup_url(request, obj)
+        return super().render_change_form(request, context, add, change, form_url, obj)
+
     def has_copy_permission(self, request):
         return can_copy_events(request.user)
 
