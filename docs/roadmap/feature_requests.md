@@ -1,6 +1,6 @@
 # Feature requests: structure and flow
 
-**Status:** Design. Phase 0 (this format, filled in by hand) is in use: `docs/trials/2026-11-19-feature-requests.md`.
+**Status:** Phases 3 and 4 are built on the backend (branch `feat/feature-requests`): model, admin view, export, the assistant tool and the review API. The chat card (stage B) and phases 1 and 2 are open. Phase 0 (this format, filled in by hand) is in use: `docs/trials/2026-11-19-feature-requests.md`.
 **Priority:** Medium. It is cheap, and it is how the form builder (`registration_form_builder.md`) learns what organizers can't express.
 
 ## Problem
@@ -129,13 +129,29 @@ The organizer sees a card in the conversation: the personal-data notice, the exa
 0. **Markdown only (now).** Requests are written in this format as YAML blocks in a markdown file, by hand or by an agent writing a trial report. Change `.github/ISSUE_TEMPLATE/feature_request.md` into an issue form with the same sections: problem, tried, workaround and its cost, desired, touches, severity, evidence, and a personal-data notice at the top. No code.
 1. **Vocabulary.** Add recurring `new:` ids to `CAPABILITIES["unsupported"]`. Add the `new_warning` items to `_validate.py`. Fix `example.json`.
 2. **Admin "check this event".** It shows warnings (`staff_ui_plan.md`). Each warning gets a "this is intended: the product can't do it" link that opens a prefilled request.
-3. **Model and admin view.** A `FeatureRequest` table, an organizer form with the notice and the check, list and merge views, and the export action.
-4. **Assistant tool.** `file_feature_request` above, with evals that include briefs the spec can't express. The expected output is a request, not an invented field.
+3. **Model and admin view.** Built (backend): `feature_requests` app, `FeatureRequest` and `FeatureRequestComment`, admin list with filters, counts, bulk status, merge through "Duplicate of", and "Copy as GitHub issue". Open: the organizer form with the notice and the check (stage B and the check in phase 2).
+4. **Assistant tool.** Built (backend): `file_feature_request`, the review API under `/api/assistant/events/<id>/feature-requests/`, the `feature_request_draft` event, and two eval briefs (`en-unsupported-family-price`, `en-waitlist-workaround`). Not run yet: the eval is a separate step, and the chat card is stage B.
+
+## Decisions
+
+1. **Who may file.** Any signed-in user with `events.change_event` on the event (the assistant also needs its own gate). Administrators see and triage all requests in the Django admin. That needs the model permissions, which superusers have and the `Administratör` role does not yet (open question 2). Each filer sees only their own drafts through the API.
+2. **Language.** The text is stored as written and the operator translates on export. No automatic translation.
+3. **Dismissed validator warnings** are not stored. Out of scope for now.
+4. **`new:` curation** is the maintainer's. No automatic promotion into `CAPABILITIES`.
+
+## Implementation choices (phases 3 and 4)
+
+- `id` is `FR-<pk>`; the pk is the database sequence, so ids are never reused.
+- A draft is never confirmed by the model. Confirming happens through the REST endpoint, and a confirm that matches an open request (same `dedupe_key`, status confirmed, triaged or planned) merges into it: `seen` +1, evidence appended once, the draft's free text kept as a comment on the target, and the draft becomes `duplicate`. Discarding deletes the draft.
+- `dedupe_key` is the highest-priority term of `touches` (`cap:`, `new:`, `code:`, `field:`, `spec:`, `admin:`), first of its kind. The `#<slug>` suffix is not computed: the maintainer can add it in the admin form.
+- `reach` counts distinct events among the requests merged into one: 1 is `few_events`, 2 to 4 `some_events`, 5 or more `most_events`. A new draft starts at the count of the open match's events plus its own.
+- `layers` and `evidence` are derived from the prefixes (`code:` gives validator and an evidence entry; `spec:` gives an evidence entry; `cap:`, `new:`, `field:` give model; `admin:` gives admin UI). `validator` is `existing` when a `code:` term is given, otherwise `no`. `new_warning` is a maintainer judgement and is not set by the tool.
+- Free-text checks for ISO dates, UUIDs and registration-reference-like codes are in `assistant/pii.py`, next to the shared email, phone and personnummer patterns, which the spec checks also use unchanged.
+- Vocabulary errors name the rule, not the term: the term itself can be personal data.
+- The export is a plain markdown body in the sections of `.github/ISSUE_TEMPLATE/feature_request.md` (the current sections; the phase 0 change to an issue form will rename them). The "specific church or event type" section says it is not captured locally. Local-only fields and maintainer comments are never rendered. A link longer than 7500 characters is omitted, not cut.
+- Open questions 5 (rate limits, expiry of unconfirmed drafts) is still open. Drafts stay until confirmed, discarded, or their event is deleted (the event link is then cleared).
 
 ## Open questions
 
-1. Who may file: any staff user with event-change rights, or Administrator only?
-2. Language. Organizers will write in Swedish, but upstream issues are in English. Does the export translate (assistant), or does the operator?
-3. Should a dismissed validator warning be stored on the event, so the checker stops repeating it, independently of any request?
-4. Who curates `new:` ids upstream, and at what `seen` count across issues is one promoted to `CAPABILITIES`?
-5. Rate limits per user and per day, and whether `draft` requests that are never confirmed expire.
+1. Rate limits per user and per day, and whether `draft` requests that are never confirmed expire.
+2. The `Administratör` role does not yet carry `feature_requests` permissions. Admin triage needs `view` and `change` on the model in `accounts/roles.py`; not done, because it changes the seeded role sets.

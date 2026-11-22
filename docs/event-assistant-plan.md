@@ -228,6 +228,9 @@ Server to client:
 - `draft_updated` fires when `propose_spec` returns without a retry, after the draft is committed to the row.
   **The chat component calls the page's reload function directly** (a prop, see Frontend); the page then
   fetches the draft preview over HTTP.
+- `feature_request_draft` fires when `file_feature_request` stores a draft. Its fields are flat and read back from
+  the stored row under the run's event and user: `id`, `title`, `problem`, `desired`, `workaround`,
+  `matches_existing` (`{id, seen}` or null). Nothing else, and never the tool arguments.
 - `text_delta` forwards `TextPartDelta` from the agent stream. Thinking parts are not forwarded. Local models
   may emit text only after tool calls; the UI must cope with progress events and no text until the end, and
   must not depend on partial tool-argument events (Ollama can deliver them in one piece).
@@ -676,6 +679,25 @@ is missing, so message ids use a `getRandomValues`/`Math.random` fallback (`lib/
 WebSocket are same-origin with the page, so the session works without TLS; with a reverse proxy, forward the
 `/ws/` upgrade and keep the Host and Origin allowed (`AllowedHostsOriginValidator`). On a phone the open panel is a
 full-height sheet and covers the whole preview; minimise it to see the draft (known, see follow-ups).
+
+### Feature requests from the assistant
+
+When a capability is unsupported, or the assistant built a workaround, or a validator warning cannot be fixed, it
+calls `file_feature_request` after building the closest valid setup. The tool stores a **draft** in the
+`feature_requests` app (`docs/roadmap/feature_requests.md`), never a confirmed request. Its text is checked
+deterministically first (email, phone, personnummer, ISO dates, UUIDs, registration-reference-like codes), and a
+refusal names the kind of match without the value.
+
+- Organizer review: `GET /api/assistant/events/<id>/feature-requests/` (own drafts on the event),
+  `POST .../feature-requests/` (file one yourself, source `organizer`), `POST .../<FR-n>/confirm/` (optional
+  edited fields, checked again; merges into an open request with the same key), `POST .../<FR-n>/discard/`.
+  Drafts can be discarded or confirmed by their filer only. These endpoints need the user to be signed in with
+  `events.change_event`; they do not need the provider switched on or the event free of registrations, so a
+  draft stays reviewable after either changes.
+- Admin: `feature_requests` in Django admin (staff with the model permissions): counts by dedupe key, filters,
+  bulk status, merge through the "Duplicate of" field, and "Copy as GitHub issue", which makes no request from the
+  server and only builds a prefilled link for the operator's browser.
+- A draft does not become a request until confirmed; a confirmed request with an open match is merged into it.
 
 ### Rollout gating
 
