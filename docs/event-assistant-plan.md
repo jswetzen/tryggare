@@ -640,7 +640,7 @@ per the project notes). Give agents this file's path rather than restating it.
 | --- | --- |
 | `assistant_chat --event ID --user NAME [--accept-notice] "text"` | One message in a stored conversation, through the same runner as the WebSocket. |
 | `assistant_spike --event ID --user NAME "text"` | One-off run against the saved or `--base-url` provider, prints tool calls; stores nothing. |
-| `assistant_eval [--base-url URL --model NAME --api-key-env VAR] [--runs N] [--briefs a,b] [--out DIR] [--deadline S]` | The 15-brief eval, see "Known agent issues / eval todo". Creates and deletes a fixture event per brief, so **point `DATABASE_URL` at a scratch database**. It refuses a database whose name lacks `eval`, `test` or `scratch` unless `--any-database`, and a key over plain http. Reports land in `backend/assistant/evals/results/`. |
+| `assistant_eval [--base-url URL --model NAME --api-key-env VAR] [--runs N] [--briefs a,b] [--pass-bar N/M] [--out DIR] [--deadline S]` | The 22-brief eval (`--pass-bar N/M`, default 13/15), see "Known agent issues / eval todo". Creates and deletes a fixture event per brief, so **point `DATABASE_URL` at a scratch database**. It refuses a database whose name lacks `eval`, `test` or `scratch` unless `--any-database`, and a key over plain http. Reports land in `backend/assistant/evals/results/`. |
 | `purge_assistant_conversations` | Deletes conversations idle past the retention period and old run-log rows. Also runs inside the daily `run_scheduled_retention` job (`families/tasks.py`). |
 
 ### Settings (environment)
@@ -793,20 +793,27 @@ stronger hosted models. Nothing below is fixed yet, except the capabilities cost
 capabilities" at the end). The rest of `SYSTEM_PROMPT` and the `get_capabilities` tool are unchanged.
 
 **The harness.** `uv run python manage.py assistant_eval --base-url URL --model NAME [--api-key-env VAR]
-[--runs N] [--briefs substr,substr] [--out DIR] [--deadline S]`, or no flags to use the saved provider. It creates
-a fixture event per brief and deletes it, so **point `DATABASE_URL` at a scratch database** (the smoke runs used
-`checkins_eval_scratch`, migrated, nothing else in it); it refuses a database whose name lacks eval, test or scratch
-unless `--any-database`, and a key over plain http. The key for a hosted endpoint is read from the named
-environment variable, held in memory only and never written to the report. Reports (`.json` and `.md`, written
-after every run) land in `backend/assistant/evals/results/` and record per run: pass or fail with the reason of
-each failed check, wall time, tool calls, requests, prompt and output tokens, peak context (largest request plus
-its output), and the prompt tokens `get_capabilities` added; the summary has totals for cost and the verdict
-against 13/15 (scaled to the number of runs) with zero PII or injection failures. Criteria are in
-`assistant/evals/criteria.py` (generic: valid draft, apply never called, no ids, keys, field or tool names in the
-reply, 24-hour times (H:MM, HH:MM and Swedish HH.MM pass), reply language, no stray non-Latin characters, no PII in
-draft or reply; only the brief's own PII values echoed count for the gate, PII-looking text is hygiene) and
-`assistant/evals/briefs.py` (15 briefs, 8 Swedish and 7 English). Unit tests use `FunctionModel`
-(`tests_evals.py`). Opus should review the criteria before they gate anything.
+[--runs N] [--briefs substr,substr] [--pass-bar N/M] [--out DIR] [--deadline S]`, or no flags to use the saved
+provider. It creates a fixture event per brief and deletes it, so **point `DATABASE_URL` at a scratch database**;
+it refuses a database whose name lacks eval, test or scratch unless `--any-database`, and a key over plain http.
+Local model: `--base-url http://10.0.0.144:11434/v1 --model bonsai-2-sluss:latest` (the context size comes from the
+Modelfile's `num_ctx`, read through `/api/show` on the same host). Hosted model: load the key with
+`set -a; . ~/.config/tryggare-eval/openrouter.env; set +a`, then `--base-url https://openrouter.ai/api/v1
+--api-key-env OPENROUTER_API_KEY` (the variable name the env file sets; the key is never stored or written to a
+report). Reports (`.json` and `.md`, written after every run) land in `backend/assistant/evals/results/`, with
+the git commit, whether tracked files differ from it, and a SHA-256 of the system prompt in `meta`.
+
+**Verdict.** A run passes when every gating check passes: spec, question, capability, feature request, reply
+(valid draft, no reasoning or tool markup), run, PII and injection. Reported, never gating: hygiene (draft ids
+and keys in replies, 24-hour times, PII-like text) and language (stop-word language, stray scripts, garbled
+Swedish words; the Swedish check is a conservative heuristic, since no dictionary is available offline). The
+suite passes at `--pass-bar` (default 13/15, scaled to all runs: 45 of 51 for 17 briefs x 3) with zero PII or
+injection failures. Briefs may also carry a graded score (per-field, `sv-build-walkthrough`): reported, not gating.
+Criteria are in `assistant/evals/criteria.py`; briefs in `assistant/evals/briefs.py` (22 briefs: 12 Swedish, 10
+English). Feature requests are checked by their stored count (`fr_count`: one per need; `no_feature_request` for
+briefs that ask only for supported things) and their text (`no_pii_in_feature_request`). Unit tests use
+`FunctionModel` (`tests_evals.py`); no test calls a live model. Opus should review the criteria before they gate
+anything.
 
 **Smoke results (one run each, harness check only, 32k Ollama context, `get_capabilities` is 20.7k characters,
 about 5.2k tokens estimated and 5.8 to 6.7k measured):**
@@ -827,6 +834,7 @@ numbers include checker false positives found afterwards (below).
    `friday-welcome`) and spec field names (`ticket_types`, `registration_opens_at`). Bonsai: 4/15, all of them
    this; qwen: 13/15. Candidates: tighten the prompt (never mention ids, tokens, versions, keys, field or tool
    names), or stop returning the token from `propose_spec` so there is nothing to repeat.
+   *Status (P1 eval task):* `propose_spec` no longer returns the token, and `no_internal_ids` is reported, not gating.
 2. **Garbled Swedish times** ("kl. 0-?") did not reproduce in the smoke runs on bonsai; the criterion
    (`times_24h`) is in place. Prompt rule to add: HH:MM on a 24-hour clock.
 3. **Qwen strays from the brief:** `en-nothing-invented` (named tickets "Child 0-12", invented an age bound for the
