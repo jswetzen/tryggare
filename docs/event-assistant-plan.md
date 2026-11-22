@@ -698,6 +698,26 @@ refusal names the kind of match without the value.
   bulk status, merge through the "Duplicate of" field, and "Copy as GitHub issue", which makes no request from the
   server and only builds a prefilled link for the operator's browser.
 - A draft does not become a request until confirmed; a confirmed request with an open match is merged into it.
+- Admin never lists, changes or merges into a draft (the queryset excludes `draft`).
+
+#### Feature request card
+
+One card per pending draft in the chat (`FeatureRequestCard.svelte`, list and live region in
+`FeatureRequestReview.svelte`, state in `assistantStore`). It is the only way to store a request: Confirm stores the
+text as it is, or the edited fields after Edit; Discard deletes the draft. The personal-data notice is the first
+thing on every card. Cards load from the GET on connect, after each run, on `feature_request_draft` and after a
+clear. The event gives the preview at once, the GET the rest (tried, touches, severity). An older GET answer never
+overrides a newer one, and a card settled or discarded in this tab cannot come back from a GET sent before that.
+
+- **Clear keeps pending drafts.** They live in the `feature_requests` app, not the conversation, so Clear does not
+  delete them; the clear dialog says so when there are some. Settled receipts go with the conversation.
+- Edit limits are the server's (title 100, problem 600, desired 600, up to 5 tried items of 300, workaround 400).
+  The form checks them first. A 400 is listed on the card by field name with the server's message, never the typed text.
+- Settled states: "Saved as FR-n", or "Joined request FR-m" for a join. The live region announces a new card and
+  each settled one. Focus moves to the receipt after Confirm and to the composer after Discard. Escape in a field
+  cancels the edit and does not minimize the chat.
+- Tests: `featureRequest.test.ts` (limits, payload), `featureRequestStore.test.ts` (reducer, GET ordering),
+  `FeatureRequestCard.test.ts` and `FeatureRequestReview.test.ts` (states, announcements), `assistantService.test.ts`.
 
 ### Rollout gating
 

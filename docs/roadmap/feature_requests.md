@@ -1,6 +1,6 @@
 # Feature requests: structure and flow
 
-**Status:** Phases 3 and 4 are built on the backend (branch `feat/feature-requests`): model, admin view, export, the assistant tool and the review API. The chat card (stage B) and phases 1 and 2 are open. Phase 0 (this format, filled in by hand) is in use: `docs/trials/2026-11-19-feature-requests.md`.
+**Status:** Phases 3 and 4 are built on the backend (branch `feat/feature-requests`): model, admin view, export, the assistant tool and the review API. Stage B, the chat card, is built on the frontend (`docs/event-assistant-plan.md`, "Feature request card"). Phases 1 and 2 are open. Phase 0 (this format, filled in by hand) is in use: `docs/trials/2026-11-19-feature-requests.md`.
 **Priority:** Medium. It is cheap, and it is how the form builder (`registration_form_builder.md`) learns what organizers can't express.
 
 ## Problem
@@ -129,8 +129,9 @@ The organizer sees a card in the conversation: the personal-data notice, the exa
 0. **Markdown only (now).** Requests are written in this format as YAML blocks in a markdown file, by hand or by an agent writing a trial report. Change `.github/ISSUE_TEMPLATE/feature_request.md` into an issue form with the same sections: problem, tried, workaround and its cost, desired, touches, severity, evidence, and a personal-data notice at the top. No code.
 1. **Vocabulary.** Add recurring `new:` ids to `CAPABILITIES["unsupported"]`. Add the `new_warning` items to `_validate.py`. Fix `example.json`.
 2. **Admin "check this event".** It shows warnings (`staff_ui_plan.md`). Each warning gets a "this is intended: the product can't do it" link that opens a prefilled request.
-3. **Model and admin view.** Built (backend): `feature_requests` app, `FeatureRequest` and `FeatureRequestComment`, admin list with filters, counts, bulk status, merge through "Duplicate of", and "Copy as GitHub issue". Open: the organizer form with the notice and the check (stage B and the check in phase 2).
-4. **Assistant tool.** Built (backend): `file_feature_request`, the review API under `/api/assistant/events/<id>/feature-requests/`, the `feature_request_draft` event, and two eval briefs (`en-unsupported-family-price`, `en-waitlist-workaround`). Not run yet: the eval is a separate step, and the chat card is stage B.
+3. **Model and admin view.** Built (backend): `feature_requests` app, `FeatureRequest` and `FeatureRequestComment`, admin list with filters, counts, bulk status, merge through "Duplicate of", and "Copy as GitHub issue". Open: an organizer's own form (the POST exists, no UI yet) with the notice and the check.
+4. **Assistant tool.** Built (backend): `file_feature_request`, the review API under `/api/assistant/events/<id>/feature-requests/`, the `feature_request_draft` event, and two eval briefs (`en-unsupported-family-price`, `en-waitlist-workaround`). Not run yet: the eval is a separate step.
+4b. **Chat card (stage B).** Built (frontend): the card in the assistant chat with the notice, the stored text, the workaround and its cost, the join line, and Confirm / Edit / Discard; cards load from the GET and the event. Clear keeps pending drafts. Still open: a browser run against a real draft (the eval and a Playwright pass).
 
 ## Decisions
 
