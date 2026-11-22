@@ -1,0 +1,21 @@
+{% extends "admin/change_list.html" %}
+{% load i18n %}
+
+{% block content %}
+<details open>
+  <summary>{% trans "Counts by dedupe key (open requests, merged duplicates included in the seen total)" %}</summary>
+  <table>
+    <thead>
+      <tr><th>{% trans "Dedupe key" %}</th><th>{% trans "Requests" %}</th><th>{% trans "Seen" %}</th></tr>
+    </thead>
+    <tbody>
+      {% for row in counts %}
+        <tr><td><code>{{ row.dedupe_key }}</code></td><td>{{ row.requests }}</td><td>{{ row.seen_total }}</td></tr>
+      {% empty %}
+        <tr><td colspan="3">{% trans "No requests yet." %}</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</details>
+{{ block.super }}
+{% endblock %}

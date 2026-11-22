@@ -45,6 +45,7 @@ INSTALLED_APPS = [
     "notifications",
     "registrations",
     "assistant",
+    "feature_requests",
 ]
 
 MIDDLEWARE = [
