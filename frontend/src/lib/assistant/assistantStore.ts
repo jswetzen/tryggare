@@ -8,6 +8,8 @@ import { writable, get, type Readable } from 'svelte/store';
 import type {
   ClientFrame,
   ConversationState,
+  FeatureRequestCard,
+  FeatureRequestDraft,
   RunFailedCode,
   ServerEvent,
   TranscriptEntry
@@ -53,6 +55,8 @@ export interface AssistantState {
   tools: ToolStatus[];
   warnings: AssistantWarning[];
   error: AssistantError | null;
+  // Pending drafts from the GET and the event, plus cards settled in this tab.
+  featureRequests: FeatureRequestCard[];
 }
 
 export const initialState = (): AssistantState => ({
@@ -66,7 +70,8 @@ export const initialState = (): AssistantState => ({
   runId: null,
   tools: [],
   warnings: [],
-  error: null
+  error: null,
+  featureRequests: []
 });
 
 export type Action =
@@ -75,12 +80,36 @@ export type Action =
   | { kind: 'sent'; id: string; text: string }
   | { kind: 'hydrate'; conversation: ConversationState }
   | { kind: 'noticeAccepted' }
-  | { kind: 'dismissWarning'; replyTo: string };
+  | { kind: 'dismissWarning'; replyTo: string }
+  | { kind: 'featureRequestsLoaded'; drafts: FeatureRequestDraft[] }
+  | { kind: 'featureRequestSettled'; id: string; outcome: 'confirmed' | 'duplicate'; duplicate_of: string | null }
+  | { kind: 'featureRequestRemoved'; id: string }
+  | { kind: 'featureReceiptsCleared' };
 
 // A message typed here that the server refused before a run existed was never
 // stored, so it leaves the transcript (its text lives on in the warning).
 const without = (list: ChatEntry[], id?: string) =>
   id ? list.filter((e) => e.id !== id) : list;
+
+// Replaces the card with the same id, or appends it. A settled card is never
+// reopened by a late draft event or GET.
+function upsertCard(list: FeatureRequestCard[], card: FeatureRequestCard): FeatureRequestCard[] {
+  const i = list.findIndex((c) => c.id === card.id);
+  if (i === -1) return [...list, card];
+  if (list[i].outcome) return list;
+  return list.map((c, j) => (j === i ? { ...c, ...card } : c));
+}
+
+// The GET lists pending drafts only, so settled cards are kept here and the
+// pending ones are exactly what the server said.
+function loadedCards(current: FeatureRequestCard[], drafts: FeatureRequestDraft[]): FeatureRequestCard[] {
+  const settled = current.filter((c) => c.outcome);
+  const settledIds = new Set(settled.map((c) => c.id));
+  const pending = drafts
+    .filter((d) => !settledIds.has(d.id))
+    .map((d) => ({ ...current.find((c) => c.id === d.id), ...d }));
+  return [...pending, ...settled];
+}
 
 function appendDelta(list: ChatEntry[], runId: string, text: string): ChatEntry[] {
   const last = list[list.length - 1];
@@ -112,6 +141,19 @@ export function reduce(
       return { ...state, noticeRequired: false };
     case 'dismissWarning':
       return { ...state, warnings: state.warnings.filter((w) => w.replyTo !== action.replyTo) };
+    case 'featureRequestsLoaded':
+      return { ...state, featureRequests: loadedCards(state.featureRequests, action.drafts) };
+    case 'featureRequestSettled':
+      return {
+        ...state,
+        featureRequests: state.featureRequests.map((c) =>
+          c.id === action.id ? { ...c, outcome: action.outcome, duplicate_of: action.duplicate_of } : c
+        )
+      };
+    case 'featureRequestRemoved':
+      return { ...state, featureRequests: state.featureRequests.filter((c) => c.id !== action.id) };
+    case 'featureReceiptsCleared':
+      return { ...state, featureRequests: state.featureRequests.filter((c) => !c.outcome) };
     case 'hydrate': {
       const c = action.conversation;
       // Keep text streamed in this tab while a run is live: the server only
@@ -166,6 +208,10 @@ export function reduce(
       return { ...state, transcript: appendDelta(state.transcript, e.run_id, e.text) };
     case 'draft_updated':
       return { ...state, draftVersion: e.draft_version };
+    case 'feature_request_draft': {
+      const { type: _type, run_id: _run, ...preview } = e;
+      return { ...state, featureRequests: upsertCard(state.featureRequests, preview) };
+    }
     case 'run_finished':
       return { ...state, running: false, runId: null, tools: [] };
     case 'run_failed': {
@@ -238,6 +284,8 @@ export interface AssistantStoreOptions {
   createSocket?: (url: string) => SocketLike;
   // Re-reads the conversation over HTTP (transcript is not carried by the WS).
   fetchConversation?: () => Promise<ConversationState>;
+  // The organizer's pending feature request drafts on this event.
+  fetchFeatureRequests?: () => Promise<FeatureRequestDraft[]>;
   url?: string;
 }
 
@@ -252,6 +300,12 @@ export interface AssistantStore extends Readable<AssistantState> {
   refresh(): Promise<void>;
   /** Called on every `draft_updated`; returns an unsubscribe. */
   onDraftUpdated(fn: (draftVersion: number) => void): () => void;
+  /** An organizer's Confirm or merge succeeded: the card shows its receipt. */
+  featureRequestSettled(id: string, outcome: 'confirmed' | 'duplicate', duplicateOf: string | null): void;
+  /** Discarded (or gone on the server): the card leaves the chat. */
+  featureRequestRemoved(id: string): void;
+  /** Clear conversation: receipts go; pending drafts stay (the server keeps them). */
+  clearFeatureReceipts(): void;
 }
 
 export function createAssistantStore(opts: AssistantStoreOptions): AssistantStore {
@@ -270,10 +324,13 @@ export function createAssistantStore(opts: AssistantStoreOptions): AssistantStor
   // (e.g. `running: false` landing after `run_started`).
   let refreshSeq = 0;
   let runEpoch = 0;
+  // Same rule for the feature request list. Settling or removing a card bumps
+  // it too, so a GET sent before the organizer's click cannot bring the card back.
+  let featureSeq = 0;
 
   const dispatch = (a: Action) => store.update((s) => reduce(s, a, sent));
 
-  async function refresh() {
+  async function refreshConversation() {
     if (!opts.fetchConversation) return;
     const seq = ++refreshSeq;
     const epoch = runEpoch;
@@ -283,6 +340,21 @@ export function createAssistantStore(opts: AssistantStoreOptions): AssistantStor
     } catch {
       // The socket state stays; the next run end or reconnect tries again.
     }
+  }
+
+  async function refreshFeatureRequests() {
+    if (!opts.fetchFeatureRequests) return;
+    const seq = ++featureSeq;
+    try {
+      const drafts = await opts.fetchFeatureRequests();
+      if (seq === featureSeq) dispatch({ kind: 'featureRequestsLoaded', drafts });
+    } catch {
+      // Cards already shown stay; the next run end, reconnect or clear asks again.
+    }
+  }
+
+  async function refresh() {
+    await Promise.all([refreshConversation(), refreshFeatureRequests()]);
   }
 
   function retry() {
@@ -335,6 +407,8 @@ export function createAssistantStore(opts: AssistantStoreOptions): AssistantStor
         const version = event.draft_version;
         draftListeners.forEach((fn) => fn(version));
       }
+      // The event carries only a preview; the GET brings tried, touches and severity.
+      if (event.type === 'feature_request_draft') void refreshFeatureRequests();
     };
     ws.onerror = () => {};
     ws.onclose = (ev) => {
@@ -416,6 +490,18 @@ export function createAssistantStore(opts: AssistantStoreOptions): AssistantStor
     onDraftUpdated(fn) {
       draftListeners.add(fn);
       return () => draftListeners.delete(fn);
+    },
+    featureRequestSettled(id, outcome, duplicateOf) {
+      featureSeq += 1;
+      dispatch({ kind: 'featureRequestSettled', id, outcome, duplicate_of: duplicateOf });
+    },
+    featureRequestRemoved(id) {
+      featureSeq += 1;
+      dispatch({ kind: 'featureRequestRemoved', id });
+    },
+    clearFeatureReceipts() {
+      featureSeq += 1;
+      dispatch({ kind: 'featureReceiptsCleared' });
     }
   };
 }
