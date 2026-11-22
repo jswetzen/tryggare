@@ -1,8 +1,7 @@
 """The eval briefs: a fixture event, what the organizer says, and the criteria.
 
-Dates are in 2027 on purpose: ``get_capabilities`` has worked age-bound examples for
-a 2027-06-18 start, and the fixtures' registration windows open in 2027-03, so the
-set needs fresh dates after that.
+Dates are in 2027 on purpose: the fixtures' registration windows open in 2027-03, so
+the set needs fresh dates after that.
 """
 
 import re

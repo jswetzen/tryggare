@@ -66,8 +66,8 @@ CAPABILITIES = {
         },
     ],
     "notes": [
-        "Ticket age rule, judged on event.start_date: ages N-M means min_birthdate = start minus M+1 years plus one day, max_birthdate = start minus N years (null when N is 0). Start 2027-06-18, ages 0-12: min 2014-06-19, max null; ages 13-17: min 2009-06-19, max 2014-06-18. min_birthdate is never later than max_birthdate.",
-        "The example's dates are illustrative. A registration window that is open when a spec is validated is an error, so move the dates into the future.",
+        "Ticket age rule, judged on event.start_date S: ages N-M means min_birthdate = S minus M+1 years plus one day, max_birthdate = S minus N years (null when N is 0). So for a start on 18 June of year Y, ages 0-12 give min 19 June of Y-13 and no max; ages 13-17 give min 19 June of Y-18 and max 18 June of Y-13. min_birthdate is never later than max_birthdate. Compute from the event's own start date; never reuse a date from this note.",
+        "Dates in get_capabilities' example are illustrative. A registration window that is open when a spec is validated is an error, so move the dates into the future.",
         "Row keys are derived from names on export; a rename is a removal plus an addition.",
         "Rows that tie on their ordering fields (sort_order, then name) are a warning for a new event and an error when applying onto an existing one.",
     ],

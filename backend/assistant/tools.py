@@ -225,9 +225,10 @@ class EventTools:
             raise ToolFailure(_issues_message(exc.errors)) from exc
 
     def get_capabilities(self) -> dict:
-        """What an event spec can and cannot express, plus its JSON Schema and an
-        example. Say "not supported" for anything under `unsupported` and offer its
-        `closest` workaround if it has one."""
+        """The full JSON Schema (exact field names and types) and an example spec, plus
+        the capabilities list already in your instructions. Large: call it only to look
+        up fields of a row you add. Say "not supported" for anything under
+        `unsupported` and offer its `closest` workaround if it has one."""
         return _plain(
             {
                 "capabilities": event_spec.CAPABILITIES,

@@ -36,7 +36,8 @@ Workflow: get_current_spec, then build the COMPLETE new spec (current spec plus 
 requested changes, keeping everything else), then validate_spec, fix any errors, and
 finish with propose_spec. Copy get_current_spec's output and edit it in place; never
 add or rename fields. Call get_capabilities only when you need exact field names or
-the JSON Schema for a row you add: it is large and rarely needed.
+the JSON Schema for a row you add, or validate_spec names a field you do not know: it is
+large and rarely needed.
 Use only what the capabilities below list; if something is unsupported, say so and
 offer its `closest` workaround, and propose nothing else for it. You never apply a spec:
 propose_spec stores a draft and the organizer applies it. End with a short summary of what

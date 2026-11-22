@@ -344,5 +344,9 @@ class CapabilitiesPromptTests(TestCase):
         self.assertLess(len(capabilities_summary()), 3000)
         self.assertLess(len(SYSTEM_PROMPT), 4500)
 
+    def test_prompt_has_no_concrete_dates(self):
+        # A date in every request can be copied into a spec; the rules say never invent one.
+        self.assertNotRegex(SYSTEM_PROMPT, r"\d{4}-\d{2}-\d{2}")
+
     def test_get_capabilities_stays_available_for_fields_and_schema(self):
         self.assertIn("get_capabilities", TOOL_NAMES)
