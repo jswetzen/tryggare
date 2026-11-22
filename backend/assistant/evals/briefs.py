@@ -55,6 +55,8 @@ class Brief:
     turns: list[str]
     expect: Callable[[Outcome], list[Check]]
     pii_tokens: tuple = ()
+    # Per-field score, reported only; None for briefs without one.
+    grade: Callable[[Outcome], list[Check]] | None = None
 
     def check(self, o: Outcome) -> list[Check]:
         return [*c.generic(o, self.lang, self.pii_tokens), *self.expect(o)]

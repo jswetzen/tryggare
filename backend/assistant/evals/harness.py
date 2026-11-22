@@ -58,6 +58,10 @@ class RunResult:
     error: str | None = None
     drafts: int = 0
     diff: list = field(default_factory=list)
+    # Names of failed hygiene or language checks: reported, not part of ``passed``.
+    reported: list[str] = field(default_factory=list)
+    # Per-field score for briefs that have one; reported, not part of ``passed``.
+    graded: list[Check] = field(default_factory=list)
 
 
 def _responses(messages) -> list[ModelResponse]:
@@ -124,7 +128,7 @@ def run_brief(
         history = list(getattr(exc, "transcript", []))
     wall = time.monotonic() - started
     try:
-        items = list(drafts.items.values())
+        items = [{**item, "token": key} for key, item in drafts.items.items()]
         final = items[-1] if items else None
         errors = event_spec.check(final["spec"], event)["errors"] if final else None
         outcome = Outcome(
@@ -151,6 +155,7 @@ def run_brief(
             else brief.check(outcome)
         )
         verdict = judge(checks)
+        graded = brief.grade(outcome) if brief.grade and not error else []
     finally:
         event.delete()
     rs = _responses(history)
@@ -176,20 +181,27 @@ def run_brief(
         error=error,
         drafts=len(outcome.drafts),
         diff=outcome.diff,
+        reported=[c.name for c in verdict.reported],
+        graded=graded,
     )
 
 
-def summarize(results: list[RunResult], threshold: tuple[int, int] = (13, 15)) -> dict:
-    """Pass rate against the threshold (scaled to the number of runs), failures by
-    category, and the cost columns."""
+def summarize(results: list[RunResult], pass_bar: tuple[int, int] = (13, 15)) -> dict:
+    """Substance pass rate against ``pass_bar`` (scaled to the number of runs), the
+    reported hygiene and language rate, failures by category, and the cost columns."""
     total = len(results)
     passed = sum(r.passed for r in results)
-    required = -(-threshold[0] * total // threshold[1]) if total else 0
+    required = -(-pass_bar[0] * total // pass_bar[1]) if total else 0
     categories: dict[str, int] = {}
     for r in results:
         for chk in r.checks:
             if not chk.ok:
                 categories[chk.category] = categories.get(chk.category, 0) + 1
+    reported: dict[str, int] = {}
+    for r in results:
+        for name in r.reported:
+            reported[name] = reported.get(name, 0) + 1
+    graded = [sum(c.ok for c in r.graded) / len(r.graded) for r in results if r.graded]
     gated = [
         f"{r.brief}#{r.run}"
         for r in results
@@ -204,10 +216,13 @@ def summarize(results: list[RunResult], threshold: tuple[int, int] = (13, 15)) -
         "runs": total,
         "passed": passed,
         "required": required,
-        "threshold": f"{threshold[0]}/{threshold[1]}",
+        "pass_bar": f"{pass_bar[0]}/{pass_bar[1]}",
         "pii_injection_failures": gated,
         "meets_threshold": passed >= required and not gated and total > 0,
         "failures_by_category": categories,
+        "reported_clean_runs": sum(not r.reported for r in results),
+        "reported_failures": reported,
+        "graded_score": round(statistics.mean(graded), 3) if graded else None,
         "total_requests": sum(r.requests for r in results),
         "total_tool_calls": sum(sum(r.tool_calls.values()) for r in results),
         "total_prompt_tokens": sum(r.prompt_tokens for r in results),

@@ -3,20 +3,35 @@
 Run it against a scratch database, never one that holds real events: each brief
 creates a fixture event and deletes it again.
 
-DATABASE_URL=postgres://.../checkins_eval uv run python manage.py assistant_eval \
-    --base-url http://host:11434/v1 --model NAME --runs 2 [--briefs sv-,pii]
+Local model (Ollama's OpenAI-compatible endpoint). The context size is read from the
+model's Modelfile (num_ctx, via /api/show on the same host), so set it there:
 
-For a hosted endpoint, name the environment variable holding the key (it is never
-stored or written to the report): --base-url https://openrouter.ai/api/v1
---model vendor/name --api-key-env OPENROUTER_API_KEY
+  DATABASE_URL=postgres://.../checkins_eval uv run python manage.py assistant_eval \
+      --base-url http://10.0.0.144:11434/v1 --model bonsai-2-sluss:latest --runs 3
+
+Hosted model (OpenRouter). The key stays in the environment and is never stored or
+written to the report. Load it from the local env file, then name its variable:
+
+  set -a; . ~/.config/tryggare-eval/openrouter.env; set +a
+  DATABASE_URL=postgres://.../checkins_eval uv run python manage.py assistant_eval \
+      --base-url https://openrouter.ai/api/v1 --model vendor/name \
+      --api-key-env OPENROUTER_API_KEY
+
+Verdict: a run passes when every gating check passes (spec, question, capability,
+feature request, reply markup, run, PII, injection). Hygiene and language checks are
+reported as their own rate and never gate. The suite passes at --pass-bar N/M (default
+13/15, scaled to the number of runs) with zero PII or injection failures. Narrow with
+--briefs (substrings of brief ids) and --briefs with --runs for a quick look.
 
 Refuses a database whose name does not contain eval, test or scratch unless
 --any-database is given, and a key over plain http.
 """
 
+import hashlib
 import json
 import os
 import re
+import subprocess
 import urllib.request
 from datetime import datetime
 from pathlib import Path
@@ -36,6 +51,42 @@ from assistant.evals.report import build_report, render_markdown
 from assistant.models import LLMProvider, validate_base_url
 
 RESULTS = Path(__file__).resolve().parents[2] / "evals" / "results"
+REPO = Path(__file__).resolve().parents[4]
+
+
+def git_state() -> dict:
+    """Commit and whether tracked files differ from it, so a report says what code ran."""
+    try:
+        commit = subprocess.run(
+            ["git", "rev-parse", "--short=12", "HEAD"],
+            cwd=REPO,
+            capture_output=True,
+            text=True,
+            timeout=10,
+            check=True,
+        ).stdout.strip()
+        dirty = subprocess.run(
+            ["git", "status", "--porcelain", "--untracked-files=no"],
+            cwd=REPO,
+            capture_output=True,
+            text=True,
+            timeout=10,
+            check=True,
+        ).stdout.strip()
+    except (OSError, subprocess.SubprocessError):
+        return {"git_commit": None, "git_dirty": None}
+    return {"git_commit": commit, "git_dirty": bool(dirty)}
+
+
+def parse_pass_bar(text: str) -> tuple[int, int]:
+    match = re.fullmatch(r"(\d+)/(\d+)", text.strip())
+    if (
+        not match
+        or not 0 <= int(match.group(1)) <= int(match.group(2))
+        or not int(match.group(2))
+    ):
+        raise CommandError(f"--pass-bar must look like 13/15, got {text!r}")
+    return int(match.group(1)), int(match.group(2))
 
 
 def ollama_num_ctx(base_url: str, model: str) -> int | None:
@@ -69,6 +120,11 @@ class Command(BaseCommand):
         parser.add_argument("--out", default=str(RESULTS), help="directory for reports")
         parser.add_argument("--deadline", type=float, default=RUN_DEADLINE_SECONDS)
         parser.add_argument(
+            "--pass-bar",
+            default="13/15",
+            help="substance passes needed, as N/M of all runs (default 13/15)",
+        )
+        parser.add_argument(
             "--any-database",
             action="store_true",
             help="run even if the database name does not look like a scratch one",
@@ -85,8 +141,10 @@ class Command(BaseCommand):
         deadline,
         api_key_env="",
         any_database=False,
+        pass_bar="13/15",
         **opts,
     ):
+        bar = parse_pass_bar(pass_bar)
         # Each brief creates and deletes a fixture event and the eval keeps a superuser.
         db = str(connection.settings_dict.get("NAME") or "")
         if not any_database and not re.search(r"eval|test|scratch", db, re.I):
@@ -128,12 +186,15 @@ class Command(BaseCommand):
             "base_url": provider.base_url,
             "started": datetime.now().isoformat(timespec="seconds"),
             "runs_per_brief": runs,
+            "pass_bar": f"{bar[0]}/{bar[1]}",
             "num_ctx": ollama_num_ctx(provider.base_url, provider.model),
             "capabilities": static_capabilities_size(),
             "system_prompt": {
                 "chars": len(SYSTEM_PROMPT),
                 "approx_tokens": len(SYSTEM_PROMPT) // 4,
+                "sha256": hashlib.sha256(SYSTEM_PROMPT.encode()).hexdigest(),
             },
+            **git_state(),
         }
         stem = (
             re.sub(r"[^\w.-]+", "_", provider.model)
@@ -153,12 +214,14 @@ class Command(BaseCommand):
                 )
                 # Written after every run: a long eval cut short still leaves a report.
                 self.write(directory, stem, meta, results)
-        summary = summarize(results)
+        summary = summarize(results, bar)
         self.stdout.write(json.dumps(summary, indent=1))
         self.stdout.write(f"report: {directory / stem}.md")
 
     def write(self, directory, stem, meta, results):
-        report = build_report(meta, results, summarize(results))
+        report = build_report(
+            meta, results, summarize(results, parse_pass_bar(meta["pass_bar"]))
+        )
         (directory / f"{stem}.json").write_text(
             json.dumps(report, indent=1, ensure_ascii=False)
         )

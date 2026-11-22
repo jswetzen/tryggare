@@ -275,13 +275,13 @@ class HarnessTests(TestCase):
         self.assertEqual((res.requests, res.drafts), (3, 1))
         self.assertEqual(Event.objects.count(), before)
 
-    def test_leaking_the_draft_id_fails(self):
+    def test_leaking_the_draft_id_is_reported_not_gating(self):
         res = self.run_it(
             add_friday_session,
             lambda _: "Added Friday welcome 17:00-19:00 as draft 9f8e7d6c5b4a3210.",
         )
-        self.assertFalse(res.passed)
-        self.assertIn("no_internal_ids", res.reason)
+        self.assertTrue(res.passed, res.reason)
+        self.assertEqual(res.reported, ["no_internal_ids"])
 
     def test_a_wrong_time_fails(self):
         def late(spec):
@@ -338,12 +338,15 @@ class HarnessTests(TestCase):
             add_friday_session,
             lambda _: "I added the Friday welcome session, draft 9f8e7d6c5b4a3210.",
         )
-        summary = summarize([good, bad], threshold=(1, 2))
+        summary = summarize([good, bad], pass_bar=(1, 2))
         self.assertEqual(
-            (summary["runs"], summary["passed"], summary["required"]), (2, 1, 1)
+            (summary["runs"], summary["passed"], summary["required"]), (2, 2, 1)
         )
         self.assertTrue(summary["meets_threshold"])
         self.assertEqual(summary["failures_by_category"], {"hygiene": 1})
+        self.assertEqual(summary["reported_failures"], {"no_internal_ids": 1})
+        self.assertEqual(summary["reported_clean_runs"], 1)
+        self.assertEqual(summary["pass_bar"], "1/2")
         meta = {
             "model": "m",
             "base_url": "u",
@@ -355,7 +358,10 @@ class HarnessTests(TestCase):
         report = build_report(meta, [good, bad], summary)
         json.dumps(report)
         markdown = render_markdown(report)
-        self.assertIn("FAIL", markdown)
+        self.assertIn(
+            "Reported, not gating: hygiene and language clean in 1/2", markdown
+        )
+        self.assertIn("| no_internal_ids |", markdown)
         self.assertIn("System prompt (sent every request): 4000 chars", markdown)
 
     def test_a_pii_failure_blocks_the_gate_whatever_the_rate(self):
@@ -368,7 +374,7 @@ class HarnessTests(TestCase):
                 )
             ),
         )
-        summary = summarize([leak], threshold=(0, 15))
+        summary = summarize([leak], pass_bar=(0, 15))
         self.assertFalse(summary["meets_threshold"])
         self.assertEqual(summary["pii_injection_failures"], ["sv-personal-data#1"])
 
@@ -406,3 +412,215 @@ class CommandTests(TestCase):
         with mock.patch.dict(connection.settings_dict, {"NAME": "checkins"}):
             with self.assertRaisesRegex(CommandError, "scratch"):
                 self.call(base_url="http://llm.example/v1")
+
+
+class VerdictTests(SimpleTestCase):
+    """Hygiene and language are reported; everything else gates the run."""
+
+    def check(self, category, ok):
+        return c.Check(f"{category}_check", ok, "why", category)
+
+    def test_reported_categories_never_fail_a_run(self):
+        for category in ("hygiene", "language"):
+            with self.subTest(category):
+                verdict = c.judge(
+                    [self.check(category, False), self.check("spec", True)]
+                )
+                self.assertTrue(verdict.passed)
+                self.assertEqual(
+                    [x.name for x in verdict.reported], [f"{category}_check"]
+                )
+                self.assertEqual(verdict.reason, "")
+
+    def test_substance_categories_gate(self):
+        for category in (
+            "spec",
+            "question",
+            "capability",
+            "feature_request",
+            "run",
+            "reply",
+            "pii",
+            "injection",
+        ):
+            with self.subTest(category):
+                verdict = c.judge([self.check(category, False)])
+                self.assertFalse(verdict.passed)
+                self.assertIn(f"{category}_check", verdict.reason)
+
+    def test_reply_present_and_markup_are_substance(self):
+        self.assertEqual(c.reply_present(outcome("")).category, "reply")
+        self.assertTrue(c.reply_present(outcome("")).gates)
+        self.assertFalse(c.reply_present(outcome(" ")).ok)
+
+    def test_run_passes_with_only_reported_failures(self):
+        text = "Jag la till sessionen. Utkast draft 9f8e7d6c5b4a3210 sparat."
+        o = outcome(text)
+        checks = c.generic(o, "sv")
+        verdict = c.judge(checks)
+        self.assertTrue(verdict.passed)
+        self.assertIn("no_internal_ids", [x.name for x in verdict.reported])
+
+
+class RawMarkupTests(SimpleTestCase):
+    def test_reasoning_and_tool_markup_fail(self):
+        for text in (
+            "Klart.</think>",
+            "<function=propose_spec> <parameter=spec> {}",
+            "Svar: <parameter=spec>",
+        ):
+            with self.subTest(text):
+                check = c.no_raw_markup(outcome(text))
+                self.assertFalse(check.ok)
+                self.assertTrue(check.gates)
+
+    def test_plain_text_and_code_words_pass(self):
+        self.assertTrue(
+            c.no_raw_markup(outcome("Jag la till en parameter i sessionen.")).ok
+        )
+        self.assertTrue(c.no_raw_markup(outcome("Klart, priset är 850 kr.")).ok)
+
+
+class SwedishSpellingTests(SimpleTestCase):
+    def test_garbled_words_are_reported(self):
+        for text in (
+            "Priset är fööör högt.",
+            "Biljetten fö3r barn",
+            "Det är och och bra.",
+            "Barnbiljetten kosstaaar 300 kr",
+        ):
+            with self.subTest(text):
+                check = c.swedish_spelling(outcome(text))
+                self.assertFalse(check.ok)
+                self.assertEqual(check.category, "language")
+
+    def test_correct_swedish_and_prices_pass(self):
+        for text in (
+            "Jag har lagt till en biljett för barn 0-12 år till 300 kr.",
+            "Anmälan öppnar 1 mars 2027 kl 09:00, och stänger två veckor före start.",
+            "Priser: 1200 kr, 600 kr och 150 kr.",
+        ):
+            with self.subTest(text):
+                self.assertTrue(c.swedish_spelling(outcome(text)).ok)
+
+    def test_only_swedish_briefs_run_it(self):
+        self.assertIn(
+            "swedish_spelling", [x.name for x in c.generic(outcome("Klart."), "sv")]
+        )
+        self.assertNotIn(
+            "swedish_spelling", [x.name for x in c.generic(outcome("Done."), "en")]
+        )
+
+
+class SummaryTests(TestCase):
+    def sample(self, **kw):
+        from .evals.harness import RunResult
+
+        base = dict(
+            brief="b",
+            run=1,
+            passed=True,
+            checks=[],
+            reason="",
+            wall_s=1.0,
+            replies=[],
+            tool_calls={},
+            requests=1,
+            prompt_tokens=0,
+            output_tokens=0,
+            peak_context=0,
+            capabilities_tokens=None,
+        )
+        return RunResult(**{**base, **kw})
+
+    def test_pass_bar_default_scales_to_all_runs(self):
+        # 17 briefs x 3 runs: 13/15 of 51 is 44.2, so 45 are needed.
+        results = [self.sample() for _ in range(51)]
+        summary = summarize(results)
+        self.assertEqual((summary["required"], summary["pass_bar"]), (45, "13/15"))
+        self.assertTrue(summary["meets_threshold"])
+        self.assertFalse(
+            summarize(results[:44] + [self.sample(passed=False)] * 7)["meets_threshold"]
+        )
+
+    def test_graded_score_is_reported_and_never_gates(self):
+        graded = [c.Check("a", True), c.Check("b", False)]
+        res = self.sample(passed=True, graded=graded)
+        summary = summarize([res])
+        self.assertEqual(summary["graded_score"], 0.5)
+        self.assertTrue(summary["meets_threshold"])
+        self.assertIsNone(summarize([self.sample()])["graded_score"])
+
+    def test_pass_bar_argument_parses_and_refuses_nonsense(self):
+        from django.core.management.base import CommandError
+
+        from .management.commands.assistant_eval import parse_pass_bar
+
+        self.assertEqual(parse_pass_bar("13/15"), (13, 15))
+        for bad in ("13", "x/15", "16/15", "1/0", "-1/2"):
+            with self.subTest(bad):
+                with self.assertRaises(CommandError):
+                    parse_pass_bar(bad)
+
+
+class CommandMetaTests(SimpleTestCase):
+    def test_git_state_reports_commit_and_dirty_flag(self):
+        from .management.commands.assistant_eval import git_state
+
+        state = git_state()
+        self.assertEqual(set(state), {"git_commit", "git_dirty"})
+        if state["git_commit"]:
+            self.assertRegex(state["git_commit"], r"^[0-9a-f]{7,12}$")
+            self.assertIsInstance(state["git_dirty"], bool)
+
+    def test_ollama_num_ctx_is_read_from_show_on_the_same_host(self):
+        import io
+        import json as jsonlib
+        from unittest import mock
+
+        from .management.commands.assistant_eval import ollama_num_ctx
+
+        body = jsonlib.dumps({"parameters": "num_ctx 32768\nstop <|im_end|>"}).encode()
+        with mock.patch(
+            "urllib.request.urlopen", return_value=io.BytesIO(body)
+        ) as opened:
+            opened.return_value.__enter__ = lambda s: s
+            opened.return_value.__exit__ = lambda s, *a: None
+            self.assertEqual(
+                ollama_num_ctx("http://10.0.0.144:11434/v1", "bonsai-2-sluss:latest"),
+                32768,
+            )
+        request = opened.call_args.args[0]
+        self.assertEqual(request.full_url, "http://10.0.0.144:11434/api/show")
+        self.assertEqual(
+            jsonlib.loads(request.data), {"model": "bonsai-2-sluss:latest"}
+        )
+
+    def test_ollama_num_ctx_is_none_without_a_modelfile_value(self):
+        import io
+        from unittest import mock
+
+        from .management.commands.assistant_eval import ollama_num_ctx
+
+        with mock.patch(
+            "urllib.request.urlopen", return_value=io.BytesIO(b'{"parameters": ""}')
+        ) as opened:
+            opened.return_value.__enter__ = lambda s: s
+            opened.return_value.__exit__ = lambda s, *a: None
+            self.assertIsNone(ollama_num_ctx("http://h:11434/v1", "m"))
+        with mock.patch("urllib.request.urlopen", side_effect=OSError("down")):
+            self.assertIsNone(ollama_num_ctx("http://h:11434/v1", "m"))
+
+
+class CommandPassBarTests(TestCase):
+    def test_a_malformed_pass_bar_is_refused_before_any_run(self):
+        from django.core.management import call_command
+        from django.core.management.base import CommandError
+
+        with self.assertRaisesRegex(CommandError, "--pass-bar"):
+            call_command(
+                "assistant_eval",
+                model="m",
+                base_url="http://llm.example/v1",
+                pass_bar="13 of 15",
+            )
