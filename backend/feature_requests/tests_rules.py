@@ -81,9 +81,31 @@ class PersonalDataTests(SimpleTestCase):
         self.assert_refused("Child 120302-1234 needs a ticket", "personnummer")
 
     def test_iso_date_uuid_and_reference_code(self):
-        self.assert_refused("Starts on 2027-06-20", "ISO date")
+        self.assert_refused("Starts on 2027-06-20", "a date")
         self.assert_refused("Id 3f2504e0-4f89-41d3-9a0c-0305e82c3301 here", "UUID")
         self.assert_refused("Booking ABC23456 was moved", "registration-reference")
+
+    def test_obfuscated_or_loose_forms_are_refused(self):
+        for value, kind in [
+            ("Starts on 2027\u200b-06-20", "a date"),
+            ("Starts on 2027/6/20", "a date"),
+            ("Starts on 20.06.2027", "a date"),
+            ("Booking abc23456 was moved", "registration-reference"),
+            ("Booking ABC2\u200b3456 was moved", "registration-reference"),
+            ("See https://example.org/120302-1234", "personnummer"),
+            ("See https://example.org/?to=anna@example.com", "email"),
+        ]:
+            with self.subTest(value=value):
+                self.assert_refused(value, kind)
+
+    def test_age_bands_and_ranges_pass(self):
+        self.assertEqual(errors_for(problem="Ages 13-17, 3-5 days, 2 of 4."), [])
+
+    def test_free_form_touch_terms_are_checked(self):
+        errs = errors_for(touches=["new:extra_eligibility", "new:p1203021234"])
+        self.assertEqual(codes(errs), {"personal_data"})
+        self.assertEqual(errs[0]["path"], "touches[1]")
+        self.assertNotIn("1203021234", errs[0]["message"])
 
     def test_ordinary_capitalised_words_pass(self):
         self.assertEqual(errors_for(problem="CHILDREN aged 13-17 need a ticket."), [])

@@ -10,7 +10,7 @@ from django.utils.translation import gettext_lazy as _
 from assistant.pii import free_text_kind
 
 from . import export, services
-from .models import FeatureRequest, FeatureRequestComment, LAYERS
+from .models import COSTS, FeatureRequest, FeatureRequestComment, LAYERS
 from .rules import touch_problem
 
 
@@ -79,15 +79,41 @@ class FeatureRequestAdminForm(forms.ModelForm):
                 self.add_error(
                     name, f"Looks like {kind}. Describe the shape, not a person."
                 )
-        for i, item in enumerate(data.get("tried") or []):
-            if isinstance(item, str) and (kind := free_text_kind(item)):
+        # JSON fields take any JSON; the export and the merge expect these shapes.
+        tried = data.get("tried") or []
+        if not isinstance(tried, list) or not all(isinstance(t, str) for t in tried):
+            self.add_error("tried", _("Give a list of texts."))
+            tried = []
+        for i, item in enumerate(tried):
+            if kind := free_text_kind(item):
                 self.add_error("tried", f"Item {i + 1} looks like {kind}.")
-        used = (data.get("workaround") or {}).get("used")
-        if used and (kind := free_text_kind(used)):
+        workaround = data.get("workaround")
+        if workaround is not None and not (
+            isinstance(workaround, dict)
+            and set(workaround) == {"used", "cost"}
+            and isinstance(workaround["used"], str)
+            and workaround["cost"] in dict(COSTS)
+        ):
+            self.add_error("workaround", _("Give used and cost, or null."))
+        elif workaround and (kind := free_text_kind(workaround["used"])):
             self.add_error("workaround", f"The workaround looks like {kind}.")
-        for term in data.get("touches") or []:
+        touches = data.get("touches") or []
+        if not isinstance(touches, list):
+            self.add_error("touches", _("Give a list of terms."))
+            touches = []
+        for term in touches:
             if (why := touch_problem(term)) is not None:
                 self.add_error("touches", f"A term {why}.")
+            elif kind := free_text_kind(term):
+                self.add_error("touches", f"A term looks like {kind}.")
+        key = data.get("dedupe_key")
+        if key and (kind := free_text_kind(key)):
+            self.add_error("dedupe_key", f"Looks like {kind}.")
+        layers = data.get("layers") or []
+        if not isinstance(layers, list) or not all(
+            isinstance(layer, str) and layer in dict(LAYERS) for layer in layers
+        ):
+            self.add_error("layers", _("Give a list of layer values."))
         if data.get("status") == "duplicate" and not data.get("duplicate_of"):
             self.add_error("duplicate_of", _("Choose the request this one duplicates."))
         return data

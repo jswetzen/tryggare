@@ -16,22 +16,27 @@ _ISO_VALUE = re.compile(rf"{_ISO}(\s*[-/–]\s*{_ISO})?")
 _FREE_KEYS = {"accent_color"}
 
 # Only for free text (feature requests), where a date or an id is never a shape.
-_ISO_ANYWHERE = re.compile(r"\d{4}-\d{2}-\d{2}")
+# Any year-first or year-last date with -, / or . separators, not only strict ISO.
+_DATE_ANYWHERE = re.compile(
+    r"(?<!\d)(\d{4}\s*([-/.])\s*\d{1,2}\s*\2\s*\d{1,2}|\d{1,2}\s*([-/.])\s*\d{1,2}\s*\3\s*\d{4})(?!\d)"
+)
 _UUID = re.compile(
     r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}", re.IGNORECASE
 )
 # Registration reference codes (registrations/tokens.py): 8 characters from this
-# alphabet. Needs a digit too, so ordinary capitalised words do not match.
-_REFERENCE_CODE = re.compile(r"\b(?=[A-Z2-9]*\d)[2-9A-HJ-NP-Z]{8}\b")
+# alphabet, looked up case-insensitively. Needs a digit too, so ordinary words do not match.
+_REFERENCE_CODE = re.compile(
+    r"\b(?=[A-Z2-9]*\d)[2-9A-HJ-NP-Z]{8}\b", re.IGNORECASE
+)
 
 
-def _normalize_text(text: str) -> str:
+def _normalize_text(text: str, keep_urls: bool = False) -> str:
     text = unicodedata.normalize("NFKC", text).translate(_ZERO_WIDTH)
-    return _AT.sub("@", _URL.sub(" ", text))
+    return _AT.sub("@", text if keep_urls else _URL.sub(" ", text))
 
 
-def _pii_kind(text: str, is_key: bool = False) -> str | None:
-    text = _normalize_text(text)
+def _pii_kind(text: str, is_key: bool = False, keep_urls: bool = False) -> str | None:
+    text = _normalize_text(text, keep_urls)
     if is_key:
         text = text.replace("-", "")
         return "a personnummer-like number" if _PERSONNUMMER.search(text) else None
@@ -49,14 +54,17 @@ def _pii_kind(text: str, is_key: bool = False) -> str | None:
 
 def free_text_kind(text: str) -> str | None:
     """What personal-data shape ``text`` contains, or None. Stricter than ``_pii_kind``:
-    any ISO date, UUID or registration-reference-like token is refused too."""
-    if _ISO_ANYWHERE.search(text):
-        return "an ISO date"
+    any date, UUID or registration-reference-like token is refused too, and a URL is
+    checked rather than skipped (a spec may hold URLs; free text has no reason to)."""
+    text = unicodedata.normalize("NFKC", text)
+    text = "".join(c for c in text if unicodedata.category(c) != "Cf")  # invisible
+    if _DATE_ANYWHERE.search(text):
+        return "a date"
     if _UUID.search(text):
         return "a UUID"
-    if _REFERENCE_CODE.search(unicodedata.normalize("NFKC", text)):
+    if _REFERENCE_CODE.search(text):
         return "a registration-reference-like code"
-    return _pii_kind(text)
+    return _pii_kind(text, keep_urls=True)
 
 
 def strings_in(value) -> set[str]:

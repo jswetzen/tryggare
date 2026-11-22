@@ -130,7 +130,10 @@ def _clean_touches(raw, errors: list[dict]) -> list[str]:
         if why:
             # A new: id is the maintainer's to curate, so it only needs the shape.
             errors.append(_err(f"touches[{i}]", "unknown_term", f"Term {why}."))
-        elif isinstance(term, str) and term not in out:
+        elif pii := personal_data_errors(f"touches[{i}]", term):
+            # new: and admin: ids are free-form, and the term becomes the dedupe key.
+            errors.extend(pii)
+        elif term not in out:
             out.append(term)
     return out
 

@@ -223,6 +223,33 @@ class AdminFormTests(AdminCase):
         self.assertFalse(form.is_valid())
         self.assertIn("touches", form.errors)
 
+    def test_personal_data_in_touches_and_key_is_refused(self):
+        form = FeatureRequestAdminForm(
+            data=self.data(touches='["new:p1203021234"]', dedupe_key="new:p1203021234")
+        )
+        self.assertFalse(form.is_valid())
+        self.assertIn("touches", form.errors)
+        self.assertIn("dedupe_key", form.errors)
+        self.assertNotIn("1203021234", str(form.errors))
+
+    def test_json_fields_must_have_their_shape(self):
+        for name, value in [
+            ("tried", '"one text"'),
+            ("tried", "[1]"),
+            ("workaround", '["used"]'),
+            ("workaround", '{"used": "x"}'),
+            ("workaround", '{"used": "x", "cost": "free"}'),
+            ("touches", '"cap:family_groups"'),
+            ("layers", '[{"a": 1}]'),
+            ("layers", '["nowhere"]'),
+        ]:
+            with self.subTest(name=name, value=value):
+                form = FeatureRequestAdminForm(data=self.data(**{name: value}))
+                self.assertFalse(form.is_valid())
+                self.assertIn(name, form.errors)
+        ok = self.data(workaround='{"used": "An extra for all", "cost": "wrong_result"}')
+        self.assertTrue(FeatureRequestAdminForm(data=ok).is_valid())
+
     def test_duplicate_status_needs_a_target(self):
         form = FeatureRequestAdminForm(data=self.data(status="duplicate"))
         self.assertFalse(form.is_valid())
