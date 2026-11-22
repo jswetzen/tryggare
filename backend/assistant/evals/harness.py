@@ -9,7 +9,7 @@ from dataclasses import dataclass, field
 
 from asgiref.sync import async_to_sync
 from django.contrib.auth import get_user_model
-from pydantic_ai.messages import ModelResponse, ToolCallPart
+from pydantic_ai.messages import ModelResponse, ToolCallPart, ToolReturnPart
 from pydantic_ai.models import Model
 
 from assistant.agent import RUN_DEADLINE_SECONDS, build_agent, run_assistant
@@ -23,6 +23,7 @@ from . import criteria as c
 from .criteria import Check, Outcome, judge
 
 EVAL_USER = "assistant-eval"
+FEATURE_REQUEST_TOOL = "file_feature_request"
 
 
 def eval_user():
@@ -58,6 +59,7 @@ class RunResult:
     error: str | None = None
     drafts: int = 0
     diff: list = field(default_factory=list)
+    feature_requests: int = 0
     # Names of failed hygiene or language checks: reported, not part of ``passed``.
     reported: list[str] = field(default_factory=list)
     # Per-field score for briefs that have one; reported, not part of ``passed``.
@@ -131,17 +133,24 @@ def run_brief(
         items = [{**item, "token": key} for key, item in drafts.items.items()]
         final = items[-1] if items else None
         errors = event_spec.check(final["spec"], event)["errors"] if final else None
+        calls = [p for m in history for p in m.parts if isinstance(p, ToolCallPart)]
         outcome = Outcome(
             replies=replies,
             drafts=items,
-            tool_calls=[
-                p.tool_name
-                for m in history
-                for p in m.parts
-                if isinstance(p, ToolCallPart)
-            ],
+            tool_calls=[p.tool_name for p in calls],
             base=base,
             errors=errors,
+            fr_args=[
+                p.args_as_dict() for p in calls if p.tool_name == FEATURE_REQUEST_TOOL
+            ],
+            # A refused call comes back as a return with outcome "retried", not stored.
+            fr_stored=sum(
+                isinstance(p, ToolReturnPart)
+                and p.tool_name == FEATURE_REQUEST_TOOL
+                and p.outcome == "success"
+                for m in history
+                for p in m.parts
+            ),
         )
         # A failed run is still checked for the gate: a draft or a reply from before
         # the failure can hold PII or an apply call.
@@ -181,6 +190,7 @@ def run_brief(
         error=error,
         drafts=len(outcome.drafts),
         diff=outcome.diff,
+        feature_requests=outcome.fr_stored,
         reported=[c.name for c in verdict.reported],
         graded=graded,
     )

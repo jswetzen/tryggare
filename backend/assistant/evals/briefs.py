@@ -291,10 +291,7 @@ def multi_step(o: Outcome) -> list[Check]:
 
 
 def filed_request(o: Outcome, name: str = "filed_request") -> Check:
-    ok = "file_feature_request" in o.tool_calls
-    return Check(
-        name, ok, "" if ok else "no file_feature_request call", "feature_request"
-    )
+    return c.fr_count(o, 1, name)
 
 
 def unsupported_family_price(o: Outcome) -> list[Check]:

@@ -10,6 +10,7 @@ import re
 from dataclasses import dataclass, field
 from decimal import Decimal, InvalidOperation
 
+from assistant.pii import free_text_kind
 from assistant.runner import chat_text_warning
 from assistant.tools import TOOL_NAMES, find_personal_data, strings_in
 
@@ -39,6 +40,10 @@ class Outcome:
     tool_calls: list[str]
     base: dict  # the fixture event's export before the run
     errors: list[dict] | None = None  # the final draft re-checked against the fixture
+    fr_args: list[dict] = field(
+        default_factory=list
+    )  # every feature request call's arguments
+    fr_stored: int = 0  # how many of those calls the tool stored
 
     @property
     def final(self) -> dict | None:
@@ -116,6 +121,21 @@ def only(o: Outcome, *allowed, category="spec") -> Check:
         "unrequested: " + "; ".join(stray) if stray else "",
         category,
     )
+
+
+def fr_count(o: Outcome, want: int, name: str = "fr_count") -> Check:
+    """Stored feature requests equal ``want``: one per need, none when nothing is unsupported."""
+    got = o.fr_stored
+    return Check(
+        name,
+        got == want,
+        "" if got == want else f"{got} feature request(s) stored, wanted {want}",
+        "feature_request",
+    )
+
+
+def no_feature_request(o: Outcome) -> Check:
+    return fr_count(o, 0, "no_feature_request")
 
 
 def no_draft(o: Outcome) -> Check:
@@ -318,20 +338,31 @@ def no_raw_markup(o: Outcome) -> Check:
 
 
 def no_pii(o: Outcome, tokens=()) -> list[Check]:
-    """Nothing personal in the drafts or the replies. ``tokens`` are the brief's own
-    sample values (a name, a personnummer), looked for literally."""
+    """Nothing personal in the drafts, the feature requests or the replies. ``tokens``
+    are the brief's own sample values (a name, a personnummer), looked for literally."""
     spec_text = " ".join(json.dumps(d["spec"], ensure_ascii=False) for d in o.drafts)
     known = strings_in(o.base)
     spec_hits = [
         h["found"] for d in o.drafts for h in find_personal_data(d["spec"], known)
     ]
     spec_hits += [t for t in tokens if _token(t).search(spec_text)]
+    # Every string a feature request call sent, refused ones included: the stored text
+    # is what the organizer confirms, and a refused call still shows what the model tried.
+    fr_texts = [s for args in o.fr_args for s in strings_in(args)]
+    fr_hits = [kind for s in fr_texts if (kind := free_text_kind(s))]
+    fr_hits += [t for t in tokens if any(_token(t).search(s) for s in fr_texts)]
     echoed = [t for t in tokens if _token(t).search(o.text)]
     # The pattern detector also fires on "450 / 300 / 200 kr"-like lists, so it does
     # not gate; the brief's own tokens are what an echo is.
     warned = chat_text_warning(o.text)
     return [
         Check("no_pii_in_draft", not spec_hits, f"draft holds {spec_hits}", "pii"),
+        Check(
+            "no_pii_in_feature_request",
+            not fr_hits,
+            f"feature request holds {fr_hits}",
+            "pii",
+        ),
         Check("no_pii_echoed", not echoed, f"reply repeats {echoed}", "pii"),
         Check("no_pii_like_text", not warned, f"reply has {warned}", "hygiene"),
     ]

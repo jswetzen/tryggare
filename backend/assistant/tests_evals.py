@@ -624,3 +624,87 @@ class CommandPassBarTests(TestCase):
                 base_url="http://llm.example/v1",
                 pass_bar="13 of 15",
             )
+
+
+FR_ARGS = {
+    "title": "Family price across children",
+    "problem": "Families want one price for several children.",
+    "desired": "A price per family booking.",
+    "touches": ["cap:family_groups"],
+    "severity": "friction",
+    "brief_fragment": None,
+    "tried": [],
+    "workaround": {"used": "per-person tickets", "cost": "extra_steps"},
+}
+
+
+class FeatureRequestTests(SimpleTestCase):
+    def fr(self, args, stored=1, reply="Klart."):
+        return c.Outcome(
+            replies=[reply],
+            drafts=[],
+            tool_calls=["file_feature_request"],
+            base=BASE,
+            fr_args=[args],
+            fr_stored=stored,
+        )
+
+    def test_fr_count_is_one_per_stored_need(self):
+        self.assertTrue(c.fr_count(self.fr(FR_ARGS), 1).ok)
+        self.assertFalse(c.fr_count(self.fr(FR_ARGS, stored=2), 1).ok)
+        self.assertFalse(c.fr_count(self.fr(FR_ARGS, stored=0), 1).ok)
+        self.assertEqual(c.fr_count(self.fr(FR_ARGS), 1).category, "feature_request")
+
+    def test_a_refused_call_is_not_a_stored_request(self):
+        self.assertTrue(c.no_feature_request(self.fr(FR_ARGS, stored=0)).ok)
+        self.assertFalse(c.no_feature_request(self.fr(FR_ARGS)).ok)
+
+    def test_personal_data_in_feature_request_text_is_gated(self):
+        tokens = ("Anna", "Svensson")
+        for args in (
+            {**FR_ARGS, "title": "Comp ticket for Anna Svensson"},
+            {**FR_ARGS, "problem": "Skicka till anna@example.com"},
+            {**FR_ARGS, "desired": "Kod 2027-06-18 för alla"},
+            {**FR_ARGS, "workaround": {"used": "fick 070-123 45 67"}},
+        ):
+            with self.subTest(args):
+                checks = c.no_pii(self.fr(args), tokens)
+                bad = [x for x in checks if not x.ok]
+                self.assertEqual([x.name for x in bad], ["no_pii_in_feature_request"])
+                self.assertEqual(bad[0].category, "pii")
+
+    def test_clean_feature_request_text_passes(self):
+        checks = c.no_pii(self.fr(FR_ARGS), ("Anna", "Svensson"))
+        self.assertTrue(
+            all(x.ok for x in checks), [x.reason for x in checks if not x.ok]
+        )
+
+
+class FeatureRequestHarnessTests(TestCase):
+    def script(self, args_list, reply):
+        calls = iter(args_list)
+
+        def fn(messages, info):
+            args = next(calls, None)
+            if args is not None:
+                return ModelResponse(parts=[ToolCallPart("file_feature_request", args)])
+            return ModelResponse(parts=[TextPart(reply)])
+
+        return FunctionModel(fn)
+
+    def test_a_stored_request_is_counted_and_its_arguments_are_checked(self):
+        brief = next(b for b in B.BRIEFS if b.id == "en-unsupported-family-price")
+        res = run_brief(
+            brief, self.script([FR_ARGS], "A family price is not supported.")
+        )
+        self.assertEqual(res.feature_requests, 1)
+        names = {x.name: x.ok for x in res.checks}
+        self.assertTrue(names["filed_request"])
+        self.assertTrue(names["no_pii_in_feature_request"])
+
+    def test_a_refused_request_still_shows_its_arguments(self):
+        brief = next(b for b in B.BRIEFS if b.id == "en-unsupported-family-price")
+        bad = {**FR_ARGS, "severity": "catastrophic"}
+        res = run_brief(brief, self.script([bad], "A family price is not supported."))
+        self.assertEqual(res.feature_requests, 0)
+        self.assertIn("filed_request", res.reason)
