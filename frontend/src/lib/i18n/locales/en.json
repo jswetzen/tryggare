@@ -995,9 +995,9 @@
         "discard": "The request could not be discarded. Try again."
       },
       "announce": {
-        "new": "A feature request is ready to review.",
-        "saved": "Feature request saved.",
-        "joined": "Feature request joined an existing one."
+        "new": "Feature request {id} is ready to review.",
+        "saved": "Feature request {id} saved.",
+        "joined": "Feature request {id} joined an existing one."
       }
     }
   }

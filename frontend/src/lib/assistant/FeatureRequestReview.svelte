@@ -22,18 +22,19 @@
 
   let announce = $state('');
   // Cards already on screen when this mounted are not announced: they are not news.
+  // Each message names the card, so a second new card is not the same text (no re-announce).
   const seen = new Map<string, Card['outcome']>();
   let primed = false;
 
   $effect(() => {
     for (const card of cards) {
       if (!seen.has(card.id)) {
-        if (primed) announce = $t('assistant.featureRequest.announce.new');
+        if (primed) announce = $t('assistant.featureRequest.announce.new', { values: { id: card.id } });
       } else if (!seen.get(card.id) && card.outcome) {
         announce =
           card.outcome === 'duplicate'
-            ? $t('assistant.featureRequest.announce.joined')
-            : $t('assistant.featureRequest.announce.saved');
+            ? $t('assistant.featureRequest.announce.joined', { values: { id: card.id } })
+            : $t('assistant.featureRequest.announce.saved', { values: { id: card.id } });
       }
       seen.set(card.id, card.outcome);
     }

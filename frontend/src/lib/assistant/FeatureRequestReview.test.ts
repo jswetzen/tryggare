@@ -57,14 +57,23 @@ describe('FeatureRequestReview', () => {
       onremoved: vi.fn()
     });
     await view.rerender({ eventId: 'e1', cards: [card('FR-1'), card('FR-2')], ondone: vi.fn(), onremoved: vi.fn() });
-    expect(status()).toHaveTextContent('A feature request is ready to review.');
+    expect(status()).toHaveTextContent('Feature request FR-2 is ready to review.');
     await view.rerender({
       eventId: 'e1',
       cards: [card('FR-1'), card('FR-2', { outcome: 'confirmed', duplicate_of: null })],
       ondone: vi.fn(),
       onremoved: vi.fn()
     });
-    expect(status()).toHaveTextContent('Feature request saved.');
+    expect(status()).toHaveTextContent('Feature request FR-2 saved.');
+  });
+
+  it('a second new card is announced with its own text, so the region speaks again', async () => {
+    const view = render(FeatureRequestReview, { eventId: 'e1', cards: [], ondone: vi.fn(), onremoved: vi.fn() });
+    await view.rerender({ eventId: 'e1', cards: [card('FR-1')], ondone: vi.fn(), onremoved: vi.fn() });
+    const first = status().textContent;
+    await view.rerender({ eventId: 'e1', cards: [card('FR-1'), card('FR-2')], ondone: vi.fn(), onremoved: vi.fn() });
+    expect(status().textContent).not.toBe(first);
+    expect(status()).toHaveTextContent('FR-2');
   });
 
   it('announces a join differently from a save', async () => {
@@ -80,6 +89,6 @@ describe('FeatureRequestReview', () => {
       ondone: vi.fn(),
       onremoved: vi.fn()
     });
-    expect(status()).toHaveTextContent('Feature request joined an existing one.');
+    expect(status()).toHaveTextContent('Feature request FR-1 joined an existing one.');
   });
 });

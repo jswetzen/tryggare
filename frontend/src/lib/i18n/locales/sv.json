@@ -995,9 +995,9 @@
         "discard": "Önskemålet kunde inte slängas. Försök igen."
       },
       "announce": {
-        "new": "Ett önskemål om funktion väntar på granskning.",
-        "saved": "Önskemålet är sparat.",
-        "joined": "Önskemålet lades till i ett befintligt."
+        "new": "Önskemål {id} väntar på granskning.",
+        "saved": "Önskemål {id} är sparat.",
+        "joined": "Önskemål {id} lades till i ett befintligt."
       }
     }
   }
