@@ -1,6 +1,8 @@
 """Feature requests: what organizers and the assistant could not express. The record is
 local; only a person copies one out (``export.py``). Plan: docs/roadmap/feature_requests.md."""
 
+import re
+
 from django.conf import settings
 from django.db import models
 from django.utils.translation import gettext_lazy as _
@@ -138,6 +140,12 @@ class FeatureRequest(models.Model):
     @property
     def public_id(self) -> str:
         return f"FR-{self.pk}"
+
+    @staticmethod
+    def pk_from_public_id(value) -> int | None:
+        """ASCII digits only: ``str.isdigit`` accepts "²", which ``int`` refuses."""
+        m = re.fullmatch(r"FR-([0-9]{1,18})", value) if isinstance(value, str) else None
+        return int(m.group(1)) if m else None
 
 
 class FeatureRequestComment(models.Model):

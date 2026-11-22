@@ -247,7 +247,9 @@ class AdminFormTests(AdminCase):
                 form = FeatureRequestAdminForm(data=self.data(**{name: value}))
                 self.assertFalse(form.is_valid())
                 self.assertIn(name, form.errors)
-        ok = self.data(workaround='{"used": "An extra for all", "cost": "wrong_result"}')
+        ok = self.data(
+            workaround='{"used": "An extra for all", "cost": "wrong_result"}'
+        )
         self.assertTrue(FeatureRequestAdminForm(data=ok).is_valid())
 
     def test_duplicate_status_needs_a_target(self):

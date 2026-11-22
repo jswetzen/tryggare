@@ -25,9 +25,7 @@ _UUID = re.compile(
 )
 # Registration reference codes (registrations/tokens.py): 8 characters from this
 # alphabet, looked up case-insensitively. Needs a digit too, so ordinary words do not match.
-_REFERENCE_CODE = re.compile(
-    r"\b(?=[A-Z2-9]*\d)[2-9A-HJ-NP-Z]{8}\b", re.IGNORECASE
-)
+_REFERENCE_CODE = re.compile(r"\b(?=[A-Z2-9]*\d)[2-9A-HJ-NP-Z]{8}\b", re.IGNORECASE)
 
 
 def _normalize_text(text: str, keep_urls: bool = False) -> str:

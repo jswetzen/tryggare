@@ -180,6 +180,28 @@ class RestTests(Fixture):
             FeatureRequest.objects.get(pk=int(request_id[3:])).status, "draft"
         )
 
+    def test_a_client_cannot_set_triage_fields(self):
+        request_id = self.file()
+        r = self.client.post(
+            self.url(None, request_id, "confirm"),
+            {"status": "planned", "seen": 50, "duplicate_of": 1, "source": "trial"},
+            format="json",
+        )
+        self.assertEqual(r.status_code, 400)
+        self.assertEqual({e["code"] for e in r.json()["errors"]}, {"extra_forbidden"})
+        row = FeatureRequest.objects.get(pk=int(request_id[3:]))
+        self.assertEqual((row.status, row.seen, row.source), ("draft", 1, "organizer"))
+        r = self.client.post(
+            self.url(), {**REQUEST, "status": "confirmed"}, format="json"
+        )
+        self.assertEqual(r.status_code, 400)
+
+    def test_malformed_ids_read_as_absent(self):
+        for bad in ("FR-\u00b2", "FR-\u0663", "FR-" + "9" * 30, "fr-1", "FR-"):
+            with self.subTest(bad=bad):
+                r = self.client.post(self.url(None, bad, "confirm"), {}, format="json")
+                self.assertEqual(r.status_code, 404)
+
     def test_another_organizers_draft_reads_as_absent(self):
         request_id = self.file()
         intruder = APIClient()

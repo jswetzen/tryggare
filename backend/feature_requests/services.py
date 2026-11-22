@@ -154,6 +154,16 @@ def merge_into(source: FeatureRequest, target: FeatureRequest, by) -> FeatureReq
         )
     with transaction.atomic():
         target = FeatureRequest.objects.select_for_update().get(pk=target.pk)
+        if target.status not in FeatureRequest.OPEN_STATUSES:
+            raise FeatureRequestError(
+                [
+                    {
+                        "path": "duplicate_of",
+                        "code": "invalid_target",
+                        "message": "Choose an open request.",
+                    }
+                ]
+            )
         FeatureRequestComment.objects.create(
             request=target, body=_merge_body(source), author=by
         )
@@ -173,27 +183,35 @@ def merge_into(source: FeatureRequest, target: FeatureRequest, by) -> FeatureReq
 def confirm(fr: FeatureRequest, user, edits: dict | None = None) -> FeatureRequest:
     """Store a draft as confirmed, or merge it into an open match. ``edits`` replace the
     stored input, and the same checks run again on the whole."""
-    if fr.status != "draft":
-        raise FeatureRequestError(
-            [
-                {
-                    "path": "",
-                    "code": "not_a_draft",
-                    "message": "Only a draft can be confirmed.",
-                }
-            ]
+    with transaction.atomic():
+        # Locked and re-read: two clicks on one draft must not merge it twice.
+        locked = (
+            FeatureRequest.objects.select_for_update()
+            .filter(pk=fr.pk, status="draft")
+            .first()
         )
-    cleaned = clean_input({**_stored_input(fr), **(edits or {})})
-    _apply(fr, cleaned)
-    match = open_match(fr.dedupe_key, exclude_pk=fr.pk)
-    if match is not None:
+        if locked is None:
+            raise FeatureRequestError(
+                [
+                    {
+                        "path": "",
+                        "code": "not_a_draft",
+                        "message": "Only a draft can be confirmed.",
+                    }
+                ]
+            )
+        fr = locked
+        cleaned = clean_input({**_stored_input(fr), **(edits or {})})
+        _apply(fr, cleaned)
+        match = open_match(fr.dedupe_key, exclude_pk=fr.pk)
+        if match is not None:
+            fr.save()
+            return merge_into(fr, match, user)
+        fr.status = "confirmed"
+        fr.confirmed_by = user
+        fr.reach = _reach_for_count(_events_with_key(fr.dedupe_key, fr.event_id))
         fr.save()
-        return merge_into(fr, match, user)
-    fr.status = "confirmed"
-    fr.confirmed_by = user
-    fr.reach = _reach_for_count(_events_with_key(fr.dedupe_key, fr.event_id))
-    fr.save()
-    return fr
+        return fr
 
 
 def discard(fr: FeatureRequest) -> None:

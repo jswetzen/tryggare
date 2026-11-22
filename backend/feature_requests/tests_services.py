@@ -173,6 +173,35 @@ class ConfirmTests(ServiceCase):
         with self.assertRaises(FeatureRequestError):
             services.confirm(row, self.owner)
 
+    def test_a_second_click_on_a_stale_copy_does_not_merge_again(self):
+        first, _ = services.file_draft(self.event, self.owner, DATA, source="assistant")
+        services.confirm(first, self.owner)
+        second, _ = services.file_draft(
+            self.second, self.coord, DATA, source="assistant"
+        )
+        stale = FeatureRequest.objects.get(pk=second.pk)
+        services.confirm(second, self.coord)
+        with self.assertRaises(FeatureRequestError) as ctx:
+            services.confirm(stale, self.coord)
+        self.assertEqual(ctx.exception.errors[0]["code"], "not_a_draft")
+        first.refresh_from_db()
+        self.assertEqual(first.seen, 2)
+        self.assertEqual(FeatureRequestComment.objects.filter(request=first).count(), 1)
+
+    def test_a_target_declined_since_it_was_read_is_refused(self):
+        target, _ = services.file_draft(
+            self.event, self.owner, DATA, source="assistant"
+        )
+        target = services.confirm(target, self.owner)
+        FeatureRequest.objects.filter(pk=target.pk).update(status="declined")
+        source, _ = services.file_draft(
+            self.second, self.coord, DATA, source="assistant"
+        )
+        with self.assertRaises(FeatureRequestError):
+            services.merge_into(source, target, self.owner)  # target is a stale copy
+        source.refresh_from_db()
+        self.assertEqual(source.status, "draft")
+
     def test_merge_target_must_be_open(self):
         target = FeatureRequest.objects.create(
             title="T",

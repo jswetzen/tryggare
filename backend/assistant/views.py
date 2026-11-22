@@ -472,11 +472,11 @@ class FeatureRequestAPIView(AssistantAPIView):
 
     def own_draft(self, request_id):
         """This user's draft on this event, or None (another organizer's id reads as absent)."""
-        digits = request_id[3:] if request_id.startswith("FR-") else ""
-        if not digits.isdigit():
+        pk = FeatureRequest.pk_from_public_id(request_id)
+        if pk is None:
             return None
         return FeatureRequest.objects.filter(
-            pk=int(digits), event=self.event, filed_by=self.user, status="draft"
+            pk=pk, event=self.event, filed_by=self.user, status="draft"
         ).first()
 
     def feature_errors(self, exc):

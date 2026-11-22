@@ -275,11 +275,11 @@ def _permission_guard(event_pk, user, conv=None):
 
 def feature_request_payload(public_id, event_pk, user_pk) -> dict | None:
     """The stored draft's protocol fields, or None if it is not this run's draft."""
-    digits = public_id[3:] if isinstance(public_id, str) else ""
-    if not digits.isdigit():
+    pk = FeatureRequest.pk_from_public_id(public_id)
+    if pk is None:
         return None
     row = FeatureRequest.objects.filter(
-        pk=int(digits), event_id=event_pk, filed_by_id=user_pk, status="draft"
+        pk=pk, event_id=event_pk, filed_by_id=user_pk, status="draft"
     ).first()
     if row is None:
         return None
