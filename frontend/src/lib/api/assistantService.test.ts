@@ -3,8 +3,14 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 const del = vi.fn();
 const get = vi.fn();
 const put = vi.fn();
+const post = vi.fn();
 vi.mock('./client', () => ({
-  apiClient: { get: (...a: unknown[]) => get(...a), put: (...a: unknown[]) => put(...a), delete: (...a: unknown[]) => del(...a) }
+  apiClient: {
+    get: (...a: unknown[]) => get(...a),
+    put: (...a: unknown[]) => put(...a),
+    post: (...a: unknown[]) => post(...a),
+    delete: (...a: unknown[]) => del(...a)
+  }
 }));
 
 const lang = vi.hoisted(() => ({ value: 'en' }));
@@ -39,5 +45,33 @@ describe('assistantApi', () => {
   it('applies a draft through the existing spec endpoint', async () => {
     await assistantApi.applySpec('e1', { a: 1 });
     expect(put).toHaveBeenCalledWith('/events/e1/spec/', { a: 1 });
+  });
+
+  it('lists the feature request drafts of the event', async () => {
+    await assistantApi.listFeatureRequests('e1');
+    expect(get).toHaveBeenCalledWith('/assistant/events/e1/feature-requests/');
+  });
+
+  it('confirms a feature request as it is, with no body, when nothing was edited', async () => {
+    await assistantApi.confirmFeatureRequest('e1', 'FR-3');
+    expect(post).toHaveBeenCalledWith('/assistant/events/e1/feature-requests/FR-3/confirm/', undefined);
+  });
+
+  it('confirms with the edited fields as the body', async () => {
+    const edits = {
+      title: 'Family price',
+      problem: 'p',
+      desired: 'd',
+      tried: ['t'],
+      workaround: { used: 'u', cost: 'extra_steps' as const }
+    };
+    await assistantApi.confirmFeatureRequest('e1', 'FR-3', edits);
+    expect(post).toHaveBeenCalledWith('/assistant/events/e1/feature-requests/FR-3/confirm/', edits);
+  });
+
+  it('discards a feature request by POST, never a DELETE of the draft', async () => {
+    await assistantApi.discardFeatureRequest('e1', 'FR-3');
+    expect(post).toHaveBeenCalledWith('/assistant/events/e1/feature-requests/FR-3/discard/');
+    expect(del).not.toHaveBeenCalled();
   });
 });

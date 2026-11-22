@@ -37,6 +37,7 @@ export type ServerEvent =
   | { type: 'tool_finished'; run_id: string; call_id: string; tool: string; ok: boolean }
   | { type: 'text_delta'; run_id: string; text: string }
   | { type: 'draft_updated'; run_id: string; draft_version: number }
+  | ({ type: 'feature_request_draft'; run_id: string } & FeatureRequestPreview)
   | { type: 'run_finished'; run_id: string }
   | { type: 'run_failed'; run_id: string | null; reply_to?: string; code: RunFailedCode }
   | { type: 'warning'; code: 'personal_data'; reply_to: string }
@@ -95,6 +96,58 @@ export interface DraftPayload {
   stale: boolean;
   token: string;
   version: number;
+}
+
+// Feature requests (docs/roadmap/feature_requests.md, "How the assistant files one").
+export type FeatureSeverity = 'blocks' | 'wrong_result' | 'risk' | 'friction' | 'cosmetic';
+export type WorkaroundCost = 'none' | 'extra_steps' | 'wrong_result' | 'not_possible';
+
+export interface FeatureWorkaround {
+  used: string;
+  cost: WorkaroundCost;
+}
+
+// The fields the WebSocket event carries. The GET adds the rest.
+export interface FeatureRequestPreview {
+  id: string;
+  title: string;
+  problem: string;
+  desired: string;
+  workaround: FeatureWorkaround | null;
+  matches_existing: { id: string; seen: number } | null;
+}
+
+export interface FeatureRequestDraft extends FeatureRequestPreview {
+  tried: string[];
+  touches: string[];
+  severity: FeatureSeverity;
+  brief_fragment: string | null;
+}
+
+// A card in the chat: a pending draft, or one the organizer has settled in this tab.
+export interface FeatureRequestCard extends FeatureRequestPreview {
+  // Until the GET has answered, a card from the event alone has none of these.
+  tried?: string[];
+  touches?: string[];
+  severity?: FeatureSeverity;
+  brief_fragment?: string | null;
+  outcome?: 'confirmed' | 'duplicate';
+  duplicate_of?: string | null;
+}
+
+// What Confirm sends when the organizer edited the card: the editable fields only.
+export interface FeatureRequestEdits {
+  title: string;
+  problem: string;
+  desired: string;
+  tried: string[];
+  workaround?: FeatureWorkaround;
+}
+
+export interface FeatureRequestConfirmed {
+  id: string;
+  status: 'confirmed' | 'duplicate';
+  duplicate_of: string | null;
 }
 
 export interface AssistantPreview {

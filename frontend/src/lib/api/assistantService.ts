@@ -4,7 +4,10 @@ import { apiClient } from './client';
 import type {
   AssistantPreview,
   ConversationState,
-  DraftPayload
+  DraftPayload,
+  FeatureRequestConfirmed,
+  FeatureRequestDraft,
+  FeatureRequestEdits
 } from '$lib/assistant/types';
 
 /**
@@ -41,5 +44,20 @@ export const assistantApi = {
     apiClient.put(`/events/${eventId}/spec/`, spec),
 
   getPreview: (eventId: string): Promise<AssistantPreview> =>
-    apiClient.get(`${base(eventId)}/preview/${lang()}`)
+    apiClient.get(`${base(eventId)}/preview/${lang()}`),
+
+  // This user's unconfirmed drafts on the event. Drafts survive a conversation clear.
+  listFeatureRequests: (eventId: string): Promise<{ drafts: FeatureRequestDraft[] }> =>
+    apiClient.get(`${base(eventId)}/feature-requests/`),
+
+  // Edits are optional: without them the stored text is confirmed as it is.
+  confirmFeatureRequest: (
+    eventId: string,
+    id: string,
+    edits?: FeatureRequestEdits
+  ): Promise<FeatureRequestConfirmed> =>
+    apiClient.post(`${base(eventId)}/feature-requests/${encodeURIComponent(id)}/confirm/`, edits),
+
+  discardFeatureRequest: (eventId: string, id: string): Promise<unknown> =>
+    apiClient.post(`${base(eventId)}/feature-requests/${encodeURIComponent(id)}/discard/`)
 };
