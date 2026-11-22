@@ -187,6 +187,33 @@ class AdminPageTests(AdminCase):
         self.assertEqual(response.status_code, 404)
 
 
+class DraftHiddenTests(AdminCase):
+    """An organizer's unconfirmed draft is not the maintainer's to see, change or merge into."""
+
+    def test_draft_is_not_listed_changed_or_bulk_changed(self):
+        draft = make(title="Draft only", status="draft")
+        changelist = reverse("admin:feature_requests_featurerequest_changelist")
+        change_url = reverse(
+            "admin:feature_requests_featurerequest_change", args=[draft.pk]
+        )
+        self.assertNotContains(self.client.get(changelist), "Draft only")
+        # Django treats an object outside the queryset as missing: a redirect, not the form.
+        self.assertEqual(self.client.get(change_url).status_code, 302)
+        self.assertEqual(self.client.post(change_url, {"title": "x"}).status_code, 302)
+        self.client.post(
+            changelist, {"action": "mark_triaged", "_selected_action": [draft.pk]}
+        )
+        draft.refresh_from_db()
+        self.assertEqual(draft.status, "draft")
+        self.assertEqual(draft.title, "Draft only")
+
+    def test_draft_is_not_offered_as_a_merge_target(self):
+        draft = make(title="Draft only", status="draft")
+        target = make(title="Open one", status="confirmed")
+        choices = FeatureRequestAdminForm(instance=target).fields["duplicate_of"].queryset
+        self.assertNotIn(draft.pk, [row.pk for row in choices])
+
+
 class AdminFormTests(AdminCase):
     def data(self, **changes):
         base = {

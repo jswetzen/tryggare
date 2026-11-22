@@ -192,6 +192,10 @@ class FeatureRequestAdmin(admin.ModelAdmin):
         "copy_as_github_issue",
     ]
 
+    def get_queryset(self, request):
+        # A draft is an organizer's until they confirm it: not listed, edited or bulk-changed here.
+        return super().get_queryset(request).exclude(status="draft")
+
     def get_urls(self):
         info = self.model._meta.app_label, self.model._meta.model_name
         return [
