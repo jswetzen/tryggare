@@ -179,6 +179,13 @@ class AdminPageTests(AdminCase):
         )
         self.assertEqual(response.status_code, 200)
 
+    def test_an_unconfirmed_draft_cannot_be_exported(self):
+        row = make(status="draft")
+        response = self.client.get(
+            reverse("admin:feature_requests_featurerequest_github_issue", args=[row.pk])
+        )
+        self.assertEqual(response.status_code, 404)
+
 
 class AdminFormTests(AdminCase):
     def data(self, **changes):

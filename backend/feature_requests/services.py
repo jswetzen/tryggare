@@ -204,11 +204,11 @@ def confirm(fr: FeatureRequest, user, edits: dict | None = None) -> FeatureReque
         cleaned = clean_input({**_stored_input(fr), **(edits or {})})
         _apply(fr, cleaned)
         match = open_match(fr.dedupe_key, exclude_pk=fr.pk)
+        fr.confirmed_by = user
         if match is not None:
             fr.save()
             return merge_into(fr, match, user)
         fr.status = "confirmed"
-        fr.confirmed_by = user
         fr.reach = _reach_for_count(_events_with_key(fr.dedupe_key, fr.event_id))
         fr.save()
         return fr

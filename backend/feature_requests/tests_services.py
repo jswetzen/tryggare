@@ -129,6 +129,7 @@ class ConfirmTests(ServiceCase):
         second.refresh_from_db()
         self.assertEqual(second.status, "duplicate")
         self.assertEqual(second.duplicate_of, first)
+        self.assertEqual(second.confirmed_by, self.coord)
         self.assertEqual(first.status, "confirmed")
         self.assertEqual(first.seen, 2)
         self.assertEqual(first.reach, "some_events")

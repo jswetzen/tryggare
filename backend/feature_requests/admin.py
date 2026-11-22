@@ -264,7 +264,10 @@ class FeatureRequestAdmin(admin.ModelAdmin):
     def github_issue_view(self, request, object_id):
         if not self.has_view_permission(request):
             raise PermissionDenied
-        fr = get_object_or_404(FeatureRequest, pk=object_id)
+        # A draft has not been through the filer's review yet (see rules: human review).
+        fr = get_object_or_404(
+            FeatureRequest.objects.exclude(status="draft"), pk=object_id
+        )
         return render(
             request,
             "feature_requests/copy_issue.html",
