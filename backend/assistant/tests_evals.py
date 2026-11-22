@@ -226,7 +226,7 @@ class BriefSetTests(SimpleTestCase):
 
 def scripted(edit, reply):
     """A model that reads the current spec, applies ``edit`` to it, proposes it, then
-    answers ``reply(token)``."""
+    answers ``reply(propose_result)``."""
 
     def fn(messages, info: AgentInfo):
         returns = [
@@ -239,7 +239,7 @@ def scripted(edit, reply):
             spec = copy.deepcopy(returns[-1].content)
             edit(spec)
             return ModelResponse(parts=[ToolCallPart("propose_spec", {"spec": spec})])
-        return ModelResponse(parts=[TextPart(reply(returns[-1].content["draft"]))])
+        return ModelResponse(parts=[TextPart(reply(returns[-1].content))])
 
     return FunctionModel(fn)
 
@@ -278,7 +278,7 @@ class HarnessTests(TestCase):
     def test_leaking_the_draft_id_fails(self):
         res = self.run_it(
             add_friday_session,
-            lambda token: f"Added Friday welcome 17:00-19:00 as draft {token}.",
+            lambda _: "Added Friday welcome 17:00-19:00 as draft 9f8e7d6c5b4a3210.",
         )
         self.assertFalse(res.passed)
         self.assertIn("no_internal_ids", res.reason)
@@ -336,7 +336,7 @@ class HarnessTests(TestCase):
         )
         bad = self.run_it(
             add_friday_session,
-            lambda t: f"I added the Friday welcome session, draft {t}.",
+            lambda _: "I added the Friday welcome session, draft 9f8e7d6c5b4a3210.",
         )
         summary = summarize([good, bad], threshold=(1, 2))
         self.assertEqual(

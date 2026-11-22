@@ -52,7 +52,9 @@ class McpWrapperTests(ToolsTestCase):
     def test_propose_and_failure_text_reach_client(self):
         server, drafts = build_server(self.event, self.staff)
         spec = copy.deepcopy(self.changed_spec())
-        self.assertIn(call(server, "propose_spec", spec=spec)["draft"], drafts.items)
+        result = call(server, "propose_spec", spec=spec)
+        self.assertTrue(result["stored"])
+        self.assertEqual(len(drafts.items), 1)
         with self.assertRaises(ToolError) as caught:
             call(server, "propose_spec", spec={"bogus": 1})
         self.assertIn("invalid", str(caught.exception))

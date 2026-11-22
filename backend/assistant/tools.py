@@ -211,7 +211,9 @@ class EventTools:
         self.drafts.items[token] = {"spec": _plain(spec), "base": base, **draft}
         if self.drafts.on_propose:
             self.drafts.on_propose(token, self.drafts.items[token])
-        return {"draft": token, "applied": False, **draft}
+        # No token here: the model would repeat it to the organizer, and nothing reads it
+        # from this result (the runner gets the draft through on_propose).
+        return {"stored": True, "applied": False, **draft}
 
     def file_feature_request(
         self,

@@ -41,6 +41,11 @@ def call(tools, name, **args):
         return getattr(tools, name)(**args)
 
 
+def latest_token(tools):
+    """The newest stored draft's token: the model-facing result no longer carries it."""
+    return list(tools.drafts.items)[-1]
+
+
 def user_with(name, labels):
     user = AdminUser.objects.create_user(name, "pw12345")
     for label in labels:
@@ -223,17 +228,18 @@ class ProposeTests(ToolsTestCase):
         before = event_spec.export(self.event)
         result = call(tools, "propose_spec", spec=self.changed_spec())
         self.assertFalse(result["applied"])
-        self.assertIn(result["draft"], tools.drafts.items)
+        self.assertTrue(result["stored"])
+        self.assertEqual(len(tools.drafts.items), 1)
+        self.assertNotIn("draft", result)
         self.assertTrue(result["diff"])
         self.assertEqual(event_spec.export(self.event), before)
 
-    def test_same_spec_same_token(self):
+    def test_same_spec_is_stored_once(self):
         tools = self.tools()
         spec = self.changed_spec()
-        self.assertEqual(
-            call(tools, "propose_spec", spec=spec)["draft"],
-            call(tools, "propose_spec", spec=spec)["draft"],
-        )
+        call(tools, "propose_spec", spec=spec)
+        call(tools, "propose_spec", spec=spec)
+        self.assertEqual(len(tools.drafts.items), 1)
 
     def test_invalid_spec_is_failure_and_not_stored(self):
         tools = self.tools()
@@ -262,19 +268,23 @@ class ProposeTests(ToolsTestCase):
 class DraftStalenessTests(ToolsTestCase):
     def test_draft_fresh_then_stale_after_event_changes(self):
         tools = self.tools()
-        token = call(tools, "propose_spec", spec=self.changed_spec())["draft"]
+        call(tools, "propose_spec", spec=self.changed_spec())
+        token = latest_token(tools)
         self.assertFalse(tools.drafts.is_stale(token))
         Event.objects.filter(pk=self.event.pk).update(name="Renamed meanwhile")
         self.assertTrue(tools.drafts.is_stale(token))
 
     def test_token_depends_on_event_state_and_spec(self):
         tools = self.tools()
-        first = call(tools, "propose_spec", spec=self.changed_spec())["draft"]
+        call(tools, "propose_spec", spec=self.changed_spec())
+        first = latest_token(tools)
         other_spec = self.changed_spec()
         other_spec["ticket_types"][0]["price"] = 5
-        second = call(tools, "propose_spec", spec=other_spec)["draft"]
+        call(tools, "propose_spec", spec=other_spec)
+        second = latest_token(tools)
         Event.objects.filter(pk=self.event.pk).update(name="Renamed meanwhile")
-        third = call(tools, "propose_spec", spec=self.changed_spec())["draft"]
+        call(tools, "propose_spec", spec=self.changed_spec())
+        third = latest_token(tools)
         self.assertEqual(len({first, second, third}), 3)
         self.assertEqual(
             tools.drafts.items[first]["base"], tools.drafts.items[second]["base"]
