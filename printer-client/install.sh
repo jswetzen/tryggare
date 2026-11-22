@@ -13,8 +13,9 @@ echo "Using uv $(uv --version)"
 
 # ── 2. Install printer-client as a uv tool ────────────────────────────────
 # uv tool install creates an isolated venv and links the entry-point onto PATH.
+# Defaults to the Brother backend; Dymo needs no extra Python deps (uses CUPS).
 echo "Installing printer-client (Python 3.13)..."
-uv tool install --python 3.13 --force .
+uv tool install --python 3.13 --force '.[brother]'
 
 # ── 3. Copy .env if not present ───────────────────────────────────────────
 if [ ! -f ".env" ]; then
@@ -38,5 +39,8 @@ echo ""
 echo "Linux (non-root USB): you'll likely need a udev rule + the 'lp' group —"
 echo "  see the README 'Linux — USB permissions' section."
 echo ""
+echo "For a Dymo LabelWriter instead of Brother, set PRINTER_TYPE=dymo in .env"
+echo "and register it with CUPS — no extra Python deps needed."
+echo ""
 echo "For network printer (SNMP status queries):"
-echo "  uv tool install --python 3.13 --force '.[network]'"
+echo "  uv tool install --python 3.13 --force '.[brother,network]'"

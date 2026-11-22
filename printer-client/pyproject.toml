@@ -13,13 +13,22 @@ dependencies = [
     "requests>=2.31.0",
     "Pillow>=10.0.0",
     "python-dotenv>=1.0.0",
-    "brother_ql-inventree",
 ]
 
 [project.optional-dependencies]
+brother = [
+    "brother_ql-inventree",
+]
+dymo = [
+    "pywin32>=305; sys_platform == 'win32'",
+]
 network = [
     "puresnmp>=2.0.0",
     "zeroconf>=0.38.0",
+]
+dev = [
+    "pytest>=8.0",
+    "pytest-asyncio>=0.23",
 ]
 
 [project.scripts]
@@ -27,6 +36,10 @@ printer-client = "client:run"
 
 [tool.uv.sources]
 brother_ql-inventree = { git = "https://github.com/jswetzen/brother_ql-inventree.git" }
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
 
 [build-system]
 requires = ["uv_build>=0.9,<0.10"]
