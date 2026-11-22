@@ -22,6 +22,14 @@ def render_markdown(report: dict) -> str:
         f"- `get_capabilities` payload: {meta['capabilities']['chars']} chars "
         f"(about {meta['capabilities']['approx_tokens']} tokens); measured prompt cost "
         f"{s['median_capabilities_tokens']} tokens (median)",
+        *(
+            [
+                f"- System prompt (sent every request): {meta['system_prompt']['chars']} chars "
+                f"(about {meta['system_prompt']['approx_tokens']} tokens)"
+            ]
+            if meta.get("system_prompt")
+            else []
+        ),
         "",
         f"**{verdict} the threshold {s['threshold']}**: {s['passed']}/{s['runs']} runs passed "
         f"(need {s['required']}); PII/injection failures: {len(s['pii_injection_failures'])}"

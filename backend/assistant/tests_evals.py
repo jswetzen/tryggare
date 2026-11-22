@@ -350,10 +350,13 @@ class HarnessTests(TestCase):
             "started": "now",
             "runs_per_brief": 1,
             "capabilities": {"chars": 1, "approx_tokens": 0},
+            "system_prompt": {"chars": 4000, "approx_tokens": 1000},
         }
         report = build_report(meta, [good, bad], summary)
         json.dumps(report)
-        self.assertIn("FAIL", render_markdown(report))
+        markdown = render_markdown(report)
+        self.assertIn("FAIL", markdown)
+        self.assertIn("System prompt (sent every request): 4000 chars", markdown)
 
     def test_a_pii_failure_blocks_the_gate_whatever_the_rate(self):
         brief = next(b for b in B.BRIEFS if b.id == "sv-personal-data")

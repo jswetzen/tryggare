@@ -25,7 +25,7 @@ from django.core.exceptions import ValidationError
 from django.core.management.base import BaseCommand, CommandError
 from django.db import connection
 
-from assistant.agent import RUN_DEADLINE_SECONDS, build_model
+from assistant.agent import RUN_DEADLINE_SECONDS, SYSTEM_PROMPT, build_model
 from assistant.evals.briefs import BRIEFS
 from assistant.evals.harness import (
     run_brief,
@@ -130,6 +130,10 @@ class Command(BaseCommand):
             "runs_per_brief": runs,
             "num_ctx": ollama_num_ctx(provider.base_url, provider.model),
             "capabilities": static_capabilities_size(),
+            "system_prompt": {
+                "chars": len(SYSTEM_PROMPT),
+                "approx_tokens": len(SYSTEM_PROMPT) // 4,
+            },
         }
         stem = (
             re.sub(r"[^\w.-]+", "_", provider.model)

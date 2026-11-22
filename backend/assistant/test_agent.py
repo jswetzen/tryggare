@@ -10,15 +10,20 @@ from pydantic_ai.messages import ModelResponse, TextPart, ToolCallPart
 from pydantic_ai.models.function import AgentInfo, FunctionModel
 from pydantic_ai.models.test import TestModel
 
+from events.event_spec import CAPABILITIES
+
 from .agent import (
+    SYSTEM_PROMPT,
     build_agent,
     build_model,
+    capabilities_summary,
     guarded_http_client,
     run_assistant,
 )
 from .agent_test_support import stand_in_toolset
 from .models import LLMProvider
 from .providers import ProviderError, check_address
+from .tools import TOOL_NAMES
 
 GETADDRINFO = "assistant.providers.openai_compatible.socket.getaddrinfo"
 BASE = "http://ollama.example:11434/v1"
@@ -298,3 +303,46 @@ class CheckAddressTests(SimpleTestCase):
         self.assertEqual(self.blocked("not-an-ip"), "unreachable")
         with self.assertRaises(ProviderError):
             check_address("http:///v1")
+
+
+class CapabilitiesPromptTests(TestCase):
+    """The capabilities list is in the prompt, so the model does not need a first call.
+    Checked on the instructions a real run sends, not on the constant alone."""
+
+    def sent_instructions(self) -> str:
+        seen = {}
+
+        def model_fn(messages, info: AgentInfo):
+            seen["instructions"] = info.instructions
+            return ModelResponse(parts=[TextPart("ok")])
+
+        agent = build_agent(
+            provider(), stand_in_toolset(), model=FunctionModel(model_fn)
+        )
+        asyncio.run(agent.run("go"))
+        return seen["instructions"]
+
+    def test_every_capability_id_is_sent(self):
+        sent = self.sent_instructions()
+        for cap in CAPABILITIES["supported"] + CAPABILITIES["unsupported"]:
+            with self.subTest(id=cap["id"]):
+                self.assertIn(f"- {cap['id']}:", sent)
+
+    def test_closest_workarounds_and_notes_are_sent(self):
+        sent = self.sent_instructions()
+        for cap in CAPABILITIES["unsupported"]:
+            if cap.get("closest"):
+                with self.subTest(id=cap["id"]):
+                    self.assertIn(cap["closest"], sent)
+        for note in CAPABILITIES["notes"]:
+            with self.subTest(note=note[:40]):
+                self.assertIn(note, sent)
+
+    def test_summary_is_compact(self):
+        # About 580 tokens today. The full get_capabilities result is about 5k and
+        # resent on every request, so a jump here means the prompt grew on purpose.
+        self.assertLess(len(capabilities_summary()), 3000)
+        self.assertLess(len(SYSTEM_PROMPT), 4500)
+
+    def test_get_capabilities_stays_available_for_fields_and_schema(self):
+        self.assertIn("get_capabilities", TOOL_NAMES)

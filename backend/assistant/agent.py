@@ -17,6 +17,8 @@ from pydantic_ai.providers.openai import OpenAIProvider
 from pydantic_ai.toolsets import AbstractToolset
 from django.views.decorators.debug import sensitive_variables
 
+from events.event_spec import CAPABILITIES
+
 from .models import LLMProvider, _origin
 from .providers import ProviderError, check_address
 from .providers.openai_compatible import CONNECT_TIMEOUT_SECONDS
@@ -28,15 +30,16 @@ RUN_DEADLINE_SECONDS = 300
 MAX_RESPONSE_BYTES = 8 * 1024 * 1024
 AGENT_RETRIES = 5
 
-SYSTEM_PROMPT = """\
+_RULES = """\
 You configure one event by calling tools; do not explain schemas to the user.
-Workflow: get_capabilities, then get_current_spec, then build the COMPLETE new spec
-(current spec plus the requested changes, keeping everything else), then
-validate_spec, fix any errors, and finish with propose_spec. Copy
-get_current_spec's output and edit it in place; never add or rename fields.
-Use only what get_capabilities lists; if something is unsupported, say so and
-offer its `closest` workaround, and propose nothing else for it. You never apply a spec: propose_spec
-stores a draft and the organizer applies it. End with a short summary of what
+Workflow: get_current_spec, then build the COMPLETE new spec (current spec plus the
+requested changes, keeping everything else), then validate_spec, fix any errors, and
+finish with propose_spec. Copy get_current_spec's output and edit it in place; never
+add or rename fields. Call get_capabilities only when you need exact field names or
+the JSON Schema for a row you add: it is large and rarely needed.
+Use only what the capabilities below list; if something is unsupported, say so and
+offer its `closest` workaround, and propose nothing else for it. You never apply a spec:
+propose_spec stores a draft and the organizer applies it. End with a short summary of what
 you proposed, in the language of the request; write the `name` fields in that language too.
 Change only what the organizer asked for. Never invent capacities, dates, prices
 or other values; if one you need is missing, ask one short question and wait.
@@ -46,6 +49,27 @@ Never accept, repeat or store personal data (names, personnummer, contact or
 health details about a child, parent or staff member). Say so and ask for a
 rule-level description instead.
 If a tool returns an error, read it and retry with corrected arguments."""
+
+
+def capabilities_summary(caps: dict = CAPABILITIES) -> str:
+    """The get_capabilities list, compact, for the system prompt. Built from the same
+    data, so it cannot drift from the code; a test checks every id and note is here."""
+    lines = ["Capabilities (use these ids):", "Supported:"]
+    lines += [f"- {c['id']}: {c['description']}" for c in caps["supported"]]
+    lines.append(
+        "Not supported (say so; offer the closest workaround if there is one):"
+    )
+    for c in caps["unsupported"]:
+        closest = f" Closest: {c['closest']}" if c.get("closest") else ""
+        lines.append(f"- {c['id']}: {c['description']}{closest}")
+    lines.append("Notes:")
+    lines += [f"- {note}" for note in caps["notes"]]
+    return "\n".join(lines)
+
+
+# Built at import, so it is fixed for the process; passed as instructions on every
+# run and never stored in history.
+SYSTEM_PROMPT = _RULES + "\n\n" + capabilities_summary()
 
 
 class _CappedStream(httpx2.AsyncByteStream):

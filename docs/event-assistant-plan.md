@@ -747,7 +747,8 @@ review showed raw spec keys ("ändrat: price"); now `assistant.review.field.*`. 
 ## Known agent issues / eval todo
 
 Scope decision (Johan): agent tuning waits for a later eval task, which will also run the harness against much
-stronger hosted models. Nothing below is fixed yet; `SYSTEM_PROMPT` and `get_capabilities` are unchanged.
+stronger hosted models. Nothing below is fixed yet, except the capabilities cost (item 5, see "Preloaded
+capabilities" at the end). The rest of `SYSTEM_PROMPT` and the `get_capabilities` tool are unchanged.
 
 **The harness.** `uv run python manage.py assistant_eval --base-url URL --model NAME [--api-key-env VAR]
 [--runs N] [--briefs substr,substr] [--out DIR] [--deadline S]`, or no flags to use the saved provider. It creates
@@ -793,10 +794,34 @@ numbers include checker false positives found afterwards (below).
    instructions or the one hidden in an existing extra's name.
 5. **Cost:** a typical run is 4 requests and 18k to 40k prompt tokens in total (the capabilities result is resent
    on every request after it), so against a metered model one brief costs roughly 30k input and 3k output tokens.
-   `get_capabilities` is about 5k tokens of every request after it; trimming its `schema` or letting the model
-   skip it would cut the cost most.
+   `get_capabilities` is about 5k tokens of every request after it. **Addressed** (see "Preloaded capabilities"):
+   the list is in the system prompt and the call is for field names only.
 6. **Checker false positives found after the runs** and fixed with unit tests, so the stored reports still show
    them: `times_24h` read prices such as `0.00` and a bulleted "?\n-" as times (one qwen failure each), and
    `sv-out-of-scope` missed "jag inte kan" (qwen). The stored qwen count is therefore a little pessimistic.
 7. Not covered yet: the long-conversation case near the context limit (the plan's eval set mentions it) and a
    second pass over briefs with `--runs 3` for variance.
+
+## Preloaded capabilities (2026-11-22)
+
+Every run used to start with `get_capabilities` (about 5.2k tokens, of which the JSON Schema is 4.1k), so the
+first round trip was mandatory. The capabilities list (supported ids, unsupported ids with `closest`, notes) is
+now built from `event_spec.CAPABILITIES` into `SYSTEM_PROMPT` (`capabilities_summary()` in `agent.py`), and the
+workflow calls `get_capabilities` only for exact field names or the schema of a row being added. A test in
+`test_agent.py` fails if an id, a `closest` or a note is missing from the instructions a run sends.
+
+Measured with chars/4 on a scripted run (a `FunctionModel` replaying real tool results on a scratch event; no
+provider, no real database). Not a model run; the eval has not been re-run.
+
+| Item | Before | After |
+| --- | --- | --- |
+| System prompt, sent on every request | 317 tokens (1.3k chars) | 929 tokens (3.7k chars) |
+| `get_capabilities` result | 5.2k tokens (20.6k chars; schema 4.1k, capabilities 0.65k, example 0.43k) | unchanged, only when called |
+| Tool definitions | 573 tokens | 573 tokens |
+| `get_current_spec` result | 723 tokens | unchanged (not preloaded: it is per event and changes after each apply) |
+| Typical run (caps, current, validate, propose), input over all requests | 36.9k in 5 requests; largest request 11.2k | 18.7k in 4 requests; largest 7.8k (no caps call) |
+| Next turn: stored history raw / trimmed on load | 9.2k / 3.3k | 3.7k / 3.0k |
+
+The after-run figure assumes the model does not call `get_capabilities`. If it does, each request after that call
+carries about 5.2k more. The eval's earlier medians (before this change, Ollama token counts): prompt 27.5k to
+28.3k per run, peak context 12.5k (bonsai) and 15.3k (qwen). The eval report now records the system prompt size.
