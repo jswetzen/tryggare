@@ -20,6 +20,7 @@
   import ChatMessage from './ChatMessage.svelte';
   import ChatComposer from './ChatComposer.svelte';
   import DraftReview from './DraftReview.svelte';
+  import FeatureRequestReview from './FeatureRequestReview.svelte';
   import PersonalDataNotice from './PersonalDataNotice.svelte';
   import ToolProgress from './ToolProgress.svelte';
 
@@ -153,6 +154,7 @@
     s.tools;
     s.error;
     s.warnings;
+    s.featureRequests;
     void tick().then(() => scrollDown());
   });
   $effect(() => {
@@ -186,6 +188,15 @@
     inputEl?.focus();
   }
 
+  // A card that leaves takes the focus with it: the composer is the next place to go.
+  function featureDone(id: string, outcome: 'confirmed' | 'duplicate', duplicateOf: string | null) {
+    store.featureRequestSettled(id, outcome, duplicateOf);
+  }
+  function featureRemoved(id: string) {
+    store.featureRequestRemoved(id);
+    void tick().then(() => inputEl?.focus());
+  }
+
   async function acceptNotice() {
     noticeBusy = true;
     noticeFailed = false;
@@ -209,6 +220,8 @@
       confirmingClear = false;
       lastSent = '';
       cleared += 1;
+      // Settled receipts go with the conversation; pending feature drafts stay on the server.
+      store.clearFeatureReceipts();
       await store.refresh();
       await reload();
       await tick();
@@ -228,7 +241,8 @@
   const warning = $derived(s.warnings[s.warnings.length - 1] ?? null);
   const refused = $derived(s.connection === 'refused');
   const offline = $derived(s.connection === 'reconnecting' || s.connection === 'connecting');
-  const hasContent = $derived(s.transcript.length > 0 || draftVersion > 0);
+  const hasContent = $derived(s.transcript.length > 0 || draftVersion > 0 || s.featureRequests.length > 0);
+  const pendingFeatures = $derived(s.featureRequests.some((c) => !c.outcome));
 
   // One polite line for screen readers. It never says "draft updated": the
   // page's own status region announces "Preview updated" for that.
@@ -296,6 +310,7 @@
     {#if confirmingClear}
       <div class="confirm" data-testid="assistant-clear-confirm">
         <p>{$t('assistant.clearConfirm')}</p>
+        {#if pendingFeatures}<p>{$t('assistant.featureRequest.clearKept')}</p>{/if}
         {#if clearFailed}<p class="failed">{$t('assistant.clearFailed')}</p>{/if}
         <div class="confirm-actions">
           <button type="button" class="danger" disabled={clearBusy} onclick={clearConversation}>
@@ -376,6 +391,13 @@
             {/if}
           </div>
         {/if}
+
+        <FeatureRequestReview
+          {eventId}
+          cards={s.featureRequests}
+          ondone={featureDone}
+          onremoved={featureRemoved}
+        />
       {/if}
     </div>
 

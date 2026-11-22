@@ -954,7 +954,8 @@
         if (cancelled) return;
         const store = mod.createAssistantStore({
           eventId: id,
-          fetchConversation: () => assistantApi.getConversation(id)
+          fetchConversation: () => assistantApi.getConversation(id),
+          fetchFeatureRequests: () => assistantApi.listFeatureRequests(id).then((r) => r.drafts)
         });
         const off = store.onDraftUpdated(() => void reloadSpec({ quiet: true }));
         store.connect();

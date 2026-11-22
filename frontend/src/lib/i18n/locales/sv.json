@@ -952,6 +952,53 @@
       "bad_request": "Meddelandet kunde inte skickas.",
       "unknown": "Något gick fel. Försök igen."
     },
-    "draftUpdated": "Utkastet har uppdaterats"
+    "draftUpdated": "Utkastet har uppdaterats",
+    "featureRequest": {
+      "heading": "Önskemål om funktioner",
+      "badge": "Önskemål",
+      "notice": "Beskriv hur upplägget ser ut, aldrig personer. Ta bort namn, kontaktuppgifter, födelsedatum och namn på evenemang eller biljettyper.",
+      "cardLabel": "Önskemål {id}",
+      "field": {
+        "title": "Rubrik",
+        "problem": "Problem",
+        "desired": "Önskat",
+        "tried": "Testat",
+        "triedItem": "Testat {n}",
+        "workaround": "Lösning",
+        "used": "Byggd som",
+        "cost": "Kostnad"
+      },
+      "builtAs": "Byggd som: {used} (kostnad: {cost})",
+      "cost": {
+        "none": "ingen",
+        "extra_steps": "extra steg",
+        "wrong_result": "fel resultat",
+        "not_possible": "inte möjligt"
+      },
+      "joins": "Går med i ett befintligt önskemål som setts {count} gånger.",
+      "joinsOnce": "Går med i ett befintligt önskemål som setts en gång.",
+      "saved": "Sparat som {id}.",
+      "joined": "Lades till i önskemål {id}.",
+      "count": "{count} av {max} tecken",
+      "confirm": "Bekräfta",
+      "confirming": "Sparar…",
+      "edit": "Redigera",
+      "cancelEdit": "Avbryt redigeringen",
+      "discard": "Släng",
+      "discarding": "Slänger…",
+      "clearKept": "Utkast till önskemål behålls. Släng dem här om du inte vill ha dem.",
+      "error": {
+        "required": "Fyll i det här fältet.",
+        "tooLong": "Använd högst {max} tecken.",
+        "invalid": "Önskemålet kunde inte sparas. Kontrollera fälten nedan.",
+        "save": "Önskemålet kunde inte sparas. Försök igen.",
+        "discard": "Önskemålet kunde inte slängas. Försök igen."
+      },
+      "announce": {
+        "new": "Ett önskemål om funktion väntar på granskning.",
+        "saved": "Önskemålet är sparat.",
+        "joined": "Önskemålet lades till i ett befintligt."
+      }
+    }
   }
 }

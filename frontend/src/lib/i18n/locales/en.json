@@ -952,6 +952,53 @@
       "bad_request": "That message could not be sent.",
       "unknown": "Something went wrong. Try again."
     },
-    "draftUpdated": "Draft updated"
+    "draftUpdated": "Draft updated",
+    "featureRequest": {
+      "heading": "Feature requests",
+      "badge": "Feature request",
+      "notice": "Describe the setup's shape, never people. Remove names, contact details, dates of birth, and any event or ticket names.",
+      "cardLabel": "Feature request {id}",
+      "field": {
+        "title": "Title",
+        "problem": "Problem",
+        "desired": "Desired",
+        "tried": "Tried",
+        "triedItem": "Tried {n}",
+        "workaround": "Workaround",
+        "used": "Built as",
+        "cost": "Cost"
+      },
+      "builtAs": "Built as: {used} (cost: {cost})",
+      "cost": {
+        "none": "none",
+        "extra_steps": "extra steps",
+        "wrong_result": "wrong result",
+        "not_possible": "not possible"
+      },
+      "joins": "Joins an existing request seen {count} times.",
+      "joinsOnce": "Joins an existing request seen once.",
+      "saved": "Saved as {id}.",
+      "joined": "Joined request {id}.",
+      "count": "{count} of {max} characters",
+      "confirm": "Confirm",
+      "confirming": "Saving…",
+      "edit": "Edit",
+      "cancelEdit": "Cancel edit",
+      "discard": "Discard",
+      "discarding": "Discarding…",
+      "clearKept": "Feature request drafts are kept. Discard them here if you do not want them.",
+      "error": {
+        "required": "Fill in this field.",
+        "tooLong": "Use at most {max} characters.",
+        "invalid": "The request could not be saved. Check the fields below.",
+        "save": "The request could not be saved. Try again.",
+        "discard": "The request could not be discarded. Try again."
+      },
+      "announce": {
+        "new": "A feature request is ready to review.",
+        "saved": "Feature request saved.",
+        "joined": "Feature request joined an existing one."
+      }
+    }
   }
 }
