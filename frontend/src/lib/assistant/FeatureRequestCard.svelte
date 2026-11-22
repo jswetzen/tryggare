@@ -62,6 +62,11 @@
   function problemFor(field: FeatureField): FieldProblem | undefined {
     return problems.find((p) => p.field === field);
   }
+  // The error joins the hint, so focusing an invalid field reads why.
+  const describedBy = (field: FeatureField): string =>
+    problemFor(field)
+      ? `${fieldIdOf(prefix, field)}-hint ${fieldIdOf(prefix, field)}-error`
+      : `${fieldIdOf(prefix, field)}-hint`;
   function problemText(p: FieldProblem): string {
     return p.code === 'required'
       ? $t('assistant.featureRequest.error.required')
@@ -202,12 +207,12 @@
             type="text"
             bind:value={form.title}
             aria-invalid={problemFor('title') ? 'true' : undefined}
-            aria-describedby="{fieldIdOf(prefix, 'title')}-hint"
+            aria-describedby={describedBy('title')}
           />
           <p class="hint" id="{fieldIdOf(prefix, 'title')}-hint">
             {$t('assistant.featureRequest.count', { values: { count: Array.from(form.title.trim()).length, max: FEATURE_LIMITS.title } })}
           </p>
-          {#if problemFor('title')}<p class="field-error">{problemText(problemFor('title')!)}</p>{/if}
+          {#if problemFor('title')}<p class="field-error" id="{fieldIdOf(prefix, 'title')}-error">{problemText(problemFor('title')!)}</p>{/if}
         </div>
 
         <div class="field">
@@ -217,12 +222,12 @@
             rows="3"
             bind:value={form.problem}
             aria-invalid={problemFor('problem') ? 'true' : undefined}
-            aria-describedby="{fieldIdOf(prefix, 'problem')}-hint"
+            aria-describedby={describedBy('problem')}
           ></textarea>
           <p class="hint" id="{fieldIdOf(prefix, 'problem')}-hint">
             {$t('assistant.featureRequest.count', { values: { count: Array.from(form.problem.trim()).length, max: FEATURE_LIMITS.problem } })}
           </p>
-          {#if problemFor('problem')}<p class="field-error">{problemText(problemFor('problem')!)}</p>{/if}
+          {#if problemFor('problem')}<p class="field-error" id="{fieldIdOf(prefix, 'problem')}-error">{problemText(problemFor('problem')!)}</p>{/if}
         </div>
 
         <div class="field">
@@ -232,12 +237,12 @@
             rows="3"
             bind:value={form.desired}
             aria-invalid={problemFor('desired') ? 'true' : undefined}
-            aria-describedby="{fieldIdOf(prefix, 'desired')}-hint"
+            aria-describedby={describedBy('desired')}
           ></textarea>
           <p class="hint" id="{fieldIdOf(prefix, 'desired')}-hint">
             {$t('assistant.featureRequest.count', { values: { count: Array.from(form.desired.trim()).length, max: FEATURE_LIMITS.desired } })}
           </p>
-          {#if problemFor('desired')}<p class="field-error">{problemText(problemFor('desired')!)}</p>{/if}
+          {#if problemFor('desired')}<p class="field-error" id="{fieldIdOf(prefix, 'desired')}-error">{problemText(problemFor('desired')!)}</p>{/if}
         </div>
 
         {#each form.tried as _item, i (i)}
@@ -250,12 +255,12 @@
               rows="2"
               bind:value={form.tried[i]}
               aria-invalid={problemFor(`tried.${i}`) ? 'true' : undefined}
-              aria-describedby="{fieldIdOf(prefix, `tried.${i}`)}-hint"
+              aria-describedby={describedBy(`tried.${i}`)}
             ></textarea>
             <p class="hint" id="{fieldIdOf(prefix, `tried.${i}`)}-hint">
               {$t('assistant.featureRequest.count', { values: { count: Array.from(form.tried[i].trim()).length, max: FEATURE_LIMITS.tried } })}
             </p>
-            {#if problemFor(`tried.${i}`)}<p class="field-error">{problemText(problemFor(`tried.${i}`)!)}</p>{/if}
+            {#if problemFor(`tried.${i}`)}<p class="field-error" id="{fieldIdOf(prefix, `tried.${i}`)}-error">{problemText(problemFor(`tried.${i}`)!)}</p>{/if}
           </div>
         {/each}
 
@@ -267,12 +272,12 @@
               rows="2"
               bind:value={form.used}
               aria-invalid={problemFor('used') ? 'true' : undefined}
-              aria-describedby="{fieldIdOf(prefix, 'used')}-hint"
+              aria-describedby={describedBy('used')}
             ></textarea>
             <p class="hint" id="{fieldIdOf(prefix, 'used')}-hint">
               {$t('assistant.featureRequest.count', { values: { count: Array.from(form.used.trim()).length, max: FEATURE_LIMITS.used } })}
             </p>
-            {#if problemFor('used')}<p class="field-error">{problemText(problemFor('used')!)}</p>{/if}
+            {#if problemFor('used')}<p class="field-error" id="{fieldIdOf(prefix, 'used')}-error">{problemText(problemFor('used')!)}</p>{/if}
             <label for={fieldIdOf(prefix, 'cost')}>{$t('assistant.featureRequest.field.cost')}</label>
             <select id={fieldIdOf(prefix, 'cost')} bind:value={form.cost}>
               {#each COSTS as cost (cost)}

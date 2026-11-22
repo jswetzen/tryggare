@@ -203,6 +203,17 @@ describe('edit', () => {
     expect(api.confirmFeatureRequest).not.toHaveBeenCalled();
   });
 
+  it('the refused field is focused and described by its error, not only its counter', async () => {
+    const user = userEvent.setup();
+    mount();
+    await user.click(screen.getByTestId('feature-request-edit'));
+    await user.clear(screen.getByLabelText('Title'));
+    await user.click(screen.getByTestId('feature-request-confirm'));
+    const title = screen.getByLabelText('Title');
+    await waitFor(() => expect(title).toHaveFocus());
+    expect(title).toHaveAccessibleDescription(expect.stringContaining(F.error.required));
+  });
+
   it('a problem over 600 characters is refused with the limit, and nothing is sent', async () => {
     const user = userEvent.setup();
     mount();
