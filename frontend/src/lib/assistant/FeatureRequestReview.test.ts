@@ -1,6 +1,7 @@
 /** The card list: its one live region announces new and settled cards, not the ones already there. */
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/svelte';
+import userEvent from '@testing-library/user-event';
 import en from '$lib/i18n/locales/en.json';
 import FeatureRequestReview from './FeatureRequestReview.svelte';
 import type { FeatureRequestCard } from './types';
@@ -16,7 +17,8 @@ vi.mock('svelte-i18n', () => {
   return { t: store, _: store, locale: { subscribe: (cb: (v: string) => void) => (cb('en'), () => {}) } };
 });
 
-vi.mock('$lib/api/assistantService', () => ({ assistantApi: {} }));
+const api = vi.hoisted(() => ({ discardFeatureRequest: vi.fn() }));
+vi.mock('$lib/api/assistantService', () => ({ assistantApi: api }));
 
 const card = (id: string, over: Partial<FeatureRequestCard> = {}): FeatureRequestCard => ({
   id,
@@ -90,5 +92,17 @@ describe('FeatureRequestReview', () => {
       onremoved: vi.fn()
     });
     expect(status()).toHaveTextContent('Feature request FR-1 joined an existing one.');
+  });
+
+  it('announces a discard, as it does a confirm', async () => {
+    api.discardFeatureRequest.mockResolvedValue({});
+    const view = render(FeatureRequestReview, {
+      eventId: 'e1',
+      cards: [card('FR-1'), card('FR-2')],
+      ondone: vi.fn(),
+      onremoved: vi.fn()
+    });
+    await userEvent.setup().click(screen.getAllByTestId('feature-request-discard')[1]);
+    await vi.waitFor(() => expect(status()).toHaveTextContent('Feature request FR-2 discarded.'));
   });
 });

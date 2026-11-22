@@ -997,7 +997,8 @@
       "announce": {
         "new": "Feature request {id} is ready to review.",
         "saved": "Feature request {id} saved.",
-        "joined": "Feature request {id} joined an existing one."
+        "joined": "Feature request {id} joined an existing one.",
+        "discarded": "Feature request {id} discarded."
       }
     }
   }

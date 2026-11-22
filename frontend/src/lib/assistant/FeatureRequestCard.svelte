@@ -28,12 +28,16 @@
     eventId,
     card,
     ondone,
-    onremoved
+    onremoved,
+    ondiscarded
   }: {
     eventId: string;
     card: FeatureRequestCard;
-    ondone: (id: string, outcome: 'confirmed' | 'duplicate', duplicateOf: string | null) => void;
+    // The title is the one the server stored: an edited Confirm changes it.
+    ondone: (id: string, outcome: 'confirmed' | 'duplicate', duplicateOf: string | null, title: string) => void;
     onremoved: (id: string) => void;
+    // Only a discard the server accepted: onremoved also runs for a card already gone.
+    ondiscarded?: (id: string) => void;
   } = $props();
 
   let editing = $state(false);
@@ -46,6 +50,8 @@
   let acted = $state(false);
 
   let editBtn = $state<HTMLButtonElement | null>(null);
+  let confirmBtn = $state<HTMLButtonElement | null>(null);
+  let errorEl = $state<HTMLElement | null>(null);
   let doneEl = $state<HTMLDivElement | null>(null);
 
   const settled = $derived(card.outcome ?? null);
@@ -133,11 +139,12 @@
     busy = 'confirm';
     failure = null;
     issues = [];
+    let refused = false;
     try {
       const done = await assistantApi.confirmFeatureRequest(eventId, card.id, edits);
       editing = false;
       acted = true;
-      ondone(card.id, done.status, done.duplicate_of);
+      ondone(card.id, done.status, done.duplicate_of, edits?.title ?? card.title);
     } catch (err) {
       const status = (err as ApiError)?.status;
       const found = issuesOf(err);
@@ -148,9 +155,23 @@
       }
       if (status === 400) issues = found.slice(0, 6);
       failure = 'save';
+      refused = true;
     } finally {
       busy = null;
     }
+    // Disabling Confirm while busy dropped focus to the body; Escape needs focus inside the card.
+    if (refused) void tick().then(focusAfterFailure);
+  }
+
+  // The field the server named if it is on screen, else the error box, else Confirm.
+  function focusAfterFailure() {
+    for (const issue of issues) {
+      const field = fieldOfPath(issue.path);
+      if (!field) continue;
+      const el = document.getElementById(fieldIdOf(prefix, field === 'tried' ? 'tried.0' : field));
+      if (el) return el.focus();
+    }
+    (errorEl ?? confirmBtn)?.focus();
   }
 
   async function discard() {
@@ -159,6 +180,7 @@
     failure = null;
     try {
       await assistantApi.discardFeatureRequest(eventId, card.id);
+      ondiscarded?.(card.id);
       onremoved(card.id);
     } catch (err) {
       if ((err as ApiError)?.status === 404) onremoved(card.id);
@@ -330,7 +352,7 @@
     {/if}
 
     {#if issues.length}
-      <div class="error" role="alert" data-testid="feature-request-invalid">
+      <div class="error" role="alert" tabindex="-1" bind:this={errorEl} data-testid="feature-request-invalid">
         <p>{$t('assistant.featureRequest.error.invalid')}</p>
         <ul>
           {#each issues as issue}
@@ -340,7 +362,7 @@
         </ul>
       </div>
     {:else if failure === 'save'}
-      <p class="error" role="alert" data-testid="feature-request-failed">
+      <p class="error" role="alert" tabindex="-1" bind:this={errorEl} data-testid="feature-request-failed">
         {$t('assistant.featureRequest.error.save')}
       </p>
     {/if}
@@ -351,7 +373,14 @@
     {/if}
 
     <div class="actions">
-      <button type="button" class="confirm" disabled={!!busy} onclick={confirm} data-testid="feature-request-confirm">
+      <button
+        type="button"
+        class="confirm"
+        bind:this={confirmBtn}
+        disabled={!!busy}
+        onclick={confirm}
+        data-testid="feature-request-confirm"
+      >
         {busy === 'confirm' ? $t('assistant.featureRequest.confirming') : $t('assistant.featureRequest.confirm')}
       </button>
       {#if editing}

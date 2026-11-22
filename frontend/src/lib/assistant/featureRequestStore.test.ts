@@ -68,6 +68,18 @@ describe('feature request cards in the reducer', () => {
     ]);
   });
 
+  it('a settled card keeps the title it was confirmed with, not the one it was filed with', () => {
+    let s = apply([filed()]);
+    s = reduce(s, {
+      kind: 'featureRequestSettled',
+      id: 'FR-1',
+      outcome: 'confirmed',
+      duplicate_of: null,
+      title: 'Family ticket'
+    });
+    expect(s.featureRequests[0]).toMatchObject({ outcome: 'confirmed', title: 'Family ticket' });
+  });
+
   it('settles as a join, with the request it joined', () => {
     let s = apply([filed()]);
     s = reduce(s, { kind: 'featureRequestSettled', id: 'FR-1', outcome: 'duplicate', duplicate_of: 'FR-9' });

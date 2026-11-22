@@ -189,8 +189,8 @@
   }
 
   // A card that leaves takes the focus with it: the composer is the next place to go.
-  function featureDone(id: string, outcome: 'confirmed' | 'duplicate', duplicateOf: string | null) {
-    store.featureRequestSettled(id, outcome, duplicateOf);
+  function featureDone(id: string, outcome: 'confirmed' | 'duplicate', duplicateOf: string | null, title: string) {
+    store.featureRequestSettled(id, outcome, duplicateOf, title);
   }
   function featureRemoved(id: string) {
     store.featureRequestRemoved(id);

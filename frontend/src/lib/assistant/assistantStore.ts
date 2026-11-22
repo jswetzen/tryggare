@@ -82,7 +82,7 @@ export type Action =
   | { kind: 'noticeAccepted' }
   | { kind: 'dismissWarning'; replyTo: string }
   | { kind: 'featureRequestsLoaded'; drafts: FeatureRequestDraft[] }
-  | { kind: 'featureRequestSettled'; id: string; outcome: 'confirmed' | 'duplicate'; duplicate_of: string | null }
+  | { kind: 'featureRequestSettled'; id: string; outcome: 'confirmed' | 'duplicate'; duplicate_of: string | null; title?: string }
   | { kind: 'featureRequestRemoved'; id: string }
   | { kind: 'featureReceiptsCleared' };
 
@@ -147,7 +147,10 @@ export function reduce(
       return {
         ...state,
         featureRequests: state.featureRequests.map((c) =>
-          c.id === action.id ? { ...c, outcome: action.outcome, duplicate_of: action.duplicate_of } : c
+          // The confirm response has no title: an edited one is the one the server stored.
+          c.id === action.id
+            ? { ...c, outcome: action.outcome, duplicate_of: action.duplicate_of, title: action.title ?? c.title }
+            : c
         )
       };
     case 'featureRequestRemoved':
@@ -301,7 +304,7 @@ export interface AssistantStore extends Readable<AssistantState> {
   /** Called on every `draft_updated`; returns an unsubscribe. */
   onDraftUpdated(fn: (draftVersion: number) => void): () => void;
   /** An organizer's Confirm or merge succeeded: the card shows its receipt. */
-  featureRequestSettled(id: string, outcome: 'confirmed' | 'duplicate', duplicateOf: string | null): void;
+  featureRequestSettled(id: string, outcome: 'confirmed' | 'duplicate', duplicateOf: string | null, title?: string): void;
   /** Discarded (or gone on the server): the card leaves the chat. */
   featureRequestRemoved(id: string): void;
   /** Clear conversation: receipts go; pending drafts stay (the server keeps them). */
@@ -491,9 +494,9 @@ export function createAssistantStore(opts: AssistantStoreOptions): AssistantStor
       draftListeners.add(fn);
       return () => draftListeners.delete(fn);
     },
-    featureRequestSettled(id, outcome, duplicateOf) {
+    featureRequestSettled(id, outcome, duplicateOf, title) {
       featureSeq += 1;
-      dispatch({ kind: 'featureRequestSettled', id, outcome, duplicate_of: duplicateOf });
+      dispatch({ kind: 'featureRequestSettled', id, outcome, duplicate_of: duplicateOf, title });
     },
     featureRequestRemoved(id) {
       featureSeq += 1;

@@ -97,7 +97,7 @@ describe('confirm and discard', () => {
     const user = userEvent.setup();
     const view = mount();
     await user.click(screen.getByTestId('feature-request-confirm'));
-    await waitFor(() => expect(ondone).toHaveBeenCalledWith('FR-3', 'confirmed', null));
+    await waitFor(() => expect(ondone).toHaveBeenCalledWith('FR-3', 'confirmed', null, 'Family price'));
     expect(api.confirmFeatureRequest).toHaveBeenCalledWith('e1', 'FR-3', undefined);
     await view.rerender({
       eventId: 'e1',
@@ -109,12 +109,51 @@ describe('confirm and discard', () => {
     expect(screen.queryByTestId('feature-request-confirm')).toBeNull();
   });
 
+  it('the receipt names the edited title that was confirmed, not the filed one', async () => {
+    const user = userEvent.setup();
+    const view = mount();
+    await user.click(screen.getByTestId('feature-request-edit'));
+    const title = screen.getByLabelText('Title');
+    await user.clear(title);
+    await user.type(title, 'Family ticket');
+    await user.click(screen.getByTestId('feature-request-confirm'));
+    // The store settles the card with the title it was sent with, so the receipt reads that.
+    await waitFor(() => expect(ondone).toHaveBeenCalledWith('FR-3', 'confirmed', null, 'Family ticket'));
+    await view.rerender({
+      eventId: 'e1',
+      card: card({ outcome: 'confirmed', duplicate_of: null, title: 'Family ticket' }),
+      ondone,
+      onremoved
+    });
+    expect(await screen.findByTestId('feature-request-settled')).toHaveTextContent('Saved as FR-3.');
+    expect(screen.getByTestId('feature-request-settled')).toHaveTextContent('Family ticket');
+    expect(screen.getByTestId('feature-request-settled')).not.toHaveTextContent('Family price');
+  });
+
+  it('Discard tells the review it was discarded, after the server agreed', async () => {
+    const user = userEvent.setup();
+    const ondiscarded = vi.fn();
+    render(FeatureRequestCard, { eventId: 'e1', card: card(), ondone, onremoved, ondiscarded });
+    await user.click(screen.getByTestId('feature-request-discard'));
+    await waitFor(() => expect(ondiscarded).toHaveBeenCalledWith('FR-3'));
+  });
+
+  it('a discard the server refused is not announced as discarded', async () => {
+    const user = userEvent.setup();
+    const ondiscarded = vi.fn();
+    api.discardFeatureRequest.mockRejectedValue(apiError(500));
+    render(FeatureRequestCard, { eventId: 'e1', card: card(), ondone, onremoved, ondiscarded });
+    await user.click(screen.getByTestId('feature-request-discard'));
+    await screen.findByTestId('feature-request-failed');
+    expect(ondiscarded).not.toHaveBeenCalled();
+  });
+
   it('a join shows the joined variant with the request it joined', async () => {
     const user = userEvent.setup();
     api.confirmFeatureRequest.mockResolvedValue({ id: 'FR-3', status: 'duplicate', duplicate_of: 'FR-1' });
     const view = mount();
     await user.click(screen.getByTestId('feature-request-confirm'));
-    await waitFor(() => expect(ondone).toHaveBeenCalledWith('FR-3', 'duplicate', 'FR-1'));
+    await waitFor(() => expect(ondone).toHaveBeenCalledWith('FR-3', 'duplicate', 'FR-1', 'Family price'));
     await view.rerender({
       eventId: 'e1',
       card: card({ outcome: 'duplicate', duplicate_of: 'FR-1' }),
@@ -283,5 +322,40 @@ describe('server errors', () => {
     expect(await screen.findByTestId('feature-request-failed')).toHaveTextContent(F.error.save);
     expect(screen.getByTestId('feature-request-confirm')).toBeEnabled();
     expect(ondone).not.toHaveBeenCalled();
+  });
+
+  it('after a 400 focus moves to the field the server named, and Escape still cancels the edit', async () => {
+    const user = userEvent.setup();
+    api.confirmFeatureRequest.mockRejectedValue(
+      apiError(400, [{ path: 'title', code: 'too_long', message: 'At most 100 characters.' }])
+    );
+    mount();
+    await user.click(screen.getByTestId('feature-request-edit'));
+    await user.click(screen.getByTestId('feature-request-confirm'));
+    await screen.findByTestId('feature-request-invalid');
+    await waitFor(() => expect(screen.getByLabelText('Title')).toHaveFocus());
+    await user.keyboard('{Escape}');
+    expect(screen.queryByLabelText('Title')).toBeNull();
+    expect(screen.getByTestId('feature-request-card')).toHaveAttribute('data-state', 'pending');
+  });
+
+  it('after a 400 naming no field on screen, focus moves to the error box', async () => {
+    const user = userEvent.setup();
+    api.confirmFeatureRequest.mockRejectedValue(apiError(400, [{ path: '', code: 'x', message: 'Nope.' }]));
+    mount();
+    await user.click(screen.getByTestId('feature-request-confirm'));
+    const box = await screen.findByTestId('feature-request-invalid');
+    await waitFor(() => expect(box).toHaveFocus());
+    expect(box).toHaveAttribute('tabindex', '-1');
+  });
+
+  it('after a 500 focus moves to the error box, not to the body', async () => {
+    const user = userEvent.setup();
+    api.confirmFeatureRequest.mockRejectedValue(apiError(500));
+    mount();
+    await user.click(screen.getByTestId('feature-request-confirm'));
+    const failed = await screen.findByTestId('feature-request-failed');
+    await waitFor(() => expect(failed).toHaveFocus());
+    expect(document.activeElement).not.toBe(document.body);
   });
 });

@@ -997,7 +997,8 @@
       "announce": {
         "new": "Önskemål {id} väntar på granskning.",
         "saved": "Önskemål {id} är sparat.",
-        "joined": "Önskemål {id} lades till i ett befintligt."
+        "joined": "Önskemål {id} lades till i ett befintligt.",
+        "discarded": "Önskemål {id} slängt."
       }
     }
   }
