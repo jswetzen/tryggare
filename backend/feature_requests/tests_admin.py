@@ -1,10 +1,14 @@
+import json
 from urllib.parse import parse_qs, urlsplit
 
+from django.contrib.admin.sites import site as admin_site
 from django.contrib.auth.models import Permission
-from django.test import TestCase, override_settings
+from django.test import RequestFactory, TestCase, override_settings
 from django.urls import reverse
 
 from accounts.models import AdminUser
+from accounts.roles import ADMINISTRATOR, COORDINATOR, VOLUNTEER
+from accounts.tests_roles import make_user
 from events import event_spec
 from events.spec_test_support import at_now
 
@@ -210,7 +214,9 @@ class DraftHiddenTests(AdminCase):
     def test_draft_is_not_offered_as_a_merge_target(self):
         draft = make(title="Draft only", status="draft")
         target = make(title="Open one", status="confirmed")
-        choices = FeatureRequestAdminForm(instance=target).fields["duplicate_of"].queryset
+        choices = (
+            FeatureRequestAdminForm(instance=target).fields["duplicate_of"].queryset
+        )
         self.assertNotIn(draft.pk, [row.pk for row in choices])
 
 
@@ -333,3 +339,132 @@ class AdminFormTests(AdminCase):
         self.assertEqual(
             FeatureRequestComment.objects.filter(request=target).count(), 1
         )
+
+
+@PLAIN_STATICFILES
+class TriageRoleTests(TestCase):
+    """Triage through the roles, not a superuser.
+
+    Administratör is tested on the real client: its is_staff follows the group.
+    Koordinator is tested on the ModelAdmin's permission checks, because /admin/
+    needs is_staff and that stays Administratör's alone (roles.py, D4).
+    """
+
+    def setUp(self):
+        self.confirmed = make(title="Family price", status="confirmed")
+        self.draft = make(title="Draft only", key="cap:draft_only", status="draft")
+        self.administrator = make_user("triage-administrator", ADMINISTRATOR)
+        self.coordinator = make_user("triage-coordinator", COORDINATOR)
+        self.volunteer = make_user("triage-volunteer", VOLUNTEER)
+        self.nobody = make_user("triage-nobody")
+        self.changelist = reverse("admin:feature_requests_featurerequest_changelist")
+        self.model_admin = admin_site._registry[FeatureRequest]
+
+    def request_for(self, user):
+        request = RequestFactory().get("/admin/")
+        request.user = user
+        return request
+
+    def form_data(self, row, **changes):
+        base = {
+            "title": row.title,
+            "status": row.status,
+            "severity": row.severity,
+            "problem": row.problem,
+            "desired": row.desired,
+            "tried": json.dumps(row.tried),
+            "workaround": json.dumps(row.workaround),
+            "touches": json.dumps(row.touches),
+            "brief_fragment": "",
+            "dedupe_key": row.dedupe_key,
+            "duplicate_of": "",
+            "layers": json.dumps(row.layers),
+            # The read-only comment inline still posts a management form.
+            "comments-TOTAL_FORMS": "0",
+            "comments-INITIAL_FORMS": "0",
+        }
+        base.update(changes)
+        return base
+
+    def test_administrator_opens_the_changelist_without_the_draft(self):
+        self.client.force_login(self.administrator)
+        page = self.client.get(self.changelist)
+        self.assertEqual(page.status_code, 200)
+        self.assertContains(page, "Family price")
+        self.assertNotContains(page, "Draft only")
+
+    def test_administrator_changes_status_on_the_change_page(self):
+        self.client.force_login(self.administrator)
+        url = reverse(
+            "admin:feature_requests_featurerequest_change", args=[self.confirmed.pk]
+        )
+        response = self.client.post(
+            url, self.form_data(self.confirmed, status="triaged")
+        )
+        self.assertEqual(response.status_code, 302)
+        self.confirmed.refresh_from_db()
+        self.assertEqual(self.confirmed.status, "triaged")
+
+    def test_administrator_bulk_status_action_leaves_the_draft_alone(self):
+        self.client.force_login(self.administrator)
+        self.client.post(
+            self.changelist,
+            {
+                "action": "mark_done",
+                "_selected_action": [self.confirmed.pk, self.draft.pk],
+            },
+        )
+        self.confirmed.refresh_from_db()
+        self.draft.refresh_from_db()
+        self.assertEqual(self.confirmed.status, "done")
+        self.assertEqual(self.draft.status, "draft")
+
+    def test_administrator_exports_a_confirmed_request(self):
+        self.client.force_login(self.administrator)
+        response = self.client.post(
+            self.changelist,
+            {
+                "action": "copy_as_github_issue",
+                "_selected_action": [self.confirmed.pk],
+            },
+        )
+        self.assertEqual(response.status_code, 302)
+        page = self.client.get(response["Location"])
+        self.assertContains(page, "[Feature] Family price")
+
+    def test_administrator_cannot_reach_a_draft(self):
+        self.client.force_login(self.administrator)
+        change_url = reverse(
+            "admin:feature_requests_featurerequest_change", args=[self.draft.pk]
+        )
+        self.assertEqual(self.client.get(change_url).status_code, 302)
+        response = self.client.get(
+            reverse(
+                "admin:feature_requests_featurerequest_github_issue",
+                args=[self.draft.pk],
+            )
+        )
+        self.assertEqual(response.status_code, 404)
+
+    def test_coordinator_triage_permissions_without_add_or_delete(self):
+        # Checked on the ModelAdmin: a Koordinator has no is_staff, so /admin/
+        # itself refuses them (VolunteerAndCoordinatorHaveNoAdminTests).
+        request = self.request_for(self.coordinator)
+        self.assertTrue(self.model_admin.has_view_permission(request))
+        self.assertTrue(self.model_admin.has_change_permission(request))
+        self.assertFalse(self.model_admin.has_add_permission(request))
+        self.assertFalse(self.model_admin.has_delete_permission(request))
+
+    def test_coordinator_queryset_excludes_the_draft(self):
+        request = self.request_for(self.coordinator)
+        self.assertEqual(list(self.model_admin.get_queryset(request)), [self.confirmed])
+
+    def test_volunteer_has_no_triage_permission(self):
+        self.assertFalse(
+            self.model_admin.has_view_permission(self.request_for(self.volunteer))
+        )
+
+    def test_user_without_a_role_cannot_see_the_admin_section(self):
+        self.client.force_login(self.nobody)
+        self.assertEqual(self.client.get("/admin/").status_code, 302)
+        self.assertEqual(self.client.get(self.changelist).status_code, 302)

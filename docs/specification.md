@@ -265,7 +265,7 @@ A web application for managing children at conferences with check-in, check-out,
 - **No password reset flow** (admin must be reset manually by another admin)
 - Session timeout after 8 hours of inactivity
 - **Staff attribution**: All check-ins/check-outs logged with admin user ID
-- **Roles**: a Volontär (volunteer) does the door work (check in, check out, undo, print labels, grant a ticket at the door, take payment from the family at the desk) and can only view the rest of the operational data; a Koordinator (coordinator) holds all of that and also administers events, sessions and tickets, with reports and the audit log read-only
+- **Roles**: a Volontär (volunteer) does the door work (check in, check out, undo, print labels, grant a ticket at the door, take payment from the family at the desk) and can only view the rest of the operational data; a Koordinator (coordinator) holds all of that and also administers events, sessions and tickets, with reports and the audit log read-only, and triages feature requests in Django admin (view and change, no add or delete; Django admin itself needs `is_staff`, see `docs/roadmap/feature_requests.md`)
 
 ### QR Code Security Model
 - **Token generation**: UUID v4 generated on child's first check-in

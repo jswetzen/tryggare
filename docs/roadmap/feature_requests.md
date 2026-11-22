@@ -135,7 +135,7 @@ The organizer sees a card in the conversation: the personal-data notice, the exa
 
 ## Decisions
 
-1. **Who may file.** Any signed-in user with `events.change_event` on the event (the assistant also needs its own gate). Administrators see and triage all requests in the Django admin. That needs the model permissions, which superusers have and the `Administratör` role does not yet (open question 2). Each filer sees only their own drafts through the API.
+1. **Who may file.** Any signed-in user with `events.change_event` on the event (the assistant also needs its own gate). Koordinator and Administratör may triage all requests in the Django admin (view and change, no add or delete; decided 2026-11-22, granted by `accounts/0006_grant_feature_request_triage`). Reaching `/admin/` still needs `is_staff`, which only Administratör carries (open question 2). Each filer sees only their own drafts through the API.
 2. **Language.** The text is stored as written and the operator translates on export. No automatic translation.
 3. **Dismissed validator warnings** are not stored. Out of scope for now.
 4. **`new:` curation** is the maintainer's. No automatic promotion into `CAPABILITIES`.
@@ -155,4 +155,4 @@ The organizer sees a card in the conversation: the personal-data notice, the exa
 ## Open questions
 
 1. Rate limits per user and per day, and whether `draft` requests that are never confirmed expire.
-2. The `Administratör` role does not yet carry `feature_requests` permissions. Admin triage needs `view` and `change` on the model in `accounts/roles.py`; not done, because it changes the seeded role sets.
+2. **A Koordinator cannot open `/admin/` yet.** The permissions are granted (`accounts/roles.py`, migration 0006), but Django admin access is `is_staff`, which is tied to Administratör membership (D4, and `accounts/signals.py`). `accounts/tests_roles.py` asserts a Koordinator is refused `/admin/`. Options for Johan: give Koordinator `is_staff` (reverses that test and the "is_staff means Administratör" rule), or leave triage to Administratör and treat the Koordinator grant as inert.
