@@ -26,6 +26,9 @@ from events.spec_views import (
 from checkins.views import AuditLogViewSet, CheckInRecordViewSet, PrintQueueViewSet
 from reports.views import EventReportViewSet
 from assistant.views import (
+    FeatureRequestConfirmView,
+    FeatureRequestDiscardView,
+    FeatureRequestListView,
     ConversationView,
     DraftView,
     NoticeView,
@@ -126,6 +129,21 @@ urlpatterns = [
         "api/assistant/events/<uuid:event_id>/preview/",
         PreviewView.as_view(),
         name="assistant-preview",
+    ),
+    path(
+        "api/assistant/events/<uuid:event_id>/feature-requests/",
+        FeatureRequestListView.as_view(),
+        name="assistant-feature-requests",
+    ),
+    path(
+        "api/assistant/events/<uuid:event_id>/feature-requests/<str:request_id>/confirm/",
+        FeatureRequestConfirmView.as_view(),
+        name="assistant-feature-request-confirm",
+    ),
+    path(
+        "api/assistant/events/<uuid:event_id>/feature-requests/<str:request_id>/discard/",
+        FeatureRequestDiscardView.as_view(),
+        name="assistant-feature-request-discard",
     ),
     path("api/", include(router.urls)),
     # Session-based authentication endpoints

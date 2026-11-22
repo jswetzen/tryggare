@@ -39,6 +39,8 @@ from pydantic_ai.messages import (
 
 from .agent import RUN_DEADLINE_SECONDS, build_agent, build_model, run_assistant
 from events.models import Event
+from feature_requests import services as feature_requests
+from feature_requests.models import FeatureRequest
 
 from .models import AssistantConversation, AssistantRun, LLMProvider
 from .permissions import can_use_assistant, fresh_user
@@ -271,6 +273,30 @@ def _permission_guard(event_pk, user, conv=None):
     return check
 
 
+def feature_request_payload(public_id, event_pk, user_pk) -> dict | None:
+    """The stored draft's protocol fields, or None if it is not this run's draft."""
+    digits = public_id[3:] if isinstance(public_id, str) else ""
+    if not digits.isdigit():
+        return None
+    row = FeatureRequest.objects.filter(
+        pk=int(digits), event_id=event_pk, filed_by_id=user_pk, status="draft"
+    ).first()
+    if row is None:
+        return None
+    view = feature_requests.serialize(row)
+    return {
+        key: view[key]
+        for key in (
+            "id",
+            "title",
+            "problem",
+            "desired",
+            "workaround",
+            "matches_existing",
+        )
+    }
+
+
 def _draft_version(conv_pk) -> int:
     return (
         AssistantConversation.objects.filter(pk=conv_pk)
@@ -280,9 +306,11 @@ def _draft_version(conv_pk) -> int:
     )
 
 
-def _stream_forwarder(conv_pk, emit, last_version: int):
+def _stream_forwarder(conv_pk, emit, last_version: int, owner=None):
     """Event-stream handler turning agent events into protocol payloads. Tool
-    arguments and results (they hold the spec) and thinking parts are never forwarded."""
+    arguments and results (they hold the spec) and thinking parts are never forwarded.
+    ``owner`` is ``(event_pk, user_pk)``; a filed feature request is re-read from the
+    database under it, so only the stored fields go over the wire."""
     state = {"version": last_version}
     # The model picks tool names and call ids; only ours go over the wire.
     call_ids: dict[str, str] = {}
@@ -324,6 +352,17 @@ def _stream_forwarder(conv_pk, emit, last_version: int):
                     if version != state["version"]:
                         state["version"] = version
                         await emit({"type": "draft_updated", "draft_version": version})
+                if ok and ev.part.tool_name == "file_feature_request" and owner:
+                    filed = (
+                        ev.part.content.get("id")
+                        if isinstance(ev.part.content, dict)
+                        else None
+                    )
+                    payload = await sync_to_async(feature_request_payload)(
+                        filed, *owner
+                    )
+                    if payload:
+                        await emit({"type": "feature_request_draft", **payload})
 
     return handler
 
@@ -377,7 +416,9 @@ async def run_conversation(
             provider, toolset, model=model or build_model(provider, saved=provider)
         )
         handler = (
-            _stream_forwarder(conv.pk, on_event, conv.draft_version)
+            _stream_forwarder(
+                conv.pk, on_event, conv.draft_version, owner=(event.pk, user.pk)
+            )
             if on_event
             else None
         )

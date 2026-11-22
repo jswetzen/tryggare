@@ -45,6 +45,7 @@ class McpWrapperTests(ToolsTestCase):
                 "validate_spec",
                 "diff_spec",
                 "propose_spec",
+                "file_feature_request",
             },
         )
 

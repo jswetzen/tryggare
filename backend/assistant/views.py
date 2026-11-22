@@ -25,12 +25,17 @@ from .models import AssistantConversation, LLMProvider
 from .permissions import (
     EVENT_NOT_ELIGIBLE,
     NOT_AUTHENTICATED,
+    PERMISSION_DENIED,
     can_use_assistant,
     fresh_user,
     lacks_permission,
 )
 from .providers import ProviderError
 from .services import fetch_models
+from feature_requests import services as feature_requests
+from feature_requests.models import FeatureRequest
+from feature_requests.rules import FeatureRequestError
+
 from .tools import Drafts
 
 logger = logging.getLogger(__name__)
@@ -427,3 +432,119 @@ class PreviewView(AssistantAPIView):
             "diff": [],
             "warnings": [],
         }
+
+
+# --- feature requests (review API for stage B; docs/roadmap/feature_requests.md)
+# Its own gate: a draft must stay reviewable when the provider is switched off or the
+# event has since acquired registrations, which the chat gate would refuse.
+
+
+def feature_gate(request, event_id):
+    """``(user, event, None)`` or ``(None, None, refusal)``: signed in, staff with
+    event-change rights (``feature_requests.services.can_file``), and the event exists."""
+    user = fresh_user(request.user) if request.user.is_authenticated else None
+    if user is None:
+        return (
+            None,
+            None,
+            _refusal(401, NOT_AUTHENTICATED, _("Sign in to file a feature request.")),
+        )
+    if not feature_requests.can_file(user):
+        return (
+            None,
+            None,
+            _refusal(
+                403,
+                PERMISSION_DENIED,
+                _("You are not allowed to file feature requests."),
+            ),
+        )
+    event = Event.objects.filter(pk=event_id).first()
+    if event is None:
+        return None, None, _refusal(404, "event_not_found", _("No such event."))
+    return user, event, None
+
+
+class FeatureRequestAPIView(AssistantAPIView):
+    def initial(self, request, *args, **kwargs):
+        APIView.initial(self, request, *args, **kwargs)  # not the chat gate
+        self.user, self.event, self.refusal = feature_gate(request, kwargs["event_id"])
+
+    def own_draft(self, request_id):
+        """This user's draft on this event, or None (another organizer's id reads as absent)."""
+        digits = request_id[3:] if request_id.startswith("FR-") else ""
+        if not digits.isdigit():
+            return None
+        return FeatureRequest.objects.filter(
+            pk=int(digits), event=self.event, filed_by=self.user, status="draft"
+        ).first()
+
+    def feature_errors(self, exc):
+        return Response({"errors": exc.errors, "warnings": []}, status=400)
+
+
+class FeatureRequestListView(FeatureRequestAPIView):
+    """GET: this user's drafts on the event. POST: file one yourself (source organizer)."""
+
+    http_method_names = ["get", "head", "options", "post"]
+
+    def get(self, request, event_id):
+        if self.refusal:
+            return self.refusal
+        rows = feature_requests.drafts_for(self.event, self.user)
+        return Response({"drafts": [feature_requests.serialize(r) for r in rows]})
+
+    def post(self, request, event_id):
+        if self.refusal:
+            return self.refusal
+        if not isinstance(request.data, dict):
+            return _refusal(400, "invalid", _("Must be a JSON object."))
+        try:
+            row, _match = feature_requests.file_draft(
+                self.event, self.user, request.data, source="organizer"
+            )
+        except FeatureRequestError as exc:
+            return self.feature_errors(exc)
+        return Response(feature_requests.serialize(row), status=201)
+
+
+class FeatureRequestConfirmView(FeatureRequestAPIView):
+    """POST, optionally with edited fields: the whole input is checked again. Joins an
+    open request with the same key when there is one (seen goes up)."""
+
+    http_method_names = ["post", "options"]
+
+    def post(self, request, event_id, request_id):
+        if self.refusal:
+            return self.refusal
+        row = self.own_draft(request_id)
+        if row is None:
+            return _no_draft()
+        if request.data and not isinstance(request.data, dict):
+            return _refusal(400, "invalid", _("Must be a JSON object."))
+        try:
+            row = feature_requests.confirm(row, self.user, request.data or None)
+        except FeatureRequestError as exc:
+            return self.feature_errors(exc)
+        return Response(
+            {
+                "id": row.public_id,
+                "status": row.status,
+                "duplicate_of": row.duplicate_of.public_id
+                if row.duplicate_of_id
+                else None,
+            }
+        )
+
+
+class FeatureRequestDiscardView(FeatureRequestAPIView):
+    http_method_names = ["post", "options"]
+
+    def post(self, request, event_id, request_id):
+        if self.refusal:
+            return self.refusal
+        row = self.own_draft(request_id)
+        if row is None:
+            return _no_draft()
+        feature_requests.discard(row)
+        return Response(status=204)

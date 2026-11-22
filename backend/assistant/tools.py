@@ -21,6 +21,8 @@ from pydantic_ai.toolsets import FunctionToolset
 from events import event_spec
 from events.event_spec._diff import normalize
 from events.models import Event
+from feature_requests import services as feature_requests
+from feature_requests.rules import FeatureRequestError
 
 from .permissions import can_use_assistant
 from .pii import _pii_kind, find_personal_data, strings_in  # noqa: F401
@@ -123,6 +125,7 @@ class EventTools:
         if not ok:
             raise PermissionDenied("; ".join(i["message"] for i in issues))
         self.event = event
+        self.user = user
         self.drafts = Drafts(event, on_propose)
 
     def _current(self) -> Event:
@@ -210,6 +213,51 @@ class EventTools:
             self.drafts.on_propose(token, self.drafts.items[token])
         return {"draft": token, "applied": False, **draft}
 
+    def file_feature_request(
+        self,
+        title: str,
+        problem: str,
+        desired: str,
+        touches: list[str],
+        severity: str,
+        brief_fragment: str | None = None,
+        tried: list[str] | None = None,
+        workaround: dict | None = None,
+    ) -> dict:
+        """File a feature request as a draft for the organizer to confirm. Call it when a
+        capability is `unsupported`, when you chose a workaround, or when a validator
+        warning cannot be fixed; still build the closest valid setup. Describe the shape
+        of the need only: never names, dates, contact details, references, or event and
+        ticket names. `touches`: cap:<id> for a capability, code:<code> for a warning,
+        spec:<path> or field:<Model.field>, or new:<name> for a need no id covers.
+        `workaround`: {"used": what you built, "cost": none|extra_steps|wrong_result|
+        not_possible}, or null. `severity`: blocks|wrong_result|risk|friction|cosmetic."""
+        data = {
+            "title": title,
+            "problem": problem,
+            "desired": desired,
+            "touches": touches,
+            "severity": severity,
+            "brief_fragment": brief_fragment,
+            "tried": tried or [],
+            "workaround": workaround,
+        }
+        try:
+            request, match = feature_requests.file_draft(
+                self.event, self.user, data, source="assistant"
+            )
+        except FeatureRequestError as exc:
+            raise ToolFailure(
+                "The feature request was not stored: "
+                + "; ".join(
+                    f"{e['path'] or '(input)'}: {e['message']} [{e['code']}]"
+                    for e in exc.errors
+                )
+            ) from exc
+        return _plain(
+            {"id": request.public_id, "status": "draft", "matches_existing": match}
+        )
+
 
 # No apply tool, on purpose: a model must never change a live event itself.
 TOOL_NAMES = (
@@ -218,6 +266,7 @@ TOOL_NAMES = (
     "validate_spec",
     "diff_spec",
     "propose_spec",
+    "file_feature_request",
 )
 
 

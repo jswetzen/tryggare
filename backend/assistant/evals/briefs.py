@@ -288,6 +288,37 @@ def multi_step(o: Outcome) -> list[Check]:
     ]
 
 
+def filed_request(o: Outcome, name: str = "filed_request") -> Check:
+    ok = "file_feature_request" in o.tool_calls
+    return Check(
+        name, ok, "" if ok else "no file_feature_request call", "feature_request"
+    )
+
+
+def unsupported_family_price(o: Outcome) -> list[Check]:
+    return [
+        filed_request(o),
+        c.mentions(
+            o,
+            r"not (supported|possible|automatic)|isn't|is not|cannot|can't|unable|no way",
+            "says_not_supported",
+            "capability",
+        ),
+    ]
+
+
+def waitlist_workaround(o: Outcome) -> list[Check]:
+    return [
+        filed_request(o),
+        c.mentions(
+            o,
+            r"wait(ing)?[ -]?list|väntelista|reserv",
+            "explains_the_gap",
+            "capability",
+        ),
+    ]
+
+
 BRIEFS = [
     Brief(
         "en-add-ticket-then-edit",
@@ -416,5 +447,23 @@ BRIEFS = [
             "Lägg till en session 'Avslutning' söndagen 2027-06-20 kl 09:00-11:00, en extra som heter 'Lunch' för 80 kr per person, och sänk vuxenbiljetten till 1100 kr."
         ],
         multi_step,
+    ),
+    Brief(
+        "en-unsupported-family-price",
+        "en",
+        conference,
+        [
+            "A family of two adults and three children should book together for one price of 1500 SEK, not per person. Set up what you can."
+        ],
+        unsupported_family_price,
+    ),
+    Brief(
+        "en-waitlist-workaround",
+        "en",
+        conference,
+        [
+            "When the Saturday workshop is full, people should go on a waiting list. Until that works, add a free 'Waiting list' ticket for the workshop."
+        ],
+        waitlist_workaround,
     ),
 ]

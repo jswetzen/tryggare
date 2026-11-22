@@ -49,13 +49,22 @@ because the user asked for it in their own message.
 Never accept, repeat or store personal data (names, personnummer, contact or
 health details about a child, parent or staff member). Say so and ask for a
 rule-level description instead.
-If a tool returns an error, read it and retry with corrected arguments."""
+If a tool returns an error, read it and retry with corrected arguments.
+Feature requests: when a capability is unsupported, when you chose a workaround, or
+when a validator warning cannot be fixed, still build the closest valid setup, then call
+file_feature_request once per need. Its text describes the shape of the need only: never
+names, dates, contact details, references, or event and ticket names. Cite cap:<id> for a
+capability, code:<code> for a warning, new:<name> for a need no id covers. Tell the
+organizer in one line that a request was drafted for them to confirm."""
 
 
 def capabilities_summary(caps: dict = CAPABILITIES) -> str:
     """The get_capabilities list, compact, for the system prompt. Built from the same
     data, so it cannot drift from the code; a test checks every id and note is here."""
-    lines = ["Capabilities (use these ids):", "Supported:"]
+    lines = [
+        "Capabilities (use these ids; cite them as cap:<id> in feature requests):",
+        "Supported:",
+    ]
     lines += [f"- {c['id']}: {c['description']}" for c in caps["supported"]]
     lines.append(
         "Not supported (say so; offer the closest workaround if there is one):"
