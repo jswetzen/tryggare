@@ -201,6 +201,27 @@ def renamed(o: Outcome) -> list[Check]:
             bool(new) and c.same_number(new[0].get("capacity"), 150),
             "capacity lost" if new else "no row",
         ),
+        # A rename is a removal plus an addition (keys follow names), or an in-place change;
+        # the only other allowed change is the promo code's reference moving to the new row.
+        c.only(
+            o,
+            ("ticket_types", "removed", lambda d: d["key"] == ADULT),
+            (
+                "ticket_types",
+                "added",
+                lambda d: d["new"].get("name") == "Vuxenbiljett",
+            ),
+            (
+                "ticket_types",
+                "changed",
+                lambda d: d["key"] == ADULT and set(d["fields"]) <= {"name", "key"},
+            ),
+            (
+                "promo_codes",
+                "changed",
+                lambda d: set(d["fields"]) == {"applies_to_ticket_types"},
+            ),
+        ),
     ]
 
 

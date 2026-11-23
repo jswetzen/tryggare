@@ -1280,6 +1280,45 @@ class NewBriefTests(SimpleTestCase):
             ),
         )
 
+    def test_rename_is_checked_for_stray_changes(self):
+        brief = self.brief("sv-rename-ticket")
+        removed = {
+            "kind": "ticket_types",
+            "key": B.ADULT,
+            "change": "removed",
+            "old": {"name": "Adult conference pass"},
+        }
+        added = added_row("ticket_types", {"key": "vuxenbiljett", "name": "Vuxenbiljett"})
+        promo_moved = {
+            "kind": "promo_codes",
+            "key": "testfamily",
+            "change": "changed",
+            "fields": {"applies_to_ticket_types": {"old": [B.ADULT], "new": ["vuxenbiljett"]}},
+        }
+        spec = copy.deepcopy(BASE)
+        spec["ticket_types"][0] = {**spec["ticket_types"][0], "key": "vuxenbiljett", "name": "Vuxenbiljett"}
+        spec["promo_codes"][0]["applies_to_ticket_types"] = ["vuxenbiljett"]
+        good = brief_outcome(spec=spec, diff=[removed, added, promo_moved])
+        self.assertEqual(gating(brief.check(good)), set())
+        # Changed in place, the same name and fields: also a rename.
+        in_place = {
+            "kind": "ticket_types",
+            "key": B.ADULT,
+            "change": "changed",
+            "fields": {"name": {"old": "Adult conference pass", "new": "Vuxenbiljett"}},
+        }
+        self.assertEqual(gating(brief.check(brief_outcome(spec=spec, diff=[in_place]))), set())
+        child = {
+            "kind": "ticket_types",
+            "key": B.CHILD_0_12,
+            "change": "changed",
+            "fields": {"price": {"old": "300.00", "new": "350.00"}},
+        }
+        self.assertEqual(
+            gating(brief.check(brief_outcome(spec=spec, diff=[removed, added, promo_moved, child]))),
+            {"only_asked_changes"},
+        )
+
     def test_birth_bounds_follow_the_schema_rule(self):
         # The rows of the conference fixture (start 18 June 2027) are the reference.
         start = date(2027, 6, 18)
