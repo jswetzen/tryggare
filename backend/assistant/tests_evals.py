@@ -3,6 +3,7 @@
 import copy
 import json
 import re
+from datetime import date
 
 from django.test import SimpleTestCase, TestCase
 from pydantic_ai.messages import ModelResponse, TextPart, ToolCallPart, ToolReturnPart
@@ -1278,6 +1279,34 @@ class NewBriefTests(SimpleTestCase):
                 brief.check(brief_outcome("Klart.", spec=spec, diff=[*diff, choice]))
             ),
         )
+
+    def test_birth_bounds_follow_the_schema_rule(self):
+        # The rows of the conference fixture (start 18 June 2027) are the reference.
+        start = date(2027, 6, 18)
+        self.assertEqual(B.birth_bounds(start, 0, 12), ("2014-06-19", None))
+        self.assertEqual(B.birth_bounds(start, 13, 17), ("2009-06-19", "2014-06-18"))
+        self.assertEqual(B.birth_bounds(date(2027, 7, 12), 0, 3), ("2023-07-13", None))
+
+    def test_age_bounds_are_counted_from_the_fixture_start(self):
+        brief = self.brief("en-age-bounds")
+        self.assertEqual(brief.fixture()["event"]["start_date"], "2027-07-12")
+        row = {
+            "key": "toddler-pass",
+            "name": "Toddler pass",
+            "price": 100,
+            "applies_to": "child",
+            "min_birthdate": "2023-07-13",
+            "max_birthdate": None,
+        }
+        spec = B.blank()
+        spec["ticket_types"] = [row]
+        good = brief_outcome(spec=spec, diff=[added_row("ticket_types", row)], base=B.blank())
+        self.assertEqual(gating(brief.check(good)), set())
+        # The 18 June answer, copied from the schema note, must fail on this fixture.
+        copied = {**row, "min_birthdate": "2023-06-19"}
+        spec["ticket_types"] = [copied]
+        bad = brief_outcome(spec=spec, diff=[added_row("ticket_types", copied)], base=B.blank())
+        self.assertEqual(gating(brief.check(bad)), {"toddler_min_birthdate"})
 
     def test_the_set_wires_the_new_briefs(self):
         ids = {b.id for b in B.BRIEFS}

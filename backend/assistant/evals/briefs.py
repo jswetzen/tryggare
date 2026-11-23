@@ -163,14 +163,24 @@ def friday_session(o: Outcome) -> list[Check]:
     ]
 
 
+def birth_bounds(start: date, low: int, high: int) -> tuple[str, str | None]:
+    """Birth-date window for ages low-high on ``start``, from the schema's age rule: min is
+    start minus (high + 1) years plus a day; max is start minus low years, none for 0."""
+    lowest = start.replace(year=start.year - (high + 1)) + timedelta(days=1)
+    youngest = None if low == 0 else start.replace(year=start.year - low)
+    return lowest.isoformat(), youngest.isoformat() if youngest else None
+
+
 def toddler(o: Outcome) -> list[Check]:
     row, found = the_row(c.added(o, "ticket_types", "toddler"), "toddler")
+    start = date.fromisoformat(str(o.base["event"]["start_date"])[:10])
+    want_min, want_max = birth_bounds(start, 0, 3)
     return [
         found,
         price_is("toddler_price", row, 100),
         eq("toddler_for_children", row.get("applies_to"), "child"),
-        eq("toddler_min_birthdate", row.get("min_birthdate"), "2023-06-19"),
-        eq("toddler_max_birthdate", row.get("max_birthdate"), None),
+        eq("toddler_min_birthdate", row.get("min_birthdate"), want_min),
+        eq("toddler_max_birthdate", row.get("max_birthdate"), want_max),
         c.only(o, ("ticket_types", "added")),
     ]
 
@@ -653,7 +663,7 @@ BRIEFS = [
     Brief(
         "en-age-bounds",
         "en",
-        conference,
+        blank,  # starts 12 July, not the 18 June the schema's age note works its example on
         ["Add a ticket type 'Toddler pass' for children aged 0-3 at 100 SEK."],
         toddler,
     ),
