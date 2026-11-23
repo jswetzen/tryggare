@@ -450,3 +450,15 @@ class AssistantGuidanceTests(ToolsTestCase):
 
         self.assertIn("Never invent", SYSTEM_PROMPT)
         self.assertIn("ask one short question", SYSTEM_PROMPT)
+
+    def test_unsupported_asks_build_only_what_closest_says(self):
+        # The prompt and the feature-request tool text must not both say "build" for
+        # every unsupported ask (they used to): build only when `closest` says to.
+        from assistant.agent import SYSTEM_PROMPT
+        from assistant.tools import EventTools
+
+        prompt = " ".join(SYSTEM_PROMPT.split())  # the rules are wrapped lines
+        self.assertNotIn("still build", prompt)
+        self.assertNotIn("still build", " ".join(EventTools.file_feature_request.__doc__.split()))
+        self.assertIn("only when its `closest` says to build it", prompt)
+        self.assertIn("whether or not you built a workaround", prompt)

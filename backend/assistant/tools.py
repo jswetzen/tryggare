@@ -228,8 +228,7 @@ class EventTools:
     ) -> dict:
         """File a feature request as a draft for the organizer to confirm. Call it when a
         capability is `unsupported`, when you chose a workaround, or when a validator
-        warning cannot be fixed; still build the closest valid setup. Describe the shape
-        of the need only: never names, dates, contact details, references, or event and
+        warning cannot be fixed. Describe the shape of the need only: never names, dates, contact details, references, or event and
         ticket names. `touches`: cap:<id> for a capability, code:<code> for a warning,
         spec:<path> or field:<Model.field>, or new:<name> for a need no id covers.
         `workaround`: {"used": what you built, "cost": none|extra_steps|wrong_result|

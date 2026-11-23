@@ -342,7 +342,8 @@ class CapabilitiesPromptTests(TestCase):
         # About 580 tokens today. The full get_capabilities result is about 5k and
         # resent on every request, so a jump here means the prompt grew on purpose.
         self.assertLess(len(capabilities_summary()), 3000)
-        self.assertLess(len(SYSTEM_PROMPT), 4500)
+        # 4600: the unsupported-ask rule is spelled out (4500 before it, about 4540 with it).
+        self.assertLess(len(SYSTEM_PROMPT), 4600)
 
     def test_prompt_has_no_concrete_dates(self):
         # A date in every request can be copied into a spec; the rules say never invent one.
