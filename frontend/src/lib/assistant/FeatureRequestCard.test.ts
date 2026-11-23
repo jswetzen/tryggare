@@ -3,6 +3,7 @@ import { describe, it, expect, vi, beforeEach, type Mock } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/svelte';
 import userEvent from '@testing-library/user-event';
 import en from '$lib/i18n/locales/en.json';
+import sv from '$lib/i18n/locales/sv.json';
 import FeatureRequestCard from './FeatureRequestCard.svelte';
 import type { FeatureRequestCard as Card } from './types';
 
@@ -189,6 +190,15 @@ describe('confirm and discard', () => {
     expect(onremoved).not.toHaveBeenCalled();
   });
 
+  it('after a failed discard focus moves to the error box, not to the body', async () => {
+    const user = userEvent.setup();
+    api.discardFeatureRequest.mockRejectedValue(apiError(500));
+    mount();
+    await user.click(screen.getByTestId('feature-request-discard'));
+    const failed = await screen.findByTestId('feature-request-failed');
+    await waitFor(() => expect(failed).toHaveFocus());
+  });
+
   it('a confirm for a draft that is gone removes the card, without an error', async () => {
     const user = userEvent.setup();
     api.confirmFeatureRequest.mockRejectedValue(apiError(400, [{ path: '', code: 'not_a_draft', message: 'x' }]));
@@ -357,5 +367,17 @@ describe('server errors', () => {
     const failed = await screen.findByTestId('feature-request-failed');
     await waitFor(() => expect(failed).toHaveFocus());
     expect(document.activeElement).not.toBe(document.body);
+  });
+});
+
+// The Swedish copy is not rendered by these tests (they mock en), so pin the wording here.
+describe('Swedish wording', () => {
+  it('a join is a merge, and the workaround is a temporary fix; cost reads as consequence', () => {
+    const S = sv.assistant.featureRequest;
+    expect(S.joins).toBe('Slås ihop med ett befintligt önskemål som setts {count} gånger.');
+    expect(S.joinsOnce).toBe('Slås ihop med ett befintligt önskemål som setts en gång.');
+    expect(S.field.workaround).toBe('Tillfällig lösning');
+    expect(S.field.cost).toBe('Konsekvens');
+    expect(S.builtAs).toBe('Byggd som: {used} (konsekvens: {cost})');
   });
 });

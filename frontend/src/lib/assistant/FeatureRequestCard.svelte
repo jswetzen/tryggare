@@ -188,6 +188,8 @@
     } finally {
       busy = null;
     }
+    // Discard is disabled while busy, so focus would fall to the body; the error box takes it.
+    if (failure === 'discard') void tick().then(() => errorEl?.focus());
   }
 </script>
 
@@ -367,7 +369,7 @@
       </p>
     {/if}
     {#if failure === 'discard'}
-      <p class="error" role="alert" data-testid="feature-request-failed">
+      <p class="error" role="alert" tabindex="-1" bind:this={errorEl} data-testid="feature-request-failed">
         {$t('assistant.featureRequest.error.discard')}
       </p>
     {/if}

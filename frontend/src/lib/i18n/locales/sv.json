@@ -964,19 +964,19 @@
         "desired": "Önskat",
         "tried": "Testat",
         "triedItem": "Testat {n}",
-        "workaround": "Lösning",
+        "workaround": "Tillfällig lösning",
         "used": "Byggd som",
-        "cost": "Kostnad"
+        "cost": "Konsekvens"
       },
-      "builtAs": "Byggd som: {used} (kostnad: {cost})",
+      "builtAs": "Byggd som: {used} (konsekvens: {cost})",
       "cost": {
         "none": "ingen",
         "extra_steps": "extra steg",
         "wrong_result": "fel resultat",
         "not_possible": "inte möjligt"
       },
-      "joins": "Går med i ett befintligt önskemål som setts {count} gånger.",
-      "joinsOnce": "Går med i ett befintligt önskemål som setts en gång.",
+      "joins": "Slås ihop med ett befintligt önskemål som setts {count} gånger.",
+      "joinsOnce": "Slås ihop med ett befintligt önskemål som setts en gång.",
       "saved": "Sparat som {id}.",
       "joined": "Lades till i önskemål {id}.",
       "count": "{count} av {max} tecken",
