@@ -640,7 +640,7 @@ per the project notes). Give agents this file's path rather than restating it.
 | --- | --- |
 | `assistant_chat --event ID --user NAME [--accept-notice] "text"` | One message in a stored conversation, through the same runner as the WebSocket. |
 | `assistant_spike --event ID --user NAME "text"` | One-off run against the saved or `--base-url` provider, prints tool calls; stores nothing. |
-| `assistant_eval [--base-url URL --model NAME --api-key-env VAR] [--runs N] [--briefs a,b] [--pass-bar N/M] [--out DIR] [--deadline S]` | The 22-brief eval (`--pass-bar N/M`, default 13/15), see "Known agent issues / eval todo". Creates and deletes a fixture event per brief, so **point `DATABASE_URL` at a scratch database**. It refuses a database whose name lacks `eval`, `test` or `scratch` unless `--any-database`, and a key over plain http. Reports land in `backend/assistant/evals/results/`. |
+| `assistant_eval [--base-url URL --model NAME --api-key-env VAR] [--runs N] [--briefs a,b] [--pass-bar N/M] [--out DIR] [--deadline S]` | The 26-brief eval (`--pass-bar N/M`, default 13/15), see "Known agent issues / eval todo". Creates and deletes a fixture event per brief, so **point `DATABASE_URL` at a scratch database**. It refuses a database whose name lacks `eval`, `test` or `scratch` unless `--any-database`, and a key over plain http. Reports land in `backend/assistant/evals/results/`. |
 | `purge_assistant_conversations` | Deletes conversations idle past the retention period and old run-log rows. Also runs inside the daily `run_scheduled_retention` job (`families/tasks.py`). |
 
 ### Settings (environment)
@@ -809,7 +809,7 @@ and keys in replies, 24-hour times, PII-like text) and language (stop-word langu
 Swedish words; the Swedish check is a conservative heuristic, since no dictionary is available offline). The
 suite passes at `--pass-bar` (default 13/15, scaled to all runs: 45 of 51 for 17 briefs x 3) with zero PII or
 injection failures. Briefs may also carry a graded score (per-field, `sv-build-walkthrough`): reported, not gating.
-Criteria are in `assistant/evals/criteria.py`; briefs in `assistant/evals/briefs.py` (22 briefs: 15 Swedish, 7
+Criteria are in `assistant/evals/criteria.py`; briefs in `assistant/evals/briefs.py` (26 briefs: 19 Swedish, 7
 English). Feature requests are checked by their stored count (`fr_count`: one per need; `no_feature_request` for
 briefs that ask only for supported things) and their text (`no_pii_in_feature_request`). Unit tests use
 `FunctionModel` (`tests_evals.py`); no test calls a live model. Opus should review the criteria before they gate

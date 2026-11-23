@@ -1409,6 +1409,149 @@ class NewBriefTests(SimpleTestCase):
         )
         self.assertEqual(gating(brief.check(wrong)), {"kids_min_birthdate"})
 
+    def test_promo_scoped_needs_both_child_tickets_the_cap_and_no_other_change(self):
+        brief = self.brief("sv-promo-scoped")
+        row = {
+            "key": "ledare50",
+            "code": "LEDARE50",
+            "discount_type": "percent",
+            "discount_value": 50,
+            "applies_to_ticket_types": [B.CHILD_0_12, B.CHILD_13_17],
+            "max_uses": 20,
+        }
+        spec = copy.deepcopy(BASE)
+        spec["promo_codes"].append(row)
+        diff = [added_row("promo_codes", row)]
+        self.assertEqual(gating(brief.check(brief_outcome(spec=spec, diff=diff))), set())
+        adult_only = {**row, "applies_to_ticket_types": [B.ADULT]}
+        spec["promo_codes"][-1] = adult_only
+        self.assertEqual(
+            gating(brief.check(brief_outcome(spec=spec, diff=[added_row("promo_codes", adult_only)]))),
+            {"both_child_tickets"},
+        )
+        uncapped = {**row, "max_uses": None}
+        spec["promo_codes"][-1] = uncapped
+        self.assertEqual(
+            gating(brief.check(brief_outcome(spec=spec, diff=[added_row("promo_codes", uncapped)]))),
+            {"max_uses_20"},
+        )
+        spec["promo_codes"][-1] = row
+        testfamily = {
+            "kind": "promo_codes",
+            "key": "testfamily",
+            "change": "changed",
+            "fields": {"discount_value": {"old": "10.00", "new": "15.00"}},
+        }
+        self.assertEqual(
+            gating(brief.check(brief_outcome(spec=spec, diff=[*diff, testfamily]))),
+            {"only_asked_changes"},
+        )
+
+    def test_day_pass_is_a_saturday_bundle_at_400_with_the_adult_pass_at_900(self):
+        brief = self.brief("sv-day-pass")
+        base = B.conference_days()
+        bundle = {
+            "key": "lordagspass",
+            "name": "Lördagspass",
+            "price": 400,
+            "applies_to": "either",
+            "kind": "session_bundle",
+            "sessions": ["lordag"],
+        }
+        spec = copy.deepcopy(base)
+        spec["ticket_types"][0]["price"] = 900
+        spec["ticket_types"].append(bundle)
+        repriced = {
+            "kind": "ticket_types",
+            "key": B.ADULT,
+            "change": "changed",
+            "fields": {"price": {"old": "1200.00", "new": "900.00"}},
+        }
+        diff = [repriced, added_row("ticket_types", bundle)]
+        self.assertEqual(
+            gating(brief.check(brief_outcome(spec=spec, diff=diff, base=base))), set()
+        )
+        sunday = {**bundle, "sessions": ["sondag"]}
+        spec["ticket_types"][-1] = sunday
+        self.assertEqual(
+            gating(
+                brief.check(
+                    brief_outcome(
+                        spec=spec,
+                        diff=[repriced, added_row("ticket_types", sunday)],
+                        base=base,
+                    )
+                )
+            ),
+            {"day_pass_sessions"},
+        )
+        spec["ticket_types"][-1] = bundle
+        self.assertEqual(
+            gating(
+                brief.check(
+                    brief_outcome(
+                        spec=spec, diff=[added_row("ticket_types", bundle)], base=base
+                    )
+                )
+            ),
+            {f"{B.ADULT}_price"},
+        )
+
+    def test_only_together_with_is_the_adult_pass_capped_at_two(self):
+        brief = self.brief("sv-only-together-with")
+        row = {
+            "key": "syskonpass-0-12",
+            "name": "Syskonpass 0-12",
+            "price": 200,
+            "applies_to": "child",
+            "requires_ticket_type": B.ADULT,
+            "max_per_required": 2,
+            "min_birthdate": "2014-06-19",
+            "max_birthdate": None,
+        }
+        spec = copy.deepcopy(BASE)
+        spec["ticket_types"].append(row)
+        diff = [added_row("ticket_types", row)]
+        self.assertEqual(gating(brief.check(brief_outcome(spec=spec, diff=diff))), set())
+        three = {**row, "max_per_required": 3}
+        spec["ticket_types"][-1] = three
+        self.assertEqual(
+            gating(brief.check(brief_outcome(spec=spec, diff=[added_row("ticket_types", three)]))),
+            {"max_two_per_adult"},
+        )
+        loose = {**row, "requires_ticket_type": None}
+        spec["ticket_types"][-1] = loose
+        self.assertIn(
+            "together_added",
+            gating(brief.check(brief_outcome(spec=spec, diff=[added_row("ticket_types", loose)]))),
+        )
+
+    def test_early_bird_cutoff_ends_at_the_end_of_31_march(self):
+        brief = self.brief("sv-early-bird-cutoff")
+        row = {
+            "key": "early-bird-vuxen",
+            "name": "Early bird vuxen",
+            "price": 900,
+            "applies_to": "parent",
+            "available_until": "2027-03-31T23:59:00",
+        }
+        spec = copy.deepcopy(BASE)
+        spec["ticket_types"].append(row)
+        diff = [added_row("ticket_types", row)]
+        self.assertEqual(gating(brief.check(brief_outcome(spec=spec, diff=diff))), set())
+        late = {**row, "available_until": "2027-04-30T23:59:00"}
+        spec["ticket_types"][-1] = late
+        self.assertEqual(
+            gating(brief.check(brief_outcome(spec=spec, diff=[added_row("ticket_types", late)]))),
+            {"until_31_march_end"},
+        )
+        cheap = {**row, "price": 850}
+        spec["ticket_types"][-1] = cheap
+        self.assertEqual(
+            gating(brief.check(brief_outcome(spec=spec, diff=[added_row("ticket_types", cheap)]))),
+            {"early_bird_price"},
+        )
+
     def test_the_set_wires_the_new_briefs(self):
         ids = {b.id for b in B.BRIEFS}
         for new in (
@@ -1420,7 +1563,8 @@ class NewBriefTests(SimpleTestCase):
         ):
             self.assertIn(new, ids)
         self.assertIsNotNone(self.brief("sv-build-walkthrough").grade)
-        self.assertEqual(len(B.BRIEFS), 22)
+        self.assertEqual(len(B.BRIEFS), 26)
+        self.assertEqual(sum(b.lang == "sv" for b in B.BRIEFS), 19)
 
 
 class ToolDefinitionHashTests(SimpleTestCase):

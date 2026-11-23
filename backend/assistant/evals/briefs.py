@@ -43,6 +43,33 @@ def conference_injected() -> dict:
     return spec
 
 
+def conference_days() -> dict:
+    """The conference with a day programme (Friday evening, Saturday afternoon, Sunday
+    morning), so a day pass has sessions to cover. The Saturday key is ``lordag``."""
+    spec = conference()
+    spec["sessions"] += [
+        {
+            "key": "fredagskvall",
+            "name": "Fredagskväll",
+            "start_time": "2027-06-18T17:00:00",
+            "end_time": "2027-06-18T21:00:00",
+        },
+        {
+            "key": "lordag",
+            "name": "Lördag",
+            "start_time": "2027-06-19T13:00:00",
+            "end_time": "2027-06-19T17:00:00",
+        },
+        {
+            "key": "sondag",
+            "name": "Söndag",
+            "start_time": "2027-06-20T10:00:00",
+            "end_time": "2027-06-20T12:00:00",
+        },
+    ]
+    return spec
+
+
 def blank_conference() -> dict:
     """Test Conference 2027's dates and nothing else, for a build from the brief."""
     spec = blank()
@@ -660,6 +687,99 @@ def raise_shirt(o: Outcome) -> list[Check]:
     ]
 
 
+def promo_scoped(o: Outcome) -> list[Check]:
+    row, found = the_row(added_like(o, "promo_codes", r"ledare50"), "promo")
+    return [
+        found,
+        eq("code", str(row.get("code", "")).upper(), "LEDARE50"),
+        eq("discount_type", row.get("discount_type"), "percent"),
+        Check(
+            "discount_50",
+            c.same_number(row.get("discount_value"), 50),
+            f"discount_value {row.get('discount_value')!r}",
+        ),
+        Check(
+            "both_child_tickets",
+            set(row.get("applies_to_ticket_types") or []) == {CHILD_0_12, CHILD_13_17},
+            f"applies to {row.get('applies_to_ticket_types')!r}",
+        ),
+        Check(
+            "max_uses_20",
+            c.same_number(row.get("max_uses"), 20),
+            f"max_uses {row.get('max_uses')!r}",
+        ),
+        c.only(o, ("promo_codes", "added")),
+    ]
+
+
+def day_pass(o: Outcome) -> list[Check]:
+    bundles = [
+        d["new"]
+        for d in c.entries(o, "ticket_types", "added")
+        if d["new"].get("kind") == "session_bundle"
+    ]
+    row, found = the_row(bundles, "day_pass")
+    return [
+        price_change(ADULT, 900)(o),
+        found,
+        eq("day_pass_kind", row.get("kind"), "session_bundle"),
+        eq("day_pass_sessions", row.get("sessions"), ["lordag"]),
+        price_is("day_pass_price", row, 400),
+        c.only(
+            o,
+            ("ticket_types", "changed", only_price(ADULT)),
+            ("ticket_types", "added", lambda d: d["new"].get("kind") == "session_bundle"),
+        ),
+    ]
+
+
+def only_together(o: Outcome) -> list[Check]:
+    """A ticket that must be bought with the adult pass; its birth bounds are ages 0-12."""
+    start = date.fromisoformat(str(o.base["event"]["start_date"])[:10])
+    want_min, want_max = birth_bounds(start, 0, 12)
+    rows = [
+        d["new"]
+        for d in c.entries(o, "ticket_types", "added")
+        if d["new"].get("requires_ticket_type")
+    ]
+    row, found = the_row(rows, "together")
+    return [
+        found,
+        eq("requires_adult", row.get("requires_ticket_type"), ADULT),
+        Check(
+            "max_two_per_adult",
+            c.same_number(row.get("max_per_required"), 2),
+            f"max_per_required {row.get('max_per_required')!r}",
+        ),
+        price_is("together_price", row, 200),
+        eq("together_for_children", row.get("applies_to"), "child"),
+        eq("together_min_birthdate", row.get("min_birthdate"), want_min),
+        eq("together_max_birthdate", row.get("max_birthdate"), want_max),
+        c.only(o, ("ticket_types", "added")),
+    ]
+
+
+def early_bird_cutoff(o: Outcome) -> list[Check]:
+    """A parent ticket on sale until the end of 31 March; the adult pass is left alone."""
+    rows = [
+        d["new"]
+        for d in c.entries(o, "ticket_types", "added")
+        if d["new"].get("applies_to") == "parent"
+    ]
+    row, found = the_row(rows, "early_bird")
+    until = str(row.get("available_until", ""))[:16]
+    return [
+        found,
+        price_is("early_bird_price", row, 900),
+        Check(
+            "until_31_march_end",
+            until == "2027-03-31T23:59",
+            f"available_until {row.get('available_until')!r}",
+        ),
+        c.only(o, ("ticket_types", "added")),
+    ]
+
+
 WALKTHROUGH_BRIEF = (
     "Hej! Jag ska sätta upp en anmälan för en konferens som heter Test Conference 2027. "
     "Den pågår i tre dagar, 25 till 27 juni 2027. Anmälan öppnar 1 mars 2027 kl 09:00 "
@@ -858,5 +978,37 @@ BRIEFS = [
         conference,
         ["Höj T-shirten till 250 kr."],
         raise_shirt,
+    ),
+    Brief(
+        "sv-promo-scoped",
+        "sv",
+        conference,
+        ["Skapa koden LEDARE50: 50 % på barnbiljetterna, max 20 användningar."],
+        promo_scoped,
+    ),
+    Brief(
+        "sv-day-pass",
+        "sv",
+        conference_days,
+        [
+            "Vuxenbiljetten ska kosta 900 kr för hela helgen. Man ska också kunna köpa bara lördagen för 400 kr."
+        ],
+        day_pass,
+    ),
+    Brief(
+        "sv-only-together-with",
+        "sv",
+        conference,
+        [
+            "Ett syskonpass 0-12 år för 200 kr som bara kan köpas tillsammans med vuxenpasset, högst två per vuxenpass."
+        ],
+        only_together,
+    ),
+    Brief(
+        "sv-early-bird-cutoff",
+        "sv",
+        conference,
+        ["Early bird för vuxna 900 kr till och med 31 mars, sen gäller vanliga priset."],
+        early_bird_cutoff,
     ),
 ]
