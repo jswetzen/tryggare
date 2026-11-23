@@ -985,6 +985,55 @@ class NewBriefTests(SimpleTestCase):
         )
         self.assertIn("promo_scoped_to_child_tickets", gating(B.sibling_discount(bad)))
 
+    def test_sibling_discount_build_path_needs_no_question(self):
+        # The glm run of 2026-11-22 built the code and filed the request without asking.
+        promo = {
+            "key": "sibling20",
+            "code": "SIBLING20",
+            "discount_type": "percent",
+            "discount_value": 20,
+            "applies_to_ticket_types": [B.CHILD_0_12, B.CHILD_13_17],
+        }
+        spec = copy.deepcopy(BASE)
+        spec["promo_codes"].append(promo)
+        reply = "Done. I proposed a 20% promo code, SIBLING20, for the child tickets; it is not automatic."
+        o = brief_outcome(
+            reply, spec=spec, diff=[added_row("promo_codes", promo)], fr=[FR_ARGS]
+        )
+        names = {x.name: x.ok for x in B.sibling_discount(o)}
+        self.assertNotIn("asks_a_question", names)
+        self.assertTrue(all(names.values()), names)
+
+    def test_sibling_discount_build_path_wants_one_request_and_both_children(self):
+        promo = {
+            "key": "sibling20",
+            "code": "SIBLING20",
+            "discount_type": "percent",
+            "discount_value": 20,
+            "applies_to_ticket_types": [B.CHILD_0_12, B.CHILD_13_17],
+        }
+        spec = copy.deepcopy(BASE)
+        spec["promo_codes"].append(promo)
+        reply = "Not automatic. Hand out the promo code SIBLING20 to families."
+        diff = [added_row("promo_codes", promo)]
+        no_fr = brief_outcome(reply, spec=spec, diff=diff)
+        self.assertIn("filed_request", gating(B.sibling_discount(no_fr)))
+        two_fr = brief_outcome(reply, spec=spec, diff=diff, fr=[FR_ARGS, FR_ARGS])
+        self.assertIn("filed_request", gating(B.sibling_discount(two_fr)))
+
+    def test_sibling_discount_neither_asking_nor_building_fails(self):
+        # The glm run of 2026-11-23 filed a request and described the workaround, with
+        # no draft and no question. Neither accepted path, so it fails on the question.
+        o = c.Outcome(
+            replies=["Not automatic. The closest workaround is a promo code for families."],
+            drafts=[],
+            tool_calls=["file_feature_request"],
+            base=BASE,
+            fr_args=[FR_ARGS],
+            fr_stored=1,
+        )
+        self.assertEqual(gating(B.sibling_discount(o)), {"asks_a_question"})
+
     def test_waitlist_is_a_free_child_ticket_with_the_named_bounds(self):
         brief = self.brief("en-waitlist-workaround")
         row = {
