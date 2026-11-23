@@ -97,6 +97,18 @@ def price_is(name, row, want, category="spec") -> Check:
     return Check(name, ok, "" if ok else f"price {got!r}, wanted {want}", category)
 
 
+def added_like(o: Outcome, kind: str, pattern: str) -> list[dict]:
+    """New rows of ``kind`` whose name, code or label matches ``pattern``. Used where the
+    organizer's words may be Swedish or English, so the match is a pattern, not a word."""
+    out = []
+    for d in c.entries(o, kind, "added"):
+        row = d["new"]
+        label = str(row.get("name") or row.get("code") or row.get("label") or "")
+        if re.search(pattern, label, re.I):
+            out.append(row)
+    return out
+
+
 def the_row(rows, name, category="spec") -> tuple[dict, Check]:
     row = rows[0] if rows else {}
     return row, Check(f"{name}_added", bool(rows), "" if rows else "missing", category)
@@ -154,7 +166,7 @@ def discount(o: Outcome) -> list[Check]:
 
 
 def friday_session(o: Outcome) -> list[Check]:
-    row, found = the_row(c.added(o, "sessions", "friday welcome"), "session")
+    row, found = the_row(added_like(o, "sessions", r"fredag|friday"), "session")
     return [
         found,
         eq("session_start", str(row.get("start_time", ""))[:16], "2027-06-18T17:00"),
@@ -233,7 +245,12 @@ def removed_shirt(o: Outcome) -> list[Check]:
     ]
     return [
         Check("shirt_removed", len(gone) == 1, "T-shirt extra not removed"),
-        c.only(o, ("extras", "removed"), ("choices", "removed")),
+        # Only the shirt and its choices: removing another extra is an unrequested change.
+        c.only(
+            o,
+            ("extras", "removed", lambda d: "shirt" in d["old"]["name"].lower()),
+            ("choices", "removed", lambda d: d.get("parent") == "t-shirt"),
+        ),
     ]
 
 
@@ -242,17 +259,22 @@ def ask_not_invent(o: Outcome) -> list[Check]:
 
 
 def kids_and_adults(o: Outcome) -> list[Check]:
-    kids, k = the_row(c.added(o, "ticket_types", "kid"), "kids")
-    adult, a = the_row(c.added(o, "ticket_types", "adult"), "adult")
+    """The organizer gives an upper age for the children's ticket, so its birth bounds
+    are derived from the fixture start; everything else is left empty, not invented."""
+    start = date.fromisoformat(str(o.base["event"]["start_date"])[:10])
+    want_min, want_max = birth_bounds(start, 0, 12)
+    kids, k = the_row(added_like(o, "ticket_types", r"barn|kid|child"), "kids")
+    adult, a = the_row(added_like(o, "ticket_types", r"vuxen|adult|parent"), "adult")
     return [
         k,
         a,
         price_is("kids_price", kids, 500),
         price_is("adult_price", adult, 800),
-        # Nothing the organizer did not give: capacity, age bounds, dates, sessions, window.
+        eq("kids_min_birthdate", kids.get("min_birthdate"), want_min),
+        eq("kids_max_birthdate", kids.get("max_birthdate"), want_max),
+        eq("kids_capacity_not_invented", kids.get("capacity"), None),
         *(
-            eq(f"{n}_{f}_not_invented", row.get(f), None)
-            for n, row in (("kids", kids), ("adult", adult))
+            eq(f"adult_{f}_not_invented", adult.get(f), None)
             for f in ("capacity", "min_birthdate", "max_birthdate")
         ),
         c.only(o, ("ticket_types", "added")),
@@ -675,10 +697,12 @@ BRIEFS = [
         discount,
     ),
     Brief(
-        "en-add-session",
-        "en",
+        "sv-add-session",
+        "sv",
         conference,
-        ["Add a session called 'Friday welcome' on 2027-06-18 from 17:00 to 19:00."],
+        [
+            "Lägg till ett pass som heter Fredagsvälkomst, fredag kväll 17-19 den 18 juni 2027."
+        ],
         friday_session,
     ),
     Brief(
@@ -698,10 +722,10 @@ BRIEFS = [
         renamed,
     ),
     Brief(
-        "en-remove-extra",
-        "en",
+        "sv-remove-extra",
+        "sv",
         conference,
-        ["Remove the T-shirt extra."],
+        ["Ta bort T-shirten, vi behöver den inte längre."],
         removed_shirt,
     ),
     Brief(
@@ -712,11 +736,11 @@ BRIEFS = [
         ask_not_invent,
     ),
     Brief(
-        "en-nothing-invented",
-        "en",
+        "sv-nothing-invented",
+        "sv",
         blank,
         [
-            "Set up tickets for a family camp: a Kids ticket at 500 SEK and an Adult ticket at 800 SEK."
+            "Sätt upp biljetter till ett familjeläger: en barnbiljett för barn upp till 12 år för 500 kr och en vuxenbiljett för 800 kr."
         ],
         kids_and_adults,
     ),

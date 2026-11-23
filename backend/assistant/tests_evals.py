@@ -262,8 +262,8 @@ def scripted(edit, reply):
 def add_friday_session(spec):
     spec["sessions"].append(
         {
-            "key": "friday-welcome",
-            "name": "Friday welcome",
+            "key": "fredagsvalkomst",
+            "name": "Fredagsvälkomst",
             "start_time": "2027-06-18T17:00:00",
             "end_time": "2027-06-18T19:00:00",
             "ticket_rule": "children",
@@ -272,7 +272,7 @@ def add_friday_session(spec):
 
 
 class HarnessTests(TestCase):
-    brief = next(b for b in B.BRIEFS if b.id == "en-add-session")
+    brief = next(b for b in B.BRIEFS if b.id == "sv-add-session")
 
     def run_it(self, edit, reply):
         return run_brief(self.brief, scripted(edit, reply))
@@ -283,7 +283,7 @@ class HarnessTests(TestCase):
         before = Event.objects.count()
         res = self.run_it(
             add_friday_session,
-            lambda token: "I added the session Friday welcome, 17:00 to 19:00.",
+            lambda token: "Jag har lagt till passet Fredagsvälkomst, 17:00–19:00.",
         )
         self.assertTrue(res.passed, res.reason)
         self.assertEqual(res.tool_calls, {"get_current_spec": 1, "propose_spec": 1})
@@ -293,7 +293,7 @@ class HarnessTests(TestCase):
     def test_leaking_the_draft_id_is_reported_not_gating(self):
         res = self.run_it(
             add_friday_session,
-            lambda _: "Added Friday welcome 17:00-19:00 as draft 9f8e7d6c5b4a3210.",
+            lambda _: "Jag har lagt till Fredagsvälkomst 17:00-19:00 som utkast 9f8e7d6c5b4a3210.",
         )
         self.assertTrue(res.passed, res.reason)
         self.assertEqual(res.reported, ["no_internal_ids"])
@@ -303,7 +303,7 @@ class HarnessTests(TestCase):
             add_friday_session(spec)
             spec["sessions"][-1]["start_time"] = "2027-06-18T18:00:00"
 
-        res = self.run_it(late, lambda t: "I added the Friday welcome session.")
+        res = self.run_it(late, lambda t: "Jag har lagt till passet Fredagsvälkomst.")
         self.assertIn("session_start", res.reason)
 
     def test_an_unrequested_change_fails(self):
@@ -311,7 +311,7 @@ class HarnessTests(TestCase):
             add_friday_session(spec)
             spec["ticket_types"][0]["price"] = 0
 
-        res = self.run_it(greedy, lambda t: "I added the Friday welcome session.")
+        res = self.run_it(greedy, lambda t: "Jag har lagt till passet Fredagsvälkomst.")
         self.assertIn("only_asked_changes", res.reason)
 
     def test_a_model_that_fails_is_a_failed_run_not_a_crash(self):
@@ -354,7 +354,7 @@ class HarnessTests(TestCase):
             if len(sent) < len(proposals):
                 spec = proposals[len(sent)]
                 return ModelResponse(parts=[ToolCallPart("propose_spec", {"spec": spec})])
-            return ModelResponse(parts=[TextPart("I added the Friday welcome session.")])
+            return ModelResponse(parts=[TextPart("Jag har lagt till passet Fredagsvälkomst.")])
 
         res = run_brief(self.brief, FunctionModel(plan))
         self.assertTrue(res.passed, res.reason)
@@ -385,11 +385,11 @@ class HarnessTests(TestCase):
 
     def test_summary_and_report(self):
         good = self.run_it(
-            add_friday_session, lambda t: "I added the Friday welcome session."
+            add_friday_session, lambda t: "Jag har lagt till passet Fredagsvälkomst."
         )
         bad = self.run_it(
             add_friday_session,
-            lambda _: "I added the Friday welcome session, draft 9f8e7d6c5b4a3210.",
+            lambda _: "Jag har lagt till passet Fredagsvälkomst, utkast 9f8e7d6c5b4a3210.",
         )
         summary = summarize([good, bad], pass_bar=(1, 2))
         self.assertEqual(
@@ -1346,6 +1346,68 @@ class NewBriefTests(SimpleTestCase):
         spec["ticket_types"] = [copied]
         bad = brief_outcome(spec=spec, diff=[added_row("ticket_types", copied)], base=B.blank())
         self.assertEqual(gating(brief.check(bad)), {"toddler_min_birthdate"})
+
+    def test_removing_the_shirt_touches_only_the_extra(self):
+        brief = self.brief("sv-remove-extra")
+        spec = copy.deepcopy(BASE)
+        spec["extras"] = [e for e in spec["extras"] if e["key"] != "t-shirt"]
+        shirt = {
+            "kind": "extras",
+            "key": "t-shirt",
+            "change": "removed",
+            "old": {"name": "T-shirt"},
+        }
+        self.assertEqual(gating(brief.check(brief_outcome(spec=spec, diff=[shirt]))), set())
+        workshop = {
+            "kind": "extras",
+            "key": "saturday-workshop-13-17",
+            "change": "removed",
+            "old": {"name": "Saturday workshop 13-17"},
+        }
+        self.assertEqual(
+            gating(brief.check(brief_outcome(spec=spec, diff=[shirt, workshop]))),
+            {"only_asked_changes"},
+        )
+
+    def test_nothing_invented_derives_only_the_child_bound(self):
+        brief = self.brief("sv-nothing-invented")
+        kids = {
+            "key": "barnbiljett",
+            "name": "Barnbiljett",
+            "price": 500,
+            "applies_to": "child",
+            "min_birthdate": "2014-07-13",
+            "max_birthdate": None,
+            "capacity": None,
+        }
+        adult = {
+            "key": "vuxenbiljett",
+            "name": "Vuxenbiljett",
+            "price": 800,
+            "applies_to": "parent",
+            "min_birthdate": None,
+            "max_birthdate": None,
+            "capacity": None,
+        }
+        spec = B.blank()
+        spec["ticket_types"] = [kids, adult]
+        diff = [added_row("ticket_types", kids), added_row("ticket_types", adult)]
+        good = brief_outcome(spec=spec, diff=diff, base=B.blank())
+        self.assertEqual(gating(brief.check(good)), set())
+        capped = {**adult, "capacity": 40}
+        spec["ticket_types"] = [kids, capped]
+        capped_diff = [added_row("ticket_types", kids), added_row("ticket_types", capped)]
+        bad = brief_outcome(spec=spec, diff=capped_diff, base=B.blank())
+        self.assertEqual(gating(brief.check(bad)), {"adult_capacity_not_invented"})
+        # The 18 June reading of "0-12" is the schema note's example, not this fixture.
+        copied = {**kids, "min_birthdate": "2014-06-19"}
+        spec["ticket_types"] = [copied, adult]
+        wrong = brief_outcome(
+            spec=spec,
+            diff=[added_row("ticket_types", copied), added_row("ticket_types", adult)],
+            base=B.blank(),
+        )
+        self.assertEqual(gating(brief.check(wrong)), {"kids_min_birthdate"})
 
     def test_the_set_wires_the_new_briefs(self):
         ids = {b.id for b in B.BRIEFS}
