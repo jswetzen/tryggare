@@ -728,7 +728,11 @@ def day_pass(o: Outcome) -> list[Check]:
         c.only(
             o,
             ("ticket_types", "changed", only_price(ADULT)),
-            ("ticket_types", "added", lambda d: d["new"].get("kind") == "session_bundle"),
+            (
+                "ticket_types",
+                "added",
+                lambda d: d["new"].get("kind") == "session_bundle",
+            ),
         ),
     ]
 
@@ -1008,7 +1012,9 @@ BRIEFS = [
         "sv-early-bird-cutoff",
         "sv",
         conference,
-        ["Early bird för vuxna 900 kr till och med 31 mars, sen gäller vanliga priset."],
+        [
+            "Early bird för vuxna 900 kr till och med 31 mars, sen gäller vanliga priset."
+        ],
         early_bird_cutoff,
     ),
 ]

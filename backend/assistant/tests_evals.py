@@ -353,8 +353,12 @@ class HarnessTests(TestCase):
             sent = [r for r in returns if r.tool_name == "propose_spec"]
             if len(sent) < len(proposals):
                 spec = proposals[len(sent)]
-                return ModelResponse(parts=[ToolCallPart("propose_spec", {"spec": spec})])
-            return ModelResponse(parts=[TextPart("Jag har lagt till passet Fredagsvälkomst.")])
+                return ModelResponse(
+                    parts=[ToolCallPart("propose_spec", {"spec": spec})]
+                )
+            return ModelResponse(
+                parts=[TextPart("Jag har lagt till passet Fredagsvälkomst.")]
+            )
 
         res = run_brief(self.brief, FunctionModel(plan))
         self.assertTrue(res.passed, res.reason)
@@ -1026,7 +1030,9 @@ class NewBriefTests(SimpleTestCase):
         # The glm run of 2026-11-23 filed a request and described the workaround, with
         # no draft and no question. Neither accepted path, so it fails on the question.
         o = c.Outcome(
-            replies=["Not automatic. The closest workaround is a promo code for families."],
+            replies=[
+                "Not automatic. The closest workaround is a promo code for families."
+            ],
             drafts=[],
             tool_calls=["file_feature_request"],
             base=BASE,
@@ -1064,7 +1070,11 @@ class NewBriefTests(SimpleTestCase):
             fr=[FR_ARGS],
         )
         self.assertIn("only_asked_changes", gating(brief.check(bad)))
-        english = {**row, "key": "waiting-list-workshop", "name": "Waiting list workshop"}
+        english = {
+            **row,
+            "key": "waiting-list-workshop",
+            "name": "Waiting list workshop",
+        }
         spec3 = copy.deepcopy(BASE)
         spec3["ticket_types"].append(english)
         ok_name = brief_outcome(
@@ -1288,15 +1298,23 @@ class NewBriefTests(SimpleTestCase):
             "change": "removed",
             "old": {"name": "Adult conference pass"},
         }
-        added = added_row("ticket_types", {"key": "vuxenbiljett", "name": "Vuxenbiljett"})
+        added = added_row(
+            "ticket_types", {"key": "vuxenbiljett", "name": "Vuxenbiljett"}
+        )
         promo_moved = {
             "kind": "promo_codes",
             "key": "testfamily",
             "change": "changed",
-            "fields": {"applies_to_ticket_types": {"old": [B.ADULT], "new": ["vuxenbiljett"]}},
+            "fields": {
+                "applies_to_ticket_types": {"old": [B.ADULT], "new": ["vuxenbiljett"]}
+            },
         }
         spec = copy.deepcopy(BASE)
-        spec["ticket_types"][0] = {**spec["ticket_types"][0], "key": "vuxenbiljett", "name": "Vuxenbiljett"}
+        spec["ticket_types"][0] = {
+            **spec["ticket_types"][0],
+            "key": "vuxenbiljett",
+            "name": "Vuxenbiljett",
+        }
         spec["promo_codes"][0]["applies_to_ticket_types"] = ["vuxenbiljett"]
         good = brief_outcome(spec=spec, diff=[removed, added, promo_moved])
         self.assertEqual(gating(brief.check(good)), set())
@@ -1307,7 +1325,9 @@ class NewBriefTests(SimpleTestCase):
             "change": "changed",
             "fields": {"name": {"old": "Adult conference pass", "new": "Vuxenbiljett"}},
         }
-        self.assertEqual(gating(brief.check(brief_outcome(spec=spec, diff=[in_place]))), set())
+        self.assertEqual(
+            gating(brief.check(brief_outcome(spec=spec, diff=[in_place]))), set()
+        )
         child = {
             "kind": "ticket_types",
             "key": B.CHILD_0_12,
@@ -1315,7 +1335,11 @@ class NewBriefTests(SimpleTestCase):
             "fields": {"price": {"old": "300.00", "new": "350.00"}},
         }
         self.assertEqual(
-            gating(brief.check(brief_outcome(spec=spec, diff=[removed, added, promo_moved, child]))),
+            gating(
+                brief.check(
+                    brief_outcome(spec=spec, diff=[removed, added, promo_moved, child])
+                )
+            ),
             {"only_asked_changes"},
         )
 
@@ -1339,12 +1363,16 @@ class NewBriefTests(SimpleTestCase):
         }
         spec = B.blank()
         spec["ticket_types"] = [row]
-        good = brief_outcome(spec=spec, diff=[added_row("ticket_types", row)], base=B.blank())
+        good = brief_outcome(
+            spec=spec, diff=[added_row("ticket_types", row)], base=B.blank()
+        )
         self.assertEqual(gating(brief.check(good)), set())
         # The 18 June answer, copied from the schema note, must fail on this fixture.
         copied = {**row, "min_birthdate": "2023-06-19"}
         spec["ticket_types"] = [copied]
-        bad = brief_outcome(spec=spec, diff=[added_row("ticket_types", copied)], base=B.blank())
+        bad = brief_outcome(
+            spec=spec, diff=[added_row("ticket_types", copied)], base=B.blank()
+        )
         self.assertEqual(gating(brief.check(bad)), {"toddler_min_birthdate"})
 
     def test_removing_the_shirt_touches_only_the_extra(self):
@@ -1357,7 +1385,9 @@ class NewBriefTests(SimpleTestCase):
             "change": "removed",
             "old": {"name": "T-shirt"},
         }
-        self.assertEqual(gating(brief.check(brief_outcome(spec=spec, diff=[shirt]))), set())
+        self.assertEqual(
+            gating(brief.check(brief_outcome(spec=spec, diff=[shirt]))), set()
+        )
         workshop = {
             "kind": "extras",
             "key": "saturday-workshop-13-17",
@@ -1396,7 +1426,10 @@ class NewBriefTests(SimpleTestCase):
         self.assertEqual(gating(brief.check(good)), set())
         capped = {**adult, "capacity": 40}
         spec["ticket_types"] = [kids, capped]
-        capped_diff = [added_row("ticket_types", kids), added_row("ticket_types", capped)]
+        capped_diff = [
+            added_row("ticket_types", kids),
+            added_row("ticket_types", capped),
+        ]
         bad = brief_outcome(spec=spec, diff=capped_diff, base=B.blank())
         self.assertEqual(gating(brief.check(bad)), {"adult_capacity_not_invented"})
         # The 18 June reading of "0-12" is the schema note's example, not this fixture.
@@ -1422,17 +1455,29 @@ class NewBriefTests(SimpleTestCase):
         spec = copy.deepcopy(BASE)
         spec["promo_codes"].append(row)
         diff = [added_row("promo_codes", row)]
-        self.assertEqual(gating(brief.check(brief_outcome(spec=spec, diff=diff))), set())
+        self.assertEqual(
+            gating(brief.check(brief_outcome(spec=spec, diff=diff))), set()
+        )
         adult_only = {**row, "applies_to_ticket_types": [B.ADULT]}
         spec["promo_codes"][-1] = adult_only
         self.assertEqual(
-            gating(brief.check(brief_outcome(spec=spec, diff=[added_row("promo_codes", adult_only)]))),
+            gating(
+                brief.check(
+                    brief_outcome(
+                        spec=spec, diff=[added_row("promo_codes", adult_only)]
+                    )
+                )
+            ),
             {"both_child_tickets"},
         )
         uncapped = {**row, "max_uses": None}
         spec["promo_codes"][-1] = uncapped
         self.assertEqual(
-            gating(brief.check(brief_outcome(spec=spec, diff=[added_row("promo_codes", uncapped)]))),
+            gating(
+                brief.check(
+                    brief_outcome(spec=spec, diff=[added_row("promo_codes", uncapped)])
+                )
+            ),
             {"max_uses_20"},
         )
         spec["promo_codes"][-1] = row
@@ -1512,18 +1557,28 @@ class NewBriefTests(SimpleTestCase):
         spec = copy.deepcopy(BASE)
         spec["ticket_types"].append(row)
         diff = [added_row("ticket_types", row)]
-        self.assertEqual(gating(brief.check(brief_outcome(spec=spec, diff=diff))), set())
+        self.assertEqual(
+            gating(brief.check(brief_outcome(spec=spec, diff=diff))), set()
+        )
         three = {**row, "max_per_required": 3}
         spec["ticket_types"][-1] = three
         self.assertEqual(
-            gating(brief.check(brief_outcome(spec=spec, diff=[added_row("ticket_types", three)]))),
+            gating(
+                brief.check(
+                    brief_outcome(spec=spec, diff=[added_row("ticket_types", three)])
+                )
+            ),
             {"max_two_per_adult"},
         )
         loose = {**row, "requires_ticket_type": None}
         spec["ticket_types"][-1] = loose
         self.assertIn(
             "together_added",
-            gating(brief.check(brief_outcome(spec=spec, diff=[added_row("ticket_types", loose)]))),
+            gating(
+                brief.check(
+                    brief_outcome(spec=spec, diff=[added_row("ticket_types", loose)])
+                )
+            ),
         )
 
     def test_early_bird_cutoff_ends_at_the_end_of_31_march(self):
@@ -1538,17 +1593,27 @@ class NewBriefTests(SimpleTestCase):
         spec = copy.deepcopy(BASE)
         spec["ticket_types"].append(row)
         diff = [added_row("ticket_types", row)]
-        self.assertEqual(gating(brief.check(brief_outcome(spec=spec, diff=diff))), set())
+        self.assertEqual(
+            gating(brief.check(brief_outcome(spec=spec, diff=diff))), set()
+        )
         late = {**row, "available_until": "2027-04-30T23:59:00"}
         spec["ticket_types"][-1] = late
         self.assertEqual(
-            gating(brief.check(brief_outcome(spec=spec, diff=[added_row("ticket_types", late)]))),
+            gating(
+                brief.check(
+                    brief_outcome(spec=spec, diff=[added_row("ticket_types", late)])
+                )
+            ),
             {"until_31_march_end"},
         )
         cheap = {**row, "price": 850}
         spec["ticket_types"][-1] = cheap
         self.assertEqual(
-            gating(brief.check(brief_outcome(spec=spec, diff=[added_row("ticket_types", cheap)]))),
+            gating(
+                brief.check(
+                    brief_outcome(spec=spec, diff=[added_row("ticket_types", cheap)])
+                )
+            ),
             {"early_bird_price"},
         )
 

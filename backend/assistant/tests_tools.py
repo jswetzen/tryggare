@@ -459,6 +459,8 @@ class AssistantGuidanceTests(ToolsTestCase):
 
         prompt = " ".join(SYSTEM_PROMPT.split())  # the rules are wrapped lines
         self.assertNotIn("still build", prompt)
-        self.assertNotIn("still build", " ".join(EventTools.file_feature_request.__doc__.split()))
+        self.assertNotIn(
+            "still build", " ".join(EventTools.file_feature_request.__doc__.split())
+        )
         self.assertIn("only when its `closest` says to build it", prompt)
         self.assertIn("whether or not you built a workaround", prompt)
