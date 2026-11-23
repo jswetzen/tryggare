@@ -2,6 +2,7 @@
 
 import copy
 import json
+import re
 
 from django.test import SimpleTestCase, TestCase
 from pydantic_ai.messages import ModelResponse, TextPart, ToolCallPart, ToolReturnPart
@@ -11,8 +12,9 @@ from events import event_spec
 
 from .evals import briefs as B
 from .evals import criteria as c
-from .evals.harness import run_brief, summarize
+from .evals.harness import run_brief, summarize, tool_definitions_sha256
 from .evals.report import build_report, render_markdown
+from .tools import EventTools
 
 BASE = event_spec.example_spec()
 
@@ -150,6 +152,22 @@ class PersonalDataTests(SimpleTestCase):
     def test_a_clean_refusal_passes(self):
         text = "Jag kan inte lägga in personuppgifter. Beskriv regeln istället."
         self.assertFalse(failed(c.no_pii(outcome(text), ("Anna",))))
+
+    def test_refusal_wording_is_broad_enough(self):
+        for text, pattern in (
+            ("Jag kan inte lagra uppgifter om en person här.", B.SV_PII_REFUSAL),
+            ("Vi sparar inga uppgifter om personer.", B.SV_PII_REFUSAL),
+            ("I can't store details about individuals.", B.EN_PII_REFUSAL),
+            ("I can't store personal details.", B.EN_PII_REFUSAL),
+        ):
+            with self.subTest(text):
+                self.assertIsNotNone(re.search(pattern, text, re.I))
+
+    def test_the_refusal_check_is_a_capability_not_pii(self):
+        brief = next(b for b in B.BRIEFS if b.id == "sv-personal-data")
+        checks = {x.name: x for x in brief.check(brief_outcome("Kan inte.", base=BASE))}
+        self.assertEqual(checks["warns_about_personal_data"].category, "capability")
+        self.assertEqual(checks["no_pii_in_draft"].category, "pii")
 
 
 class DiffCriteriaTests(SimpleTestCase):
@@ -302,6 +320,44 @@ class HarnessTests(TestCase):
         res = run_brief(self.brief, FunctionModel(broken))
         self.assertFalse(res.passed)
         self.assertEqual(res.error, "model_error (ValueError)")
+
+    def test_an_errored_run_grades_as_an_empty_spec(self):
+        walk = next(b for b in B.BRIEFS if b.id == "sv-build-walkthrough")
+
+        def broken(messages, info):
+            raise ValueError("boom")
+
+        res = run_brief(walk, FunctionModel(broken))
+        self.assertFalse(res.passed)
+        self.assertTrue(res.graded)
+        self.assertFalse(any(x.ok for x in res.graded))
+        self.assertEqual(summarize([res])["graded_score"], 0.0)
+
+    def test_re_proposing_an_earlier_spec_makes_it_the_final_draft(self):
+        def plan(messages, info):
+            returns = [
+                p for m in messages for p in m.parts if isinstance(p, ToolReturnPart)
+            ]
+            if not returns:
+                return ModelResponse(parts=[ToolCallPart("get_current_spec", {})])
+            current = next(
+                r for r in returns if r.tool_name == "get_current_spec"
+            ).content
+            first = copy.deepcopy(current)
+            add_friday_session(first)
+            second = copy.deepcopy(first)
+            second["sessions"][-1]["end_time"] = "2027-06-18T20:00:00"
+            # A, B, then A again: the run ends on A.
+            proposals = [first, second, first]
+            sent = [r for r in returns if r.tool_name == "propose_spec"]
+            if len(sent) < len(proposals):
+                spec = proposals[len(sent)]
+                return ModelResponse(parts=[ToolCallPart("propose_spec", {"spec": spec})])
+            return ModelResponse(parts=[TextPart("I added the Friday welcome session.")])
+
+        res = run_brief(self.brief, FunctionModel(plan))
+        self.assertTrue(res.passed, res.reason)
+        self.assertEqual(res.drafts, 3)
 
     def test_a_failed_run_is_still_checked_for_the_gate(self):
         brief = next(b for b in B.BRIEFS if b.id == "en-add-ticket-then-edit")
@@ -495,6 +551,14 @@ class SwedishSpellingTests(SimpleTestCase):
             "Jag har lagt till en biljett för barn 0-12 år till 300 kr.",
             "Anmälan öppnar 1 mars 2027 kl 09:00, och stänger två veckor före start.",
             "Priser: 1200 kr, 600 kr och 150 kr.",
+        ):
+            with self.subTest(text):
+                self.assertTrue(c.swedish_spelling(outcome(text)).ok)
+
+    def test_codes_and_hex_ids_are_not_garbled(self):
+        for text in (
+            "Koden TESTFAMILY2 och A1B2C3 gäller för alla.",
+            "Utkastet 9f8e7d6c5b4a3210 är klart.",
         ):
             with self.subTest(text):
                 self.assertTrue(c.swedish_spelling(outcome(text)).ok)
@@ -728,13 +792,13 @@ def walkthrough_spec():
     """Every field the walkthrough asks for, as an organizer would have it set up."""
     spec = B.blank_conference()
     spec["event"]["registration_opens_at"] = "2027-03-01T09:00:00"
-    spec["event"]["registration_closes_at"] = "2027-06-04T23:59:00"
+    spec["event"]["registration_closes_at"] = "2027-06-11T23:59:00"
     spec["sessions"] = [
         {
             "key": "lordagsworkshop",
             "name": "Lördagsworkshop",
-            "start_time": "2027-06-19T10:00:00",
-            "end_time": "2027-06-19T12:00:00",
+            "start_time": "2027-06-26T10:00:00",
+            "end_time": "2027-06-26T12:00:00",
             "ticket_rule": "children",
         }
     ]
@@ -751,15 +815,15 @@ def walkthrough_spec():
             "name": "Barn 0-12",
             "price": 300,
             "applies_to": "child",
-            "min_birthdate": "2014-06-19",
+            "min_birthdate": "2014-06-26",
         },
         {
             "key": "barn-13-17",
             "name": "Barn 13-17",
             "price": 600,
             "applies_to": "child",
-            "min_birthdate": "2009-06-19",
-            "max_birthdate": "2014-06-18",
+            "min_birthdate": "2009-06-26",
+            "max_birthdate": "2014-06-25",
         },
     ]
     spec["extras"] = [
@@ -950,6 +1014,37 @@ class NewBriefTests(SimpleTestCase):
             fr=[FR_ARGS],
         )
         self.assertIn("only_asked_changes", gating(brief.check(bad)))
+        english = {**row, "key": "waiting-list-workshop", "name": "Waiting list workshop"}
+        spec3 = copy.deepcopy(BASE)
+        spec3["ticket_types"].append(english)
+        ok_name = brief_outcome(
+            reply, spec=spec3, diff=[added_row("ticket_types", english)], fr=[FR_ARGS]
+        )
+        self.assertEqual(gating(brief.check(ok_name)), set())
+        other = {**row, "key": "gratisbiljett", "name": "Gratisbiljett"}
+        spec4 = copy.deepcopy(BASE)
+        spec4["ticket_types"].append(other)
+        unrelated = brief_outcome(
+            reply, spec=spec4, diff=[added_row("ticket_types", other)], fr=[FR_ARGS]
+        )
+        self.assertIn("waitlist_added", gating(brief.check(unrelated)))
+
+    def test_family_price_may_add_a_promo_code(self):
+        brief = self.brief("en-unsupported-family-price")
+        reply = "A family price is not supported, so I added a promo code and filed a request."
+        promo = {
+            "key": "family",
+            "code": "FAMILY",
+            "discount_type": "percent",
+            "discount_value": 10,
+            "applies_to_ticket_types": [B.ADULT],
+        }
+        spec = copy.deepcopy(BASE)
+        spec["promo_codes"].append(promo)
+        o = brief_outcome(
+            reply, spec=spec, diff=[added_row("promo_codes", promo)], fr=[FR_ARGS]
+        )
+        self.assertNotIn("only_asked_changes", gating(brief.check(o)))
 
     def test_family_price_needs_a_draft_and_no_changes_to_existing_tickets(self):
         brief = self.brief("en-unsupported-family-price")
@@ -1147,6 +1242,19 @@ class NewBriefTests(SimpleTestCase):
             self.assertIn(new, ids)
         self.assertIsNotNone(self.brief("sv-build-walkthrough").grade)
         self.assertEqual(len(B.BRIEFS), 22)
+
+
+class ToolDefinitionHashTests(SimpleTestCase):
+    def test_hash_is_stable_and_follows_the_text_the_model_sees(self):
+        first = tool_definitions_sha256()
+        self.assertRegex(first, r"^[0-9a-f]{64}$")
+        self.assertEqual(first, tool_definitions_sha256())
+        original = EventTools.get_capabilities.__doc__
+        EventTools.get_capabilities.__doc__ = "A different description."
+        try:
+            self.assertNotEqual(first, tool_definitions_sha256())
+        finally:
+            EventTools.get_capabilities.__doc__ = original
 
 
 def gating(checks):

@@ -20,7 +20,8 @@ def render_markdown(report: dict) -> str:
         f"- Provider: {meta['base_url']}; started {meta['started']}; runs per brief {meta['runs_per_brief']}",
         f"- Code: commit {meta.get('git_commit') or 'unknown'}"
         + (" (uncommitted changes)" if meta.get("git_dirty") else "")
-        + f"; system prompt sha256 {(meta.get('system_prompt') or {}).get('sha256', 'unknown')}",
+        + f"; system prompt sha256 {(meta.get('system_prompt') or {}).get('sha256', 'unknown')}"
+        + f"; tool definitions sha256 {(meta.get('tools') or {}).get('sha256', 'unknown')}",
         f"- Context configured (Ollama num_ctx): {meta.get('num_ctx') or 'unknown'}",
         f"- `get_capabilities` payload: {meta['capabilities']['chars']} chars "
         f"(about {meta['capabilities']['approx_tokens']} tokens); measured prompt cost "

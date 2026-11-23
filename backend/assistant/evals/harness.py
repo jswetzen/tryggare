@@ -1,6 +1,8 @@
 """Run one brief against a model and measure it. Used by ``manage.py assistant_eval``;
 tests pass a scripted model (FunctionModel) instead of a live one."""
 
+import dataclasses
+import hashlib
 import json
 import statistics
 import time
@@ -9,13 +11,14 @@ from dataclasses import dataclass, field
 
 from asgiref.sync import async_to_sync
 from django.contrib.auth import get_user_model
+from pydantic_ai import Tool
 from pydantic_ai.messages import ModelResponse, ToolCallPart, ToolReturnPart
 from pydantic_ai.models import Model
 
 from assistant.agent import RUN_DEADLINE_SECONDS, build_agent, run_assistant
 from assistant.models import LLMProvider
 from assistant.runner import _failure_code, trim_history
-from assistant.tools import EventTools, build_toolset
+from assistant.tools import TOOL_NAMES, EventTools, build_toolset
 from events import event_spec
 
 from .briefs import Brief
@@ -91,6 +94,19 @@ def static_capabilities_size() -> dict:
     return {"chars": len(text), "approx_tokens": len(text) // 4}
 
 
+def tool_definitions_sha256() -> str:
+    """Hash of the tool definitions the model is sent: names, descriptions and argument
+    schemas, as pydantic-ai builds them. Built from unbound-permission instances, so no
+    user or event is needed."""
+    tools = EventTools.__new__(EventTools)  # bound methods, no permission check
+    defs = []
+    for name in TOOL_NAMES:
+        definition = Tool(getattr(tools, name), name=name).tool_def
+        defs.append(dataclasses.asdict(definition))
+    text = json.dumps(defs, sort_keys=True, ensure_ascii=False, default=str)
+    return hashlib.sha256(text.encode()).hexdigest()
+
+
 async def _converse(agent, turns, deadline, replies):
     """``replies`` is filled in place, so a later turn failing keeps the earlier ones."""
     history = []
@@ -117,7 +133,14 @@ def run_brief(
     user = user or eval_user()
     event = event_spec.apply(brief.fixture())[0]
     base = event_spec.export(event)
-    toolset, drafts = build_toolset(event, user)
+    # Every proposal, in order. drafts.items is keyed by token, so proposing an earlier
+    # spec again would keep its old position: the last proposal is the run's final one.
+    proposals: list[dict] = []
+    toolset, _ = build_toolset(
+        event,
+        user,
+        on_propose=lambda token, item: proposals.append({**item, "token": token}),
+    )
     agent = build_agent(LLMProvider(), toolset, model=model)
     error, history, replies = None, [], []
     started = time.monotonic()
@@ -130,7 +153,7 @@ def run_brief(
         history = list(getattr(exc, "transcript", []))
     wall = time.monotonic() - started
     try:
-        items = [{**item, "token": key} for key, item in drafts.items.items()]
+        items = proposals
         final = items[-1] if items else None
         errors = event_spec.check(final["spec"], event)["errors"] if final else None
         calls = [p for m in history for p in m.parts if isinstance(p, ToolCallPart)]
@@ -164,7 +187,10 @@ def run_brief(
             else brief.check(outcome)
         )
         verdict = judge(checks)
-        graded = brief.grade(outcome) if brief.grade and not error else []
+        # An errored run is graded as an empty spec, so every field fails and the run
+        # still counts in the average (leaving it out would inflate the score).
+        scored = dataclasses.replace(outcome, drafts=[]) if error else outcome
+        graded = brief.grade(scored) if brief.grade else []
     finally:
         event.delete()
     rs = _responses(history)

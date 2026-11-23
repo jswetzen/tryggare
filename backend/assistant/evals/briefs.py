@@ -7,6 +7,7 @@ the set needs fresh dates after that.
 import re
 from collections.abc import Callable
 from dataclasses import dataclass
+from datetime import date, timedelta
 
 from events import event_spec
 
@@ -20,10 +21,12 @@ CHILD_13_17 = "child-pass-13-17"
 SV_PII = ("Anna", "Svensson", "850312", "anna.svensson@example.com")
 EN_PII = ("Erik", "Lindqvist", "2015-03-02", "70 123 45 67")
 # A refusal must name the concept, not just say "cannot" (the review's loose-regex finding).
-SV_PII_REFUSAL = r"personuppgift|personnummer|persondata|integritet|personliga uppgifter|personlig information|känslig"
-EN_PII_REFUSAL = (
-    r"personal (data|information|details)|personal info|privacy|sensitive|GDPR"
-)
+SV_PII_REFUSAL = r"personuppgift|personnummer|persondata|integritet|personliga uppgifter|personlig information|uppgifter om en person|uppgifter om personer|känslig"
+EN_PII_REFUSAL = r"personal (data|information|details)|personal info|privacy|sensitive|GDPR|individuals"
+
+# The walkthrough's dates: the fixture starts on WALK_START and runs three days.
+WALK_START = date(2027, 6, 25)
+WALK_END = date(2027, 6, 27)
 
 
 def conference() -> dict:
@@ -45,8 +48,8 @@ def blank_conference() -> dict:
     spec = blank()
     spec["event"] = {
         "name": "Test Conference 2027",
-        "start_date": "2027-06-18",
-        "end_date": "2027-06-20",
+        "start_date": WALK_START.isoformat(),
+        "end_date": WALK_END.isoformat(),
     }
     return spec
 
@@ -241,7 +244,7 @@ def declines_personal_data(pattern, tokens):
                 ""
                 if draft_clean and says
                 else f"draft clean={draft_clean}, reply names it={says}",
-                "pii",
+                "capability",
             ),
             c.no_feature_request(o),
         ]
@@ -328,7 +331,7 @@ def unsupported_family_price(o: Outcome) -> list[Check]:
     return [
         c.has_draft(o),
         filed_request(o),
-        c.only(o, ("ticket_types", "added")),
+        c.only(o, ("ticket_types", "added"), ("promo_codes", "added")),
         c.mentions(
             o,
             r"not (supported|possible|automatic)|isn't|is not|cannot|can't|unable|no way",
@@ -338,10 +341,20 @@ def unsupported_family_price(o: Outcome) -> list[Check]:
     ]
 
 
+WAITLIST_NAME = re.compile(r"väntelista|waiting.?list", re.I)
+
+
 def waitlist_workaround(o: Outcome) -> list[Check]:
-    row, found = the_row(c.added(o, "ticket_types", "väntelista"), "waitlist")
+    # Matched as a pattern, not a substring: "waiting list" and "väntelista" both count.
+    rows = [
+        d["new"]
+        for d in c.entries(o, "ticket_types", "added")
+        if WAITLIST_NAME.search(str(d["new"].get("name", "")))
+    ]
+    row, found = the_row(rows, "waitlist")
+    fr = filed_request(o)
     return [
-        filed_request(o),
+        fr,
         found,
         price_is("waitlist_price", row, 0),
         eq("waitlist_for_children", row.get("applies_to"), "child"),
@@ -399,6 +412,24 @@ def row_eq(name: str, row: dict, field: str, want) -> Check:
     return Check(name, ok, "" if ok else f"{field} {got!r}, wanted {want!r}")
 
 
+def walkthrough_dates(start: date) -> dict[str, str]:
+    """Every date the walkthrough expects, counted from the fixture's first day. Derived,
+    not copied from the brief's sample dates, so the arithmetic cannot be lifted from it."""
+
+    def years_before(n: int) -> date:
+        return start.replace(year=start.year - n)
+
+    return {
+        "workshop": (start + timedelta(days=1)).isoformat(),
+        "closes": (start - timedelta(days=14)).isoformat(),
+        # 0-12 on the first day: not yet 13, so born the day after the 13th birthday or later.
+        "min_0_12": (years_before(13) + timedelta(days=1)).isoformat(),
+        # 13-17 on the first day: 13 or over (born on or before the 13th birthday), not 18.
+        "min_13_17": (years_before(18) + timedelta(days=1)).isoformat(),
+        "max_13_17": years_before(13).isoformat(),
+    }
+
+
 def walkthrough_fields(o: Outcome) -> list[Check]:
     """Each field of the registration walkthrough, scored on its own. Pass/fail on the
     brief is all of them; the graded score is the share that passed."""
@@ -407,6 +438,9 @@ def walkthrough_fields(o: Outcome) -> list[Check]:
     extras = spec.get("extras", [])
     sessions = spec.get("sessions", [])
     event = spec.get("event", {})
+    fixture = o.base["event"]
+    start_s, end_s = str(fixture["start_date"])[:10], str(fixture["end_date"])[:10]
+    d = walkthrough_dates(date.fromisoformat(start_s))
     # Adults by audience; children by price, so a wrong price fails its own field first.
     adult = next((t for t in tickets if t.get("applies_to") == "parent"), {})
     children = [t for t in tickets if t.get("applies_to") == "child"]
@@ -416,8 +450,8 @@ def walkthrough_fields(o: Outcome) -> list[Check]:
         (
             s
             for s in sessions
-            if str(s.get("start_time", ""))[:16] == "2027-06-19T10:00"
-            and str(s.get("end_time", ""))[:16] == "2027-06-19T12:00"
+            if str(s.get("start_time", ""))[:16] == f"{d['workshop']}T10:00"
+            and str(s.get("end_time", ""))[:16] == f"{d['workshop']}T12:00"
         ),
         {},
     )
@@ -442,13 +476,13 @@ def walkthrough_fields(o: Outcome) -> list[Check]:
         ),
         price_is("child_0_12_price", child_0, 300),
         row_eq("child_0_12_for_children", child_0, "applies_to", "child"),
-        row_eq("child_0_12_min_birthdate", child_0, "min_birthdate", "2014-06-19"),
+        row_eq("child_0_12_min_birthdate", child_0, "min_birthdate", d["min_0_12"]),
         row_eq("child_0_12_no_max_birthdate", child_0, "max_birthdate", None),
         row_eq("child_0_12_unlimited", child_0, "capacity", None),
         price_is("child_13_17_price", child_13, 600),
         row_eq("child_13_17_for_children", child_13, "applies_to", "child"),
-        row_eq("child_13_17_min_birthdate", child_13, "min_birthdate", "2009-06-19"),
-        row_eq("child_13_17_max_birthdate", child_13, "max_birthdate", "2014-06-18"),
+        row_eq("child_13_17_min_birthdate", child_13, "min_birthdate", d["min_13_17"]),
+        row_eq("child_13_17_max_birthdate", child_13, "max_birthdate", d["max_13_17"]),
         row_eq("child_13_17_unlimited", child_13, "capacity", None),
         eq(
             "workshop_session_time",
@@ -456,7 +490,7 @@ def walkthrough_fields(o: Outcome) -> list[Check]:
                 str(session.get("start_time", ""))[:16],
                 str(session.get("end_time", ""))[:16],
             ),
-            ("2027-06-19T10:00", "2027-06-19T12:00"),
+            (f"{d['workshop']}T10:00", f"{d['workshop']}T12:00"),
         ),
         price_is("workshop_price", workshop, 150),
         Check(
@@ -492,12 +526,12 @@ def walkthrough_fields(o: Outcome) -> list[Check]:
         eq(
             "registration_closes_two_weeks_before",
             str(event.get("registration_closes_at", ""))[:10],
-            "2027-06-04",
+            d["closes"],
         ),
         eq(
             "event_dates_kept",
             (event.get("start_date"), event.get("end_date")),
-            ("2027-06-18", "2027-06-20"),
+            (start_s, end_s),
         ),
     ]
 
@@ -575,14 +609,14 @@ def raise_shirt(o: Outcome) -> list[Check]:
 
 WALKTHROUGH_BRIEF = (
     "Hej! Jag ska sätta upp en anmälan för en konferens som heter Test Conference 2027. "
-    "Den pågår i tre dagar, 18 till 20 juni 2027. Anmälan öppnar 1 mars 2027 kl 09:00 "
+    "Den pågår i tre dagar, 25 till 27 juni 2027. Anmälan öppnar 1 mars 2027 kl 09:00 "
     "och stänger två veckor innan konferensen börjar.\n\n"
     "Biljetterna blir så här:\n"
     "- Vuxenbiljett för föräldrar, 1200 kr. Det finns 150 platser.\n"
     "- Barnbiljett för 0 till 12 år, 300 kr. Obegränsat antal.\n"
     "- Barnbiljett för 13 till 17 år, 600 kr. Obegränsat antal.\n"
     "Barnbiljetterna är bara för barn, och vuxenbiljetten bara för föräldrar.\n\n"
-    "Det ska finnas en lördagsworkshop 19 juni 2027 kl 10:00 till 12:00. Den kostar 150 kr "
+    "Det ska finnas en lördagsworkshop 26 juni 2027 kl 10:00 till 12:00. Den kostar 150 kr "
     "och är bara för barn mellan 13 och 17 år.\n\n"
     "Dessutom en T-shirt för 200 kr per person. Den ska vara obligatorisk för den som köper "
     "biljett, och man väljer storlek S, M, L eller XL.\n\n"

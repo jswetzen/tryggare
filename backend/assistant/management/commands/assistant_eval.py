@@ -46,6 +46,7 @@ from assistant.evals.harness import (
     run_brief,
     static_capabilities_size,
     summarize,
+    tool_definitions_sha256,
 )
 from assistant.evals.report import build_report, render_markdown
 from assistant.models import LLMProvider, validate_base_url
@@ -194,6 +195,7 @@ class Command(BaseCommand):
                 "approx_tokens": len(SYSTEM_PROMPT) // 4,
                 "sha256": hashlib.sha256(SYSTEM_PROMPT.encode()).hexdigest(),
             },
+            "tools": {"sha256": tool_definitions_sha256()},
             **git_state(),
         }
         stem = (
