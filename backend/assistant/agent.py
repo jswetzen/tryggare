@@ -157,7 +157,8 @@ def hint_instructions(kinds) -> str | None:
     return (
         f"Automatic check: the organizer's latest message may contain {' or '.join(kinds)}. "
         "The check is often wrong (prices, codes, dates). If the message gives personal "
-        f"data about a particular person, call {REFUSE_TOOL}; otherwise ignore this note."
+        f"data about a particular person, call {REFUSE_TOOL}. If you ignore this note, "
+        "your reply must say in one short sentence why, for example that the number is a price."
     )
 
 
