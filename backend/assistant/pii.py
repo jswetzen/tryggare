@@ -3,6 +3,7 @@ feature-request text checks. A backstop only: human review is the real control."
 
 import re
 import unicodedata
+from datetime import date
 
 _EMAIL = re.compile(r"[\w.+-]+@[\w-]+(\.[\w-]+)+")
 _PERSONNUMMER = re.compile(r"(?<!\d)(\d{6}|\d{8})[-+]?\d{4}(?!\d)")
@@ -63,6 +64,112 @@ def free_text_kind(text: str) -> str | None:
     if _REFERENCE_CODE.search(text):
         return "a registration-reference-like code"
     return _pii_kind(text, keep_urls=True)
+
+
+# --- the chat detector: what the organizer typed, for the agent's one-turn hint
+
+PERSONNUMMER = "a personnummer"
+EMAIL = "an email address"
+PHONE = "a phone number"
+BIRTH_DATE = "a birth date"
+
+_ID_NUMBER = re.compile(r"(?<!\d)(\d{6}|\d{8})[-+ ]?(\d{4})(?!\d)")
+# Swedish shapes only; "/" and "." are not separators, so price lists and dates do not join.
+_SE_PHONE = re.compile(r"(?<![\w+])(?:\+46|0046|0)[\d ()-]{6,}\d(?!\w)")
+_NOT_A_PHONE_AFTER = re.compile(r"\s*(?:kr\b|sek\b|%|/)", re.I)
+# Dates and clock times, which a brief is full of: "2027-06-20 10:00" otherwise reads
+# as a phone number. ";" is outside the phone pattern, so neighbours do not join.
+_DATE_OR_TIME = re.compile(
+    r"\d{4}-\d{2}-\d{2}(?:[T ]\d{1,2}[:.]\d{2})?|\b\d{1,2}:\d{2}\b"
+)
+_MONTHS = (
+    r"jan(?:uari|uary)?|feb(?:ruari|ruary)?|mar(?:s|ch)?|apr(?:il)?|maj|may"
+    r"|jun[ei]?|jul[iy]?|aug(?:usti|ust)?|sep(?:tember)?|o[kc]t(?:ober)?"
+    r"|nov(?:ember)?|dec(?:ember)?"
+)
+_DATE_TEXT = (
+    r"\d{4}-\d{1,2}-\d{1,2}|\d{8}|\d{6}|\d{1,2}[./]\d{1,2}[./]\d{2,4}"
+    rf"|\d{{1,2}}(?:st|nd|rd|th)?\s+(?:{_MONTHS})\.?\s+\d{{4}}"
+    rf"|(?:{_MONTHS})\.?\s+\d{{1,2}}(?:st|nd|rd|th)?,?\s+\d{{4}}"
+)
+# "född" but not "födda": "barn födda 2015 eller senare" is a rule, not a person.
+_BIRTH = re.compile(
+    rf"(?<!\w)(?:född|born|f\.)\s*(?:den\s+|on\s+|the\s+)?(?:{_DATE_TEXT})(?!\d)",
+    re.I,
+)
+
+
+def _is_date(year: int, month: int, day: int) -> bool:
+    try:
+        date(year, month, day)
+    except ValueError:
+        return False
+    return True
+
+
+def _luhn(digits: str) -> bool:
+    total = 0
+    for i, ch in enumerate(digits):
+        n = int(ch) * (2 if i % 2 == 0 else 1)
+        total += n - 9 if n > 9 else n
+    return total % 10 == 0
+
+
+def valid_personnummer(digits: str) -> bool:
+    """A real date (day + 60 for a samordningsnummer) and the Luhn check. An orgnr has
+    month 20 or more, so it fails here."""
+    if len(digits) == 12:
+        if digits[:2] not in ("18", "19", "20"):
+            return False
+        years, digits = [int(digits[:4])], digits[2:]
+    elif len(digits) == 10:
+        years = [1900 + int(digits[:2]), 2000 + int(digits[:2])]
+    else:
+        return False
+    month, day = int(digits[2:4]), int(digits[4:6])
+    if day > 60:
+        day -= 60
+    return any(_is_date(y, month, day) for y in years) and _luhn(digits)
+
+
+def _phone_like(match: re.Match, text: str) -> bool:
+    if sum(c.isdigit() for c in match.group()) < 9:
+        return False
+    before = text[: match.start()].rstrip()
+    return not before.endswith("/") and not _NOT_A_PHONE_AFTER.match(text, match.end())
+
+
+def message_findings(text: str, known=frozenset()) -> list[str]:
+    """Every personal-data kind in what the organizer typed, in a fixed order. A match
+    that appears in ``known`` (the event's current export) is not theirs, so it is
+    dropped. Names and health words are left to the model."""
+    text = _normalize_text(text)
+
+    def new(m: re.Match) -> bool:
+        return not any(m.group() in k for k in known)
+
+    without_dates = _DATE_OR_TIME.sub(lambda m: " ; ".ljust(len(m.group())), text)
+    checks = (
+        (
+            PERSONNUMMER,
+            (
+                m
+                for m in _ID_NUMBER.finditer(text)
+                if valid_personnummer(m.group(1) + m.group(2))
+            ),
+        ),
+        (EMAIL, _EMAIL.finditer(text)),
+        (
+            PHONE,
+            (
+                m
+                for m in _SE_PHONE.finditer(without_dates)
+                if _phone_like(m, without_dates)
+            ),
+        ),
+        (BIRTH_DATE, _BIRTH.finditer(text)),
+    )
+    return [kind for kind, matches in checks if any(new(m) for m in matches)]
 
 
 def strings_in(value) -> set[str]:

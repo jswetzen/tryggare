@@ -8,7 +8,6 @@ the protocol, never provider text.
 import asyncio
 import copy
 import logging
-import re
 import uuid
 from dataclasses import dataclass
 from datetime import timedelta
@@ -51,7 +50,8 @@ from feature_requests.models import FeatureRequest
 from .models import AssistantConversation, AssistantRun, LLMProvider
 from .permissions import can_use_assistant, fresh_user
 from .providers import ProviderError
-from .tools import TOOL_NAMES, _pii_kind, build_toolset
+from .pii import message_findings
+from .tools import TOOL_NAMES, build_toolset
 
 logger = logging.getLogger(__name__)
 
@@ -147,16 +147,10 @@ def transcript(conversation: AssistantConversation) -> list[dict]:
     return out
 
 
-# Dates and clock times, which a brief is full of: "2027-06-20 10:00" otherwise
-# reads as a phone number. ";" is outside the phone pattern, so neighbours do not join.
-_DATE_OR_TIME = re.compile(
-    r"\d{4}-\d{2}-\d{2}(?:[T ]\d{1,2}[:.]\d{2})?|\b\d{1,2}:\d{2}\b"
-)
-
-
 def chat_text_warning(text: str) -> str | None:
     """Warn-not-block check on what the organizer typed; None when it looks fine."""
-    return _pii_kind(_DATE_OR_TIME.sub(" ; ", text))
+    found = message_findings(text)
+    return found[0] if found else None
 
 
 def purge_idle(now=None) -> int:

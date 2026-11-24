@@ -377,7 +377,7 @@ class RuleTests(RunnerTestCase):
     def test_chat_text_warning(self):
         self.assertIsNone(runner.chat_text_warning("a camp for 12 to 17 year olds"))
         self.assertTrue(runner.chat_text_warning("mail anna@example.com"))
-        self.assertTrue(runner.chat_text_warning("190101011234"))
+        self.assertTrue(runner.chat_text_warning("190101011237"))
 
     def test_dates_and_times_are_not_a_phone_number(self):
         for text in (
@@ -388,7 +388,7 @@ class RuleTests(RunnerTestCase):
             with self.subTest(text=text):
                 self.assertIsNone(runner.chat_text_warning(text))
         self.assertTrue(runner.chat_text_warning("call 070-123 45 67 at 10:00"))
-        self.assertTrue(runner.chat_text_warning("on 2027-06-20, pnr 20120620-1234"))
+        self.assertTrue(runner.chat_text_warning("on 2027-06-20, pnr 20120620-1236"))
 
 
 def PermissionDeniedStub():
