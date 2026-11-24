@@ -10,7 +10,10 @@ from pydantic_ai.messages import ModelResponse, TextPart, ToolCallPart
 from pydantic_ai.models.function import AgentInfo, FunctionModel
 from pydantic_ai.models.test import TestModel
 
+from accounts.models import AdminUser
+from events import event_spec
 from events.event_spec import CAPABILITIES
+from events.spec_test_support import at_now
 
 from .agent import (
     SYSTEM_PROMPT,
@@ -24,7 +27,7 @@ from .agent import (
 from .agent_test_support import stand_in_toolset
 from .models import LLMProvider
 from .providers import ProviderError, check_address
-from .tools import TOOL_NAMES
+from .tools import TOOL_NAMES, build_toolset
 
 GETADDRINFO = "assistant.providers.openai_compatible.socket.getaddrinfo"
 BASE = "http://ollama.example:11434/v1"
@@ -343,8 +346,29 @@ class CapabilitiesPromptTests(TestCase):
         # About 580 tokens today. The full get_capabilities result is about 5k and
         # resent on every request, so a jump here means the prompt grew on purpose.
         self.assertLess(len(capabilities_summary()), 3000)
-        # 4600: the unsupported-ask rule is spelled out (4500 before it, about 4540 with it).
-        self.assertLess(len(SYSTEM_PROMPT), 4600)
+        # About 3.6k after the rewrite that moved tool detail into tool descriptions.
+        self.assertLess(len(SYSTEM_PROMPT), 3750)
+
+    def test_prompt_and_tool_definitions_are_compact(self):
+        # Both go out on every request: about 7.5k chars with the refusal tool (~5% headroom).
+        seen = {}
+
+        def model_fn(messages, info: AgentInfo):
+            tools = info.function_tools + info.output_tools
+            seen["tools"] = json.dumps(
+                [[t.name, t.description, t.parameters_json_schema] for t in tools],
+                ensure_ascii=False,
+            )
+            return ModelResponse(parts=[TextPart("ok")])
+
+        with at_now():
+            event = event_spec.apply(event_spec.example_spec())[0]
+        user = AdminUser.objects.create_superuser("promptsize", "pw12345")
+        toolset, _ = build_toolset(event, user)
+        asyncio.run(
+            build_agent(provider(), toolset, model=FunctionModel(model_fn)).run("go")
+        )
+        self.assertLess(len(SYSTEM_PROMPT) + len(seen["tools"]), 7900)
 
     def test_prompt_has_no_concrete_dates(self):
         # A date in every request can be copied into a spec; the rules say never invent one.

@@ -14,7 +14,7 @@ CAPABILITIES = {
     "supported": [
         {
             "id": "event_settings",
-            "description": "Event dates, default ticket rule, flat price, registration window, header image, accent colour.",
+            "description": "Event dates, default ticket rule, flat price, registration window (opening in the future), header image, accent colour.",
         },
         {
             "id": "sessions",
@@ -22,7 +22,7 @@ CAPABILITIES = {
         },
         {
             "id": "ticket_types",
-            "description": "Priced ticket types for parents or children, with age bounds judged on the event start date, sale window, capacity, hidden types, session bundles, and 'only together with' dependencies.",
+            "description": "Priced ticket types for parents or children, with age bounds, sale window, capacity, hidden types, session bundles, and 'only together with' dependencies.",
         },
         {
             "id": "extras",
@@ -66,10 +66,7 @@ CAPABILITIES = {
         },
     ],
     "notes": [
-        "Ticket age rule, judged on event.start_date S: ages N-M means min_birthdate = S minus M+1 years plus one day, max_birthdate = S minus N years (null when N is 0). So for a start on 18 June of year Y, ages 0-12 give min 19 June of Y-13 and no max; ages 13-17 give min 19 June of Y-18 and max 18 June of Y-13. min_birthdate is never later than max_birthdate. Compute from the event's own start date; never reuse a date from this note.",
-        "Dates in get_capabilities' example are illustrative. A registration window that is open when a spec is validated is an error, so move the dates into the future.",
-        "Row keys are derived from names on export; a rename is a removal plus an addition.",
-        "Rows that tie on their ordering fields (sort_order, then name) are a warning for a new event and an error when applying onto an existing one.",
+        "Ticket ages are judged on the event's own start date S. Ages N-M: min_birthdate = S minus M+1 years plus one day; max_birthdate = S minus N years, null when N is 0. 'Under N' is ages 0 to N-1. E.g. S on 10 May, ages 13-17: min 11 May 18 years before S, max 10 May 13 years before S.",
     ],
 }
 

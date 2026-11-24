@@ -164,10 +164,9 @@ class EventTools:
             raise ToolFailure(_issues_message(exc.errors)) from exc
 
     def get_capabilities(self) -> dict:
-        """The full JSON Schema (exact field names and types) and an example spec, plus
-        the capabilities list already in your instructions. Large: call it only to look
-        up fields of a row you add. Say "not supported" for anything under
-        `unsupported` and offer its `closest` workaround if it has one."""
+        """The full JSON Schema (exact field names, types and meanings) and an example
+        spec whose dates are only illustrative. Large: call it only when you need a field
+        the current spec does not show."""
         return _plain(
             {
                 "capabilities": event_spec.CAPABILITIES,
@@ -177,13 +176,14 @@ class EventTools:
         )
 
     def get_current_spec(self) -> dict:
-        """The event's current configuration (event, sessions, ticket types, extras,
-        promo codes) as a spec. Contains no registrations or people."""
+        """The event's current setup as a spec, without people or registrations. Edit it
+        in place and send it whole to the other tools; never add or rename fields. Row keys
+        follow names, so renaming a row removes it and adds a new one."""
         return self._export(self._current())
 
     def validate_spec(self, spec: SpecArg) -> dict:
-        """Check a complete proposed spec. Returns `valid`, blocking `errors` and
-        advisory `warnings`, each with a `path`, `code` and `message`."""
+        """Check a complete spec. Returns `valid`, blocking `errors` and advisory
+        `warnings`, each with `path`, `code` and `message`. Fix every error."""
         spec = _as_spec(spec)
         target = self._current()
         self._refuse_personal_data(spec, target)
@@ -191,14 +191,13 @@ class EventTools:
         return _plain({"valid": not errors, "errors": errors, "warnings": warnings})
 
     def diff_spec(self, spec: SpecArg) -> dict:
-        """Changes the proposed spec would make to the current setup, with the
-        validation `errors` and `warnings`. Writes nothing."""
+        """What the spec would change in the current setup, with its `errors` and
+        `warnings`. Writes nothing."""
         return _plain(self._checked(spec)[2])
 
     def propose_spec(self, spec: SpecArg) -> dict:
-        """Store a valid spec as a draft for the organizer to review. Fails with the
-        errors to fix if it is invalid. This does NOT change the event; the
-        organizer applies it."""
+        """Store a valid spec as a draft for the organizer to review and apply; it does
+        NOT change the event. Fails with the errors to fix if the spec is invalid."""
         target, spec, result = self._checked(spec)
         if result["errors"]:
             raise ToolFailure(
@@ -226,13 +225,14 @@ class EventTools:
         tried: list[str] | None = None,
         workaround: dict | None = None,
     ) -> dict:
-        """File a feature request as a draft for the organizer to confirm. Call it when a
-        capability is `unsupported`, when you chose a workaround, or when a validator
-        warning cannot be fixed. Describe the shape of the need only: never names, dates, contact details, references, or event and
-        ticket names. `touches`: cap:<id> for a capability, code:<code> for a warning,
-        spec:<path> or field:<Model.field>, or new:<name> for a need no id covers.
-        `workaround`: {"used": what you built, "cost": none|extra_steps|wrong_result|
-        not_possible}, or null. `severity`: blocks|wrong_result|risk|friction|cosmetic."""
+        """Draft a feature request for the organizer to confirm, once per need: for an
+        unsupported capability, a workaround you built, or a validator warning you cannot
+        fix. Never for supported setup. Describe only the shape of the need: no names,
+        dates, contact details, references, or event and ticket names.
+        `touches`: the listed cap:<id> that fits, code:<warning code>, spec:<path>,
+        field:<Model.field>; new:<name> only when no id fits. `severity`: blocks|
+        wrong_result|risk|friction|cosmetic. `workaround`: {"used": what you built,
+        "cost": none|extra_steps|wrong_result|not_possible}, or null."""
         data = {
             "title": title,
             "problem": problem,

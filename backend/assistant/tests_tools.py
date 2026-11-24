@@ -463,4 +463,4 @@ class AssistantGuidanceTests(ToolsTestCase):
             "still build", " ".join(EventTools.file_feature_request.__doc__.split())
         )
         self.assertIn("only when its `closest` says to build it", prompt)
-        self.assertIn("whether or not you built a workaround", prompt)
+        self.assertIn("a workaround you built", prompt)
