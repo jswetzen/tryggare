@@ -215,6 +215,14 @@ export function reduce(
       const { type: _type, run_id: _run, ...preview } = e;
       return { ...state, featureRequests: upsertCard(state.featureRequests, preview) };
     }
+    case 'turn_refused': {
+      const gone = new Set(e.request_ids);
+      return {
+        ...state,
+        transcript: state.transcript.filter((t) => !(t.role === 'assistant' && t.runId === e.run_id)),
+        featureRequests: state.featureRequests.filter((c) => !gone.has(c.id))
+      };
+    }
     case 'run_finished':
       return { ...state, running: false, runId: null, tools: [] };
     case 'run_failed': {

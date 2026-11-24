@@ -2,10 +2,13 @@
 
 import asyncio
 import logging
+from dataclasses import dataclass
+from typing import Annotated, Literal
 
 import httpx2
 from openai import AsyncOpenAI
-from pydantic_ai import Agent, UsageLimits, capture_run_messages
+from pydantic import BeforeValidator, Field
+from pydantic_ai import Agent, ToolOutput, UsageLimits, capture_run_messages
 from pydantic_ai.exceptions import (
     ModelAPIError,
     ModelHTTPError,
@@ -46,9 +49,11 @@ defaulted, ask one short question and propose nothing yet.
 Use only the capabilities below. For anything else, say it is not supported and offer
 its `closest` workaround in words; build that only when its `closest` says to build it.
 Still do the supported part of the request.
-Never accept, repeat or store personal data (names, personnummer, contact or
-health details about a child, parent or staff member). Say so and ask for a
-rule-level description instead.
+Never process personal data about particular people (other people's names, and anyone's
+personnummer, birth dates, contact, health or allergy details): if the organizer's
+message has any, call refuse_personal_data and nothing else. The organizer's own name,
+group rules ("children with allergies"), event, venue or ticket names, and a field that
+collects such data later are fine.
 Call file_feature_request once per genuine gap (an unsupported capability, a workaround
 you built, a validator warning you cannot fix), never for something supported, and tell
 the organizer in one line that a request was drafted for them to confirm.
@@ -84,6 +89,76 @@ def capabilities_summary(caps: dict = CAPABILITIES) -> str:
 # Built at import, so it is fixed for the process; passed as instructions on every
 # run and never stored in history.
 SYSTEM_PROMPT = _RULES + "\n\n" + capabilities_summary()
+
+# --- refusing personal data (docs/assistant-pii-refusal-design.md)
+
+REFUSE_TOOL = "refuse_personal_data"
+# Owned by code, so the model can neither extend the reply nor echo the person in it.
+REFUSAL_TEXT = {
+    "sv": (
+        "Jag kan inte ta emot personuppgifter här, till exempel namn, personnummer, "
+        "kontaktuppgifter eller uppgifter om en viss persons hälsa eller allergier. Jag "
+        "har tagit bort ditt meddelande utan att göra något med det. Skriv det gärna igen "
+        "utan uppgifterna om personen och beskriv regeln i stället, till exempel "
+        '"en gratisbiljett för ledare" eller "barn under 3 år går gratis".'
+    ),
+    "en": (
+        "I can't take personal data in this chat, such as names, personal identity "
+        "numbers, contact details, or health or allergy information about a particular "
+        "person. I have removed your message and done nothing with it. Please send it "
+        "again without the details about the person and describe the rule instead, for "
+        'example "a free ticket for leaders" or "children under 3 go free".'
+    ),
+}
+# Stored in place of the refused message.
+PLACEHOLDER = {
+    "sv": "[Meddelandet togs bort eftersom det innehöll personuppgifter.]",
+    "en": "[Message removed because it contained personal data.]",
+}
+
+
+@dataclass(frozen=True)
+class Refusal:
+    language: str
+
+    @property
+    def text(self) -> str:
+        return REFUSAL_TEXT[self.language]
+
+
+def _language(value) -> str:
+    # A missing or odd value ("English", "de") must not cost a retry: fall back to sv.
+    value = str(value or "").strip().lower()[:2]
+    return value if value in REFUSAL_TEXT else "sv"
+
+
+def refuse_personal_data(
+    language: Annotated[
+        Literal["sv", "en"],
+        BeforeValidator(_language),
+        Field(description="The organizer's language."),
+    ] = "sv",
+) -> Refusal:
+    return Refusal(language)
+
+
+REFUSE_OUTPUT = ToolOutput(
+    refuse_personal_data,
+    name=REFUSE_TOOL,
+    description="Only for personal details about a particular person (name with details, personnummer, contact, health); not a plain setup request. Ends the turn with a fixed reply.",
+)
+
+
+def hint_instructions(kinds) -> str | None:
+    """The one-turn note for a message the detector flagged: kinds only, never the
+    matched text. None when nothing matched, so the instructions stay as they are."""
+    if not kinds:
+        return None
+    return (
+        f"Automatic check: the organizer's latest message may contain {' or '.join(kinds)}. "
+        "The check is often wrong (prices, codes, dates). If the message gives personal "
+        f"data about a particular person, call {REFUSE_TOOL}; otherwise ignore this note."
+    )
 
 
 class _CappedStream(httpx2.AsyncByteStream):
@@ -180,6 +255,9 @@ def build_agent(
         instructions=SYSTEM_PROMPT,
         toolsets=[toolset],
         retries=AGENT_RETRIES,
+        output_type=[str, REFUSE_OUTPUT],
+        # The default ("graceful") would still run a propose_spec sent alongside a refusal.
+        end_strategy="early",
     )
 
 
@@ -205,8 +283,10 @@ async def run_assistant(
     deadline: float = RUN_DEADLINE_SECONDS,
     request_limit: int = 25,
     tool_calls_limit: int = 40,
+    instructions: str | None = None,
 ):
     """Run with a hard deadline and usage limits, so a looping model cannot run on.
+    ``instructions`` are added to the system prompt for this run only.
 
     Provider failures raise ProviderError (never the response body). Model
     misbehaviour, limits and timeouts re-raise with the message transcript in
@@ -221,6 +301,7 @@ async def run_assistant(
                     message_history=message_history,
                     usage_limits=limits,
                     event_stream_handler=event_stream_handler,
+                    instructions=instructions,
                 )
         except (UnexpectedModelBehavior, UsageLimitExceeded, TimeoutError) as exc:
             exc.transcript = list(messages)

@@ -21,8 +21,10 @@ from events import event_spec
 from events.spec_test_support import at_now
 
 from . import runner
+from .agent import REFUSAL_TEXT, REFUSE_TOOL, hint_instructions
 from .consumers import AssistantConsumer
 from .models import AssistantConversation, AssistantRun, LLMProvider
+from .pii import EMAIL
 
 ROUTER = URLRouter(websocket_urlpatterns)
 TERMINAL = ("run_finished", "run_failed")
@@ -586,11 +588,35 @@ class PersonalDataWarningTests(AssistantWSBase):
     async def test_confirm_flag_sends_it_anyway(self):
         c = await self.connect()
         await c.receive_json_from()
-        with mock.patch.object(AssistantConsumer, "model", streaming(["Fine "])):
+        seen = []
+
+        async def stream(messages, info):
+            seen.append(info.instructions)
+            yield "Fine "
+
+        model = FunctionModel(stream_function=stream)
+        with mock.patch.object(AssistantConsumer, "model", model):
             await self.send(c, confirm_personal_data=True)
             events = await self.until_done(c)
         self.assertEqual(events[0]["type"], "run_started")
         self.assertEqual(events[-1]["type"], "run_finished")
+        # The confirmed message goes with the hint, and its reply is not streamed.
+        self.assertIn(hint_instructions([EMAIL]), seen[0])
+        self.assertNotIn("text_delta", [e["type"] for e in events])
+        await self.close_all()
+
+    async def test_a_refusal_is_stored_redacted(self):
+        c = await self.connect()
+        await c.receive_json_from()
+        model = streaming([(REFUSE_TOOL, {"language": "en"})])
+        with mock.patch.object(AssistantConsumer, "model", model):
+            await self.send(c, confirm_personal_data=True)
+            events = await self.until_done(c)
+        self.assertEqual(events[-1]["type"], "run_finished")
+        self.assertNotIn("unknown", json.dumps(events))
+        conv = await sync_to_async(AssistantConversation.objects.get)()
+        self.assertNotIn("anna", json.dumps(conv.messages).lower())
+        self.assertEqual(runner.transcript(conv)[-1]["text"], REFUSAL_TEXT["en"])
         await self.close_all()
 
     async def test_only_true_confirms(self):

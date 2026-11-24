@@ -117,6 +117,19 @@ describe('reduce', () => {
     expect(s.transcript.map((e) => e.text)).toEqual(['one', 'two']);
   });
 
+  it('turn_refused drops the run\'s streamed text and the listed cards only', () => {
+    const card = (id: string) => ({ type: 'feature_request_draft', run_id: 'r-1', id, title: 't' }) as never;
+    const s = apply([
+      { type: 'text_delta', run_id: 'r-0', text: 'earlier' },
+      { type: 'text_delta', run_id: 'r-1', text: 'secret' },
+      card('fr-1'),
+      card('fr-2'),
+      { type: 'turn_refused', run_id: 'r-1', request_ids: ['fr-1'] }
+    ]);
+    expect(s.transcript).toEqual([{ role: 'assistant', text: 'earlier', runId: 'r-0' }]);
+    expect(s.featureRequests.map((c) => c.id)).toEqual(['fr-2']);
+  });
+
   it('run_failed ends the run and keeps the code', () => {
     const s = apply([
       { type: 'run_started', run_id: 'r-1', reply_to: 'c-1' },

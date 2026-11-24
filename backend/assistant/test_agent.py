@@ -277,6 +277,15 @@ class RunAssistantTests(TestCase):
         self.assertEqual(caught.exception.code, "address_blocked")
 
 
+class RefuseToolDescriptionTests(SimpleTestCase):
+    def test_it_is_scoped_to_personal_details_about_a_person(self):
+        from .agent import REFUSE_OUTPUT
+
+        self.assertIn("particular person", REFUSE_OUTPUT.description)
+        self.assertIn("not a plain setup request", REFUSE_OUTPUT.description)
+        self.assertIn("Ends the turn with a fixed reply", REFUSE_OUTPUT.description)
+
+
 class CheckAddressTests(SimpleTestCase):
     def blocked(self, ip):
         with mock.patch(GETADDRINFO, return_value=[(10, 1, 6, "", (ip, 0))]):

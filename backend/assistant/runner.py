@@ -37,12 +37,16 @@ from pydantic_ai.messages import (
 )
 
 from .agent import (
+    PLACEHOLDER,
     RUN_DEADLINE_SECONDS,
+    Refusal,
     build_agent,
     build_model,
+    hint_instructions,
     run_assistant,
     strip_orphan_think,
 )
+from events import event_spec
 from events.models import Event
 from feature_requests import services as feature_requests
 from feature_requests.models import FeatureRequest
@@ -51,7 +55,7 @@ from .models import AssistantConversation, AssistantRun, LLMProvider
 from .permissions import can_use_assistant, fresh_user
 from .providers import ProviderError
 from .pii import message_findings
-from .tools import TOOL_NAMES, build_toolset
+from .tools import TOOL_NAMES, build_toolset, strings_in
 
 logger = logging.getLogger(__name__)
 
@@ -153,6 +157,54 @@ def chat_text_warning(text: str) -> str | None:
     return found[0] if found else None
 
 
+def known_text(event) -> frozenset[str]:
+    """The event's current export as strings: a detector match found there is not the
+    organizer's own data."""
+    try:
+        return frozenset(strings_in(event_spec.export(event)))
+    except event_spec.SpecError:
+        return frozenset()
+
+
+@dataclass
+class Turn:
+    reply: str
+    refused: bool
+    # This run's messages as the model produced them (the eval reads its calls here).
+    new_messages: list
+    # What the next turn sees and the runner stores: on a refusal, the history before
+    # the run plus a placeholder and the fixed reply.
+    history: list
+
+
+async def run_turn(
+    agent, text: str, history: list, kinds=(), event_stream_handler=None, **limits
+) -> Turn:
+    """One organizer message through the agent, shared by the runner and the eval
+    harness: the detector's hint (``kinds``, from ``message_findings``) goes in for this
+    run only, and a refused message never reaches the returned history."""
+    result = await run_assistant(
+        agent,
+        text,
+        message_history=history,
+        event_stream_handler=event_stream_handler,
+        instructions=hint_instructions(kinds),
+        **limits,
+    )
+    new = result.new_messages()
+    if not isinstance(result.output, Refusal):
+        reply = strip_orphan_think(str(result.output))
+        return Turn(reply, False, new, result.all_messages())
+    logger.info("assistant refused personal data (hinted=%s)", bool(kinds))
+    lang = result.output.language
+    redacted = [
+        *history,
+        ModelRequest(parts=[UserPromptPart(PLACEHOLDER[lang])]),
+        ModelResponse(parts=[TextPart(result.output.text)]),
+    ]
+    return Turn(result.output.text, True, new, redacted)
+
+
 def purge_idle(now=None) -> int:
     """Delete conversations idle past ASSISTANT_RETENTION_DAYS, and old run-log rows."""
     now = now or timezone.now()
@@ -234,6 +286,38 @@ def _store_draft(conv: AssistantConversation, token: str, item: dict) -> None:
         row.save(update_fields=["draft", "draft_version", "updated_at"])
 
 
+def _roll_back(
+    conv: AssistantConversation, filed: list[str], proposed: list[str]
+) -> int | None:
+    """Undo what a refused run made: its feature request drafts, and a draft it
+    proposed (back to the one from before the run). ``proposed`` holds the tokens this
+    run stored. The draft is touched only if the run proposed and the stored draft is
+    still its last proposal; one the organizer discarded or replaced meanwhile stays
+    as it is. Returns the new draft version if the draft changed; it only goes up."""
+    pks = [pk for pk in map(FeatureRequest.pk_from_public_id, filed) if pk is not None]
+    FeatureRequest.objects.filter(
+        pk__in=pks, event_id=conv.event_id, filed_by_id=conv.user_id, status="draft"
+    ).delete()
+    if not proposed:
+        return None
+    with transaction.atomic():
+        row = _owned(conv).select_for_update().first()
+        if row is None or not row.draft or row.draft.get("token") != proposed[-1]:
+            return None
+        row.draft_version += 1
+        row.draft = {**conv.draft, "version": row.draft_version} if conv.draft else None
+        row.save(update_fields=["draft", "draft_version", "updated_at"])
+        return row.draft_version
+
+
+def run_in_progress(event, user) -> bool:
+    """Whether this user has a live assistant run on the event. Apply and confirm
+    refuse meanwhile: a refused run rolls back what it wrote, and an applied or
+    confirmed write cannot be rolled back."""
+    conv = AssistantConversation.objects.filter(event=event, user=user).first()
+    return conv is not None and reset_if_dead(conv)
+
+
 class _LockLost(Exception):
     """The run's row was cleared, or a newer run took it over."""
 
@@ -306,11 +390,12 @@ def _draft_version(conv_pk) -> int:
     )
 
 
-def _stream_forwarder(conv_pk, emit, last_version: int, owner=None):
+def _stream_forwarder(conv_pk, emit, last_version: int, owner=None, text=True):
     """Event-stream handler turning agent events into protocol payloads. Tool
     arguments and results (they hold the spec) and thinking parts are never forwarded.
     ``owner`` is ``(event_pk, user_pk)``; a filed feature request is re-read from the
-    database under it, so only the stored fields go over the wire."""
+    database under it, so only the stored fields go over the wire. ``text`` False holds
+    back text deltas (a hinted turn may end in a refusal; the reply comes by re-read)."""
     state = {"version": last_version}
     # The model picks tool names and call ids; only ours go over the wire.
     call_ids: dict[str, str] = {}
@@ -323,6 +408,8 @@ def _stream_forwarder(conv_pk, emit, last_version: int, owner=None):
 
     async def handler(_ctx, stream):
         async for ev in stream:
+            if not text and isinstance(ev, PartStartEvent | PartDeltaEvent):
+                continue
             if isinstance(ev, PartStartEvent) and isinstance(ev.part, TextPart):
                 if ev.part.content:
                     await emit({"type": "text_delta", "text": ev.part.content})
@@ -381,16 +468,25 @@ async def run_conversation(
     if not provider.enabled and model is None:
         raise RunFailed("not_enabled")
 
+    filed: list[str] = []
+    proposed: list[str] = []
+
+    def store(conv, token, item):
+        proposed.append(token)
+        _store_draft(conv, token, item)
+
     def prepare():
         conv = _begin(event, user)
         try:
             toolset, _drafts = build_toolset(
                 event,
                 user,
-                lambda token, item: _store_draft(conv, token, item),
+                lambda token, item: store(conv, token, item),
                 guard=_permission_guard(event.pk, user, conv),
+                on_filed=filed.append,
             )
-            return conv, toolset, trim_history(load_messages(conv.messages))
+            kinds = message_findings(text, known_text(event))
+            return conv, toolset, trim_history(load_messages(conv.messages)), kinds
         except BaseException as exc:
             _release(conv)
             if isinstance(exc, PermissionDenied):
@@ -400,7 +496,7 @@ async def run_conversation(
     # The thread keeps running if we are cancelled; wait it out so its lock is released.
     prep = asyncio.ensure_future(sync_to_async(prepare)())
     try:
-        conv, toolset, history = await asyncio.shield(prep)
+        conv, toolset, history, kinds = await asyncio.shield(prep)
     except asyncio.CancelledError:
         try:
             await _release_after(prep)
@@ -417,29 +513,40 @@ async def run_conversation(
         )
         handler = (
             _stream_forwarder(
-                conv.pk, on_event, conv.draft_version, owner=(event.pk, user.pk)
+                conv.pk,
+                on_event,
+                conv.draft_version,
+                owner=(event.pk, user.pk),
+                text=not kinds,
             )
             if on_event
             else None
         )
-        result = await run_assistant(
-            agent, text, message_history=history, event_stream_handler=handler
+        turn = await run_turn(
+            agent, text, history, kinds=kinds, event_stream_handler=handler
         )
-        stored = dump_messages(result.all_messages())
+        if turn.refused:
+            version = await sync_to_async(_roll_back)(conv, filed, proposed)
+            if on_event:
+                # Streamed text and cards of this run are dropped client-side; ids only.
+                await on_event({"type": "turn_refused", "request_ids": list(filed)})
+                if version:
+                    await on_event({"type": "draft_updated", "draft_version": version})
+        stored = dump_messages(turn.history)
     except Exception as exc:
         raise RunFailed(_failure_code(exc), exc) from None
     finally:
         # Also on cancellation, so a cancelled run does not hold the lock until it is declared dead.
         await sync_to_async(_release)(conv, stored)
     return {
-        "text": strip_orphan_think(str(result.output)),
+        "text": turn.reply,
         "draft_version": await sync_to_async(_draft_version)(conv.pk) or None,
     }
 
 
 async def _release_after(prep) -> None:
     try:
-        conv, _toolset, _history = await prep
+        conv, *_ = await prep
     except Exception:
         return  # prepare released its own lock
     await sync_to_async(_release)(conv)

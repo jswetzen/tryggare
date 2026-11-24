@@ -432,6 +432,46 @@ def swap_ids(value, ids):
     return value
 
 
+class RunInProgressTests(ApiCase):
+    """Apply (the spec PUT) waits for a live run: a refused run rolls back what it
+    wrote, an applied draft cannot be rolled back."""
+
+    def put(self, spec):
+        with at_now():
+            return self.client.put(
+                reverse("event-spec", args=[self.event.pk]),
+                {"spec": spec},
+                format="json",
+            )
+
+    def start_run(self, user=None):
+        conv = self.conversation(user)
+        conv.status = conv.STATUS_RUNNING
+        conv.run_started_at = timezone.now()
+        conv.save()
+
+    def test_apply_during_a_run_is_409_and_changes_nothing(self):
+        spec = self.store_draft().draft["spec"]
+        self.start_run()
+        before = self.event.name
+        response = self.put(spec)
+        self.assertEqual(response.status_code, 409)
+        self.assertEqual(response.json()["errors"][0]["code"], "run_in_progress")
+        self.event.refresh_from_db()
+        self.assertEqual(self.event.name, before)
+        self.assertEqual(self.event.sessions.filter(name="Sunday hike").count(), 0)
+
+    def test_apply_works_without_a_run_and_after_a_dead_one(self):
+        spec = self.store_draft().draft["spec"]
+        self.assertEqual(self.put(spec).status_code, 200)
+        self.assertTrue(self.event.sessions.filter(name="Sunday hike").exists())
+
+    def test_apply_ignores_another_users_run(self):
+        spec = self.store_draft().draft["spec"]
+        self.start_run(self.other_staff)
+        self.assertEqual(self.put(spec).status_code, 200)
+
+
 class PreviewTests(ApiCase):
     def preview(self):
         r = self.client.get(self.url("assistant-preview"))

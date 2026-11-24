@@ -120,13 +120,15 @@ class Drafts:
 class EventTools:
     """The tools, as plain sync methods. Their docstrings are the model-facing descriptions."""
 
-    def __init__(self, event: Event, user, on_propose=None):
+    def __init__(self, event: Event, user, on_propose=None, on_filed=None):
         ok, issues = can_use_assistant(user, event)
         if not ok:
             raise PermissionDenied("; ".join(i["message"] for i in issues))
         self.event = event
         self.user = user
         self.drafts = Drafts(event, on_propose)
+        # Called with each stored request's public id, so a refused run can delete it.
+        self.on_filed = on_filed
 
     def _current(self) -> Event:
         row = Event.objects.filter(pk=self.event.pk).first()
@@ -255,6 +257,8 @@ class EventTools:
                     for e in exc.errors
                 )
             ) from exc
+        if self.on_filed:
+            self.on_filed(request.public_id)
         return _plain(
             {"id": request.public_id, "status": "draft", "matches_existing": match}
         )
@@ -295,11 +299,11 @@ def _guarded(fn, guard):
 
 
 def build_toolset(
-    event: Event, user, on_propose=None, guard=None
+    event: Event, user, on_propose=None, guard=None, on_filed=None
 ) -> tuple[FunctionToolset, Drafts]:
     """Function tools for a Pydantic AI agent; errors become ``ModelRetry``.
     ``guard`` (sync) runs before every tool call, to re-check permission mid-run."""
-    tools = EventTools(event, user, on_propose)
+    tools = EventTools(event, user, on_propose, on_filed)
     toolset = FunctionToolset(max_retries=TOOL_RETRIES)
     for name in TOOL_NAMES:
         fn = getattr(tools, name)

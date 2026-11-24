@@ -166,6 +166,24 @@ class RestTests(Fixture):
         self.assertEqual(r.status_code, 204)
         self.assertFalse(FeatureRequest.objects.filter(pk=int(second[3:])).exists())
 
+    def test_confirm_during_a_run_is_409_and_the_draft_stays(self):
+        request_id = self.file()
+        conv, _ = AssistantConversation.objects.get_or_create(
+            event=self.event, user=self.coord
+        )
+        conv.status = conv.STATUS_RUNNING
+        conv.run_started_at = timezone.now()
+        conv.save()
+        r = self.client.post(self.url(None, request_id, "confirm"), {}, format="json")
+        self.assertEqual(r.status_code, 409)
+        self.assertEqual(r.json()["errors"][0]["code"], "run_in_progress")
+        row = FeatureRequest.objects.get(pk=int(request_id[3:]))
+        self.assertEqual(row.status, "draft")
+        conv.status, conv.run_started_at = conv.STATUS_IDLE, None
+        conv.save()
+        r = self.client.post(self.url(None, request_id, "confirm"), {}, format="json")
+        self.assertEqual(r.status_code, 200)
+
     def test_confirm_with_edits_runs_the_checks(self):
         request_id = self.file()
         r = self.client.post(

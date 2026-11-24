@@ -190,6 +190,12 @@ def _refusal(http_status, code, message, extra=()):
     )
 
 
+def _run_in_progress():
+    return _refusal(
+        409, "run_in_progress", _("Wait for the assistant to finish its reply.")
+    )
+
+
 def gate(request, event_id):
     """``(user, event, None)`` or ``(None, None, refusal)``. Runs on every request,
     with a user reloaded now, in the WebSocket's order: permission is decided before
@@ -520,6 +526,8 @@ class FeatureRequestConfirmView(FeatureRequestAPIView):
         row = self.own_draft(request_id)
         if row is None:
             return _no_draft()
+        if runner.run_in_progress(self.event, self.user):
+            return _run_in_progress()
         if request.data and not isinstance(request.data, dict):
             return _refusal(400, "invalid", _("Must be a JSON object."))
         try:

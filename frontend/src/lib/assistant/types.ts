@@ -38,6 +38,8 @@ export type ServerEvent =
   | { type: 'text_delta'; run_id: string; text: string }
   | { type: 'draft_updated'; run_id: string; draft_version: number }
   | ({ type: 'feature_request_draft'; run_id: string } & FeatureRequestPreview)
+  // A refused turn: drop this run's streamed text and the listed cards (ids only).
+  | { type: 'turn_refused'; run_id: string; request_ids: string[] }
   | { type: 'run_finished'; run_id: string }
   | { type: 'run_failed'; run_id: string | null; reply_to?: string; code: RunFailedCode }
   | { type: 'warning'; code: 'personal_data'; reply_to: string }

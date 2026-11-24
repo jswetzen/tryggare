@@ -195,6 +195,19 @@ class EventSpecView(SpecAPIView):
         event, error = _event_or_404(event_id)
         if error:
             return error
+        # Imported here: assistant imports events. The assistant's draft is applied
+        # through this endpoint, and an applied draft cannot be rolled back.
+        from assistant.runner import run_in_progress
+
+        if run_in_progress(event, request.user):
+            return _errors(
+                409,
+                issue(
+                    "",
+                    "run_in_progress",
+                    _("Wait for the assistant to finish its reply."),
+                ),
+            )
         return _apply(spec, event, 200)
 
 
