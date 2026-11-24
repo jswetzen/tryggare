@@ -10,7 +10,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: 1.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-10-01 16:32+0200\n"
+"POT-Creation-Date: 2026-11-24 23:14+0100\n"
 "PO-Revision-Date: 2025-11-25 12:00+0000\n"
 "Last-Translator: \n"
 "Language-Team: English\n"
@@ -52,6 +52,192 @@ msgstr "Username and password are required"
 msgid "Invalid credentials"
 msgstr "Invalid credentials"
 
+msgid "API key"
+msgstr "API key"
+
+msgid "Remove the stored API key"
+msgstr "Remove the stored API key"
+
+msgid "The stored key will be removed when you save."
+msgstr "The stored key will be removed when you save."
+
+msgid "A key is stored. Leave empty to keep it."
+msgstr "A key is stored. Leave empty to keep it."
+
+msgid "No key is stored. A local Ollama needs none."
+msgstr "No key is stored. A local Ollama needs none."
+
+msgid "Either enter a new key or remove the stored one, not both."
+msgstr "Either enter a new key or remove the stored one, not both."
+
+msgid "Enter the API key again for the new address, or remove the stored key."
+msgstr "Enter the API key again for the new address, or remove the stored key."
+
+msgid "Permission denied."
+msgstr "Permission denied."
+
+msgid "AI assistant"
+msgstr "AI assistant"
+
+#, python-format
+msgid "Enter an http:// or https:// address, for example %(example)s."
+msgstr "Enter an http:// or https:// address, for example %(example)s."
+
+msgid "OpenAI-compatible API"
+msgstr "OpenAI-compatible API"
+
+msgid "Provider type"
+msgstr "Provider type"
+
+msgid "Base URL"
+msgstr "Base URL"
+
+msgid ""
+"The API address including /v1, for example https://api.openai.com/v1, "
+"https://openrouter.ai/api/v1, or http://localhost:11434/v1 for Ollama."
+msgstr ""
+"The API address including /v1, for example https://api.openai.com/v1, "
+"https://openrouter.ai/api/v1, or http://localhost:11434/v1 for Ollama."
+
+msgid "Model"
+msgstr "Model"
+
+msgid "The model the assistant uses."
+msgstr "The model the assistant uses."
+
+msgid "Enabled"
+msgstr "Enabled"
+
+msgid "The assistant may only call the provider while this is on."
+msgstr "The assistant may only call the provider while this is on."
+
+msgid "Updated at"
+msgstr "Updated at"
+
+msgid "Updated by"
+msgstr "Updated by"
+
+msgid "Language model provider"
+msgstr "Language model provider"
+
+msgid "Needed while the provider is enabled."
+msgstr "Needed while the provider is enabled."
+
+msgid "Idle"
+msgstr "Idle"
+
+msgid "Running"
+msgstr "Running"
+
+msgid "Event"
+msgstr "Event"
+
+msgid "User"
+msgstr "User"
+
+msgid "Messages"
+msgstr "Messages"
+
+msgid "Draft"
+msgstr "Draft"
+
+msgid "Status"
+msgstr "Status"
+
+msgid "Run started at"
+msgstr "Run started at"
+
+msgid "Notice accepted at"
+msgstr "Notice accepted at"
+
+msgid "Created at"
+msgstr "Created at"
+
+msgid "Assistant conversation"
+msgstr "Assistant conversation"
+
+msgid "Assistant conversations"
+msgstr "Assistant conversations"
+
+msgid "Could not reach the provider. Check the base URL."
+msgstr "Could not reach the provider. Check the base URL."
+
+msgid "The provider rejected the API key."
+msgstr "The provider rejected the API key."
+
+msgid "The provider does not list its models. Type the model name instead."
+msgstr "The provider does not list its models. Type the model name instead."
+
+msgid "The provider answered with an error."
+msgstr "The provider answered with an error."
+
+msgid "The provider's answer was not a model list."
+msgstr "The provider's answer was not a model list."
+
+msgid "That address is not allowed."
+msgstr "That address is not allowed."
+
+msgid "The stored API key can no longer be read. Enter it again."
+msgstr "The stored API key can no longer be read. Enter it again."
+
+msgid "Loading…"
+msgstr "Loading…"
+
+msgid "Load models"
+msgstr "Load models"
+
+msgid "Models from the provider"
+msgstr "Models from the provider"
+
+msgid "Load models to choose one"
+msgstr "Load models to choose one"
+
+#, python-format
+msgid "Found %%(count)s models."
+msgstr "Found %%(count)s models."
+
+msgid "The provider lists no models."
+msgstr "The provider lists no models."
+
+msgid "Loading failed."
+msgstr "Loading failed."
+
+msgid "Must be a string."
+msgstr "Must be a string."
+
+msgid "Sign in to use the assistant."
+msgstr "Sign in to use the assistant."
+
+msgid "You are not allowed to use the assistant."
+msgstr "You are not allowed to use the assistant."
+
+msgid "No such event."
+msgstr "No such event."
+
+msgid "The assistant cannot change this event now."
+msgstr "The assistant cannot change this event now."
+
+msgid "The assistant is not switched on."
+msgstr "The assistant is not switched on."
+
+msgid "There is no draft."
+msgstr "There is no draft."
+
+msgid "The draft version is invalid."
+msgstr "The draft version is invalid."
+
+msgid "The draft changed since you last saw it."
+msgstr "The draft changed since you last saw it."
+
+msgid "Sign in to file a feature request."
+msgstr "Sign in to file a feature request."
+
+msgid "You are not allowed to file feature requests."
+msgstr "You are not allowed to file feature requests."
+
+msgid "Must be a JSON object."
+msgstr "Must be a JSON object."
+
 # Model field labels - checkins/models.py
 msgid "Check-In"
 msgstr "Check-In"
@@ -67,6 +253,19 @@ msgstr "Parent does not have a ticket for this event"
 
 msgid "Child does not have a ticket for this session"
 msgstr "Child does not have a ticket for this session"
+
+msgid ""
+"This person's registration was cancelled, so they cannot be given a ticket "
+"here. Send the family to a Koordinator."
+msgstr ""
+"This person's registration was cancelled, so they cannot be given a ticket "
+"here. Send the family to a Koordinator."
+
+msgid "This session is not open for check-in, so a ticket cannot be given"
+msgstr "This session is not open for check-in, so a ticket cannot be given"
+
+msgid "This session does not require a ticket for this person"
+msgstr "This session does not require a ticket for this person"
 
 # Model field labels - checkins/models.py
 msgid "Check-In Time"
@@ -134,9 +333,6 @@ msgstr "QR Codes"
 
 msgid "Timestamp"
 msgstr "Timestamp"
-
-msgid "User"
-msgstr "User"
 
 msgid "Action"
 msgstr "Action"
@@ -229,20 +425,80 @@ msgstr "Tryggare admin"
 msgid "Choose what to manage"
 msgstr "Choose what to manage"
 
+msgid "New event name"
+msgstr "New event name"
+
+msgid "New start date"
+msgstr "New start date"
+
+msgid ""
+"Every date and time in the copy moves by the same number of days as the "
+"start date."
+msgstr ""
+"Every date and time in the copy moves by the same number of days as the "
+"start date."
+
+msgid "Check-in rules"
+msgstr "Check-in rules"
+
+msgid "Registration window status"
+msgstr "Registration window status"
+
 msgid "Registration page"
 msgstr "Registration page"
 
 msgid "Open page"
 msgstr "Open page"
 
+msgid "Check setup"
+msgstr "Check setup"
+
+msgid "Copy event…"
+msgstr "Copy event…"
+
+msgid "Select exactly one event to copy."
+msgstr "Select exactly one event to copy."
+
+#, python-format
+msgid "Could not copy '%(source)s': %(problems)s"
+msgstr "Could not copy '%(source)s': %(problems)s"
+
+#, python-format
+msgid ""
+"Copied '%(source)s' to '%(event)s'. Self-serve registration is off on the "
+"copy because the moved registration window would already be open or in the "
+"past; set a new window when you are ready."
+msgstr ""
+"Copied '%(source)s' to '%(event)s'. Self-serve registration is off on the "
+"copy because the moved registration window would already be open or in the "
+"past; set a new window when you are ready."
+
+#, python-format
+msgid "Copied '%(source)s' to '%(event)s'."
+msgstr "Copied '%(source)s' to '%(event)s'."
+
+msgid "Copy event"
+msgstr "Copy event"
+
 msgid "Generate / refresh report snapshot"
 msgstr "Generate / refresh report snapshot"
 
+msgid "Same as the event's default"
+msgstr "Same as the event's default"
+
+msgid ""
+"The box is already ticked when you add a new session: untick it for sessions "
+"where adults are checked in."
+msgstr ""
+"The box is already ticked when you add a new session: untick it for sessions "
+"where adults are checked in."
+
+#, python-format
+msgid "Same as the event's default (%(rule)s)"
+msgstr "Same as the event's default (%(rule)s)"
+
 msgid "Effective ticket rule"
 msgstr "Effective ticket rule"
-
-msgid "Registration window status"
-msgstr "Registration window status"
 
 msgid "Age fits the ticket type"
 msgstr "Age fits the ticket type"
@@ -325,11 +581,34 @@ msgstr "%(changed)d ticket(s) changed, %(skipped)d skipped."
 msgid "Change ticket type"
 msgstr "Change ticket type"
 
+#, python-format
+msgid "Must belong to the same event: %(names)s."
+msgstr "Must belong to the same event: %(names)s."
+
+msgid "change"
+msgstr "change"
+
+msgid "Choose the event first"
+msgstr "Choose the event first"
+
+msgid ""
+"Pick the event this belongs to. The next page then offers only that event's "
+"sessions and ticket types."
+msgstr ""
+"Pick the event this belongs to. The next page then offers only that event's "
+"sessions and ticket types."
+
+msgid "Continue"
+msgstr "Continue"
+
 msgid "A session-bundle ticket type must cover at least one session."
 msgstr "A session-bundle ticket type must cover at least one session."
 
-msgid "The required ticket type must belong to the same event."
-msgstr "The required ticket type must belong to the same event."
+#, python-format
+msgid ""
+"Deactivated because every ticket type in their gate was deleted: %(names)s."
+msgstr ""
+"Deactivated because every ticket type in their gate was deleted: %(names)s."
 
 #, python-format
 msgid ""
@@ -363,11 +642,308 @@ msgstr "Duplicate to another event…"
 msgid "Duplicated %(count)d extra(s) to '%(event)s'."
 msgstr "Duplicated %(count)d extra(s) to '%(event)s'."
 
+#, python-format
+msgid ""
+"Created inactive because a ticket type it requires has no single active same-"
+"named type on '%(event)s' (a name that stays ambiguous counts as no match). "
+"Re-pick its ticket types before activating: %(names)s."
+msgstr ""
+"Created inactive because a ticket type it requires has no single active same-"
+"named type on '%(event)s' (a name that stays ambiguous counts as no match). "
+"Re-pick its ticket types before activating: %(names)s."
+
 msgid "Duplicate extras to another event"
 msgstr "Duplicate extras to another event"
 
 msgid "Events"
 msgstr "Events"
+
+msgid "choice"
+msgstr "choice"
+
+msgid "The event does not exist."
+msgstr "The event does not exist."
+
+msgid "Registration is open on the target event; close registration first."
+msgstr "Registration is open on the target event; close registration first."
+
+msgid ""
+"The target event already has registrations, tickets or check-ins, so its "
+"setup cannot be replaced."
+msgstr ""
+"The target event already has registrations, tickets or check-ins, so its "
+"setup cannot be replaced."
+
+msgid ""
+"The database refused the spec and nothing was changed. A promo code may "
+"already be in use on this event."
+msgstr ""
+"The database refused the spec and nothing was changed. A promo code may "
+"already be in use on this event."
+
+#, python-format
+msgid ""
+"The %(kind)s '%(name)s' refers to the %(target)s '%(other)s', which belongs "
+"to another event."
+msgstr ""
+"The %(kind)s '%(name)s' refers to the %(target)s '%(other)s', which belongs "
+"to another event."
+
+# Event spec validation messages
+msgid "This field is required."
+msgstr "This field is required."
+
+msgid "Unknown field. Remove it or check the schema for the right name."
+msgstr "Unknown field. Remove it or check the schema for the right name."
+
+#, python-format
+msgid "Must be one of: %(expected)s."
+msgstr "Must be one of: %(expected)s."
+
+msgid "Must be lowercase letters and digits separated by single hyphens."
+msgstr "Must be lowercase letters and digits separated by single hyphens."
+
+#, python-format
+msgid "Invalid value: %(detail)s"
+msgstr "Invalid value: %(detail)s"
+
+#, python-format
+msgid "Key '%(key)s' is used more than once; keys must be unique."
+msgstr "Key '%(key)s' is used more than once; keys must be unique."
+
+#, python-format
+msgid ""
+"Code '%(code)s' appears more than once; codes are matched case-insensitively "
+"and must be unique."
+msgstr ""
+"Code '%(code)s' appears more than once; codes are matched case-insensitively "
+"and must be unique."
+
+#, python-format
+msgid ""
+"'%(key)s' is the key of another kind of row (%(found)s); a key for "
+"%(expected)s is needed here."
+msgstr ""
+"'%(key)s' is the key of another kind of row (%(found)s); a key for "
+"%(expected)s is needed here."
+
+#, python-format
+msgid "No %(kind)s has the key '%(key)s'."
+msgstr "No %(kind)s has the key '%(key)s'."
+
+#, python-format
+msgid "'%(key)s' is listed more than once."
+msgstr "'%(key)s' is listed more than once."
+
+msgid ""
+"Registration would already be open. Set registration_opens_at to a future "
+"moment; a person opens registration, not the spec."
+msgstr ""
+"Registration would already be open. Set registration_opens_at to a future "
+"moment; a person opens registration, not the spec."
+
+#, python-format
+msgid ""
+"min_birthdate (%(min)s) is later than max_birthdate (%(max)s). min_birthdate "
+"is the earliest birth date allowed (the oldest attendee) and max_birthdate "
+"the latest (the youngest), so min_birthdate must be the earlier date. Swap "
+"them."
+msgstr ""
+"min_birthdate (%(min)s) is later than max_birthdate (%(max)s). min_birthdate "
+"is the earliest birth date allowed (the oldest attendee) and max_birthdate "
+"the latest (the youngest), so min_birthdate must be the earlier date. Swap "
+"them."
+
+msgid ""
+"No registration window is set, so public self-serve registration is off."
+msgstr ""
+"No registration window is set, so public self-serve registration is off."
+
+msgid "The registration window has already closed."
+msgstr "The registration window has already closed."
+
+msgid "The session starts outside the event's dates."
+msgstr "The session starts outside the event's dates."
+
+msgid ""
+"These ticket types require each other in a loop. Buying one of each "
+"satisfies it, so this is likely a mistake."
+msgstr ""
+"These ticket types require each other in a loop. Buying one of each "
+"satisfies it, so this is likely a mistake."
+
+#, python-format
+msgid ""
+"The key '%(key)s' is not the one export derives ('%(derived)s'), so a later "
+"export will show this row as removed and added."
+msgstr ""
+"The key '%(key)s' is not the one export derives ('%(derived)s'), so a later "
+"export will show this row as removed and added."
+
+msgid ""
+"These rows tie on their ordering fields; give them different sort_order or "
+"names."
+msgstr ""
+"These rows tie on their ordering fields; give them different sort_order or "
+"names."
+
+msgid "This age tier has price 0, so it is free. Intended?"
+msgstr "This age tier has price 0, so it is free. Intended?"
+
+msgid ""
+"This ticket type is hidden and no active promo code unlocks it, so nobody "
+"can buy it."
+msgstr ""
+"This ticket type is hidden and no active promo code unlocks it, so nobody "
+"can buy it."
+
+msgid "A session bundle lists no sessions."
+msgstr "A session bundle lists no sessions."
+
+msgid "Sessions are only used by session bundles; they are ignored here."
+msgstr "Sessions are only used by session bundles; they are ignored here."
+
+msgid "The ticket type this one requires is inactive, so it cannot be bought."
+msgstr "The ticket type this one requires is inactive, so it cannot be bought."
+
+msgid "max_per_required is ignored without requires_ticket_type."
+msgstr "max_per_required is ignored without requires_ticket_type."
+
+msgid "This extra requires a choice but has no active choices."
+msgstr "This extra requires a choice but has no active choices."
+
+msgid "Choices are ignored unless requires_choice is true."
+msgstr "Choices are ignored unless requires_choice is true."
+
+msgid ""
+"No active ticket type in this extra's gate can be held by an attendee it "
+"applies to, so nobody can take it."
+msgstr ""
+"No active ticket type in this extra's gate can be held by an attendee it "
+"applies to, so nobody can take it."
+
+msgid "Every ticket type this code refers to is inactive."
+msgstr "Every ticket type this code refers to is inactive."
+
+msgid ""
+"This session bundle covers the same attendees as an event ticket. An "
+"attendee picks either this or the pass, not both. Intended?"
+msgstr ""
+"This session bundle covers the same attendees as an event ticket. An "
+"attendee picks either this or the pass, not both. Intended?"
+
+msgid ""
+"This session bundle requires an event ticket for the same attendees, but an "
+"attendee holds only one ticket, so it can never be bought."
+msgstr ""
+"This session bundle requires an event ticket for the same attendees, but an "
+"attendee holds only one ticket, so it can never be bought."
+
+msgid ""
+"Check-in is open to everyone by default but the event sells tickets, so "
+"nobody needs a ticket at the door. Intended?"
+msgstr ""
+"Check-in is open to everyone by default but the event sells tickets, so "
+"nobody needs a ticket at the door. Intended?"
+
+msgid ""
+"The flat event price is ignored while an active ticket type exists, and "
+"applies again if all of them are made inactive."
+msgstr ""
+"The flat event price is ignored while an active ticket type exists, and "
+"applies again if all of them are made inactive."
+
+#, python-format
+msgid "No active ticket covers children aged %(start)s to %(end)s."
+msgstr "No active ticket covers children aged %(start)s to %(end)s."
+
+#, python-format
+msgid ""
+"This age tier covers the same ages as '%(other)s'; an attendee in both gets "
+"two options. Intended?"
+msgstr ""
+"This age tier covers the same ages as '%(other)s'; an attendee in both gets "
+"two options. Intended?"
+
+#, python-format
+msgid ""
+"The name says ages %(label)s, but the age bounds admit ages %(actual)s on "
+"the event start date. For 'N and under', min_birthdate is the start date "
+"minus N+1 years plus one day; for 'at least M', max_birthdate is the start "
+"date minus M years."
+msgstr ""
+"The name says ages %(label)s, but the age bounds admit ages %(actual)s on "
+"the event start date. For 'N and under', min_birthdate is the start date "
+"minus N+1 years plus one day; for 'at least M', max_birthdate is the start "
+"date minus M years."
+
+msgid ""
+"A free extra named like a discount does not discount anything; an extra only "
+"adds to the price. Use a promo code."
+msgstr ""
+"A free extra named like a discount does not discount anything; an extra only "
+"adds to the price. Use a promo code."
+
+msgid ""
+"This row is inactive and nothing refers to it, but it is still copied with "
+"the event. Delete it if it is not needed."
+msgstr ""
+"This row is inactive and nothing refers to it, but it is still copied with "
+"the event. Delete it if it is not needed."
+
+msgid "session"
+msgstr "session"
+
+msgid "ticket type"
+msgstr "ticket type"
+
+msgid "extra"
+msgstr "extra"
+
+msgid "promo code"
+msgstr "promo code"
+
+#, python-format
+msgid "Allowed here: %(allowed)s."
+msgstr "Allowed here: %(allowed)s."
+
+#, python-format
+msgid "Event %(id)s does not exist."
+msgstr "Event %(id)s does not exist."
+
+#, python-format
+msgid "Cannot read %(path)s: %(error)s"
+msgstr "Cannot read %(path)s: %(error)s"
+
+#, python-format
+msgid "%(path)s is not valid JSON: %(error)s"
+msgstr "%(path)s is not valid JSON: %(error)s"
+
+msgid "error"
+msgstr "error"
+
+msgid "warning"
+msgstr "warning"
+
+#, python-format
+msgid "The spec was refused: %(count)d error(s); nothing was written."
+msgstr "The spec was refused: %(count)d error(s); nothing was written."
+
+#, python-format
+msgid "The event cannot be exported: %(count)d error(s)."
+msgstr "The event cannot be exported: %(count)d error(s)."
+
+#, python-format
+msgid "Cannot write %(path)s: %(error)s"
+msgstr "Cannot write %(path)s: %(error)s"
+
+#, python-format
+msgid "The event cannot be checked: %(count)d error(s)."
+msgstr "The event cannot be checked: %(count)d error(s)."
+
+#, python-format
+msgid "The setup has %(count)d error(s)."
+msgstr "The setup has %(count)d error(s)."
 
 msgid "Open - no ticket required"
 msgstr "Open - no ticket required"
@@ -413,27 +989,21 @@ msgid "Default Ticket Rule"
 msgstr "Default Ticket Rule"
 
 msgid ""
-"The ticket rule that this event's sessions follow, unless a session sets its own.<br>"
-"Open - no ticket required: anyone may be checked in, e.g. a drop-in play hour.<br>"
-"Children need a ticket: a child without a ticket cannot be checked in, adults need none, e.g. a children's workshop.<br>"
-"Everyone attending needs a ticket: children and adults alike, e.g. a ticketed evening show.<br>"
-"Guardians who only bring the children and do not attend themselves never need a ticket."
+"The ticket rule that this event's sessions follow, unless a session sets its "
+"own.<br>Open - no ticket required: anyone may be checked in, e.g. a drop-in "
+"play hour.<br>Children need a ticket: a child without a ticket cannot be "
+"checked in, adults need none, e.g. a children's workshop.<br>Everyone "
+"attending needs a ticket: children and adults alike, e.g. a ticketed evening "
+"show.<br>Guardians who only bring the children and do not attend themselves "
+"never need a ticket."
 msgstr ""
-"The ticket rule that this event's sessions follow, unless a session sets its own.<br>"
-"Open - no ticket required: anyone may be checked in, e.g. a drop-in play hour.<br>"
-"Children need a ticket: a child without a ticket cannot be checked in, adults need none, e.g. a children's workshop.<br>"
-"Everyone attending needs a ticket: children and adults alike, e.g. a ticketed evening show.<br>"
-"Guardians who only bring the children and do not attend themselves never need a ticket."
-
-msgid "Check-in rules"
-msgstr "Check-in rules"
-
-msgid "Same as the event's default"
-msgstr "Same as the event's default"
-
-#, python-format
-msgid "Same as the event's default (%(rule)s)"
-msgstr "Same as the event's default (%(rule)s)"
+"The ticket rule that this event's sessions follow, unless a session sets its "
+"own.<br>Open - no ticket required: anyone may be checked in, e.g. a drop-in "
+"play hour.<br>Children need a ticket: a child without a ticket cannot be "
+"checked in, adults need none, e.g. a children's workshop.<br>Everyone "
+"attending needs a ticket: children and adults alike, e.g. a ticketed evening "
+"show.<br>Guardians who only bring the children and do not attend themselves "
+"never need a ticket."
 
 msgid "Price"
 msgstr "Price"
@@ -485,11 +1055,21 @@ msgstr ""
 "Optional hex accent color (e.g. #2563EB) for the public registration page "
 "hero. Leave blank for the default brand color."
 
-msgid "Event"
-msgstr "Event"
+msgid "Copied From"
+msgstr "Copied From"
+
+msgid ""
+"Informational only: the event this one was copied from, if any. No live "
+"link: editing either never affects the other."
+msgstr ""
+"Informational only: the event this one was copied from, if any. No live "
+"link: editing either never affects the other."
 
 msgid "Registration closes-at must be after opens-at."
 msgstr "Registration closes-at must be after opens-at."
+
+msgid "The end date is before the start date."
+msgstr "The end date is before the start date."
 
 msgid "Session Name"
 msgstr "Session Name"
@@ -503,36 +1083,54 @@ msgstr "End Time"
 msgid "Is Active"
 msgstr "Is Active"
 
-msgid "Shows this session in the session picker at the check-in and check-out desks, and supervised check-ins only print labels while it is on. Tick it before the session starts; untick it when it is over."
-msgstr "Shows this session in the session picker at the check-in and check-out desks, and supervised check-ins only print labels while it is on. Tick it before the session starts; untick it when it is over."
+msgid ""
+"Shows this session in the session picker at the check-in and check-out "
+"desks, and supervised check-ins only print labels while it is on. Tick it "
+"before the session starts; untick it when it is over."
+msgstr ""
+"Shows this session in the session picker at the check-in and check-out "
+"desks, and supervised check-ins only print labels while it is on. Tick it "
+"before the session starts; untick it when it is over."
 
 msgid "Ticket Rule"
 msgstr "Ticket Rule"
 
 msgid ""
-"Who needs a ticket to be checked in to this session. Leave it on \"Same as the event's default\" to follow the \"Default Ticket Rule\" field on the event.<br>"
-"Open - no ticket required: anyone may be checked in, e.g. a drop-in play hour.<br>"
-"Children need a ticket: a child without a ticket cannot be checked in, adults need none, e.g. a children's workshop.<br>"
-"Everyone attending needs a ticket: children and adults alike, e.g. a ticketed evening show.<br>"
-"Guardians who only bring the children and do not attend themselves never need a ticket."
+"Who needs a ticket to be checked in to this session. Leave it on \"Same as "
+"the event's default\" to follow the \"Default Ticket Rule\" field on the "
+"event.<br>Open - no ticket required: anyone may be checked in, e.g. a drop-"
+"in play hour.<br>Children need a ticket: a child without a ticket cannot be "
+"checked in, adults need none, e.g. a children's workshop.<br>Everyone "
+"attending needs a ticket: children and adults alike, e.g. a ticketed evening "
+"show.<br>Guardians who only bring the children and do not attend themselves "
+"never need a ticket."
 msgstr ""
-"Who needs a ticket to be checked in to this session. Leave it on \"Same as the event's default\" to follow the \"Default Ticket Rule\" field on the event.<br>"
-"Open - no ticket required: anyone may be checked in, e.g. a drop-in play hour.<br>"
-"Children need a ticket: a child without a ticket cannot be checked in, adults need none, e.g. a children's workshop.<br>"
-"Everyone attending needs a ticket: children and adults alike, e.g. a ticketed evening show.<br>"
-"Guardians who only bring the children and do not attend themselves never need a ticket."
+"Who needs a ticket to be checked in to this session. Leave it on \"Same as "
+"the event's default\" to follow the \"Default Ticket Rule\" field on the "
+"event.<br>Open - no ticket required: anyone may be checked in, e.g. a drop-"
+"in play hour.<br>Children need a ticket: a child without a ticket cannot be "
+"checked in, adults need none, e.g. a children's workshop.<br>Everyone "
+"attending needs a ticket: children and adults alike, e.g. a ticketed evening "
+"show.<br>Guardians who only bring the children and do not attend themselves "
+"never need a ticket."
 
 msgid "Adults are not checked in here"
 msgstr "Adults are not checked in here"
 
-msgid "Tick if only children are checked in to this session, not adults, as at a drop-off session. Leave it unticked if adults are checked in here too. When adults are not checked in, the ticket rule only matters for children."
-msgstr "Tick if only children are checked in to this session, not adults, as at a drop-off session. Leave it unticked if adults are checked in here too. When adults are not checked in, the ticket rule only matters for children."
-
-msgid "The box is already ticked when you add a new session: untick it for sessions where adults are checked in."
-msgstr "The box is already ticked when you add a new session: untick it for sessions where adults are checked in."
+msgid ""
+"Tick if only children are checked in to this session, not adults, as at a "
+"drop-off session. Leave it unticked if adults are checked in here too. When "
+"adults are not checked in, the ticket rule only matters for children."
+msgstr ""
+"Tick if only children are checked in to this session, not adults, as at a "
+"drop-off session. Leave it unticked if adults are checked in here too. When "
+"adults are not checked in, the ticket rule only matters for children."
 
 msgid "Sessions"
 msgstr "Sessions"
+
+msgid "The session must not end before it starts."
+msgstr "The session must not end before it starts."
 
 # Admin changelist columns - events/admin.py (ticket triage)
 msgid "Whole event"
@@ -545,20 +1143,34 @@ msgid "Applies To"
 msgstr "Applies To"
 
 # Model field help text - events/models.py (TicketType.applies_to)
-msgid "Who may pick this ticket type on the public registration form: Parent, Child or Either. Staff can still assign it to anyone by hand in the admin, regardless of this setting."
-msgstr "Who may pick this ticket type on the public registration form: Parent, Child or Either. Staff can still assign it to anyone by hand in the admin, regardless of this setting."
+msgid ""
+"Who may pick this ticket type on the public registration form: Parent, Child "
+"or Either. Staff can still assign it to anyone by hand in the admin, "
+"regardless of this setting."
+msgstr ""
+"Who may pick this ticket type on the public registration form: Parent, Child "
+"or Either. Staff can still assign it to anyone by hand in the admin, "
+"regardless of this setting."
 
 msgid "Minimum Birthdate"
 msgstr "Minimum Birthdate"
 
-msgid "The earliest birth date allowed (the attendee must be born on or after it), counted on the event's start date; leave blank for no limit."
-msgstr "The earliest birth date allowed (the attendee must be born on or after it), counted on the event's start date; leave blank for no limit."
+msgid ""
+"The earliest birth date allowed (the attendee must be born on or after it), "
+"counted on the event's start date; leave blank for no limit."
+msgstr ""
+"The earliest birth date allowed (the attendee must be born on or after it), "
+"counted on the event's start date; leave blank for no limit."
 
 msgid "Maximum Birthdate"
 msgstr "Maximum Birthdate"
 
-msgid "The latest birth date allowed (the attendee must be born on or before it), counted on the event's start date; leave blank for no limit."
-msgstr "The latest birth date allowed (the attendee must be born on or before it), counted on the event's start date; leave blank for no limit."
+msgid ""
+"The latest birth date allowed (the attendee must be born on or before it), "
+"counted on the event's start date; leave blank for no limit."
+msgstr ""
+"The latest birth date allowed (the attendee must be born on or before it), "
+"counted on the event's start date; leave blank for no limit."
 
 msgid "Available From"
 msgstr "Available From"
@@ -615,19 +1227,27 @@ msgstr "Can only be bought together with"
 msgid ""
 "If set, this ticket type can only be bought together with the ticket type "
 "chosen here: the registration must also include at least one ticket of that "
-"type (e.g. a free 'family member' type that can only be bought together "
-"with a paid 'family ticket' type)."
+"type (e.g. a free 'family member' type that can only be bought together with "
+"a paid 'family ticket' type)."
 msgstr ""
 "If set, this ticket type can only be bought together with the ticket type "
 "chosen here: the registration must also include at least one ticket of that "
-"type (e.g. a free 'family member' type that can only be bought together "
-"with a paid 'family ticket' type)."
+"type (e.g. a free 'family member' type that can only be bought together with "
+"a paid 'family ticket' type)."
 
 msgid "Max per ticket of that type"
 msgstr "Max per ticket of that type"
 
-msgid "How many tickets of this type are allowed per ticket of the type chosen in 'Can only be bought together with' (e.g. 4 free family members per paid family ticket). Leave blank for no limit; one ticket of that type is still needed."
-msgstr "How many tickets of this type are allowed per ticket of the type chosen in 'Can only be bought together with' (e.g. 4 free family members per paid family ticket). Leave blank for no limit; one ticket of that type is still needed."
+msgid ""
+"How many tickets of this type are allowed per ticket of the type chosen in "
+"'Can only be bought together with' (e.g. 4 free family members per paid "
+"family ticket). Leave blank for no limit; one ticket of that type is still "
+"needed."
+msgstr ""
+"How many tickets of this type are allowed per ticket of the type chosen in "
+"'Can only be bought together with' (e.g. 4 free family members per paid "
+"family ticket). Leave blank for no limit; one ticket of that type is still "
+"needed."
 
 msgid "Sort Order"
 msgstr "Sort Order"
@@ -644,6 +1264,12 @@ msgstr "Ticket Types"
 
 msgid "A ticket type cannot require itself."
 msgstr "A ticket type cannot require itself."
+
+msgid "The required ticket type must belong to the same event."
+msgstr "The required ticket type must belong to the same event."
+
+msgid "'Available until' is before 'available from'."
+msgstr "'Available until' is before 'available from'."
 
 #, python-format
 msgid ""
@@ -734,6 +1360,12 @@ msgstr "Promo Code"
 msgid "Promo Codes"
 msgstr "Promo Codes"
 
+msgid "'Valid until' is before 'valid from'."
+msgstr "'Valid until' is before 'valid from'."
+
+msgid "A percent discount cannot be more than 100."
+msgstr "A percent discount cannot be more than 100."
+
 msgid ""
 "Set for a session-scoped extra (e.g. one evening's dinner). Blank = event-"
 "wide."
@@ -774,6 +1406,18 @@ msgstr ""
 "For an opt-out extra (e.g. food included by default, guardian can decline) — "
 "never model an opt-out as a negative price."
 
+msgid "Required ticket types"
+msgstr "Required ticket types"
+
+msgid ""
+"Leave empty to offer the extra to everyone. Otherwise it is offered only to "
+"an attendee holding any of these ticket types (for a per-booking extra: when "
+"anyone in the booking holds one). Ticket types of the extra's own event only."
+msgstr ""
+"Leave empty to offer the extra to everyone. Otherwise it is offered only to "
+"an attendee holding any of these ticket types (for a per-booking extra: when "
+"anyone in the booking holds one). Ticket types of the extra's own event only."
+
 msgid "Cloned From"
 msgstr "Cloned From"
 
@@ -789,6 +1433,9 @@ msgstr "Extra"
 
 msgid "Extras"
 msgstr "Extras"
+
+msgid "The session must belong to the extra's event."
+msgstr "The session must belong to the extra's event."
 
 msgid "Label"
 msgstr "Label"
@@ -861,8 +1508,49 @@ msgstr "Event Tickets"
 msgid "Session Tickets"
 msgstr "Session Tickets"
 
+msgid "A session cannot be moved to another event."
+msgstr "A session cannot be moved to another event."
+
+msgid "The body is not valid JSON."
+msgstr "The body is not valid JSON."
+
+msgid "The body must be a JSON object."
+msgstr "The body must be a JSON object."
+
+msgid "The body needs a 'spec' object."
+msgstr "The body needs a 'spec' object."
+
+msgid "'event_id' is not a valid id."
+msgstr "'event_id' is not a valid id."
+
+msgid "Open assistant"
+msgstr "Open assistant"
+
 msgid "Home"
 msgstr "Home"
+
+msgid "No problems found."
+msgstr "No problems found."
+
+msgid "Errors"
+msgstr "Errors"
+
+msgid "Warnings"
+msgstr "Warnings"
+
+#, python-format
+msgid ""
+"Copy \"%(name)s\" with its sessions, ticket types, extras and promo codes. "
+"Registrations, tickets and check-ins are not copied."
+msgstr ""
+"Copy \"%(name)s\" with its sessions, ticket types, extras and promo codes. "
+"Registrations, tickets and check-ins are not copied."
+
+msgid "Copy"
+msgstr "Copy"
+
+msgid "Cancel"
+msgstr "Cancel"
 
 #, python-format
 msgid ""
@@ -908,9 +1596,6 @@ msgstr ""
 msgid "Show what this changes"
 msgstr "Show what this changes"
 
-msgid "Cancel"
-msgstr "Cancel"
-
 msgid "Duplicate to another event"
 msgstr "Duplicate to another event"
 
@@ -925,6 +1610,9 @@ msgstr ""
 
 msgid "Duplicate"
 msgstr "Duplicate"
+
+msgid "This person already has a ticket here"
+msgstr "This person already has a ticket here"
 
 msgid "Balance"
 msgstr "Balance"
@@ -1065,6 +1753,232 @@ msgstr "Children"
 msgid "QR code not found or child is not currently checked in"
 msgstr "QR code not found or child is not currently checked in"
 
+msgid "layer"
+msgstr "layer"
+
+msgid "Give a list of texts."
+msgstr "Give a list of texts."
+
+msgid "Give used and cost, or null."
+msgstr "Give used and cost, or null."
+
+msgid "Give a list of terms."
+msgstr "Give a list of terms."
+
+msgid "Give a list of layer values."
+msgstr "Give a list of layer values."
+
+msgid "Choose the request this one duplicates."
+msgstr "Choose the request this one duplicates."
+
+msgid "The need"
+msgstr "The need"
+
+msgid "Triage"
+msgstr "Triage"
+
+msgid "Local only, never exported"
+msgstr "Local only, never exported"
+
+msgid "Set status to triaged"
+msgstr "Set status to triaged"
+
+msgid "Set status to planned"
+msgstr "Set status to planned"
+
+msgid "Set status to done"
+msgstr "Set status to done"
+
+msgid "Set status to declined"
+msgstr "Set status to declined"
+
+msgid "Copy as GitHub issue (one request)"
+msgstr "Copy as GitHub issue (one request)"
+
+msgid "Select exactly one request."
+msgstr "Select exactly one request."
+
+msgid "Feature requests"
+msgstr "Feature requests"
+
+msgid "Organizer"
+msgstr "Organizer"
+
+msgid "Assistant"
+msgstr "Assistant"
+
+msgid "Validator warning"
+msgstr "Validator warning"
+
+msgid "Trial"
+msgstr "Trial"
+
+msgid "Eval"
+msgstr "Eval"
+
+msgid "Maintainer"
+msgstr "Maintainer"
+
+msgid "Blocks the setup"
+msgstr "Blocks the setup"
+
+msgid "Wrong result"
+msgstr "Wrong result"
+
+msgid "Risk of damage"
+msgstr "Risk of damage"
+
+msgid "Friction"
+msgstr "Friction"
+
+msgid "Cosmetic"
+msgstr "Cosmetic"
+
+msgid "Most events"
+msgstr "Most events"
+
+# Admin changelist columns - events/admin.py (ticket triage)
+msgid "Some events"
+msgstr "Some events"
+
+msgid "Few events"
+msgstr "Few events"
+
+msgid "Validator"
+msgstr "Validator"
+
+msgid "Admin UI"
+msgstr "Admin UI"
+
+msgid "Public form"
+msgstr "Public form"
+
+msgid "Spec example"
+msgstr "Spec example"
+
+msgid "Docs"
+msgstr "Docs"
+
+msgid "A check already flags it"
+msgstr "A check already flags it"
+
+msgid "A new warning could catch it"
+msgstr "A new warning could catch it"
+
+msgid "Needs a model, UI or doc change"
+msgstr "Needs a model, UI or doc change"
+
+msgid "Confirmed"
+msgstr "Confirmed"
+
+msgid "Triaged"
+msgstr "Triaged"
+
+msgid "Planned"
+msgstr "Planned"
+
+msgid "Done"
+msgstr "Done"
+
+msgid "Declined"
+msgstr "Declined"
+
+msgid "Extra steps"
+msgstr "Extra steps"
+
+msgid "Not possible"
+msgstr "Not possible"
+
+msgid "Title"
+msgstr "Title"
+
+msgid "Source"
+msgstr "Source"
+
+msgid "Problem"
+msgstr "Problem"
+
+msgid "Tried"
+msgstr "Tried"
+
+msgid "Workaround"
+msgstr "Workaround"
+
+msgid "Desired"
+msgstr "Desired"
+
+msgid "Touches"
+msgstr "Touches"
+
+msgid "Severity"
+msgstr "Severity"
+
+msgid "Reach"
+msgstr "Reach"
+
+msgid "Layers"
+msgstr "Layers"
+
+msgid "Evidence"
+msgstr "Evidence"
+
+msgid "Brief fragment"
+msgstr "Brief fragment"
+
+msgid "Dedupe key"
+msgstr "Dedupe key"
+
+msgid "Duplicate of"
+msgstr "Duplicate of"
+
+msgid "Seen"
+msgstr "Seen"
+
+msgid "Filed by"
+msgstr "Filed by"
+
+msgid "Confirmed by"
+msgstr "Confirmed by"
+
+msgid "Feature request"
+msgstr "Feature request"
+
+msgid "Comment"
+msgstr "Comment"
+
+msgid "Author"
+msgstr "Author"
+
+msgid "Feature request comment"
+msgstr "Feature request comment"
+
+msgid "Feature request comments"
+msgstr "Feature request comments"
+
+msgid ""
+"Counts by dedupe key (open requests, merged duplicates included in the seen "
+"total)"
+msgstr "Counts by dedupe key (open requests, merged duplicates included in the seen total)"
+
+msgid "Requests"
+msgstr "Requests"
+
+msgid "No requests yet."
+msgstr "No requests yet."
+
+msgid ""
+"Nothing is sent from this server. Check the text, then open the link in your "
+"own browser, or copy the markdown into a new issue."
+msgstr "Nothing is sent from this server. Check the text, then open the link in your own browser, or copy the markdown into a new issue."
+
+msgid "Open a prefilled GitHub issue"
+msgstr "Open a prefilled GitHub issue"
+
+msgid ""
+"The prefilled link would be too long for a URL. Copy the markdown below into "
+"a new issue."
+msgstr "The prefilled link would be too long for a URL. Copy the markdown below into a new issue."
+
 msgid "FestivalPro Configuration"
 msgstr "FestivalPro Configuration"
 
@@ -1117,9 +2031,6 @@ msgstr "FestivalPro Import Sources"
 msgid "Pending"
 msgstr "Pending"
 
-msgid "Running"
-msgstr "Running"
-
 msgid "Completed"
 msgstr "Completed"
 
@@ -1128,9 +2039,6 @@ msgstr "Failed"
 
 msgid "Triggered By"
 msgstr "Triggered By"
-
-msgid "Status"
-msgstr "Status"
 
 msgid "Started At"
 msgstr "Started At"
@@ -1356,9 +2264,6 @@ msgstr "Check your payment status any time at: %(url)s"
 
 msgid "Pending email verification"
 msgstr "Pending email verification"
-
-msgid "Confirmed"
-msgstr "Confirmed"
 
 msgid "Pending payment"
 msgstr "Pending payment"
@@ -1683,6 +2588,9 @@ msgstr ""
 msgid "This promo code is not valid."
 msgstr "This promo code is not valid."
 
+msgid "This promo code does not apply to any tickets in this event."
+msgstr "This promo code does not apply to any tickets in this event."
+
 msgid "Invalid ticket type for this event."
 msgstr "Invalid ticket type for this event."
 
@@ -1726,6 +2634,13 @@ msgstr "A session-scoped extra must be attached to an attendee."
 
 msgid "This attendee isn't registered for that session."
 msgstr "This attendee isn't registered for that session."
+
+msgid "This extra requires a different ticket."
+msgstr "This extra requires a different ticket."
+
+#, python-format
+msgid "This extra requires one of these ticket types: %(types)s."
+msgstr "This extra requires one of these ticket types: %(types)s."
 
 # Error messages - checkins/serializers.py
 msgid "This extra is already attached to this attendee."
@@ -1837,494 +2752,3 @@ msgstr "Who owes money?"
 # Admin chrome language switcher - templates/admin/language_switcher.html
 msgid "Change admin language"
 msgstr "Change admin language"
-
-msgid "This session is not open for check-in, so a ticket cannot be given"
-msgstr "This session is not open for check-in, so a ticket cannot be given"
-
-msgid "This session does not require a ticket for this person"
-msgstr "This session does not require a ticket for this person"
-
-msgid "This person already has a ticket here"
-msgstr "This person already has a ticket here"
-
-msgid "This person's registration was cancelled, so they cannot be given a ticket here. Send the family to a Koordinator."
-msgstr "This person's registration was cancelled, so they cannot be given a ticket here. Send the family to a Koordinator."
-
-msgid "Copied From"
-msgstr "Copied From"
-
-msgid "Informational only: the event this one was copied from, if any. No live link: editing either never affects the other."
-msgstr "Informational only: the event this one was copied from, if any. No live link: editing either never affects the other."
-
-msgid "New event name"
-msgstr "New event name"
-
-msgid "New start date"
-msgstr "New start date"
-
-msgid "Every date and time in the copy moves by the same number of days as the start date."
-msgstr "Every date and time in the copy moves by the same number of days as the start date."
-
-msgid "Copy event…"
-msgstr "Copy event…"
-
-msgid "Select exactly one event to copy."
-msgstr "Select exactly one event to copy."
-
-msgid "Copied '%(source)s' to '%(event)s'."
-msgstr "Copied '%(source)s' to '%(event)s'."
-
-msgid "Could not copy '%(source)s': %(problems)s"
-msgstr "Could not copy '%(source)s': %(problems)s"
-
-msgid "Copied '%(source)s' to '%(event)s'. Self-serve registration is off on the copy because the moved registration window would already be open or in the past; set a new window when you are ready."
-msgstr "Copied '%(source)s' to '%(event)s'. Self-serve registration is off on the copy because the moved registration window would already be open or in the past; set a new window when you are ready."
-
-msgid "Copy event"
-msgstr "Copy event"
-
-msgid "Copy \"%(name)s\" with its sessions, ticket types, extras and promo codes. Registrations, tickets and check-ins are not copied."
-msgstr "Copy \"%(name)s\" with its sessions, ticket types, extras and promo codes. Registrations, tickets and check-ins are not copied."
-
-msgid "Copy"
-msgstr "Copy"
-
-# Event spec validation messages
-
-msgid "This field is required."
-msgstr "This field is required."
-
-msgid "Unknown field. Remove it or check the schema for the right name."
-msgstr "Unknown field. Remove it or check the schema for the right name."
-
-msgid "Must be one of: %(expected)s."
-msgstr "Must be one of: %(expected)s."
-
-msgid "Must be lowercase letters and digits separated by single hyphens."
-msgstr "Must be lowercase letters and digits separated by single hyphens."
-
-msgid "Invalid value: %(detail)s"
-msgstr "Invalid value: %(detail)s"
-
-msgid "Key '%(key)s' is used more than once; keys must be unique."
-msgstr "Key '%(key)s' is used more than once; keys must be unique."
-
-msgid "No %(kind)s has the key '%(key)s'."
-msgstr "No %(kind)s has the key '%(key)s'."
-
-msgid "Code '%(code)s' appears more than once; codes are matched case-insensitively and must be unique."
-msgstr "Code '%(code)s' appears more than once; codes are matched case-insensitively and must be unique."
-
-msgid "The end date is before the start date."
-msgstr "The end date is before the start date."
-
-msgid "'Available until' is before 'available from'."
-msgstr "'Available until' is before 'available from'."
-
-msgid "A percent discount cannot be more than 100."
-msgstr "A percent discount cannot be more than 100."
-
-msgid "'Valid until' is before 'valid from'."
-msgstr "'Valid until' is before 'valid from'."
-
-msgid "Registration would already be open. Set registration_opens_at to a future moment; a person opens registration, not the spec."
-msgstr "Registration would already be open. Set registration_opens_at to a future moment; a person opens registration, not the spec."
-
-msgid "No registration window is set, so public self-serve registration is off."
-msgstr "No registration window is set, so public self-serve registration is off."
-
-msgid "The registration window has already closed."
-msgstr "The registration window has already closed."
-
-msgid "The session starts outside the event's dates."
-msgstr "The session starts outside the event's dates."
-
-msgid "This age tier has price 0, so it is free. Intended?"
-msgstr "This age tier has price 0, so it is free. Intended?"
-
-msgid "This ticket type is hidden and no active promo code unlocks it, so nobody can buy it."
-msgstr "This ticket type is hidden and no active promo code unlocks it, so nobody can buy it."
-
-msgid "A session bundle lists no sessions."
-msgstr "A session bundle lists no sessions."
-
-msgid "Sessions are only used by session bundles; they are ignored here."
-msgstr "Sessions are only used by session bundles; they are ignored here."
-
-msgid "max_per_required is ignored without requires_ticket_type."
-msgstr "max_per_required is ignored without requires_ticket_type."
-
-msgid "This extra requires a choice but has no active choices."
-msgstr "This extra requires a choice but has no active choices."
-
-msgid "Choices are ignored unless requires_choice is true."
-msgstr "Choices are ignored unless requires_choice is true."
-
-msgid "Every ticket type this code refers to is inactive."
-msgstr "Every ticket type this code refers to is inactive."
-
-msgid "session"
-msgstr "session"
-
-msgid "ticket type"
-msgstr "ticket type"
-
-msgid "extra"
-msgstr "extra"
-
-msgid "promo code"
-msgstr "promo code"
-
-msgid "The session must not end before it starts."
-msgstr "The session must not end before it starts."
-
-msgid "'%(key)s' is the key of another kind of row (%(found)s); a key for %(expected)s is needed here."
-msgstr "'%(key)s' is the key of another kind of row (%(found)s); a key for %(expected)s is needed here."
-
-msgid "'%(key)s' is listed more than once."
-msgstr "'%(key)s' is listed more than once."
-
-msgid "The target event already has registrations, tickets or check-ins, so its setup cannot be replaced."
-msgstr "The target event already has registrations, tickets or check-ins, so its setup cannot be replaced."
-
-msgid "These ticket types require each other in a loop. Buying one of each satisfies it, so this is likely a mistake."
-msgstr "These ticket types require each other in a loop. Buying one of each satisfies it, so this is likely a mistake."
-
-msgid "The ticket type this one requires is inactive, so it cannot be bought."
-msgstr "The ticket type this one requires is inactive, so it cannot be bought."
-
-msgid "The key '%(key)s' is not the one export derives ('%(derived)s'), so a later export will show this row as removed and added."
-msgstr "The key '%(key)s' is not the one export derives ('%(derived)s'), so a later export will show this row as removed and added."
-
-msgid "Registration is open on the target event; close registration first."
-msgstr "Registration is open on the target event; close registration first."
-
-msgid "These rows tie on their ordering fields; give them different sort_order or names."
-msgstr "These rows tie on their ordering fields; give them different sort_order or names."
-
-msgid "The database refused the spec and nothing was changed. A promo code may already be in use on this event."
-msgstr "The database refused the spec and nothing was changed. A promo code may already be in use on this event."
-
-msgid "The body is not valid JSON."
-msgstr "The body is not valid JSON."
-
-msgid "The body must be a JSON object."
-msgstr "The body must be a JSON object."
-
-msgid "The body needs a 'spec' object."
-msgstr "The body needs a 'spec' object."
-
-msgid "The event does not exist."
-msgstr "The event does not exist."
-
-msgid "'event_id' is not a valid id."
-msgstr "'event_id' is not a valid id."
-
-msgid "Event %(id)s does not exist."
-msgstr "Event %(id)s does not exist."
-
-msgid "Cannot read %(path)s: %(error)s"
-msgstr "Cannot read %(path)s: %(error)s"
-
-msgid "%(path)s is not valid JSON: %(error)s"
-msgstr "%(path)s is not valid JSON: %(error)s"
-
-msgid "The spec was refused: %(count)d error(s); nothing was written."
-msgstr "The spec was refused: %(count)d error(s); nothing was written."
-
-#, python-format
-msgid "The event cannot be exported: %(count)d error(s)."
-msgstr "The event cannot be exported: %(count)d error(s)."
-
-msgid "error"
-msgstr "error"
-
-msgid "warning"
-msgstr "warning"
-
-msgid "Cannot write %(path)s: %(error)s"
-msgstr "Cannot write %(path)s: %(error)s"
-
-#, python-format
-msgid "The %(kind)s '%(name)s' refers to the %(target)s '%(other)s', which belongs to another event."
-msgstr "The %(kind)s '%(name)s' refers to the %(target)s '%(other)s', which belongs to another event."
-
-msgid "This session bundle covers the same attendees as an event ticket. An attendee picks either this or the pass, not both. Intended?"
-msgstr "This session bundle covers the same attendees as an event ticket. An attendee picks either this or the pass, not both. Intended?"
-
-msgid "This session bundle requires an event ticket for the same attendees, but an attendee holds only one ticket, so it can never be bought."
-msgstr "This session bundle requires an event ticket for the same attendees, but an attendee holds only one ticket, so it can never be bought."
-
-msgid "Check-in is open to everyone by default but the event sells tickets, so nobody needs a ticket at the door. Intended?"
-msgstr "Check-in is open to everyone by default but the event sells tickets, so nobody needs a ticket at the door. Intended?"
-
-msgid "The flat event price is ignored while an active ticket type exists, and applies again if all of them are made inactive."
-msgstr "The flat event price is ignored while an active ticket type exists, and applies again if all of them are made inactive."
-
-#, python-format
-msgid "No active ticket covers children aged %(start)s to %(end)s."
-msgstr "No active ticket covers children aged %(start)s to %(end)s."
-
-#, python-format
-msgid "This age tier covers the same ages as '%(other)s'; an attendee in both gets two options. Intended?"
-msgstr "This age tier covers the same ages as '%(other)s'; an attendee in both gets two options. Intended?"
-
-msgid "This row is inactive and nothing refers to it, but it is still copied with the event. Delete it if it is not needed."
-msgstr "This row is inactive and nothing refers to it, but it is still copied with the event. Delete it if it is not needed."
-
-msgid "choice"
-msgstr "choice"
-
-msgid "Check setup"
-msgstr "Check setup"
-
-msgid "Open assistant"
-msgstr "Open assistant"
-
-msgid "No problems found."
-msgstr "No problems found."
-
-msgid "Errors"
-msgstr "Errors"
-
-msgid "Warnings"
-msgstr "Warnings"
-
-#, python-format
-msgid "The event cannot be checked: %(count)d error(s)."
-msgstr "The event cannot be checked: %(count)d error(s)."
-
-#, python-format
-msgid "The setup has %(count)d error(s)."
-msgstr "The setup has %(count)d error(s)."
-
-msgid "Required ticket types"
-msgstr "Required ticket types"
-
-msgid "Leave empty to offer the extra to everyone. Otherwise it is offered only to an attendee holding any of these ticket types (for a per-booking extra: when anyone in the booking holds one). Ticket types of the extra's own event only."
-msgstr "Leave empty to offer the extra to everyone. Otherwise it is offered only to an attendee holding any of these ticket types (for a per-booking extra: when anyone in the booking holds one). Ticket types of the extra's own event only."
-
-#, python-format
-msgid "Must belong to the same event: %(names)s."
-msgstr "Must belong to the same event: %(names)s."
-
-msgid "The session must belong to the extra's event."
-msgstr "The session must belong to the extra's event."
-
-#, python-format
-msgid "This extra requires one of these ticket types: %(types)s."
-msgstr "This extra requires one of these ticket types: %(types)s."
-
-msgid "This extra requires a different ticket."
-msgstr "This extra requires a different ticket."
-
-#, python-format
-msgid "Created inactive because a ticket type it requires has no single active same-named type on '%(event)s' (a name that stays ambiguous counts as no match). Re-pick its ticket types before activating: %(names)s."
-msgstr "Created inactive because a ticket type it requires has no single active same-named type on '%(event)s' (a name that stays ambiguous counts as no match). Re-pick its ticket types before activating: %(names)s."
-
-#, python-format
-msgid "Deactivated because every ticket type in their gate was deleted: %(names)s."
-msgstr "Deactivated because every ticket type in their gate was deleted: %(names)s."
-
-msgid "No active ticket type in this extra's gate can be held by an attendee it applies to, so nobody can take it."
-msgstr "No active ticket type in this extra's gate can be held by an attendee it applies to, so nobody can take it."
-
-msgid "Choose the event first"
-msgstr "Choose the event first"
-
-msgid "Pick the event this belongs to. The next page then offers only that event's sessions and ticket types."
-msgstr "Pick the event this belongs to. The next page then offers only that event's sessions and ticket types."
-
-msgid "Continue"
-msgstr "Continue"
-
-msgid "This promo code does not apply to any tickets in this event."
-msgstr "This promo code does not apply to any tickets in this event."
-
-msgid "A session cannot be moved to another event."
-msgstr "A session cannot be moved to another event."
-
-msgid "change"
-msgstr "change"
-
-msgid "AI assistant"
-msgstr "AI assistant"
-
-msgid "API key"
-msgstr "API key"
-
-msgid "Remove the stored API key"
-msgstr "Remove the stored API key"
-
-msgid "A key is stored. Leave empty to keep it."
-msgstr "A key is stored. Leave empty to keep it."
-
-msgid "No key is stored. A local Ollama needs none."
-msgstr "No key is stored. A local Ollama needs none."
-
-msgid "Permission denied."
-msgstr "Permission denied."
-
-msgid "Must be a string."
-msgstr "Must be a string."
-
-#, python-format
-msgid "Enter an http:// or https:// address, for example %(example)s."
-msgstr "Enter an http:// or https:// address, for example %(example)s."
-
-msgid "OpenAI-compatible API"
-msgstr "OpenAI-compatible API"
-
-msgid "Provider type"
-msgstr "Provider type"
-
-msgid "Base URL"
-msgstr "Base URL"
-
-msgid "The API address including /v1, for example https://api.openai.com/v1, https://openrouter.ai/api/v1, or http://localhost:11434/v1 for Ollama."
-msgstr "The API address including /v1, for example https://api.openai.com/v1, https://openrouter.ai/api/v1, or http://localhost:11434/v1 for Ollama."
-
-msgid "Model"
-msgstr "Model"
-
-msgid "The model the assistant uses."
-msgstr "The model the assistant uses."
-
-msgid "Enabled"
-msgstr "Enabled"
-
-msgid "The assistant may only call the provider while this is on."
-msgstr "The assistant may only call the provider while this is on."
-
-msgid "Updated at"
-msgstr "Updated at"
-
-msgid "Updated by"
-msgstr "Updated by"
-
-msgid "Language model provider"
-msgstr "Language model provider"
-
-msgid "Needed while the provider is enabled."
-msgstr "Needed while the provider is enabled."
-
-msgid "Could not reach the provider. Check the base URL."
-msgstr "Could not reach the provider. Check the base URL."
-
-msgid "The provider rejected the API key."
-msgstr "The provider rejected the API key."
-
-msgid "The provider does not list its models. Type the model name instead."
-msgstr "The provider does not list its models. Type the model name instead."
-
-msgid "The provider answered with an error."
-msgstr "The provider answered with an error."
-
-msgid "The provider's answer was not a model list."
-msgstr "The provider's answer was not a model list."
-
-msgid "Loading…"
-msgstr "Loading…"
-
-msgid "Load models"
-msgstr "Load models"
-
-msgid "Models from the provider"
-msgstr "Models from the provider"
-
-#, python-format
-msgid "Found %%(count)s models. Pick one, or type a name above."
-msgstr "Found %%(count)s models. Pick one, or type a name above."
-
-msgid "The provider lists no models."
-msgstr "The provider lists no models."
-
-msgid "Loading failed."
-msgstr "Loading failed."
-
-msgid "That address is not allowed."
-msgstr "That address is not allowed."
-
-msgid "The stored API key can no longer be read. Enter it again."
-msgstr "The stored API key can no longer be read. Enter it again."
-
-msgid "Enter the API key again for the new address, or remove the stored key."
-msgstr "Enter the API key again for the new address, or remove the stored key."
-
-msgid "Either enter a new key or remove the stored one, not both."
-msgstr "Either enter a new key or remove the stored one, not both."
-
-msgid "The stored key will be removed when you save."
-msgstr "The stored key will be removed when you save."
-
-#, python-format
-msgid "Found %%(count)s models."
-msgstr "Found %%(count)s models."
-
-msgid "Load models to choose one"
-msgstr "Load models to choose one"
-
-#, python-format
-msgid "min_birthdate (%(min)s) is later than max_birthdate (%(max)s). min_birthdate is the earliest birth date allowed (the oldest attendee) and max_birthdate the latest (the youngest), so min_birthdate must be the earlier date. Swap them."
-msgstr "min_birthdate (%(min)s) is later than max_birthdate (%(max)s). min_birthdate is the earliest birth date allowed (the oldest attendee) and max_birthdate the latest (the youngest), so min_birthdate must be the earlier date. Swap them."
-
-#, python-format
-msgid "The name says ages %(label)s, but the age bounds admit ages %(actual)s on the event start date. For 'N and under', min_birthdate is the start date minus N+1 years plus one day; for 'at least M', max_birthdate is the start date minus M years."
-msgstr "The name says ages %(label)s, but the age bounds admit ages %(actual)s on the event start date. For 'N and under', min_birthdate is the start date minus N+1 years plus one day; for 'at least M', max_birthdate is the start date minus M years."
-
-#, python-format
-msgid "Allowed here: %(allowed)s."
-msgstr "Allowed here: %(allowed)s."
-
-#, python-format
-msgid "A free extra named like a discount does not discount anything; an extra only adds to the price. Use a promo code."
-msgstr "A free extra named like a discount does not discount anything; an extra only adds to the price. Use a promo code."
-
-
-msgid "Idle"
-msgstr "Idle"
-
-msgid "Messages"
-msgstr "Messages"
-
-msgid "Draft"
-msgstr "Draft"
-
-msgid "Run started at"
-msgstr "Run started at"
-
-msgid "Notice accepted at"
-msgstr "Notice accepted at"
-
-msgid "Created at"
-msgstr "Created at"
-
-msgid "Assistant conversation"
-msgstr "Assistant conversation"
-
-msgid "Assistant conversations"
-msgstr "Assistant conversations"
-
-msgid "Sign in to use the assistant."
-msgstr "Sign in to use the assistant."
-
-msgid "You are not allowed to use the assistant."
-msgstr "You are not allowed to use the assistant."
-
-msgid "No such event."
-msgstr "No such event."
-
-msgid "The assistant is not switched on."
-msgstr "The assistant is not switched on."
-
-msgid "There is no draft."
-msgstr "There is no draft."
-
-msgid "The draft version is invalid."
-msgstr "The draft version is invalid."
-
-msgid "The draft changed since you last saw it."
-msgstr "The draft changed since you last saw it."
-
-msgid "The assistant cannot change this event now."
-msgstr "The assistant cannot change this event now."
