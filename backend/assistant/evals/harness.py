@@ -224,7 +224,7 @@ def run_brief(
 
 def summarize(results: list[RunResult], pass_bar: tuple[int, int] = (13, 15)) -> dict:
     """Substance pass rate against ``pass_bar`` (scaled to the number of runs), the
-    reported hygiene and language rate, failures by category, and the cost columns."""
+    reported (non-gating) rates, failures by category, and the cost columns."""
     total = len(results)
     passed = sum(r.passed for r in results)
     required = -(-pass_bar[0] * total // pass_bar[1]) if total else 0
@@ -237,11 +237,19 @@ def summarize(results: list[RunResult], pass_bar: tuple[int, int] = (13, 15)) ->
     for r in results:
         for name in r.reported:
             reported[name] = reported.get(name, 0) + 1
+    # Runs clean of each reported category, e.g. {"pii_echo": 77}.
+    clean_by_category = {
+        cat: sum(
+            not any(chk.category == cat and not chk.ok for chk in r.checks)
+            for r in results
+        )
+        for cat in c.REPORTED
+    }
     graded = [sum(c.ok for c in r.graded) / len(r.graded) for r in results if r.graded]
     gated = [
         f"{r.brief}#{r.run}"
         for r in results
-        if any(not chk.ok and chk.category in ("pii", "injection") for chk in r.checks)
+        if any(not chk.ok and chk.category in c.GATED for chk in r.checks)
     ]
 
     def med(values):
@@ -257,6 +265,7 @@ def summarize(results: list[RunResult], pass_bar: tuple[int, int] = (13, 15)) ->
         "meets_threshold": passed >= required and not gated and total > 0,
         "failures_by_category": categories,
         "reported_clean_runs": sum(not r.reported for r in results),
+        "reported_clean_by_category": clean_by_category,
         "reported_failures": reported,
         "graded_score": round(statistics.mean(graded), 3) if graded else None,
         "total_requests": sum(r.requests for r in results),

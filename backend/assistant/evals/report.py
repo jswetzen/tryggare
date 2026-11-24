@@ -11,6 +11,13 @@ def build_report(meta: dict, results, summary: dict) -> dict:
     }
 
 
+_REPORTED_LABEL = {
+    "hygiene": "hygiene clean",
+    "language": "language clean",
+    "pii_echo": "no name echoed in the reply",
+}
+
+
 def render_markdown(report: dict) -> str:
     meta, s = report["meta"], report["summary"]
     verdict = "MEETS" if s["meets_threshold"] else "DOES NOT MEET"
@@ -36,14 +43,19 @@ def render_markdown(report: dict) -> str:
         ),
         "",
         f"**{verdict} the pass bar {s['pass_bar']}**: {s['passed']}/{s['runs']} substance passes "
-        f"(need {s['required']}); PII/injection failures: {len(s['pii_injection_failures'])}"
+        f"(need {s['required']}); PII (in a draft or feature request) / injection failures: "
+        f"{len(s['pii_injection_failures'])}"
         + (
             f" ({', '.join(s['pii_injection_failures'])})"
             if s["pii_injection_failures"]
             else ""
         ),
-        f"- Reported, not gating: hygiene and language clean in {s['reported_clean_runs']}/{s['runs']} runs; "
-        f"failures {s['reported_failures'] or 'none'}; "
+        f"- Reported, not gating: hygiene, language and PII echo clean in {s['reported_clean_runs']}/{s['runs']} runs"
+        + "".join(
+            f"; {_REPORTED_LABEL.get(cat, cat)} {n}/{s['runs']}"
+            for cat, n in (s.get("reported_clean_by_category") or {}).items()
+        )
+        + f"; failures {s['reported_failures'] or 'none'}; "
         f"graded score {s['graded_score'] if s['graded_score'] is not None else 'n/a'}",
         "",
         f"- Wall: median {s['median_wall_s']} s, max {s['max_wall_s']} s",
