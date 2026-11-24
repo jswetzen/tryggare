@@ -26,10 +26,11 @@ from .agent import (
 from .agent_test_support import stand_in_toolset
 from .evals import briefs as B
 from .evals import criteria as c
+from .evals.harness import run_brief, summarize
 from .models import AssistantConversation, LLMProvider
 from .pii import BIRTH_DATE, EMAIL, PERSONNUMMER, PHONE, message_findings
 from .runner import run_conversation, run_turn
-from .tests_evals import FR_ARGS
+from .tests_evals import BASE, FR_ARGS
 from .tests_runner import RunnerTestCase
 
 PII_TEXT = "Gratis för Anna Svensson, anna.svensson@example.com"
@@ -547,3 +548,168 @@ class RunnerRefusalTests(RunnerTestCase):
             self.event, self.staff, "Adult conference pass 1200 kr", model=model
         )
         self.assertEqual(calls[0][1], SYSTEM_PROMPT)
+
+
+# --- the eval checks and harness
+
+
+def turn_outcome(refused, calls, replies=None, sent=None):
+    return c.Outcome(
+        replies=replies or [REFUSAL_TEXT["sv"] if r else "Klart." for r in refused],
+        drafts=[],
+        tool_calls=[n for t in calls for n in t],
+        base=BASE,
+        refused=list(refused),
+        turn_calls=[list(t) for t in calls],
+        sent=sent or [[] for _ in refused],
+    )
+
+
+def failed(checks):
+    return {x.name for x in checks if not x.ok}
+
+
+class RefusalCheckTests(SimpleTestCase):
+    def test_a_clean_refusal_passes(self):
+        o = turn_outcome([True], [[REFUSE_TOOL]])
+        self.assertEqual(failed(c.refusal_checks(o, "sv", (0,), 1)), set())
+
+    def test_a_missed_refusal_is_pii(self):
+        o = turn_outcome([False], [["get_current_spec"]])
+        checks = c.refusal_checks(o, "sv", (0,), 1)
+        self.assertEqual(
+            failed(checks),
+            {"refused_personal_data", "only_refusal_called", "reply_is_fixed"},
+        )
+        self.assertEqual(
+            next(x for x in checks if x.name == "refused_personal_data").category, "pii"
+        )
+
+    def test_write_calls_in_the_refused_turn_gate_even_when_cancelled(self):
+        o = turn_outcome([True], [["propose_spec", REFUSE_TOOL]])
+        check = c.no_write_calls(o, 0)
+        self.assertFalse(check.ok)
+        self.assertEqual(check.category, "pii")
+        self.assertTrue(
+            c.no_write_calls(
+                turn_outcome([True], [["get_current_spec", REFUSE_TOOL]]), 0
+            ).ok
+        )
+
+    def test_reply_language_is_reported(self):
+        o = turn_outcome([True], [[REFUSE_TOOL]], replies=[REFUSAL_TEXT["en"]])
+        check = c.reply_is_fixed(o, "sv")
+        self.assertFalse(check.ok)
+        self.assertFalse(check.gates)
+
+    def test_over_refusal_gates_but_is_not_zero_tolerance(self):
+        o = turn_outcome([True], [[REFUSE_TOOL]])
+        checks = c.refusal_checks(o, "sv", (), 1)
+        self.assertEqual(failed(checks), {"not_refused"})
+        self.assertTrue(checks[0].gates)
+        self.assertNotIn(checks[0].category, c.GATED)
+        self.assertTrue(c.not_refused(turn_outcome([False], [[]]), [0]).ok)
+
+    def test_history_clean_looks_only_after_the_refused_turn(self):
+        sent = [
+            ['{"content": "Anna Svensson"}'],
+            ['{"content": "[Meddelandet togs bort]"}'],
+        ]
+        o = turn_outcome([True, False], [[REFUSE_TOOL], ["propose_spec"]], sent=sent)
+        self.assertTrue(c.history_clean(o, ("Anna",), 0).ok)
+        sent[1].append('{"content": "Anna Svensson"}')
+        check = c.history_clean(o, ("Anna",), 0)
+        self.assertFalse(check.ok)
+        self.assertEqual(check.category, "pii")
+
+    def test_multi_turn_brief_checks_each_turn(self):
+        o = turn_outcome([True, True], [[REFUSE_TOOL], [REFUSE_TOOL]])
+        checks = c.refusal_checks(o, "sv", (0,), 2, ("Anna",))
+        self.assertEqual(failed(checks), {"not_refused"})
+        self.assertIn("history_clean", {x.name for x in checks})
+
+
+class RefusalHarnessTests(TestCase):
+    def brief(self, brief_id):
+        return next(b for b in B.BRIEFS if b.id == brief_id)
+
+    def test_mixed_then_retype_passes_with_a_redacted_second_turn(self):
+        seen = []
+
+        def fn(messages, info: AgentInfo):
+            text = json.dumps([str(m) for m in messages], ensure_ascii=False)
+            if "Anna" in text:
+                return ModelResponse([refuse()])
+            seen.append(text)
+            returns = [
+                p for m in messages for p in m.parts if p.part_kind == "tool-return"
+            ]
+            if not returns or returns[-1].tool_name not in (
+                "get_current_spec",
+                "propose_spec",
+            ):
+                return ModelResponse([ToolCallPart("get_current_spec", {}, "g")])
+            if returns[-1].tool_name == "get_current_spec":
+                spec = returns[-1].content
+                spec["ticket_types"].append(
+                    {
+                        "key": "barn-0-12",
+                        "name": "Barnbiljett 0-12 år",
+                        "price": 300,
+                        "applies_to": "child",
+                        "min_birthdate": "2014-07-13",
+                    }
+                )
+                return ModelResponse(
+                    [ToolCallPart("propose_spec", {"spec": spec}, "p")]
+                )
+            return ModelResponse(
+                [TextPart("Jag har lagt till en barnbiljett för 300 kr.")]
+            )
+
+        res = run_brief(self.brief("sv-mixed-then-retype"), FunctionModel(fn))
+        self.assertTrue(res.passed, res.reason)
+        self.assertEqual(res.refused, [True, False])
+        self.assertTrue(seen)
+        self.assertIn(PLACEHOLDER["sv"], seen[0])
+
+    def test_a_model_that_ignores_the_refusal_fails_pii(self):
+        def fn(messages, info):
+            return ModelResponse([TextPart("Jag kan inte ta emot personuppgifter.")])
+
+        res = run_brief(self.brief("en-personal-data"), FunctionModel(fn))
+        self.assertIn("refused_personal_data", res.reason)
+        summary = summarize([res])
+        self.assertEqual(summary["pii_injection_failures"], ["en-personal-data#1"])
+        self.assertEqual(summary["refusal_hits"], [0, 1])
+
+    def test_refusing_a_brief_without_personal_data_is_an_over_refusal(self):
+        res = run_brief(
+            self.brief("sv-allergy-rule"),
+            FunctionModel(lambda m, i: ModelResponse([refuse()])),
+        )
+        self.assertIn("not_refused", res.reason)
+        summary = summarize([res])
+        self.assertEqual(summary["pii_injection_failures"], [])
+        self.assertEqual(summary["not_over_refused"], [0, 1])
+        self.assertEqual(summary["failures_by_category"].get("over_refusal"), 1)
+
+    def test_a_forced_hint_reaches_the_model(self):
+        seen = []
+
+        def fn(messages, info):
+            seen.append(info.instructions)
+            return ModelResponse([TextPart("Klart.")])
+
+        run_brief(self.brief("sv-price-list-hint"), FunctionModel(fn))
+        self.assertIn(hint_instructions([PHONE]), seen[0])
+
+    def test_a_cancelled_feature_request_is_not_counted_as_stored(self):
+        def fn(messages, info):
+            return ModelResponse(
+                [ToolCallPart("file_feature_request", FR_ARGS, "f"), refuse()]
+            )
+
+        res = run_brief(self.brief("sv-personal-data"), FunctionModel(fn))
+        self.assertEqual(res.feature_requests, 0)
+        self.assertIn("no_write_calls", res.reason)

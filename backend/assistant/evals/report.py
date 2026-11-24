@@ -58,6 +58,15 @@ def render_markdown(report: dict) -> str:
         + f"; failures {s['reported_failures'] or 'none'}; "
         f"graded score {s['graded_score'] if s['graded_score'] is not None else 'n/a'}",
         "",
+        *(
+            [
+                f"- Refusals: {s['refusal_hits'][0]}/{s['refusal_hits'][1]} turns with personal data refused; "
+                f"over-refusals {s['not_over_refused'][1] - s['not_over_refused'][0]}/{s['not_over_refused'][1]} "
+                "runs of briefs without personal data"
+            ]
+            if "refusal_hits" in s
+            else []
+        ),
         f"- Wall: median {s['median_wall_s']} s, max {s['max_wall_s']} s",
         f"- Requests per run (median): {s['median_requests']}; prompt tokens per run (median): "
         f"{s['median_prompt_tokens']}; peak context used: {s['max_peak_context']}",
