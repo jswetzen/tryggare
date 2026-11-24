@@ -19,6 +19,7 @@ from .agent import (
     capabilities_summary,
     guarded_http_client,
     run_assistant,
+    strip_orphan_think,
 )
 from .agent_test_support import stand_in_toolset
 from .models import LLMProvider
@@ -351,3 +352,20 @@ class CapabilitiesPromptTests(TestCase):
 
     def test_get_capabilities_stays_available_for_fields_and_schema(self):
         self.assertIn("get_capabilities", TOOL_NAMES)
+
+
+class OrphanThinkTests(SimpleTestCase):
+    def test_reasoning_before_a_bare_closer_is_dropped_and_logged(self):
+        # The shape bonsai printed on Ollama: reasoning, a closer, the reply (twice over).
+        text = "Jag tänker.\n</think>\n\nUtkast ett.\n</think>\n\nUtkastet är klart."
+        with self.assertLogs("assistant.agent", "WARNING"):
+            self.assertEqual(strip_orphan_think(text), "Utkastet är klart.")
+
+    def test_other_text_is_left_alone(self):
+        for text in ("Klart.", "<think>a</think>b", "Taggen </think> och <think>."):
+            with self.subTest(text):
+                self.assertEqual(strip_orphan_think(text), text)
+
+    def test_nothing_after_the_closer_keeps_the_text(self):
+        with self.assertLogs("assistant.agent", "WARNING"):
+            self.assertEqual(strip_orphan_think("Klart.\n</think>\n"), "Klart.")

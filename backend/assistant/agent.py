@@ -1,6 +1,7 @@
 """Event-creation assistant: a Pydantic AI agent over the saved LLMProvider."""
 
 import asyncio
+import logging
 
 import httpx2
 from openai import AsyncOpenAI
@@ -30,6 +31,8 @@ RUN_DEADLINE_SECONDS = 300
 MAX_RESPONSE_BYTES = 8 * 1024 * 1024
 AGENT_RETRIES = 5
 
+logger = logging.getLogger(__name__)
+
 _RULES = """\
 You configure one event by calling tools; do not explain schemas to the user.
 Workflow: get_current_spec, then build the COMPLETE new spec (current spec plus the
@@ -57,6 +60,16 @@ or not you built a workaround. Its text describes the shape of the need only: ne
 names, dates, contact details, references, or event and ticket names. Cite cap:<id> for a
 capability, code:<code> for a warning, new:<name> for a need no id covers. Tell the
 organizer in one line that a request was drafted for them to confirm."""
+
+
+def strip_orphan_think(text: str) -> str:
+    """Drop reasoning printed before a bare `</think>`: some Ollama models omit the
+    opener, so pydantic-ai cannot split it off. Text with an opener is left alone."""
+    if "</think>" not in text or "<think>" in text:
+        return text
+    logger.warning("Assistant reply had a bare </think>; dropped the text before it.")
+    reply = text.rsplit("</think>", 1)[1].strip()
+    return reply or text.replace("</think>", "").strip()
 
 
 def capabilities_summary(caps: dict = CAPABILITIES) -> str:

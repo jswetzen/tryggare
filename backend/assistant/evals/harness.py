@@ -21,7 +21,12 @@ from pydantic_ai.messages import (
 from pydantic_ai.models import Model
 from pydantic_ai.models.wrapper import WrapperModel
 
-from assistant.agent import RUN_DEADLINE_SECONDS, build_agent, run_assistant
+from assistant.agent import (
+    RUN_DEADLINE_SECONDS,
+    build_agent,
+    run_assistant,
+    strip_orphan_think,
+)
 from assistant.models import LLMProvider
 from assistant.runner import _failure_code, trim_history
 from assistant.tools import TOOL_NAMES, EventTools, build_toolset
@@ -191,7 +196,7 @@ async def _converse(agent, turns, deadline, replies):
             agent, prompt, message_history=trim_history(history), deadline=deadline
         )
         history = result.all_messages()
-        replies.append(str(result.output))
+        replies.append(strip_orphan_think(str(result.output)))
     return history
 
 

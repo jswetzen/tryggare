@@ -37,7 +37,13 @@ from pydantic_ai.messages import (
     UserPromptPart,
 )
 
-from .agent import RUN_DEADLINE_SECONDS, build_agent, build_model, run_assistant
+from .agent import (
+    RUN_DEADLINE_SECONDS,
+    build_agent,
+    build_model,
+    run_assistant,
+    strip_orphan_think,
+)
 from events.models import Event
 from feature_requests import services as feature_requests
 from feature_requests.models import FeatureRequest
@@ -432,7 +438,7 @@ async def run_conversation(
         # Also on cancellation, so a cancelled run does not hold the lock until it is declared dead.
         await sync_to_async(_release)(conv, stored)
     return {
-        "text": result.output,
+        "text": strip_orphan_think(str(result.output)),
         "draft_version": await sync_to_async(_draft_version)(conv.pk) or None,
     }
 
