@@ -12,8 +12,14 @@ from dataclasses import dataclass, field
 from asgiref.sync import async_to_sync
 from django.contrib.auth import get_user_model
 from pydantic_ai import Tool
-from pydantic_ai.messages import ModelResponse, ToolCallPart, ToolReturnPart
+from pydantic_ai.messages import (
+    ModelResponse,
+    RetryPromptPart,
+    ToolCallPart,
+    ToolReturnPart,
+)
 from pydantic_ai.models import Model
+from pydantic_ai.models.wrapper import WrapperModel
 
 from assistant.agent import RUN_DEADLINE_SECONDS, build_agent, run_assistant
 from assistant.models import LLMProvider
@@ -27,6 +33,7 @@ from .criteria import Check, Outcome, judge
 
 EVAL_USER = "assistant-eval"
 FEATURE_REQUEST_TOOL = "file_feature_request"
+RESULT_CHARS = 500
 
 
 def eval_user():
@@ -67,6 +74,75 @@ class RunResult:
     reported: list[str] = field(default_factory=list)
     # Per-field score for briefs that have one; reported, not part of ``passed``.
     graded: list[Check] = field(default_factory=list)
+    # For root-causing without a rerun; the brief's PII tokens are redacted.
+    calls: list[dict] = field(default_factory=list)  # name, args, result_or_error
+    feature_request_args: list[dict] = field(default_factory=list)
+    latencies_s: list[float] = field(default_factory=list)  # one per model request
+
+
+class _Timed(WrapperModel):
+    """Records each model request's wall time."""
+
+    def __init__(self, wrapped: Model, latencies: list[float]):
+        super().__init__(wrapped)
+        self.latencies = latencies
+
+    async def request(self, messages, *args, **kwargs):
+        started = time.monotonic()
+        try:
+            return await super().request(messages, *args, **kwargs)
+        finally:
+            self.latencies.append(round(time.monotonic() - started, 1))
+
+
+def _redactor(tokens) -> Callable:
+    patterns = [c._token(t) for t in tokens]
+
+    def redact(value):
+        if isinstance(value, str):
+            for pat in patterns:
+                value = pat.sub("[redacted]", value)
+            return value
+        if isinstance(value, dict):
+            return {k: redact(v) for k, v in value.items()}
+        if isinstance(value, list):
+            return [redact(v) for v in value]
+        return value
+
+    return redact
+
+
+def call_log(history, redact=lambda v: v) -> list[dict]:
+    """Every tool call with its arguments and its result or error (truncated)."""
+    outcomes = {
+        p.tool_call_id: p
+        for m in history
+        for p in m.parts
+        if isinstance(p, ToolReturnPart | RetryPromptPart) and p.tool_name
+    }
+    log = []
+    for m in history:
+        for p in m.parts:
+            if not isinstance(p, ToolCallPart):
+                continue
+            done = outcomes.get(p.tool_call_id)
+            if done is None:
+                result = None
+            else:
+                content = done.content
+                if not isinstance(content, str):
+                    content = json.dumps(content, ensure_ascii=False, default=str)
+                if isinstance(done, RetryPromptPart) or done.outcome != "success":
+                    content = "error: " + content
+                result = redact(content)[:RESULT_CHARS]
+            try:
+                args = p.args_as_dict()
+            except ValueError:  # malformed JSON from the model
+                args = {"_raw": str(p.args)}
+            log.append(
+                {"name": p.tool_name, "args": redact(args), "result_or_error": result}
+            )
+    return log
 
 
 def _responses(messages) -> list[ModelResponse]:
@@ -129,7 +205,8 @@ def run_brief(
 ) -> RunResult:
     # A fresh model per run: its HTTP client is bound to the event loop that first used
     # it, and every run gets its own loop.
-    model = model if isinstance(model, Model) else model()
+    latencies: list[float] = []
+    model = _Timed(model if isinstance(model, Model) else model(), latencies)
     user = user or eval_user()
     event = event_spec.apply(brief.fixture())[0]
     base = event_spec.export(event)
@@ -194,6 +271,7 @@ def run_brief(
     finally:
         event.delete()
     rs = _responses(history)
+    redact = _redactor(brief.pii_tokens)
     counts: dict[str, int] = {}
     for name in outcome.tool_calls:
         counts[name] = counts.get(name, 0) + 1
@@ -219,6 +297,9 @@ def run_brief(
         feature_requests=outcome.fr_stored,
         reported=[c.name for c in verdict.reported],
         graded=graded,
+        calls=call_log(history, redact),
+        feature_request_args=redact(outcome.fr_args),
+        latencies_s=latencies,
     )
 
 

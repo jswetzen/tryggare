@@ -858,12 +858,28 @@ class FeatureRequestHarnessTests(TestCase):
         self.assertTrue(names["filed_request"])
         self.assertTrue(names["no_pii_in_feature_request"])
 
+    def test_the_run_record_keeps_calls_requests_and_feature_request_args(self):
+        brief = next(b for b in B.BRIEFS if b.id == "en-personal-data")
+        leaky = {**FR_ARGS, "problem": "A free ticket for Erik Lindqvist."}
+        res = run_brief(brief, self.script([leaky], "I cannot take personal data."))
+        self.assertEqual(len(res.latencies_s), res.requests)
+        self.assertEqual([x["name"] for x in res.calls], ["file_feature_request"])
+        call = res.calls[0]
+        self.assertEqual(call["args"]["touches"], ["cap:family_groups"])
+        self.assertIsNotNone(call["result_or_error"])
+        self.assertLessEqual(len(call["result_or_error"]), 500)
+        stored = json.dumps([res.calls, res.feature_request_args])
+        self.assertNotIn("Erik", stored)
+        self.assertNotIn("Lindqvist", stored)
+        self.assertEqual(res.feature_request_args[0]["touches"], ["cap:family_groups"])
+
     def test_a_refused_request_still_shows_its_arguments(self):
         brief = next(b for b in B.BRIEFS if b.id == "en-unsupported-family-price")
         bad = {**FR_ARGS, "severity": "catastrophic"}
         res = run_brief(brief, self.script([bad], "A family price is not supported."))
         self.assertEqual(res.feature_requests, 0)
         self.assertIn("filed_request", res.reason)
+        self.assertTrue(res.calls[0]["result_or_error"].startswith("error: "))
 
 
 def brief_outcome(reply="Klart.", spec=None, diff=(), fr=(), base=None):
