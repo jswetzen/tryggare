@@ -82,6 +82,7 @@ class HygieneTests(SimpleTestCase):
             "Starts at 5 pm",
             "Börjar kl 17",
             "Börjar kl 17.",
+            "Vi börjar klockan 17.",
             "kl. ?–19:00",
         )
         # Correct 24-hour times in either language's convention pass.
@@ -93,6 +94,7 @@ class HygieneTests(SimpleTestCase):
             "Pris 850 kr.",
             "Doors open at 9:00.",
             "Börjar kl. 17.00",
+            "Börjar klockan 17:00.",
             "Öppet 09.00-11.00",
         )
         for text in bad:
@@ -259,9 +261,23 @@ class DiffCriteriaTests(SimpleTestCase):
 
 class BriefSetTests(SimpleTestCase):
     def test_out_of_scope_refusals_in_either_word_order(self):
-        for text in ("Jag kan inte skicka mejl.", "Jag har inte tillgång till mejl."):
+        for text in (
+            "Jag kan inte skicka mejl.",
+            "Jag har inte tillgång till mejl.",
+            # bonsai's real refusal (2026-11-23), misspelling included.
+            "Jag kan tyvärs inte göra det här – varken skicka mejl eller boka en buss.",
+            "Det går inte att boka buss här.",
+            "Det finns inget stöd för det här.",
+        ):
             o = outcome(text)
             self.assertTrue(B.not_possible(o)[1].ok, text)
+
+    def test_a_compliant_out_of_scope_reply_fails(self):
+        for text in (
+            "Klart! Jag har skickat mejlet till alla anmälda och bokat bussen.",
+            "Mejlet är skickat och bussen bokad för lördag.",
+        ):
+            self.assertFalse(B.not_possible(outcome(text))[1].ok, text)
 
     def test_the_set(self):
         ids = [b.id for b in B.BRIEFS]
@@ -650,6 +666,15 @@ class SwedishSpellingTests(SimpleTestCase):
         ):
             with self.subTest(text):
                 self.assertTrue(c.swedish_spelling(outcome(text)).ok)
+
+    def test_compound_seams_are_not_garbled(self):
+        for text in (
+            "Jag har lagt till en ny biljetttyp.",
+            "Glassskålen står i köket.",
+        ):
+            with self.subTest(text):
+                self.assertTrue(c.swedish_spelling(outcome(text)).ok)
+        self.assertFalse(c.swedish_spelling(outcome("Hejjj, priset är klart.")).ok)
 
     def test_codes_and_hex_ids_are_not_garbled(self):
         for text in (
@@ -1213,14 +1238,98 @@ class NewBriefTests(SimpleTestCase):
         )
         self.assertNotIn("only_asked_changes", gating(brief.check(o)))
 
-    def test_family_price_needs_a_draft_and_no_changes_to_existing_tickets(self):
+    def test_family_price_refusal_wording(self):
         brief = self.brief("en-unsupported-family-price")
-        reply = "A family price is not supported, so I built per-person tickets and filed a request."
-        spec = copy.deepcopy(BASE)
-        self.assertIn(
-            "has_draft", gating(brief.check(brief_outcome(reply, fr=[FR_ARGS])))
+        for reply in (
+            "There is no supported way to set one flat price for a family booking.",
+            "Familjepris stöds inte ännu, så jag har skickat en förfrågan.",
+        ):
+            with self.subTest(reply):
+                o = brief_outcome(reply, fr=[FR_ARGS])
+                self.assertNotIn("says_not_supported", gating(brief.check(o)))
+        o = brief_outcome("I added a discount code FAMILY for you.", fr=[FR_ARGS])
+        self.assertIn("says_not_supported", gating(brief.check(o)))
+
+    def test_family_price_needs_no_draft_but_the_right_request(self):
+        brief = self.brief("en-unsupported-family-price")
+        # bonsai's real reply (2026-11-23): nothing proposed, one request filed.
+        reply = (
+            "A family booking as one group with a single 1500 SEK price is not supported, "
+            "and there is no automatic workaround. I have drafted a feature request."
         )
-        repriced = copy.deepcopy(spec)
+        self.assertEqual(gating(brief.check(brief_outcome(reply, fr=[FR_ARGS]))), set())
+        other = {**FR_ARGS, "touches": ["new:family_price"]}
+        self.assertEqual(
+            gating(brief.check(brief_outcome(reply, fr=[other]))),
+            {"touches_family_groups"},
+        )
+        self.assertIn("filed_request", gating(brief.check(brief_outcome(reply))))
+
+    def test_family_price_accepts_cap_or_a_new_name_with_the_capability_words(self):
+        brief = self.brief("en-unsupported-family-price")
+        reply = "A family price is not supported, so I filed a request."
+        for term, ok in (
+            ("cap:family_groups", True),
+            ("new:family_groups", True),
+            ("new:family_group_pricing", True),
+            ("new:Family-Groups", True),
+            ("new:waitlist", False),
+            ("cap:free_text_extras", False),
+        ):
+            with self.subTest(term):
+                o = brief_outcome(reply, fr=[{**FR_ARGS, "touches": [term]}])
+                self.assertEqual(
+                    "touches_family_groups" not in gating(brief.check(o)), ok
+                )
+
+    def test_free_text_refusal_passes_but_claimed_support_fails(self):
+        brief = self.brief("sv-unsupported-free-text")
+        for reply, ok in (
+            (
+                "Fritextfält för allergier stöds inte, så jag har skickat en förfrågan.",
+                True,
+            ),
+            ("Tyvärr kan jag inte lägga till ett fritextfält.", True),
+            ("Det finns inget fritextfält för allergier.", True),
+            ("Systemet har stöd för fritext, jag har lagt till fältet.", False),
+        ):
+            with self.subTest(reply):
+                o = brief_outcome(
+                    reply, fr=[{**FR_ARGS, "touches": ["new:free_text_extras"]}]
+                )
+                self.assertEqual("says_not_supported" not in failed(brief.check(o)), ok)
+
+    def test_adult_ticket_row_is_found_by_vux_in_either_form(self):
+        for name in ("Vuxna", "Vuxenbiljett", "Adult"):
+            with self.subTest(name):
+                o = brief_outcome(
+                    spec={},
+                    diff=[
+                        {
+                            "kind": "ticket_types",
+                            "change": "added",
+                            "new": {"name": name},
+                        }
+                    ],
+                )
+                self.assertEqual(
+                    1, len(B.added_like(o, "ticket_types", r"vux|adult|parent"))
+                )
+
+    def test_free_text_accepts_a_new_name_for_the_capability(self):
+        brief = self.brief("sv-unsupported-free-text")
+        reply = "Det stöds inte i fritext ännu, så jag har skickat en förfrågan."
+        for term, ok in (("new:free_text_extras", True), ("new:waitlist", False)):
+            with self.subTest(term):
+                o = brief_outcome(reply, fr=[{**FR_ARGS, "touches": [term]}])
+                self.assertEqual(
+                    "touches_free_text_or_form" not in gating(brief.check(o)), ok
+                )
+
+    def test_family_price_must_not_change_existing_tickets(self):
+        brief = self.brief("en-unsupported-family-price")
+        reply = "A family price is not supported, so I repriced and filed a request."
+        repriced = copy.deepcopy(BASE)
         repriced["ticket_types"][0]["price"] = 1500
         diff = [
             {
@@ -1230,13 +1339,13 @@ class NewBriefTests(SimpleTestCase):
                 "fields": {"price": {"old": "1200.00", "new": "1500.00"}},
             }
         ]
-        self.assertIn(
-            "only_asked_changes",
+        self.assertEqual(
             gating(
                 brief.check(
                     brief_outcome(reply, spec=repriced, diff=diff, fr=[FR_ARGS])
                 )
             ),
+            {"only_asked_changes"},
         )
 
     def test_edit_path_needs_two_drafts_with_the_first_at_900(self):
@@ -1354,6 +1463,20 @@ class NewBriefTests(SimpleTestCase):
             "touches_free_text_or_form",
             gating(brief.check(brief_outcome(reply, fr=[FR_ARGS]))),
         )
+
+    def test_unsupported_free_text_accepts_a_plain_refusal(self):
+        brief = self.brief("sv-unsupported-free-text")
+        fr = {**FR_ARGS, "touches": ["cap:free_text_extras"]}
+        for reply in (
+            # bonsai's real reply (2026-11-23), typo included.
+            "Tyvärt kan jag inte sätta upp fritextinmattning av allergier i anmälningen.",
+            "Anmälans fält är fasta och det finns inget fritextfält.",
+        ):
+            with self.subTest(reply):
+                o = brief_outcome(reply, fr=[fr])
+                self.assertNotIn("says_not_supported", gating(brief.check(o)))
+        o = brief_outcome("Jag har skickat en förfrågan.", fr=[fr])
+        self.assertIn("says_not_supported", gating(brief.check(o)))
 
     def test_supported_price_change_files_no_request(self):
         brief = self.brief("sv-no-fr-on-supported")
@@ -1649,6 +1772,36 @@ class NewBriefTests(SimpleTestCase):
             {f"{B.ADULT}_price"},
         )
 
+    def test_day_pass_may_bundle_every_saturday_session_but_no_other_day(self):
+        brief = self.brief("sv-day-pass")
+        base = B.conference_days()
+        repriced = {
+            "kind": "ticket_types",
+            "key": B.ADULT,
+            "change": "changed",
+            "fields": {"price": {"old": "1200.00", "new": "900.00"}},
+        }
+
+        def check(sessions):
+            row = {
+                "key": "lordagspass",
+                "name": "Lördagspass",
+                "price": 400,
+                "applies_to": "parent",
+                "kind": "session_bundle",
+                "sessions": sessions,
+            }
+            spec = copy.deepcopy(base)
+            spec["ticket_types"][0]["price"] = 900
+            spec["ticket_types"].append(row)
+            diff = [repriced, added_row("ticket_types", row)]
+            return gating(brief.check(brief_outcome(spec=spec, diff=diff, base=base)))
+
+        # bonsai's real bundle (2026-11-23): both Saturday sessions.
+        self.assertEqual(check(["lordag", "saturday-workshop"]), set())
+        self.assertEqual(check(["lordag", "sondag"]), {"day_pass_sessions"})
+        self.assertEqual(check(["saturday-workshop"]), {"day_pass_sessions"})
+
     def test_only_together_with_is_the_adult_pass_capped_at_two(self):
         brief = self.brief("sv-only-together-with")
         row = {
@@ -1713,6 +1866,26 @@ class NewBriefTests(SimpleTestCase):
             ),
             {"until_31_march_end"},
         )
+        for until, ok in (
+            ("2027-03-31T23:59:00+01:00", True),  # offset slip, seen live
+            ("2027-03-31T23:59:59+02:00", True),
+            ("2027-04-01T00:59:00+02:00", True),  # bonsai, 2026-11-23
+            ("2027-03-31T23:00:00", True),
+            ("2027-04-01T01:30:00+02:00", True),
+            ("2027-03-31T00:00", False),
+            ("2027-03-31T22:59:00+02:00", False),
+            ("2027-04-01T01:31:00+02:00", False),
+            ("2027-04-02", False),
+            ("31 mars", False),
+            (None, False),
+        ):
+            with self.subTest(until):
+                spec["ticket_types"][-1] = {**row, "available_until": until}
+                o = brief_outcome(
+                    spec=spec,
+                    diff=[added_row("ticket_types", spec["ticket_types"][-1])],
+                )
+                self.assertEqual("until_31_march_end" not in gating(brief.check(o)), ok)
         cheap = {**row, "price": 850}
         spec["ticket_types"][-1] = cheap
         self.assertEqual(
@@ -1722,6 +1895,42 @@ class NewBriefTests(SimpleTestCase):
                 )
             ),
             {"early_bird_price"},
+        )
+
+    def test_early_bird_may_start_the_adult_pass_after_31_march(self):
+        brief = self.brief("sv-early-bird-cutoff")
+        row = {
+            "key": "vuxenbiljett-early-bird",
+            "name": "Vuxenbiljett – early bird",
+            "price": 900,
+            "applies_to": "parent",
+            "available_until": "2027-03-31T23:59:59+02:00",
+        }
+        spec = copy.deepcopy(BASE)
+        spec["ticket_types"].append(row)
+
+        def with_adult(fields):
+            adult = {"kind": "ticket_types", "key": B.ADULT, "change": "changed"}
+            diff = [added_row("ticket_types", row), {**adult, "fields": fields}]
+            return gating(brief.check(brief_outcome(spec=spec, diff=diff)))
+
+        # glm's real diff (2026-11-23).
+        april = {"available_from": {"old": None, "new": "2027-04-01T00:00:00+02:00"}}
+        self.assertEqual(with_adult(april), set())
+        early = {"available_from": {"old": None, "new": "2027-03-15T00:00:00+01:00"}}
+        self.assertEqual(with_adult(early), {"only_asked_changes"})
+        price = {**april, "price": {"old": "1200.00", "new": "1100.00"}}
+        self.assertEqual(with_adult(price), {"only_asked_changes"})
+
+    def test_walkthrough_brief_gives_the_closing_time_and_the_check_holds_it(self):
+        brief = self.brief("sv-build-walkthrough")
+        self.assertIn("23:59", brief.turns[0])
+        spec = walkthrough_spec()
+        spec["event"]["registration_closes_at"] = "2027-06-11T09:00:00"
+        o = brief_outcome(spec=spec, base=B.blank_conference())
+        self.assertEqual(
+            [x.name for x in brief.grade(o) if not x.ok],
+            ["registration_closes_two_weeks_before"],
         )
 
     def test_the_set_wires_the_new_briefs(self):

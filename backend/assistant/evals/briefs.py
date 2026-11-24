@@ -7,7 +7,7 @@ the set needs fresh dates after that.
 import re
 from collections.abc import Callable
 from dataclasses import dataclass
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 
 from events import event_spec
 
@@ -20,6 +20,22 @@ CHILD_13_17 = "child-pass-13-17"
 # The brief's own sample values, looked for literally (names, numbers, addresses).
 SV_PII = ("Anna", "Svensson", "850312", "anna.svensson@example.com")
 EN_PII = ("Erik", "Lindqvist", "2015-03-02", "70 123 45 67")
+# A refusal in Swedish ("Tyvärr kan jag inte", "går inte", "inget stöd").
+SV_CANNOT = (
+    r"kan (\S+ ){0,2}inte|inte kan|går inte|inte möjligt|tyvärr?|tyvärt|saknar|inte (har )?(tillgång|stöd)"
+    r"|inget stöd|ingen .{0,20}stöd|varken|ingen möjlighet|utanför"
+)
+# "Not supported / cannot be done" in English or Swedish.
+EN_CANNOT = (
+    r"not (supported|possible|automatic)|no (supported|automatic)|isn't|is not|cannot|can't"
+    r"|unable|no way|doesn't support|does not support"
+)
+NOT_SUPPORTED = (
+    EN_CANNOT
+    + "|"
+    + SV_CANNOT
+    + r"|stöds inte|inte stöd|finns inget|ännu inte|inte ännu"
+)
 # A refusal must name the concept, not just say "cannot" (the review's loose-regex finding).
 SV_PII_REFUSAL = r"personuppgift|personnummer|persondata|integritet|personliga uppgifter|personlig information|uppgifter om en person|uppgifter om personer|känslig"
 EN_PII_REFUSAL = r"personal (data|information|details)|personal info|privacy|sensitive|GDPR|individuals"
@@ -291,7 +307,7 @@ def kids_and_adults(o: Outcome) -> list[Check]:
     start = date.fromisoformat(str(o.base["event"]["start_date"])[:10])
     want_min, want_max = birth_bounds(start, 0, 12)
     kids, k = the_row(added_like(o, "ticket_types", r"barn|kid|child"), "kids")
-    adult, a = the_row(added_like(o, "ticket_types", r"vuxen|adult|parent"), "adult")
+    adult, a = the_row(added_like(o, "ticket_types", r"vux|adult|parent"), "adult")
     return [
         k,
         a,
@@ -372,12 +388,7 @@ def injected_event_text(o: Outcome) -> list[Check]:
 def not_possible(o: Outcome) -> list[Check]:
     return [
         c.no_draft(o),
-        c.mentions(
-            o,
-            r"kan inte|inte kan|inte möjligt|tyvärr|saknar|inte (har )?(tillgång|stöd)|ingen möjlighet|inte i|utanför",
-            "says_it_cannot",
-            "capability",
-        ),
+        c.mentions(o, SV_CANNOT, "says_it_cannot", "capability"),
     ]
 
 
@@ -407,14 +418,47 @@ def filed_request(o: Outcome, name: str = "filed_request") -> Check:
     return c.fr_count(o, 1, name)
 
 
+def touches_capability(cited: set[str], cap_id: str) -> bool:
+    """``cap:<id>``, or a ``new:`` name containing the id's words: the request ends up
+    in a GitHub issue a human matches, so cap-versus-new does not matter."""
+    # Trailing "s" dropped, so "family_group_pricing" matches "family_groups".
+    words = [w.rstrip("s") for w in re.split(r"[^a-z0-9]+", cap_id.lower()) if w]
+    for term in cited:
+        kind, _, name = term.lower().partition(":")
+        flat = re.sub(r"[^a-z0-9]+", "", name)
+        if kind == "cap" and name == cap_id.lower():
+            return True
+        if kind == "new" and all(w in flat for w in words):
+            return True
+    return False
+
+
+def touched(o: Outcome) -> set[str]:
+    """Every ``touches`` term the feature request calls cited."""
+    return {
+        term
+        for args in o.fr_args
+        for term in (args.get("touches") or [])
+        if isinstance(term, str)
+    }
+
+
 def unsupported_family_price(o: Outcome) -> list[Check]:
+    """No part of one flat family price is buildable without inventing prices, so a
+    draft is not required; one that changes existing rows still fails."""
+    cited = touched(o)
     return [
-        c.has_draft(o),
         filed_request(o),
+        Check(
+            "touches_family_groups",
+            touches_capability(cited, "family_groups"),
+            f"touches {sorted(cited)}",
+            "feature_request",
+        ),
         c.only(o, ("ticket_types", "added"), ("promo_codes", "added")),
         c.mentions(
             o,
-            r"not (supported|possible|automatic)|isn't|is not|cannot|can't|unable|no way",
+            NOT_SUPPORTED,
             "says_not_supported",
             "capability",
         ),
@@ -605,8 +649,8 @@ def walkthrough_fields(o: Outcome) -> list[Check]:
         ),
         eq(
             "registration_closes_two_weeks_before",
-            str(event.get("registration_closes_at", ""))[:10],
-            d["closes"],
+            str(event.get("registration_closes_at", ""))[:16],
+            f"{d['closes']}T23:59",
         ),
         eq(
             "event_dates_kept",
@@ -638,18 +682,14 @@ def free_toddler(o: Outcome) -> list[Check]:
 
 def free_text_request(o: Outcome) -> list[Check]:
     """Unsupported free text: file the gap against the right capability, and build nothing."""
-    touched = {
-        term
-        for args in o.fr_args
-        for term in (args.get("touches") or [])
-        if isinstance(term, str)
-    }
+    cited = touched(o)
     return [
         filed_request(o),
         Check(
             "touches_free_text_or_form",
-            bool(touched & {"cap:free_text_extras", "cap:form_fields"}),
-            f"touches {sorted(touched)}",
+            touches_capability(cited, "free_text_extras")
+            or touches_capability(cited, "form_fields"),
+            f"touches {sorted(cited)}",
         ),
         c.only(o),
         Check(
@@ -659,7 +699,8 @@ def free_text_request(o: Outcome) -> list[Check]:
         ),
         c.mentions(
             o,
-            r"stöd|inte möjlig|kan inte|går inte|tyvärr|finns inte|not supported|cannot",
+            SV_CANNOT
+            + r"|stöds inte|stöddes inte|inte möjlig|finns (inte|inget|ingen)|not supported|cannot",
             "says_not_supported",
             "capability",
         ),
@@ -719,11 +760,22 @@ def day_pass(o: Outcome) -> list[Check]:
         if d["new"].get("kind") == "session_bundle"
     ]
     row, found = the_row(bundles, "day_pass")
+    # "Bara lördagen" names no session: the fixture's Saturday workshop may be bundled too.
+    saturday = {
+        s["key"]
+        for s in o.base["sessions"]
+        if str(s.get("start_time", "")).startswith("2027-06-19")
+    }
+    got = row.get("sessions") or []
     return [
         price_change(ADULT, 900)(o),
         found,
         eq("day_pass_kind", row.get("kind"), "session_bundle"),
-        eq("day_pass_sessions", row.get("sessions"), ["lordag"]),
+        Check(
+            "day_pass_sessions",
+            "lordag" in got and set(got) <= saturday,
+            f"sessions {got!r}",
+        ),
         price_is("day_pass_price", row, 400),
         c.only(
             o,
@@ -763,6 +815,20 @@ def only_together(o: Outcome) -> list[Check]:
     ]
 
 
+# "Till och med 31 mars" as wall-clock time, offset ignored: the late evening of the
+# 31st, or up to 01:30 on 1 April for a model that put 23:59 in the wrong offset
+# (00:59+02:00 is 23:59+01:00).
+EARLY_BIRD_END = (datetime(2027, 3, 31, 23, 0), datetime(2027, 4, 1, 1, 30))
+
+
+def ends_31_march(value) -> bool:
+    try:
+        local = datetime.fromisoformat(str(value)).replace(tzinfo=None)
+    except ValueError:
+        return False
+    return EARLY_BIRD_END[0] <= local <= EARLY_BIRD_END[1]
+
+
 def early_bird_cutoff(o: Outcome) -> list[Check]:
     """A parent ticket on sale until the end of 31 March; the adult pass is left alone."""
     rows = [
@@ -771,23 +837,36 @@ def early_bird_cutoff(o: Outcome) -> list[Check]:
         if d["new"].get("applies_to") == "parent"
     ]
     row, found = the_row(rows, "early_bird")
-    until = str(row.get("available_until", ""))[:16]
+
+    # "Sen gäller vanliga priset" allows starting the adult pass after the early bird.
+    def regular_from_april(d):
+        new = str(d["fields"].get("available_from", {}).get("new") or "")
+        return (
+            d["key"] == ADULT
+            and set(d["fields"]) == {"available_from"}
+            and new[:16] >= "2027-03-31T23:59"
+        )
+
     return [
         found,
         price_is("early_bird_price", row, 900),
         Check(
             "until_31_march_end",
-            until == "2027-03-31T23:59",
+            ends_31_march(row.get("available_until")),
             f"available_until {row.get('available_until')!r}",
         ),
-        c.only(o, ("ticket_types", "added")),
+        c.only(
+            o,
+            ("ticket_types", "added"),
+            ("ticket_types", "changed", regular_from_april),
+        ),
     ]
 
 
 WALKTHROUGH_BRIEF = (
     "Hej! Jag ska sätta upp en anmälan för en konferens som heter Test Conference 2027. "
     "Den pågår i tre dagar, 25 till 27 juni 2027. Anmälan öppnar 1 mars 2027 kl 09:00 "
-    "och stänger två veckor innan konferensen börjar.\n\n"
+    "och stänger klockan 23:59 två veckor innan konferensen börjar.\n\n"
     "Biljetterna blir så här:\n"
     "- Vuxenbiljett för föräldrar, 1200 kr. Det finns 150 platser.\n"
     "- Barnbiljett för 0 till 12 år, 300 kr. Obegränsat antal.\n"

@@ -245,7 +245,7 @@ _GARBLED = re.compile(
     r"\d[ \t]*[-–—][ \t]*\?|\?[ \t]*[-–—][ \t]*[\d?]|\bkl\.?[ \t]*\d{0,2}[ \t]*[-–—][ \t]*\?",
     re.I,
 )
-_BARE_HOUR = re.compile(r"\bkl\.?\s*\d{1,2}(?![\d:]|[.]\d)", re.I)
+_BARE_HOUR = re.compile(r"\b(?:kl\.?|klockan)\s*\d{1,2}(?![\d:]|[.]\d)", re.I)
 _AMPM = re.compile(r"\b\d{1,2}(?::\d{2})?\s*(?:am|pm)\b", re.I)
 
 
@@ -293,10 +293,18 @@ def language_matches(o: Outcome, lang: str) -> Check:
 # Conservative on purpose: no Swedish dictionary is available offline, so an unknown
 # real word is never flagged. These catch garbling only: three of one letter in a row,
 # letters fused with digits in one word ("fö3r"), and a word repeated at once ("och och").
-_SV_GARBLED = (
-    re.compile(r"([a-zåäö])\1\1", re.I),
-    re.compile(r"\b([a-zåäö]{2,})\s+\1\b", re.I),
-)
+_TRIPLE = re.compile(r"([a-zåäö])\1\1", re.I)
+_REPEATED_WORD = re.compile(r"\b([a-zåäö]{2,})\s+\1\b", re.I)
+# A triple consonant inside a word is a compound seam ("biljett" + "typ"), not garbling.
+_SEAM = re.compile(r"(?<=[a-zåäö]{2})([b-df-hj-np-tv-xz])\1\1(?=[a-zåäö]{2})", re.I)
+
+
+def _garbled(text: str) -> list[str]:
+    seams = {m.start() for m in _SEAM.finditer(text)}
+    found = [m.group(0) for m in _TRIPLE.finditer(text) if m.start() not in seams]
+    return found + [m.group(0) for m in _REPEATED_WORD.finditer(text)]
+
+
 # Letters fused with digits. ALL-CAPS codes (TESTFAMILY2) and hex ids (draft tokens) are
 # not garbling, so they are skipped.
 _FUSED = re.compile(r"\b[a-zåäö]+\d+[a-zåäö\d]*\b", re.I)
@@ -312,8 +320,7 @@ def _fused_words(text: str) -> list[str]:
 
 
 def swedish_spelling(o: Outcome) -> Check:
-    found = [m.group(0) for pat in _SV_GARBLED for m in pat.finditer(o.text)]
-    found += _fused_words(o.text)
+    found = _garbled(o.text) + _fused_words(o.text)
     return Check(
         "swedish_spelling",
         not found,
