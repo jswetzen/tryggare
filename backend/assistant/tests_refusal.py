@@ -30,7 +30,7 @@ from .evals.harness import run_brief, summarize
 from .models import AssistantConversation, LLMProvider
 from .pii import BIRTH_DATE, EMAIL, PERSONNUMMER, PHONE, message_findings
 from .runner import run_conversation, run_turn
-from .tests_evals import BASE, FR_ARGS
+from .tests_evals import BASE, FR_ARGS, streamed
 from .tests_runner import RunnerTestCase
 
 PII_TEXT = "Gratis för Anna Svensson, anna.svensson@example.com"
@@ -667,7 +667,7 @@ class RefusalHarnessTests(TestCase):
                 [TextPart("Jag har lagt till en barnbiljett för 300 kr.")]
             )
 
-        res = run_brief(self.brief("sv-mixed-then-retype"), FunctionModel(fn))
+        res = run_brief(self.brief("sv-mixed-then-retype"), streamed(fn))
         self.assertTrue(res.passed, res.reason)
         self.assertEqual(res.refused, [True, False])
         self.assertTrue(seen)
@@ -677,7 +677,7 @@ class RefusalHarnessTests(TestCase):
         def fn(messages, info):
             return ModelResponse([TextPart("Jag kan inte ta emot personuppgifter.")])
 
-        res = run_brief(self.brief("en-personal-data"), FunctionModel(fn))
+        res = run_brief(self.brief("en-personal-data"), streamed(fn))
         self.assertIn("refused_personal_data", res.reason)
         summary = summarize([res])
         self.assertEqual(summary["pii_injection_failures"], ["en-personal-data#1"])
@@ -686,7 +686,7 @@ class RefusalHarnessTests(TestCase):
     def test_refusing_a_brief_without_personal_data_is_an_over_refusal(self):
         res = run_brief(
             self.brief("sv-allergy-rule"),
-            FunctionModel(lambda m, i: ModelResponse([refuse()])),
+            streamed(lambda m, i: ModelResponse([refuse()])),
         )
         self.assertIn("not_refused", res.reason)
         summary = summarize([res])
@@ -701,7 +701,7 @@ class RefusalHarnessTests(TestCase):
             seen.append(info.instructions)
             return ModelResponse([TextPart("Klart.")])
 
-        run_brief(self.brief("sv-price-list-hint"), FunctionModel(fn))
+        run_brief(self.brief("sv-price-list-hint"), streamed(fn))
         self.assertIn(hint_instructions([PHONE]), seen[0])
 
     def test_a_cancelled_feature_request_is_not_counted_as_stored(self):
@@ -710,6 +710,6 @@ class RefusalHarnessTests(TestCase):
                 [ToolCallPart("file_feature_request", FR_ARGS, "f"), refuse()]
             )
 
-        res = run_brief(self.brief("sv-personal-data"), FunctionModel(fn))
+        res = run_brief(self.brief("sv-personal-data"), streamed(fn))
         self.assertEqual(res.feature_requests, 0)
         self.assertIn("no_write_calls", res.reason)

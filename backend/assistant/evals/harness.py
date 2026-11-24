@@ -7,16 +7,23 @@ import json
 import statistics
 import time
 from collections.abc import Callable
+from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
 
 from asgiref.sync import async_to_sync
 from django.contrib.auth import get_user_model
 from pydantic_ai import Tool
 from pydantic_ai.messages import (
+    BaseToolCallPart,
     ModelMessagesTypeAdapter,
     ModelResponse,
+    PartDeltaEvent,
+    PartStartEvent,
     RetryPromptPart,
+    TextPart,
+    TextPartDelta,
     ToolCallPart,
+    ToolCallPartDelta,
     ToolReturnPart,
 )
 from pydantic_ai.models import Model
@@ -81,26 +88,157 @@ class RunResult:
     calls: list[dict] = field(default_factory=list)  # name, args, result_or_error
     feature_request_args: list[dict] = field(default_factory=list)
     latencies_s: list[float] = field(default_factory=list)  # one per model request
+    # One per model request: start_s/first_event_s/end_s from the run's start, ttft_s
+    # (to the first text or tool-call delta), decode_s, token counts (None if the
+    # provider sent no usage) and tool_s (gap after the previous step in a turn).
+    steps: list[dict] = field(default_factory=list)
+    timing: dict = field(
+        default_factory=dict
+    )  # per-run medians and max, see run_timing
+
+
+@dataclass
+class _Step:
+    start: float
+    turn: int
+    first_event: float | None = None
+    first_token: float | None = None
+    end: float | None = None
+    prompt_tokens: int | None = None
+    output_tokens: int | None = None
+
+
+def _is_token(ev) -> bool:
+    """The first thing a user would see: text, or a tool call being written."""
+    if isinstance(ev, PartStartEvent):
+        part = ev.part
+        return isinstance(part, BaseToolCallPart) or (
+            isinstance(part, TextPart) and bool(part.content)
+        )
+    if isinstance(ev, PartDeltaEvent):
+        d = ev.delta
+        return isinstance(d, ToolCallPartDelta) or (
+            isinstance(d, TextPartDelta) and bool(d.content_delta)
+        )
+    return False
 
 
 class _Timed(WrapperModel):
-    """Records each model request's wall time, and what it sent, per organizer turn
-    (``sent[-1]`` is the current turn's list)."""
+    """Records each model request's wall time, what it sent per organizer turn
+    (``sent[-1]`` is the current turn's list), and a ``_Step`` per request. Steps are
+    timed on the streaming path, which the runner uses when it has an event handler;
+    ``handler`` is the event-stream handler that stamps the first token."""
 
     def __init__(self, wrapped: Model, latencies: list[float], sent: list[list[str]]):
         super().__init__(wrapped)
         self.latencies = latencies
         self.sent = sent
+        self.steps: list[_Step] = []
 
-    async def request(self, messages, *args, **kwargs):
+    def _record_sent(self, messages):
         if self.sent:
             dumped = ModelMessagesTypeAdapter.dump_python(messages, mode="json")
             self.sent[-1].append(json.dumps(dumped, ensure_ascii=False))
+
+    async def request(self, messages, *args, **kwargs):
+        self._record_sent(messages)
         started = time.monotonic()
         try:
             return await super().request(messages, *args, **kwargs)
         finally:
             self.latencies.append(round(time.monotonic() - started, 1))
+
+    @asynccontextmanager
+    async def request_stream(self, messages, *args, **kwargs):
+        self._record_sent(messages)
+        step = _Step(time.monotonic(), len(self.sent) - 1)
+        self.steps.append(step)
+        try:
+            async with self.wrapped.request_stream(messages, *args, **kwargs) as stream:
+                yield stream
+                step.end = time.monotonic()
+                usage = stream.usage
+                if not usage.unmeasured_requests:
+                    step.prompt_tokens = usage.input_tokens
+                    step.output_tokens = usage.output_tokens
+        finally:
+            self.latencies.append(round(time.monotonic() - step.start, 1))
+
+    async def handler(self, _ctx, stream):
+        async for ev in stream:
+            step = self.steps[-1] if self.steps else None
+            if step is None or step.end is not None:
+                continue
+            now = time.monotonic()
+            if step.first_event is None and isinstance(
+                ev, PartStartEvent | PartDeltaEvent
+            ):
+                step.first_event = now
+            if step.first_token is None and _is_token(ev):
+                step.first_token = now
+
+    def step_records(self, t0: float) -> list[dict]:
+        """Steps as JSON, times in seconds from ``t0``; None where not measured."""
+
+        def rel(t):
+            return None if t is None else round(t - t0, 3)
+
+        out = []
+        prev: _Step | None = None
+        for s in self.steps:
+            tool = (
+                s.start - prev.end
+                if prev and prev.end is not None and prev.turn == s.turn
+                else None
+            )
+            out.append(
+                {
+                    "start_s": rel(s.start),
+                    "first_event_s": None
+                    if s.first_event is None
+                    else round(s.first_event - s.start, 3),
+                    "ttft_s": None
+                    if s.first_token is None
+                    else round(s.first_token - s.start, 3),
+                    "decode_s": None
+                    if s.first_token is None or s.end is None
+                    else round(s.end - s.first_token, 3),
+                    "end_s": rel(s.end),
+                    "prompt_tokens": s.prompt_tokens,
+                    "output_tokens": s.output_tokens,
+                    "tool_s": None if tool is None else round(tool, 3),
+                }
+            )
+            prev = s
+        return out
+
+
+def step_rates(step: dict) -> tuple[float | None, float | None]:
+    """(output tok/s over the decode time, input tok/s over the TTFT) for one step;
+    None when a number is missing. Input tok/s is an upper bound under prompt caching,
+    and output tokens include any thinking tokens streamed before the first text."""
+    out_n, decode = step.get("output_tokens"), step.get("decode_s")
+    in_n, ttft = step.get("prompt_tokens"), step.get("ttft_s")
+    out = out_n / decode if out_n and decode and decode > 0 else None
+    inp = in_n / ttft if in_n and ttft and ttft > 0 else None
+    return out, inp
+
+
+def run_timing(steps: list[dict]) -> dict:
+    """Per-run medians of the step rates and the TTFT median and max."""
+
+    def med(values):
+        values = [v for v in values if v is not None]
+        return round(statistics.median(values), 2) if values else None
+
+    ttfts = [s["ttft_s"] for s in steps if s.get("ttft_s") is not None]
+    rates = [step_rates(s) for s in steps]
+    return {
+        "ttft_median_s": med(ttfts),
+        "ttft_max_s": max(ttfts, default=None),
+        "output_tok_s_median": med([r[0] for r in rates]),
+        "input_tok_s_median": med([r[1] for r in rates]),
+    }
 
 
 def _redactor(tokens) -> Callable:
@@ -204,6 +342,7 @@ class _Log:
     messages: list = field(default_factory=list)
     turn_calls: list[list[str]] = field(default_factory=list)
     sent: list[list[str]] = field(default_factory=list)
+    handler: Callable | None = None  # the event-stream handler (stamps the first token)
 
 
 def _calls(messages) -> list[str]:
@@ -223,7 +362,12 @@ async def _converse(agent, brief: Brief, known, deadline, log: _Log):
         sent_history = trim_history(history)
         try:
             turn = await run_turn(
-                agent, prompt, sent_history, kinds=kinds, deadline=deadline
+                agent,
+                prompt,
+                sent_history,
+                kinds=kinds,
+                deadline=deadline,
+                event_stream_handler=log.handler,
             )
         except Exception as exc:
             partial = list(getattr(exc, "transcript", []))[len(sent_history) :]
@@ -250,6 +394,8 @@ def run_brief(
     latencies: list[float] = []
     log = _Log()
     model = _Timed(model if isinstance(model, Model) else model(), latencies, log.sent)
+    # Passing a handler makes the agent stream, as the runner does in production.
+    log.handler = model.handler
     user = user or eval_user()
     event = event_spec.apply(brief.fixture())[0]
     base = event_spec.export(event)
@@ -278,6 +424,7 @@ def run_brief(
         error = f"{_failure_code(exc)} ({type(exc).__name__}{f' {status}' if status else ''})"
     history, replies = log.messages, log.replies
     wall = time.monotonic() - started
+    steps = model.step_records(started)
     try:
         items = proposals
         final = items[-1] if items else None
@@ -348,6 +495,8 @@ def run_brief(
         calls=call_log(history, redact),
         feature_request_args=redact(outcome.fr_args),
         latencies_s=latencies,
+        steps=steps,
+        timing=run_timing(steps),
     )
 
 

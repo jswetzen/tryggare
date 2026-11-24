@@ -1,18 +1,39 @@
 """Eval criteria and harness, with scripted models: no live model in the suite."""
 
 import copy
+import asyncio
 import json
+from contextlib import asynccontextmanager
 from datetime import date
+from types import SimpleNamespace
+from unittest import mock
 
 from django.test import SimpleTestCase, TestCase
-from pydantic_ai.messages import ModelResponse, TextPart, ToolCallPart, ToolReturnPart
-from pydantic_ai.models.function import AgentInfo, FunctionModel
+from pydantic_ai.messages import (
+    ModelResponse,
+    PartDeltaEvent,
+    PartStartEvent,
+    TextPart,
+    TextPartDelta,
+    ThinkingPart,
+    ToolCallPart,
+    ToolReturnPart,
+)
+from pydantic_ai.models.function import AgentInfo, DeltaToolCall, FunctionModel
+from pydantic_ai.usage import RequestUsage
 
 from events import event_spec
 
 from .evals import briefs as B
 from .evals import criteria as c
-from .evals.harness import run_brief, summarize, tool_definitions_sha256
+from .evals import harness
+from .evals.harness import (
+    run_brief,
+    run_timing,
+    step_rates,
+    summarize,
+    tool_definitions_sha256,
+)
 from .evals.report import build_report, render_markdown
 from .agent import REFUSAL_TEXT
 from .tools import EventTools
@@ -296,6 +317,25 @@ class BriefSetTests(SimpleTestCase):
             )
 
 
+def streamed(fn):
+    """``fn`` as a model that streams, as the harness runs it (as production does)."""
+
+    async def stream(messages, info):
+        for i, part in enumerate(fn(messages, info).parts):
+            if isinstance(part, TextPart):
+                yield part.content
+            else:
+                yield {
+                    i: DeltaToolCall(
+                        name=part.tool_name,
+                        json_args=json.dumps(part.args),
+                        tool_call_id=part.tool_call_id,
+                    )
+                }
+
+    return FunctionModel(fn, stream_function=stream)
+
+
 def scripted(edit, reply):
     """A model that reads the current spec, applies ``edit`` to it, proposes it, then
     answers ``reply(propose_result)``."""
@@ -313,7 +353,7 @@ def scripted(edit, reply):
             return ModelResponse(parts=[ToolCallPart("propose_spec", {"spec": spec})])
         return ModelResponse(parts=[TextPart(reply(returns[-1].content))])
 
-    return FunctionModel(fn)
+    return streamed(fn)
 
 
 def add_friday_session(spec):
@@ -347,6 +387,29 @@ class HarnessTests(TestCase):
         self.assertEqual((res.requests, res.drafts), (3, 1))
         self.assertEqual(Event.objects.count(), before)
 
+    def test_a_run_records_one_step_per_request_and_the_report_shows_timing(self):
+        brief = next(b for b in B.BRIEFS if b.id == "sv-add-session")
+        res = run_brief(brief, scripted(add_friday_session, lambda t: "Klart."))
+        self.assertEqual(len(res.steps), res.requests)
+        self.assertEqual(len(res.latencies_s), res.requests)
+        self.assertTrue(all(s["ttft_s"] is not None for s in res.steps))
+        self.assertIsNone(res.steps[0]["tool_s"])
+        self.assertIn("ttft_median_s", res.timing)
+        report = build_report(
+            {
+                "model": "m",
+                "base_url": "u",
+                "started": "now",
+                "runs_per_brief": 1,
+                "capabilities": {"chars": 0, "approx_tokens": 0},
+            },
+            [res],
+            summarize([res]),
+        )
+        md = render_markdown(report)
+        self.assertIn("## Timing", md)
+        self.assertIn(f"| {brief.id} | 1 |", md)
+
     def test_leaking_the_draft_id_is_reported_not_gating(self):
         res = self.run_it(
             add_friday_session,
@@ -375,7 +438,7 @@ class HarnessTests(TestCase):
         def broken(messages, info):
             raise ValueError("boom")
 
-        res = run_brief(self.brief, FunctionModel(broken))
+        res = run_brief(self.brief, streamed(broken))
         self.assertFalse(res.passed)
         self.assertEqual(res.error, "model_error (ValueError)")
 
@@ -385,7 +448,7 @@ class HarnessTests(TestCase):
         def broken(messages, info):
             raise ValueError("boom")
 
-        res = run_brief(walk, FunctionModel(broken))
+        res = run_brief(walk, streamed(broken))
         self.assertFalse(res.passed)
         self.assertTrue(res.graded)
         self.assertFalse(any(x.ok for x in res.graded))
@@ -417,7 +480,7 @@ class HarnessTests(TestCase):
                 parts=[TextPart("Jag har lagt till passet Fredagsvälkomst.")]
             )
 
-        res = run_brief(self.brief, FunctionModel(plan))
+        res = run_brief(self.brief, streamed(plan))
         self.assertTrue(res.passed, res.reason)
         self.assertEqual(res.drafts, 3)
 
@@ -450,7 +513,7 @@ class HarnessTests(TestCase):
                 return ModelResponse(parts=[TextPart("Added a session for Erik.")])
             raise ValueError("boom")
 
-        res = run_brief(brief, FunctionModel(fn))
+        res = run_brief(brief, streamed(fn))
         self.assertEqual(res.replies, ["Added a session for Erik."])
         self.assertIn("run_completed", res.reason)
         self.assertIn("no_pii_in_draft", res.reason)
@@ -524,7 +587,7 @@ class HarnessTests(TestCase):
         )
         echo = run_brief(
             brief,
-            FunctionModel(
+            streamed(
                 lambda m, i: ModelResponse(
                     parts=[
                         TextPart(
@@ -869,7 +932,7 @@ class FeatureRequestHarnessTests(TestCase):
                 return ModelResponse(parts=[ToolCallPart("file_feature_request", args)])
             return ModelResponse(parts=[TextPart(reply)])
 
-        return FunctionModel(fn)
+        return streamed(fn)
 
     def test_a_stored_request_is_counted_and_its_arguments_are_checked(self):
         brief = next(b for b in B.BRIEFS if b.id == "en-unsupported-family-price")
@@ -1996,3 +2059,67 @@ class ToolDefinitionHashTests(SimpleTestCase):
 def gating(checks):
     """Names of failed checks that gate the run (reported ones do not count here)."""
     return {x.name for x in checks if not x.ok and x.gates}
+
+
+class TimingTests(SimpleTestCase):
+    def drive(self, clock, timed, at_first, at_text, at_end, usage):
+        """One streamed step with a fake clock: request start is the current time."""
+
+        @asynccontextmanager
+        async def fake_stream(*args, **kwargs):
+            yield SimpleNamespace(usage=usage)
+
+        timed.wrapped.request_stream = fake_stream
+
+        async def events():
+            clock["t"] = at_first
+            yield PartStartEvent(index=0, part=ThinkingPart(content="hm"))
+            clock["t"] = at_text
+            yield PartDeltaEvent(index=1, delta=TextPartDelta(content_delta="Hej"))
+
+        async def go():
+            async with timed.request_stream([], None, None):
+                await timed.handler(None, events())
+                clock["t"] = at_end
+
+        asyncio.run(go())
+
+    def test_ttft_decode_rates_and_missing_usage(self):
+        clock = {"t": 100.0}
+        timed = harness._Timed(FunctionModel(lambda m, i: None), [], [[]])
+        fake_time = SimpleNamespace(monotonic=lambda: clock["t"])
+        with mock.patch.object(harness, "time", fake_time):
+            self.drive(
+                clock,
+                timed,
+                100.2,
+                100.5,
+                102.5,
+                RequestUsage(input_tokens=50, output_tokens=100),
+            )
+            clock["t"] = 103.0  # the tool took 0.5 s
+            self.drive(
+                clock,
+                timed,
+                103.05,
+                103.1,
+                104.1,
+                RequestUsage(unmeasured_requests=1),
+            )
+        a, b = timed.step_records(100.0)
+        self.assertEqual(
+            (a["ttft_s"], a["first_event_s"], a["decode_s"], a["end_s"]),
+            (0.5, 0.2, 2.0, 2.5),
+        )
+        self.assertEqual((a["prompt_tokens"], a["output_tokens"]), (50, 100))
+        self.assertEqual(step_rates(a), (50.0, 100.0))
+        self.assertIsNone(a["tool_s"])
+        self.assertEqual((b["ttft_s"], b["decode_s"], b["tool_s"]), (0.1, 1.0, 0.5))
+        self.assertEqual((b["prompt_tokens"], b["output_tokens"]), (None, None))
+        self.assertEqual(step_rates(b), (None, None))
+        t = run_timing([a, b])
+        self.assertEqual((t["ttft_median_s"], t["ttft_max_s"]), (0.3, 0.5))
+        self.assertEqual(
+            (t["output_tok_s_median"], t["input_tok_s_median"]), (50.0, 100.0)
+        )
+        self.assertEqual(len(timed.latencies), 2)

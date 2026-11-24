@@ -1,6 +1,9 @@
 """JSON and markdown reports of an eval run."""
 
 import dataclasses
+import statistics
+
+from .harness import step_rates
 
 
 def build_report(meta: dict, results, summary: dict) -> dict:
@@ -16,6 +19,70 @@ _REPORTED_LABEL = {
     "language": "language clean",
     "pii_echo": "no name echoed in the reply",
 }
+
+
+def _med(values):
+    values = [v for v in values if v is not None]
+    return round(statistics.median(values), 1) if values else None
+
+
+def _p90(values):
+    values = sorted(v for v in values if v is not None)
+    if not values:
+        return None
+    # Nearest rank: the smallest value with at least 90% of the values at or below it.
+    return round(values[-(-9 * len(values) // 10) - 1], 1)
+
+
+def timing_lines(runs: list[dict]) -> list[str]:
+    """The Timing section; empty for result files from before steps were recorded.
+    A step without usage counts for the TTFT but not the rates (shown as n/a)."""
+    if not any(r.get("steps") for r in runs):
+        return []
+
+    def collect(rs):
+        steps = [st for r in rs for st in r.get("steps", [])]
+        rates = [step_rates(st) for st in steps]
+        return (
+            [st["ttft_s"] for st in steps],
+            [x[0] for x in rates],
+            [x[1] for x in rates],
+        )
+
+    ttft, out_rate, in_rate = collect(runs)
+    walls = [r["wall_s"] for r in runs]
+    n = sum(len(r.get("steps", [])) for r in runs)
+    unmeasured = sum(
+        st.get("output_tokens") is None for r in runs for st in r.get("steps", [])
+    )
+    na = lambda v: "n/a" if v is None else v  # noqa: E731
+    lines = [
+        "",
+        "## Timing",
+        "",
+        f"{n} model steps (streamed, as in production). TTFT: request start to the first "
+        "text or tool-call delta. Output tok/s: step output tokens over decode time "
+        "(TTFT to end), so thinking tokens count. Input tok/s: prompt tokens over TTFT "
+        f"(an upper bound under prompt caching). Steps without provider usage: {unmeasured}.",
+        "",
+        "| | median | p90 |",
+        "| --- | --- | --- |",
+        f"| TTFT s | {na(_med(ttft))} | {na(_p90(ttft))} |",
+        f"| output tok/s | {na(_med(out_rate))} | {na(_p90(out_rate))} |",
+        f"| input tok/s | {na(_med(in_rate))} | {na(_p90(in_rate))} |",
+        f"| wall s per run | {na(_med(walls))} | {na(_p90(walls))} |",
+        "",
+        "| brief | runs | median wall s | median TTFT s | median output tok/s |",
+        "| --- | --- | --- | --- | --- |",
+    ]
+    for brief in dict.fromkeys(r["brief"] for r in runs):
+        rs = [r for r in runs if r["brief"] == brief]
+        t, o, _ = collect(rs)
+        lines.append(
+            f"| {brief} | {len(rs)} | {na(_med([r['wall_s'] for r in rs]))} | "
+            f"{na(_med(t))} | {na(_med(o))} |"
+        )
+    return lines
 
 
 def render_markdown(report: dict) -> str:
@@ -87,4 +154,5 @@ def render_markdown(report: dict) -> str:
             f"{calls} | {r['requests']} | {r['prompt_tokens']} | {r['peak_context']} | "
             f"{r['capabilities_tokens'] or '-'} | {why} | {', '.join(r.get('reported', [])) or '-'} | {score} |"
         )
+    lines += timing_lines(report["runs"])
     return "\n".join(lines) + "\n"
