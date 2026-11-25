@@ -151,86 +151,67 @@ def personal_data_errors(path: str, text: str) -> list[dict]:
     ]
 
 
+def _clean_text(path, value, limit, errors: list[dict], required=True) -> str | None:
+    """Trimmed text with its length and personal-data errors; None if not text."""
+    if not isinstance(value, str) or (required and not value.strip()):
+        errors.append(_err(path, "invalid", "Must be non-empty text."))
+        return None
+    value = value.strip()
+    if len(value) > limit:
+        errors.append(_err(path, "too_long", f"At most {limit} characters."))
+    errors.extend(personal_data_errors(path, value))
+    return value
+
+
+def _clean_tried(raw, errors: list[dict]) -> list[str]:
+    tried = raw or []
+    if not isinstance(tried, list) or len(tried) > LIMITS["tried"]:
+        errors.append(_err("tried", "invalid", f"At most {LIMITS['tried']} items."))
+        return []
+    out = []
+    for i, item in enumerate(tried):
+        item = _clean_text(f"tried[{i}]", item, LIMITS["tried_item"], errors)
+        if item is not None:
+            out.append(item)
+    return out
+
+
+def _clean_workaround(raw, errors: list[dict]) -> dict | None:
+    if raw is None:
+        return None
+    if not isinstance(raw, dict) or set(raw) - {"used", "cost"}:
+        errors.append(_err("workaround", "invalid", "Give used and cost, or null."))
+        return None
+    used = _clean_text(
+        "workaround.used", raw.get("used"), LIMITS["workaround_used"], errors
+    )
+    cost = raw.get("cost")
+    if cost not in dict(COSTS):
+        errors.append(
+            _err("workaround.cost", "invalid", "Must be one of the cost values.")
+        )
+    return {"used": used or "", "cost": cost}
+
+
 def clean_input(data) -> dict:
     """The validated, normalised input, or FeatureRequestError with every problem."""
     if not isinstance(data, dict):
         raise FeatureRequestError([_err("", "invalid", "Must be a JSON object.")])
-    errors: list[dict] = []
-    for key in data:
-        if key not in INPUT_KEYS:
-            errors.append(_err(str(key)[:40], "extra_forbidden", "Not a field."))
+    errors: list[dict] = [
+        _err(str(key)[:40], "extra_forbidden", "Not a field.")
+        for key in data
+        if key not in INPUT_KEYS
+    ]
     out: dict = {}
-
-    def text(name, limit, required=True):
-        value = data.get(name)
-        if value is None and not required:
-            return None
-        if not isinstance(value, str) or (required and not value.strip()):
-            errors.append(_err(name, "invalid", "Must be non-empty text."))
-            return ""
-        value = value.strip()
-        if len(value) > limit:
-            errors.append(_err(name, "too_long", f"At most {limit} characters."))
-        errors.extend(personal_data_errors(name, value))
-        return value
-
-    out["title"] = text("title", LIMITS["title"])
-    out["problem"] = text("problem", LIMITS["problem"])
-    out["desired"] = text("desired", LIMITS["desired"])
-    out["brief_fragment"] = text("brief_fragment", LIMITS["brief_fragment"], False)
-
-    tried = data.get("tried") or []
-    if not isinstance(tried, list) or len(tried) > LIMITS["tried"]:
-        errors.append(_err("tried", "invalid", f"At most {LIMITS['tried']} items."))
-        tried = []
-    out["tried"] = []
-    for i, item in enumerate(tried):
-        if not isinstance(item, str) or not item.strip():
-            errors.append(_err(f"tried[{i}]", "invalid", "Must be non-empty text."))
-            continue
-        item = item.strip()
-        if len(item) > LIMITS["tried_item"]:
-            errors.append(
-                _err(
-                    f"tried[{i}]",
-                    "too_long",
-                    f"At most {LIMITS['tried_item']} characters.",
-                )
-            )
-        errors.extend(personal_data_errors(f"tried[{i}]", item))
-        out["tried"].append(item)
-
-    workaround = data.get("workaround")
-    out["workaround"] = None
-    if workaround is not None:
-        if not isinstance(workaround, dict) or set(workaround) - {"used", "cost"}:
-            errors.append(_err("workaround", "invalid", "Give used and cost, or null."))
-        else:
-            used = workaround.get("used")
-            cost = workaround.get("cost")
-            if not isinstance(used, str) or not used.strip():
-                errors.append(
-                    _err("workaround.used", "invalid", "Must be non-empty text.")
-                )
-                used = ""
-            used = used.strip()
-            if len(used) > LIMITS["workaround_used"]:
-                errors.append(
-                    _err(
-                        "workaround.used",
-                        "too_long",
-                        f"At most {LIMITS['workaround_used']} characters.",
-                    )
-                )
-            errors.extend(personal_data_errors("workaround.used", used))
-            if cost not in dict(COSTS):
-                errors.append(
-                    _err(
-                        "workaround.cost", "invalid", "Must be one of the cost values."
-                    )
-                )
-            out["workaround"] = {"used": used, "cost": cost}
-
+    for name in ("title", "problem", "desired"):
+        out[name] = _clean_text(name, data.get(name), LIMITS[name], errors) or ""
+    fragment = data.get("brief_fragment")
+    if fragment is not None:
+        limit = LIMITS["brief_fragment"]
+        fragment = _clean_text("brief_fragment", fragment, limit, errors, False) or ""
+    out["brief_fragment"] = fragment
+    out["tried"] = _clean_tried(data.get("tried"), errors)
+    out["workaround"] = _clean_workaround(data.get("workaround"), errors)
     if data.get("severity") not in dict(SEVERITIES):
         errors.append(
             _err("severity", "invalid", "Must be one of the severity values.")
