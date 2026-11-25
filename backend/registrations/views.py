@@ -389,7 +389,28 @@ def _attach_extra(*, registration, attendee, selection, is_child):
     extra = selection["extra"]
     choice = selection.get("choice")
     quantity = selection.get("quantity", 1)
+    _check_extra_selection(
+        registration=registration,
+        extra=extra,
+        choice=choice,
+        quantity=quantity,
+        attendee=attendee,
+        is_child=is_child,
+    )
+    _check_extra_eligibility(registration=registration, extra=extra, attendee=attendee)
+    _store_extra(
+        registration=registration,
+        extra=extra,
+        choice=choice,
+        quantity=quantity,
+        attendee=attendee,
+    )
 
+
+def _check_extra_selection(
+    *, registration, extra, choice, quantity, attendee, is_child
+):
+    """The selection fits the extra: its event, choice, scope and quantity."""
     if extra.event_id != registration.event_id or not extra.is_active:
         raise ValidationError(_("Invalid extra for this event."))
     if choice is not None and choice.extra_id != extra.id:
@@ -410,6 +431,10 @@ def _attach_extra(*, registration, attendee, selection, is_child):
         attendee_kind = "child" if is_child else "parent"
         if extra.applies_to != attendee_kind:
             raise ValidationError(_("This extra isn't available for this attendee."))
+
+
+def _check_extra_eligibility(*, registration, extra, attendee):
+    """The attendee may take the extra: session, ticket gate, not taken twice."""
     if extra.session_id is not None:
         if attendee is None:
             raise ValidationError(
@@ -435,37 +460,13 @@ def _attach_extra(*, registration, attendee, selection, is_child):
             registration=registration, extra=extra, attendee=attendee
         ).exists()
     ):
-        # Belt-and-suspenders: the DB unique constraint would catch this
-        # too, but as an IntegrityError (500), not a clean 400 — check here
-        # so a duplicate entry in the submitted payload fails cleanly.
+        # The DB unique constraint would catch this too, but as a 500, not a 400.
         raise ValidationError(_("This extra is already attached to this attendee."))
 
-    price = extra.price + (choice.price_delta if choice is not None else Decimal("0"))
 
-    if not extra.per_attendee:
-        # attendee=None isn't protected by the (registration, extra,
-        # attendee) unique constraint's NULL semantics (Postgres treats
-        # every NULL as distinct), so a second selection of the same
-        # per-registration extra bumps quantity via get_or_create instead
-        # of relying on the DB constraint. `choice` is part of the lookup,
-        # not just the defaults — two selections of the same extra with
-        # different choices (e.g. "Large cabin" vs "Small cabin") are
-        # different line items, each with their own snapshotted price, not
-        # one row whose quantity happens to grow.
-        reg_extra, created = RegistrationExtra.objects.get_or_create(
-            registration=registration,
-            extra=extra,
-            attendee=None,
-            choice=choice,
-            defaults={
-                "quantity": quantity,
-                "price_at_registration": price,
-            },
-        )
-        if not created:
-            reg_extra.quantity += quantity
-            reg_extra.save(update_fields=["quantity"])
-    else:
+def _store_extra(*, registration, extra, choice, quantity, attendee):
+    price = extra.price + (choice.price_delta if choice is not None else Decimal("0"))
+    if extra.per_attendee:
         RegistrationExtra.objects.create(
             registration=registration,
             extra=extra,
@@ -474,6 +475,20 @@ def _attach_extra(*, registration, attendee, selection, is_child):
             quantity=quantity,
             price_at_registration=price,
         )
+        return
+    # The unique constraint never matches attendee=None (Postgres NULLs are
+    # distinct), so a repeat bumps quantity. ``choice`` is in the lookup: a
+    # different choice is a separate line item with its own snapshotted price.
+    reg_extra, created = RegistrationExtra.objects.get_or_create(
+        registration=registration,
+        extra=extra,
+        attendee=None,
+        choice=choice,
+        defaults={"quantity": quantity, "price_at_registration": price},
+    )
+    if not created:
+        reg_extra.quantity += quantity
+        reg_extra.save(update_fields=["quantity"])
 
 
 def _create_registration(
