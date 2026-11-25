@@ -638,6 +638,107 @@ class CommandTests(TestCase):
             with self.assertRaisesRegex(CommandError, "scratch"):
                 self.call(base_url="http://llm.example/v1")
 
+    def test_no_brief_matches(self):
+        from django.core.management.base import CommandError
+
+        with self.assertRaisesRegex(CommandError, "no brief matches"):
+            self.call(base_url="http://llm.example/v1", briefs="no-such-brief")
+
+    def test_needs_a_model_and_base_url(self):
+        from django.core.management.base import CommandError
+
+        with self.assertRaisesRegex(CommandError, "save a provider first"):
+            self.call()  # no --base-url, and no provider saved
+
+    def run_eval(self, **opts):
+        """Run the command with run_brief faked: run 1 passes, later runs fail."""
+        import json
+        import tempfile
+        from io import StringIO
+        from pathlib import Path
+        from unittest import mock
+
+        from django.core.management import call_command
+
+        from .evals.harness import RunResult
+
+        calls = []
+
+        def fake_run(b, llm, *, run, deadline):
+            calls.append((b.id, run, deadline, llm()))
+            return RunResult(
+                brief=b.id,
+                run=run,
+                passed=run == 1,
+                checks=[],
+                reason="",
+                wall_s=1.0,
+                replies=[],
+                tool_calls={},
+                requests=1,
+                prompt_tokens=0,
+                output_tokens=0,
+                peak_context=0,
+                capabilities_tokens=None,
+            )
+
+        module = "assistant.management.commands.assistant_eval"
+        out = StringIO()
+        with (
+            tempfile.TemporaryDirectory() as tmp,
+            mock.patch(f"{module}.run_brief", side_effect=fake_run),
+            mock.patch(f"{module}.ollama_num_ctx", return_value=4096),
+            mock.patch(f"{module}.git_state", return_value={"git_commit": "abc"}),
+        ):
+            call_command("assistant_eval", out=tmp, stdout=out, **opts)
+            names = sorted(p.name for p in Path(tmp).iterdir())
+            json_text = next(Path(tmp).glob("*.json")).read_text()
+            md_text = next(Path(tmp).glob("*.md")).read_text()
+        return calls, names, json.loads(json_text), json_text + md_text, out.getvalue()
+
+    def test_runs_each_chosen_brief_and_writes_both_reports(self):
+        from .evals.briefs import BRIEFS
+
+        brief = BRIEFS[0]
+        calls, names, report, _, text = self.run_eval(
+            model="vendor/name",
+            base_url="http://llm.example/v1",
+            briefs=brief.id,
+            runs=2,
+            deadline=5.0,
+        )
+        self.assertEqual(
+            [call[:3] for call in calls], [(brief.id, 1, 5.0), (brief.id, 2, 5.0)]
+        )
+        self.assertEqual(len(names), 2)
+        self.assertTrue(names[0].startswith("vendor_name-"))
+        self.assertEqual(
+            {k: report["meta"][k] for k in ("model", "runs_per_brief", "num_ctx")},
+            {"model": "vendor/name", "runs_per_brief": 2, "num_ctx": 4096},
+        )
+        self.assertEqual(report["meta"]["git_commit"], "abc")
+        self.assertEqual(len(report["runs"]), 2)
+        self.assertIn(f"PASS {brief.id} #1", text)
+        self.assertIn(f"FAIL {brief.id} #2", text)
+        self.assertIn("report: ", text)
+
+    def test_a_key_from_the_environment_reaches_the_model_not_the_report(self):
+        import os
+        from unittest import mock
+
+        from .evals.briefs import BRIEFS
+
+        with mock.patch.dict(os.environ, {"EVAL_TEST_KEY": "sk-secret-123"}):
+            calls, _, _, written, text = self.run_eval(
+                model="m",
+                base_url="https://llm.example/v1",
+                api_key_env="EVAL_TEST_KEY",
+                briefs=BRIEFS[0].id,
+            )
+        self.assertEqual(len(calls), 1)
+        self.assertIsNotNone(calls[0][3])
+        self.assertNotIn("sk-secret-123", written + text)
+
 
 class VerdictTests(SimpleTestCase):
     """Hygiene and language are reported; everything else gates the run."""
