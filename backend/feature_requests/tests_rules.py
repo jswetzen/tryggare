@@ -188,3 +188,89 @@ class DerivationTests(SimpleTestCase):
         self.assertEqual(_reach_for_count(2), "some_events")
         self.assertEqual(_reach_for_count(4), "some_events")
         self.assertEqual(_reach_for_count(5), "most_events")
+
+
+class CleanInputShapeTests(SimpleTestCase):
+    """Every error clean_input reports, in order, for malformed input."""
+
+    def paths(self, data):
+        with self.assertRaises(FeatureRequestError) as caught:
+            clean_input(data)
+        return [(e["path"], e["code"]) for e in caught.exception.errors]
+
+    def test_not_an_object(self):
+        self.assertEqual(self.paths([1]), [("", "invalid")])
+
+    def test_every_field_wrong_at_once(self):
+        data = {
+            **BASE,
+            "zzz": 1,
+            "title": "  ",
+            "problem": 5,
+            "brief_fragment": "x" * 301,
+            "tried": ["  ok  ", "", 3, "y" * 301, "mail anna@example.com"],
+            "workaround": {"used": 7, "cost": "nope"},
+            "severity": "bad",
+            "touches": ["cap:family_groups", "cap:family_groups", 9, "x" * 200],
+        }
+        self.assertEqual(
+            self.paths(data),
+            [
+                ("zzz", "extra_forbidden"),
+                ("title", "invalid"),
+                ("problem", "invalid"),
+                ("brief_fragment", "too_long"),
+                ("tried[1]", "invalid"),
+                ("tried[2]", "invalid"),
+                ("tried[3]", "too_long"),
+                ("tried[4]", "personal_data"),
+                ("workaround.used", "invalid"),
+                ("workaround.cost", "invalid"),
+                ("severity", "invalid"),
+                ("touches[2]", "unknown_term"),
+                ("touches[3]", "unknown_term"),
+            ],
+        )
+
+    def test_tried_must_be_a_short_list(self):
+        self.assertEqual(self.paths({**BASE, "tried": "a"}), [("tried", "invalid")])
+        self.assertEqual(
+            self.paths({**BASE, "tried": ["a"] * 6}), [("tried", "invalid")]
+        )
+
+    def test_workaround_keys_and_length(self):
+        extra_key = {"used": "a", "cost": "wrong_result", "who": 1}
+        self.assertEqual(
+            self.paths({**BASE, "workaround": extra_key}), [("workaround", "invalid")]
+        )
+        long = {"used": "z" * 401, "cost": "wrong_result"}
+        self.assertEqual(
+            self.paths({**BASE, "workaround": long}), [("workaround.used", "too_long")]
+        )
+
+    def test_valid_input_is_trimmed_and_deduplicated(self):
+        data = {
+            **BASE,
+            "title": "  Family price ",
+            "brief_fragment": None,
+            "tried": [" a "],
+            "workaround": {"used": " b ", "cost": "wrong_result"},
+            "touches": [
+                "cap:family_groups",
+                "new:extra_eligibility",
+                "cap:family_groups",
+            ],
+        }
+        self.assertEqual(
+            clean_input(data),
+            {
+                "title": "Family price",
+                "problem": BASE["problem"],
+                "desired": BASE["desired"],
+                "brief_fragment": None,
+                "tried": ["a"],
+                "workaround": {"used": "b", "cost": "wrong_result"},
+                "severity": "friction",
+                "touches": ["cap:family_groups", "new:extra_eligibility"],
+            },
+        )

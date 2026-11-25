@@ -292,6 +292,34 @@ class AdminFormTests(AdminCase):
         )
         self.assertTrue(FeatureRequestAdminForm(data=ok).is_valid())
 
+    def test_personal_data_in_tried_and_workaround_is_refused(self):
+        form = FeatureRequestAdminForm(
+            data=self.data(
+                tried='["fine", "Mail anna@example.com"]',
+                workaround='{"used": "Mail anna@example.com", "cost": "wrong_result"}',
+            )
+        )
+        self.assertFalse(form.is_valid())
+        self.assertEqual(form.errors["tried"], ["Item 2 looks like an email address."])
+        self.assertEqual(
+            form.errors["workaround"],
+            ["The workaround looks like an email address."],
+        )
+
+    def test_every_shape_error_is_reported_together(self):
+        form = FeatureRequestAdminForm(
+            data=self.data(tried="[1]", touches='"x"', layers='["nowhere"]')
+        )
+        self.assertFalse(form.is_valid())
+        self.assertEqual(
+            {name: form.errors[name] for name in ("tried", "touches", "layers")},
+            {
+                "tried": ["Give a list of texts."],
+                "touches": ["Give a list of terms."],
+                "layers": ["Give a list of layer values."],
+            },
+        )
+
     def test_duplicate_status_needs_a_target(self):
         form = FeatureRequestAdminForm(data=self.data(status="duplicate"))
         self.assertFalse(form.is_valid())
