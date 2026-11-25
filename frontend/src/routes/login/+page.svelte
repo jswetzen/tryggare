@@ -3,6 +3,8 @@
   import { goto } from '$app/navigation';
   import { t } from 'svelte-i18n';
   import { apiClient } from '$lib/api/client';
+  import { page } from '$app/stores';
+  import { safeNext } from '$lib/auth/returnTo';
   import LanguageSwitcher from '$lib/components/LanguageSwitcher.svelte';
   import type { AuthCheckResponse } from '../+layout';
 
@@ -38,8 +40,8 @@
       // Login using API client
       await apiClient.post('/auth/login/', { username, password });
 
-      // On success, redirect to check-in page
-      window.location.href = '/checkin';
+      // Back to where the user came from (safe same-origin path), else check-in
+      window.location.href = safeNext($page.url.searchParams.get('next')) ?? '/checkin';
     } catch (error: any) {
       isLoading = false;
       if (error.details?.error) {

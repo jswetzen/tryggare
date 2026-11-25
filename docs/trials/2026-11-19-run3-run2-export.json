@@ -1,0 +1,166 @@
+{
+  "event_spec_version": 1,
+  "event": {
+    "name": "Test Conference 2028",
+    "start_date": "2028-06-04",
+    "end_date": "2028-06-06",
+    "ticket_rule_default": "all",
+    "price": null,
+    "registration_opens_at": "2027-11-02T09:00:00+01:00",
+    "registration_closes_at": "2028-05-21T23:59:00+02:00",
+    "header_image_url": "",
+    "accent_color": ""
+  },
+  "sessions": [
+    {
+      "key": "saturday-workshop",
+      "name": "Saturday workshop",
+      "start_time": "2028-06-05T10:00:00+02:00",
+      "end_time": "2028-06-05T12:00:00+02:00",
+      "ticket_rule": "",
+      "adults_not_checked_in": true
+    }
+  ],
+  "ticket_types": [
+    {
+      "key": "adult-conference-pass",
+      "name": "Adult conference pass",
+      "price": "1320.00",
+      "applies_to": "parent",
+      "min_birthdate": null,
+      "max_birthdate": null,
+      "available_from": null,
+      "available_until": null,
+      "is_hidden": false,
+      "kind": "event",
+      "sessions": [],
+      "capacity": 150,
+      "requires_ticket_type": null,
+      "max_per_required": null,
+      "sort_order": 0,
+      "is_active": true
+    },
+    {
+      "key": "child-pass-0-12",
+      "name": "Child pass 0-12",
+      "price": "330.00",
+      "applies_to": "child",
+      "min_birthdate": "2015-06-05",
+      "max_birthdate": null,
+      "available_from": null,
+      "available_until": null,
+      "is_hidden": false,
+      "kind": "event",
+      "sessions": [],
+      "capacity": null,
+      "requires_ticket_type": null,
+      "max_per_required": null,
+      "sort_order": 0,
+      "is_active": true
+    },
+    {
+      "key": "child-pass-13-17",
+      "name": "Child pass 13-17",
+      "price": "660.00",
+      "applies_to": "child",
+      "min_birthdate": "2010-06-05",
+      "max_birthdate": "2015-06-04",
+      "available_from": null,
+      "available_until": null,
+      "is_hidden": false,
+      "kind": "event",
+      "sessions": [],
+      "capacity": null,
+      "requires_ticket_type": null,
+      "max_per_required": null,
+      "sort_order": 0,
+      "is_active": true
+    }
+  ],
+  "extras": [
+    {
+      "key": "saturday-workshop",
+      "name": "Saturday workshop",
+      "price": "165.00",
+      "per_attendee": true,
+      "applies_to": "child",
+      "requires_choice": false,
+      "required": false,
+      "default_selected": false,
+      "session": "saturday-workshop",
+      "ticket_types": [
+        "child-pass-13-17"
+      ],
+      "sort_order": 0,
+      "is_active": true,
+      "choices": []
+    },
+    {
+      "key": "t-shirt",
+      "name": "T-shirt",
+      "price": "220.00",
+      "per_attendee": true,
+      "applies_to": "either",
+      "requires_choice": true,
+      "required": true,
+      "default_selected": false,
+      "session": null,
+      "ticket_types": [],
+      "sort_order": 0,
+      "is_active": true,
+      "choices": [
+        {
+          "key": "s",
+          "label": "S",
+          "price_delta": "0.00",
+          "sort_order": 0,
+          "is_active": true
+        },
+        {
+          "key": "m",
+          "label": "M",
+          "price_delta": "0.00",
+          "sort_order": 1,
+          "is_active": true
+        },
+        {
+          "key": "l",
+          "label": "L",
+          "price_delta": "0.00",
+          "sort_order": 2,
+          "is_active": true
+        },
+        {
+          "key": "xl",
+          "label": "XL",
+          "price_delta": "0.00",
+          "sort_order": 3,
+          "is_active": true
+        },
+        {
+          "key": "xxl",
+          "label": "XXL",
+          "price_delta": "0.00",
+          "sort_order": 4,
+          "is_active": true
+        }
+      ]
+    }
+  ],
+  "promo_codes": [
+    {
+      "key": "testfamily28",
+      "code": "TESTFAMILY28",
+      "discount_type": "percent",
+      "discount_value": "10.00",
+      "applies_to_ticket_types": [
+        "adult-conference-pass"
+      ],
+      "unlocks_ticket_types": [],
+      "max_uses": null,
+      "valid_from": null,
+      "valid_until": null,
+      "is_active": true
+    }
+  ]
+}

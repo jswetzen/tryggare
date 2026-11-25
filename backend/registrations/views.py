@@ -5,7 +5,7 @@ from datetime import timedelta
 from decimal import Decimal
 
 from django.db import IntegrityError, OperationalError, connection, transaction
-from django.db.models import F, Prefetch, Q
+from django.db.models import F, Q
 from django.http import Http404
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
@@ -25,7 +25,6 @@ from events.models import (
     Event,
     EventTicket,
     Extra,
-    ExtraChoice,
     PromoCode,
     RegistrationWindowStatus,
     SessionTicket,
@@ -39,6 +38,12 @@ from .emails import (
     send_payment_instructions_email,
     send_verification_email,
 )
+from .form_spec import (
+    build_form_spec,
+    bundle_session_ids,
+    sessions_payload,
+    ticket_type_payload,
+)
 from .models import (
     Payment,
     Registration,
@@ -48,7 +53,11 @@ from .models import (
 )
 from .pricing import calculate_discount, calculate_total
 from .serializers import RegistrationSubmitSerializer
-from .ticket_rules import validate_ticket_composition
+from .ticket_rules import (
+    extra_gate_open,
+    held_ticket_type_ids,
+    validate_ticket_composition,
+)
 from .services import (
     InvalidPaymentTransition,
     TicketTypeSoldOut,
@@ -125,52 +134,18 @@ def _split_selections(items):
     return model_data, selections
 
 
-def _ticket_type_payload(ticket_type, *, sold_count):
-    """Shared public JSON shape for a TicketType — used both by
-    registration_event_info's normal listing and validate_promo_code's
-    unlocked-types payload, so the two never drift apart.
-
-    ``sold_count`` is passed in rather than computed here (R3, gate review
-    2026-09-25): both call sites list several ticket types at once, and
-    this used to call the single-type count function once per type — an
-    N+1 on a public, unauthenticated endpoint. Callers compute the whole
-    event's counts in one shot with
-    registrations.services.sold_counts_for_event and pass each type's
-    share in.
-
-    ``available`` (added 2026-09-24, capacity enforcement increment): a
-    plain bool, not a remaining count — see
-    registrations.services.ticket_type_sold_count's docstring for what
-    "sold" means here. Deliberately not exposing the raw sold count or a
-    remaining-seats number: nothing else on this public, unauthenticated
-    endpoint reveals how many of anything have sold (prices and age
-    windows are configuration, not activity), and "3 left!" is exactly the
-    kind of number a competitor or a nosy guardian could poll for over
-    time to infer registration velocity. A bool is the minimum a
-    guardian's form needs to grey out a full option — matches
-    registration_event_info's own "minimal ... without exposing" framing
-    for the rest of this payload.
-    """
-    return {
-        "id": str(ticket_type.id),
-        "name": ticket_type.name,
-        "price": str(ticket_type.price),
-        "applies_to": ticket_type.applies_to,
-        "min_birthdate": (
-            str(ticket_type.min_birthdate) if ticket_type.min_birthdate else None
-        ),
-        "max_birthdate": (
-            str(ticket_type.max_birthdate) if ticket_type.max_birthdate else None
-        ),
-        "kind": ticket_type.kind,
-        "requires_ticket_type_id": (
-            str(ticket_type.requires_ticket_type_id)
-            if ticket_type.requires_ticket_type_id
-            else None
-        ),
-        "max_per_required": ticket_type.max_per_required,
-        "available": ticket_type.capacity is None or sold_count < ticket_type.capacity,
-    }
+def _promo_applies_to_nothing(promo_code, event) -> bool:
+    """A discounting code whose ticket-type scope has no active type in this
+    event, and which unlocks nothing either: accepting it would say "applied"
+    and discount nothing. pricing.py is untouched; this only refuses the code."""
+    if (
+        promo_code.discount_value <= 0
+        or not promo_code.applies_to_ticket_types.exists()
+    ):
+        return False
+    live = promo_code.applies_to_ticket_types.filter(event=event, is_active=True)
+    unlocks = promo_code.unlocks_ticket_types.filter(event=event, is_active=True)
+    return not live.exists() and not unlocks.exists()
 
 
 def _resolve_promo_code(*, event, code_str):
@@ -221,6 +196,17 @@ def _resolve_promo_code(*, event, code_str):
         raise invalid
     if promo_code.valid_until and now > promo_code.valid_until:
         raise invalid
+
+    if _promo_applies_to_nothing(promo_code, event):
+        raise ValidationError(
+            {
+                "promo_code": [
+                    _("This promo code does not apply to any tickets in this event.")
+                ],
+                "code": "promo_code_not_applicable",
+            },
+            code="promo_code_not_applicable",
+        )
 
     if promo_code.max_uses is not None:
         updated = PromoCode.objects.filter(
@@ -363,6 +349,7 @@ def _missing_required_extras(
         event=event, is_active=True, required=True, per_attendee=True
     ).filter(Q(applies_to=attendee_kind) | Q(applies_to="either"))
     missing = []
+    held = held_ticket_type_ids(registration, attendee)
     for extra in candidates:
         if extra.id in submitted_extra_ids:
             continue
@@ -370,17 +357,24 @@ def _missing_required_extras(
             attendee=attendee, registration=registration, session_id=extra.session_id
         ):
             continue
+        if not extra_gate_open(extra, held):
+            continue
         missing.append(extra)
     return missing
 
 
-def _missing_required_registration_extras(*, event, submitted_extra_ids):
+def _missing_required_registration_extras(*, event, registration, submitted_extra_ids):
     """Same as _missing_required_extras, for per-registration (attendee=None)
     required extras, checked once for the whole booking."""
     candidates = Extra.objects.filter(
         event=event, is_active=True, required=True, per_attendee=False
     )
-    return [extra for extra in candidates if extra.id not in submitted_extra_ids]
+    held = held_ticket_type_ids(registration)
+    return [
+        extra
+        for extra in candidates
+        if extra.id not in submitted_extra_ids and extra_gate_open(extra, held)
+    ]
 
 
 def _attach_extra(*, registration, attendee, selection, is_child):
@@ -395,7 +389,28 @@ def _attach_extra(*, registration, attendee, selection, is_child):
     extra = selection["extra"]
     choice = selection.get("choice")
     quantity = selection.get("quantity", 1)
+    _check_extra_selection(
+        registration=registration,
+        extra=extra,
+        choice=choice,
+        quantity=quantity,
+        attendee=attendee,
+        is_child=is_child,
+    )
+    _check_extra_eligibility(registration=registration, extra=extra, attendee=attendee)
+    _store_extra(
+        registration=registration,
+        extra=extra,
+        choice=choice,
+        quantity=quantity,
+        attendee=attendee,
+    )
 
+
+def _check_extra_selection(
+    *, registration, extra, choice, quantity, attendee, is_child
+):
+    """The selection fits the extra: its event, choice, scope and quantity."""
     if extra.event_id != registration.event_id or not extra.is_active:
         raise ValidationError(_("Invalid extra for this event."))
     if choice is not None and choice.extra_id != extra.id:
@@ -416,6 +431,10 @@ def _attach_extra(*, registration, attendee, selection, is_child):
         attendee_kind = "child" if is_child else "parent"
         if extra.applies_to != attendee_kind:
             raise ValidationError(_("This extra isn't available for this attendee."))
+
+
+def _check_extra_eligibility(*, registration, extra, attendee):
+    """The attendee may take the extra: session, ticket gate, not taken twice."""
     if extra.session_id is not None:
         if attendee is None:
             raise ValidationError(
@@ -425,43 +444,29 @@ def _attach_extra(*, registration, attendee, selection, is_child):
             attendee=attendee, registration=registration, session_id=extra.session_id
         ):
             raise ValidationError(_("This attendee isn't registered for that session."))
+    if not extra_gate_open(extra, held_ticket_type_ids(registration, attendee)):
+        names = [
+            t.name for t in extra.ticket_types.all() if t.is_active and not t.is_hidden
+        ]
+        if not names:
+            raise ValidationError(_("This extra requires a different ticket."))
+        raise ValidationError(
+            _("This extra requires one of these ticket types: %(types)s.")
+            % {"types": ", ".join(names)}
+        )
     if (
         extra.per_attendee
         and RegistrationExtra.objects.filter(
             registration=registration, extra=extra, attendee=attendee
         ).exists()
     ):
-        # Belt-and-suspenders: the DB unique constraint would catch this
-        # too, but as an IntegrityError (500), not a clean 400 — check here
-        # so a duplicate entry in the submitted payload fails cleanly.
+        # The DB unique constraint would catch this too, but as a 500, not a 400.
         raise ValidationError(_("This extra is already attached to this attendee."))
 
-    price = extra.price + (choice.price_delta if choice is not None else Decimal("0"))
 
-    if not extra.per_attendee:
-        # attendee=None isn't protected by the (registration, extra,
-        # attendee) unique constraint's NULL semantics (Postgres treats
-        # every NULL as distinct), so a second selection of the same
-        # per-registration extra bumps quantity via get_or_create instead
-        # of relying on the DB constraint. `choice` is part of the lookup,
-        # not just the defaults — two selections of the same extra with
-        # different choices (e.g. "Large cabin" vs "Small cabin") are
-        # different line items, each with their own snapshotted price, not
-        # one row whose quantity happens to grow.
-        reg_extra, created = RegistrationExtra.objects.get_or_create(
-            registration=registration,
-            extra=extra,
-            attendee=None,
-            choice=choice,
-            defaults={
-                "quantity": quantity,
-                "price_at_registration": price,
-            },
-        )
-        if not created:
-            reg_extra.quantity += quantity
-            reg_extra.save(update_fields=["quantity"])
-    else:
+def _store_extra(*, registration, extra, choice, quantity, attendee):
+    price = extra.price + (choice.price_delta if choice is not None else Decimal("0"))
+    if extra.per_attendee:
         RegistrationExtra.objects.create(
             registration=registration,
             extra=extra,
@@ -470,6 +475,20 @@ def _attach_extra(*, registration, attendee, selection, is_child):
             quantity=quantity,
             price_at_registration=price,
         )
+        return
+    # The unique constraint never matches attendee=None (Postgres NULLs are
+    # distinct), so a repeat bumps quantity. ``choice`` is in the lookup: a
+    # different choice is a separate line item with its own snapshotted price.
+    reg_extra, created = RegistrationExtra.objects.get_or_create(
+        registration=registration,
+        extra=extra,
+        attendee=None,
+        choice=choice,
+        defaults={"quantity": quantity, "price_at_registration": price},
+    )
+    if not created:
+        reg_extra.quantity += quantity
+        reg_extra.save(update_fields=["quantity"])
 
 
 def _create_registration(
@@ -678,6 +697,7 @@ def _create_registration(
 
     missing_required_registration = _missing_required_registration_extras(
         event=event,
+        registration=registration,
         submitted_extra_ids={sel["extra"].id for sel in extras_data},
     )
     if missing_required_registration:
@@ -734,92 +754,12 @@ def _resend_verification(registration):
 @api_view(["GET"])
 @permission_classes([AllowAny])
 def registration_event_info(request, event_id):
-    """
-    Public, minimal event lookup for the /register/[eventId] form — just
-    enough to render "Register for {name}" without exposing the full
-    (staff-authenticated) EventViewSet to anonymous requests. Also carries
-    the event's active ticket types/extras (Phase 3) so the form can render
-    real choices instead of just a flat price.
-    """
+    """Public form spec for /register/[eventId] (see form_spec.py). Never
+    cached: organizers edit prices and the preview page reloads them."""
     event = get_object_or_404(Event, pk=event_id)
-
-    # One bulk query pair for the whole event (R3, gate review
-    # 2026-09-25), not one _ticket_type_payload-internal query per ticket
-    # type rendered below — see sold_counts_for_event's own docstring.
-    sold_counts = sold_counts_for_event(event)
-    active_ticket_types = event.ticket_types.filter(is_active=True)
-    ticket_types = [
-        _ticket_type_payload(
-            ticket_type, sold_count=sold_counts.get(str(ticket_type.id), 0)
-        )
-        for ticket_type in active_ticket_types.filter(is_hidden=False).order_by(
-            "sort_order", "name"
-        )
-    ]
-    # A code-only, invite-only event (every active TicketType hidden) would
-    # otherwise leave the form with an empty ticket_types list and no visible
-    # promo-code box to unlock any — this tells the frontend to show the box
-    # anyway so there's a way in.
-    has_hidden_ticket_types = active_ticket_types.filter(is_hidden=True).exists()
-    extras = [
-        {
-            "id": str(extra.id),
-            "name": extra.name,
-            "price": str(extra.price),
-            "session_id": str(extra.session_id) if extra.session_id else None,
-            "per_attendee": extra.per_attendee,
-            "applies_to": extra.applies_to,
-            "requires_choice": extra.requires_choice,
-            "required": extra.required,
-            "default_selected": extra.default_selected,
-            "choices": [
-                {
-                    "id": str(choice.id),
-                    "label": choice.label,
-                    "price_delta": str(choice.price_delta),
-                }
-                for choice in extra.choice_rows.all()
-            ],
-        }
-        for extra in event.extras.filter(is_active=True)
-        .order_by("sort_order", "name")
-        .prefetch_related(
-            Prefetch(
-                "choice_rows",
-                queryset=ExtraChoice.objects.filter(is_active=True).order_by(
-                    "sort_order", "label"
-                ),
-            )
-        )
-    ]
-
-    return Response(
-        {
-            "id": str(event.id),
-            "name": event.name,
-            "start_date": str(event.start_date),
-            "end_date": str(event.end_date),
-            "is_paid": event.is_paid,
-            "price": str(event.price) if event.price is not None else None,
-            "currency": "SEK",
-            "header_image_url": event.header_image_url or None,
-            "accent_color": event.accent_color or None,
-            "ticket_types": ticket_types,
-            "has_hidden_ticket_types": has_hidden_ticket_types,
-            "extras": extras,
-            "registration_window_status": event.registration_window_status,
-            "registration_opens_at": (
-                event.registration_opens_at.isoformat()
-                if event.registration_opens_at
-                else None
-            ),
-            "registration_closes_at": (
-                event.registration_closes_at.isoformat()
-                if event.registration_closes_at
-                else None
-            ),
-        }
-    )
+    response = Response(build_form_spec(event))
+    response["Cache-Control"] = "no-store"
+    return response
 
 
 @api_view(["POST"])
@@ -860,15 +800,21 @@ def validate_promo_code(request):
     if promo_code.max_uses is not None and promo_code.uses_count >= promo_code.max_uses:
         return Response({"valid": False})
 
-    # Same bulk-query rationale as registration_event_info above — a
-    # promo code can unlock several hidden ticket types at once (R3, gate
-    # review 2026-09-25).
+    if _promo_applies_to_nothing(promo_code, event):
+        return Response({"valid": False, "reason": "not_applicable"})
+
+    # Bulk queries, as in form_spec.build_form_spec: a code can unlock
+    # several hidden ticket types at once.
     sold_counts = sold_counts_for_event(event)
+    unlocked = list(promo_code.unlocks_ticket_types.filter(event=event, is_active=True))
+    bundle_ids = bundle_session_ids(unlocked)
     return Response(
         {
             "valid": True,
             "discount_type": promo_code.discount_type,
             "discount_value": str(promo_code.discount_value),
+            # Sent unfiltered: pricing scopes to these even when a type is
+            # inactive, and an empty list would read as "whole order".
             "applies_to_ticket_type_ids": [
                 str(pk)
                 for pk in promo_code.applies_to_ticket_types.values_list(
@@ -876,13 +822,16 @@ def validate_promo_code(request):
                 )
             ],
             "unlocks_ticket_types": [
-                _ticket_type_payload(
-                    ticket_type, sold_count=sold_counts.get(str(ticket_type.id), 0)
+                ticket_type_payload(
+                    ticket_type,
+                    sold_count=sold_counts.get(str(ticket_type.id), 0),
+                    session_ids=bundle_ids,
                 )
-                for ticket_type in promo_code.unlocks_ticket_types.filter(
-                    is_active=True
-                )
+                for ticket_type in unlocked
             ],
+            "sessions": sessions_payload(
+                {sid for ids in bundle_ids.values() for sid in ids}
+            ),
         }
     )
 

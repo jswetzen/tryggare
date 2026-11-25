@@ -193,6 +193,16 @@ class SeededRoleTests(TestCase):
                     ).exists()
                 )
 
+    def test_feature_request_triage_is_coordinator_and_up_only(self):
+        triage = {
+            "feature_requests.view_featurerequest",
+            "feature_requests.change_featurerequest",
+            "feature_requests.view_featurerequestcomment",
+        }
+        self.assertLessEqual(triage, ROLE_PERMISSIONS[COORDINATOR])
+        self.assertLessEqual(triage, ROLE_PERMISSIONS[ADMINISTRATOR])
+        self.assertEqual(ROLE_PERMISSIONS[VOLUNTEER] & triage, frozenset())
+
     def test_hierarchy_is_a_strict_superset_chain(self):
         volunteer = ROLE_PERMISSIONS[VOLUNTEER]
         coordinator = ROLE_PERMISSIONS[COORDINATOR]
@@ -1416,3 +1426,76 @@ class CoordinatorImportDeleteAdminTests(TestCase):
             f"/admin/imports/importsource/{self.source.pk}/change/"
         )
         self.assertEqual(response.status_code, 200)
+
+
+class FeatureRequestTriageMigrationTests(TestCase):
+    """0006 must reach groups seeded before the triage decision, and only those two."""
+
+    TRIAGE = {
+        "view_featurerequest",
+        "change_featurerequest",
+        "view_featurerequestcomment",
+    }
+
+    @classmethod
+    def _migration(cls):
+        import importlib
+
+        return importlib.import_module(
+            "accounts.migrations.0006_grant_feature_request_triage"
+        )
+
+    def _triage_codenames(self, name):
+        return set(
+            Group.objects.get(name=name)
+            .permissions.filter(content_type__app_label="feature_requests")
+            .values_list("codename", flat=True)
+        )
+
+    def _revoke_everywhere(self):
+        from django.db.models import Q
+
+        permissions = Permission.objects.filter(
+            Q(content_type__app_label="feature_requests", codename__in=self.TRIAGE)
+        )
+        for name in (VOLUNTEER, COORDINATOR, ADMINISTRATOR):
+            Group.objects.get(name=name).permissions.remove(*permissions)
+
+    def test_codenames_in_the_migration_match_roles_py(self):
+        in_migration = {
+            codename for app, codename in self._migration().TRIAGE_PERMISSIONS
+        }
+        self.assertEqual(in_migration, self.TRIAGE)
+        self.assertTrue(
+            {f"feature_requests.{c}" for c in self.TRIAGE}
+            <= ROLE_PERMISSIONS[COORDINATOR]
+        )
+
+    def test_forwards_restores_triage_on_a_previously_seeded_database(self):
+        from django.apps import apps
+
+        self._revoke_everywhere()
+        editor = _schema_editor()
+        self._migration().forwards(apps, editor)
+        for name in (COORDINATOR, ADMINISTRATOR):
+            with self.subTest(group=name):
+                self.assertEqual(self._triage_codenames(name), self.TRIAGE)
+        self.assertEqual(self._triage_codenames(VOLUNTEER), set())
+
+    def test_forwards_is_idempotent_and_leaves_other_groups_alone(self):
+        from django.apps import apps
+
+        other = Group.objects.create(name="Kök")
+        editor = _schema_editor()
+        self._migration().forwards(apps, editor)
+        self._migration().forwards(apps, editor)
+        self.assertEqual(self._triage_codenames(COORDINATOR), self.TRIAGE)
+        self.assertFalse(other.permissions.exists())
+
+    def test_backwards_removes_triage_from_both_groups(self):
+        from django.apps import apps
+
+        editor = _schema_editor()
+        self._migration().backwards(apps, editor)
+        self.assertEqual(self._triage_codenames(COORDINATOR), set())
+        self.assertEqual(self._triage_codenames(ADMINISTRATOR), set())

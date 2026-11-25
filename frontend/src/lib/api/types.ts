@@ -236,6 +236,8 @@ export interface RegistrationTicketType {
   // — the backend deliberately never exposes the sold count or remaining
   // seats on this public endpoint (see _ticket_type_payload's docstring).
   available: boolean;
+  // Only on session-bundle types: the sessions the ticket covers (see RegistrationFormSpec.sessions).
+  session_ids?: string[];
 }
 
 export interface RegistrationExtraChoice {
@@ -254,6 +256,10 @@ export interface RegistrationExtraInfo {
   requires_choice: boolean;
   required: boolean;
   default_selected: boolean;
+  // Empty = offered to all; else only to holders of one of these ticket types.
+  ticket_type_ids: string[];
+  // Names of the public (non-hidden) ones, for the reason shown when disabled.
+  ticket_type_names: string[];
   choices: RegistrationExtraChoice[];
 }
 
@@ -275,6 +281,29 @@ export interface RegistrationEventInfo {
   registration_window_status: RegistrationWindowStatus;
   registration_opens_at: string | null;
   registration_closes_at: string | null;
+}
+
+export interface RegistrationSpecSession {
+  id: string;
+  name: string;
+  start_time: string;
+  end_time: string;
+}
+
+export interface RegistrationFormField {
+  key: string;
+  visible: boolean;
+  // What the form requires (backend/registrations/form_spec.py), which is
+  // not always what the server requires.
+  required: boolean;
+}
+
+// GET /registrations/events/<id>/. Checked against the backend-generated
+// fixture in lib/registration/__fixtures__/form-spec.v1.json.
+export interface RegistrationFormSpec extends RegistrationEventInfo {
+  spec_version: 1;
+  sessions: RegistrationSpecSession[];
+  fields: { parent: RegistrationFormField[]; child: RegistrationFormField[] };
 }
 
 export interface RegistrationExtraSelectionPayload {
@@ -304,7 +333,8 @@ export interface RegistrationParentPayload {
 export interface RegistrationChildPayload {
   first_name: string;
   last_name?: string;
-  birthdate?: string;
+  // null (never "") when not entered: the server rejects an empty date string.
+  birthdate?: string | null;
   allergies?: string;
   notes?: string;
   health_consent_status?: 'not_applicable' | 'granted' | 'declined';
@@ -360,6 +390,8 @@ export interface RegistrationSubmitResponse {
 
 export interface PromoCodeValidation {
   valid: boolean;
+  /** Set with valid:false when the code exists but discounts nothing here. */
+  reason?: 'not_applicable';
   discount_type?: 'percent' | 'fixed';
   discount_value?: string;
   applies_to_ticket_type_ids?: string[];

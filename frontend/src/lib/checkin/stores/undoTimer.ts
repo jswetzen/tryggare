@@ -1,22 +1,13 @@
 import { writable, derived, get } from 'svelte/store';
 import type { UndoAction } from '../types';
 import { GRACE_PERIOD_MS } from '../types';
+import { uuid } from '$lib/utils/uuid';
 
 /**
  * Generate a UUID with fallback for older browsers
  */
 function generateUUID(): string {
-  // Try native crypto.randomUUID first
-  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
-    return crypto.randomUUID();
-  }
-
-  // Fallback: generate a simple UUID
-  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
-    const r = (Math.random() * 16) | 0;
-    const v = c === 'x' ? r : (r & 0x3) | 0x8;
-    return v.toString(16);
-  });
+  return uuid();
 }
 
 // Internal state

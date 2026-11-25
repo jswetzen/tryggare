@@ -1,0 +1,21 @@
+{% extends "admin/base_site.html" %}
+{% load i18n %}
+
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+  <a href="{% url 'admin:index' %}">{% trans "Home" %}</a> &rsaquo;
+  <a href="{% url 'admin:feature_requests_featurerequest_changelist' %}">{% trans "Feature requests" %}</a> &rsaquo;
+  {{ fr.public_id }}
+</div>
+{% endblock %}
+
+{% block content %}
+<p>{% trans "Nothing is sent from this server. Check the text, then open the link in your own browser, or copy the markdown into a new issue." %}</p>
+{% if issue.url %}
+  <p><a href="{{ issue.url }}" rel="noopener noreferrer" target="_blank">{% trans "Open a prefilled GitHub issue" %}</a></p>
+{% else %}
+  <p>{% trans "The prefilled link would be too long for a URL. Copy the markdown below into a new issue." %}</p>
+{% endif %}
+<p><strong>{{ issue.title }}</strong></p>
+<textarea rows="28" cols="100" readonly>{{ issue.body }}</textarea>
+{% endblock %}

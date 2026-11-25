@@ -10,7 +10,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: 1.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-10-01 16:32+0200\n"
+"POT-Creation-Date: 2026-11-24 23:16+0100\n"
 "PO-Revision-Date: 2025-11-25 12:00+0000\n"
 "Last-Translator: \n"
 "Language-Team: Swedish\n"
@@ -52,6 +52,198 @@ msgstr "Användarnamn och lösenord krävs"
 msgid "Invalid credentials"
 msgstr "Ogiltiga inloggningsuppgifter"
 
+msgid "API key"
+msgstr "API-nyckel"
+
+msgid "Remove the stored API key"
+msgstr "Ta bort den sparade API-nyckeln"
+
+msgid "The stored key will be removed when you save."
+msgstr "Den sparade nyckeln tas bort när du sparar."
+
+msgid "A key is stored. Leave empty to keep it."
+msgstr "En nyckel är sparad. Lämna tomt för att behålla den."
+
+msgid "No key is stored. A local Ollama needs none."
+msgstr "Ingen nyckel är sparad. En lokal Ollama behöver ingen."
+
+msgid "Either enter a new key or remove the stored one, not both."
+msgstr "Ange antingen en ny nyckel eller ta bort den sparade, inte båda."
+
+msgid "Enter the API key again for the new address, or remove the stored key."
+msgstr ""
+"Ange API-nyckeln igen för den nya adressen, eller ta bort den sparade "
+"nyckeln."
+
+msgid "Permission denied."
+msgstr "Behörighet saknas."
+
+msgid "AI assistant"
+msgstr "AI-assistent"
+
+#, python-format
+msgid "Enter an http:// or https:// address, for example %(example)s."
+msgstr "Ange en http://- eller https://-adress, till exempel %(example)s."
+
+msgid "OpenAI-compatible API"
+msgstr "OpenAI-kompatibelt API"
+
+msgid "Provider type"
+msgstr "Typ av leverantör"
+
+msgid "Base URL"
+msgstr "Bas-URL"
+
+msgid ""
+"The API address including /v1, for example https://api.openai.com/v1, "
+"https://openrouter.ai/api/v1, or http://localhost:11434/v1 for Ollama."
+msgstr ""
+"API-adressen inklusive /v1, till exempel https://api.openai.com/v1, https://"
+"openrouter.ai/api/v1 eller http://localhost:11434/v1 för Ollama."
+
+msgid "Model"
+msgstr "Modell"
+
+msgid "The model the assistant uses."
+msgstr "Modellen som assistenten använder."
+
+msgid "Enabled"
+msgstr "Aktiverad"
+
+msgid "The assistant may only call the provider while this is on."
+msgstr "Assistenten får bara anropa leverantören när detta är på."
+
+msgid "Updated at"
+msgstr "Uppdaterad"
+
+msgid "Updated by"
+msgstr "Uppdaterad av"
+
+msgid "Language model provider"
+msgstr "Leverantör av språkmodell"
+
+msgid "Needed while the provider is enabled."
+msgstr "Krävs så länge leverantören är aktiverad."
+
+msgid "Idle"
+msgstr "Inaktiv"
+
+msgid "Running"
+msgstr "Pågår"
+
+msgid "Event"
+msgstr "Evenemang"
+
+msgid "User"
+msgstr "Användare"
+
+msgid "Messages"
+msgstr "Meddelanden"
+
+msgid "Draft"
+msgstr "Utkast"
+
+msgid "Status"
+msgstr "Status"
+
+msgid "Run started at"
+msgstr "Körningen startade"
+
+msgid "Notice accepted at"
+msgstr "Notisen godkänd"
+
+msgid "Created at"
+msgstr "Skapad"
+
+msgid "Assistant conversation"
+msgstr "Assistentkonversation"
+
+msgid "Assistant conversations"
+msgstr "Assistentkonversationer"
+
+msgid "Could not reach the provider. Check the base URL."
+msgstr "Det gick inte att nå leverantören. Kontrollera bas-URL:en."
+
+msgid "The provider rejected the API key."
+msgstr "Leverantören avvisade API-nyckeln."
+
+msgid "The provider does not list its models. Type the model name instead."
+msgstr ""
+"Leverantören listar inte sina modeller. Skriv in modellens namn i stället."
+
+msgid "The provider answered with an error."
+msgstr "Leverantören svarade med ett fel."
+
+msgid "The provider's answer was not a model list."
+msgstr "Leverantörens svar var ingen modelllista."
+
+msgid "That address is not allowed."
+msgstr "Den adressen är inte tillåten."
+
+msgid "The stored API key can no longer be read. Enter it again."
+msgstr "Den sparade API-nyckeln går inte längre att läsa. Ange den igen."
+
+msgid "Loading…"
+msgstr "Laddar…"
+
+msgid "Load models"
+msgstr "Hämta modeller"
+
+msgid "Models from the provider"
+msgstr "Modeller från leverantören"
+
+msgid "Load models to choose one"
+msgstr "Hämta modellerna för att välja en"
+
+#, python-format
+msgid "Found %%(count)s models."
+msgstr "Hittade %%(count)s modeller."
+
+msgid "The provider lists no models."
+msgstr "Leverantören listar inga modeller."
+
+msgid "Loading failed."
+msgstr "Det gick inte att hämta."
+
+msgid "Must be a string."
+msgstr "Måste vara en textsträng."
+
+msgid "Wait for the assistant to finish its reply."
+msgstr "Vänta tills assistenten har svarat klart."
+
+msgid "Sign in to use the assistant."
+msgstr "Logga in för att använda assistenten."
+
+msgid "You are not allowed to use the assistant."
+msgstr "Du har inte behörighet att använda assistenten."
+
+msgid "No such event."
+msgstr "Evenemanget finns inte."
+
+msgid "The assistant cannot change this event now."
+msgstr "Assistenten kan inte ändra det här evenemanget just nu."
+
+msgid "The assistant is not switched on."
+msgstr "Assistenten är inte påslagen."
+
+msgid "There is no draft."
+msgstr "Det finns inget utkast."
+
+msgid "The draft version is invalid."
+msgstr "Utkastets version är ogiltig."
+
+msgid "The draft changed since you last saw it."
+msgstr "Utkastet har ändrats sedan du senast såg det."
+
+msgid "Sign in to file a feature request."
+msgstr "Logga in för att skicka in ett funktionsönskemål."
+
+msgid "You are not allowed to file feature requests."
+msgstr "Du har inte behörighet att skicka in funktionsönskemål."
+
+msgid "Must be a JSON object."
+msgstr "Måste vara ett JSON-objekt."
+
 # Model field labels - checkins/models.py
 msgid "Check-In"
 msgstr "Incheckning"
@@ -67,6 +259,19 @@ msgstr "Föräldern har ingen biljett till det här evenemanget"
 
 msgid "Child does not have a ticket for this session"
 msgstr "Barnet har ingen biljett till den här sessionen"
+
+msgid ""
+"This person's registration was cancelled, so they cannot be given a ticket "
+"here. Send the family to a Koordinator."
+msgstr ""
+"Personens anmälan är avbruten, så hen kan inte få en biljett här. Skicka "
+"familjen till en koordinator."
+
+msgid "This session is not open for check-in, so a ticket cannot be given"
+msgstr "Sessionen är inte öppen för incheckning, så ingen biljett kan ges"
+
+msgid "This session does not require a ticket for this person"
+msgstr "Den här sessionen kräver ingen biljett för den här personen"
 
 # Model field labels - checkins/models.py
 msgid "Check-In Time"
@@ -132,9 +337,6 @@ msgstr "QR-koder"
 
 msgid "Timestamp"
 msgstr "Tidpunkt"
-
-msgid "User"
-msgstr "Användare"
 
 msgid "Action"
 msgstr "Åtgärd"
@@ -231,20 +433,79 @@ msgstr "Tryggare-admin"
 msgid "Choose what to manage"
 msgstr "Välj vad du vill hantera"
 
+msgid "New event name"
+msgstr "Nytt evenemangsnamn"
+
+msgid "New start date"
+msgstr "Nytt startdatum"
+
+msgid ""
+"Every date and time in the copy moves by the same number of days as the "
+"start date."
+msgstr ""
+"Alla datum och tider i kopian flyttas lika många dagar som startdatumet."
+
+msgid "Check-in rules"
+msgstr "Regler för incheckning"
+
+msgid "Registration window status"
+msgstr "Anmälningsperiodens status"
+
 msgid "Registration page"
 msgstr "Anmälningssida"
 
 msgid "Open page"
 msgstr "Visa sidan"
 
+msgid "Check setup"
+msgstr "Kontrollera upplägg"
+
+msgid "Copy event…"
+msgstr "Kopiera evenemang…"
+
+msgid "Select exactly one event to copy."
+msgstr "Markera exakt ett evenemang att kopiera."
+
+#, python-format
+msgid "Could not copy '%(source)s': %(problems)s"
+msgstr "Kunde inte kopiera ”%(source)s”: %(problems)s"
+
+#, python-format
+msgid ""
+"Copied '%(source)s' to '%(event)s'. Self-serve registration is off on the "
+"copy because the moved registration window would already be open or in the "
+"past; set a new window when you are ready."
+msgstr ""
+"Kopierade ”%(source)s” till ”%(event)s”. Självbetjäning för anmälan är "
+"avstängd på kopian eftersom det flyttade anmälningsfönstret redan skulle "
+"vara öppet eller ligga i det förflutna; ange ett nytt fönster när du är redo."
+
+#, python-format
+msgid "Copied '%(source)s' to '%(event)s'."
+msgstr "Kopierade ”%(source)s” till ”%(event)s”."
+
+msgid "Copy event"
+msgstr "Kopiera evenemang"
+
 msgid "Generate / refresh report snapshot"
 msgstr "Skapa / uppdatera rapport"
 
+msgid "Same as the event's default"
+msgstr "Samma som evenemangets standard"
+
+msgid ""
+"The box is already ticked when you add a new session: untick it for sessions "
+"where adults are checked in."
+msgstr ""
+"Rutan är redan ikryssad när du lägger till en ny session: avmarkera den för "
+"sessioner där vuxna checkas in."
+
+#, python-format
+msgid "Same as the event's default (%(rule)s)"
+msgstr "Samma som evenemangets standard (%(rule)s)"
+
 msgid "Effective ticket rule"
 msgstr "Gällande biljettregel"
-
-msgid "Registration window status"
-msgstr "Anmälningsperiodens status"
 
 msgid "Age fits the ticket type"
 msgstr "Åldern passar biljettypen"
@@ -329,11 +590,34 @@ msgstr "%(changed)d biljett(er) ändrade, %(skipped)d överhoppade."
 msgid "Change ticket type"
 msgstr "Byt biljettyp"
 
+#, python-format
+msgid "Must belong to the same event: %(names)s."
+msgstr "Måste tillhöra samma evenemang: %(names)s."
+
+msgid "change"
+msgstr "ändra"
+
+msgid "Choose the event first"
+msgstr "Välj evenemang först"
+
+msgid ""
+"Pick the event this belongs to. The next page then offers only that event's "
+"sessions and ticket types."
+msgstr ""
+"Välj evenemanget detta hör till. Nästa sida visar då bara det evenemangets "
+"sessioner och biljettyper."
+
+msgid "Continue"
+msgstr "Fortsätt"
+
 msgid "A session-bundle ticket type must cover at least one session."
 msgstr "En biljettyp av sorten sessionspaket måste omfatta minst en session."
 
-msgid "The required ticket type must belong to the same event."
-msgstr "Den krävda biljettypen måste tillhöra samma evenemang."
+#, python-format
+msgid ""
+"Deactivated because every ticket type in their gate was deleted: %(names)s."
+msgstr ""
+"Inaktiverades eftersom alla biljettyper i deras villkor raderades: %(names)s."
 
 #, python-format
 msgid ""
@@ -368,11 +652,308 @@ msgstr "Kopiera till ett annat evenemang…"
 msgid "Duplicated %(count)d extra(s) to '%(event)s'."
 msgstr "Kopierade %(count)d tillval till ”%(event)s”."
 
+#, python-format
+msgid ""
+"Created inactive because a ticket type it requires has no single active same-"
+"named type on '%(event)s' (a name that stays ambiguous counts as no match). "
+"Re-pick its ticket types before activating: %(names)s."
+msgstr ""
+"Skapades inaktivt eftersom en biljettyp det krÃ¤ver saknar en enda aktiv "
+"biljettyp med samma namn pÃ¥ â%(event)sâ (ett namn som fÃ¶rblir tvetydigt "
+"rÃ¤knas som ingen trÃ¤ff). VÃ¤lj om biljettyper innan det aktiveras: "
+"%(names)s."
+
 msgid "Duplicate extras to another event"
 msgstr "Kopiera tillval till ett annat evenemang"
 
 msgid "Events"
 msgstr "Evenemang"
+
+msgid "choice"
+msgstr "val"
+
+msgid "The event does not exist."
+msgstr "Evenemanget finns inte."
+
+msgid "Registration is open on the target event; close registration first."
+msgstr "Anmälan är öppen för målevenemanget; stäng anmälan först."
+
+msgid ""
+"The target event already has registrations, tickets or check-ins, so its "
+"setup cannot be replaced."
+msgstr ""
+"Målevenemanget har redan anmälningar, biljetter eller incheckningar, så dess "
+"upplägg kan inte ersättas."
+
+msgid ""
+"The database refused the spec and nothing was changed. A promo code may "
+"already be in use on this event."
+msgstr ""
+"Databasen avvisade specen och inget ändrades. En kampanjkod kan redan "
+"användas på det här evenemanget."
+
+#, python-format
+msgid ""
+"The %(kind)s '%(name)s' refers to the %(target)s '%(other)s', which belongs "
+"to another event."
+msgstr ""
+"”%(name)s” (%(kind)s) refererar till %(target)s ”%(other)s”, som hör till "
+"ett annat evenemang."
+
+# Event spec validation messages
+msgid "This field is required."
+msgstr "Fältet är obligatoriskt."
+
+msgid "Unknown field. Remove it or check the schema for the right name."
+msgstr "Okänt fält. Ta bort det eller kontrollera schemat för rätt namn."
+
+#, python-format
+msgid "Must be one of: %(expected)s."
+msgstr "Måste vara ett av: %(expected)s."
+
+msgid "Must be lowercase letters and digits separated by single hyphens."
+msgstr "Måste vara gemener och siffror åtskilda av enstaka bindestreck."
+
+#, python-format
+msgid "Invalid value: %(detail)s"
+msgstr "Ogiltigt värde: %(detail)s"
+
+#, python-format
+msgid "Key '%(key)s' is used more than once; keys must be unique."
+msgstr "Nyckeln ”%(key)s” används fler än en gång; nycklar måste vara unika."
+
+#, python-format
+msgid ""
+"Code '%(code)s' appears more than once; codes are matched case-insensitively "
+"and must be unique."
+msgstr ""
+"Koden ”%(code)s” förekommer mer än en gång; koder matchas utan hänsyn till "
+"versaler och måste vara unika."
+
+#, python-format
+msgid ""
+"'%(key)s' is the key of another kind of row (%(found)s); a key for "
+"%(expected)s is needed here."
+msgstr ""
+"”%(key)s” är nyckeln för en annan sorts rad (%(found)s); här behövs en "
+"nyckel för %(expected)s."
+
+#, python-format
+msgid "No %(kind)s has the key '%(key)s'."
+msgstr "Ingen post i %(kind)s har nyckeln ”%(key)s”."
+
+#, python-format
+msgid "'%(key)s' is listed more than once."
+msgstr "”%(key)s” anges mer än en gång."
+
+msgid ""
+"Registration would already be open. Set registration_opens_at to a future "
+"moment; a person opens registration, not the spec."
+msgstr ""
+"Anmälan skulle redan vara öppen. Sätt registration_opens_at till en framtida "
+"tidpunkt; en person öppnar anmälan, inte specen."
+
+#, python-format
+msgid ""
+"min_birthdate (%(min)s) is later than max_birthdate (%(max)s). min_birthdate "
+"is the earliest birth date allowed (the oldest attendee) and max_birthdate "
+"the latest (the youngest), so min_birthdate must be the earlier date. Swap "
+"them."
+msgstr ""
+"min_birthdate (%(min)s) ligger senare än max_birthdate (%(max)s). "
+"min_birthdate är det tidigaste tillåtna födelsedatumet (den äldsta "
+"deltagaren) och max_birthdate det senaste (den yngsta), så min_birthdate "
+"måste vara det tidigare datumet. Byt plats på dem."
+
+msgid ""
+"No registration window is set, so public self-serve registration is off."
+msgstr ""
+"Inget anmälningsfönster är satt, så den öppna självanmälan är avstängd."
+
+msgid "The registration window has already closed."
+msgstr "Anmälningsfönstret har redan stängt."
+
+msgid "The session starts outside the event's dates."
+msgstr "Passet börjar utanför evenemangets datum."
+
+msgid ""
+"These ticket types require each other in a loop. Buying one of each "
+"satisfies it, so this is likely a mistake."
+msgstr ""
+"Biljettyperna kräver varandra i en ring. Att köpa en av varje uppfyller "
+"kravet, så det är troligen ett misstag."
+
+#, python-format
+msgid ""
+"The key '%(key)s' is not the one export derives ('%(derived)s'), so a later "
+"export will show this row as removed and added."
+msgstr ""
+"Nyckeln ”%(key)s” är inte den som export härleder (”%(derived)s”), så en "
+"senare export visar raden som borttagen och tillagd."
+
+msgid ""
+"These rows tie on their ordering fields; give them different sort_order or "
+"names."
+msgstr "Raderna har samma sorteringsfält; ge dem olika sort_order eller namn."
+
+msgid "This age tier has price 0, so it is free. Intended?"
+msgstr ""
+"Den här åldersgruppen har priset 0 och är alltså gratis. Är det meningen?"
+
+msgid ""
+"This ticket type is hidden and no active promo code unlocks it, so nobody "
+"can buy it."
+msgstr ""
+"Biljettypen är dold och ingen aktiv kampanjkod låser upp den, så ingen kan "
+"köpa den."
+
+msgid "A session bundle lists no sessions."
+msgstr "Passpaketet anger inga pass."
+
+msgid "Sessions are only used by session bundles; they are ignored here."
+msgstr "Pass används bara av passpaket; de ignoreras här."
+
+msgid "The ticket type this one requires is inactive, so it cannot be bought."
+msgstr "Biljettypen som den här kräver är inaktiv, så den kan inte köpas."
+
+msgid "max_per_required is ignored without requires_ticket_type."
+msgstr "max_per_required ignoreras utan requires_ticket_type."
+
+msgid "This extra requires a choice but has no active choices."
+msgstr "Tillvalet kräver ett val men har inga aktiva val."
+
+msgid "Choices are ignored unless requires_choice is true."
+msgstr "Val ignoreras om inte requires_choice är sant."
+
+msgid ""
+"No active ticket type in this extra's gate can be held by an attendee it "
+"applies to, so nobody can take it."
+msgstr ""
+"Ingen aktiv biljettyp i det här tillvalets villkor kan innehas av en "
+"deltagare tillvalet gäller, så ingen kan välja det."
+
+msgid "Every ticket type this code refers to is inactive."
+msgstr "Alla biljettyper som koden hänvisar till är inaktiva."
+
+msgid ""
+"This session bundle covers the same attendees as an event ticket. An "
+"attendee picks either this or the pass, not both. Intended?"
+msgstr ""
+"Det här sessionspaketet gäller samma deltagare som en evenemangsbiljett. En "
+"deltagare väljer antingen det eller passet, inte båda. Avsiktligt?"
+
+msgid ""
+"This session bundle requires an event ticket for the same attendees, but an "
+"attendee holds only one ticket, so it can never be bought."
+msgstr ""
+"Det här sessionspaketet kräver en evenemangsbiljett för samma deltagare, men "
+"en deltagare har bara en biljett, så det går aldrig att köpa."
+
+msgid ""
+"Check-in is open to everyone by default but the event sells tickets, so "
+"nobody needs a ticket at the door. Intended?"
+msgstr ""
+"Incheckning är öppen för alla som standard, men evenemanget säljer "
+"biljetter, så ingen behöver biljett vid dörren. Avsiktligt?"
+
+msgid ""
+"The flat event price is ignored while an active ticket type exists, and "
+"applies again if all of them are made inactive."
+msgstr ""
+"Evenemangets fasta pris ignoreras så länge det finns en aktiv biljettyp, och "
+"gäller igen om alla görs inaktiva."
+
+#, python-format
+msgid "No active ticket covers children aged %(start)s to %(end)s."
+msgstr "Ingen aktiv biljett gäller barn i åldern %(start)s till %(end)s."
+
+#, python-format
+msgid ""
+"This age tier covers the same ages as '%(other)s'; an attendee in both gets "
+"two options. Intended?"
+msgstr ""
+"Den här åldersnivån gäller samma åldrar som ”%(other)s”; en deltagare i båda "
+"får två val. Avsiktligt?"
+
+#, python-format
+msgid ""
+"The name says ages %(label)s, but the age bounds admit ages %(actual)s on "
+"the event start date. For 'N and under', min_birthdate is the start date "
+"minus N+1 years plus one day; for 'at least M', max_birthdate is the start "
+"date minus M years."
+msgstr ""
+"Namnet anger åldrarna %(label)s, men åldersgränserna släpper in åldrarna "
+"%(actual)s på evenemangets startdatum. För ”N år och yngre” är min_birthdate "
+"startdatumet minus N+1 år plus en dag; för ”minst M år” är max_birthdate "
+"startdatumet minus M år."
+
+msgid ""
+"A free extra named like a discount does not discount anything; an extra only "
+"adds to the price. Use a promo code."
+msgstr ""
+"Ett gratis tillval som heter som en rabatt ger ingen rabatt; ett tillval "
+"läggs bara till priset. Använd en rabattkod."
+
+msgid ""
+"This row is inactive and nothing refers to it, but it is still copied with "
+"the event. Delete it if it is not needed."
+msgstr ""
+"Raden är inaktiv och ingenting hänvisar till den, men den kopieras ändå med "
+"evenemanget. Ta bort den om den inte behövs."
+
+msgid "session"
+msgstr "pass"
+
+msgid "ticket type"
+msgstr "biljettyp"
+
+msgid "extra"
+msgstr "tillval"
+
+msgid "promo code"
+msgstr "kampanjkod"
+
+#, python-format
+msgid "Allowed here: %(allowed)s."
+msgstr "Tillåtna här: %(allowed)s."
+
+#, python-format
+msgid "Event %(id)s does not exist."
+msgstr "Evenemang %(id)s finns inte."
+
+#, python-format
+msgid "Cannot read %(path)s: %(error)s"
+msgstr "Kan inte läsa %(path)s: %(error)s"
+
+#, python-format
+msgid "%(path)s is not valid JSON: %(error)s"
+msgstr "%(path)s är inte giltig JSON: %(error)s"
+
+msgid "error"
+msgstr "fel"
+
+msgid "warning"
+msgstr "varning"
+
+#, python-format
+msgid "The spec was refused: %(count)d error(s); nothing was written."
+msgstr "Specen avvisades: %(count)d fel; inget skrevs."
+
+#, python-format
+msgid "The event cannot be exported: %(count)d error(s)."
+msgstr "Evenemanget kan inte exporteras: %(count)d fel."
+
+#, python-format
+msgid "Cannot write %(path)s: %(error)s"
+msgstr "Kan inte skriva %(path)s: %(error)s"
+
+#, python-format
+msgid "The event cannot be checked: %(count)d error(s)."
+msgstr "Evenemanget kan inte kontrolleras: %(count)d fel."
+
+#, python-format
+msgid "The setup has %(count)d error(s)."
+msgstr "Upplägget har %(count)d fel."
 
 msgid "Open - no ticket required"
 msgstr "Öppen – ingen biljett krävs"
@@ -418,27 +999,21 @@ msgid "Default Ticket Rule"
 msgstr "Standardregel för biljetter"
 
 msgid ""
-"The ticket rule that this event's sessions follow, unless a session sets its own.<br>"
-"Open - no ticket required: anyone may be checked in, e.g. a drop-in play hour.<br>"
-"Children need a ticket: a child without a ticket cannot be checked in, adults need none, e.g. a children's workshop.<br>"
-"Everyone attending needs a ticket: children and adults alike, e.g. a ticketed evening show.<br>"
-"Guardians who only bring the children and do not attend themselves never need a ticket."
+"The ticket rule that this event's sessions follow, unless a session sets its "
+"own.<br>Open - no ticket required: anyone may be checked in, e.g. a drop-in "
+"play hour.<br>Children need a ticket: a child without a ticket cannot be "
+"checked in, adults need none, e.g. a children's workshop.<br>Everyone "
+"attending needs a ticket: children and adults alike, e.g. a ticketed evening "
+"show.<br>Guardians who only bring the children and do not attend themselves "
+"never need a ticket."
 msgstr ""
-"Den biljettregel som evenemangets sessioner följer, om de inte har en egen.<br>"
-"Öppen – ingen biljett krävs: vem som helst kan checkas in, till exempel en lekstund där alla är välkomna.<br>"
-"Barn behöver biljett: ett barn utan biljett kan inte checkas in, vuxna behöver ingen, till exempel en barnverkstad.<br>"
-"Alla deltagare behöver biljett: både barn och vuxna, till exempel en kvällsföreställning med biljetter.<br>"
-"Vårdnadshavare som bara följer med barnen och inte själva deltar behöver aldrig någon biljett."
-
-msgid "Check-in rules"
-msgstr "Regler för incheckning"
-
-msgid "Same as the event's default"
-msgstr "Samma som evenemangets standard"
-
-#, python-format
-msgid "Same as the event's default (%(rule)s)"
-msgstr "Samma som evenemangets standard (%(rule)s)"
+"Den biljettregel som evenemangets sessioner följer, om de inte har en egen."
+"<br>Öppen – ingen biljett krävs: vem som helst kan checkas in, till exempel "
+"en lekstund där alla är välkomna.<br>Barn behöver biljett: ett barn utan "
+"biljett kan inte checkas in, vuxna behöver ingen, till exempel en "
+"barnverkstad.<br>Alla deltagare behöver biljett: både barn och vuxna, till "
+"exempel en kvällsföreställning med biljetter.<br>Vårdnadshavare som bara "
+"följer med barnen och inte själva deltar behöver aldrig någon biljett."
 
 msgid "Price"
 msgstr "Pris"
@@ -492,11 +1067,21 @@ msgstr ""
 "Valfri accentfärg som hexkod (t.ex. #2563EB) för toppen av den publika "
 "anmälningssidan. Lämna tomt för standardfärgen."
 
-msgid "Event"
-msgstr "Evenemang"
+msgid "Copied From"
+msgstr "Kopierad från"
+
+msgid ""
+"Informational only: the event this one was copied from, if any. No live "
+"link: editing either never affects the other."
+msgstr ""
+"Endast information: evenemanget som det här kopierades från, om något. Ingen "
+"levande koppling: att ändra det ena påverkar aldrig det andra."
 
 msgid "Registration closes-at must be after opens-at."
 msgstr "Anmälan måste stänga efter att den har öppnat."
+
+msgid "The end date is before the start date."
+msgstr "Slutdatumet ligger före startdatumet."
 
 msgid "Session Name"
 msgstr "Sessionsnamn"
@@ -510,36 +1095,55 @@ msgstr "Sluttid"
 msgid "Is Active"
 msgstr "Aktiv"
 
-msgid "Shows this session in the session picker at the check-in and check-out desks, and supervised check-ins only print labels while it is on. Tick it before the session starts; untick it when it is over."
-msgstr "Gör att sessionen visas i sessionsväljaren vid incheckning och utcheckning, och vid övervakad incheckning skrivs etiketter bara ut medan den är aktiv. Kryssa i rutan innan sessionen börjar och avmarkera den när den är slut."
+msgid ""
+"Shows this session in the session picker at the check-in and check-out "
+"desks, and supervised check-ins only print labels while it is on. Tick it "
+"before the session starts; untick it when it is over."
+msgstr ""
+"Gör att sessionen visas i sessionsväljaren vid incheckning och utcheckning, "
+"och vid övervakad incheckning skrivs etiketter bara ut medan den är aktiv. "
+"Kryssa i rutan innan sessionen börjar och avmarkera den när den är slut."
 
 msgid "Ticket Rule"
 msgstr "Biljettregel"
 
 msgid ""
-"Who needs a ticket to be checked in to this session. Leave it on \"Same as the event's default\" to follow the \"Default Ticket Rule\" field on the event.<br>"
-"Open - no ticket required: anyone may be checked in, e.g. a drop-in play hour.<br>"
-"Children need a ticket: a child without a ticket cannot be checked in, adults need none, e.g. a children's workshop.<br>"
-"Everyone attending needs a ticket: children and adults alike, e.g. a ticketed evening show.<br>"
-"Guardians who only bring the children and do not attend themselves never need a ticket."
+"Who needs a ticket to be checked in to this session. Leave it on \"Same as "
+"the event's default\" to follow the \"Default Ticket Rule\" field on the "
+"event.<br>Open - no ticket required: anyone may be checked in, e.g. a drop-"
+"in play hour.<br>Children need a ticket: a child without a ticket cannot be "
+"checked in, adults need none, e.g. a children's workshop.<br>Everyone "
+"attending needs a ticket: children and adults alike, e.g. a ticketed evening "
+"show.<br>Guardians who only bring the children and do not attend themselves "
+"never need a ticket."
 msgstr ""
-"Vem som behöver biljett för att checkas in på den här sessionen. Låt den stå på ”Samma som evenemangets standard” för att följa fältet ”Standardregel för biljetter” på evenemanget.<br>"
-"Öppen – ingen biljett krävs: vem som helst kan checkas in, till exempel en lekstund där alla är välkomna.<br>"
-"Barn behöver biljett: ett barn utan biljett kan inte checkas in, vuxna behöver ingen, till exempel en barnverkstad.<br>"
-"Alla deltagare behöver biljett: både barn och vuxna, till exempel en kvällsföreställning med biljetter.<br>"
-"Vårdnadshavare som bara följer med barnen och inte själva deltar behöver aldrig någon biljett."
+"Vem som behöver biljett för att checkas in på den här sessionen. Låt den stå "
+"på ”Samma som evenemangets standard” för att följa fältet ”Standardregel för "
+"biljetter” på evenemanget.<br>Öppen – ingen biljett krävs: vem som helst kan "
+"checkas in, till exempel en lekstund där alla är välkomna.<br>Barn behöver "
+"biljett: ett barn utan biljett kan inte checkas in, vuxna behöver ingen, "
+"till exempel en barnverkstad.<br>Alla deltagare behöver biljett: både barn "
+"och vuxna, till exempel en kvällsföreställning med biljetter."
+"<br>Vårdnadshavare som bara följer med barnen och inte själva deltar behöver "
+"aldrig någon biljett."
 
 msgid "Adults are not checked in here"
 msgstr "Vuxna checkas inte in här"
 
-msgid "Tick if only children are checked in to this session, not adults, as at a drop-off session. Leave it unticked if adults are checked in here too. When adults are not checked in, the ticket rule only matters for children."
-msgstr "Kryssa i om bara barn checkas in på den här sessionen och inte vuxna, som vid lämna-och-gå. Låt rutan vara tom om vuxna också checkas in här. När vuxna inte checkas in spelar biljettregeln bara roll för barnen."
-
-msgid "The box is already ticked when you add a new session: untick it for sessions where adults are checked in."
-msgstr "Rutan är redan ikryssad när du lägger till en ny session: avmarkera den för sessioner där vuxna checkas in."
+msgid ""
+"Tick if only children are checked in to this session, not adults, as at a "
+"drop-off session. Leave it unticked if adults are checked in here too. When "
+"adults are not checked in, the ticket rule only matters for children."
+msgstr ""
+"Kryssa i om bara barn checkas in på den här sessionen och inte vuxna, som "
+"vid lämna-och-gå. Låt rutan vara tom om vuxna också checkas in här. När "
+"vuxna inte checkas in spelar biljettregeln bara roll för barnen."
 
 msgid "Sessions"
 msgstr "Sessioner"
+
+msgid "The session must not end before it starts."
+msgstr "Passet får inte sluta före start."
 
 # Admin changelist columns - events/admin.py (ticket triage)
 msgid "Whole event"
@@ -552,20 +1156,34 @@ msgid "Applies To"
 msgstr "Gäller för"
 
 # Model field help text - events/models.py (TicketType.applies_to)
-msgid "Who may pick this ticket type on the public registration form: Parent, Child or Either. Staff can still assign it to anyone by hand in the admin, regardless of this setting."
-msgstr "Vem som kan välja den här biljettypen i det publika anmälningsformuläret: Förälder, Barn eller Förälder eller barn. Personal kan ändå tilldela den manuellt i admin, oavsett den här inställningen."
+msgid ""
+"Who may pick this ticket type on the public registration form: Parent, Child "
+"or Either. Staff can still assign it to anyone by hand in the admin, "
+"regardless of this setting."
+msgstr ""
+"Vem som kan välja den här biljettypen i det publika anmälningsformuläret: "
+"Förälder, Barn eller Förälder eller barn. Personal kan ändå tilldela den "
+"manuellt i admin, oavsett den här inställningen."
 
 msgid "Minimum Birthdate"
 msgstr "Tidigaste födelsedatum"
 
-msgid "The earliest birth date allowed (the attendee must be born on or after it), counted on the event's start date; leave blank for no limit."
-msgstr "Tidigaste tillåtna födelsedatum (deltagaren måste vara född detta datum eller senare), räknat på evenemangets startdatum; lämna tomt för ingen gräns."
+msgid ""
+"The earliest birth date allowed (the attendee must be born on or after it), "
+"counted on the event's start date; leave blank for no limit."
+msgstr ""
+"Tidigaste tillåtna födelsedatum (deltagaren måste vara född detta datum "
+"eller senare), räknat på evenemangets startdatum; lämna tomt för ingen gräns."
 
 msgid "Maximum Birthdate"
 msgstr "Senaste födelsedatum"
 
-msgid "The latest birth date allowed (the attendee must be born on or before it), counted on the event's start date; leave blank for no limit."
-msgstr "Senaste tillåtna födelsedatum (deltagaren måste vara född detta datum eller tidigare), räknat på evenemangets startdatum; lämna tomt för ingen gräns."
+msgid ""
+"The latest birth date allowed (the attendee must be born on or before it), "
+"counted on the event's start date; leave blank for no limit."
+msgstr ""
+"Senaste tillåtna födelsedatum (deltagaren måste vara född detta datum eller "
+"tidigare), räknat på evenemangets startdatum; lämna tomt för ingen gräns."
 
 msgid "Available From"
 msgstr "Tillgänglig från"
@@ -622,8 +1240,8 @@ msgstr "Får bara köpas tillsammans med"
 msgid ""
 "If set, this ticket type can only be bought together with the ticket type "
 "chosen here: the registration must also include at least one ticket of that "
-"type (e.g. a free 'family member' type that can only be bought together "
-"with a paid 'family ticket' type)."
+"type (e.g. a free 'family member' type that can only be bought together with "
+"a paid 'family ticket' type)."
 msgstr ""
 "Om detta är ifyllt får biljettypen bara köpas tillsammans med den biljettyp "
 "som väljs här: anmälan måste också innehålla minst en biljett av den typen "
@@ -633,8 +1251,16 @@ msgstr ""
 msgid "Max per ticket of that type"
 msgstr "Max per biljett av den typen"
 
-msgid "How many tickets of this type are allowed per ticket of the type chosen in 'Can only be bought together with' (e.g. 4 free family members per paid family ticket). Leave blank for no limit; one ticket of that type is still needed."
-msgstr "Hur många biljetter av den här typen som får köpas per biljett av typen som valts i ”Får bara köpas tillsammans med” (t.ex. 4 kostnadsfria familjemedlemmar per betald familjebiljett). Lämna tomt för ingen gräns; det krävs ändå minst en biljett av den typen."
+msgid ""
+"How many tickets of this type are allowed per ticket of the type chosen in "
+"'Can only be bought together with' (e.g. 4 free family members per paid "
+"family ticket). Leave blank for no limit; one ticket of that type is still "
+"needed."
+msgstr ""
+"Hur många biljetter av den här typen som får köpas per biljett av typen som "
+"valts i ”Får bara köpas tillsammans med” (t.ex. 4 kostnadsfria "
+"familjemedlemmar per betald familjebiljett). Lämna tomt för ingen gräns; det "
+"krävs ändå minst en biljett av den typen."
 
 msgid "Sort Order"
 msgstr "Sorteringsordning"
@@ -651,6 +1277,12 @@ msgstr "Biljettyper"
 
 msgid "A ticket type cannot require itself."
 msgstr "En biljettyp kan inte kräva sig själv."
+
+msgid "The required ticket type must belong to the same event."
+msgstr "Den krävda biljettypen måste tillhöra samma evenemang."
+
+msgid "'Available until' is before 'available from'."
+msgstr "”Tillgänglig till” ligger före ”tillgänglig från”."
 
 #, python-format
 msgid ""
@@ -742,6 +1374,12 @@ msgstr "Rabattkod"
 msgid "Promo Codes"
 msgstr "Rabattkoder"
 
+msgid "'Valid until' is before 'valid from'."
+msgstr "”Giltig till” ligger före ”giltig från”."
+
+msgid "A percent discount cannot be more than 100."
+msgstr "En procentrabatt kan inte vara över 100."
+
 msgid ""
 "Set for a session-scoped extra (e.g. one evening's dinner). Blank = event-"
 "wide."
@@ -783,6 +1421,19 @@ msgstr ""
 "standard och som vårdnadshavaren kan tacka nej till) – lägg aldrig upp ett "
 "bortval som ett negativt pris."
 
+msgid "Required ticket types"
+msgstr "Biljettyper som krävs"
+
+msgid ""
+"Leave empty to offer the extra to everyone. Otherwise it is offered only to "
+"an attendee holding any of these ticket types (for a per-booking extra: when "
+"anyone in the booking holds one). Ticket types of the extra's own event only."
+msgstr ""
+"Lämna tomt för att erbjuda tillvalet till alla. Annars erbjuds det bara en "
+"deltagare som har någon av dessa biljettyper (för ett tillval per bokning: "
+"när någon i bokningen har en). Endast biljettyper från tillvalets eget "
+"evenemang."
+
 msgid "Cloned From"
 msgstr "Kopierad från"
 
@@ -798,6 +1449,9 @@ msgstr "Tillval"
 
 msgid "Extras"
 msgstr "Tillval"
+
+msgid "The session must belong to the extra's event."
+msgstr "Sessionen måste tillhöra tillvalets evenemang."
 
 msgid "Label"
 msgstr "Benämning"
@@ -871,8 +1525,49 @@ msgstr "Evenemangsbiljetter"
 msgid "Session Tickets"
 msgstr "Sessionsbiljetter"
 
+msgid "A session cannot be moved to another event."
+msgstr "En session kan inte flyttas till ett annat evenemang."
+
+msgid "The body is not valid JSON."
+msgstr "Bodyn är inte giltig JSON."
+
+msgid "The body must be a JSON object."
+msgstr "Bodyn måste vara ett JSON-objekt."
+
+msgid "The body needs a 'spec' object."
+msgstr "Bodyn måste innehålla ett ”spec”-objekt."
+
+msgid "'event_id' is not a valid id."
+msgstr "”event_id” är inget giltigt id."
+
+msgid "Open assistant"
+msgstr "Öppna assistenten"
+
 msgid "Home"
 msgstr "Hem"
+
+msgid "No problems found."
+msgstr "Inga problem hittades."
+
+msgid "Errors"
+msgstr "Fel"
+
+msgid "Warnings"
+msgstr "Varningar"
+
+#, python-format
+msgid ""
+"Copy \"%(name)s\" with its sessions, ticket types, extras and promo codes. "
+"Registrations, tickets and check-ins are not copied."
+msgstr ""
+"Kopiera ”%(name)s” med pass, biljettyper, tillval och kampanjkoder. "
+"Anmälningar, biljetter och incheckningar kopieras inte."
+
+msgid "Copy"
+msgstr "Kopiera"
+
+msgid "Cancel"
+msgstr "Avbryt"
 
 #, python-format
 msgid ""
@@ -919,9 +1614,6 @@ msgstr ""
 msgid "Show what this changes"
 msgstr "Visa vad det här ändrar"
 
-msgid "Cancel"
-msgstr "Avbryt"
-
 msgid "Duplicate to another event"
 msgstr "Kopiera till ett annat evenemang"
 
@@ -936,6 +1628,9 @@ msgstr ""
 
 msgid "Duplicate"
 msgstr "Kopiera"
+
+msgid "This person already has a ticket here"
+msgstr "Personen har redan en biljett här"
 
 msgid "Balance"
 msgstr "Kvar att betala"
@@ -1080,6 +1775,238 @@ msgstr "Barn"
 msgid "QR code not found or child is not currently checked in"
 msgstr "QR-koden hittades inte, eller så är barnet inte incheckat just nu"
 
+msgid "layer"
+msgstr "lager"
+
+msgid "Give a list of texts."
+msgstr "Ange en lista med texter."
+
+msgid "Give used and cost, or null."
+msgstr "Ange använt och kostnad, eller null."
+
+msgid "Give a list of terms."
+msgstr "Ange en lista med termer."
+
+msgid "Give a list of layer values."
+msgstr "Ange en lista med lagervärden."
+
+msgid "Choose the request this one duplicates."
+msgstr "Välj önskemålet som det här är en dubblett av."
+
+msgid "The need"
+msgstr "Behovet"
+
+msgid "Triage"
+msgstr "Sortera"
+
+msgid "Local only, never exported"
+msgstr "Endast lokalt, exporteras aldrig"
+
+msgid "Set status to triaged"
+msgstr "Sätt status till sorterad"
+
+msgid "Set status to planned"
+msgstr "Sätt status till planerad"
+
+msgid "Set status to done"
+msgstr "Sätt status till klar"
+
+msgid "Set status to declined"
+msgstr "Sätt status till avslagen"
+
+msgid "Copy as GitHub issue (one request)"
+msgstr "Kopiera som GitHub-ärende (ett önskemål)"
+
+msgid "Select exactly one request."
+msgstr "Markera exakt ett önskemål."
+
+msgid "Feature requests"
+msgstr "Funktionsönskemål"
+
+msgid "Organizer"
+msgstr "Arrangör"
+
+msgid "Assistant"
+msgstr "Assistent"
+
+msgid "Validator warning"
+msgstr "Valideringsvarning"
+
+msgid "Trial"
+msgstr "Provkörning"
+
+msgid "Eval"
+msgstr "Utvärdering"
+
+msgid "Maintainer"
+msgstr "Förvaltare"
+
+msgid "Blocks the setup"
+msgstr "Blockerar uppsättningen"
+
+msgid "Wrong result"
+msgstr "Fel resultat"
+
+msgid "Risk of damage"
+msgstr "Risk för skada"
+
+msgid "Friction"
+msgstr "Friktion"
+
+msgid "Cosmetic"
+msgstr "Kosmetiskt"
+
+msgid "Most events"
+msgstr "De flesta evenemang"
+
+# Admin changelist columns - events/admin.py (ticket triage)
+msgid "Some events"
+msgstr "Vissa evenemang"
+
+msgid "Few events"
+msgstr "Få evenemang"
+
+msgid "Validator"
+msgstr "Validering"
+
+msgid "Admin UI"
+msgstr "Administrationsgränssnitt"
+
+msgid "Public form"
+msgstr "Publikt formulär"
+
+msgid "Spec example"
+msgstr "Exempel i specifikationen"
+
+msgid "Docs"
+msgstr "Dokumentation"
+
+msgid "A check already flags it"
+msgstr "En kontroll flaggar det redan"
+
+msgid "A new warning could catch it"
+msgstr "En ny varning kunde fånga det"
+
+msgid "Needs a model, UI or doc change"
+msgstr "Kräver ändring av modell, gränssnitt eller dokumentation"
+
+msgid "Confirmed"
+msgstr "Bekräftad"
+
+msgid "Triaged"
+msgstr "Sorterad"
+
+msgid "Planned"
+msgstr "Planerad"
+
+msgid "Done"
+msgstr "Klar"
+
+msgid "Declined"
+msgstr "Avslagen"
+
+msgid "Extra steps"
+msgstr "Extra steg"
+
+msgid "Not possible"
+msgstr "Inte möjligt"
+
+msgid "Title"
+msgstr "Titel"
+
+msgid "Source"
+msgstr "Källa"
+
+msgid "Problem"
+msgstr "Problem"
+
+msgid "Tried"
+msgstr "Provat"
+
+msgid "Workaround"
+msgstr "Omväg"
+
+msgid "Desired"
+msgstr "Önskat"
+
+msgid "Touches"
+msgstr "Berör"
+
+msgid "Severity"
+msgstr "Allvarlighet"
+
+msgid "Reach"
+msgstr "Räckvidd"
+
+msgid "Layers"
+msgstr "Lager"
+
+msgid "Evidence"
+msgstr "Underlag"
+
+msgid "Brief fragment"
+msgstr "Kort utdrag"
+
+msgid "Dedupe key"
+msgstr "Dubblettnyckel"
+
+msgid "Duplicate of"
+msgstr "Dubblett av"
+
+msgid "Seen"
+msgstr "Sedd"
+
+msgid "Filed by"
+msgstr "Inskickad av"
+
+msgid "Confirmed by"
+msgstr "Bekräftad av"
+
+msgid "Feature request"
+msgstr "Funktionsönskemål"
+
+msgid "Comment"
+msgstr "Kommentar"
+
+msgid "Author"
+msgstr "Författare"
+
+msgid "Feature request comment"
+msgstr "Kommentar på funktionsönskemål"
+
+msgid "Feature request comments"
+msgstr "Kommentarer på funktionsönskemål"
+
+msgid ""
+"Counts by dedupe key (open requests, merged duplicates included in the seen "
+"total)"
+msgstr ""
+"Antal per dubblettnyckel (öppna önskemål, sammanslagna dubbletter ingår i "
+"antalet sedda)"
+
+msgid "Requests"
+msgstr "Önskemål"
+
+msgid "No requests yet."
+msgstr "Inga önskemål ännu."
+
+msgid ""
+"Nothing is sent from this server. Check the text, then open the link in your "
+"own browser, or copy the markdown into a new issue."
+msgstr ""
+"Inget skickas från den här servern. Kontrollera texten och öppna sedan "
+"länken i din egen webbläsare, eller kopiera markdown till ett nytt ärende."
+
+msgid "Open a prefilled GitHub issue"
+msgstr "Öppna ett ifyllt GitHub-ärende"
+
+msgid ""
+"The prefilled link would be too long for a URL. Copy the markdown below into "
+"a new issue."
+msgstr ""
+"Den ifyllda länken skulle bli för lång för en URL. Kopiera markdown nedan "
+"till ett nytt ärende."
+
 msgid "FestivalPro Configuration"
 msgstr "FestivalPro-inställningar"
 
@@ -1133,9 +2060,6 @@ msgstr "FestivalPro-importkällor"
 msgid "Pending"
 msgstr "Väntar"
 
-msgid "Running"
-msgstr "Pågår"
-
 msgid "Completed"
 msgstr "Klar"
 
@@ -1144,9 +2068,6 @@ msgstr "Misslyckades"
 
 msgid "Triggered By"
 msgstr "Startad av"
-
-msgid "Status"
-msgstr "Status"
 
 msgid "Started At"
 msgstr "Startade"
@@ -1377,9 +2298,6 @@ msgstr "Du kan när som helst se din betalningsstatus här: %(url)s"
 
 msgid "Pending email verification"
 msgstr "Väntar på e-postbekräftelse"
-
-msgid "Confirmed"
-msgstr "Bekräftad"
 
 msgid "Pending payment"
 msgstr "Väntar på betalning"
@@ -1708,6 +2626,9 @@ msgstr ""
 msgid "This promo code is not valid."
 msgstr "Rabattkoden är inte giltig."
 
+msgid "This promo code does not apply to any tickets in this event."
+msgstr "Koden gäller inga biljetter i det här evenemanget."
+
 msgid "Invalid ticket type for this event."
 msgstr "Ogiltig biljettyp för det här evenemanget."
 
@@ -1750,6 +2671,13 @@ msgstr "Ett tillval som hör till en session måste kopplas till en deltagare."
 
 msgid "This attendee isn't registered for that session."
 msgstr "Den här deltagaren är inte anmäld till den sessionen."
+
+msgid "This extra requires a different ticket."
+msgstr "Det här tillvalet kräver en annan biljett."
+
+#, python-format
+msgid "This extra requires one of these ticket types: %(types)s."
+msgstr "Det här tillvalet kräver någon av dessa biljettyper: %(types)s."
 
 # Error messages - checkins/serializers.py
 msgid "This extra is already attached to this attendee."
@@ -1861,15 +2789,3 @@ msgstr "Vem är skulden hos?"
 # Admin chrome language switcher - templates/admin/language_switcher.html
 msgid "Change admin language"
 msgstr "Byt adminspråk"
-
-msgid "This session is not open for check-in, so a ticket cannot be given"
-msgstr "Sessionen är inte öppen för incheckning, så ingen biljett kan ges"
-
-msgid "This session does not require a ticket for this person"
-msgstr "Den här sessionen kräver ingen biljett för den här personen"
-
-msgid "This person already has a ticket here"
-msgstr "Personen har redan en biljett här"
-
-msgid "This person's registration was cancelled, so they cannot be given a ticket here. Send the family to a Koordinator."
-msgstr "Personens anmälan är avbruten, så hen kan inte få en biljett här. Skicka familjen till en koordinator."

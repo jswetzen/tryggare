@@ -452,6 +452,20 @@ class TestSessionSerializer:
         assert session.effective_ticket_rule == OPEN
         assert session.adults_not_checked_in is False
 
+    def test_a_session_cannot_be_moved_to_another_event(self):
+        session = _session(_event(), OPEN)
+        other = _event(name="Elsewhere")
+        coordinator = _client(_user(COORDINATOR, "coord4"))
+        url = reverse("session-detail", args=[session.id])
+        moved = coordinator.patch(url, {"event": str(other.id)}, format="json")
+        assert moved.status_code == 400
+        assert "event" in moved.data
+        session.refresh_from_db()
+        assert session.event_id != other.id
+        # Sending the unchanged event is still fine.
+        same = coordinator.patch(url, {"event": str(session.event_id)}, format="json")
+        assert same.status_code == 200
+
     def test_filter_by_ticket_rule(self):
         event = _event()
         _session(event, CHILDREN, name="a")

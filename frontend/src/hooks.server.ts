@@ -6,6 +6,7 @@
 import type { Handle } from '@sveltejs/kit';
 import { redirect } from '@sveltejs/kit';
 import { env } from '$env/dynamic/private';
+import { loginUrl } from '$lib/auth/returnTo';
 
 // For server-side rendering: use full URL in dev, relative URL in production
 // In production build, this file runs on the server (Node.js) so it needs the actual URL
@@ -55,7 +56,7 @@ export const handle: Handle = async ({ event, resolve }) => {
 
     // Redirect to login if trying to access protected route
     if (!isPublicPath) {
-      throw redirect(302, '/login');
+      throw redirect(302, loginUrl(path === '/' ? null : path + event.url.search));
     }
 
     return resolve(event);
@@ -75,7 +76,7 @@ export const handle: Handle = async ({ event, resolve }) => {
 
     // Redirect to login if trying to access protected route
     if (!isPublicPath) {
-      throw redirect(302, '/login');
+      throw redirect(302, loginUrl(path === '/' ? null : path + event.url.search));
     }
   }
 

@@ -251,7 +251,7 @@ class AdminTicketRuleFormTests(NonManifestStaticfilesTestCase, TestCase):
     # -- Ticket-type label rename ----------------------------------------
 
     def test_ticket_type_label_renamed(self):
-        url = reverse("admin:events_tickettype_add")
+        url = reverse("admin:events_tickettype_add") + f"?event={self.event.pk}"
         en = self._get(url).content.decode()
         self.assertIn("Can only be bought together with", en)
         self.assertNotIn("Requires Ticket Type", en)
@@ -267,7 +267,7 @@ class AdminTicketRuleFormTests(NonManifestStaticfilesTestCase, TestCase):
     # -- Ticket type help -------------------------------------------------
 
     def test_ticket_type_applies_to_help_uses_dropdown_labels(self):
-        url = reverse("admin:events_tickettype_add")
+        url = reverse("admin:events_tickettype_add") + f"?event={self.event.pk}"
         en = self._get(url).content.decode()
         self.assertIn("Parent, Child or Either", en)
         for label in ("Parent", "Child", "Either"):
@@ -289,7 +289,7 @@ class AdminTicketRuleFormTests(NonManifestStaticfilesTestCase, TestCase):
             self.assertEqual(text.count(". "), 0)
 
     def test_ticket_type_max_per_label_matches_requires_label(self):
-        url = reverse("admin:events_tickettype_add")
+        url = reverse("admin:events_tickettype_add") + f"?event={self.event.pk}"
         en = self._get(url).content.decode()
         self.assertIn("Max per ticket of that type", en)
         self.assertNotIn("Max Per Required", en)

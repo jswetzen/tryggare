@@ -1,11 +1,12 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/svelte';
+import { render, screen, waitFor, cleanup } from '@testing-library/svelte';
 import userEvent from '@testing-library/user-event';
 // The mocked pushState below (see the $app/navigation vi.mock further down)
 // — imported here so the "Back button from confirmation" tests can assert
 // on its call args, same pattern as `submit`/`getEvent`.
 import { pushState } from '$app/navigation';
 import RegisterPage from './+page.svelte';
+import specFixture from '$lib/registration/__fixtures__/form-spec.v1.json';
 
 // jsdom (this project's vitest environment — see vitest.config.ts) doesn't
 // implement scrollIntoView. The error-banner $effect in +page.svelte calls
@@ -63,11 +64,17 @@ vi.mock('svelte-i18n', () => {
     'register.idempotencyConflictButton': 'Send the confirmation again',
     'register.promoCodeLabel': 'Promo code',
     'register.promoCodeInvalid': "This code isn't valid. Check the spelling, or contact the organiser.",
+    'register.promoCodeNotApplicable': "This code doesn't apply to any tickets in this event.",
     'register.promoCodeNotApplied': 'Apply this code, or clear the field, before submitting.',
     'register.promoCodeRemoveButton': 'Remove',
     'register.promoCodeAppliedPrefix': 'Code applied',
     'register.promoEffectPercent': '{percent}% discount on the total.',
-    'register.promoEffectFixed': '{amount} kr discount on the total.',
+    'register.promoEffectFixed': '{amount} kr off the total, once per registration.',
+    'register.promoEffectPercentOn': '{percent}% discount on {names}.',
+    'register.promoEffectFixedOn': '{amount} kr off the total for {names}, once per registration.',
+    'register.promoScopeOne': 'the ticket type {name}',
+    'register.promoScopeTwo': 'the ticket types {first} and {second}',
+    'register.promoTicketTypesCount': '{count} ticket types',
     'register.promoEffectUnlocks': '{names} — now available under Ticket type.',
     'register.promoRemoved': 'The code was removed.',
     'register.promoRemovedWithReset':
@@ -117,6 +124,7 @@ vi.mock('svelte-i18n', () => {
     'register.summaryWholeRegistrationLine': 'Whole registration: {extras}',
     // Summary row states and the flat price line (guardian-only increment 2) —
     // mapped for real so tests assert the sentence a guardian reads.
+    'register.extraNeedsTicket': 'Requires ticket: {types}',
     'register.summaryNoTicket': 'No ticket',
     'register.summaryAttending': 'Attending',
     'register.summaryGuardianOnly': 'Guardian – not attending',
@@ -124,7 +132,18 @@ vi.mock('svelte-i18n', () => {
     'register.summaryTotal': 'Total',
     'register.summaryDiscountLine': 'Discount ({code}) −{amount} kr',
     // Closed screen — mapped so the test can read the formatted instant.
-    'register.closedMessage': 'Registration for {event} closed on {date}.'
+    'register.closedMessage': 'Registration for {event} closed on {date}.',
+    'register.reloadConfig': 'Reload form config',
+    'register.reloadFailed': 'Could not reload the form config.',
+    'register.reloadChangedTitle': 'The form changed',
+    'register.reloadNowRequiredTitle': 'These are now required:',
+    'register.parentLastNameRequired': 'Enter a last name for {name}.',
+    'register.childInfoIncompleteFields': 'Fill in {fields} for {name}.',
+    'register.reloadClearedTitle': 'The form changed. These selections were cleared:',
+    'register.reloadPromoCleared': 'Promo code {code} no longer applies and was removed',
+    'register.reloadKindTicketType': 'Ticket type',
+    'register.reloadKindExtra': 'Extra',
+    'register.reloadKindExtraChoice': 'Extra choice'
   };
   const translator = (key: string, opts?: { values?: Record<string, unknown> }) => {
     let text = translations[key] ?? key;
@@ -188,6 +207,11 @@ const pageStateHelper = vi.hoisted(() => {
     setState(state: Record<string, unknown>) {
       current = { ...current, state };
       subscribers.forEach((fn) => fn(current));
+    },
+    // Test-only: the query string drives ?preview=1.
+    setUrl(href: string) {
+      current = { ...current, url: new URL(href) };
+      subscribers.forEach((fn) => fn(current));
     }
   };
 });
@@ -233,6 +257,7 @@ vi.spyOn(window.history, 'back').mockImplementation(() => {
 // isn't a mock and so isn't covered by that.
 beforeEach(() => {
   pageStateHelper.setState({});
+  pageStateHelper.setUrl('http://localhost/register/event-1');
 });
 
 const getEvent = vi.fn();
@@ -290,6 +315,11 @@ function baseEventInfo(overrides: Partial<Record<string, unknown>> = {}) {
     ],
     has_hidden_ticket_types: false,
     extras: [],
+    spec_version: 1,
+    sessions: [],
+    // The backend's own field list (see __fixtures__), so what the page
+    // requires here is what the real spec says.
+    fields: structuredClone(specFixture.fields),
     registration_window_status: 'open',
     registration_opens_at: null,
     registration_closes_at: null,
@@ -1726,7 +1756,118 @@ describe('Register page — promo code', () => {
       await user.click(screen.getByTestId('register-promo-code-apply'));
 
       const applied = await screen.findByTestId('register-promo-code-applied');
-      expect(applied.textContent).toContain('10.00 kr discount on the total.');
+      expect(applied.textContent).toContain('10 kr off the total, once per registration.');
+    });
+
+    async function applyPromo(
+      validation: Record<string, unknown>,
+      eventInfo: unknown = hiddenTicketEventInfo()
+    ) {
+      const user = userEvent.setup();
+      getEvent.mockResolvedValue(eventInfo);
+      validatePromoCode.mockResolvedValue({
+        valid: true,
+        unlocks_ticket_types: [],
+        ...validation
+      });
+      render(RegisterPage);
+      await screen.findByTestId('register-form');
+      await user.type(screen.getByTestId('register-promo-code-input'), 'CODE');
+      await user.click(screen.getByTestId('register-promo-code-apply'));
+      return (await screen.findByTestId('register-promo-code-applied')).textContent ?? '';
+    }
+
+    it('says so when the code exists but applies to no ticket in the event', async () => {
+      const user = userEvent.setup();
+      getEvent.mockResolvedValue(hiddenTicketEventInfo());
+      validatePromoCode.mockResolvedValue({ valid: false, reason: 'not_applicable' });
+      render(RegisterPage);
+      await screen.findByTestId('register-form');
+      await user.type(screen.getByTestId('register-promo-code-input'), 'INACT');
+      await user.click(screen.getByTestId('register-promo-code-apply'));
+      expect(await screen.findByText("This code doesn't apply to any tickets in this event.")).toBeInTheDocument();
+      expect(screen.queryByTestId('register-promo-code-applied')).toBeNull();
+    });
+
+    it('names the ticket type a restricted percent code discounts, not the total', async () => {
+      const text = await applyPromo({
+        discount_type: 'percent',
+        discount_value: '10',
+        applies_to_ticket_type_ids: ['tt-child']
+      });
+      expect(text).toContain('10% discount on the ticket type Barn (0-12 år).');
+      expect(text).not.toContain('on the total');
+    });
+
+    it('says a restricted fixed code comes off the total once, for the named type', async () => {
+      const text = await applyPromo({
+        discount_type: 'fixed',
+        discount_value: '25',
+        applies_to_ticket_type_ids: ['tt-child']
+      });
+      expect(text).toContain('25 kr off the total for the ticket type Barn (0-12 år), once per registration.');
+    });
+
+    it('joins two ticket types with "and"', async () => {
+      const text = await applyPromo(
+        {
+          discount_type: 'percent',
+          discount_value: '10',
+          applies_to_ticket_type_ids: ['tt-family', 'tt-solo']
+        },
+        familyEventInfo()
+      );
+      expect(text).toContain('10% discount on the ticket types Familjebiljett and Solo.');
+    });
+
+    it('counts ticket types when more than two are known', async () => {
+      const text = await applyPromo(
+        {
+          discount_type: 'percent',
+          discount_value: '10',
+          applies_to_ticket_type_ids: ['tt-family', 'tt-member', 'tt-solo']
+        },
+        familyEventInfo()
+      );
+      expect(text).toContain('10% discount on 3 ticket types.');
+    });
+
+    it('drops scope ids the form does not know, and the clause when none remain', async () => {
+      let text = await applyPromo({
+        discount_type: 'percent',
+        discount_value: '10',
+        applies_to_ticket_type_ids: ['tt-child', 'tt-hidden']
+      });
+      expect(text).toContain('10% discount on the ticket type Barn (0-12 år).');
+      cleanup();
+      text = await applyPromo({
+        discount_type: 'percent',
+        discount_value: '10',
+        applies_to_ticket_type_ids: ['tt-hidden']
+      });
+      expect(text).not.toContain('discount');
+      expect(text).toBe('Code applied.');
+    });
+
+    it('does not announce unlocking a ticket type that was already visible', async () => {
+      const text = await applyPromo({
+        discount_type: 'fixed',
+        discount_value: '0',
+        applies_to_ticket_type_ids: [],
+        unlocks_ticket_types: [hiddenTicketEventInfo().ticket_types[0]]
+      });
+      expect(text).not.toContain('now available');
+    });
+
+    it('names a type the same code unlocks and discounts', async () => {
+      const text = await applyPromo({
+        discount_type: 'percent',
+        discount_value: '20',
+        applies_to_ticket_type_ids: ['tt-vip'],
+        unlocks_ticket_types: [vipTicketType]
+      });
+      expect(text).toContain('20% discount on the ticket type VIP.');
+      expect(text).toContain('VIP — now available under Ticket type.');
     });
 
     it('states the unlocked ticket type in the applied confirmation', async () => {
@@ -2089,6 +2230,40 @@ describe('Register page — extras default state', () => {
 
     const total = await screen.findByTestId('register-running-total');
     expect(total.textContent).toContain('500.00');
+  });
+});
+
+describe('Register page — extras gated by ticket type', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('shows a gated extra disabled with the reason when the child holds no listed ticket', async () => {
+    getEvent.mockResolvedValue(
+      extrasEventInfo({
+        extras: [
+          {
+            id: 'extra-workshop',
+            name: 'Lördagsverkstad',
+            price: '150.00',
+            session_id: null,
+            per_attendee: true,
+            applies_to: 'child',
+            requires_choice: false,
+            required: false,
+            default_selected: false,
+            ticket_type_ids: ['tt-youth'],
+            ticket_type_names: ['Ungdom (13-17 år)'],
+            choices: []
+          }
+        ]
+      })
+    );
+    render(RegisterPage);
+
+    const blocked = await screen.findByTestId('extra-blocked-extra-workshop');
+    expect(blocked.textContent).toContain('Requires ticket: Ungdom (13-17 år)');
+    expect(blocked.querySelector('input')).toBeDisabled();
   });
 });
 
@@ -3299,4 +3474,367 @@ describe('Register page — event instants are shown in Swedish time', () => {
       });
     }
   }
+});
+
+// The spec's per-field flags drive the form: hidden fields are not asked
+// for, and required comes from the spec rather than the page.
+function specWithField(group: 'parent' | 'child', key: string, patch: Record<string, boolean>) {
+  const fields = structuredClone(specFixture.fields);
+  const field = fields[group].find((f) => f.key === key);
+  if (!field) throw new Error(`no ${group} field ${key}`);
+  Object.assign(field, patch);
+  return fields;
+}
+
+describe('Register page — fields come from the form spec', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('does not render a field the spec marks visible:false', async () => {
+    getEvent.mockResolvedValue(
+      ticketlessEventInfo({ fields: specWithField('parent', 'email', { visible: false }) })
+    );
+    render(RegisterPage);
+
+    await screen.findByTestId('register-form');
+    expect(document.getElementById('parent-email-0')).toBeNull();
+    expect(document.getElementById('parent-last-name-0')).not.toBeNull();
+  });
+
+  it('hides the health block when health_consent_status is not visible', async () => {
+    getEvent.mockResolvedValue(
+      ticketlessEventInfo({
+        fields: specWithField('child', 'health_consent_status', { visible: false })
+      })
+    );
+    render(RegisterPage);
+
+    await screen.findByTestId('register-form');
+    expect(screen.queryByText('checkin.healthInfoQuestion')).toBeNull();
+    expect(screen.queryByText('register.adultHealthInfoQuestion')).not.toBeNull();
+  });
+
+  it('does not enforce a field the spec marks required:false', async () => {
+    const user = userEvent.setup();
+    getEvent.mockResolvedValue(
+      ticketlessEventInfo({ fields: specWithField('parent', 'phone', { required: false }) })
+    );
+    submit.mockResolvedValue({ reference_code: 'REF1', message: 'ok', email_sent: true });
+    render(RegisterPage);
+
+    await screen.findByTestId('register-form');
+    await fillMinimalRequiredFields(user, { guardian: false });
+    await user.type(document.getElementById('parent-first-name-0') as HTMLInputElement, 'Kim');
+    await user.selectOptions(screen.getByTestId('parent-relationship-0'), 'MOM');
+    expect(document.getElementById('parent-phone-0')).not.toBeRequired();
+
+    await user.click(screen.getByTestId('register-submit-button'));
+
+    await waitFor(() => expect(submit).toHaveBeenCalledTimes(1));
+  });
+
+  it('still enforces what the spec requires (child last name, birthdate)', async () => {
+    const user = userEvent.setup();
+    getEvent.mockResolvedValue(ticketlessEventInfo());
+    render(RegisterPage);
+
+    await screen.findByTestId('register-form');
+    await user.type(screen.getByTestId('register-contact-email'), 'guardian@example.com');
+    await fillGuardian(user);
+    await user.type(document.getElementById('child-first-name-0') as HTMLInputElement, 'Alex');
+    await user.click(screen.getByTestId('register-submit-button'));
+
+    expect(submit).not.toHaveBeenCalled();
+    expect(screen.getByTestId('register-error-item-child-info-0')).toBeInTheDocument();
+  });
+
+  it('sends an empty birthdate as null, never ""', async () => {
+    const user = userEvent.setup();
+    getEvent.mockResolvedValue(
+      ticketlessEventInfo({
+        fields: (() => {
+          const fields = specWithField('child', 'birthdate', { required: false });
+          fields.child.find((f) => f.key === 'last_name')!.required = false;
+          return fields;
+        })()
+      })
+    );
+    submit.mockResolvedValue({ reference_code: 'REF1', message: 'ok', email_sent: true });
+    render(RegisterPage);
+
+    await screen.findByTestId('register-form');
+    await user.type(screen.getByTestId('register-contact-email'), 'guardian@example.com');
+    await fillGuardian(user);
+    await user.type(document.getElementById('child-first-name-0') as HTMLInputElement, 'Alex');
+    await user.click(screen.getByTestId('register-submit-button'));
+
+    await waitFor(() => expect(submit).toHaveBeenCalledTimes(1));
+    const payload = submit.mock.calls[0][0] as { children: Array<{ birthdate: string | null }> };
+    expect(payload.children[0].birthdate).toBeNull();
+  });
+});
+
+const choiceExtra = (overrides: Record<string, unknown> = {}) => ({
+  id: 'extra-meals',
+  name: 'Meals',
+  price: '50.00',
+  session_id: null,
+  per_attendee: true,
+  applies_to: 'child',
+  requires_choice: true,
+  required: false,
+  default_selected: false,
+  choices: [
+    { id: 'c-meat', label: 'Meat', price_delta: '0.00' },
+    { id: 'c-veg', label: 'Veg', price_delta: '0.00' }
+  ],
+  ...overrides
+});
+
+describe('Register page — reload form config (preview)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('shows the reload button only in preview', async () => {
+    getEvent.mockResolvedValue(baseEventInfo());
+    const { unmount } = render(RegisterPage);
+    await screen.findByTestId('register-form');
+    expect(screen.queryByRole('button', { name: 'Reload form config' })).toBeNull();
+    unmount();
+
+    pageStateHelper.setUrl('http://localhost/register/event-1?preview=1');
+    render(RegisterPage);
+    await screen.findByTestId('register-preview-banner');
+    expect(screen.getByRole('button', { name: 'Reload form config' })).toBeInTheDocument();
+  });
+
+  it('picks up a changed price and keeps what was typed', async () => {
+    const user = userEvent.setup();
+    pageStateHelper.setUrl('http://localhost/register/event-1?preview=1');
+    const before = baseEventInfo();
+    const after = baseEventInfo();
+    after.ticket_types[0].price = '125.00';
+    getEvent.mockResolvedValueOnce(before).mockResolvedValueOnce(after);
+    render(RegisterPage);
+
+    await screen.findByTestId('register-preview-banner');
+    await user.type(document.getElementById('parent-first-name-0') as HTMLInputElement, 'Sam');
+    const select = screen.getByTestId('child-ticket-type-0') as HTMLSelectElement;
+    expect(select.textContent).toContain('100.00');
+
+    await user.click(screen.getByRole('button', { name: 'Reload form config' }));
+
+    await waitFor(() => expect(select.textContent).toContain('125.00'));
+    expect((document.getElementById('parent-first-name-0') as HTMLInputElement).value).toBe('Sam');
+    expect(screen.queryByTestId('register-reload-notice')).toBeNull();
+  });
+
+  it('clears what is gone, lists it in one notice and flags extras that became required', async () => {
+    const user = userEvent.setup();
+    const bus = (choices: string[]) =>
+      choiceExtra({
+        id: 'extra-b',
+        name: 'Bus',
+        choices: choices.map((id) => ({ id, label: id === 'c1' ? 'Seat' : 'Aisle', price_delta: '0.00' }))
+      });
+    const snack = (required: boolean) =>
+      choiceExtra({ id: 'extra-s', name: 'Snack', requires_choice: false, choices: [], required });
+    const before = baseEventInfo({ extras: [choiceExtra(), bus(['c1', 'c2']), snack(false)] });
+    const after = baseEventInfo({ extras: [bus(['c1']), snack(true)] });
+    after.ticket_types = after.ticket_types.filter((tt) => tt.id !== 'tt-child');
+    getEvent.mockResolvedValueOnce(before).mockResolvedValueOnce(after);
+    pageStateHelper.setUrl('http://localhost/register/event-1?preview=1');
+    render(RegisterPage);
+
+    await screen.findByTestId('register-preview-banner');
+    await user.type(document.getElementById('child-first-name-0') as HTMLInputElement, 'Alex');
+    const select = screen.getByTestId('child-ticket-type-0') as HTMLSelectElement;
+    await user.selectOptions(select, 'tt-child');
+    expect(select.value).toBe('tt-child');
+    await user.click(screen.getByRole('checkbox', { name: /Meals/ }));
+    await user.click(screen.getByRole('checkbox', { name: /Bus/ }));
+    const busSelect = document.querySelector('option[value="c2"]')!.parentElement as HTMLSelectElement;
+    await user.selectOptions(busSelect, 'c2');
+    await user.click(screen.getByRole('checkbox', { name: /Snack/ }));
+    await user.click(screen.getByRole('checkbox', { name: /Snack/ }));
+
+    await user.click(screen.getByRole('button', { name: 'Reload form config' }));
+
+    const notice = await screen.findByTestId('register-reload-notice');
+    expect(notice.textContent).toContain('Ticket type: Barn (0-12 år)');
+    expect(notice.textContent).toContain('Extra: Meals');
+    expect(notice.textContent).toContain('Extra choice: Bus – Aisle');
+    expect(select.value).toBe('');
+    expect(Array.from(select.options).some((o) => o.value === 'tt-child')).toBe(false);
+    expect((document.getElementById('child-first-name-0') as HTMLInputElement).value).toBe('Alex');
+    expect((await screen.findByTestId('register-reload-now-required')).textContent).toContain('Snack');
+  });
+
+  it('removes an applied promo code that no longer validates, with a note', async () => {
+    const user = userEvent.setup();
+    pageStateHelper.setUrl('http://localhost/register/event-1?preview=1');
+    getEvent.mockResolvedValue(baseEventInfo());
+    validatePromoCode
+      .mockResolvedValueOnce({ valid: true, discount_type: 'percent', discount_value: '10' })
+      .mockResolvedValueOnce({ valid: false });
+    render(RegisterPage);
+
+    await screen.findByTestId('register-preview-banner');
+    await user.type(screen.getByTestId('register-promo-code-input'), 'SAVE10');
+    await user.click(screen.getByTestId('register-promo-code-apply'));
+    await screen.findByTestId('register-promo-code-chip');
+
+    await user.click(screen.getByRole('button', { name: 'Reload form config' }));
+
+    const notice = await screen.findByTestId('register-reload-notice');
+    expect(notice.textContent).toContain('Promo code SAVE10 no longer applies');
+    expect(screen.queryByTestId('register-promo-code-chip')).toBeNull();
+  });
+});
+
+describe('Register page — reload edge cases (preview)', () => {
+  const reloadButton = () => screen.getByRole('button', { name: 'Reload form config' });
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    getEvent.mockReset();
+    validatePromoCode.mockReset();
+    pageStateHelper.setUrl('http://localhost/register/event-1?preview=1');
+  });
+
+  async function applyCode(user: ReturnType<typeof userEvent.setup>) {
+    await user.type(screen.getByTestId('register-promo-code-input'), 'VIP');
+    await user.click(screen.getByTestId('register-promo-code-apply'));
+    await screen.findByTestId('register-promo-code-chip');
+  }
+
+  it('keeps a hidden type an applied promo code unlocks, and the selection of it', async () => {
+    const user = userEvent.setup();
+    getEvent.mockImplementation(async () => baseEventInfo());
+    validatePromoCode.mockResolvedValue({
+      valid: true,
+      discount_type: 'fixed',
+      discount_value: '0',
+      unlocks_ticket_types: [vipTicketType]
+    });
+    render(RegisterPage);
+    await screen.findByTestId('register-preview-banner');
+    await applyCode(user);
+    const select = screen.getByTestId('child-ticket-type-0') as HTMLSelectElement;
+    await user.selectOptions(select, 'tt-vip');
+
+    await user.click(reloadButton());
+
+    await waitFor(() => expect(validatePromoCode).toHaveBeenCalledTimes(2));
+    expect(screen.queryByTestId('register-reload-notice')).toBeNull();
+    expect(select.value).toBe('tt-vip');
+    expect(screen.getByTestId('register-promo-code-chip')).toBeInTheDocument();
+  });
+
+  it('shows the failure and changes nothing when the spec cannot be fetched', async () => {
+    const user = userEvent.setup();
+    getEvent.mockResolvedValueOnce(baseEventInfo()).mockRejectedValueOnce(new Error('offline'));
+    render(RegisterPage);
+    await screen.findByTestId('register-preview-banner');
+    const select = screen.getByTestId('child-ticket-type-0') as HTMLSelectElement;
+    await user.selectOptions(select, 'tt-child');
+
+    await user.click(reloadButton());
+
+    await screen.findByTestId('register-reload-failed');
+    expect(select.value).toBe('tt-child');
+  });
+
+  it('keeps the code and its types, and reports failure, when re-validation throws', async () => {
+    const user = userEvent.setup();
+    getEvent.mockImplementation(async () => baseEventInfo());
+    validatePromoCode
+      .mockResolvedValueOnce({ valid: true, discount_type: 'fixed', discount_value: '0', unlocks_ticket_types: [vipTicketType] })
+      .mockRejectedValueOnce(new Error('offline'));
+    render(RegisterPage);
+    await screen.findByTestId('register-preview-banner');
+    await applyCode(user);
+    const select = screen.getByTestId('child-ticket-type-0') as HTMLSelectElement;
+    await user.selectOptions(select, 'tt-vip');
+
+    await user.click(reloadButton());
+
+    await screen.findByTestId('register-reload-failed');
+    expect(screen.queryByTestId('register-reload-notice')).toBeNull();
+    expect(screen.getByTestId('register-promo-code-chip')).toBeInTheDocument();
+    expect(select.value).toBe('tt-vip');
+  });
+
+  it('skips the promo part when the code is removed while re-validating', async () => {
+    const user = userEvent.setup();
+    getEvent.mockImplementation(async () => baseEventInfo());
+    let release: (v: unknown) => void = () => {};
+    validatePromoCode
+      .mockResolvedValueOnce({ valid: true, discount_type: 'fixed', discount_value: '0' })
+      .mockReturnValueOnce(new Promise((resolve) => (release = resolve)));
+    render(RegisterPage);
+    await screen.findByTestId('register-preview-banner');
+    await applyCode(user);
+
+    await user.click(reloadButton());
+    await waitFor(() => expect(validatePromoCode).toHaveBeenCalledTimes(2));
+    await user.click(screen.getByTestId('register-promo-code-remove'));
+    release({ valid: false });
+
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Reload form config' })).toBeEnabled());
+    expect(screen.queryByTestId('register-reload-notice')).toBeNull();
+    expect(screen.queryByTestId('register-promo-code-chip')).toBeNull();
+  });
+
+});
+
+describe('Register page — spec drives the payload and messages', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    getEvent.mockReset();
+  });
+
+  it('leaves fields the spec hides out of the payload', async () => {
+    const user = userEvent.setup();
+    const fields = specWithField('parent', 'email', { visible: false });
+    fields.child.find((f) => f.key === 'birthdate')!.visible = false;
+    getEvent.mockResolvedValue(ticketlessEventInfo({ fields }));
+    submit.mockResolvedValue({ reference_code: 'REF1', message: 'ok', email_sent: true });
+    render(RegisterPage);
+    await screen.findByTestId('register-form');
+    await user.type(screen.getByTestId('register-contact-email'), 'guardian@example.com');
+    await fillGuardian(user);
+    await user.type(document.getElementById('child-first-name-0') as HTMLInputElement, 'Alex');
+    await user.type(document.getElementById('child-last-name-0') as HTMLInputElement, 'Karlsson');
+    await user.click(screen.getByTestId('register-submit-button'));
+
+    await waitFor(() => expect(submit).toHaveBeenCalledTimes(1));
+    const payload = submit.mock.calls[0][0] as {
+      parents: Record<string, unknown>[];
+      children: Record<string, unknown>[];
+    };
+    expect(payload.parents[0]).not.toHaveProperty('email');
+    expect(payload.parents[0]).toHaveProperty('phone');
+    expect(payload.children[0]).not.toHaveProperty('birthdate');
+  });
+
+  it('names only the required child fields in the message and focuses the first missing one', async () => {
+    const user = userEvent.setup();
+    getEvent.mockResolvedValue(
+      ticketlessEventInfo({ fields: specWithField('child', 'last_name', { required: false }) })
+    );
+    render(RegisterPage);
+    await screen.findByTestId('register-form');
+    await user.type(screen.getByTestId('register-contact-email'), 'guardian@example.com');
+    await fillGuardian(user);
+    await user.type(document.getElementById('child-first-name-0') as HTMLInputElement, 'Alex');
+    await user.click(screen.getByTestId('register-submit-button'));
+
+    const item = await screen.findByTestId('register-error-item-child-info-0');
+    expect(item.textContent).toBe('Fill in first name, birthdate for Alex.');
+    await user.click(item);
+    expect(document.activeElement).toBe(document.getElementById('child-birthdate-0'));
+  });
 });

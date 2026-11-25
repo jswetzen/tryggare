@@ -16,8 +16,26 @@ from events.views import (
     SessionTicketViewSet,
     TicketViewSet,
 )
+from events.spec_views import (
+    CreateView as EventSpecCreateView,
+    EventSpecDiffView,
+    EventSpecView,
+    SchemaView as EventSpecSchemaView,
+    ValidateView as EventSpecValidateView,
+)
 from checkins.views import AuditLogViewSet, CheckInRecordViewSet, PrintQueueViewSet
 from reports.views import EventReportViewSet
+from assistant.views import (
+    FeatureRequestConfirmView,
+    FeatureRequestDiscardView,
+    FeatureRequestListView,
+    ConversationView,
+    DraftView,
+    NoticeView,
+    PreviewView,
+    ProviderModelsView,
+    ProviderView,
+)
 from accounts.views import csrf_token, check_auth, login_view, logout_view
 from imports.views import (
     discover_prefixes_view,
@@ -69,6 +87,64 @@ urlpatterns = [
     # `(?!admin/)` exclusion below without touching that regex.
     path("admin/i18n/", include("django.conf.urls.i18n")),
     path("admin/", admin.site.urls),
+    path("api/event-specs/", EventSpecCreateView.as_view(), name="event-spec-create"),
+    path(
+        "api/event-specs/schema/",
+        EventSpecSchemaView.as_view(),
+        name="event-spec-schema",
+    ),
+    path(
+        "api/event-specs/validate/",
+        EventSpecValidateView.as_view(),
+        name="event-spec-validate",
+    ),
+    path("api/events/<str:event_id>/spec/", EventSpecView.as_view(), name="event-spec"),
+    path(
+        "api/events/<str:event_id>/spec/diff/",
+        EventSpecDiffView.as_view(),
+        name="event-spec-diff",
+    ),
+    path("api/assistant/provider/", ProviderView.as_view(), name="llm-provider"),
+    path(
+        "api/assistant/provider/models/",
+        ProviderModelsView.as_view(),
+        name="llm-provider-models",
+    ),
+    path(
+        "api/assistant/events/<uuid:event_id>/conversation/",
+        ConversationView.as_view(),
+        name="assistant-conversation",
+    ),
+    path(
+        "api/assistant/events/<uuid:event_id>/conversation/notice/",
+        NoticeView.as_view(),
+        name="assistant-notice",
+    ),
+    path(
+        "api/assistant/events/<uuid:event_id>/draft/",
+        DraftView.as_view(),
+        name="assistant-draft",
+    ),
+    path(
+        "api/assistant/events/<uuid:event_id>/preview/",
+        PreviewView.as_view(),
+        name="assistant-preview",
+    ),
+    path(
+        "api/assistant/events/<uuid:event_id>/feature-requests/",
+        FeatureRequestListView.as_view(),
+        name="assistant-feature-requests",
+    ),
+    path(
+        "api/assistant/events/<uuid:event_id>/feature-requests/<str:request_id>/confirm/",
+        FeatureRequestConfirmView.as_view(),
+        name="assistant-feature-request-confirm",
+    ),
+    path(
+        "api/assistant/events/<uuid:event_id>/feature-requests/<str:request_id>/discard/",
+        FeatureRequestDiscardView.as_view(),
+        name="assistant-feature-request-discard",
+    ),
     path("api/", include(router.urls)),
     # Session-based authentication endpoints
     path("api/csrf/", csrf_token, name="csrf-token"),

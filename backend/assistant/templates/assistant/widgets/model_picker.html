@@ -1,0 +1,13 @@
+{% load i18n %}<div class="llm-model-picker">
+  {% include "django/forms/widgets/input.html" %}
+  <div class="llm-model-row">
+    <button type="button" class="button llm-load-models"
+            data-loading-label="{% translate 'Loading…' %}">{% translate "Load models" %}</button>
+    <select aria-label="{% translate 'Models from the provider' %}"
+            data-placeholder="{% translate 'Load models to choose one' %}"></select>
+  </div>
+  <p class="help llm-model-status" role="status" aria-live="polite"
+     data-found-template="{% translate 'Found %(count)s models.' %}"
+     data-empty="{% translate 'The provider lists no models.' %}"
+     data-failed="{% translate 'Loading failed.' %}"></p>
+</div>

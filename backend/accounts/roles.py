@@ -30,7 +30,8 @@ Volontär
 
 Koordinator
     Runs the event. Everything in the app, including reports and the audit log
-    (read-only — see below), with no Django-admin access.
+    (read-only — see below). Triages feature requests, but has no Django-admin
+    access: that needs ``is_staff``, which only Administratör carries.
 
 Administratör
     Koordinator plus ``is_staff``, i.e. plus Django admin, plus the ability to
@@ -217,6 +218,12 @@ _COORDINATOR_PERMISSIONS = _VOLUNTEER_PERMISSIONS | {
     "reports.view_eventreport",
     "reports.add_eventreport",
     "reports.delete_eventreport",
+    # Feature request triage in Django admin. No add (admin Add is closed) and
+    # no delete (decline instead). Reaching /admin/ also needs is_staff; see
+    # docs/roadmap/feature_requests.md, open question 2.
+    "feature_requests.view_featurerequest",
+    "feature_requests.change_featurerequest",
+    "feature_requests.view_featurerequestcomment",
     # Import configuration, and running an import. The import API was the last
     # corner of the API still gated on ``IsAdminUser`` — i.e. on ``is_staff`` —
     # which left these grants dead letters for a Koordinator. ``imports/views``

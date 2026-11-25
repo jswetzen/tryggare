@@ -1,0 +1,19 @@
+error: event: [registration_open_on_target] Registration is open on the target event; close registration first.
+error: event.registration_opens_at: [registration_open] Registration would already be open. Set registration_opens_at to a future moment; a person opens registration, not the spec.
+{
+  "valid": false,
+  "errors": [
+    {
+      "path": "event",
+      "code": "registration_open_on_target",
+      "message": "Registration is open on the target event; close registration first."
+    },
+    {
+      "path": "event.registration_opens_at",
+      "code": "registration_open",
+      "message": "Registration would already be open. Set registration_opens_at to a future moment; a person opens registration, not the spec."
+    }
+  ],
+  "warnings": []
+}
+CommandError: The spec was refused: 2 error(s); nothing was written.
