@@ -80,32 +80,9 @@ class FeatureRequestAdminForm(forms.ModelForm):
                     name, f"Looks like {kind}. Describe the shape, not a person."
                 )
         # JSON fields take any JSON; the export and the merge expect these shapes.
-        tried = data.get("tried") or []
-        if not isinstance(tried, list) or not all(isinstance(t, str) for t in tried):
-            self.add_error("tried", _("Give a list of texts."))
-            tried = []
-        for i, item in enumerate(tried):
-            if kind := free_text_kind(item):
-                self.add_error("tried", f"Item {i + 1} looks like {kind}.")
-        workaround = data.get("workaround")
-        if workaround is not None and not (
-            isinstance(workaround, dict)
-            and set(workaround) == {"used", "cost"}
-            and isinstance(workaround["used"], str)
-            and workaround["cost"] in dict(COSTS)
-        ):
-            self.add_error("workaround", _("Give used and cost, or null."))
-        elif workaround and (kind := free_text_kind(workaround["used"])):
-            self.add_error("workaround", f"The workaround looks like {kind}.")
-        touches = data.get("touches") or []
-        if not isinstance(touches, list):
-            self.add_error("touches", _("Give a list of terms."))
-            touches = []
-        for term in touches:
-            if (why := touch_problem(term)) is not None:
-                self.add_error("touches", f"A term {why}.")
-            elif kind := free_text_kind(term):
-                self.add_error("touches", f"A term looks like {kind}.")
+        self._check_tried(data.get("tried") or [])
+        self._check_workaround(data.get("workaround"))
+        self._check_touches(data.get("touches") or [])
         key = data.get("dedupe_key")
         if key and (kind := free_text_kind(key)):
             self.add_error("dedupe_key", f"Looks like {kind}.")
@@ -117,6 +94,37 @@ class FeatureRequestAdminForm(forms.ModelForm):
         if data.get("status") == "duplicate" and not data.get("duplicate_of"):
             self.add_error("duplicate_of", _("Choose the request this one duplicates."))
         return data
+
+    def _check_tried(self, tried):
+        if not isinstance(tried, list) or not all(isinstance(t, str) for t in tried):
+            self.add_error("tried", _("Give a list of texts."))
+            return
+        for i, item in enumerate(tried):
+            if kind := free_text_kind(item):
+                self.add_error("tried", f"Item {i + 1} looks like {kind}.")
+
+    def _check_workaround(self, workaround):
+        if workaround is None:
+            return
+        if not (
+            isinstance(workaround, dict)
+            and set(workaround) == {"used", "cost"}
+            and isinstance(workaround["used"], str)
+            and workaround["cost"] in dict(COSTS)
+        ):
+            self.add_error("workaround", _("Give used and cost, or null."))
+        elif kind := free_text_kind(workaround["used"]):
+            self.add_error("workaround", f"The workaround looks like {kind}.")
+
+    def _check_touches(self, touches):
+        if not isinstance(touches, list):
+            self.add_error("touches", _("Give a list of terms."))
+            return
+        for term in touches:
+            if (why := touch_problem(term)) is not None:
+                self.add_error("touches", f"A term {why}.")
+            elif kind := free_text_kind(term):
+                self.add_error("touches", f"A term looks like {kind}.")
 
 
 @admin.register(FeatureRequest)
