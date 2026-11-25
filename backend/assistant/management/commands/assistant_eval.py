@@ -112,6 +112,70 @@ def ollama_num_ctx(base_url: str, model: str) -> int | None:
         return None
 
 
+def check_scratch_database(any_database: bool) -> None:
+    # Each brief creates and deletes a fixture event and the eval keeps a superuser.
+    db = str(connection.settings_dict.get("NAME") or "")
+    if not any_database and not re.search(r"eval|test|scratch", db, re.I):
+        raise CommandError(
+            f"database {db!r} does not look like a scratch database; point "
+            "DATABASE_URL at one (name containing eval, test or scratch) or pass --any-database"
+        )
+
+
+def resolve_provider(base_url: str, model: str) -> tuple[LLMProvider, LLMProvider]:
+    """The provider to eval (unsaved when --base-url is given) and the saved one."""
+    if base_url:
+        try:
+            validate_base_url(base_url)
+        except ValidationError as exc:
+            raise CommandError(f"--base-url: {exc.messages[0]}") from None
+    saved = LLMProvider.load()
+    provider = (
+        LLMProvider(base_url=base_url, model=model or saved.model)
+        if base_url
+        else saved
+    )
+    if not provider.base_url or not provider.model:
+        raise CommandError("give --base-url and --model, or save a provider first")
+    return provider, saved
+
+
+def choose_briefs(briefs: str) -> list:
+    wanted = [w for w in briefs.split(",") if w]
+    chosen = [b for b in BRIEFS if not wanted or any(w in b.id for w in wanted)]
+    if not chosen:
+        raise CommandError("no brief matches --briefs")
+    return chosen
+
+
+def set_key_from_env(provider: LLMProvider, api_key_env: str) -> None:
+    if not provider.base_url.strip().lower().startswith("https://"):
+        raise CommandError("an API key is only sent over https")
+    key = os.environ.get(api_key_env, "")
+    if not key:
+        raise CommandError(f"{api_key_env} is not set")
+    provider.set_api_key(key)  # in memory only; provider is never saved
+
+
+def run_meta(provider: LLMProvider, runs: int, bar: tuple[int, int]) -> dict:
+    return {
+        "model": provider.model,
+        "base_url": provider.base_url,
+        "started": datetime.now().isoformat(timespec="seconds"),
+        "runs_per_brief": runs,
+        "pass_bar": f"{bar[0]}/{bar[1]}",
+        "num_ctx": ollama_num_ctx(provider.base_url, provider.model),
+        "capabilities": static_capabilities_size(),
+        "system_prompt": {
+            "chars": len(SYSTEM_PROMPT),
+            "approx_tokens": len(SYSTEM_PROMPT) // 4,
+            "sha256": hashlib.sha256(SYSTEM_PROMPT.encode()).hexdigest(),
+        },
+        "tools": {"sha256": tool_definitions_sha256()},
+        **git_state(),
+    }
+
+
 class Command(BaseCommand):
     help = __doc__
 
@@ -151,58 +215,17 @@ class Command(BaseCommand):
         **opts,
     ):
         bar = parse_pass_bar(pass_bar)
-        # Each brief creates and deletes a fixture event and the eval keeps a superuser.
-        db = str(connection.settings_dict.get("NAME") or "")
-        if not any_database and not re.search(r"eval|test|scratch", db, re.I):
-            raise CommandError(
-                f"database {db!r} does not look like a scratch database; point "
-                "DATABASE_URL at one (name containing eval, test or scratch) or pass --any-database"
-            )
-        if base_url:
-            try:
-                validate_base_url(base_url)
-            except ValidationError as exc:
-                raise CommandError(f"--base-url: {exc.messages[0]}") from None
-        saved = LLMProvider.load()
-        provider = (
-            LLMProvider(base_url=base_url, model=model or saved.model)
-            if base_url
-            else saved
-        )
-        if not provider.base_url or not provider.model:
-            raise CommandError("give --base-url and --model, or save a provider first")
-        wanted = [w for w in briefs.split(",") if w]
-        chosen = [b for b in BRIEFS if not wanted or any(w in b.id for w in wanted)]
-        if not chosen:
-            raise CommandError("no brief matches --briefs")
+        check_scratch_database(any_database)
+        provider, saved = resolve_provider(base_url, model)
+        chosen = choose_briefs(briefs)
         if api_key_env:
-            if not provider.base_url.strip().lower().startswith("https://"):
-                raise CommandError("an API key is only sent over https")
-            key = os.environ.get(api_key_env, "")
-            if not key:
-                raise CommandError(f"{api_key_env} is not set")
-            provider.set_api_key(key)  # in memory only; provider is never saved
+            set_key_from_env(provider, api_key_env)
             saved = provider
 
         def llm():
             return build_model(provider, saved=saved)
 
-        meta = {
-            "model": provider.model,
-            "base_url": provider.base_url,
-            "started": datetime.now().isoformat(timespec="seconds"),
-            "runs_per_brief": runs,
-            "pass_bar": f"{bar[0]}/{bar[1]}",
-            "num_ctx": ollama_num_ctx(provider.base_url, provider.model),
-            "capabilities": static_capabilities_size(),
-            "system_prompt": {
-                "chars": len(SYSTEM_PROMPT),
-                "approx_tokens": len(SYSTEM_PROMPT) // 4,
-                "sha256": hashlib.sha256(SYSTEM_PROMPT.encode()).hexdigest(),
-            },
-            "tools": {"sha256": tool_definitions_sha256()},
-            **git_state(),
-        }
+        meta = run_meta(provider, runs, bar)
         stem = (
             re.sub(r"[^\w.-]+", "_", provider.model)
             + "-"
