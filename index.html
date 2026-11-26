@@ -399,26 +399,11 @@
       background: var(--green-light); color: var(--green);
       font-size: 0.7rem; letter-spacing: 0.04em;
     }
-    .reg-steps {
-      display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px;
-      max-width: 1140px; margin: 16px auto 0; list-style: none; padding: 0;
-    }
-    .reg-stepsh { max-width: 1140px; margin: 40px auto 0; font-size: 1.05rem; }
-    .reg-step { display: flex; gap: 14px; align-items: flex-start; }
-    .reg-num {
-      flex: none; width: 32px; height: 32px; border-radius: 50%;
-      background: var(--blue-light); color: var(--blue);
-      display: flex; align-items: center; justify-content: center;
-      font-size: 0.875rem; font-weight: 700;
-    }
-    .reg-step strong { display: block; font-size: 0.95rem; margin-bottom: 3px; }
-    .reg-step span { font-size: 0.875rem; color: var(--ink-soft); line-height: 1.55; }
-    .reg-foot { max-width: 1140px; margin: 40px auto 0; }
-    .reg-foot p { font-size: 0.875rem; color: var(--ink-soft); max-width: 640px; margin-bottom: 20px; }
+    .reg-foot { max-width: 1140px; margin: 32px auto 0; font-size: 0.875rem; color: var(--ink-soft); }
+    .reg-foot strong { color: var(--ink); }
 
     /* ── Responsive ── */
     @media (max-width: 900px) {
-      .reg-steps { grid-template-columns: 1fr; }
       .hero { grid-template-columns: 1fr; }
       .hero-visual { order: -1; }
       .phone-wrap { width: 220px; }
@@ -734,7 +719,7 @@
   <div style="max-width:1140px;margin:0 auto;">
     <div class="section-label"><span data-i18n="reg.label">Event registration</span><span class="reg-badge" data-i18n="reg.badge">Early version</span></div>
     <h2 data-i18n="reg.h2">Set up an event by describing it</h2>
-    <p class="section-sub" data-i18n="reg.sub">Extras, promo codes, day passes and full-event passes add up to a lot of settings. Tell the event assistant what you are planning and review what it drafts.</p>
+    <p class="section-sub" data-i18n="reg.sub">Tell the assistant what you are planning. It drafts the settings; you review them.</p>
 
     <div class="features-grid">
       <div class="feature-card">
@@ -742,46 +727,27 @@
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--blue)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
         </div>
         <h3 data-i18n="reg.f1h">Describe it in chat</h3>
-        <p data-i18n="reg.f1p">Write what the event looks like in your own words. The assistant drafts the sessions, ticket types (day passes and full passes), paid or free extras and promo codes. It stays clear of personal data: a message about a particular person is refused and kept out of the conversation.</p>
+        <p data-i18n="reg.f1p">Sessions, day and full passes, extras and promo codes, drafted from your own words. Messages about a particular person are refused.</p>
       </div>
 
       <div class="feature-card">
         <div class="feature-icon icon-blue">
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--blue)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>
         </div>
-        <h3 data-i18n="reg.f3h">You review, you apply</h3>
-        <p data-i18n="reg.f3p">Nothing changes until you apply the draft with a click, and only while registration is closed. The assistant cannot apply or publish anything itself.</p>
+        <h3 data-i18n="reg.f2h">You stay in control</h3>
+        <p data-i18n="reg.f2p">Nothing changes until you apply the draft, and only while registration is closed. The assistant cannot publish anything.</p>
       </div>
 
       <div class="feature-card">
         <div class="feature-icon icon-blue">
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--blue)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="8" rx="2"/><rect x="2" y="14" width="20" height="8" rx="2"/><path d="M6 6h.01M6 18h.01"/></svg>
         </div>
-        <h3 data-i18n="reg.f5h">Choose your own model</h3>
-        <p data-i18n="reg.f5p">Connect any OpenAI-compatible endpoint, hosted or on your own hardware, with your own key. The assistant is rigorously tested with evals: 35 test events in Swedish and English, three runs each. A low-cost hosted model passed 104 of 105 runs, refused every message with personal data and never put any into a draft. Small local models pass the suite too.</p>
+        <h3 data-i18n="reg.f3h">Bring your own model</h3>
+        <p data-i18n="reg.f3p">Any OpenAI-compatible endpoint, from a low-cost hosted model to one on your own graphics card. We test it against 35 Swedish and English events, including messages that try to slip in personal data.</p>
       </div>
     </div>
 
-    <h3 class="reg-stepsh" data-i18n="reg.stepsh">Missing something? Ask for it</h3>
-    <ol class="reg-steps">
-      <li class="reg-step">
-        <div class="reg-num">1</div>
-        <div><strong data-i18n="reg.s1h">The assistant says what it cannot do</strong><span data-i18n="reg.s1p">When a request is outside what it can set up, it offers to write a feature request.</span></div>
-      </li>
-      <li class="reg-step">
-        <div class="reg-num">2</div>
-        <div><strong data-i18n="reg.s2h">You read and confirm</strong><span data-i18n="reg.s2p">You see the full text first and can edit or discard it. An automatic check flags personal data before anything is saved.</span></div>
-      </li>
-      <li class="reg-step">
-        <div class="reg-num">3</div>
-        <div><strong data-i18n="reg.s3h">An administrator passes it on</strong><span data-i18n="reg.s3p">Requests are saved in your installation. An administrator can open one as a pre-filled GitHub issue in their browser; Tryggare itself sends nothing.</span></div>
-      </li>
-    </ol>
-
-    <div class="reg-foot">
-      <p data-i18n="reg.foot">Tryggare is open source under AGPL-3.0, so a feature one organizer asks for can become one that everyone gets.</p>
-      <a class="btn btn-primary btn-lg" href="https://github.com/jswetzen/tryggare" target="_blank" rel="noopener" data-i18n="reg.cta">See the project on GitHub →</a>
-    </div>
+    <p class="reg-foot" data-i18nh="reg.foot"><strong>Missing something? Let’s build it together.</strong> Ask for something the assistant can’t do yet and it writes the feature request for you. An administrator turns it into a ready-made GitHub issue. Tryggare is open source, so what one organizer asks for can make it better for everyone.</p>
   </div>
 </section>
 
@@ -871,16 +837,11 @@
       "nav.registration": "Registration",
       "reg.label": "Event registration", "reg.badge": "Early version",
       "reg.h2": "Set up an event by describing it",
-      "reg.sub": "Extras, promo codes, day passes and full-event passes add up to a lot of settings. Tell the event assistant what you are planning and review what it drafts.",
-      "reg.f1h": "Describe it in chat", "reg.f1p": "Write what the event looks like in your own words. The assistant drafts the sessions, ticket types (day passes and full passes), paid or free extras and promo codes. It stays clear of personal data: a message about a particular person is refused and kept out of the conversation.",
-      "reg.f3h": "You review, you apply", "reg.f3p": "Nothing changes until you apply the draft with a click, and only while registration is closed. The assistant cannot apply or publish anything itself.",
-      "reg.f5h": "Choose your own model", "reg.f5p": "Connect any OpenAI-compatible endpoint, hosted or on your own hardware, with your own key. The assistant is rigorously tested with evals: 35 test events in Swedish and English, three runs each. A low-cost hosted model passed 104 of 105 runs, refused every message with personal data and never put any into a draft. Small local models pass the suite too.",
-      "reg.stepsh": "Missing something? Ask for it",
-      "reg.s1h": "The assistant says what it cannot do", "reg.s1p": "When a request is outside what it can set up, it offers to write a feature request.",
-      "reg.s2h": "You read and confirm", "reg.s2p": "You see the full text first and can edit or discard it. An automatic check flags personal data before anything is saved.",
-      "reg.s3h": "An administrator passes it on", "reg.s3p": "Requests are saved in your installation. An administrator can open one as a pre-filled GitHub issue in their browser; Tryggare itself sends nothing.",
-      "reg.foot": "Tryggare is open source under AGPL-3.0, so a feature one organizer asks for can become one that everyone gets.",
-      "reg.cta": "See the project on GitHub →",
+      "reg.sub": "Tell the assistant what you are planning. It drafts the settings; you review them.",
+      "reg.f1h": "Describe it in chat", "reg.f1p": "Sessions, day and full passes, extras and promo codes, drafted from your own words. Messages about a particular person are refused.",
+      "reg.f2h": "You stay in control", "reg.f2p": "Nothing changes until you apply the draft, and only while registration is closed. The assistant cannot publish anything.",
+      "reg.f3h": "Bring your own model", "reg.f3p": "Any OpenAI-compatible endpoint, from a low-cost hosted model to one on your own graphics card. We test it against 35 Swedish and English events, including messages that try to slip in personal data.",
+      "reg.foot": "<strong>Missing something? Let’s build it together.</strong> Ask for something the assistant can’t do yet and it writes the feature request for you. An administrator turns it into a ready-made GitHub issue. Tryggare is open source, so what one organizer asks for can make it better for everyone.",
       "oss.label": "Open Source", "oss.h2": "Built in the open, for everyone",
       "oss.sub": "Tryggare is free and open-source under AGPL-3.0. Bug reports, feature requests, and pull requests are welcome — whether you're a church volunteer or an experienced developer.",
       "oss.cta1": "Star on GitHub", "oss.cta2": "Contributing guide",
@@ -929,16 +890,11 @@
       "nav.registration": "Anmälan",
       "reg.label": "Eventanmälan", "reg.badge": "Tidig version",
       "reg.h2": "Skapa ett event genom att beskriva det",
-      "reg.sub": "Tillval, rabattkoder, dagsbiljetter och helhetsbiljetter blir snabbt många inställningar. Berätta för eventassistenten vad du planerar och granska utkastet den tar fram.",
-      "reg.f1h": "Beskriv det i chatten", "reg.f1p": "Skriv hur eventet ser ut med egna ord. Assistenten tar fram ett utkast med pass, biljettyper (dagsbiljetter och helhetsbiljetter), tillval (betalda eller gratis) och rabattkoder. Den håller sig borta från personuppgifter: ett meddelande om en enskild person avvisas och hålls utanför konversationen.",
-      "reg.f3h": "Du granskar, du godkänner", "reg.f3p": "Inget ändras förrän du godkänner utkastet med ett klick, och bara medan anmälan är stängd. Assistenten kan inte själv ändra eller publicera något.",
-      "reg.f5h": "Välj din egen modell", "reg.f5p": "Anslut valfri OpenAI-kompatibel tjänst, i molnet eller på egen hårdvara, med din egen nyckel. Assistenten testas noggrant med automatiska utvärderingar: 35 testevent på svenska och engelska, tre körningar vardera. En billig molnmodell klarade 104 av 105 körningar, avvisade varje meddelande med personuppgifter och lade aldrig in några i ett utkast. Även små lokala modeller klarar testerna.",
-      "reg.stepsh": "Saknar du något? Önska det",
-      "reg.s1h": "Assistenten säger vad den inte kan", "reg.s1p": "När något ligger utanför vad den kan sätta upp erbjuder den att skriva ett önskemål.",
-      "reg.s2h": "Du läser och bekräftar", "reg.s2p": "Du ser hela texten först och kan ändra eller kasta den. En automatisk kontroll flaggar personuppgifter innan något sparas.",
-      "reg.s3h": "En administratör skickar vidare", "reg.s3p": "Önskemålen sparas i din installation. En administratör kan öppna dem som färdigifyllda ärenden på GitHub i sin webbläsare – Tryggare skickar ingenting själv.",
-      "reg.foot": "Tryggare är öppen källkod (AGPL-3.0), så en funktion som en arrangör efterfrågar kan bli en som alla får.",
-      "reg.cta": "Se projektet på GitHub →",
+      "reg.sub": "Berätta vad du planerar. Assistenten tar fram inställningarna, du granskar dem.",
+      "reg.f1h": "Beskriv det i chatten", "reg.f1p": "Pass, dags- och helhetsbiljetter, tillval och rabattkoder, utifrån dina egna ord. Meddelanden om en enskild person avvisas.",
+      "reg.f2h": "Du bestämmer", "reg.f2p": "Inget ändras förrän du godkänner utkastet, och bara medan anmälan är stängd. Assistenten kan inte publicera något.",
+      "reg.f3h": "Välj din egen modell", "reg.f3p": "Valfri OpenAI-kompatibel tjänst, från en billig molnmodell till en på ditt eget grafikkort. Vi testar den mot 35 event på svenska och engelska, även meddelanden som försöker smyga in personuppgifter.",
+      "reg.foot": "<strong>Saknar du något? Vi bygger det tillsammans.</strong> Be om något assistenten inte kan än, så skriver den önskemålet åt dig. En administratör gör det till ett färdigt ärende på GitHub. Tryggare är öppen källkod, så det en arrangör önskar kan göra det bättre för alla.",
       "oss.label": "Öppen källkod", "oss.h2": "Byggt öppet – för alla",
       "oss.sub": "Tryggare är gratis och öppen källkod under AGPL-3.0. Felrapporter, önskemål och pull requests välkomnas — oavsett om du är kyrkofrivillig eller erfaren utvecklare.",
       "oss.cta1": "Stjärnmarkera på GitHub", "oss.cta2": "Bidragsguide",
